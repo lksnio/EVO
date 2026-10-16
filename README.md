@@ -38,14 +38,28 @@ Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleb
   und mit wenigen Jägern (dort sieht man dich schlechter), rechts tief und dunkel, mit mehr Räubern
   und einem der ganz Großen. Boden, Licht und Tiere sind dort anders.
 - **Nahrung:** Bis zum Ende eines Zeitalters musst du genug Kalorien fressen (Leiste oben, Fleisch
-  rot, Pflanzen grün) – sonst fehlt die Kraft für Nachwuchs, und die Linie endet.
-- **Nachwuchs wählen:** Am Ende eines Zeitalters stehen du und die überlebenden Artgenossen zur
-  Wahl. Jede Karte zeigt nur, was ihr euch erspielt habt (z. B. Gebiss, Dickschädel, Tarnung),
-  dazu Größe und Tempo. Jedes Tier betont etwas anderes – eines hat eine spitzere Schnauze, eines
-  ist länger, eines massiger, eines flinker; was du gefressen hast, schiebt die Kost in diese
-  Richtung. Wen du wählst, der führt die Linie weiter.
+  rot, Pflanzen grün) – sonst fehlt die Kraft für Nachwuchs, und die Linie endet. Pflanzen sind
+  überall und ungefährlich, bringen aber wenig; Fleisch bringt ein Vielfaches, muss aber erbeutet
+  (oder einem Riesen weggeschnappt) werden. Manche Pflanzen sind giftig: Sie brennen, machen aber
+  kurz hellwach und schnell.
+- **Überraschungsangriff:** Wer aus Dickicht, Höhle, Felsspalte oder gut getarnt angreift (das Tier
+  ist dann leicht durchsichtig), trifft mit dem ersten Biss oder Stoß zwei- bis dreifach und betäubt.
+- **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Ordovizium ein
+  Riesenkopffüßer, im Silur *Pterygotus*, im Devon *Dunkleosteus*. Vorher wird das Wasser dunkler,
+  es grollt, das Herz klopft, und die kleinen Fische fliehen: Zeit, sich zu verstecken. Selten
+  streifen auch große Jäger wie *Megalograptus* oder *Hyneria* umher. Wen ein Riese reißt, von dem
+  bleibt meist etwas übrig …
+- **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
+  Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
+  massig wird, aber auch nicht mehr.
+- **Nachwuchs wählen:** Am Ende eines Zeitalters stehen fünf Nachkommen zur Wahl – die Art ist
+  größer als deine Gruppe. Der erste ist die **Hauptlinie** (deine bisherige Wahl mit allem, was
+  dazugelernt wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast.
+  Jeder betont eine erspielte Fähigkeit und ein Körpermerkmal (spitzere Schnauze, länger, massiger,
+  flinker); was du gefressen hast, schiebt die Kost in diese Richtung.
 - **Werte (Taste C):** Name der Art, wie oft sie schon ausgestorben ist, Länge, Gewicht,
-  Lebenskraft, Fähigkeiten, Nahrung und Gruppe – im Stil eines alten Rollenspiel-Charakterbogens.
+  Lebenskraft, sichtbare Fähigkeiten und Nahrung – im Stil eines alten Rollenspiel-Charakterbogens.
+  Das meiste bleibt verborgen.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
   Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
 - **Hunger:** Fressen hält dich am Leben, aber satt frisst du nichts mehr.
@@ -83,7 +97,10 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
 | … und teilt dabei mehr aus, als er einsteckt | einen **Stachelkopf**: Stachelkrone und Wangenstacheln, stärkerer Rammstoß |
 | … und steckt dabei mehr ein, als er austeilt | einen **Panzerkopf**: Knochenhelm, mehr Lebenskraft, weniger eigener Schaden |
-| beißt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne |
+| beißt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
+| frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – nirgends angezeigt |
+| bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
+| frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | frisst viel | wächst |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger

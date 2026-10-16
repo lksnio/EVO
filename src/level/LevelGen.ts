@@ -2,7 +2,7 @@ import { TILE, GRAVITY } from '../config';
 import { CLASSES } from '../data/classes';
 import { SPECIES } from '../data/species';
 import { SIDE_ZONES, centerZone, type EpochDef, type Theme, type ZoneDef } from '../data/epochs';
-import { DECOR } from '../art/worldArt';
+import { DECOR, TOXIC } from '../art/worldArt';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 
 // Jedes Zeitalter ist ein Lebensraum, den man in beide Richtungen durchstreifen kann – mit drei
@@ -47,6 +47,10 @@ export interface LevelData {
   ground: number[];
   /** die drei Gebiete von links nach rechts (in Pixeln) */
   zones: Zone[];
+  /** Strömungen im Wasser (dir: Richtung, -1 oder 1) */
+  currents: (Rect & { dir: number })[];
+  /** Felsspalten: niedrige Durchgänge unter einer Felsplatte – nur Schlanke passen hindurch */
+  crevices: Rect[];
 }
 
 export interface Zone {
@@ -82,8 +86,13 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     start: { x: 0, y: 0 },
     ground: [],
     zones: [],
+    currents: [],
+    crevices: [],
   };
 }
+
+/** Manche Pflanzen sind giftig (etwa jede achte). */
+const plantVariant = (r: Rng) => (r() < 0.12 ? TOXIC : rint(r, 0, 2));
 
 /** Gebiete anlegen und eine Funktion liefern, die zu jeder Spalte die Werte ihres Gebiets kennt. */
 function makeZones(L: LevelData, ep: EpochDef) {
@@ -167,7 +176,7 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
     // fressbare Pflanzen
     if (n >= 4) {
       const cnt = (r() < pl * 0.85 ? 1 : 0) + (r() < pl * 0.5 ? 1 : 0) + (n >= 9 && r() < pl * 0.3 ? 1 : 0) + (n >= 7 && r() < pl - 1 ? 1 : 0);
-      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1.5 + r() * (n - 3)) * T, y: top * T + 2, v: rint(r, 0, 2) });
+      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1.5 + r() * (n - 3)) * T, y: top * T + 2, v: plantVariant(r) });
     }
     // Dickicht
     if (n >= 6 && r() < ep.cover * z.cover * (flat ? 0.8 : 0.6)) {
@@ -213,7 +222,7 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
       const pw = rint(r, 3, 4);
       const px = x + rint(r, 1, seg - pw - 1);
       L.platforms.push({ x: px * T, y: (h - jumpTiles) * T, w: pw * T, h: 20 });
-      if (r() < ep.plants * 0.5) L.plants.push({ x: (px + pw / 2) * T, y: (h - jumpTiles) * T + 2, v: rint(r, 0, 2) });
+      if (r() < ep.plants * 0.5) L.plants.push({ x: (px + pw / 2) * T, y: (h - jumpTiles) * T + 2, v: plantVariant(r) });
     }
     if (!nearStart && hazardOk && seg >= 8 && r() < 0.2) {
       const hx = x + rint(r, 3, seg - 4);
@@ -256,7 +265,7 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
     }
     if (n >= 3) {
       const cnt = (r() < pl * 0.9 ? 1 : 0) + (r() < pl * 0.55 ? 1 : 0) + (n >= 7 && r() < pl * 0.35 ? 1 : 0) + (n >= 5 && r() < pl - 1 ? 1 : 0);
-      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4, v: rint(r, 0, 2) });
+      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4, v: plantVariant(r) });
     }
     if (n >= 4 && r() < ep.cover * z.cover * 0.65) {
       const cw = rint(r, 3, Math.min(6, n));
@@ -283,7 +292,7 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
       const px = x + rint(r, 1, seg - 2);
       const top = floor - rint(r, 3, 7);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
-      if (r() < ep.plants * zoneAt(px).plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: rint(r, 0, 2) });
+      if (r() < ep.plants * zoneAt(px).plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: plantVariant(r) });
     }
     if (!nearStart && r() < 0.18) {
       const rw = rint(r, 2, 4);
@@ -298,7 +307,15 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   L.start = { x: (startCol + 0.5) * T, y: 9 * T };
   if (ep.caves && !covered) addCaves(L, ep.caves + 2, r, cols, heights, startCol);
+  addCrevices(L, 3, r, cols, heights, startCol);
+  addCurrents(L, r, cols, heights, startCol);
   placeFauna(L, ep, r, heights, true, startCol);
+  // keine Tiere im Fels (Felsplatten, Säulen)
+  for (const sp of L.spawns) {
+    for (const s of L.solids) {
+      if (s.y > 0 && s.h < 200 && sp.x > s.x - 20 && sp.x < s.x + s.w + 20 && sp.y > s.y - 40 && sp.y < s.y + s.h + 40) sp.y = Math.max(L.surfaceY + 60, s.y - 60);
+    }
+  }
   // keine Tiere im Fels der Höhlen
   for (const sp of L.spawns) {
     for (const c of L.caves) if (sp.x > c.x - T && sp.x < c.x + c.w + T && sp.y > c.y - 2 * T) sp.y = c.y - 3 * T;
@@ -340,6 +357,52 @@ function addCaves(L: LevelData, n: number, r: Rng, cols: number, heights: Height
   L.plants = L.plants.filter((p) => !inside(p.x, p.y - 10));
   L.cover = L.cover.filter((c) => !L.caves.some((cv) => c.x < cv.x + cv.w + T && c.x + c.w > cv.x - T));
   L.decor = L.decor.filter((d) => !inside(d.x, d.y - 4) || d.y < L.caves[0]?.y);
+}
+
+/**
+ * Felsspalten: Eine Felsplatte liegt knapp über dem Grund. Darunter bleibt ein niedriger Durchgang,
+ * in den große Jäger nicht hineinkommen – und wer selbst zu massig ist, auch nicht.
+ */
+function addCrevices(L: LevelData, n: number, r: Rng, cols: number, heights: Heights, startCol: number) {
+  const W = 6;
+  for (let k = 0; k < 80 && L.crevices.length < n; k++) {
+    const c0 = rint(r, 6, cols - W - 6);
+    if (Math.abs(c0 - startCol) < 12) continue;
+    const f = heights[c0];
+    let flat = true;
+    for (let i = -1; i <= W; i++) if (heights[c0 + i] !== f) flat = false;
+    if (!flat) continue;
+    const x0 = c0 * T, x1 = (c0 + W) * T;
+    const gap = 34 + Math.floor(r() * 7);
+    const slabY = f * T - gap - 2 * T;
+    const busy = (x: number, w: number) => L.solids.some((s) => s.x < x + w && s.x + s.w > x && s.y < f * T && s.y + s.h > slabY - T && s.y > 0)
+      || L.caves.some((c) => c.x < x + w + 2 * T && c.x + c.w > x - 2 * T) || L.crevices.some((c) => c.x < x + w + 4 * T && c.x + c.w > x - 4 * T);
+    if (busy(x0, x1 - x0)) continue;
+    L.solids.push({ x: x0, y: slabY, w: W * T, h: 2 * T });
+    L.crevices.push({ x: x0, y: f * T - gap, w: W * T, h: gap });
+  }
+  // nichts in den Durchgang stellen
+  const inside = (x: number, y: number) => L.crevices.some((c) => x > c.x - 20 && x < c.x + c.w + 20 && y > c.y - 2 * T - 10 && y <= c.y + c.h + 8);
+  L.plants = L.plants.filter((p) => !inside(p.x, p.y - 10));
+  L.decor = L.decor.filter((d) => !inside(d.x, d.y - 4));
+  L.cover = L.cover.filter((c) => !L.crevices.some((cv) => c.x < cv.x + cv.w + T && c.x + c.w > cv.x - T));
+}
+
+/** Strömungen im freien Wasser: Kleine werden mitgerissen, Massige schwimmen dagegen an. */
+function addCurrents(L: LevelData, r: Rng, cols: number, heights: Heights, startCol: number) {
+  for (let k = 0; k < 30 && L.currents.length < 4; k++) {
+    const w = rint(r, 9, 14) * T;
+    const c0 = rint(r, 4, cols - Math.ceil(w / T) - 4);
+    if (Math.abs(c0 + w / T / 2 - startCol) < 14) continue;
+    const x = c0 * T;
+    if (L.currents.some((c) => c.x < x + w + 6 * T && c.x + c.w > x - 6 * T)) continue;
+    let floor = Infinity;
+    for (let i = c0; i < c0 + w / T; i++) floor = Math.min(floor, heights[i] * T);
+    const h = rint(r, 3, 4) * T;
+    const y = Math.max(L.surfaceY + 2 * T, floor - h - rint(r, 3, 6) * T);
+    if (y + h > floor - T) continue;
+    L.currents.push({ x, y, w, h, dir: r() < 0.5 ? -1 : 1 });
+  }
 }
 
 /** Ein Lebensraum für dieses Zeitalter – bei jedem Lauf etwas anders. */

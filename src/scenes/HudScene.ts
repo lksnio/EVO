@@ -278,41 +278,30 @@ export class HudScene extends Phaser.Scene {
     row(lx, 'Gebiet', L.zoneAt(p.x).def.name);
     const ext = game.extinctCount(game.currentName);
     row(lx, 'Diese Art ausgestorben', ext ? `${ext}-mal` : 'noch nie', ext > 0);
-    row(lx, 'Linien insgesamt', String(game.data.runs));
     head(lx, 'Körper');
     const m = game.measure();
     row(lx, 'Länge', m.cm >= 100 ? `${(m.cm / 100).toFixed(2).replace('.', ',')} m` : `${Math.round(m.cm)} cm`);
     row(lx, 'Gewicht', m.g >= 1000 ? `${(m.g / 1000).toFixed(1).replace('.', ',')} kg` : `${Math.round(m.g)} g`);
     row(lx, 'Lebenskraft', `${Math.max(0, Math.round(p.hp))} / ${st.maxHp}`);
-    row(lx, 'Tempo', String(Math.round(st.speed)));
-    row(lx, 'Biss', st.bite.toFixed(1).replace('.', ','));
-    row(lx, 'Rammstoß', st.ram.toFixed(1).replace('.', ','));
-    const bodyWord = (v: number, neg: string, pos: string) => (v > 0.25 ? pos : v < -0.25 ? neg : 'mittel');
-    row(lx, 'Körperbau', `${bodyWord(t.len, 'gedrungen', 'lang')}, ${bodyWord(t.girth, 'schlank', 'massig')}`);
 
-    // ---- rechts: was du dir erarbeitet hast
+    // ---- rechts: was man von außen sieht – vieles andere bleibt verborgen
     const rx = 690;
     y = 80;
     head(rx, 'Fähigkeiten');
     const level = (v: number) => (v < 0.15 ? 'Anfänger' : v < 0.35 ? 'Geübt' : v < 0.6 ? 'Erfahren' : 'Meister');
-    const skills = (['jaw', 'skull', 'stealth', 'green', 'sand', 'growth'] as SkillKey[]).filter((k) => t[k] >= 0.03);
-    if (!skills.length) row(rx, 'Noch keine', '–');
-    for (const k of skills) row(rx, skillName(k, t), `${level(t[k])} (${Math.round(t[k] * 100)} %)`);
+    const skills = (['jaw', 'skull', 'stealth'] as SkillKey[]).filter((k) => t[k] >= 0.05);
+    if (!skills.length && !run.canRam) row(rx, 'Noch keine', '–');
+    for (const k of skills) row(rx, skillName(k, t), level(t[k]));
     if (run.canRam) row(rx, 'Rammen', 'erlernt', true);
     head(rx, 'Nahrung');
     const fv = this.foodV;
-    row(rx, 'Fleisch (dieses Zeitalter)', `${Math.round(fv.meat)} kcal`);
-    row(rx, 'Pflanzen (dieses Zeitalter)', `${Math.round(fv.plant)} kcal`);
+    row(rx, 'Gefressen', `${Math.round(fv.meat + fv.plant)} kcal`);
     row(rx, 'Nötig für Nachwuchs', `${Math.round(fv.need)} kcal`, fv.meat + fv.plant < fv.need);
-    row(rx, 'Kost', t.diet > 0.3 ? 'Fleischfresser' : t.diet < -0.3 ? 'Pflanzenfresser' : 'Allesfresser');
     head(rx, 'Gruppe');
     const kin = L.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
     row(rx, 'Artgenossen', String(kin.length));
-    row(rx, 'Verbündete', String(L.animals.filter((a) => a.ally && !a.dead).length));
-    const loy = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : 0;
-    row(rx, 'Treue der Gruppe', kin.length ? (loy > 0.6 ? 'hoch' : loy > 0.35 ? 'mittel' : 'gering') : '–');
-    const fear = game.fear();
-    row(rx, 'Ruf', fear > 0.5 ? 'gefürchtet' : fear > 0.2 ? 'wachsam beäugt' : 'friedlich');
+    y += 20;
+    c.add(text(this, rx + 250, y, 'Vieles an deinem Tier bleibt verborgen –\nes zeigt sich nur in dem, was es tut.', 17, UI.boneDim, { fontStyle: 'italic', align: 'center' }).setOrigin(0.5, 0));
     c.add(text(this, W / 2, 672, 'C oder Esc: zurück', 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     return c;
   }

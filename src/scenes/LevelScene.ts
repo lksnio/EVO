@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game, kcalOf, needUnits, type Offspring, type Traits } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, needUnits, type Offspring, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
@@ -18,6 +18,8 @@ import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
 
 type PImg = Phaser.Physics.Arcade.Image;
+
+const UI_BONE = '#e6dcc4';
 
 const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
 
@@ -130,6 +132,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** so viel muss es bis zum Ende sein, damit es Nachwuchs gibt */
   needUnits = 0;
   private foodWarned = false;
+  /** bis dahin gilt ein Angriff als Überraschungsangriff (aus dem Versteck heraus) */
+  private ambushUntil = 0;
+  /** dunkle Vorahnung: ein Riese ist in der Nähe */
+  private dread!: Phaser.GameObjects.Rectangle;
+  private dreadK = 0;
+  private dreadAt = -1e9;
+  /** Strömungen (mit ihren Schlieren) */
+  private flows: { r: Rect & { dir: number }; pe: Phaser.GameObjects.Particles.ParticleEmitter; on: boolean }[] = [];
+  private flowNoted = false;
+  private toxNoted = false;
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -183,6 +195,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.eatenMeat = this.eatenPlant = 0;
     this.needUnits = 0;
     this.foodWarned = false;
+    this.ambushUntil = 0;
+    this.dreadK = 0;
+    this.dreadAt = -1e9;
+    this.flows = [];
+    this.flowNoted = false;
+    this.toxNoted = false;
   }
 
   create() {
@@ -236,8 +254,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     this.buildCover();
     this.buildCaves();
-    // Artgenossen verstecken sich auch in Höhlen
-    this.cover = [...L.cover, ...L.caves];
+    this.buildCrevices();
+    this.buildCurrents();
+    // Artgenossen verstecken sich auch in Höhlen und Felsspalten
+    this.cover = [...L.cover, ...L.caves, ...L.crevices];
     if (this.water && L.surfaceY > 0) this.surfaceLight();
     else if (!this.water && L.variant === 'normal') this.landLight();
 
@@ -280,6 +300,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(W, H).setDepth(DEPTH.dark + 1).setAlpha(0.55);
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
     this.veil = this.add.rectangle(0, 0, W, H, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
+    // Ein Riese naht: das Bild wird dunkler und kälter
+    this.dread = this.add.rectangle(0, 0, W, H, 0x02081a, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 3);
 
     // Kamera
     const cam = this.cameras.main;
@@ -407,6 +429,111 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.cullAdd(back, c.x - 60, c.x + c.w + 60);
       this.cullAdd(shade, c.x - 80, c.x + c.w + 60);
     });
+  }
+
+  /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
+  private buildCrevices() {
+    for (const c of this.L.crevices) {
+      const g = this.add.graphics().setDepth(DEPTH.cover);
+      g.fillStyle(0x020404, 0.62);
+      g.fillRect(c.x + 14, c.y, c.w - 28, c.h);
+      g.fillStyle(0x020404, 0.32);
+      g.fillRect(c.x, c.y, 14, c.h);
+      g.fillRect(c.x + c.w - 14, c.y, 14, c.h);
+      this.cullAdd(g, c.x - 20, c.x + c.w + 20);
+    }
+  }
+
+  /** Strömungen: helle Schlieren zeigen, wohin das Wasser zieht. */
+  private buildCurrents() {
+    for (const r of this.L.currents) {
+      const pe = this.add.particles(0, 0, 'p_dot', {
+        x: { min: r.x, max: r.x + r.w }, y: { min: r.y, max: r.y + r.h },
+        speedX: { min: r.dir * 150, max: r.dir * 240 }, speedY: { min: -6, max: 6 },
+        lifespan: { min: 900, max: 1700 }, frequency: 40, quantity: 1,
+        scaleX: { start: 2.8, end: 0.6 }, scaleY: 0.22, alpha: { start: 0.32, end: 0 }, tint: 0xd8f0ea,
+        blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(DEPTH.decoBack + 2);
+      this.flows.push({ r, pe, on: true });
+    }
+  }
+
+  /** Strömung: schiebt alles mit – je massiger, desto weniger. Riesen bleiben unbeeindruckt. */
+  private flowStep(dt: number) {
+    if (!this.flows.length) return;
+    const v = this.cameras.main.worldView;
+    for (const f of this.flows) {
+      const on = f.r.x + f.r.w > v.x - 200 && f.r.x < v.right + 200;
+      if (on !== f.on) {
+        f.on = on;
+        if (on) f.pe.start();
+        else f.pe.stop();
+      }
+    }
+    const inFlow = (x: number, y: number) => this.flows.find((f) => x > f.r.x && x < f.r.x + f.r.w && y > f.r.y && y < f.r.y + f.r.h);
+    const p = this.player;
+    const t = game.traits;
+    const pm = 1 + 1.3 * Math.max(0, t.girth) + 0.6 * t.growth + 0.8 * Math.max(0, p.stats.size - 0.85);
+    const pf = !p.dead ? inFlow(p.x, p.y) : undefined;
+    if (pf) {
+      p.body.position.x += (pf.r.dir * 130 * dt) / pm;
+      if (!this.flowNoted) {
+        this.flowNoted = true;
+        bus.emit('story', pm > 1.6 ? 'Eine Strömung – doch du bist schwer genug, um dagegen anzuschwimmen.' : 'Eine Strömung reißt dich mit. Massigere Tiere halten besser dagegen.');
+      }
+    }
+    for (const a of this.animals) {
+      if (a.dead || !a.body || a.role === 'apex' || a.visitor || a.def.boss) continue;
+      const f = inFlow(a.x, a.y);
+      if (f) a.b.position.x += (f.r.dir * 130 * dt) / (1 + a.def.power / 4);
+    }
+  }
+
+  /**
+   * Ein Riese naht: dumpfes Grollen, Herzklopfen, das Wasser wird dunkler – und die kleinen Fische
+   * fliehen panisch. Das gibt ein paar Sekunden, um sich zu verstecken.
+   */
+  private warnGiant(g: { x: number; y: number }) {
+    const now = this.time.now;
+    if (now - this.dreadAt < 15000) return;
+    this.dreadAt = now;
+    this.dreadK = Math.max(this.dreadK, 0.6);
+    audio.sfx('rumble');
+    for (let i = 0; i < 4; i++) this.time.delayedCall(300 + i * 650, () => !this.ended && audio.sfx('heart'));
+    const p = this.player;
+    for (const a of this.animals) {
+      if (a.dead || a.kin || a.role !== 'prey') continue;
+      if (Math.abs(a.x - p.x) < 1200) a.panic(g);
+    }
+  }
+
+  /** Ist ein Riese in der Nähe? Dann bleibt das Bild dunkler. Kommt einer näher, wird gewarnt. */
+  private dreadStep(dt: number) {
+    const p = this.player;
+    let near = 0;
+    for (const a of this.animals) {
+      if (a.dead || !(a.def.boss || a.role === 'apex')) continue;
+      const d = Math.abs(a.x - p.x);
+      if (d < 1300) near = Math.max(near, 1 - d / 1300);
+      if (d < 1000 && d > 600 && !a.visitor) this.warnGiant(a);
+    }
+    this.dreadK += (Math.min(1, near * 1.6) - this.dreadK) * Math.min(1, dt * 1.2);
+    this.dread.setFillStyle(0x02081a, 0.24 * this.dreadK);
+  }
+
+  /** Kurze Einblendung am Ort des Geschehens. */
+  private pop(str: string, x: number, y: number, color: string = UI_BONE) {
+    const t = this.add.text(x, y, str, { fontFamily: 'Alegreya Sans, sans-serif', fontSize: '20px', fontStyle: '700', color, stroke: '#050403', strokeThickness: 4 })
+      .setOrigin(0.5).setDepth(DEPTH.text);
+    this.tweens.add({ targets: t, y: y - 40, alpha: 0, duration: 1300, ease: 'Sine.out', onComplete: () => t.destroy() });
+  }
+
+  /** Ein Angriff aus dem Versteck heraus: mehrfacher Schaden, das Opfer ist kurz betäubt. */
+  private surprise(a: Animal) {
+    a.stun(1300);
+    this.pop('Überraschungsangriff!', a.x, a.y - a.displayHeight * 0.5 - 10, '#e0b060');
+    game.grow('stealth', 0.015);
+    this.cameras.main.shake(120, 0.006);
   }
 
   /**
@@ -751,6 +878,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.L.variant !== 'normal') k *= 0.7;
     // im trüben Wasser bzw. Dunst sieht man schlechter
     k *= 1 - 0.9 * this.murk;
+    // starke Nerven: Jäger bemerken einen später
+    if (a.role === 'predator' || a.role === 'apex') k *= 1 - 0.45 * game.traits.nerve;
     if (this.stormK > 0) k *= 1 - 0.45 * this.stormK;
     if (!a.alerted && Math.sign(p.x - a.x) !== a.dir) k *= 0.6;
     return k;
@@ -844,7 +973,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     } else y = a.b.bottom;
     // Beute, an der du beteiligt warst, gilt als deine – wer davon mitfrisst, teilt mit dir
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
-    this.carcasses.push(new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, ours));
+    const carc = new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, ours);
+    this.carcasses.push(carc);
+    // Was ein Riese reißt, frisst er nie ganz: Es bleiben Reste – wer traut sich heran?
+    const killer = a.lastAttacker;
+    if (killer instanceof Animal && (killer.role === 'apex' || killer.visitor || killer.def.boss)) {
+      carc.bonus(2 + Math.floor(Math.random() * 2));
+      this.bleed(a.x, y - 10, 8);
+    }
     if (byPlayer) {
       game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
       this.player.view.showMeat(4500);
@@ -866,7 +1002,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const a of [...this.animals]) {
       if (a.dead || !overlaps(rect, a.hitRect())) continue;
       hit = true;
-      a.hurt(st.bite, p, 'bite');
+      const sneak = this.time.now < this.ambushUntil && !a.seesPlayer && a.role !== 'hazard';
+      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1), p, 'bite');
+      if (sneak) this.surprise(a);
       game.grow('jaw', 0.004);
       if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
@@ -874,18 +1012,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (hit) {
       this.fightAt = this.time.now;
+      this.ambushUntil = 0;
       this.cameras.main.shake(70, 0.004);
       return;
     }
     for (const c of this.carcasses) {
       if (c.gone || c.units <= 0 || !overlaps(rect, c.rect)) continue;
-      if (p.eat(24 * st.digestMeat)) {
-        this.ate('meat', 24 * st.digestMeat);
+      if (p.eat(FOOD.meat.sat)) {
+        this.ate('meat', FOOD.meat.kcal * st.digestMeat);
         c.take();
         c.playerBites++;
-        game.grow('jaw', 0.012);
+        // Fleisch macht den Kiefer stark – und vorn wachsen Reißzähne
+        game.grow('jaw', 0.022);
+        game.grow('fang', 0.03);
+        game.grow('digM', 0.02);
         game.shiftDiet(0.05);
-        game.grow('growth', 0.012 * st.digestMeat);
+        game.grow('growth', 0.016 * st.digestMeat);
         this.puff(c.x, c.y - 10, 4, 0x6a1a10);
         this.bleed(c.x, c.y - 8, 3);
         p.view.showMeat(3000);
@@ -899,9 +1041,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     for (const pl of this.plants) {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
-      if (p.eat(15 * st.digestPlant)) {
-        this.ate('plant', 15 * st.digestPlant);
+      const food = pl.toxic ? FOOD.toxic : FOOD.plant;
+      if (p.eat(food.sat)) {
+        this.ate('plant', food.kcal * st.digestPlant);
         pl.take(this.time.now);
+        if (pl.toxic) this.poisoned();
+        else game.grow('digP', 0.012);
         if (pl.units <= 0) for (const w of pl.wanted) if (w instanceof Kin) w.snub(0.07);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
@@ -909,6 +1054,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
       return;
+    }
+  }
+
+  /** Giftige Pflanze: brennt und schwächt – macht aber kurz hellwach und schnell. */
+  private poisoned() {
+    const p = this.player;
+    const tox = game.traits.tox;
+    p.hp = Math.max(1, p.hp - p.stats.maxHp * 0.12 * (1 - 0.85 * tox));
+    p.lastHurt = this.time.now;
+    p.view.flash(0xa060d0);
+    this.time.delayedCall(140, () => p.view.flash(null));
+    p.boost(7000);
+    game.grow('tox', 0.08);
+    if (!this.toxNoted) {
+      this.toxNoted = true;
+      bus.emit('story', 'Die Pflanze brennt im Maul – doch plötzlich bist du hellwach.');
     }
   }
 
@@ -939,7 +1100,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const dealt = st.ram * sf * (rammed ? 1.6 : 0.7);
     const plates = Math.max(0, -t.spike) * t.skull;
     const back = (a.def.power * 0.32 + a.def.dmg * 0.25) * sf * (rammed ? 0.45 : 1) * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
-    a.hurt(dealt, p, 'ram');
+    const sneak = rammed && this.time.now < this.ambushUntil && !a.seesPlayer;
+    a.hurt(dealt * (sneak ? 2 : 1), p, 'ram');
+    if (sneak) {
+      this.surprise(a);
+      this.ambushUntil = 0;
+    }
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, rammed ? k * 0.6 : k);
     game.grow('skull', (rammed ? 0.02 : 0.012) * sf);
@@ -997,6 +1163,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.eyeGlints();
     this.zoneFx(time);
     this.cullStep(time);
+    if (!this.ended) {
+      this.flowStep(dt);
+      this.dreadStep(dt);
+    }
 
     if (!p.dead && !this.ended) {
       this.elapsed += dt;
@@ -1083,7 +1253,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const now = this.time.now;
     switch (ev.kind) {
       case 'predator':
-        this.spawnVisitors(ev.species!, ev.count ?? 1);
+        this.spawnVisitors(ev.species!, ev.count ?? 1, !!ev.fast);
         break;
       case 'bloom':
         this.bloomUntil = now + 20000;
@@ -1113,7 +1283,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */
-  private spawnVisitors(id: string, count: number) {
+  private spawnVisitors(id: string, count: number, fast = false) {
     const def = SPECIES[id];
     if (!def) return;
     makeSpeciesTextures(this, def);
@@ -1124,9 +1294,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.x < 1100) fromLeft = false;
     if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
-    const sx = clamp(p.x - dir * 1000, 50, L.width - 50);
-    const endX = clamp(p.x + dir * 1600, 40, L.width - 40);
-    audio.sfx('rumble');
+    const sx = clamp(p.x - dir * (fast ? 1150 : 1000), 50, L.width - 50);
+    const endX = clamp(p.x + dir * (fast ? 2400 : 1600), 40, L.width - 40);
+    if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
+    else audio.sfx('rumble');
     for (let i = 0; i < count; i++) {
       this.time.delayedCall(i * 900, () => {
         if (this.ended) return;
@@ -1136,7 +1307,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         let y: number;
         let cruiseY: number;
         if (this.water) {
-          cruiseY = clamp(p.y + (Math.random() - 0.5) * 160 + i * 40, L.surfaceY + 90, ground - 90);
+          cruiseY = clamp(p.y + (Math.random() - 0.5) * (fast ? 60 : 160) + i * 40, L.surfaceY + 90, ground - 90);
           y = cruiseY;
         } else if (def.habitat === 'air') {
           cruiseY = ground - 190 - Math.random() * 80;
@@ -1147,7 +1318,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         }
         const a = new Animal(this, def, x, y);
         this.groundIt(a);
-        a.visitor = { dir, endX, cruiseY, huntUntil: 0, boredUntil: 0 };
+        a.visitor = { dir, endX, cruiseY, huntUntil: 0, boredUntil: 0, fast };
         a.dir = dir;
         a.setAlpha(0);
         this.tweens.add({ targets: a, alpha: 1, duration: 900 });
@@ -1259,12 +1430,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Dickicht: verstecken
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
-    p.inCave = L.caves.some((c) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h);
+    p.inCave = L.caves.some((c) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h)
+      || L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10);
     p.inCover = ci >= 0 || p.inCave;
     p.hidden = p.inCover && p.speed01 < 0.55 && !p.sprinting;
     const b = p.body;
     p.grounded = !p.inCover && p.speed01 < 0.15 && (this.water ? this.solidAt(cx, b.bottom + 8) : b.blocked.down);
     p.view.setShade(p.inCave ? 0x2a2a2a : p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
+    // Hinterhalt: versteckt oder gut getarnt am Boden – der erste Angriff von hier aus überrascht
+    p.ambush = p.hidden || (p.grounded && game.traits.sand > 0.15);
+    if (p.ambush) this.ambushUntil = time + 900;
     // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
     if (p.hidden && ci >= 0) game.grow('green', 0.006 * dt);
     else if (p.hidden && p.inCave) game.grow('sand', 0.005 * dt);
@@ -1349,6 +1524,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         const near = this.animals.some((a) => !a.dead && !a.ally && (a.role === 'predator' || a.role === 'apex') && Math.hypot(a.x - p.x, a.y - p.y) < 320);
         if (near) game.grow('stealth', 0.008);
       }
+      // Nah an einem Jäger bleiben, ohne dass er jagt: Die Nerven werden stärker (verborgen)
+      const calmNear = this.animals.some((a) => !a.dead && !a.ally && (a.role === 'predator' || a.role === 'apex') && a.target !== p && Math.hypot(a.x - p.x, a.y - p.y) < 260);
+      if (calmNear) game.grow('nerve', 0.012);
     }
 
     // Aussehen anpassen (Stück für Stück). Neu zeichnen kostet ein paar Millisekunden – deshalb
@@ -1387,12 +1565,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.ended = true;
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
-    // Wer überlebt hat, kann die Linie weiterführen – du und deine Artgenossen
-    const survivors = [
-      { traits: { ...game.traits }, sex: run.sex, seed: run.seed, you: true },
-      ...kin.filter((k) => k.genes).slice(0, 5).map((k) => ({ ...k.genes!, you: false })),
-    ];
-    const offspring = game.offspring(survivors, { meat: this.eatenMeat, plant: this.eatenPlant });
+    // Fünf Nachkommen zur Wahl – je mehr gefressen wurde, desto verschiedener
+    const fed = (this.eatenMeat + this.eatenPlant) / Math.max(1, this.needUnits);
+    const offspring = game.offspring(fed, { meat: this.eatenMeat, plant: this.eatenPlant });
     const data: SurvivedData = {
       epoch: this.epochIdx,
       before: game.startTraits(),

@@ -54,6 +54,9 @@ export class Player {
   inCave = false;
   /** liegt still am Boden (Sandtarnung) */
   grounded = false;
+  /** im Hinterhalt (versteckt/getarnt): leicht durchsichtig, der erste Angriff überrascht */
+  ambush = false;
+  private boostUntil = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
@@ -83,6 +86,11 @@ export class Player {
     return this.speed01 > 0.8 || this.isRamming;
   }
 
+  /** kurzer Schwung (z. B. nach einer giftigen Pflanze): schneller, die Kraft kehrt rasch zurück */
+  boost(ms: number) {
+    this.boostUntil = Math.max(this.boostUntil, this.host.time.now + ms);
+  }
+
   /** gerade mitten im gezielten Rammstoß */
   get isRamming() {
     return this.host.time.now < this.ramUntil;
@@ -109,7 +117,8 @@ export class Player {
     }
     const L = this.view.L;
     const w = Math.round(L.halfW * 2);
-    const h = Math.round(L.footY - L.topY);
+    // massige Tiere sind auch höher – sie passen nicht mehr durch jede Felsspalte
+    const h = Math.round((L.footY - L.topY) * (1 + 0.22 * Math.max(0, game.traits.girth)));
     if (full || w !== Math.round(this.rect.width) || h !== Math.round(this.rect.height)) {
       // Unterkante des Objekts (nicht des Körpers!) beibehalten: Der Körper ist in diesem
       // Moment schon weiterbewegt, das Objekt folgt erst danach – sonst rutscht man in den Boden.
@@ -156,7 +165,9 @@ export class Player {
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
     const starving = this.satiety <= 0 ? 0.85 : 1;
-    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving;
+    const boosted = time < this.boostUntil;
+    if (boosted) this.stamina = Math.min(1, this.stamina + dt * 0.6);
+    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving * (boosted ? 1.25 : 1);
 
     if (this.water) {
       const dy = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
@@ -239,7 +250,7 @@ export class Player {
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
     this.syncView(dt, mode, Math.min(1.3, this.speed01));
-    this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : 1);
+    this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : this.ambush ? 0.62 : 1);
   }
 
   private syncView(dt: number, mode: 'swim' | 'walk' | 'air' | 'idle', s01: number) {

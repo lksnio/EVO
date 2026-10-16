@@ -59,6 +59,8 @@ const APEX_MOVES: Record<string, string[]> = {
   trex: ['lunge', 'charge', 'roar'],
   saebelzahn: ['pounce', 'lunge', 'pounce'],
   andrewsarchus: ['lunge', 'charge', 'roar'],
+  pterygotus: ['lunge', 'charge', 'lunge'],
+  hyneria: ['lunge', 'lunge', 'charge'],
 };
 
 /** Ein Tier, das nur durch den Lebensraum zieht (Ereignis). */
@@ -68,6 +70,8 @@ export interface Visitor {
   cruiseY: number;
   /** wie lange es einem Ziel höchstens nachjagt */
   huntUntil: number;
+  /** zieht nur schnell vorbei */
+  fast?: boolean;
   /** bis dahin hat es das Interesse am Spieler verloren */
   boredUntil: number;
 }
@@ -161,6 +165,25 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   get role() {
     return this.def.role;
+  }
+
+  /** wer zuletzt angegriffen hat (Spieler oder ein anderes Tier) */
+  get lastAttacker() {
+    return this.attacker;
+  }
+
+  /** betäubt (z. B. nach einem Überraschungsangriff) */
+  stun(ms: number) {
+    this.stunUntil = Math.max(this.stunUntil, this.world.time.now + ms);
+  }
+
+  /** Panik: vor etwas Großem fliehen – ein paar Sekunden lang, ohne sich umzusehen. */
+  panic(from: { x: number; y: number }) {
+    if (this.dead || this.role === 'apex' || this.visitor || this.role === 'hazard') return;
+    this.threatObj = from as Target;
+    this.go('flee');
+    this.stT = 0;
+    this.nextSense = this.world.time.now + 2200 + Math.random() * 800;
   }
 
   hitRect(): Rect {
@@ -588,13 +611,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.mv) return this.apexMove(time, dt);
     const tg = this.target;
     if (tg && !tg.dead) {
-      if (!v.huntUntil) v.huntUntil = time + 7000;
+      if (!v.huntUntil) v.huntUntil = time + (v.fast ? 1800 : 7000);
       if (time < v.huntUntil) {
         this.huntTarget(time, tg);
         return;
       }
       // genug gejagt – weiterziehen
-      if (tg === p) v.boredUntil = time + 6000;
+      if (tg === p) v.boredUntil = time + (v.fast ? 20000 : 6000);
       this.target = null;
     }
     v.huntUntil = 0;
@@ -604,7 +627,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.go('cruise');
     const ty = this.swims || this.flies ? v.cruiseY + Math.sin(this.t * 0.7 + this.phase) * 40 : this.y;
-    this.moveTo(v.endX, ty, this.def.speed * 0.8);
+    this.moveTo(v.endX, ty, this.def.speed * (v.fast ? 2.4 : 0.8));
     if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) this.leave();
   }
 
@@ -812,8 +835,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.wanderX = this.x;
         this.wanderY = this.y;
       } else {
-        this.wanderX = this.home.x + (Math.random() - 0.5) * 440;
+        // Herumtreiber ziehen weit durch den Lebensraum, die anderen bleiben in ihrem Revier
+        const range = this.def.roam ? 2600 : 440;
+        const wb = this.world.physics.world.bounds;
+        this.wanderX = clamp(this.home.x + (Math.random() - 0.5) * range, wb.x + 60, wb.right - 60);
         this.wanderY = this.home.y + (Math.random() - 0.5) * (this.swims || this.flies ? 160 : 0);
+        if (this.def.roam) this.home.x = this.wanderX;
       }
     }
     if (Math.abs(this.wanderX - this.x) < 10 && (!this.swims || Math.abs(this.wanderY - this.y) < 10)) {

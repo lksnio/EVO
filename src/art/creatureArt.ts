@@ -40,6 +40,8 @@ export interface Morph {
   len?: number;
   girth?: number;
   swift?: number;
+  /** Reißzähne, die vorn aus dem Maul stehen (viel Fleisch gefressen) */
+  fang?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -65,12 +67,13 @@ export function quantize(m: Morph): Morph {
     len: q(m.len ?? 0, 0.2),
     girth: q(m.girth ?? 0, 0.2),
     swift: q(m.swift ?? 0, 0.25),
+    fang: q(m.fang ?? 0, 0.2),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang].join('_');
 }
 
 interface Pal {
@@ -837,6 +840,13 @@ function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
     const big = m.cls === 'amphibian' && m.jaw > 0.55 && i === n - 2;
     tooth(ctx, x, mouthY - 0.4, 1.6 + len * 0.45, len * (big ? 1.7 : 0.75 + 0.35 * Math.sin(t * 9 + i)), 1, herb, 0.2);
   }
+  // Reißzähne: wer viel Fleisch frisst, dem wachsen vorn lange, spitze Zähne aus dem Maul
+  const fg = m.fang ?? 0;
+  if (fg > 0.1 && !herb) {
+    const fl = 3 + 13 * fg;
+    tooth(ctx, L * 0.9 - 1, mouthY - 0.6, 1.8 + fl * 0.2, fl, 1, false, 0.32);
+    if (fg > 0.35) tooth(ctx, L * 0.72, mouthY - 0.6, 1.6 + fl * 0.16, fl * 0.75, 1, false, 0.28);
+  }
   if (m.cls === 'mammal') {
     // Eckzahn – wird bei starkem Kiefer und Fleischkost zum Säbelzahn
     const sabre = m.jaw > 0.6 && m.diet > 0.2 ? (m.jaw - 0.6) / 0.4 : 0;
@@ -855,6 +865,9 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
     const x = 3 + ((i + 0.5) * (len - 7)) / n;
     tooth(ctx, x, 0.4, 1.4 + tl * 0.45, tl, -1, herb, -0.2);
   }
+  // unterer Reißzahn, der über die Oberlippe ragt
+  const fg = m.fang ?? 0;
+  if (fg > 0.45 && !herb) tooth(ctx, len - 5, 0.4, 1.6 + fg * 2.4, 3 + 9 * fg, -1, false, -0.3);
   const path = () => {
     ctx.beginPath();
     ctx.moveTo(-2, -0.4);

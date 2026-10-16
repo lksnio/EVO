@@ -90,7 +90,7 @@ export class GenerationScene extends Phaser.Scene {
     const offs = d.offspring!;
     this.choosing = true;
     const head = title(this, W / 2, 34, `Das ${ep.name} endet.`, 38).setOrigin(0.5);
-    const sub = text(this, W / 2, 76, `Du hast überlebt – ${yearsAgo(ep.to, 1e4)}. Wer führt deine Linie weiter?`, 20, UI.boneDim).setOrigin(0.5);
+    const sub = text(this, W / 2, 76, `Du hast überlebt – ${yearsAgo(ep.to, 1e4)}. Welcher Nachkomme führt deine Linie weiter?`, 20, UI.boneDim).setOrigin(0.5);
     const e = d.eaten;
     const eat = e ? text(this, W / 2, 104, `Gefressen: ${Math.round(e.meat)} kcal Fleisch · ${Math.round(e.plant)} kcal Pflanzen  (nötig waren ${Math.round(e.need)})`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5) : null;
     this.fadeInAll([head, sub, ...(eat ? [eat] : [])], 0);
@@ -107,8 +107,10 @@ export class GenerationScene extends Phaser.Scene {
       this.group.push(...parts);
     });
     this.select(0);
-    const kinLine = d.kinAlive === 0 ? 'Von deiner Art hat niemand außer dir überlebt.' : `${d.kinAlive} deiner Art haben mit dir überlebt.`;
-    const l1 = text(this, W / 2, y0 + ch + 18, kinLine + '  ·  Pfeiltasten oder Klick: wählen', 17, UI.boneDim).setOrigin(0.5);
+    // Je mehr gefressen wurde, desto weiter weichen die Nachkommen von der Hauptlinie ab
+    const fed = e ? (e.meat + e.plant) / Math.max(1, e.need) : 1;
+    const variety = fed < 1.4 ? 'gering' : fed < 2.2 ? 'mittel' : 'groß';
+    const l1 = text(this, W / 2, y0 + ch + 18, `Vielfalt des Nachwuchses: ${variety} (je mehr du frisst, desto verschiedener)  ·  Pfeiltasten oder Klick`, 17, UI.boneDim).setOrigin(0.5);
     this.fadeInAll([l1], 900);
     const tl = this.timeline(d.epoch, 612);
     this.fadeInAll(tl, 1000, 1, 700);
@@ -151,9 +153,9 @@ export class GenerationScene extends Phaser.Scene {
     this.views.push({ v, mode: v.L.land ? 'idle' : 'swim' });
     out.push(v);
     let ty = y + 140;
-    const t1 = title(this, x + w / 2, ty, o.label, 19, o.you ? UI.bone : UI.ochre).setOrigin(0.5, 0);
+    const t1 = title(this, x + w / 2, ty, o.label, 19, o.main ? UI.bone : UI.ochre).setOrigin(0.5, 0);
     ty += 26;
-    const extra = o.focus.body ? BODY_NAME[o.focus.body] : o.you ? 'wie du' : '';
+    const extra = o.focus.body ? BODY_NAME[o.focus.body] : o.main ? 'wie bisher' : '';
     const t2 = text(this, x + w / 2, ty, `${o.sex === 1 ? 'Männchen' : 'Weibchen'}${extra ? ' · ' + extra : ''}`, 14, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5, 0);
     ty += 28;
     out.push(t1, t2);

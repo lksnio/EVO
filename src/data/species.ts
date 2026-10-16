@@ -53,6 +53,8 @@ export interface SpeciesDef {
   crawl?: boolean;
   hit?: [number, number];
   boss?: boolean;
+  /** streift weit umher statt in der Nähe seines Reviers zu bleiben */
+  roam?: boolean;
 }
 
 const S = (d: SpeciesDef) => d;
@@ -66,7 +68,12 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'orthoceras', name: 'Orthoceras', art: { t: 'cone', len: 74, c: 0x7a6248 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 22, dmg: 5, power: 6, speed: 118, sense: 300, meat: 3, hit: [0.75, 0.6] }),
     S({ id: 'cameroceras', name: 'Riesenkopffüßer', art: { t: 'cone', len: 250, c: 0x5e4a3a }, role: 'apex', diet: 'meat', habitat: 'water', hp: 140, dmg: 8, power: 18, speed: 82, sense: 380, meat: 8, boss: true, hit: [0.75, 0.5] }),
     S({ id: 'seeskorpion', name: 'Seeskorpion', art: { t: 'bug', len: 72, h: 18, segs: 8, c: 0x4e3228, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 30, dmg: 6, power: 8, speed: 104, sense: 260, meat: 4 }),
-    S({ id: 'dunkleosteus', name: 'Panzerfisch', art: { t: 'fish', len: 230, h: 100, c: 0x39444a, belly: 0x7e8a86, fin: 0x252c32, armor: true, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 170, dmg: 9, power: 22, speed: 100, sense: 430, meat: 10, boss: true, hit: [0.8, 0.7] }),
+    // Dunkleosteus (Devon, ~380 Mio. Jahre): bis zu 8 m, gepanzert, statt Zähnen Knochenklingen – gewaltige Bisskraft
+    S({ id: 'dunkleosteus', name: 'Dunkleosteus', art: { t: 'fish', len: 250, h: 108, c: 0x39444a, belly: 0x7e8a86, fin: 0x252c32, armor: true, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 220, dmg: 16, power: 28, speed: 105, sense: 430, meat: 12, boss: true, hit: [0.8, 0.7] }),
+    // seltene große Herumtreiber: am Anfang besser meiden – oder mit viel Geschick besiegen
+    S({ id: 'megalograptus', name: 'Megalograptus', art: { t: 'bug', len: 120, h: 26, segs: 9, c: 0x5a3a26, legs: 4, pincers: false, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 60, dmg: 9, power: 12, speed: 112, sense: 300, meat: 5, roam: true, hit: [0.8, 0.6] }),
+    S({ id: 'pterygotus', name: 'Pterygotus', art: { t: 'bug', len: 210, h: 46, segs: 10, c: 0x4a2c1e, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'apex', diet: 'meat', habitat: 'water', hp: 150, dmg: 11, power: 20, speed: 118, sense: 380, meat: 8, boss: true, roam: true, hit: [0.8, 0.6] }),
+    S({ id: 'hyneria', name: 'Hyneria', art: { t: 'fish', len: 210, h: 66, c: 0x4a4a30, belly: 0x9a9268, fin: 0x34341e, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 180, dmg: 12, power: 24, speed: 112, sense: 400, meat: 10, boss: true, roam: true, hit: [0.8, 0.65] }),
 
     // ---------------------------------------------------------------- Sümpfe
     S({ id: 'tausendfuessler', name: 'Tausendfüßler', art: { t: 'bug', len: 72, h: 14, segs: 11, c: 0x3e2c20, legs: 10, antenna: true }, role: 'prey', diet: 'plant', habitat: 'land', hp: 10, dmg: 0, power: 2, speed: 48, sense: 140, meat: 2, herd: [1, 2], sprint: 1.3 }),

@@ -786,11 +786,61 @@ export function foodKey(theme: Theme, stage: number, variant = 0) {
 }
 
 export const PLANT_VARIANTS = 3;
+/** Variante der giftigen Pflanze (Giftanemone im Meer, Giftbeeren an Land) */
+export const TOXIC = 3;
 
 export function plantTextures(scene: Phaser.Scene, theme: Theme) {
   for (let stage = 0; stage < 3; stage++) {
     tex(scene, foodKey(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));
     for (let v = 1; v < PLANT_VARIANTS; v++) tex(scene, foodKey(theme, stage, v), 70, 64, (ctx) => drawPlant2(ctx, theme, stage, v));
+    tex(scene, foodKey(theme, stage, TOXIC), 70, 64, (ctx) => drawToxic(ctx, theme, stage));
+  }
+}
+
+/** Giftig, aber verlockend: leuchtende Farben als Warnung. */
+function drawToxic(ctx: Ctx, theme: Theme, stage: number) {
+  const r = mulberry32(theme.length * 13 + 3);
+  const n = stage === 0 ? 1 : stage === 1 ? 0.55 : 0;
+  const bx = 35, by = 62;
+  if (theme === 'ozean') {
+    // Giftanemone: praller Fuß, violette Fangarme mit hellen Spitzen
+    blob(ctx, r, bx, by - 8, 13, 9, 9);
+    fillStroke(ctx, vgrad(ctx, by - 18, by, [[0, '#6a2a6a'], [1, '#2a0e2a']]), 'rgba(0,0,0,.5)', 1);
+    const arms = Math.round(11 * n);
+    for (let i = 0; i < arms; i++) {
+      const a = -Math.PI / 2 + (i - (arms - 1) / 2) * 0.24;
+      const len = 16 + r() * 12;
+      const x2 = bx + Math.cos(a) * len, y2 = by - 14 + Math.sin(a) * len;
+      ctx.beginPath();
+      ctx.moveTo(bx + Math.cos(a) * 6, by - 14);
+      ctx.quadraticCurveTo(bx + Math.cos(a) * len * 0.5 + (r() - 0.5) * 6, by - 14 + Math.sin(a) * len * 0.6, x2, y2);
+      ctx.strokeStyle = i % 2 ? '#a050a8' : '#c070b8';
+      ctx.lineWidth = 2.6;
+      ctx.stroke();
+      ell(ctx, x2, y2, 2.2, 2.2);
+      ctx.fillStyle = '#f0c8e8';
+      ctx.fill();
+    }
+    for (let i = 0; i < 5; i++) {
+      ell(ctx, bx - 8 + r() * 16, by - 12 + r() * 8, 1.4, 1.4);
+      ctx.fillStyle = 'rgba(255,220,120,.8)';
+      ctx.fill();
+    }
+    return;
+  }
+  // an Land: dunkler Strauch mit leuchtend roten Beeren
+  for (let i = 0; i < 10; i++) {
+    const x = bx + (r() - 0.5) * 34, y = by - 6 - r() * 26;
+    ell(ctx, x, y, 7 + r() * 5, 5 + r() * 3, r());
+    ctx.fillStyle = i % 2 ? '#2a3a18' : '#1e2a12';
+    ctx.fill();
+  }
+  const berries = Math.round(12 * n);
+  for (let i = 0; i < berries; i++) {
+    const x = bx + (r() - 0.5) * 30, y = by - 8 - r() * 24;
+    ell(ctx, x, y, 2.8, 2.8);
+    ctx.fillStyle = rgrad(ctx, x - 1, y - 1, 0.5, 3, [[0, '#ff8a6a'], [1, '#a0140c']]);
+    ctx.fill();
   }
 }
 

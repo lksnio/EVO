@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
 import type { SpeciesDef } from '../data/species';
-import { foodKey } from '../art/worldArt';
+import { foodKey, TOXIC } from '../art/worldArt';
 import { speciesKey } from '../art/speciesArt';
 import { DEPTH } from '../config';
 import type { Rect } from '../util/math';
@@ -12,12 +12,15 @@ export class Plant {
   units: number;
   readonly max: number;
   private regrowAt = 0;
+  /** giftig: schadet ein wenig, gibt aber kurz Schwung */
+  readonly toxic: boolean;
   /** Artgenossen, die gerade hierher wollen */
   wanted = new Set<object>();
 
   constructor(private scene: Phaser.Scene, public x: number, public y: number, private theme: Theme, units = 3, private variant = 0) {
     this.max = units;
     this.units = units;
+    this.toxic = variant === TOXIC;
     this.img = scene.add.image(x, y, foodKey(theme, 0, variant)).setOrigin(0.5, 1).setDepth(DEPTH.plants);
     if (x % 2 > 1) this.img.setFlipX(true);
   }
@@ -66,7 +69,7 @@ export class Carcass {
   img: Phaser.GameObjects.Image;
   private blood: Phaser.GameObjects.Image;
   units: number;
-  readonly max: number;
+  max: number;
   private bornAt: number;
   gone = false;
   /** wer davon fressen wollte bzw. gefressen hat (für das Lernen der Artgenossen) */
@@ -97,6 +100,13 @@ export class Carcass {
       .setTint(0x7a5048)
       .setOrigin(0.5, 0.75);
     if (water) this.img.setAlpha(0.9);
+  }
+
+  /** mehr Fleisch übrig (z. B. Reste, die ein Riese liegen ließ) */
+  bonus(n: number) {
+    this.units += n;
+    this.max += n;
+    this.img.setScale(1.15);
   }
 
   get rect(): Rect {
