@@ -1,4 +1,4 @@
-# Platformer
+# EVO
 
 Ein 2D-Plattformer, gebaut mit [Phaser 4](https://phaser.io), TypeScript und [Vite](https://vite.dev).
 
