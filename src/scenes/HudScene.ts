@@ -33,6 +33,7 @@ const TIPS: Record<string, string> = {
 export class HudScene extends Phaser.Scene {
   private ep!: EpochDef;
   private hurtV!: Phaser.GameObjects.Image;
+  private edgeV!: Phaser.GameObjects.Image;
   private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
   private clockText!: Phaser.GameObjects.Text;
@@ -52,6 +53,8 @@ export class HudScene extends Phaser.Scene {
   private portrait?: CreatureView;
   private giveUp?: Button;
   private giveUpArmed = false;
+  private isTouch = false;
+  private ramBtn = false;
 
   constructor() {
     super('Hud');
@@ -63,6 +66,7 @@ export class HudScene extends Phaser.Scene {
     this.portrait = undefined;
     this.giveUp = undefined;
     this.giveUpArmed = false;
+    this.ramBtn = false;
     this.hp = 1;
     this.food = 1;
     this.hidden = false;
@@ -78,6 +82,7 @@ export class HudScene extends Phaser.Scene {
     this.hungerV = this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0);
     this.hideV = this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setTint(0x0c1a0a).setAlpha(0);
     this.hurtV = this.add.image(W / 2, H / 2, 'vignette_red').setDisplaySize(W, H).setAlpha(0);
+    this.edgeV = this.add.image(W / 2, H / 2, 'edge_red').setDisplaySize(W, H).setAlpha(0);
 
     // Die Uhr des Zeitalters
     const g = this.add.graphics();
@@ -98,14 +103,20 @@ export class HudScene extends Phaser.Scene {
     const sub = text(this, W / 2, H / 2 - 44, ep.desc, 20, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: [head, sub], alpha: 1, duration: 900, hold: 2200, yoyo: true });
 
-    const isTouch = this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
-    const hint = HINTS[ep.id]?.[isTouch ? 1 : 0];
+    const isTouch = (this.isTouch = this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
+    let hint = HINTS[ep.id]?.[isTouch ? 1 : 0];
+    if (game.canRam) hint = (hint ? hint + '\n' : '') + (isTouch ? 'Rammen: Ramm-Knopf' : 'Rammen: R');
     if (hint) {
       const ht = text(this, W / 2, H - 70, hint, 21, UI.bone, { align: 'center', stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5).setAlpha(0);
       this.tweens.add({ targets: ht, alpha: 1, duration: 700, delay: 1200, hold: 7000, yoyo: true });
     }
     const tip = TIPS[ep.id];
     if (tip) this.time.delayedCall(4200, () => this.story(tip));
+    const run = game.run;
+    if (run?.ramNew) {
+      run.ramNew = false;
+      this.time.delayedCall(5200, () => this.ramUnlocked());
+    }
 
     if (isTouch) this.touchControls(ep.habitat === 'water');
 
@@ -125,15 +136,18 @@ export class HudScene extends Phaser.Scene {
     };
     const onStory = (line: string) => this.story(line);
     const onApex = (name: string) => this.announce(name);
+    const onRam = () => this.ramUnlocked();
     bus.on('vitals', onVitals);
     bus.on('clock', onClock);
     bus.on('story', onStory);
     bus.on('apex', onApex);
+    bus.on('ramUnlocked', onRam);
     this.events.once('shutdown', () => {
       bus.off('vitals', onVitals);
       bus.off('clock', onClock);
       bus.off('story', onStory);
       bus.off('apex', onApex);
+      bus.off('ramUnlocked', onRam);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
   }
@@ -164,16 +178,18 @@ export class HudScene extends Phaser.Scene {
     const dt = Math.min(0.05, dms / 1000);
     const ease = (cur: number, to: number, k: number) => cur + (to - cur) * Math.min(1, dt * k);
 
-    // Verletzung: Rand färbt sich rot, ab einem gewissen Punkt schlägt das Herz hörbar
+    // Verletzung: alle vier Bildränder färben sich rot, ab einem gewissen Punkt schlägt das Herz hörbar
     const hurt = this.hp < 0.6 ? Math.pow((0.6 - this.hp) / 0.6, 0.8) : 0;
-    this.hurtA = ease(this.hurtA, hurt * 0.75, 4);
+    this.hurtA = ease(this.hurtA, hurt, 4);
     if (this.hp < 0.33 && this.hp > 0 && time > this.beatAt && !this.pauseC) {
       this.beatAt = time + 520 + this.hp * 1800;
       this.pulse = 1;
       audio.sfx('heart');
     }
     this.pulse = Math.max(0, this.pulse - dt * 2.4);
-    this.hurtV.setAlpha(Math.min(1, this.hurtA + this.pulse * 0.28 * (hurt > 0 ? 1 : 0)));
+    const beat = this.pulse * (hurt > 0 ? 1 : 0);
+    this.hurtV.setAlpha(Math.min(1, this.hurtA * 0.45 + beat * 0.2));
+    this.edgeV.setAlpha(Math.min(1, this.hurtA * 0.7 + beat * 0.25));
 
     // Hunger: das Bild wird dunkler
     const hunger = this.food < 0.3 ? (0.3 - this.food) / 0.3 : 0;
@@ -197,6 +213,19 @@ export class HudScene extends Phaser.Scene {
     c.setAlpha(0).setScale(1.12);
     this.tweens.add({ targets: c, alpha: 1, scale: 1, duration: 600, ease: 'Sine.out' });
     this.tweens.add({ targets: c, alpha: 0, delay: 2600, duration: 900, onComplete: () => c.destroy() });
+  }
+
+  /** Der Schädel ist hart genug: Ab jetzt kann man gezielt rammen. */
+  private ramUnlocked() {
+    audio.sfx('evolve');
+    const c = this.add.container(W / 2, H / 2 + 150).setDepth(20);
+    const t1 = title(this, 0, 0, 'Harter Schädel', 34, UI.ochre).setOrigin(0.5);
+    const t2 = text(this, 0, 40, this.isTouch ? 'Neu: Rammen – mit dem Knopf „Ramm“' : 'Neu: Rammen – Taste R', 22, UI.bone, { stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5);
+    c.add([t1, t2]);
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: 700 });
+    this.tweens.add({ targets: c, alpha: 0, delay: 5200, duration: 1200, onComplete: () => c.destroy() });
+    if (this.isTouch) this.ramButton();
   }
 
   // ---------------------------------------------------------------- Rast (Pause)
@@ -231,7 +260,7 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     c.add([b1, b2]);
     c.add(text(this, bx, 420, 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.', 17, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
-    c.add(text(this, bx, 500, 'M: Ton an/aus  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
+    c.add(text(this, bx, 500, (game.canRam ? 'R: rammen  ·  ' : '') + 'M: Ton an/aus  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
     this.pauseC = c;
     this.pauseNav = new MenuNav(this, [b1, b2]);
   }
@@ -262,33 +291,42 @@ export class HudScene extends Phaser.Scene {
 
   private touchControls(water: boolean) {
     this.input.addPointer(3);
-    const btn = (x: number, y: number, r: number, label: string, key: keyof typeof touch, color = 0xe6dcc4) => {
-      const g = this.add.graphics().setDepth(5);
-      const draw = (down: boolean) => {
-        g.clear();
-        g.fillStyle(0x0b0a09, down ? 0.55 : 0.32);
-        g.fillCircle(x, y, r);
-        g.lineStyle(2.5, color, down ? 0.85 : 0.35);
-        g.strokeCircle(x, y, r);
-      };
-      draw(false);
-      text(this, x, y, label, r > 50 ? 21 : 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
-      const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
-      const set = (v: boolean) => {
-        touch[key] = v;
-        draw(v);
-        if (v) audio.unlock();
-      };
-      z.on('pointerdown', () => set(true));
-      z.on('pointerup', () => set(false));
-      z.on('pointerout', () => set(false));
+    this.touchBtn(80, 610, 46, '◀', 'left');
+    this.touchBtn(220, 610, 46, '▶', 'right');
+    this.touchBtn(150, 540, 40, '▲', 'up');
+    this.touchBtn(150, 680, 36, '▼', 'down');
+    this.touchBtn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
+    this.touchBtn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);
+    this.touchBtn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
+    if (game.canRam) this.ramButton();
+  }
+
+  /** Erst mit hartem Schädel: der Ramm-Knopf. */
+  private ramButton() {
+    if (this.ramBtn) return;
+    this.ramBtn = true;
+    this.touchBtn(1195, 460, 44, 'Ramm', 'ram', 0xb89a70);
+  }
+
+  private touchBtn(x: number, y: number, r: number, label: string, key: keyof typeof touch, color = 0xe6dcc4) {
+    const g = this.add.graphics().setDepth(5);
+    const draw = (down: boolean) => {
+      g.clear();
+      g.fillStyle(0x0b0a09, down ? 0.55 : 0.32);
+      g.fillCircle(x, y, r);
+      g.lineStyle(2.5, color, down ? 0.85 : 0.35);
+      g.strokeCircle(x, y, r);
     };
-    btn(80, 610, 46, '◀', 'left');
-    btn(220, 610, 46, '▶', 'right');
-    btn(150, 540, 40, '▲', 'up');
-    btn(150, 680, 36, '▼', 'down');
-    btn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
-    btn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);
-    btn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
+    draw(false);
+    text(this, x, y, label, r > 50 ? 21 : 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
+    const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
+    const set = (v: boolean) => {
+      touch[key] = v;
+      draw(v);
+      if (v) audio.unlock();
+    };
+    z.on('pointerdown', () => set(true));
+    z.on('pointerup', () => set(false));
+    z.on('pointerout', () => set(false));
   }
 }

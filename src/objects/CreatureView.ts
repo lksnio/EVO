@@ -24,6 +24,10 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private tailImg!: Img;
   private legs: Img[] = [];
   private fin?: Img;
+  private meat?: Img;
+  private muzzle?: Img;
+  private meatUntil = 0;
+  private muzzleUntil = 0;
   private t = Math.random() * 10;
   private phase = 0;
   private biteT = -1;
@@ -76,7 +80,15 @@ export class CreatureView extends Phaser.GameObjects.Container {
     const headImg = img(T.head, 0, 0);
     this.jaw = img(T.jaw, L.hg.hingeX * L.s, L.hg.mouthY * L.s);
     const teeth = img(T.teeth, 0, 0);
-    this.headC.add([headImg, this.jaw, teeth]);
+    // Blut an der Schnauze und ein Brocken Fleisch im Maul (nach dem Fressen)
+    const hg = L.hg;
+    // Größe nach der Kopflänge: Der Brocken soll gut zu sehen sein
+    const headLen = hg.L * L.s;
+    this.muzzle = new Phaser.GameObjects.Image(this.scene, hg.L * 0.74 * L.s, (hg.mouthY + 1) * L.s, 'muzzle_blood')
+      .setScale((1.0 * headLen * (0.85 + 0.4 * m.jaw)) / 44).setAlpha(0).setVisible(false);
+    this.meat = new Phaser.GameObjects.Image(this.scene, hg.L * 0.8 * L.s, (hg.mouthY + hg.jawH * 0.55) * L.s, 'meat_chunk')
+      .setOrigin(0.3, 0.25).setScale((1.5 * headLen * (0.85 + 0.4 * m.jaw)) / 44).setVisible(false);
+    this.headC.add([headImg, this.jaw, this.meat, teeth, this.muzzle]);
     this.add(this.headC);
     if (!L.land && T.fin) {
       this.fin = img(T.fin, 6 * L.s, 7 * L.s);
@@ -89,6 +101,21 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   bite() {
     this.biteT = 0;
+  }
+
+  /** Ein Stück Fleisch hängt eine Weile aus dem Maul, die Schnauze ist blutig. */
+  showMeat(ms = 3500) {
+    const now = this.scene.time.now;
+    this.meatUntil = Math.max(this.meatUntil, now + ms);
+    this.muzzleUntil = Math.max(this.muzzleUntil, now + ms * 3);
+  }
+
+  /** Position des Auges in der Welt (für das Augenleuchten in Höhlen). */
+  eyeWorld() {
+    const hg = this.L.hg;
+    const m = this.headC.getWorldTransformMatrix();
+    const p = m.transformPoint(hg.ex * this.L.s, hg.ey * this.L.s);
+    return { x: p.x, y: p.y, r: hg.er * this.L.s * Math.abs(this.scaleY) };
   }
 
   /** Kaubewegung beim Fressen */
@@ -183,6 +210,20 @@ export class CreatureView extends Phaser.GameObjects.Container {
     }
     this.jaw.rotation = open * 0.8 + (mode === 'idle' ? Math.max(0, Math.sin(t * 1.3)) * 0.04 : 0);
     this.headC.x = L.neck[0] + open * 2.5 * L.s;
+    const now = this.scene.time.now;
+    if (this.meat) {
+      const on = now < this.meatUntil;
+      this.meat.setVisible(on);
+      if (on) {
+        this.meat.rotation = this.jaw.rotation * 0.7 + Math.sin(t * 6) * 0.12;
+        this.meat.setAlpha(Math.min(1, (this.meatUntil - now) / 400));
+      }
+    }
+    if (this.muzzle) {
+      const left = this.muzzleUntil - now;
+      this.muzzle.setVisible(left > 0);
+      if (left > 0) this.muzzle.setAlpha(Math.min(0.95, left / 2500));
+    }
 
     if (!L.land) {
       const sp = (6 + speed01 * 9) * slow;

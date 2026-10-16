@@ -153,7 +153,7 @@ function conifer(ctx: Ctx, x: number, base: number, ht: number, color: string, s
 export type BgVariant = 'normal' | 'dark' | 'cave';
 
 const SKY: Record<Theme, [string, string, string]> = {
-  ozean: ['#16343c', '#0b1f25', '#03090b'],
+  ozean: ['#24525a', '#0e2a31', '#03090b'],
   sumpf: ['#161d12', '#3a4227', '#121810'],
   reptil: ['#190c0a', '#4c1c10', '#120808'],
   eis: ['#09111a', '#27384b', '#0b131b'],
@@ -692,13 +692,163 @@ export function groundTextures(scene: Phaser.Scene, theme: Theme) {
 // ---------------------------------------------------------------------------
 // Fressbare Pflanzen (3 Stufen: voll, angefressen, kahl)
 
-export function foodKey(theme: Theme, stage: number) {
-  return `food_${theme}_${stage}`;
+export function foodKey(theme: Theme, stage: number, variant = 0) {
+  return variant ? `food_${theme}_${variant}_${stage}` : `food_${theme}_${stage}`;
 }
+
+export const PLANT_VARIANTS = 3;
 
 export function plantTextures(scene: Phaser.Scene, theme: Theme) {
   for (let stage = 0; stage < 3; stage++) {
     tex(scene, foodKey(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));
+    for (let v = 1; v < PLANT_VARIANTS; v++) tex(scene, foodKey(theme, stage, v), 70, 64, (ctx) => drawPlant2(ctx, theme, stage, v));
+  }
+}
+
+/** Weitere fressbare Pflanzen – je Lebensraum zwei zusätzliche Arten. */
+function drawPlant2(ctx: Ctx, theme: Theme, stage: number, v: number) {
+  const r = mulberry32(theme.length * 31 + v * 7);
+  const n = stage === 0 ? 1 : stage === 1 ? 0.5 : 0;
+  const bx = 35, by = 62;
+  const leaf = (x: number, y: number, rx: number, ry: number, rot: number, c0: string, c1: string) => {
+    ell(ctx, x, y, rx, ry, rot);
+    fillStroke(ctx, vgrad(ctx, y - ry, y + ry, [[0, c0], [1, c1]]), 'rgba(0,0,0,.45)', 0.8);
+  };
+  switch (theme) {
+    case 'ozean':
+      if (v === 1) {
+        // Seelilie: Stiel mit gefiederten Armen
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.quadraticCurveTo(bx - 4, by - 20, bx + 1, by - 36);
+        ctx.strokeStyle = '#5a4a3a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        const arms = Math.round(8 * n);
+        for (let i = 0; i < arms; i++) {
+          const a = -Math.PI / 2 + (i - (arms - 1) / 2) * 0.32;
+          ctx.beginPath();
+          ctx.moveTo(bx + 1, by - 36);
+          ctx.quadraticCurveTo(bx + 1 + Math.cos(a) * 12, by - 36 + Math.sin(a) * 18, bx + 1 + Math.cos(a) * 22, by - 30 + Math.sin(a) * 14);
+          ctx.strokeStyle = i % 2 ? '#a0805a' : '#c49a6a';
+          ctx.lineWidth = 2.2;
+          ctx.stroke();
+        }
+        ell(ctx, bx + 1, by - 36, 3.5, 3);
+        ctx.fillStyle = '#7a5a3a';
+        ctx.fill();
+      } else {
+        // Meersalat: wellige grüne Blätter auf einem Stein
+        blob(ctx, r, bx, by - 5, 18, 7);
+        fillStroke(ctx, vgrad(ctx, by - 12, by, [[0, '#3a4244'], [1, '#141a1a']]), '#0a0e0e', 1);
+        const leaves = Math.round(7 * n);
+        for (let i = 0; i < leaves; i++) leaf(bx - 16 + r() * 32, by - 14 - r() * 18, 8 + r() * 5, 4 + r() * 3, (r() - 0.5) * 1.6, '#7aa04a', '#3a5a22');
+        if (!leaves) for (let i = 0; i < 4; i++) leaf(bx - 10 + i * 7, by - 12, 3, 1.5, 0, '#4a5a2a', '#2a3418');
+      }
+      break;
+    case 'sumpf':
+    case 'reptil':
+      if (v === 1) {
+        // Schachtelhalm
+        const stems = 3 + Math.round(3 * n);
+        for (let i = 0; i < stems; i++) {
+          const x = bx - 14 + i * (28 / Math.max(1, stems - 1)), ht = (stage === 2 ? 10 : 30 + r() * 22);
+          for (let y = by; y > by - ht; y -= 7) {
+            ctx.fillStyle = (by - y) % 14 ? '#4a6a2a' : '#2e4218';
+            ctx.fillRect(x - 2, y - 7, 4, 6);
+            if (n > 0) {
+              ctx.beginPath();
+              ctx.moveTo(x, y - 6);
+              ctx.lineTo(x - 7, y - 10);
+              ctx.moveTo(x, y - 6);
+              ctx.lineTo(x + 7, y - 10);
+              ctx.strokeStyle = '#5a7a30';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+          if (n > 0) {
+            ell(ctx, x, by - ht - 4, 3, 6);
+            ctx.fillStyle = '#8a7a3a';
+            ctx.fill();
+          }
+        }
+      } else {
+        // Pilzgruppe auf Moos
+        blob(ctx, r, bx, by - 3, 24, 5);
+        ctx.fillStyle = '#1e2a12';
+        ctx.fill();
+        const caps = Math.round(5 * n) + (stage === 2 ? 0 : 1);
+        for (let i = 0; i < caps; i++) {
+          const x = bx - 16 + r() * 32, ht = 8 + r() * 14, w = 6 + r() * 6;
+          ctx.fillStyle = '#c8b8a0';
+          ctx.fillRect(x - 1.5, by - ht, 3, ht);
+          ell(ctx, x, by - ht, w, w * 0.55);
+          fillStroke(ctx, vgrad(ctx, by - ht - w, by - ht, [[0, theme === 'reptil' ? '#b0603a' : '#c89a5a'], [1, '#6a4a2a']]), '#2a1a0a', 0.8);
+        }
+      }
+      break;
+    case 'eis':
+      if (v === 1) {
+        // Flechten und Moos auf einem Stein
+        blob(ctx, r, bx, by - 10, 24, 12);
+        fillStroke(ctx, vgrad(ctx, by - 22, by, [[0, '#5a6066'], [1, '#22282c']]), '#0c0e10', 1.2);
+        const tufts = Math.round(12 * n);
+        for (let i = 0; i < tufts; i++) {
+          ell(ctx, bx - 18 + r() * 36, by - 14 - r() * 10, 3 + r() * 3, 2 + r() * 2);
+          ctx.fillStyle = r() > 0.5 ? '#8a9a5a' : '#a8a070';
+          ctx.fill();
+        }
+      } else {
+        // Grasbüschel mit Samen
+        const blades = 6 + Math.round(12 * n);
+        for (let i = 0; i < blades; i++) {
+          const x = bx - 14 + r() * 28, ht = (stage === 2 ? 8 : 20 + r() * 26);
+          ctx.beginPath();
+          ctx.moveTo(x, by);
+          ctx.quadraticCurveTo(x + (r() - 0.5) * 10, by - ht * 0.6, x + (r() - 0.5) * 16, by - ht);
+          ctx.strokeStyle = r() > 0.4 ? '#9a8a5a' : '#6a6a3a';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+          if (n > 0 && i % 3 === 0) {
+            ell(ctx, x + (r() - 0.5) * 12, by - ht, 1.8, 4);
+            ctx.fillStyle = '#c8b070';
+            ctx.fill();
+          }
+        }
+      }
+      break;
+    case 'eden':
+      if (v === 1) {
+        // junger Obstbaum
+        ctx.fillStyle = '#2a1c10';
+        ctx.fillRect(bx - 2.5, by - 30, 5, 30);
+        ell(ctx, bx, by - 38, 22, 14);
+        fillStroke(ctx, vgrad(ctx, by - 52, by - 24, [[0, '#3e5222'], [1, '#18220c']]), '#0a0e06', 1);
+        const fr = Math.round(7 * n);
+        for (let i = 0; i < fr; i++) {
+          ell(ctx, bx - 16 + r() * 32, by - 42 + r() * 14, 3.2, 3.2);
+          fillStroke(ctx, rgrad(ctx, bx - 2, by - 40, 0, 22, [[0, '#e04a2a'], [1, '#7a160a']]), '#2a0604', 0.8);
+        }
+      } else {
+        // hohes Gras mit goldenen Ähren
+        const blades = 8 + Math.round(10 * n);
+        for (let i = 0; i < blades; i++) {
+          const x = bx - 18 + r() * 36, ht = (stage === 2 ? 10 : 26 + r() * 30);
+          ctx.beginPath();
+          ctx.moveTo(x, by);
+          ctx.quadraticCurveTo(x + (r() - 0.5) * 8, by - ht * 0.5, x + (r() - 0.5) * 14, by - ht);
+          ctx.strokeStyle = r() > 0.5 ? '#5a6a2a' : '#3e4e1e';
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+          if (n > 0 && i % 2 === 0) {
+            ell(ctx, x + (r() - 0.5) * 10, by - ht, 2.2, 6, 0.2);
+            ctx.fillStyle = '#d8b04a';
+            ctx.fill();
+          }
+        }
+      }
+      break;
   }
 }
 
@@ -918,11 +1068,11 @@ export function coverTextures(scene: Phaser.Scene, theme: Theme): string[] {
 // Deko (Hintergrund, nicht interaktiv) – Ursprung unten Mitte
 
 export const DECOR: Record<Theme, string[]> = {
-  ozean: ['rock', 'shell', 'seaweed', 'rock', 'bones'],
-  sumpf: ['stump', 'mushroom', 'reed', 'bones', 'rock'],
-  reptil: ['boulder', 'bones', 'skull', 'stump', 'rock'],
-  eis: ['rock_snow', 'bones', 'deadtree', 'rock_snow'],
-  eden: ['rock', 'skull', 'stump', 'reed', 'bones'],
+  ozean: ['rock', 'shell', 'seaweed', 'rock', 'bones', 'anemone', 'coral', 'seaweed', 'sponge'],
+  sumpf: ['stump', 'mushroom', 'reed', 'bones', 'rock', 'fern', 'reed', 'fern'],
+  reptil: ['boulder', 'bones', 'skull', 'stump', 'rock', 'fern', 'cycad'],
+  eis: ['rock_snow', 'bones', 'deadtree', 'rock_snow', 'grass'],
+  eden: ['rock', 'skull', 'stump', 'reed', 'bones', 'fern', 'grass', 'grass'],
 };
 
 export function decorTextures(scene: Phaser.Scene) {
@@ -1043,6 +1193,91 @@ export function decorTextures(scene: Phaser.Scene) {
     ell(ctx, w / 2 + 3, 12, 3, 9);
     ctx.fillStyle = '#2a1c10';
     ctx.fill();
+  });
+  T('anemone', 34, 30, (ctx, w, h) => {
+    for (let i = 0; i < 14; i++) {
+      const a = -Math.PI / 2 + (i - 6.5) * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, h - 6);
+      ctx.quadraticCurveTo(w / 2 + Math.cos(a) * 9, h - 6 + Math.sin(a) * 14, w / 2 + Math.cos(a) * 14, h - 6 + Math.sin(a) * 18);
+      ctx.strokeStyle = i % 2 ? '#a0506a' : '#c8708a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ell(ctx, w / 2, h - 4, 7, 4);
+    ctx.fillStyle = '#5a2a3a';
+    ctx.fill();
+  });
+  T('coral', 46, 44, (ctx, w, h) => {
+    const branch = (x: number, y: number, a: number, len: number, d: number) => {
+      const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = d > 1 ? '#8a5a4a' : '#b07a5a';
+      ctx.lineWidth = 2 + d;
+      ctx.stroke();
+      if (d > 0) {
+        branch(x2, y2, a - 0.45, len * 0.7, d - 1);
+        branch(x2, y2, a + 0.4, len * 0.7, d - 1);
+      }
+    };
+    branch(w / 2, h - 2, -Math.PI / 2, 14, 3);
+  });
+  T('sponge', 30, 34, (ctx, _w, h) => {
+    for (const [x, ht] of [[9, 22], [16, 30], [23, 18]] as const) {
+      ctx.beginPath();
+      ctx.moveTo(x - 4, h);
+      ctx.lineTo(x - 3, h - ht);
+      ctx.lineTo(x + 3, h - ht);
+      ctx.lineTo(x + 4, h);
+      ctx.closePath();
+      fillStroke(ctx, vgrad(ctx, h - ht, h, [[0, '#a08a4a'], [1, '#4a3a1e']]), '#1a1408', 1);
+      ell(ctx, x, h - ht, 3, 1.4);
+      ctx.fillStyle = '#20180a';
+      ctx.fill();
+    }
+  });
+  T('fern', 60, 46, (ctx, w, h) => {
+    for (let k = 0; k < 6; k++) {
+      const a = -Math.PI / 2 + (k - 2.5) * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, h);
+      ctx.quadraticCurveTo(w / 2 + Math.cos(a) * 16, h + Math.sin(a) * 34, w / 2 + Math.cos(a) * 28, h + Math.sin(a) * 26);
+      ctx.strokeStyle = '#1c2a12';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      for (let i = 1; i < 6; i++) {
+        const t = i / 6;
+        ell(ctx, w / 2 + Math.cos(a) * 28 * t, h + Math.sin(a) * (34 * t - 8 * t * t), 4 * (1 - t * 0.5), 1.5, a + Math.PI / 2);
+        ctx.fillStyle = k % 2 ? '#26361a' : '#2e421e';
+        ctx.fill();
+      }
+    }
+  });
+  T('cycad', 54, 54, (ctx, w, h) => {
+    ctx.fillStyle = '#2a1c10';
+    for (let y = h; y > h - 16; y -= 4) ctx.fillRect(w / 2 - 5, y - 4, 10, 3);
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + (k - 3) * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, h - 16);
+      ctx.quadraticCurveTo(w / 2 + Math.cos(a) * 14, h - 16 + Math.sin(a) * 22, w / 2 + Math.cos(a) * 24, h - 16 + Math.sin(a) * 10 + 10);
+      ctx.strokeStyle = k % 2 ? '#24321a' : '#2e3e1e';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+    }
+  });
+  T('grass', 44, 30, (ctx, w, h) => {
+    for (let i = 0; i < 14; i++) {
+      const x = 6 + r() * (w - 12), ht = 10 + r() * 18;
+      ctx.beginPath();
+      ctx.moveTo(x, h);
+      ctx.quadraticCurveTo(x + (r() - 0.5) * 6, h - ht * 0.5, x + (r() - 0.5) * 10, h - ht);
+      ctx.strokeStyle = r() > 0.5 ? '#4a4e2a' : '#5e5a32';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
   });
   T('deadtree', 70, 120, (ctx, w, h) => {
     ctx.strokeStyle = '#1a1612';
@@ -1325,6 +1560,121 @@ export function commonTextures(scene: Phaser.Scene) {
       ctx.fill();
     }
   });
+  // Rand bei schweren Verletzungen: links, rechts, oben und unten rot
+  tex(scene, 'edge_red', 640, 360, (ctx) => {
+    const side = (x0: number, y0: number, x1: number, y1: number, rx: number, ry: number, rw: number, rh: number) => {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(140,0,0,.95)');
+      g.addColorStop(0.4, 'rgba(120,0,0,.35)');
+      g.addColorStop(1, 'rgba(110,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(rx, ry, rw, rh);
+    };
+    side(0, 0, 0, 80, 0, 0, 640, 80);
+    side(0, 360, 0, 280, 0, 280, 640, 80);
+    side(0, 0, 120, 0, 0, 0, 120, 360);
+    side(640, 0, 520, 0, 520, 0, 120, 360);
+  });
+  // Ein Brocken rohes Fleisch (hängt nach dem Fressen aus dem Maul)
+  tex(scene, 'meat_chunk', 44, 34, (ctx) => {
+    const r = mulberry32(31);
+    blob(ctx, r, 22, 17, 16, 11, 10);
+    fillStroke(ctx, rgrad(ctx, 18, 13, 2, 20, [[0, '#d0584a'], [0.6, '#8a1a14'], [1, '#4a0806']]), '#2a0402', 1.2);
+    ctx.beginPath();
+    ctx.moveTo(10, 14);
+    ctx.quadraticCurveTo(20, 9, 32, 15);
+    ctx.strokeStyle = 'rgba(240,210,190,.7)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ell(ctx, 34, 22, 4, 2.4, 0.4);
+    ctx.fillStyle = '#e8dcc4';
+    ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      ell(ctx, 14 + i * 7, 28 + (i % 2) * 2, 1.6, 3);
+      ctx.fillStyle = 'rgba(110,4,2,.9)';
+      ctx.fill();
+    }
+  });
+  // Blut an der Schnauze
+  tex(scene, 'muzzle_blood', 44, 26, (ctx) => {
+    const r = mulberry32(17);
+    blob(ctx, r, 22, 11, 18, 7, 11);
+    ctx.fillStyle = 'rgba(120,8,6,.8)';
+    ctx.fill();
+    for (let i = 0; i < 4; i++) {
+      const x = 10 + i * 8 + r() * 3;
+      ctx.beginPath();
+      ctx.moveTo(x - 1.5, 14);
+      ctx.quadraticCurveTo(x, 20 + r() * 5, x + 1.5, 14);
+      ctx.fillStyle = 'rgba(100,4,2,.85)';
+      ctx.fill();
+    }
+  });
+  // Blutwolke im Wasser, Blutfleck am Boden
+  tex(scene, 'blood_cloud', 48, 48, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 24, 24, 2, 24, [[0, 'rgba(130,8,6,.85)'], [0.6, 'rgba(110,6,4,.4)'], [1, 'rgba(90,4,2,0)']]);
+    ctx.fillRect(0, 0, 48, 48);
+  });
+  tex(scene, 'blood_splat', 64, 18, (ctx) => {
+    const r = mulberry32(23);
+    blob(ctx, r, 32, 10, 26, 5, 12);
+    ctx.fillStyle = 'rgba(90,6,4,.85)';
+    ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      ell(ctx, 8 + r() * 48, 6 + r() * 8, 1.5 + r() * 2.5, 1 + r() * 1.5);
+      ctx.fillStyle = 'rgba(70,4,2,.9)';
+      ctx.fill();
+    }
+  });
+  // Licht von der Wasseroberfläche
+  tex(scene, 'lightray', 140, 560, (ctx) => {
+    const g = ctx.createLinearGradient(0, 0, 0, 560);
+    g.addColorStop(0, 'rgba(200,240,235,.55)');
+    g.addColorStop(0.5, 'rgba(160,220,215,.18)');
+    g.addColorStop(1, 'rgba(140,200,200,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(45, 0);
+    ctx.lineTo(95, 0);
+    ctx.lineTo(140, 560);
+    ctx.lineTo(0, 560);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalCompositeOperation = 'destination-in';
+    const h = ctx.createLinearGradient(0, 0, 140, 0);
+    h.addColorStop(0, 'rgba(0,0,0,0)');
+    h.addColorStop(0.5, 'rgba(0,0,0,1)');
+    h.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = h;
+    ctx.fillRect(0, 0, 140, 560);
+  });
+  tex(scene, 'surface_light', 64, 360, (ctx) => {
+    const g = ctx.createLinearGradient(0, 0, 0, 360);
+    g.addColorStop(0, 'rgba(190,235,230,.7)');
+    g.addColorStop(0.25, 'rgba(150,210,205,.28)');
+    g.addColorStop(1, 'rgba(120,180,180,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 360);
+  });
+  // Lichtnetz (Kaustik) – zwei Lagen, die sich gegeneinander verschieben
+  causticTex(scene, 'caustics', 57);
+  causticTex(scene, 'caustics2', 91);
+  // Höhle: dunkler Fels als Rückwand, Augenleuchten
+  tex(scene, 'cave_back', 128, 128, (ctx) => {
+    ctx.fillStyle = '#0a0d0e';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = pattern(ctx, 'stone', 0.6);
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(60,70,70,.12)';
+    ctx.fillRect(0, 0, 128, 128);
+  });
+  tex(scene, 'eyeglint', 24, 24, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 12, 12, 0, 12, [[0, 'rgba(255,250,220,1)'], [0.25, 'rgba(255,230,160,.8)'], [1, 'rgba(255,200,120,0)']]);
+    ctx.fillRect(0, 0, 24, 24);
+  });
   // Glühender Brocken (Meteoritenregen)
   tex(scene, 'fireball', 48, 48, (ctx) => {
     ctx.fillStyle = rgrad(ctx, 24, 24, 2, 24, [[0, 'rgba(255,240,190,1)'], [0.35, 'rgba(255,150,50,.95)'], [0.7, 'rgba(160,40,10,.5)'], [1, 'rgba(60,10,0,0)']]);
@@ -1346,6 +1696,120 @@ export function commonTextures(scene: Phaser.Scene) {
     ctx.fillRect(0, 0, 220, 60);
     ctx.restore();
   });
+}
+
+/**
+ * Kaustik: das wabernde Lichtnetz unter der Wasseroberfläche (Zellränder eines Voronoi-Musters),
+ * waagerecht kachelbar und nach unten auslaufend.
+ */
+function causticTex(scene: Phaser.Scene, key: string, seed: number) {
+  const w = 256, h = 200;
+  tex(scene, key, w, h, (ctx) => {
+    const r = mulberry32(seed);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < 34; i++) pts.push([r() * w, r() * h * 1.1]);
+    const img = ctx.createImageData(w, h);
+    const d = img.data;
+    const TAU = Math.PI * 2;
+    for (let y = 0; y < h; y++) {
+      const fade = Math.pow(1 - y / h, 1.6);
+      for (let x = 0; x < w; x++) {
+        // leicht verbogen, damit die Linien wellig wirken (in x periodisch)
+        const qx = x + 5 * Math.sin((y / h) * TAU * 2 + seed);
+        const qy = y + 5 * Math.sin((x / w) * TAU * 3);
+        let d1 = 1e9, d2 = 1e9;
+        for (const [px, py] of pts) {
+          let dx = Math.abs(qx - px) % w;
+          if (dx > w / 2) dx = w - dx;
+          const dy = qy - py;
+          const dd = dx * dx + dy * dy;
+          if (dd < d1) {
+            d2 = d1;
+            d1 = dd;
+          } else if (dd < d2) d2 = dd;
+        }
+        const v = Math.pow(1 - Math.min(1, (Math.sqrt(d2) - Math.sqrt(d1)) / 5), 2) * fade;
+        const i = (y * w + x) * 4;
+        d[i] = 205;
+        d[i + 1] = 245;
+        d[i + 2] = 238;
+        d[i + 3] = Math.round(v * 255);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+}
+
+/**
+ * Schatten einer Höhle: weiche, unregelmäßige Ränder, hinten fast schwarz, zum Eingang
+ * (links unten) heller – dazu Tropfsteine an der Decke. Gibt Schlüssel und Versatz zur Höhle zurück.
+ */
+export function caveShade(scene: Phaser.Scene, cw: number, ch: number, T: number, seed: number, gnd: string) {
+  const M = 30;
+  const tw = cw + T + 2 * M, th = ch + 2 * M;
+  const key = `cave_shade_${gnd}_${cw}x${ch}_${seed}`;
+  tex(scene, key, tw, th, (ctx) => {
+    const r = mulberry32(seed + 11);
+    const ix = M + T, iy = M;
+    // Felsbrocken entlang der Öffnung: Die Höhle wird rund statt eckig
+    const rock = ctx.createPattern(scene.textures.get(gnd).getSourceImage() as HTMLCanvasElement, 'repeat');
+    const lump = (x: number, y: number, rad: number) => {
+      blob(ctx, r, x, y, rad, rad * (0.75 + r() * 0.3), 8);
+      ctx.fillStyle = rock ?? '#1a2022';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    };
+    for (let x = ix + 10; x < ix + cw - 10; x += 14 + r() * 12) lump(x, iy - 2, 6 + r() * 6);
+    for (let y = iy + 14; y < iy + ch - 6; y += 14 + r() * 12) lump(ix + cw + 3, y, 8 + r() * 8);
+    for (let y = iy + 12; y < iy + 2 * T - 4; y += 14 + r() * 10) lump(ix - 3, y, 8 + r() * 6);
+    for (let x = M + 8; x < ix + 4; x += 12 + r() * 8) lump(x, iy + 2 * T + 2, 7 + r() * 6);
+    for (let x = ix + 12; x < ix + cw - 12; x += 22 + r() * 18) lump(x, iy + ch + 4, 5 + r() * 6);
+    lump(ix + 4, iy + 4, 20 + r() * 6);
+    lump(ix + cw - 4, iy + 4, 22 + r() * 6);
+    lump(ix + cw - 2, iy + ch - 2, 20 + r() * 6);
+    const stamp = (x: number, y: number, rad: number, a: number) => {
+      ctx.fillStyle = rgrad(ctx, x, y, 0, rad, [[0, `rgba(2,3,3,${a})`], [1, 'rgba(2,3,3,0)']]);
+      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    };
+    for (let y = iy + 12; y <= iy + ch - 8; y += 16) {
+      for (let x = ix + 12; x <= ix + cw - 12; x += 16) stamp(x + (r() - 0.5) * 8, y + (r() - 0.5) * 8, 22 + r() * 10, 0.8);
+    }
+    // durch den Eingang fällt der Schatten weicher nach draußen
+    for (let y = iy + ch - 2 * T + 12; y <= iy + ch - 8; y += 16) {
+      for (let x = M + 6; x <= ix; x += 16) stamp(x, y, 20 + r() * 8, 0.45);
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = rgrad(ctx, ix, iy + ch - T * 0.8, 0, T * 2.6, [[0, 'rgba(0,0,0,.55)'], [1, 'rgba(0,0,0,0)']]);
+    ctx.fillRect(0, 0, tw, th);
+    ctx.restore();
+    // Tropfsteine an der Decke, ein paar Höcker am Boden
+    for (let x = ix + 6 + r() * 10; x < ix + cw - 6; x += 12 + r() * 16) {
+      const len = 8 + r() * 24, hw = 3 + r() * 5;
+      ctx.beginPath();
+      ctx.moveTo(x - hw, iy - 2);
+      ctx.quadraticCurveTo(x - hw * 0.3, iy + len * 0.6, x, iy + len);
+      ctx.quadraticCurveTo(x + hw * 0.3, iy + len * 0.6, x + hw, iy - 2);
+      ctx.closePath();
+      ctx.fillStyle = '#121718';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(140,155,150,.18)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    for (let x = ix + 10 + r() * 20; x < ix + cw - 10; x += 26 + r() * 30) {
+      const hgt = 5 + r() * 10, hw = 4 + r() * 6;
+      ctx.beginPath();
+      ctx.moveTo(x - hw, iy + ch + 2);
+      ctx.quadraticCurveTo(x, iy + ch - hgt * 1.6, x + hw, iy + ch + 2);
+      ctx.closePath();
+      ctx.fillStyle = '#101415';
+      ctx.fill();
+    }
+  });
+  return { key, ox: -(T + M), oy: -M };
 }
 
 export const THEME_TINT: Record<Theme, number> = {

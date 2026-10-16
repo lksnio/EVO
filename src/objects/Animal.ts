@@ -99,6 +99,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   visitor: Visitor | null = null;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
+  /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
+  hitByPlayerAt = -1e9;
   protected world: World;
   protected t = 0;
   protected threatObj: Target | null = null;
@@ -842,6 +844,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.hp -= dmg * this.weak;
     this.attacker = from;
     this.attackedAt = now;
+    if (from === this.world.player) this.hitByPlayerAt = now;
     // Wer von dir angegriffen wird, vertraut dir nicht mehr
     if (from === this.world.player && (this.ally || this.bond > 0)) {
       this.ally = false;

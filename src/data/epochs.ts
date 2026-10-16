@@ -50,6 +50,8 @@ export interface EpochDef {
   dark?: boolean;
   kelp?: boolean;
   reef?: boolean;
+  /** Höhlen zum Verstecken (nur im Wasser) */
+  caves?: number;
   /** Tiere: Art und Anzahl der Gruppen */
   fauna: [string, number][];
   events: EventDef[];
@@ -61,7 +63,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
-    from: 470 * M, to: 458 * M, seconds: 100, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.9, cover: 0.5,
+    from: 470 * M, to: 458 * M, seconds: 100, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5, caves: 2,
     fauna: [['kieferlos', 3], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1]],
     events: [
       { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
@@ -71,7 +73,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
-    from: 438 * M, to: 427 * M, seconds: 110, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.7, cover: 0.95,
+    from: 438 * M, to: 427 * M, seconds: 110, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95, caves: 1,
     fauna: [['kieferlos', 3], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2]],
     events: [
       { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3, line: 'Seeskorpione jagen im Rudel durch den Tang.' },
@@ -81,7 +83,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
-    from: 382 * M, to: 372 * M, seconds: 120, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.65, cover: 0.55,
+    from: 382 * M, to: 372 * M, seconds: 120, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55, caves: 2,
     fauna: [['kieferlos', 4], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1]],
     events: [
       { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Ein Panzerfisch zieht durch das Riff.' },

@@ -33,9 +33,12 @@ export interface LevelData {
   solids: Rect[];
   platforms: Rect[];
   hazards: Rect[];
-  plants: { x: number; y: number }[];
+  /** fressbare Pflanzen (v = Art) */
+  plants: { x: number; y: number; v: number }[];
   /** Dickicht: x, y (oben), Breite, Höhe – unten endet es am Boden */
   cover: Rect[];
+  /** Höhlen: der hohle Innenraum (dort sieht man nur noch die Augen) */
+  caves: Rect[];
   spawns: Spawn[];
   decor: Decor[];
   start: { x: number; y: number };
@@ -58,6 +61,7 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     hazards: [],
     plants: [],
     cover: [],
+    caves: [],
     spawns: [],
     decor: [],
     start: { x: 0, y: 0 },
@@ -110,12 +114,12 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
     L.solids.push({ x: x0 * T, y: top * T, w: n * T, h: (rows - top) * T + 200 });
     for (let i = 0; i < n; i++) heights[Math.min(cols - 1, x0 + i)] = top;
     for (let i = 1; i < n - 1; i += rint(r, 2, 4)) {
-      if (r() < 0.45) L.decor.push({ k: pick(r, decorKinds), x: (x0 + i + r()) * T, y: top * T + 4 });
+      if (r() < 0.6) L.decor.push({ k: pick(r, decorKinds), x: (x0 + i + r()) * T, y: top * T + 4 });
     }
     // fressbare Pflanzen
     if (n >= 4) {
-      const cnt = (r() < ep.plants * 0.75 ? 1 : 0) + (r() < ep.plants * 0.4 ? 1 : 0);
-      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1.5 + r() * (n - 3)) * T, y: top * T + 2 });
+      const cnt = (r() < ep.plants * 0.85 ? 1 : 0) + (r() < ep.plants * 0.5 ? 1 : 0) + (n >= 9 && r() < ep.plants * 0.3 ? 1 : 0);
+      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1.5 + r() * (n - 3)) * T, y: top * T + 2, v: rint(r, 0, 2) });
     }
     // Dickicht
     if (n >= 6 && r() < ep.cover * (flat ? 0.8 : 0.6)) {
@@ -161,7 +165,7 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
       const pw = rint(r, 3, 4);
       const px = x + rint(r, 1, seg - pw - 1);
       L.platforms.push({ x: px * T, y: (h - jumpTiles) * T, w: pw * T, h: 20 });
-      if (r() < ep.plants * 0.5) L.plants.push({ x: (px + pw / 2) * T, y: (h - jumpTiles) * T + 2 });
+      if (r() < ep.plants * 0.5) L.plants.push({ x: (px + pw / 2) * T, y: (h - jumpTiles) * T + 2, v: rint(r, 0, 2) });
     }
     if (!nearStart && hazardOk && seg >= 8 && r() < 0.2) {
       const hx = x + rint(r, 3, seg - 4);
@@ -190,18 +194,18 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   const covered = ep.dark || ep.cave;
   let floor = 19;
   const heights: Heights = new Array(cols).fill(floor);
-  const kinds = ep.reef ? ['rock', 'shell', 'seaweed', 'rock'] : DECOR.ozean;
+  const kinds = ep.reef ? ['rock', 'shell', 'seaweed', 'coral', 'coral', 'sponge', 'anemone'] : DECOR.ozean;
   const startCol = Math.floor(cols * 0.3);
 
   const floorSeg = (x0: number, n: number, top: number) => {
     L.solids.push({ x: x0 * T, y: top * T, w: n * T, h: (rows - top) * T + 200 });
     for (let i = 0; i < n; i++) heights[Math.min(cols - 1, x0 + i)] = top;
-    for (let i = 0; i < n; i += rint(r, 1, 3)) {
-      if (r() < 0.6) L.decor.push({ k: pick(r, kinds), x: (x0 + i + r()) * T, y: top * T + 6 });
+    for (let i = 0; i < n; i += rint(r, 1, 2)) {
+      if (r() < 0.7) L.decor.push({ k: pick(r, kinds), x: (x0 + i + r()) * T, y: top * T + 6 });
     }
     if (n >= 3) {
-      const cnt = (r() < ep.plants * 0.85 ? 1 : 0) + (r() < ep.plants * 0.45 ? 1 : 0);
-      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4 });
+      const cnt = (r() < ep.plants * 0.9 ? 1 : 0) + (r() < ep.plants * 0.55 ? 1 : 0) + (n >= 7 && r() < ep.plants * 0.35 ? 1 : 0);
+      for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4, v: rint(r, 0, 2) });
     }
     if (n >= 4 && r() < ep.cover * 0.65) {
       const cw = rint(r, 3, Math.min(6, n));
@@ -228,7 +232,7 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
       const px = x + rint(r, 1, seg - 2);
       const top = floor - rint(r, 3, 7);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
-      if (r() < ep.plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4 });
+      if (r() < ep.plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: rint(r, 0, 2) });
     }
     if (!nearStart && r() < 0.18) {
       const rw = rint(r, 2, 4);
@@ -242,9 +246,48 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   L.start = { x: (startCol + 0.5) * T, y: 9 * T };
+  if (ep.caves && !covered) addCaves(L, ep.caves, r, cols, heights, startCol);
   placeFauna(L, ep, r, cols, heights, true, startCol);
+  // keine Tiere im Fels der Höhlen
+  for (const sp of L.spawns) {
+    for (const c of L.caves) if (sp.x > c.x - T && sp.x < c.x + c.w + T && sp.y > c.y - 2 * T) sp.y = c.y - 3 * T;
+  }
   L.ground = heights.map((v) => v * T);
   return L;
+}
+
+/**
+ * Höhlen im Meeresgrund: Felsdach, Wände, ein niedriger Eingang. Wer drinnen still ist,
+ * ist kaum zu sehen – nur die Augen leuchten.
+ */
+function addCaves(L: LevelData, n: number, r: Rng, cols: number, heights: Heights, startCol: number) {
+  const W = 8;
+  const tried = new Set<number>();
+  for (let k = 0; k < 60 && L.caves.length < n; k++) {
+    // die erste Höhle nicht weit vom Start, damit man sie findet
+    const c0 = L.caves.length === 0 ? startCol + rint(r, 7, 16) * (r() < 0.5 ? 1 : -1) : rint(r, 4, cols - W - 4);
+    if (c0 < 3 || c0 + W > cols - 3 || tried.has(c0)) continue;
+    tried.add(c0);
+    const f = heights[c0];
+    let flat = true;
+    for (let i = 0; i < W; i++) if (heights[c0 + i] !== f) flat = false;
+    if (!flat) continue;
+    const x0 = c0 * T, x1 = (c0 + W) * T;
+    if (L.caves.some((c) => x0 < c.x + c.w + 4 * T && x1 > c.x - 4 * T)) continue;
+    if (L.solids.some((s) => s.x < x1 && s.x + s.w > x0 && s.y < f * T && s.y + s.h > (f - 7) * T && s.y > 0)) continue;
+    // Dach (zweilagig, oben schmaler), rechte Wand, linke Wand mit Eingang darunter
+    L.solids.push({ x: x0, y: (f - 5) * T, w: W * T, h: T });
+    L.solids.push({ x: x0 + T, y: (f - 6) * T, w: (W - 2) * T, h: T });
+    L.solids.push({ x: x1 - T, y: (f - 4) * T, w: T, h: 4 * T });
+    L.solids.push({ x: x0, y: (f - 4) * T, w: T, h: 2 * T });
+    L.caves.push({ x: x0 + T, y: (f - 4) * T, w: (W - 2) * T, h: 4 * T });
+    for (let i = -1; i < W + 1; i++) if (r() < 0.5) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: x0 + (i + 0.5) * T, y: (f - 6) * T + 4 });
+  }
+  // Pflanzen, Dickicht und Deko im Innern entfernen
+  const inside = (x: number, y: number) => L.caves.some((c) => x > c.x - T && x < c.x + c.w + T && y > c.y - 2 * T && y <= c.y + c.h + 8);
+  L.plants = L.plants.filter((p) => !inside(p.x, p.y - 10));
+  L.cover = L.cover.filter((c) => !L.caves.some((cv) => c.x < cv.x + cv.w + T && c.x + c.w > cv.x - T));
+  L.decor = L.decor.filter((d) => !inside(d.x, d.y - 4) || d.y < L.caves[0]?.y);
 }
 
 /** Ein Lebensraum für dieses Zeitalter – bei jedem Lauf etwas anders. */

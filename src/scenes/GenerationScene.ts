@@ -184,16 +184,38 @@ export class GenerationScene extends Phaser.Scene {
     });
   }
 
-  /** Jahrmillionen vergehen – die Uhr rast bis zum nächsten Zeitalter. */
+  /**
+   * Jahrmillionen vergehen – die Uhr rast bis zum nächsten Zeitalter. Was sich im Zeitalter
+   * bewährt hat, setzt sich dabei fort: Je mehr Zeit vergeht, desto deutlicher verändert sich die Art.
+   */
   private timeJump() {
     const d = this.d;
     const ep = EPOCHS[d.epoch];
     const nx = EPOCHS[d.epoch + 1];
     const gap = ep.to - nx.from;
-    const head = title(this, W / 2, 230, `${spanWords(gap)} vergehen …`, 38).setOrigin(0.5);
-    const clock = text(this, W / 2, 300, yearsAgo(ep.to, 1e5), 26, UI.bone).setOrigin(0.5);
+    const head = title(this, W / 2, 150, `${spanWords(gap)} vergehen …`, 38).setOrigin(0.5);
+    const clock = text(this, W / 2, 214, yearsAgo(ep.to, 1e5), 26, UI.bone).setOrigin(0.5);
     this.fadeInAll([head, clock], 0, 1, 600);
     audio.sfx('evolve');
+
+    // dein Tier, während die Zeit vergeht
+    const mNow = this.look();
+    const mLater = d.drifted ? this.look({ traits: d.drifted }) : mNow;
+    const gy = 520, scale = 1.8;
+    const [v1, b1] = this.creature(mNow, W / 2, gy, scale);
+    const parts: GO[] = [v1, b1];
+    this.fadeInAll([v1, b1], 200, 1, 700);
+    if (morphKey(mLater) !== morphKey(mNow)) {
+      const [v2] = this.creature(mLater, W / 2, gy, scale);
+      v2.setAlpha(0);
+      parts.push(v2);
+      const glow = this.add.image(W / 2, gy - 70, 'glow').setScale(3.4).setTint(0xe6d0a0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+      parts.push(glow);
+      this.tweens.add({ targets: glow, alpha: 0.4, duration: 900, delay: 900, yoyo: true, hold: 600 });
+      this.tweens.add({ targets: v1, alpha: 0, duration: 1100, delay: 1300 });
+      this.tweens.add({ targets: v2, alpha: 1, duration: 1100, delay: 1300 });
+    }
+
     const c = { y: ep.to };
     this.tweens.add({
       targets: c,
@@ -202,14 +224,16 @@ export class GenerationScene extends Phaser.Scene {
       ease: 'Sine.inOut',
       onUpdate: () => clock.setText(yearsAgo(c.y, Math.max(1, gap / 200))),
       onComplete: () => {
-        this.time.delayedCall(500, () => {
+        this.time.delayedCall(900, () => {
           this.tweens.add({
-            targets: [head, clock],
+            targets: [head, clock, ...parts],
             alpha: 0,
             duration: 600,
             onComplete: () => {
               head.destroy();
               clock.destroy();
+              parts.forEach((o) => o.destroy());
+              this.views = [];
               if (d.transition) this.transform();
               else fadeTo(this, 'Level', { epoch: d.epoch + 1 }, 900);
             },
@@ -224,7 +248,7 @@ export class GenerationScene extends Phaser.Scene {
     const d = this.d;
     const tr = d.transition!;
     const gy = 470, scale = 2.3;
-    const [from, fb] = this.creature(this.look({ cls: tr.from }), W / 2, gy, scale);
+    const [from, fb] = this.creature(this.look({ cls: tr.from, traits: d.drifted }), W / 2, gy, scale);
     this.fadeInAll([from, fb], 0, 1, 800);
     const head = title(this, W / 2, 86, 'Die Zeit vergeht …', 44).setOrigin(0.5);
     this.fadeInAll([head], 0);
@@ -237,7 +261,7 @@ export class GenerationScene extends Phaser.Scene {
       from.destroy();
       fb.destroy();
       this.views = [];
-      const [to] = this.creature(this.look({ cls: tr.to }), W / 2, gy, scale);
+      const [to] = this.creature(this.look({ cls: tr.to, traits: d.drifted }), W / 2, gy, scale);
       const s = { k: 0.9 };
       to.setBaseScale(scale * s.k);
       this.tweens.add({ targets: s, k: 1, duration: 900, ease: 'Back.out', onUpdate: () => to.setBaseScale(scale * s.k) });

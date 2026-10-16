@@ -5,7 +5,7 @@ export type Sfx =
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
-  | 'call' | 'bond' | 'rumble' | 'extinct';
+  | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub';
 
 interface ToneOpts {
   f: number;
@@ -484,6 +484,20 @@ export class AudioEngine {
         break;
       case 'buzz':
         this.tone({ f: 130, f2: 170, d: 0.5, type: 'sawtooth', v: 0.06, filter: 700 });
+        break;
+      case 'charge':
+        // Anlauf zum Rammstoß
+        this.noise({ d: 0.3, v: 0.25, filter: 300, f2: 1600, type: 'bandpass', q: 1.3 });
+        this.tone({ f: 90, f2: 160, d: 0.25, type: 'sawtooth', v: 0.08, filter: 600 });
+        break;
+      case 'tear':
+        // Fleisch reißen
+        this.noise({ d: 0.16, v: 0.3, filter: 900, f2: 400, type: 'bandpass', q: 2 });
+        this.noise({ d: 0.1, v: 0.18, filter: 1600, type: 'bandpass', q: 3, t: 0.08 });
+        break;
+      case 'snub':
+        // Artgenosse wendet sich ab
+        this.tone({ f: 520, f2: 330, d: 0.18, type: 'triangle', v: 0.05, filter: 1500 });
         break;
       case 'call':
         // Warnruf der Artgenossen

@@ -5,13 +5,13 @@ import { bus, game, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData } from '../level/LevelGen';
-import { coverTextures, groundTextures, levelBackgrounds, plantTextures, THEME_TINT } from '../art/worldArt';
+import { caveShade, coverTextures, groundTextures, levelBackgrounds, plantTextures, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
 import { Player, FULL } from '../objects/Player';
-import { Animal, type World } from '../objects/Animal';
-import { Kin } from '../objects/Kin';
+import { Animal } from '../objects/Animal';
+import { Kin, type KinWorld } from '../objects/Kin';
 import { Carcass, Plant } from '../objects/Food';
 import { fadeIn, fadeTo } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -33,6 +33,8 @@ export interface SurvivedData {
   kinAlive: number;
   kinLooks: Morph[];
   transition?: { from: Morph['cls']; to: Morph['cls'] };
+  /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter */
+  drifted?: Traits;
   finished?: boolean;
   node: string;
 }
@@ -42,7 +44,7 @@ export interface SurvivedData {
  * überlebt, dessen Linie zieht weiter. Wie, ist egal: verstecken, kämpfen, teilen.
  * Wer stirbt, beendet das Spiel: Die Linie stirbt aus.
  */
-export class LevelScene extends Phaser.Scene implements World {
+export class LevelScene extends Phaser.Scene implements KinWorld {
   ep!: EpochDef;
   epochIdx = 0;
   L!: LevelData;
@@ -69,7 +71,7 @@ export class LevelScene extends Phaser.Scene implements World {
   private darkness?: Phaser.GameObjects.Image;
   private puffer!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blood!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private glints!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private sparkle!: Phaser.GameObjects.Particles.ParticleEmitter;
   private ramHit = new Map<Animal, number>();
   private vitalsAt = 0;
   private clockAt = 0;
@@ -94,6 +96,10 @@ export class LevelScene extends Phaser.Scene implements World {
   private huntMusic = 0;
   private huntLost = 0;
   private announced = new Set<string>();
+  private bloodClouds?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private caustics: { s: Phaser.GameObjects.TileSprite; v: number }[] = [];
+  private glints = new Map<object, Phaser.GameObjects.Image>();
+  private leftNoted = false;
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -130,6 +136,10 @@ export class LevelScene extends Phaser.Scene implements World {
     this.huntMusic = this.huntLost = 0;
     this.announced = new Set();
     this.nextMigrate = 0;
+    this.glints = new Map();
+    this.leftNoted = false;
+    this.bloodClouds = undefined;
+    this.caustics = [];
   }
 
   create() {
@@ -168,8 +178,12 @@ export class LevelScene extends Phaser.Scene implements World {
       this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
     }
     plantTextures(this, L.theme);
-    for (const p of L.plants) this.plants.push(new Plant(this, p.x, p.y, L.theme));
+    for (const p of L.plants) this.plants.push(new Plant(this, p.x, p.y, L.theme, 3, p.v));
     this.buildCover();
+    this.buildCaves();
+    // Artgenossen verstecken sich auch in Höhlen
+    this.cover = [...L.cover, ...L.caves];
+    if (this.water && L.surfaceY > 0) this.surfaceLight();
 
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
@@ -192,7 +206,13 @@ export class LevelScene extends Phaser.Scene implements World {
       speed: { min: 40, max: 160 }, lifespan: 700, scale: { start: 0.9, end: 0.2 }, alpha: { start: 0.9, end: 0 },
       gravityY: this.water ? 30 : 500, emitting: false,
     }).setDepth(DEPTH.fx);
-    this.glints = this.add.particles(0, 0, 'p_dot', {
+    if (this.water) {
+      this.bloodClouds = this.add.particles(0, 0, 'blood_cloud', {
+        speed: { min: 4, max: 26 }, lifespan: 2600, scale: { start: 0.35, end: 1.6 }, alpha: { start: 0.75, end: 0 },
+        gravityY: -4, emitting: false,
+      }).setDepth(DEPTH.fx - 2);
+    }
+    this.sparkle = this.add.particles(0, 0, 'p_dot', {
       speed: { min: 10, max: 50 }, lifespan: 1400, scale: { start: 0.5, end: 0 }, alpha: { start: 0.9, end: 0 },
       gravityY: -30, tint: [0xffd890, 0xfff0c8], emitting: false, blendMode: Phaser.BlendModes.ADD,
     }).setDepth(DEPTH.fx);
@@ -229,11 +249,27 @@ export class LevelScene extends Phaser.Scene implements World {
 
   private addSolid(r: Rect, gnd: string, top: string) {
     this.add.tileSprite(r.x, r.y, r.w, r.h, gnd).setOrigin(0).setDepth(DEPTH.terrain);
-    if (r.y > 0) this.add.tileSprite(r.x - 4, r.y - 10, r.w + 8, 30, top).setOrigin(0).setDepth(DEPTH.terrain + 1);
-    else this.add.rectangle(r.x, r.y + r.h - 8, r.w, 8, 0x000000, 0.4).setOrigin(0).setDepth(DEPTH.terrain + 1);
+    if (r.y > 0) {
+      for (const [x0, x1] of this.exposedTop(r)) this.add.tileSprite(x0 - 4, r.y - 10, x1 - x0 + 8, 30, top).setOrigin(0).setDepth(DEPTH.terrain + 1);
+    } else this.add.rectangle(r.x, r.y + r.h - 8, r.w, 8, 0x000000, 0.4).setOrigin(0).setDepth(DEPTH.terrain + 1);
     const rect = this.add.rectangle(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h).setVisible(false);
     this.solids.add(rect);
     this.solidRects.push(r);
+  }
+
+  /** Die Abschnitte der Oberkante, auf denen kein anderer Fels liegt (dort wächst die Grasnarbe). */
+  private exposedTop(r: Rect): [number, number][] {
+    let segs: [number, number][] = [[r.x, r.x + r.w]];
+    for (const s of this.L.solids) {
+      if (s === r || s.y + s.h !== r.y || s.x >= r.x + r.w || s.x + s.w <= r.x) continue;
+      const out: [number, number][] = [];
+      for (const [a, b] of segs) {
+        if (s.x > a) out.push([a, Math.min(b, s.x)]);
+        if (s.x + s.w < b) out.push([Math.max(a, s.x + s.w), b]);
+      }
+      segs = out.filter(([a, b]) => b - a > 2);
+    }
+    return segs;
   }
 
   private addPlatform(r: Rect, plat: string) {
@@ -285,10 +321,39 @@ export class LevelScene extends Phaser.Scene implements World {
     }
   }
 
+  /** Höhlen: dunkle Rückwand, davor ein Schatten – drinnen sieht man nur noch die Augen. */
+  private buildCaves() {
+    this.L.caves.forEach((c, i) => {
+      this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
+      const sh = caveShade(this, c.w, c.h, TILE, i % 3, groundTextures(this, this.L.theme).gnd);
+      this.add.image(c.x + sh.ox, c.y + sh.oy, sh.key).setOrigin(0).setDepth(DEPTH.cover);
+    });
+  }
+
+  /** Licht von oben: Lichtbahnen, Kaustik und ein heller Schein unter der Oberfläche. */
+  private surfaceLight() {
+    const L = this.L;
+    // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
+    this.add.tileSprite(0, L.surfaceY - 8, L.width, 352, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
+      .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.42);
+    for (const [key, a, v] of [['caustics', 0.34, 9], ['caustics2', 0.26, -6]] as const) {
+      const s = this.add.tileSprite(0, L.surfaceY - 4, L.width, 194, key).setOrigin(0).setDepth(DEPTH.decoBack - 1)
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a);
+      this.caustics.push({ s, v });
+    }
+    for (let x = 120; x < L.width; x += 260 + ((x * 37) % 220)) {
+      const ray = this.add.image(x, L.surfaceY - 30, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack)
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(0.8 + ((x * 13) % 7) / 10, 1.1);
+      ray.setAngle(-14 + ((x * 7) % 9));
+      this.tweens.add({ targets: ray, angle: ray.angle + 5, alpha: 0.12, yoyo: true, repeat: -1, duration: 4200 + ((x * 31) % 2500), ease: 'Sine.inOut' });
+    }
+  }
+
   /** Eine kleine Gruppe deiner eigenen Art – fast gleich, aber nicht ganz. */
   private spawnKin() {
     const st = game.stats();
-    const diet = game.traits.diet > 0.3 ? 'meat' : 'plant';
+    const d = game.traits.diet;
+    const diet = d > 0.3 ? 'meat' : 'plant';
     this.kinDef = {
       id: 'kin', name: 'Artgenosse', art: { t: 'jelly', r: 1, c: 0 }, role: 'prey', diet,
       habitat: this.water ? 'water' : 'land',
@@ -301,7 +366,9 @@ export class LevelScene extends Phaser.Scene implements World {
       const side = i % 2 ? 1 : -1;
       const x = clamp(s.x + side * (46 + Math.floor(i / 2) * 40), 60, this.L.width - 60);
       const y = this.water ? s.y + ((i % 3) - 1) * 34 : s.y;
-      const k = new Kin(this, this.kinDef, x, y, game.kinMorph(i), i);
+      const social = game.run?.social ?? 0.55;
+      const k = new Kin(this, this.kinDef, x, y, game.kinMorph(i), i, social + (Math.random() - 0.5) * 0.12);
+      k.omni = d >= -0.3 && d <= 0.3;
       k.dir = -side;
       this.animals.push(k);
     }
@@ -385,14 +452,29 @@ export class LevelScene extends Phaser.Scene implements World {
   }
 
   bleed(x: number, y: number, n: number) {
-    this.blood.explode(n, x, y);
+    this.blood.explode(Math.round(n * 2), x, y);
+    if (this.water) this.bloodClouds?.explode(Math.max(1, Math.round(n / 3)), x, y);
+    else if (n >= 5) this.splat(x, y);
+  }
+
+  /** Ein Blutfleck auf dem Boden unter der Stelle. */
+  private splat(x: number, y: number) {
+    let gy = y;
+    for (let k = 0; k < 40 && !this.solidAt(x, gy + 4); k++) gy += 8;
+    if (!this.solidAt(x, gy + 4)) return;
+    const s = this.add.image(x + (Math.random() - 0.5) * 20, gy + 2, 'blood_splat').setDepth(DEPTH.terrain + 3)
+      .setScale(0.6 + Math.random() * 0.7, 0.8).setAlpha(0.9);
+    this.tweens.add({ targets: s, alpha: 0, delay: 30000, duration: 4000, onComplete: () => s.destroy() });
   }
 
   detectFactor(a: Animal) {
     const p = this.player;
+    const t = game.traits;
     let k = p.stats.detect;
-    if (p.hidden) k *= 0.2;
+    if (p.hidden && p.inCave) k *= 0.08;
+    else if (p.hidden) k *= 0.2 * (1 - 0.5 * t.green);
     else if (p.inCover) k *= 0.5;
+    else if (p.grounded) k *= 0.75 - 0.4 * t.sand;
     k *= 0.55 + 0.6 * Math.min(1, p.speed01);
     if (this.L.variant !== 'normal') k *= 0.7;
     if (this.stormK > 0) k *= 1 - 0.45 * this.stormK;
@@ -422,12 +504,48 @@ export class LevelScene extends Phaser.Scene implements World {
   }
 
   bonded(a: Animal) {
-    this.glints.explode(14, a.x, a.y - 10);
+    this.sparkle.explode(14, a.x, a.y - 10);
     audio.sfx('bond');
   }
 
   left(a: Animal) {
     this.removeAnimal(a);
+    const g = this.glints.get(a);
+    if (g) {
+      g.destroy();
+      this.glints.delete(a);
+    }
+  }
+
+  kinSnubbed(k: Kin) {
+    audio.sfx('snub');
+    this.puff(k.x, k.y - 6, 3);
+  }
+
+  kinLeaving(k: Kin) {
+    void k;
+    if (!this.leftNoted) {
+      this.leftNoted = true;
+      bus.emit('story', 'Einige deiner Art ziehen allein weiter.');
+    }
+  }
+
+  kinShared(k: Kin) {
+    this.sparkle.explode(6, k.x, k.y - 8);
+  }
+
+  /** Die Gruppe hilft bei der Jagd auf das, was du angreifst. */
+  private callHunt(a: Animal) {
+    if (a.kin || a.ally || a.dead || a.role === 'hazard') return;
+    const p = this.player;
+    const now = this.time.now;
+    const kin = this.animals.filter((k): k is Kin => k instanceof Kin && !k.dead);
+    const groupPower = kin.reduce((sum, k) => sum + k.def.power, p.stats.power);
+    for (const k of kin) {
+      if (Math.hypot(k.x - p.x, k.y - p.y) > 460) continue;
+      const brave = a.def.power <= groupPower * 1.2 || k.loyalty > 0.75;
+      if (k.loyalty >= 0.3 && brave) k.joinHunt(a, now + 7000);
+    }
   }
 
   /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
@@ -449,8 +567,15 @@ export class LevelScene extends Phaser.Scene implements World {
       // Leiche sinkt zu Boden
       for (let k = 0; k < 80 && !this.solidAt(a.x, y + 6); k++) y += 8;
     } else y = a.b.bottom;
-    this.carcasses.push(new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, byPlayer));
-    if (byPlayer) game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
+    // Beute, an der du beteiligt warst, gilt als deine – wer davon mitfrisst, teilt mit dir
+    const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
+    this.carcasses.push(new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, ours));
+    if (byPlayer) {
+      game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
+      this.player.view.showMeat(4500);
+      audio.sfx('tear');
+    }
+    this.bleed(a.x, a.y, 10);
     if (a.visitor) {
       this.cameras.main.shake(600, 0.012);
       audio.sfx('boom');
@@ -468,6 +593,7 @@ export class LevelScene extends Phaser.Scene implements World {
       hit = true;
       a.hurt(st.bite, p, 'bite');
       game.grow('jaw', 0.004);
+      if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
     }
@@ -479,10 +605,18 @@ export class LevelScene extends Phaser.Scene implements World {
       if (c.gone || c.units <= 0 || !overlaps(rect, c.rect)) continue;
       if (p.eat(24 * st.digestMeat)) {
         c.take();
+        c.playerBites++;
         game.grow('jaw', 0.012);
         game.shiftDiet(0.05);
         game.grow('growth', 0.012 * st.digestMeat);
         this.puff(c.x, c.y - 10, 4, 0x6a1a10);
+        this.bleed(c.x, c.y - 8, 3);
+        p.view.showMeat(3000);
+        audio.sfx('tear');
+        // Wer warten musste und nichts bekam, wendet sich ab
+        if (c.units <= 0) {
+          for (const w of c.wanted) if (w instanceof Kin && !c.ateFrom.has(w)) w.snub(0.24);
+        }
       }
       return;
     }
@@ -490,6 +624,7 @@ export class LevelScene extends Phaser.Scene implements World {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       if (p.eat(15 * st.digestPlant)) {
         pl.take(this.time.now);
+        if (pl.units <= 0) for (const w of pl.wanted) if (w instanceof Kin) w.snub(0.07);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
         game.grow('growth', 0.007 * st.digestPlant);
@@ -499,21 +634,35 @@ export class LevelScene extends Phaser.Scene implements World {
     }
   }
 
-  /** Mit hohem Tempo in ein Tier rennen. */
-  private ram(a: Animal) {
+  /**
+   * Zusammenstoß: Wer in ein Tier hineinschwimmt oder -rennt, verletzt beide.
+   * Wer dabei mehr austeilt, dessen Kopf wird stacheliger; wer mehr einsteckt, dessen Schädel härter.
+   * Ein gezielter Rammstoß (erst mit hartem Kopf) trifft viel stärker und schont den eigenen Kopf.
+   */
+  private collide(a: Animal, approach: number, rammed: boolean) {
     const p = this.player;
     const st = p.stats;
-    const sf = clamp((p.speed01 - 0.7) / 0.6, 0.3, 1);
+    const t = game.traits;
+    const sf = rammed ? 1.3 : clamp(approach, 0.5, 1.4);
     this.ramHit.set(a, this.time.now);
-    a.hurt(st.ram * (0.6 + 0.8 * sf), p, 'ram');
-    // kleine Tiere werden einfach umgestoßen, an großen prallt man ab
+    const dealt = st.ram * sf * (rammed ? 1.6 : 0.7);
+    const plates = Math.max(0, -t.spike) * t.skull;
+    const back = (a.def.power * 0.32 + a.def.dmg * 0.25) * sf * (rammed ? 0.45 : 1) * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
+    a.hurt(dealt, p, 'ram');
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
-    p.recoil(a.x, st.ramSelf * sf * clamp(a.def.power / (st.power + 1), 0.2, 1.5), k);
-    game.grow('skull', 0.022 * sf);
-    if (a.role !== 'hazard') game.addAggression(0.035);
+    p.recoil(a.x, back, rammed ? k * 0.6 : k);
+    game.grow('skull', (rammed ? 0.02 : 0.012) * sf);
+    game.shiftSpike(dealt > back * 1.2 ? 0.05 : -0.05);
+    if (game.checkRamUnlock()) {
+      bus.emit('ramUnlocked');
+      game.save();
+    }
+    if (a.role !== 'hazard') game.addAggression(rammed ? 0.035 : 0.02);
+    if (!a.dead) this.callHunt(a);
     audio.sfx('ram');
-    this.cameras.main.shake(140, 0.009);
+    this.cameras.main.shake(rammed ? 180 : 110, rammed ? 0.011 : 0.007);
     this.puff((a.x + p.x) / 2, p.y, 6);
+    this.bleed((a.x + p.x) / 2, (a.y + p.y) / 2, rammed ? 8 : 4);
   }
 
   // ---------------------------------------------------------------- Ablauf
@@ -543,7 +692,9 @@ export class LevelScene extends Phaser.Scene implements World {
     this.bgMid.tilePositionX = cam.scrollX * 0.28;
     this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
     for (const t of this.lava) t.tilePositionX += dt * 25;
+    for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
     this.darkness?.setPosition(p.x, p.y);
+    this.eyeGlints();
 
     if (!p.dead && !this.ended) {
       this.elapsed += dt;
@@ -583,6 +734,31 @@ export class LevelScene extends Phaser.Scene implements World {
     }
   }
 
+  /** In der Höhle sieht man von dir und deiner Art nur noch die Augen. */
+  private eyeGlints() {
+    if (!this.L.caves.length) return;
+    // erst alle aus – so bleibt auch von Toten oder Fortgezogenen kein Leuchten zurück
+    for (const g of this.glints.values()) g.setVisible(false);
+    const inCave = (x: number, y: number) => this.L.caves.some((c) => x > c.x && x < c.x + c.w && y > c.y && y < c.y + c.h);
+    const p = this.player;
+    this.glint(p, p.view, !p.dead && p.inCave);
+    for (const a of this.animals) if (a instanceof Kin) this.glint(a, a.view, !a.dead && inCave(a.x, a.y));
+  }
+
+  private glint(key: object, v: Player['view'], show: boolean) {
+    if (!show) return;
+    let g = this.glints.get(key);
+    if (!g) {
+      g = this.add.image(0, 0, 'eyeglint').setDepth(DEPTH.cover + 1).setBlendMode(Phaser.BlendModes.ADD).setData('ph', Math.random() * 4);
+      this.glints.set(key, g);
+    }
+    const e = v.eyeWorld();
+    // gelegentlich blinzeln
+    const blink = (this.t + (g.getData('ph') as number)) % 4.3 < 0.12;
+    const sc = Math.max(0.5, e.r / 5);
+    g.setVisible(true).setPosition(e.x, e.y).setScale(sc, blink ? 0.08 : sc).setAlpha(0.9);
+  }
+
   /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. */
   private clock(time: number) {
     const ep = this.ep;
@@ -611,7 +787,7 @@ export class LevelScene extends Phaser.Scene implements World {
         this.bloomUntil = now + 20000;
         for (const pl of this.plants) {
           pl.refill();
-          this.glints.explode(4, pl.x, pl.y - 24);
+          this.sparkle.explode(4, pl.x, pl.y - 24);
         }
         break;
       case 'storm':
@@ -768,9 +944,16 @@ export class LevelScene extends Phaser.Scene implements World {
 
     // Dickicht: verstecken
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
-    p.inCover = ci >= 0;
+    p.inCave = L.caves.some((c) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h);
+    p.inCover = ci >= 0 || p.inCave;
     p.hidden = p.inCover && p.speed01 < 0.55 && !p.sprinting;
-    p.view.setShade(p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
+    const b = p.body;
+    p.grounded = !p.inCover && p.speed01 < 0.15 && (this.water ? this.solidAt(cx, b.bottom + 8) : b.blocked.down);
+    p.view.setShade(p.inCave ? 0x2a2a2a : p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
+    // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
+    if (p.hidden && ci >= 0) game.grow('green', 0.006 * dt);
+    else if (p.hidden && p.inCave) game.grow('sand', 0.005 * dt);
+    else if (p.grounded) game.grow('sand', 0.004 * dt);
     if (p.inCover !== this.wasInCover) {
       this.wasInCover = p.inCover;
       if (p.inCover) audio.sfx('rustle');
@@ -782,19 +965,22 @@ export class LevelScene extends Phaser.Scene implements World {
       this.curCover = ci;
     }
 
-    // Tiere berühren: Rammen, Angriffe, Nesseln (Artgenossen und Verbündete stören nicht)
+    // Tiere berühren: Zusammenstöße, Angriffe, Nesseln (Artgenossen und Verbündete stören nicht)
     for (const a of this.animals) {
       if (a.dead || a.kin || a.ally) continue;
       const ar = a.hitRect();
       if (!overlaps(pr, ar)) continue;
-      const inFront = Math.sign(a.x - p.x) === p.facing || this.water;
-      if (p.speed01 > 0.82 && inFront && time - (this.ramHit.get(a) ?? -1e9) > 650) {
-        if (this.water) {
-          const v = p.body.velocity;
-          const dx = a.x - p.x, dy = a.y - p.y;
-          if ((v.x * dx + v.y * dy) / (Math.hypot(dx, dy) * Math.hypot(v.x, v.y) || 1) < 0.4) continue;
-        }
-        this.ram(a);
+      const v = p.body.velocity;
+      const dx = a.x - p.x, dy = this.water ? a.y - p.y : 0;
+      const dl = Math.hypot(dx, dy) || 1;
+      const approach = Math.max(0, (v.x * dx + v.y * dy) / dl) / Math.max(1, p.stats.speed);
+      const since = time - (this.ramHit.get(a) ?? -1e9);
+      if (p.isRamming && since > 400) {
+        this.collide(a, approach, true);
+        continue;
+      }
+      if (approach > 0.5 && since > 700) {
+        this.collide(a, approach, false);
         continue;
       }
       if (a.attacking || a.role === 'hazard') {
@@ -870,7 +1056,7 @@ export class LevelScene extends Phaser.Scene implements World {
     if (this.ended) return;
     this.ended = true;
     const run = game.run!;
-    const kin = this.animals.filter((a) => a.kin && !a.dead);
+    const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
     const data: SurvivedData = {
       epoch: this.epochIdx,
       before: game.startTraits(),
@@ -878,11 +1064,13 @@ export class LevelScene extends Phaser.Scene implements World {
       cls: game.cls,
       look: { hue: run.hue, seed: run.seed, sex: run.sex },
       kinAlive: kin.length,
-      kinLooks: kin.slice(0, 3).map((k) => (k as Kin).view.m),
+      kinLooks: kin.slice(0, 3).map((k) => k.view.m),
       node: '',
     };
-    const res = game.surviveEpoch(kin.length);
+    const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
+    const res = game.surviveEpoch(kin.length, social);
     data.transition = res.transition;
+    if (res.drift && !res.finished) data.drifted = res.drift.after;
     data.finished = res.finished;
     data.node = res.node;
     bus.emit('clock', this.ep.to, 1, 1);

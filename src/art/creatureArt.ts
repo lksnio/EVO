@@ -31,6 +31,11 @@ export interface Morph {
   seed: number;
   /** 0 = ohne Angabe, 1 = Männchen (Kehlfleck, etwas kräftiger gefärbt), 2 = Weibchen */
   sex?: number;
+  /** Kopfpanzer: -1 harter Schädel … +1 Stachelkopf */
+  spike?: number;
+  /** Tarnfarbe: grün (Pflanzen) bzw. sandig (Boden, Höhlen) */
+  green?: number;
+  sand?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -50,12 +55,15 @@ export function quantize(m: Morph): Morph {
     hue: m.hue,
     seed: m.seed,
     sex: m.sex ?? 0,
+    spike: q(m.spike ?? 0, 0.25),
+    green: q(m.green ?? 0, 0.1),
+    sand: q(m.sand ?? 0, 0.1),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand].join('_');
 }
 
 interface Pal {
@@ -78,13 +86,16 @@ function palette(m: Morph): Pal {
   const p = LINEAGE[m.hue % LINEAGE.length];
   const st = m.stealth;
   const male = m.sex === 1;
+  // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
+  const g = m.green ?? 0, sd = m.sand ?? 0;
+  const camoBase = (c: number) => mix(mix(c, 0x4e6a34, Math.min(0.7, g * 0.75)), 0x8a7a5c, Math.min(0.7, sd * 0.75));
   return {
-    base: mix(mix(p.base, shade(p.camo, 0.2), st * 0.35), shade(p.base, -0.12), male ? 0.5 : 0),
-    belly: mix(p.belly, p.base, st * 0.25),
+    base: mix(mix(camoBase(p.base), shade(p.camo, 0.2), st * 0.35), shade(p.base, -0.12), male ? 0.5 : 0),
+    belly: mix(mix(p.belly, 0xa89a78, Math.min(0.6, sd * 0.6)), p.base, st * 0.25),
     dark: p.dark,
-    camo: p.camo,
+    camo: camoBase(p.camo),
     eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
-    fin: mix(p.fin, p.camo, st * 0.3),
+    fin: mix(camoBase(p.fin), p.camo, st * 0.3),
   };
 }
 
@@ -620,7 +631,104 @@ function boneFill(ctx: Ctx, y0: number, y1: number) {
 }
 
 /** Knochenwuchs am Kopf. Alles wächst stufenlos mit dem Merkmal "skull". */
+/** Stachelkopf: eine Krone aus Dornen auf Stirn und Nacken, dazu Wangenstacheln. */
+function drawSpikes(ctx: Ctx, m: Morph, hg: HeadGeo, k: number) {
+  const { L, H, mouthY, snoutH, dome, hingeX } = hg;
+  const top = -H / 2;
+  const n = 3 + Math.round(6 * k);
+  const r = mulberry32(m.seed + 77);
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    // entlang der Kopfoberkante vom Nacken zur Stirn
+    const bx = -6 + t * (L * 0.62);
+    const by = (top * 0.9 - dome) * (1 - t) + (mouthY - snoutH - 1) * t * 0.65 + top * 0.35 * t;
+    const len = (5 + 13 * k) * (0.55 + 0.45 * Math.sin(Math.PI * (0.2 + t * 0.7))) * (0.85 + r() * 0.3);
+    const w = 2.4 + 2.6 * k;
+    const tx = bx - len * 0.55, ty = by - len;
+    ctx.beginPath();
+    ctx.moveTo(bx - w / 2, by + 2);
+    ctx.quadraticCurveTo(bx - w * 0.3, by - len * 0.5, tx, ty);
+    ctx.quadraticCurveTo(bx + w * 0.2, by - len * 0.35, bx + w / 2, by + 2);
+    ctx.closePath();
+    boneFill(ctx, ty, by);
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx + len * 0.12, ty + len * 0.22);
+    ctx.strokeStyle = 'rgba(40,20,14,.8)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  }
+  // Wangenstacheln nach hinten unten
+  const cs = Math.round(1 + 2 * k);
+  for (let i = 0; i < cs; i++) {
+    const bx = hingeX - 2 - i * 4, by = H * 0.18 + i * 3;
+    const len = 4 + 7 * k;
+    ctx.beginPath();
+    ctx.moveTo(bx, by - 2);
+    ctx.lineTo(bx - len, by + len * 0.45);
+    ctx.lineTo(bx + 1, by + 2.4);
+    ctx.closePath();
+    boneFill(ctx, by - 2, by + len * 0.45);
+  }
+}
+
+/** Harter Schädel: ein dicker Knochenhelm mit Platten und Höckern. */
+function drawPlates(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo, k: number) {
+  const { L, H, mouthY, snoutH, dome } = hg;
+  const top = -H / 2;
+  const r = mulberry32(m.seed + 91);
+  const x0 = -7, x1 = L * (0.62 + 0.1 * k);
+  const yTop = top - dome - 2 - 4 * k;
+  ctx.beginPath();
+  ctx.moveTo(x0, top * 0.35);
+  ctx.quadraticCurveTo(x0 - 2, yTop + 2, L * 0.22, yTop);
+  ctx.quadraticCurveTo(L * 0.5, yTop + 1, x1, mouthY - snoutH - 1);
+  ctx.quadraticCurveTo(L * 0.45, top * 0.25, x0, top * 0.35);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, yTop, 0, top * 0.35);
+  g.addColorStop(0, css(mix(P.base, 0xc8bca0, 0.55)));
+  g.addColorStop(1, css(mix(P.base, 0x5a5040, 0.5)));
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = css(P.dark, 0.9);
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  // Nähte zwischen den Platten
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = css(P.dark, 0.55);
+  ctx.lineWidth = 1;
+  for (const t of [0.3, 0.58]) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + (x1 - x0) * t, yTop - 4);
+    ctx.quadraticCurveTo(x0 + (x1 - x0) * (t + 0.05), top * 0.1, x0 + (x1 - x0) * (t - 0.04), top * 0.45);
+    ctx.stroke();
+  }
+  // Höcker
+  for (let i = 0; i < 6 + Math.round(10 * k); i++) {
+    const x = x0 + r() * (x1 - x0) * 0.9, y = yTop + 2 + r() * (top * 0.3 - yTop);
+    ell(ctx, x, y, 0.9 + r() * 1.3 * (0.6 + k), 0.8 + r() * 1.1 * (0.6 + k));
+    ctx.fillStyle = r() > 0.5 ? 'rgba(230,220,196,.35)' : css(P.dark, 0.35);
+    ctx.fill();
+  }
+  ctx.restore();
+  // Glanzlicht oben
+  ctx.beginPath();
+  ctx.moveTo(L * 0.05, yTop + 2.5);
+  ctx.quadraticCurveTo(L * 0.25, yTop + 0.5, L * 0.42, yTop + 3);
+  ctx.strokeStyle = 'rgba(255,245,220,.35)';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+}
+
 function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
+  const sp = m.spike ?? 0;
+  if (m.skull > 0.08 && Math.abs(sp) > 0.15) {
+    const k = Math.min(1, m.skull * 1.2) * Math.min(1, Math.abs(sp) * 1.6);
+    if (sp > 0) drawSpikes(ctx, m, hg, k);
+    else drawPlates(ctx, m, P, hg, k);
+    return;
+  }
   const sk = m.skull;
   const { L, H, mouthY, snoutH, dome } = hg;
   const top = -H / 2;

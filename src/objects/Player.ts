@@ -47,6 +47,13 @@ export class Player {
   private breath = 0;
   lastSafe = { x: 0, y: 0 };
   private offY = 0;
+  private ramUntil = 0;
+  private ramReady = 0;
+  private ramDir = { x: 1, y: 0 };
+  /** in einer Höhle (nur die Augen sind zu sehen) */
+  inCave = false;
+  /** liegt still am Boden (Sandtarnung) */
+  grounded = false;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
@@ -73,7 +80,12 @@ export class Player {
   }
 
   get fast() {
-    return this.speed01 > 0.8;
+    return this.speed01 > 0.8 || this.isRamming;
+  }
+
+  /** gerade mitten im gezielten Rammstoß */
+  get isRamming() {
+    return this.host.time.now < this.ramUntil;
   }
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
@@ -137,7 +149,8 @@ export class Player {
     const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
     this.sprinting = wantSprint && this.stamina > 0.05;
     this.stamina = clamp(this.stamina + (this.sprinting ? -dt / 2.2 : dt / 4.5), 0, 1);
-    const hurtSlow = 1 - 0.25 * Math.max(0, 0.35 - this.hp / this.stats.maxHp) / 0.35;
+    // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
+    const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
     const starving = this.satiety <= 0 ? 0.85 : 1;
     const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving;
 
@@ -181,6 +194,25 @@ export class Player {
       this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
+    // Rammstoß (erst mit hartem Kopf möglich)
+    if (c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.2 && !knocked) {
+      this.ramReady = time + 1100;
+      this.ramUntil = time + 380;
+      this.stamina = Math.max(0, this.stamina - 0.25);
+      const dy = this.water ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
+      const len = Math.hypot(this.facing, dy * 0.7) || 1;
+      this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
+      audio.sfx('charge');
+      this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 5);
+    }
+    if (time < this.ramUntil) {
+      const v = this.stats.speed * 2.4;
+      if (this.water) b.setVelocity(this.ramDir.x * v, this.ramDir.y * v);
+      else b.setVelocityX(this.ramDir.x * v);
+      this.speed01 = 2.4;
+      if (Math.random() < 0.4) this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 1);
+    }
+
     // Beißen (und Fressen)
     if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 320;
@@ -188,7 +220,7 @@ export class Player {
       audio.sfx('bite');
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect()));
     }
-    this.view.headTilt = this.sprinting ? 0.18 : 0;
+    this.view.headTilt = time < this.ramUntil ? 0.42 : this.sprinting ? 0.18 : 0;
 
     // Atem und Erschöpfung sichtbar machen
     if (this.stamina < 0.25 && time > this.breath) {
@@ -254,9 +286,10 @@ export class Player {
       this.body.setVelocity(s * 220 * k, this.water ? -40 * k : -200 * k);
       this.knockUntil = this.host.time.now + 200 * k;
     } else this.body.setVelocityX(this.body.velocity.x * 0.6);
-    if (selfDmg > 0.5) {
-      this.hp = Math.max(0, this.hp - selfDmg);
-      this.lastCause = 'Beim Rammen verletzt';
+    if (selfDmg > 0.1) {
+      this.hp = Math.max(0, this.hp - selfDmg * this.stats.defense);
+      this.lastHurt = this.host.time.now;
+      this.lastCause = 'Beim Zusammenstoß verletzt';
       this.view.flash(0xffa080);
       this.host.time.delayedCall(90, () => this.view.flash(null));
       if (this.hp <= 0) this.die();

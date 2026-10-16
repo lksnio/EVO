@@ -20,24 +20,33 @@ Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleb
 
 - **Überleben, wie du willst:**
   - **Verstecken** – still im Dickicht übersehen dich die meisten Jäger; große Räuber, die nur
-    durchziehen, schwimmen fast immer einfach vorbei.
-  - **Kämpfen** – beißen, mit Anlauf rammen, dich durchfressen.
+    durchziehen, schwimmen fast immer einfach vorbei. In den Höhlen des Urmeers sieht man von dir
+    nur noch die Augen.
+  - **Kämpfen** – beißen und dich durchfressen. Wer in ein Tier hineinschwimmt oder -rennt, verletzt
+    **beide**. Mit der Zeit wird der Kopf härter – irgendwann kannst du gezielt **rammen**.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten bleiben in deiner Nähe und verteidigen dich.
   - …oder eine Mischung davon.
 - **Deine Art:** Jedes Zeitalter beginnt mit einer kleinen Gruppe von Artgenossen – fast wie du,
-  mit kleinen Abweichungen, Männchen (mit Kehlfleck) und Weibchen. Sie folgen dir, fressen, warnen
-  mit Rufen, fliehen und verstecken sich mit dir. Wer mit dir überlebt, bekommt Nachwuchs.
+  mit kleinen Abweichungen, Männchen (mit Kehlfleck) und Weibchen. Sie folgen dir, warnen mit Rufen,
+  fliehen und verstecken sich mit dir – und **jagen mit**, wenn du angreifst. Die Gruppe lernt dabei:
+  Lässt du ihnen von der Beute etwas übrig, bleiben sie bei dir und werden zu Verbündeten. Frisst du
+  alles allein, wenden sie sich ab und ziehen irgendwann ohne dich weiter. Wer mit dir überlebt,
+  bekommt Nachwuchs – und wie eng die Gruppe zusammenhält, erben die Nachkommen.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
   Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
 - **Hunger:** Fressen hält dich am Leben, aber satt frisst du nichts mehr.
-- **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen.
+- **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
+  und was sich bewährt hat, setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher.
   Manchmal nehmen deine Nachfahren dabei eine neue Form an: Fisch → Lurch → Echse → Säuger.
+- **Blutig:** Bisse und Zusammenstöße bluten (im Wasser als Wolke, an Land als Fleck am Boden), und
+  wer Beute reißt, hat eine Weile einen Brocken Fleisch im Maul und eine blutige Schnauze.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
   Zeitleiste Fragezeichen.
 
 Es gibt keine Zahlen und keine Balken: Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
-am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …).
+am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
+sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
 
@@ -55,12 +64,25 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
-| rammt andere Tiere mit Anlauf | gewölbte Stirn, Knochenplatten, Höcker, Hörner – und tut sich beim Rammen weniger weh |
+| versteckt sich oft im Dickicht | grünliche Farben |
+| liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
+| stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
+| … und teilt dabei mehr aus, als er einsteckt | einen **Stachelkopf**: Stachelkrone und Wangenstacheln, stärkerer Rammstoß |
+| … und steckt dabei mehr ein, als er austeilt | einen **Panzerkopf**: Knochenhelm, mehr Lebenskraft, weniger eigener Schaden |
 | beißt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne |
 | frisst viel | wächst |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.
+
+Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
+mit dir grast, und sinkt, wenn er hungrig zusehen muss, wie du alles allein frisst (oder wenn du
+ihn beißt). Treue Artgenossen jagen mit, verteidigen dich und verstecken sich mit dir; untreue
+bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Überlebenden bestimmt,
+wie zutraulich die Gruppe im nächsten Zeitalter beginnt.
+
+Zwischen den Zeitaltern wird verstärkt, was im letzten Zeitalter dazugekommen ist – umso stärker,
+je mehr Jahrmillionen vergehen (Faktor etwa 0,6 bis 1,4).
 Im Stammbaum werden Linien nach Körperform, vorherrschender Anpassung und Kost zusammengefasst –
 daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 </details>
@@ -74,6 +96,7 @@ daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 | Leertaste / ↑ | springen (an Land) |
 | J, X oder Y | beißen und fressen |
 | Shift, K oder C | sprinten (kostet Kraft) |
+| R oder V | rammen (erst mit hartem Schädel) |
 | Esc / P | Rast (Pause) |
 | M | Ton an/aus |
 
