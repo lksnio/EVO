@@ -8,6 +8,7 @@ import { W, H, DEBUG } from './config';
 import { audio } from './audio/Audio';
 import { game } from './state/GameState';
 import { setMuteHandler, toggleMute } from './ui/ui';
+import { keepAlive } from './util/guard';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
@@ -65,6 +66,9 @@ async function start() {
     input: { activePointers: 4 },
     scene: [BootScene, TitleScene, IntroScene, LevelScene, HudScene, GenerationScene, TreeScene, EndingScene, GalleryScene],
   });
+
+  // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren
+  keepAlive(g);
 
   // Für Tests und Entwickler-Konsole
   (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, debug: DEBUG };

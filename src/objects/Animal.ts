@@ -164,7 +164,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   }
 
   hitRect(): Rect {
-    const b = this.b;
+    const b = this.body as Body | null;
+    // schon aus dem Spiel genommen: kein Körper mehr, also auch nichts zu treffen
+    if (!b) return { x: -1e6, y: -1e6, w: 0, h: 0 };
     return { x: b.x, y: b.y, w: b.width, h: b.height };
   }
 
@@ -214,6 +216,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   tick(time: number, dt: number) {
     if (this.dead) return;
+    // Wer tot oder fort ist, ist kein Ziel mehr (sonst greift man ins Leere – das ließ das Spiel einfrieren)
+    if (this.target && this.target !== this.world.player && this.target.dead) this.target = null;
+    if (this.threatObj && this.threatObj !== this.world.player && this.threatObj.dead) this.threatObj = null;
     this.t += dt;
     this.stT += dt;
     this.hunger = Math.min(1, this.hunger + dt * (this.def.diet === 'meat' ? 0.012 : 0.009));
@@ -605,12 +610,20 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Verlässt den Lebensraum (ohne zu sterben). */
   leave() {
-    if (this.dead) return;
+    if (this.dead || !this.body) return;
     this.dead = true;
     this.attacking = false;
     this.b.enable = false;
     this.world.left(this);
     this.world.tweens.add({ targets: this, alpha: 0, duration: 500, onComplete: () => this.destroy() });
+  }
+
+  /** Sofort aus dem Spiel nehmen (aus der Welt gefallen o. Ä.) – für alle anderen ist es dann fort. */
+  vanish() {
+    this.dead = true;
+    this.attacking = false;
+    if (this.body) this.b.enable = false;
+    this.destroy();
   }
 
   protected startMove(m: string, tg: Target) {
@@ -670,7 +683,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
             b.setVelocity(-this.dir * 80, 0);
             this.endMove();
           } else if (t > 2.2) this.endMove();
-          if (tg && tg !== W.player && overlaps(this.hitRect(), tg.hitRect())) (tg as Animal).hurt(this.def.dmg, this, 'ram');
+          if (tg && tg !== W.player && !tg.dead && overlaps(this.hitRect(), tg.hitRect())) (tg as Animal).hurt(this.def.dmg, this, 'ram');
         }
         break;
       case 'pounce':

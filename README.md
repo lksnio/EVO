@@ -123,6 +123,21 @@ werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeble
 `?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
 (Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC.
 
+### Stabilität und Leistung
+
+- **Kein Einfrieren mehr:** Phaser fordert das nächste Bild erst an, wenn das aktuelle fertig ist –
+  ein einziger Fehler hielt früher das ganze Spiel an. Jetzt wird jedes Bild abgesichert
+  (`src/util/guard.ts`): Der Fehler landet einmal in der Konsole (`[EVO] Fehler …`), das Spiel läuft
+  weiter. Ein Tier, dessen Verhalten einen Fehler wirft, wird einfach entfernt.
+- **Grafik vorab:** Alle Tierarten eines Zeitalters (auch die großen Durchzügler) werden beim Start
+  des Zeitalters gemalt, nicht erst, wenn sie zum ersten Mal auftauchen.
+- **Neu zeichnen nur in ruhigen Momenten:** Verändert sich das eigene Tier, wird es nicht mitten
+  im Kampf neu gezeichnet, sondern kurz danach (höchstens alle 3 Sekunden).
+- **Speicher bleibt begrenzt:** Nicht mehr benutzte Aussehen-Texturen werden freigegeben;
+  Blutflecken und Partikel werden wiederverwendet statt immer neu erzeugt.
+- Die Spiellogik läuft mit `requestAnimationFrame` und Zeitdelta (Phaser), die KI nimmt ihre
+  Umgebung nur alle ~0,25 s neu wahr, Kollisionen prüft Arcade Physics mit einem räumlichen Baum.
+
 ### Projektstruktur
 
 ```

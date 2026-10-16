@@ -15,6 +15,7 @@ import { Kin, type KinWorld } from '../objects/Kin';
 import { Carcass, Plant } from '../objects/Food';
 import { fadeIn, fadeTo } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
+import { reportError } from '../util/guard';
 
 type PImg = Phaser.Physics.Arcade.Image;
 
@@ -100,6 +101,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private caustics: { s: Phaser.GameObjects.TileSprite; v: number }[] = [];
   private glints = new Map<object, Phaser.GameObjects.Image>();
   private leftNoted = false;
+  /** Blutflecken am Boden – werden wiederverwendet statt immer neu erzeugt */
+  private splats: Phaser.GameObjects.Image[] = [];
+  /** zuletzt gekämpft (gebissen, gerammt, zusammengestoßen) */
+  private fightAt = -1e9;
+  /** frühestens dann das Aussehen wieder neu zeichnen */
+  private redrawAt = 0;
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -140,6 +147,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.leftNoted = false;
     this.bloodClouds = undefined;
     this.caustics = [];
+    this.splats = [];
+    this.fightAt = -1e9;
+    this.redrawAt = 0;
   }
 
   create() {
@@ -178,6 +188,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
     }
     plantTextures(this, L.theme);
+    // Alle Tierarten dieses Zeitalters schon jetzt malen (auch die großen Durchzügler) –
+    // sonst stockt das Spiel, wenn eines zum ersten Mal auftaucht.
+    for (const [id] of ep.fauna) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
+    for (const e of ep.events) if (e.species && SPECIES[e.species]) makeSpeciesTextures(this, SPECIES[e.species]);
     for (const p of L.plants) this.plants.push(new Plant(this, p.x, p.y, L.theme, 3, p.v));
     this.buildCover();
     this.buildCaves();
@@ -457,14 +471,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else if (n >= 5) this.splat(x, y);
   }
 
-  /** Ein Blutfleck auf dem Boden unter der Stelle. */
+  /** Ein Blutfleck auf dem Boden unter der Stelle (höchstens 24 – die ältesten werden wiederverwendet). */
   private splat(x: number, y: number) {
     let gy = y;
     for (let k = 0; k < 40 && !this.solidAt(x, gy + 4); k++) gy += 8;
     if (!this.solidAt(x, gy + 4)) return;
-    const s = this.add.image(x + (Math.random() - 0.5) * 20, gy + 2, 'blood_splat').setDepth(DEPTH.terrain + 3)
-      .setScale(0.6 + Math.random() * 0.7, 0.8).setAlpha(0.9);
-    this.tweens.add({ targets: s, alpha: 0, delay: 30000, duration: 4000, onComplete: () => s.destroy() });
+    let s: Phaser.GameObjects.Image;
+    if (this.splats.length < 24) s = this.add.image(0, 0, 'blood_splat').setDepth(DEPTH.terrain + 3);
+    else {
+      s = this.splats.shift()!;
+      this.tweens.killTweensOf(s);
+    }
+    this.splats.push(s);
+    s.setPosition(x + (Math.random() - 0.5) * 20, gy + 2).setScale(0.6 + Math.random() * 0.7, 0.8).setAlpha(0.9);
+    this.tweens.add({ targets: s, alpha: 0, delay: 30000, duration: 4000 });
   }
 
   detectFactor(a: Animal) {
@@ -510,11 +530,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   left(a: Animal) {
     this.removeAnimal(a);
-    const g = this.glints.get(a);
-    if (g) {
-      g.destroy();
-      this.glints.delete(a);
-    }
   }
 
   kinSnubbed(k: Kin) {
@@ -552,6 +567,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private removeAnimal(a: Animal) {
     const i = this.animals.indexOf(a);
     if (i >= 0) this.animals.splice(i, 1);
+    this.ramHit.delete(a);
+    const g = this.glints.get(a);
+    if (g) {
+      g.destroy();
+      this.glints.delete(a);
+    }
   }
 
   animalDied(a: Animal, byPlayer: boolean) {
@@ -598,6 +619,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
     }
     if (hit) {
+      this.fightAt = this.time.now;
       this.cameras.main.shake(70, 0.004);
       return;
     }
@@ -645,6 +667,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const t = game.traits;
     const sf = rammed ? 1.3 : clamp(approach, 0.5, 1.4);
     this.ramHit.set(a, this.time.now);
+    this.fightAt = this.time.now;
     const dealt = st.ram * sf * (rammed ? 1.6 : 0.7);
     const plates = Math.max(0, -t.spike) * t.skull;
     const back = (a.def.power * 0.32 + a.def.dmg * 0.25) * sf * (rammed ? 0.45 : 1) * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
@@ -676,10 +699,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else this.controls.clear();
     p.update(time, dt, this.controls);
     for (const a of [...this.animals]) {
-      a.tick(time, dt);
-      if (!a.dead && a.y > L.height + 200) {
+      try {
+        a.tick(time, dt);
+      } catch (e) {
+        // Ein Fehler im Verhalten eines Tieres darf nicht das ganze Spiel anhalten
+        reportError('Tier ' + a.def.id, e);
         this.removeAnimal(a);
-        a.destroy();
+        a.vanish();
+        continue;
+      }
+      if (!a.dead && a.y > L.height + 200) {
+        // aus der Welt gefallen: als fort markieren, damit niemand mehr danach greift
+        this.removeAnimal(a);
+        a.vanish();
       }
     }
     const bloom = time < this.bloomUntil;
@@ -1036,10 +1068,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
 
-    // Aussehen anpassen (Stück für Stück)
+    // Aussehen anpassen (Stück für Stück). Neu zeichnen kostet ein paar Millisekunden – deshalb
+    // nicht mitten im Kampf und höchstens alle 3 Sekunden; die Werte selbst stimmen immer sofort.
     if (time > this.lookAt) {
       this.lookAt = time + 400;
-      p.refresh();
+      const calm = time - this.fightAt > 2500 && time - p.lastHurt > 2500 && !p.isRamming && !this.huntMusic;
+      const redraw = calm && time > this.redrawAt;
+      if (p.refresh(false, redraw)) this.redrawAt = time + 3000;
     }
 
     // Anzeige (ohne Zahlen)

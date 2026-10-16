@@ -962,7 +962,7 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   const W = big ? 900 : 380, H = big ? 760 : 320;
   const E = eyesFor(def.role);
   const cs = [0, 1].map((f) => {
-    const [c, ctx] = newCanvas(W, H);
+    const [c, ctx] = newCanvas(W, H, true);
     ctx.translate(W / 2, H / 2);
     drawArt(ctx, def.art, f, E);
     return c;

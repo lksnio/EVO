@@ -5,11 +5,13 @@ import Phaser from 'phaser';
 
 export type Ctx = CanvasRenderingContext2D;
 
-export function newCanvas(w: number, h: number): [HTMLCanvasElement, Ctx] {
+/** readback: Die Pixel werden später gelesen (getImageData) – dann bleibt die Leinwand im Hauptspeicher,
+ *  statt sie teuer von der Grafikkarte zurückholen zu müssen. */
+export function newCanvas(w: number, h: number, readback = false): [HTMLCanvasElement, Ctx] {
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w));
   c.height = Math.max(1, Math.ceil(h));
-  const ctx = c.getContext('2d', { willReadFrequently: false })!;
+  const ctx = c.getContext('2d', { willReadFrequently: readback })!;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   return [c, ctx];

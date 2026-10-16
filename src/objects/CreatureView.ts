@@ -11,6 +11,35 @@ type Img = Phaser.GameObjects.Image;
 const FAR_TINT = 0x8a8a8a;
 
 /**
+ * Wie viele Ansichten ein Aussehen gerade nutzen. Jedes neue Aussehen kostet einige Texturen (zusammen
+ * gut ein Megabyte); unbenutzte werden behalten, bis es zu viele sind – dann fliegen die ältesten raus.
+ */
+const users = new Map<string, number>();
+const unused: string[] = [];
+const KEEP_UNUSED = 8;
+const PARTS = ['_b', '_h', '_t', '_j', '_s', '_l', '_f'];
+
+function retain(key: string) {
+  users.set(key, (users.get(key) ?? 0) + 1);
+  const i = unused.indexOf(key);
+  if (i >= 0) unused.splice(i, 1);
+}
+
+function release(tm: Phaser.Textures.TextureManager, key: string) {
+  const n = (users.get(key) ?? 1) - 1;
+  if (n > 0) {
+    users.set(key, n);
+    return;
+  }
+  users.delete(key);
+  unused.push(key);
+  while (unused.length > KEEP_UNUSED) {
+    const old = unused.shift()!;
+    for (const p of PARTS) if (tm.exists('cr2_' + old + p)) tm.remove('cr2_' + old + p);
+  }
+}
+
+/**
  * Die sichtbare Spielfigur: ein Container aus Einzelteilen, die animiert werden
  * (Beine laufen, Flossen schlagen, Kiefer beißt und kaut, Kopf senkt sich beim Rammen).
  */
@@ -36,6 +65,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private baseScale: number;
   private facing = 1;
   private shade: number | null = null;
+  private tm?: Phaser.Textures.TextureManager;
   headTilt = 0;
   /** 0..1: Erschöpfung/Verletzung verlangsamt die Bewegungen */
   weary = 0;
@@ -52,11 +82,15 @@ export class CreatureView extends Phaser.GameObjects.Container {
     const key = morphKey(m);
     this.m = { ...m };
     if (!force && key === this.key) return this;
+    const old = this.key;
     this.key = key;
+    this.tm = this.scene.textures;
+    retain(key);
     this.removeAll(true);
     this.legs = [];
     this.fin = undefined;
     const T: CreatureTex = creatureTextures(this.scene, m);
+    if (old) release(this.tm, old);
     const L = T.layout;
     this.L = L;
     const img = (p: PartTex, x: number, y: number) =>
@@ -97,6 +131,13 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.applyScale();
     this.applyTint();
     return this;
+  }
+
+  destroy(fromScene?: boolean) {
+    const key = this.key, tm = this.tm;
+    this.key = '';
+    super.destroy(fromScene);
+    if (key && tm) release(tm, key);
   }
 
   bite() {

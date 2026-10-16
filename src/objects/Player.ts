@@ -93,12 +93,16 @@ export class Player {
     return game.morph({ belly: this.satiety < 22 ? 0 : this.satiety > 78 ? 2 : 1, fierce: game.fear() });
   }
 
-  /** Werte neu berechnen und – falls sich das Aussehen sichtbar verändert hat – neu zeichnen. */
-  refresh(full = false) {
+  /**
+   * Werte neu berechnen und – falls sich das Aussehen sichtbar verändert hat – neu zeichnen.
+   * look = false: nur die Werte (das Neuzeichnen kostet Zeit und wartet auf einen ruhigen Moment).
+   * Gibt true zurück, wenn neu gezeichnet wurde.
+   */
+  refresh(full = false, look = true) {
     const ratio = full ? 1 : this.hp / Math.max(1, this.stats?.maxHp ?? 1);
     this.stats = game.stats();
     const before = this.view.key;
-    this.view.build(this.morph());
+    if (look || full) this.view.build(this.morph());
     if (before === this.view.key && !full) {
       this.hp = Math.min(this.hp, this.stats.maxHp);
       return false;
