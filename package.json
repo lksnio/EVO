@@ -1,0 +1,20 @@
+{
+  "name": "platformer-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "2D-Plattformer mit Phaser und TypeScript",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}
