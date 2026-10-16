@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { FONT } from '../config';
+import { FONT, TITLE_FONT, UI } from '../config';
 import { audio, type Sfx } from '../audio/Audio';
 
 export function text(
@@ -7,8 +7,8 @@ export function text(
   x: number,
   y: number,
   str: string,
-  size = 24,
-  color = '#ffffff',
+  size = 22,
+  color: string = UI.bone,
   opts: Phaser.Types.GameObjects.Text.TextStyle = {},
 ) {
   return scene.add.text(x, y, str, {
@@ -21,24 +21,30 @@ export function text(
   });
 }
 
-/** Text mit dunklem Rand – gut lesbar auf jedem Hintergrund. */
-export function title(scene: Phaser.Scene, x: number, y: number, str: string, size = 40, color = '#ffffff') {
-  return text(scene, x, y, str, size, color, {
+/** Überschrift wie in Stein gemeißelt. */
+export function title(scene: Phaser.Scene, x: number, y: number, str: string, size = 40, color: string = UI.bone) {
+  return scene.add.text(x, y, str, {
+    fontFamily: TITLE_FONT,
+    fontSize: `${size}px`,
+    color,
     fontStyle: '700',
-    stroke: '#0b1a2e',
-    strokeThickness: Math.max(4, size / 7),
-    shadow: { offsetX: 0, offsetY: 3, color: 'rgba(0,0,0,.35)', blur: 4, fill: true, stroke: true },
+    stroke: '#050403',
+    strokeThickness: Math.max(3, size / 9),
+    shadow: { offsetX: 0, offsetY: 3, color: 'rgba(0,0,0,.6)', blur: 6, fill: true, stroke: true },
+    resolution: 2,
   });
 }
 
-export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, alpha = 0.72, color = 0x0d2238, radius = 18) {
+export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, alpha = 0.82, color: number = UI.panel, radius = 14) {
   const g = scene.add.graphics();
-  g.fillStyle(0x000000, 0.25);
-  g.fillRoundedRect(x + 3, y + 5, w, h, radius);
+  g.fillStyle(0x000000, 0.35);
+  g.fillRoundedRect(x + 3, y + 6, w, h, radius);
   g.fillStyle(color, alpha);
   g.fillRoundedRect(x, y, w, h, radius);
-  g.lineStyle(2, 0xffffff, 0.18);
+  g.lineStyle(2, UI.panelEdge, 0.55);
   g.strokeRoundedRect(x + 1, y + 1, w - 2, h - 2, radius);
+  g.lineStyle(1, 0xffffff, 0.05);
+  g.strokeRoundedRect(x + 4, y + 4, w - 8, h - 8, Math.max(2, radius - 3));
   return g;
 }
 
@@ -69,26 +75,31 @@ export class Button extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.opts = opts;
     this.bw = opts.w ?? 220;
-    this.bh = opts.h ?? 56;
-    this.color = opts.color ?? 0xf08a24;
+    this.bh = opts.h ?? 54;
+    this.color = opts.color ?? UI.stone;
     this.bg = scene.add.graphics();
     this.add(this.bg);
-    const size = opts.size ?? 24;
+    const size = opts.size ?? 22;
     let tx = 0;
     if (opts.icon) {
-      const isz = opts.iconOnly ? Math.min(this.bw, this.bh) * 0.62 : size * 1.25;
+      const isz = opts.iconOnly ? Math.min(this.bw, this.bh) * 0.58 : size * 1.2;
       this.icon = scene.add.image(opts.iconOnly ? 0 : -this.bw / 2 + 18 + isz / 2, 0, opts.icon).setDisplaySize(isz, isz);
       this.add(this.icon);
       tx = opts.iconOnly ? 0 : isz / 2 + 4;
     }
-    this.label = text(scene, tx, 0, opts.iconOnly ? '' : str, size, '#ffffff', {
+    this.label = scene.add.text(tx, 0, opts.iconOnly ? '' : str, {
+      fontFamily: TITLE_FONT,
+      fontSize: `${size}px`,
+      color: UI.bone,
       fontStyle: '700',
-      stroke: 'rgba(0,0,0,.35)',
+      stroke: '#050403',
       strokeThickness: 3,
+      resolution: 2,
     }).setOrigin(0.5);
     this.add(this.label);
     this.setSize(this.bw, this.bh);
-    this.setInteractive(new Phaser.Geom.Rectangle(-this.bw / 2, -this.bh / 2, this.bw, this.bh), Phaser.Geom.Rectangle.Contains);
+    // Trefferfläche: bei Containern liegt (0,0) oben links
+    this.setInteractive(new Phaser.Geom.Rectangle(0, 0, this.bw, this.bh), Phaser.Geom.Rectangle.Contains);
     if (this.input) this.input.cursor = 'pointer';
     this.on('pointerover', () => {
       this.hover = true;
@@ -109,7 +120,7 @@ export class Button extends Phaser.GameObjects.Container {
       return;
     }
     if (this.opts.sound !== null) audio.sfx(this.opts.sound ?? 'click');
-    this.scene.tweens.add({ targets: this, scale: { from: 0.92, to: 1 }, duration: 140, ease: 'Back.out' });
+    this.scene.tweens.add({ targets: this, scale: { from: 0.94, to: 1 }, duration: 140, ease: 'Back.out' });
     this.opts.onClick();
   }
 
@@ -143,27 +154,24 @@ export class Button extends Phaser.GameObjects.Container {
 
   private draw() {
     const g = this.bg;
-    const w = this.bw, h = this.bh, r = Math.min(16, h / 2);
-    const c = this.disabled ? 0x5a6470 : this.color;
+    const w = this.bw, h = this.bh, r = Math.min(10, h / 2);
+    const c = this.disabled ? 0x1c1a18 : this.color;
     const lit = this.hover || this.focused;
-    g.clear();
-    g.fillStyle(0x000000, 0.3);
-    g.fillRoundedRect(-w / 2 + 2, -h / 2 + 5, w, h, r);
     const col = Phaser.Display.Color.IntegerToColor(c);
-    const dark = Phaser.Display.Color.GetColor(col.red * 0.7, col.green * 0.7, col.blue * 0.7);
-    g.fillStyle(dark, 1);
-    g.fillRoundedRect(-w / 2, -h / 2 + 3, w, h, r);
-    const top = lit ? Phaser.Display.Color.GetColor(Math.min(255, col.red + 35), Math.min(255, col.green + 35), Math.min(255, col.blue + 35)) : c;
-    g.fillStyle(top, 1);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h - 3, r);
-    g.fillStyle(0xffffff, 0.18);
-    g.fillRoundedRect(-w / 2 + 4, -h / 2 + 3, w - 8, h * 0.38, { tl: r - 3, tr: r - 3, bl: 4, br: 4 });
-    if (this.focused) {
-      g.lineStyle(4, 0xffffff, 0.95);
-      g.strokeRoundedRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6, r + 2);
-    }
-    this.label.setAlpha(this.disabled ? 0.6 : 1);
-    this.icon?.setAlpha(this.disabled ? 0.6 : 1);
+    const lighten = (k: number) => Phaser.Display.Color.GetColor(Math.min(255, col.red * k), Math.min(255, col.green * k), Math.min(255, col.blue * k));
+    g.clear();
+    g.fillStyle(0x000000, 0.45);
+    g.fillRoundedRect(-w / 2 + 2, -h / 2 + 5, w, h, r);
+    g.fillStyle(lighten(0.6), 1);
+    g.fillRoundedRect(-w / 2, -h / 2 + 2, w, h, r);
+    g.fillStyle(lit ? lighten(1.35) : c, 1);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h - 2, r);
+    g.fillStyle(0xffffff, lit ? 0.08 : 0.04);
+    g.fillRoundedRect(-w / 2 + 3, -h / 2 + 3, w - 6, h * 0.38, { tl: r - 2, tr: r - 2, bl: 3, br: 3 });
+    g.lineStyle(this.focused ? 3 : 1.5, this.focused ? 0xc8913c : 0x8a7454, this.focused ? 1 : 0.55);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h - 2, r);
+    this.label.setAlpha(this.disabled ? 0.4 : 1);
+    this.icon?.setAlpha(this.disabled ? 0.4 : 1);
   }
 }
 
@@ -172,7 +180,7 @@ export class MenuNav {
   idx = 0;
   enabled = true;
   constructor(
-    private scene: Phaser.Scene,
+    scene: Phaser.Scene,
     public items: Button[],
     cols = 1,
     private onBack?: () => void,
@@ -208,17 +216,14 @@ export class MenuNav {
     }
     if (i !== this.idx) audio.sfx('click');
     this.focus(i);
-    void this.scene;
   }
 }
 
 /** Kleiner Ton-an/aus-Knopf mit Symbol. */
-export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 52) {
+export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 50) {
   const b = new Button(scene, x, y, '', {
-    w: size, h: size, icon: audio.muted ? 'ic_mute' : 'ic_sound', iconOnly: true, color: 0x2f6f9f, sound: null,
-    onClick: () => {
-      toggleMute();
-    },
+    w: size, h: size, icon: audio.muted ? 'ic_mute' : 'ic_sound', iconOnly: true, sound: null,
+    onClick: () => toggleMute(),
   });
   const upd = () => b.setIcon(audio.muted ? 'ic_mute' : 'ic_sound');
   muteListeners.add(upd);
@@ -240,20 +245,20 @@ export function toggleMute() {
   muteListeners.forEach((f) => f());
 }
 
-/** Weiche Überblendung zur nächsten Szene. */
-export function fadeTo(scene: Phaser.Scene, key: string, data?: object, ms = 280) {
+/** Langsame Überblendung zur nächsten Szene. */
+export function fadeTo(scene: Phaser.Scene, key: string, data?: object, ms = 420) {
   const cam = scene.cameras.main;
   if (!scene.input.enabled) return;
   scene.input.enabled = false;
   if (scene.input.keyboard) scene.input.keyboard.enabled = false;
-  cam.fadeOut(ms, 5, 12, 22);
+  cam.fadeOut(ms, 2, 3, 4);
   cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
     scene.scene.start(key, data);
   });
 }
 
-export function fadeIn(scene: Phaser.Scene, ms = 280) {
+export function fadeIn(scene: Phaser.Scene, ms = 420) {
   scene.input.enabled = true;
   if (scene.input.keyboard) scene.input.keyboard.enabled = true;
-  scene.cameras.main.fadeIn(ms, 5, 12, 22);
+  scene.cameras.main.fadeIn(ms, 2, 3, 4);
 }

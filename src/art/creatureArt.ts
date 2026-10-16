@@ -1,123 +1,937 @@
 import Phaser from 'phaser';
 import type { ClassId } from '../data/classes';
 import { css, mix, shade } from '../util/color';
-import { type Ctx, ell, fillStroke, newCanvas } from '../util/canvas';
+import { type Ctx, ell, newCanvas, smooth } from '../util/canvas';
 import { mulberry32 } from '../util/math';
-import { PALETTES, type Palette } from './palettes';
+import { eye, ivory, skin, tooth } from './paint';
 
-// Die Spielfigur besteht aus einzelnen Teilen (Körper, Kopf, Unterkiefer, Zähne,
-// Schwanz, Beine, Flosse). Jedes Teil wird passend zur Evolution gezeichnet und
-// in CreatureView zu einer animierten Figur zusammengesetzt.
+// ---------------------------------------------------------------------------
+// Die Spielfigur. Sie wird aus stufenlosen Merkmalen gezeichnet:
+//   jaw     → längere Schnauze, tieferer Kiefer, mehr und längere Zähne
+//   skull   → gewölbte Stirn, Knochenplatten, Höcker und Hörner
+//   stealth → schlanker, längere Flossen/Beine, Tarnmuster, größere Augen
+//   diet    → Pflanzenfresser: stumpfe Zähne, runder Bauch; Fleischfresser: spitze Zähne
+//   belly   → hungrig (Rippen sichtbar) … satt (runder Bauch)
+//   fierce  → angriffslustig: schwere Lider, rötlicher Blick
+// Jedes Teil (Körper, Kopf, Unterkiefer, Zähne, Schwanz, Beine, Flosse) ist eine
+// eigene Textur, damit CreatureView es bewegen kann.
+// ---------------------------------------------------------------------------
 
-export interface Appearance {
+export interface Morph {
   cls: ClassId;
-  kiefer: number;
-  horn: number;
-  koerper: number;
-  haut: number;
-  schwanz: number;
-  beine: number;
-  farbe: number;
+  size: number;
+  jaw: number;
+  skull: number;
+  stealth: number;
+  diet: number;
+  scars: number;
+  belly: number;
+  fierce: number;
+  hue: number;
+  seed: number;
 }
 
-interface Shape {
-  bw: number;
-  bh: number;
-  neck: [number, number];
-  tail: [number, number];
-  legF: [number, number];
-  legB: [number, number];
-  leg: number;
-  legW: number;
+const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
+
+/** Rundet die Merkmale auf Stufen, damit nicht für jede Kleinigkeit neu gezeichnet wird. */
+export function quantize(m: Morph): Morph {
+  return {
+    cls: m.cls,
+    size: q(m.size, 0.04),
+    jaw: q(m.jaw, 0.05),
+    skull: q(m.skull, 0.05),
+    stealth: q(m.stealth, 0.05),
+    diet: q(m.diet, 0.25),
+    scars: Math.round(m.scars),
+    belly: Math.round(m.belly),
+    fierce: q(m.fierce, 0.25),
+    hue: m.hue,
+    seed: m.seed,
+  };
 }
 
-const SHAPES: Record<ClassId, Shape> = {
-  fish: { bw: 60, bh: 34, neck: [17, 0], tail: [-28, 0], legF: [0, 0], legB: [0, 0], leg: 0, legW: 0 },
-  amphibian: { bw: 64, bh: 26, neck: [27, -2], tail: [-29, -2], legF: [18, 6], legB: [-18, 6], leg: 15, legW: 9 },
-  reptile: { bw: 70, bh: 32, neck: [31, -7], tail: [-32, -4], legF: [21, 9], legB: [-21, 9], leg: 21, legW: 10 },
-  mammal: { bw: 72, bh: 38, neck: [33, -11], tail: [-34, -9], legF: [23, 11], legB: [-23, 11], leg: 27, legW: 11 },
-};
+export function morphKey(m: Morph) {
+  const k = quantize(m);
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97].join('_');
+}
 
-const BODY_SCALE = [0.9, 1, 1.12, 1.25, 1.38];
-const LEG_ADD = [0, 4, 7, 6, 12];
-const TEETH = [
-  { n: 0, s: 0 },
-  { n: 4, s: 2.6 },
-  { n: 5, s: 3.4 },
-  { n: 5, s: 4.4 },
-  { n: 6, s: 5.4 },
-  { n: 4, s: 3.4 },
+interface Pal {
+  base: number;
+  belly: number;
+  dark: number;
+  camo: number;
+  eye: number;
+  fin: number;
+}
+
+const LINEAGE: Pal[] = [
+  { base: 0x56603e, belly: 0xa8a080, dark: 0x1a1e12, camo: 0x2a3018, eye: 0xd09a36, fin: 0x6a6038 },
+  { base: 0x48545e, belly: 0x9ca4a2, dark: 0x14181c, camo: 0x262e34, eye: 0xc8a856, fin: 0x55604e },
+  { base: 0x664432, belly: 0xb49a78, dark: 0x1e120c, camo: 0x3a2418, eye: 0xdc9a2c, fin: 0x7a5434 },
+  { base: 0x3a564e, belly: 0x8e9e8e, dark: 0x101a16, camo: 0x1e302a, eye: 0xc8b85e, fin: 0x4a5e44 },
 ];
+
+function palette(m: Morph): Pal {
+  const p = LINEAGE[m.hue % LINEAGE.length];
+  const st = m.stealth;
+  return {
+    base: mix(p.base, shade(p.camo, 0.2), st * 0.35),
+    belly: mix(p.belly, p.base, st * 0.25),
+    dark: p.dark,
+    camo: p.camo,
+    eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
+    fin: mix(p.fin, p.camo, st * 0.3),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Geometrie
 
 export interface HeadGeo {
   L: number;
   H: number;
   mouthY: number;
   hingeX: number;
+  jawH: number;
+  dome: number;
   snoutH: number;
   ex: number;
   ey: number;
   er: number;
-  jawH: number;
 }
 
-function headGeo(cls: ClassId, jaw: number): HeadGeo {
-  const jl = 1 + jaw * 0.055;
-  switch (cls) {
-    case 'fish':
-      return { L: 25 * jl, H: 30, mouthY: 5, hingeX: 6, snoutH: 9, ex: 9, ey: -5, er: 5.2, jawH: 5 + jaw * 0.9 };
-    case 'amphibian':
-      return { L: 30 * jl, H: 22, mouthY: 4, hingeX: 4, snoutH: 7, ex: 11, ey: -9, er: 4.8, jawH: 5 + jaw * 0.8 };
-    case 'reptile':
-      return { L: 36 * jl, H: 24, mouthY: 5, hingeX: 6, snoutH: 7, ex: 12, ey: -6, er: 4.2, jawH: 6 + jaw * 0.9 };
-    case 'mammal':
-      return { L: 33 * jl, H: 28, mouthY: 7, hingeX: 10, snoutH: 9, ex: 13, ey: -5, er: 4, jawH: 6 + jaw * 0.9 };
+interface Geo {
+  s: number;
+  bw: number;
+  bh: number;
+  pts: number[][];
+  neck: [number, number];
+  tailAt: [number, number];
+  legF: [number, number];
+  legB: [number, number];
+  legLen: number;
+  legW: number;
+  hg: HeadGeo;
+}
+
+function geo(m: Morph): Geo {
+  const st = m.stealth, jaw = m.jaw, sk = m.skull;
+  const slim = 1 - 0.16 * st;
+  const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0);
+  const s = m.size;
+  switch (m.cls) {
+    case 'fish': {
+      const bw = 60 * (1 + 0.06 * st), bh = 28 * slim;
+      const bb = bh * bellyK;
+      const H = bh * 0.95 + 1, L = 20 + 9 * jaw;
+      return {
+        s, bw, bh,
+        pts: [[bw * 0.38, -bh * 0.42], [bw * 0.12, -bh * 0.56], [-bw * 0.2, -bh * 0.45], [-bw * 0.44, -bh * 0.17], [-bw * 0.52, -bh * 0.1],
+          [-bw * 0.52, bh * 0.1], [-bw * 0.4, bb * 0.26], [-bw * 0.05, bb * 0.5], [bw * 0.28, bb * 0.44], [bw * 0.4, bh * 0.3]],
+        neck: [bw * 0.34, -bh * 0.03], tailAt: [-bw * 0.5, 0], legF: [0, 0], legB: [0, 0], legLen: 0, legW: 0,
+        hg: { L, H, mouthY: H * 0.14, hingeX: L * (0.42 - 0.14 * jaw), jawH: 4 + 6 * jaw, dome: 4.5 * sk, snoutH: H * 0.3, ex: L * 0.4, ey: -H * 0.14, er: 2.8 * (1 + 0.25 * st) },
+      };
+    }
+    case 'amphibian': {
+      const bw = 70, bh = 22 * slim, bb = bh * bellyK;
+      const H = 17 + 1.5 * sk, L = 26 + 10 * jaw;
+      return {
+        s, bw, bh,
+        pts: [[bw * 0.44, -bh * 0.3], [bw * 0.16, -bh * 0.52], [-bw * 0.22, -bh * 0.48], [-bw * 0.48, -bh * 0.2], [-bw * 0.5, bh * 0.14],
+          [-bw * 0.3, bb * 0.44], [0, bb * 0.55], [bw * 0.3, bb * 0.44], [bw * 0.46, bh * 0.16]],
+        neck: [bw * 0.42, -bh * 0.06], tailAt: [-bw * 0.46, -bh * 0.04],
+        legF: [bw * 0.26, bh * 0.28], legB: [-bw * 0.28, bh * 0.28], legLen: 15 + 7 * st, legW: 8,
+        hg: { L, H, mouthY: H * 0.2, hingeX: L * (0.3 - 0.08 * jaw), jawH: 4 + 5 * jaw, dome: 2.5 * sk, snoutH: H * 0.24, ex: L * 0.3, ey: -H * 0.5, er: 2.5 * (1 + 0.25 * st) },
+      };
+    }
+    case 'reptile': {
+      const bw = 74, bh = 27 * slim, bb = bh * bellyK;
+      const H = 18 + 2.5 * sk, L = 30 + 14 * jaw;
+      return {
+        s, bw, bh,
+        pts: [[bw * 0.44, -bh * 0.36], [bw * 0.18, -bh * 0.55], [-bw * 0.12, -bh * 0.5], [-bw * 0.4, -bh * 0.36], [-bw * 0.5, -bh * 0.08],
+          [-bw * 0.44, bb * 0.28], [-bw * 0.1, bb * 0.52], [bw * 0.26, bb * 0.46], [bw * 0.46, bh * 0.14]],
+        neck: [bw * 0.42, -bh * 0.22], tailAt: [-bw * 0.46, -bh * 0.12],
+        legF: [bw * 0.28, bh * 0.3], legB: [-bw * 0.3, bh * 0.3], legLen: 22 + 9 * st, legW: 9,
+        hg: { L, H, mouthY: H * 0.16, hingeX: L * (0.26 - 0.06 * jaw), jawH: 5 + 6 * jaw, dome: 3 * sk, snoutH: H * 0.27, ex: L * 0.34, ey: -H * 0.24, er: 2.7 * (1 + 0.25 * st) },
+      };
+    }
+    case 'mammal': {
+      const bw = 74, bh = 33 * slim, bb = bh * bellyK;
+      const H = 22 + 2.5 * sk, L = 26 + 12 * jaw;
+      return {
+        s, bw, bh,
+        pts: [[bw * 0.42, -bh * 0.42], [bw * 0.22, -bh * 0.56], [-bw * 0.08, -bh * 0.48], [-bw * 0.36, -bh * 0.5], [-bw * 0.5, -bh * 0.24],
+          [-bw * 0.48, bb * 0.2], [-bw * 0.18, bb * 0.47], [bw * 0.2, bb * 0.45], [bw * 0.46, bh * 0.14]],
+        neck: [bw * 0.44, -bh * 0.28], tailAt: [-bw * 0.48, -bh * 0.3],
+        legF: [bw * 0.3, bh * 0.24], legB: [-bw * 0.3, bh * 0.24], legLen: 28 + 11 * st, legW: 10,
+        hg: { L, H, mouthY: H * 0.22, hingeX: L * (0.36 - 0.08 * jaw), jawH: 5 + 6 * jaw, dome: 3.5 * sk, snoutH: H * 0.3, ex: L * 0.42, ey: -H * 0.2, er: 2.6 * (1 + 0.2 * st) },
+      };
+    }
   }
 }
 
 export interface Layout {
   s: number;
-  sh: Shape;
-  hg: HeadGeo;
-  leg: number;
-  legW: number;
+  land: boolean;
+  bw: number;
+  bh: number;
   neck: [number, number];
   tail: [number, number];
   legF: [number, number];
   legB: [number, number];
+  legLen: number;
+  hg: HeadGeo;
   topY: number;
   footY: number;
   halfW: number;
-  /** Bissbereich bei Blick nach rechts, relativ zum Ursprung. */
+  /** Bissbereich bei Blick nach rechts, relativ zum Ursprung */
   bite: { x: number; y: number; w: number; h: number };
-  land: boolean;
 }
 
-export function layoutOf(a: Appearance): Layout {
-  const sh = SHAPES[a.cls];
-  const s = BODY_SCALE[a.koerper] ?? 1;
-  const hg = headGeo(a.cls, a.kiefer);
-  const land = a.cls !== 'fish';
-  const leg = land ? sh.leg + (LEG_ADD[a.beine] ?? 0) : 0;
-  const legW = sh.legW * (a.beine === 2 ? 1.2 : 1);
-  const m = (p: [number, number]): [number, number] => [p[0] * s, p[1] * s];
-  const footY = land ? (sh.legF[1] + leg) * s : sh.bh * 0.42 * s;
-  const topY = -sh.bh * (land ? 0.45 : 0.42) * s;
-  const neck = m(sh.neck);
+export function layoutOf(m: Morph): Layout {
+  const g = geo(m);
+  const s = g.s;
+  const land = m.cls !== 'fish';
+  const sc = (p: [number, number]): [number, number] => [p[0] * s, p[1] * s];
+  const neck = sc(g.neck);
   return {
-    s, sh, hg, leg, legW, neck,
-    tail: m(sh.tail), legF: m(sh.legF), legB: m(sh.legB),
-    topY, footY, halfW: sh.bw * 0.46 * s,
-    bite: { x: neck[0] - 4 * s, y: neck[1] + (hg.mouthY - 18) * s, w: (hg.L + 22) * s, h: 36 * s },
-    land,
+    s, land, bw: g.bw * s, bh: g.bh * s,
+    neck, tail: sc(g.tailAt), legF: sc(g.legF), legB: sc(g.legB), legLen: g.legLen * s, hg: g.hg,
+    topY: -g.bh * 0.5 * s,
+    footY: land ? (g.legF[1] + g.legLen) * s : g.bh * 0.45 * s,
+    halfW: g.bw * 0.45 * s,
+    bite: { x: neck[0] - 4 * s, y: neck[1] + (g.hg.mouthY - 18) * s, w: (g.hg.L + 22) * s, h: 36 * s },
   };
 }
 
 // ---------------------------------------------------------------------------
-// Zeichenhilfen
+// Körper
 
-const RES = 2;
-export const CREATURE_RES = RES;
+function bodyPath(ctx: Ctx, g: Geo) {
+  smooth(ctx, g.pts, true);
+}
+
+function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
+  const { bw, bh } = g;
+  const st = m.stealth;
+  const r = mulberry32(m.seed + 3);
+  // Rückenflosse / Rückenkamm hinter dem Körper
+  if (m.cls === 'fish') {
+    const k = 1 + 0.6 * st;
+    ctx.beginPath();
+    ctx.moveTo(bw * 0.16, -bh * 0.5);
+    ctx.bezierCurveTo(bw * 0.06, -bh * 0.5 - 12 * k, -bw * 0.06, -bh * 0.55 - 13 * k, -bw * 0.16, -bh * 0.52 - 10 * k);
+    ctx.quadraticCurveTo(-bw * 0.2, -bh * 0.45, -bw * 0.3, -bh * 0.34);
+    ctx.closePath();
+    finFill(ctx, P, -bh * 0.5 - 13 * k, -bh * 0.4);
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.18, bh * 0.4);
+    ctx.quadraticCurveTo(-bw * 0.28, bh * 0.5 + 9 * k, -bw * 0.38, bh * 0.46 + 6 * k);
+    ctx.quadraticCurveTo(-bw * 0.36, bh * 0.32, -bw * 0.34, bh * 0.26);
+    ctx.closePath();
+    finFill(ctx, P, bh * 0.3, bh * 0.5 + 9 * k);
+  }
+  if (m.cls === 'reptile' || (m.cls === 'mammal' && m.skull > 0.6)) {
+    // kleine Rückenhöcker
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const x = bw * 0.3 - t * bw * 0.72;
+      const y = -bh * 0.52 + Math.abs(t - 0.4) * bh * 0.22;
+      ell(ctx, x, y, 3.2, 2.6 + m.skull * 1.5);
+      ctx.fillStyle = css(shade(P.base, -0.35));
+      ctx.fill();
+    }
+  }
+
+  const path = () => bodyPath(ctx, g);
+  skin(ctx, path, {
+    base: P.base,
+    top: shade(P.base, -0.38),
+    belly: P.belly,
+    bellyBand: [bh * 0.42, bh * 0.38, bw * 0.46, 0],
+    y0: -bh * 0.55,
+    y1: bh * 0.55,
+    noise: m.cls === 'amphibian' ? 'mottle' : 'mottle',
+    noiseAlpha: m.cls === 'amphibian' ? 0.7 : 0.45,
+    noiseScale: 0.28,
+    seed: m.seed,
+    wet: m.cls === 'amphibian' || m.cls === 'fish',
+    rim: 0.32,
+    edge: P.dark,
+    inner: (c) => {
+      // Tarnmuster: wird mit "stealth" kräftiger
+      const camoA = 0.08 + 0.62 * st;
+      if (m.cls === 'fish' || m.cls === 'reptile') {
+        // senkrechte, unregelmäßige Bänder
+        for (let i = 0; i < 6; i++) {
+          const x = bw * 0.32 - i * bw * 0.15 + (r() - 0.5) * 6;
+          c.beginPath();
+          c.moveTo(x - 3, -bh);
+          c.bezierCurveTo(x + 4 + r() * 4, -bh * 0.2, x - 5, bh * 0.1, x + 2, bh * 0.35);
+          c.lineTo(x + 5 + r() * 3, bh * 0.3);
+          c.bezierCurveTo(x + 1, bh * 0.05, x + 9, -bh * 0.25, x + 4 + r() * 3, -bh);
+          c.closePath();
+          c.fillStyle = css(P.camo, camoA);
+          c.fill();
+        }
+      } else {
+        // Flecken
+        for (let i = 0; i < 16; i++) {
+          const x = (r() - 0.5) * bw, y = -bh * 0.45 + r() * bh * 0.6;
+          ell(c, x, y, 2 + r() * 4, 1.6 + r() * 2.6, r() * 3);
+          c.fillStyle = css(P.camo, camoA * (0.6 + r() * 0.4));
+          c.fill();
+        }
+      }
+      // Schuppen / Fell / Warzen
+      if (m.cls === 'fish') {
+        c.strokeStyle = css(P.dark, 0.16);
+        c.lineWidth = 0.8;
+        for (let row = 0, y = -bh * 0.6; y < bh * 0.6; y += 4.6, row++) {
+          for (let x = -bw * 0.55; x < bw * 0.5; x += 5.6) {
+            c.beginPath();
+            c.arc(x + (row % 2) * 2.8, y, 3, 0.2 * Math.PI, 0.8 * Math.PI);
+            c.stroke();
+          }
+        }
+        // Seitenlinie
+        c.beginPath();
+        c.moveTo(bw * 0.3, -bh * 0.05);
+        c.quadraticCurveTo(-bw * 0.05, bh * 0.02, -bw * 0.5, 0);
+        c.strokeStyle = css(P.belly, 0.25);
+        c.lineWidth = 1;
+        c.stroke();
+      } else if (m.cls === 'reptile') {
+        c.strokeStyle = css(P.dark, 0.22);
+        c.lineWidth = 0.7;
+        for (let x = -bw - bh; x < bw + bh; x += 4.2) {
+          c.beginPath();
+          c.moveTo(x, -bh);
+          c.lineTo(x + bh * 2, bh);
+          c.moveTo(x, bh);
+          c.lineTo(x + bh * 2, -bh);
+          c.stroke();
+        }
+        // Bauchschilde
+        for (let x = -bw * 0.4; x < bw * 0.4; x += 5) {
+          c.beginPath();
+          c.moveTo(x, bh * 0.3);
+          c.lineTo(x + 1, bh * 0.6);
+          c.strokeStyle = css(P.dark, 0.18);
+          c.stroke();
+        }
+      } else if (m.cls === 'amphibian') {
+        for (let i = 0; i < 40; i++) {
+          const x = (r() - 0.5) * bw, y = -bh * 0.5 + r() * bh * 0.7;
+          ell(c, x, y, 0.8 + r() * 1.1, 0.8 + r() * 1.1);
+          c.fillStyle = r() > 0.5 ? css(shade(P.base, 0.25), 0.4) : css(P.dark, 0.3);
+          c.fill();
+        }
+      } else {
+        // Fell: kurze Striche in Wuchsrichtung
+        for (let i = 0; i < 260; i++) {
+          const x = (r() - 0.5) * bw * 1.05, y = (r() - 0.5) * bh * 1.05;
+          c.beginPath();
+          c.moveTo(x, y);
+          c.quadraticCurveTo(x - 2.5, y + 1, x - 4.5, y + 2.4);
+          c.strokeStyle = r() > 0.55 ? css(shade(P.base, 0.22), 0.35) : css(P.dark, 0.32);
+          c.lineWidth = 0.9;
+          c.stroke();
+        }
+      }
+      // Hunger: Rippen werden sichtbar
+      if (m.belly === 0) {
+        for (let i = 0; i < 6; i++) {
+          const x = bw * 0.18 - i * 6;
+          c.beginPath();
+          c.moveTo(x, -bh * 0.18);
+          c.quadraticCurveTo(x - 4, bh * 0.1, x - 2, bh * 0.32);
+          c.strokeStyle = 'rgba(0,0,0,0.32)';
+          c.lineWidth = 1.6;
+          c.stroke();
+          c.beginPath();
+          c.moveTo(x + 1.5, -bh * 0.16);
+          c.quadraticCurveTo(x - 2.5, bh * 0.1, x - 0.5, bh * 0.3);
+          c.strokeStyle = 'rgba(255,230,200,0.12)';
+          c.lineWidth = 1;
+          c.stroke();
+        }
+      }
+      // Knochenplatten am Nacken (Fisch mit dickem Schädel)
+      if (m.cls === 'fish' && m.skull > 0.15) {
+        const a = Math.min(1, (m.skull - 0.15) / 0.5);
+        c.beginPath();
+        c.moveTo(bw * 0.42, -bh * 0.6);
+        c.quadraticCurveTo(bw * 0.12, -bh * 0.62, bw * 0.06, -bh * 0.2);
+        c.quadraticCurveTo(bw * 0.2, bh * 0.1, bw * 0.42, bh * 0.25);
+        c.closePath();
+        c.fillStyle = css(mix(P.base, 0x9a907a, 0.55), a * 0.9);
+        c.fill();
+        c.strokeStyle = css(P.dark, a * 0.6);
+        c.lineWidth = 1;
+        c.stroke();
+      }
+      scars(c, m, bw, bh, r);
+    },
+  });
+}
+
+function finFill(ctx: Ctx, P: Pal, y0: number, y1: number) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, css(shade(P.fin, -0.2), 0.75));
+  g.addColorStop(1, css(P.fin, 0.92));
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = css(P.dark, 0.7);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function scars(c: Ctx, m: Morph, bw: number, bh: number, r: () => number) {
+  for (let i = 0; i < m.scars; i++) {
+    const x = (r() - 0.5) * bw * 0.7, y = (r() - 0.6) * bh * 0.7;
+    const len = 6 + r() * 8, a = -0.6 + r() * 1.2;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+    c.strokeStyle = 'rgba(40,14,10,0.6)';
+    c.lineWidth = 2.2;
+    c.stroke();
+    c.strokeStyle = 'rgba(214,170,150,0.55)';
+    c.lineWidth = 1;
+    c.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kopf
+
+function headPath(ctx: Ctx, hg: HeadGeo, open = false) {
+  const { L, H, mouthY, hingeX, dome, snoutH } = hg;
+  const top = -H / 2, bot = H / 2;
+  ctx.beginPath();
+  ctx.moveTo(-8, top * 0.82);
+  ctx.bezierCurveTo(L * 0.12, top * 1.05 - dome, L * 0.46, top * 0.98 - dome * 0.7, L * 0.86, mouthY - snoutH);
+  ctx.quadraticCurveTo(L + 2.5, mouthY - snoutH * 0.55, L, mouthY);
+  ctx.lineTo(hingeX, mouthY);
+  ctx.quadraticCurveTo(hingeX - 3, bot * 0.92, -2, bot * 0.86);
+  if (open) return;
+  ctx.bezierCurveTo(-9, bot * 0.55, -11, top * 0.35, -8, top * 0.82);
+  ctx.closePath();
+}
+
+function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
+  const { L, H, mouthY, hingeX } = hg;
+  const top = -H / 2;
+  const sk = m.skull;
+  const r = mulberry32(m.seed + 9);
+  // Hinter dem Kopf: Nackenschild (Echse), Ohren (Säuger)
+  if (m.cls === 'reptile' && sk > 0.7) {
+    const a = (sk - 0.7) / 0.3;
+    ctx.beginPath();
+    ctx.moveTo(-4, top * 0.4);
+    for (let i = 0; i <= 6; i++) {
+      const ang = -Math.PI * 0.55 - (i / 6) * Math.PI * 0.5;
+      const rr = H * (0.7 + 0.35 * a) + (i % 2 ? 0 : 2.5);
+      ctx.lineTo(-4 + Math.cos(ang) * rr, top * 0.4 + Math.sin(ang) * rr);
+    }
+    ctx.closePath();
+    ctx.fillStyle = css(shade(P.base, -0.25));
+    ctx.fill();
+    ctx.strokeStyle = css(P.dark, 0.9);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  if (m.cls === 'mammal') {
+    const es = 7 * (1 + 0.6 * m.stealth);
+    for (const [ox, far] of [[2, true], [8, false]] as const) {
+      ctx.beginPath();
+      ctx.moveTo(ox - es * 0.5, top * 0.6);
+      ctx.quadraticCurveTo(ox - es * 0.4, top - es * 0.9, ox + es * 0.1, top - es);
+      ctx.quadraticCurveTo(ox + es * 0.5, top - es * 0.4, ox + es * 0.55, top * 0.55);
+      ctx.closePath();
+      ctx.fillStyle = css(far ? shade(P.base, -0.35) : shade(P.base, -0.1));
+      ctx.fill();
+      ctx.strokeStyle = css(P.dark, 0.9);
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+      if (!far) {
+        ctx.beginPath();
+        ctx.moveTo(ox - es * 0.2, top * 0.6);
+        ctx.quadraticCurveTo(ox - es * 0.1, top - es * 0.6, ox + es * 0.1, top - es * 0.7);
+        ctx.quadraticCurveTo(ox + es * 0.3, top - es * 0.3, ox + es * 0.3, top * 0.6);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(90,50,44,0.8)';
+        ctx.fill();
+      }
+    }
+  }
+  // Maulhöhle (wird sichtbar, wenn der Kiefer aufgeht)
+  ctx.beginPath();
+  ctx.moveTo(hingeX, mouthY);
+  ctx.lineTo(L - 1, mouthY);
+  ctx.lineTo(L - 4, mouthY + hg.jawH);
+  ctx.lineTo(hingeX + 1, mouthY + hg.jawH * 0.85);
+  ctx.closePath();
+  ctx.fillStyle = '#2a0a0c';
+  ctx.fill();
+
+  const path = () => headPath(ctx, hg);
+  skin(ctx, path, {
+    outline: () => headPath(ctx, hg, true),
+    base: P.base,
+    top: shade(P.base, -0.38),
+    belly: P.belly,
+    bellyBand: [H * 0.42, H * 0.3, L * 0.6, L * 0.35],
+    y0: top - hg.dome,
+    y1: H / 2,
+    noise: 'mottle',
+    noiseAlpha: m.cls === 'amphibian' ? 0.7 : 0.45,
+    noiseScale: 0.28,
+    seed: m.seed + 1,
+    wet: m.cls === 'amphibian' || m.cls === 'fish',
+    edge: P.dark,
+    inner: (c) => {
+      // Knochige Struktur, wächst mit "skull"
+      if (sk > 0.05) {
+        const a = Math.min(1, sk * 1.3);
+        if (m.cls === 'fish') {
+          // Panzerplatten wie bei Panzerfischen
+          const bone = mix(P.base, 0xa49a82, 0.6);
+          c.beginPath();
+          c.moveTo(-10, top - hg.dome - 2);
+          c.lineTo(L * 0.78, mouthY - hg.snoutH - 2);
+          c.lineTo(L * 0.62, mouthY - 1);
+          c.lineTo(L * 0.2, H * 0.1);
+          c.lineTo(-10, H * 0.2);
+          c.closePath();
+          c.fillStyle = css(bone, 0.15 + 0.7 * a);
+          c.fill();
+          c.strokeStyle = css(P.dark, 0.5 * a);
+          c.lineWidth = 0.9;
+          for (const [x0, y0, x1, y1] of [[L * 0.25, top, L * 0.2, H * 0.1], [-2, top * 0.2, L * 0.6, top * 0.1], [L * 0.5, top * 0.8, L * 0.45, mouthY - 1]]) {
+            c.beginPath();
+            c.moveTo(x0, y0);
+            c.lineTo(x1, y1);
+            c.stroke();
+          }
+          for (let i = 0; i < 10; i++) {
+            ell(c, r() * L * 0.7, top * 0.8 + r() * H * 0.5, 0.7, 0.7);
+            c.fillStyle = css(P.dark, 0.4 * a);
+            c.fill();
+          }
+        } else {
+          // Grübchen und Leisten auf dem Schädeldach
+          for (let i = 0; i < 26; i++) {
+            const x = -4 + r() * L * 0.75, y = top - hg.dome * 0.5 + r() * H * 0.45;
+            ell(c, x, y, 0.7 + r() * 0.8, 0.6 + r() * 0.7);
+            c.fillStyle = css(P.dark, 0.35 * a);
+            c.fill();
+          }
+          c.beginPath();
+          c.moveTo(-6, top * 0.75 - hg.dome * 0.6);
+          c.quadraticCurveTo(L * 0.3, top * 1.02 - hg.dome, L * 0.6, top * 0.7);
+          c.strokeStyle = css(shade(P.base, 0.3), 0.35 * a);
+          c.lineWidth = 1.6;
+          c.stroke();
+        }
+      }
+      if (m.cls === 'mammal') {
+        for (let i = 0; i < 70; i++) {
+          const x = -8 + r() * L * 0.8, y = top + r() * H * 0.8;
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(x - 3, y + 1.5);
+          c.strokeStyle = r() > 0.5 ? css(shade(P.base, 0.2), 0.3) : css(P.dark, 0.3);
+          c.lineWidth = 0.8;
+          c.stroke();
+        }
+      }
+      // Kiemendeckel
+      if (m.cls === 'fish') {
+        c.beginPath();
+        c.arc(-12, 1, 15, -0.55, 0.6);
+        c.strokeStyle = css(P.dark, 0.55);
+        c.lineWidth = 1.3;
+        c.stroke();
+      }
+      scars(c, m, L * 0.8, H * 0.6, r);
+    },
+  });
+
+  // Höcker, Hörner, Kämme – je nach Körperform
+  drawSkullGrowth(ctx, m, P, hg);
+
+  // Auge
+  if (m.cls === 'amphibian') {
+    ell(ctx, hg.ex, hg.ey + 0.5, hg.er + 2.4, hg.er + 1.8);
+    ctx.fillStyle = css(shade(P.base, -0.15));
+    ctx.fill();
+    ctx.strokeStyle = css(P.dark, 0.8);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  eye(ctx, hg.ex, hg.ey, hg.er, P.eye, { slit: m.cls === 'reptile' || m.cls === 'amphibian', lid: 0.15 + m.fierce * 0.45 });
+  // Augenwulst wächst mit dem Schädel
+  if (sk > 0.15 && m.cls !== 'fish') {
+    ctx.beginPath();
+    ctx.moveTo(hg.ex - hg.er * 1.6, hg.ey - hg.er * 0.9);
+    ctx.quadraticCurveTo(hg.ex, hg.ey - hg.er * (1.6 + sk), hg.ex + hg.er * 1.8, hg.ey - hg.er * 0.7);
+    ctx.strokeStyle = css(shade(P.base, -0.45));
+    ctx.lineWidth = 1.4 + sk * 2.2;
+    ctx.stroke();
+  }
+  // Nasenloch / Nase
+  if (m.cls === 'mammal') {
+    ell(ctx, L - 1.2, mouthY - hg.snoutH * 0.72, 3.2, 2.4);
+    ctx.fillStyle = '#1a1210';
+    ctx.fill();
+    ell(ctx, L - 2, mouthY - hg.snoutH * 0.8, 1, 0.6);
+    ctx.fillStyle = 'rgba(255,240,220,0.35)';
+    ctx.fill();
+  } else if (m.cls !== 'fish') {
+    ell(ctx, L - 3.5, mouthY - hg.snoutH * 0.8, 1.1, 0.8);
+    ctx.fillStyle = '#0c0806';
+    ctx.fill();
+  }
+}
+
+function boneFill(ctx: Ctx, y0: number, y1: number) {
+  ctx.fillStyle = ivory(ctx, y0, y1, 1);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(30,22,12,0.85)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+/** Knochenwuchs am Kopf. Alles wächst stufenlos mit dem Merkmal "skull". */
+function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
+  const sk = m.skull;
+  const { L, H, mouthY, snoutH, dome } = hg;
+  const top = -H / 2;
+  const grow = (from: number, to = 1) => Math.max(0, Math.min(1, (sk - from) / (to - from)));
+  const fx = L * 0.3, fy = top - dome * 0.95;
+  const nx = L * 0.78, ny = mouthY - snoutH - 0.5;
+  const cone = (bx: number, by: number, w: number, tx: number, ty: number) => {
+    ctx.beginPath();
+    ctx.moveTo(bx - w / 2, by + 2);
+    ctx.quadraticCurveTo(bx - w * 0.15, by - (by - ty) * 0.55, tx, ty);
+    ctx.quadraticCurveTo(bx + w * 0.3, by - (by - ty) * 0.3, bx + w / 2, by + 2);
+    ctx.closePath();
+    boneFill(ctx, ty, by);
+  };
+  switch (m.cls) {
+    case 'fish': {
+      // dicker Knochenkamm auf der Stirn
+      const a = grow(0.45);
+      if (a > 0) {
+        ctx.beginPath();
+        ctx.moveTo(-4, top * 0.9 - dome);
+        ctx.quadraticCurveTo(L * 0.3, top - dome - 3 * a, L * 0.7, mouthY - snoutH - 1);
+        ctx.lineWidth = 2 + 3 * a;
+        ctx.strokeStyle = css(mix(P.base, 0xb8ac90, 0.7), 0.9);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'amphibian': {
+      const k = grow(0.3);
+      if (k > 0) {
+        for (const dx of [-3, 3]) {
+          ell(ctx, hg.ex + dx, hg.ey - hg.er - 1 - 1.5 * k, 1.5 + 2 * k, 1.2 + 1.6 * k);
+          boneFill(ctx, hg.ey - 6, hg.ey);
+        }
+      }
+      const n = grow(0.55);
+      if (n > 0) {
+        ell(ctx, nx - 2, ny - 1 - n * 2, 2 + 3.5 * n, 1.5 + 2.6 * n);
+        boneFill(ctx, ny - 6, ny);
+      }
+      break;
+    }
+    case 'reptile': {
+      const n = grow(0.35);
+      if (n > 0) cone(nx, ny + 1, 4 + 7 * n, nx + 1 + 2 * n, ny - 2 - 12 * n);
+      const c = grow(0.5);
+      if (c > 0) {
+        for (const [x, y] of [[-6, top * 0.2], [-2, H * 0.25]]) {
+          cone(x, y, 3 + 3 * c, x - 4 - 5 * c, y - 2 - 4 * c);
+        }
+      }
+      const b = grow(0.2, 0.7);
+      if (b > 0) {
+        ell(ctx, fx, fy + 2, 2 + 4 * b, 1.5 + 3 * b);
+        boneFill(ctx, fy - 4, fy + 4);
+      }
+      break;
+    }
+    case 'mammal': {
+      const b = grow(0.2, 0.6);
+      if (b > 0) {
+        ell(ctx, fx - 2, fy + 3, 3 + 5 * b, 2 + 3 * b);
+        ctx.fillStyle = css(shade(P.base, -0.2));
+        ctx.fill();
+      }
+      const k = grow(0.45);
+      if (k > 0) {
+        for (const off of [-3, 2]) cone(fx + off, fy + 3, 4 + 3 * k, fx + off + 2 + 2 * k, fy - 3 - 9 * k);
+      }
+      const h = grow(0.7);
+      if (h > 0) cone(nx, ny + 1, 5 + 7 * h, nx + 3 + 3 * h, ny - 3 - 16 * h);
+      break;
+    }
+  }
+}
+
+function teethCount(m: Morph) {
+  switch (m.cls) {
+    case 'fish': return Math.round(2 + 6 * m.jaw);
+    case 'amphibian': return Math.round(3 + 7 * m.jaw);
+    case 'reptile': return Math.round(4 + 8 * m.jaw);
+    case 'mammal': return Math.round(3 + 4 * m.jaw);
+  }
+}
+
+function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
+  const { L, mouthY, hingeX } = hg;
+  const herb = m.diet < -0.3;
+  const carn = Math.max(0, m.diet);
+  const n = teethCount(m);
+  const len = (0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * (1 + 0.3 * carn);
+  const span = L - hingeX - 4;
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const x = hingeX + 2 + t * span;
+    const big = m.cls === 'amphibian' && m.jaw > 0.55 && i === n - 2;
+    tooth(ctx, x, mouthY - 0.4, 1.6 + len * 0.45, len * (big ? 1.7 : 0.75 + 0.35 * Math.sin(t * 9 + i)), 1, herb, 0.2);
+  }
+  if (m.cls === 'mammal') {
+    // Eckzahn – wird bei starkem Kiefer und Fleischkost zum Säbelzahn
+    const sabre = m.jaw > 0.6 && m.diet > 0.2 ? (m.jaw - 0.6) / 0.4 : 0;
+    const cl = (2.5 + 7 * m.jaw) * (herb ? 0.5 : 1) + sabre * 9;
+    tooth(ctx, L * 0.74, mouthY - 0.5, 2.4 + cl * 0.18, cl, 1, false, 0.25);
+  }
+}
+
+function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
+  const len = hg.L - hg.hingeX - 1;
+  const h = hg.jawH;
+  const herb = m.diet < -0.3;
+  const n = Math.max(0, teethCount(m) - 1);
+  const tl = (0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * 0.75;
+  for (let i = 0; i < n; i++) {
+    const x = 3 + ((i + 0.5) * (len - 7)) / n;
+    tooth(ctx, x, 0.4, 1.4 + tl * 0.45, tl, -1, herb, -0.2);
+  }
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(-2, -0.4);
+    ctx.lineTo(len, -0.4);
+    ctx.quadraticCurveTo(len + 1.5, h * 0.55, len - 4, h);
+    ctx.quadraticCurveTo(len * 0.45, h * (1.2 + m.jaw * 0.2), -3, h * 0.8);
+    ctx.closePath();
+  };
+  skin(ctx, path, { base: shade(P.base, -0.05), belly: P.belly, bellyBand: [h, h * 0.8, len * 0.6, len * 0.45], y0: 0, y1: h * 1.2, noise: 'mottle', noiseAlpha: 0.35, noiseScale: 0.28, seed: m.seed + 2, edge: P.dark, rim: 0.15 });
+  // Kaumuskel wächst mit dem Kiefer
+  if (m.jaw > 0.25) {
+    ell(ctx, len * 0.18, h * 0.45, 3 + 3 * m.jaw, h * 0.32);
+    ctx.fillStyle = `rgba(0,0,0,${0.12 + 0.15 * m.jaw})`;
+    ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Schwanz, Beine, Flossen
+
+function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
+  const st = m.stealth;
+  if (m.cls === 'fish') {
+    const lobe = 16 + 16 * st, fork = 3 + 11 * st, spread = 13 + 9 * st;
+    ctx.beginPath();
+    ctx.moveTo(-4, -4);
+    ctx.quadraticCurveTo(-lobe * 0.4, -spread * 0.6, -lobe, -spread);
+    ctx.quadraticCurveTo(-lobe + fork * 0.3, -spread * 0.3, -lobe + fork, 0);
+    ctx.quadraticCurveTo(-lobe + fork * 0.3, spread * 0.3, -lobe, spread);
+    ctx.quadraticCurveTo(-lobe * 0.4, spread * 0.6, -4, 4);
+    ctx.closePath();
+    finFill(ctx, P, -spread, spread);
+    ctx.strokeStyle = css(P.dark, 0.35);
+    ctx.lineWidth = 0.7;
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-5, i * 0.9);
+      ctx.lineTo(-lobe * 0.85, i * spread * 0.27);
+      ctx.stroke();
+    }
+    const pd = () => {
+      ctx.beginPath();
+      ctx.moveTo(6, -g.bh * 0.12);
+      ctx.lineTo(-6, -4.5);
+      ctx.lineTo(-6, 4.5);
+      ctx.lineTo(6, g.bh * 0.12);
+      ctx.closePath();
+    };
+    skin(ctx, pd, { base: P.base, belly: P.belly, y0: -6, y1: 6, noise: 'mottle', noiseAlpha: 0.4, noiseScale: 0.28, seed: m.seed, edge: P.dark, edgeW: 0.01 });
+    return;
+  }
+  const len = m.cls === 'amphibian' ? 46 * (1 + 0.3 * st) : m.cls === 'reptile' ? 56 * (1 + 0.35 * st) : 30 * (1 + 0.45 * st);
+  const baseH = g.bh * (m.cls === 'mammal' ? 0.32 : 0.5);
+  const tipY = m.cls === 'mammal' ? -6 : -2;
+  const tailLine = () => {
+    ctx.beginPath();
+    ctx.moveTo(6, -baseH / 2);
+    ctx.bezierCurveTo(-len * 0.3, -baseH * 0.5, -len * 0.7, tipY - baseH * 0.15, -len, tipY);
+    ctx.bezierCurveTo(-len * 0.7, tipY + baseH * 0.12, -len * 0.3, baseH * 0.45, 6, baseH / 2);
+  };
+  const path = () => {
+    tailLine();
+    ctx.closePath();
+  };
+  if (m.cls === 'amphibian') {
+    // Flossensaum, wird mit der Zeit schmaler
+    const fh = 5 * (1 - 0.5 * st);
+    ctx.beginPath();
+    ctx.moveTo(2, -baseH / 2);
+    ctx.quadraticCurveTo(-len * 0.5, -baseH / 2 - fh * 1.6, -len, tipY - 1);
+    ctx.lineTo(-len, tipY + 1);
+    ctx.quadraticCurveTo(-len * 0.5, baseH / 2 + fh * 1.2, 2, baseH / 2);
+    ctx.closePath();
+    finFill(ctx, P, -baseH, baseH);
+  }
+  const r = mulberry32(m.seed + 5);
+  skin(ctx, path, {
+    outline: tailLine,
+    base: P.base,
+    top: shade(P.base, -0.35),
+    belly: P.belly,
+    bellyBand: [baseH * 0.4, baseH * 0.3, len * 0.5, -len * 0.4],
+    y0: -baseH,
+    y1: baseH,
+    noise: 'mottle',
+    noiseAlpha: m.cls === 'amphibian' ? 0.7 : 0.45,
+    noiseScale: 0.28,
+    seed: m.seed + 4,
+    edge: P.dark,
+    wet: m.cls === 'amphibian',
+    inner: (c) => {
+      const camoA = 0.1 + 0.6 * st;
+      for (let i = 1; i < 6; i++) {
+        const x = -len * (i / 6);
+        c.fillStyle = css(P.camo, camoA);
+        c.fillRect(x - 2, -baseH, 3.2 + r() * 2, baseH * 2);
+      }
+      if (m.cls === 'mammal') {
+        for (let i = 0; i < 40; i++) {
+          const x = -r() * len, y = (r() - 0.5) * baseH;
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(x - 3.5, y + 1.6);
+          c.strokeStyle = css(P.dark, 0.35);
+          c.lineWidth = 0.9;
+          c.stroke();
+        }
+      }
+    },
+  });
+  if (m.cls === 'mammal') {
+    // Quaste an der Spitze
+    for (let i = 0; i < 9; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-len + 4, tipY);
+      ctx.lineTo(-len - 4 - (i % 3) * 1.5, tipY - 4 + i);
+      ctx.strokeStyle = css(shade(P.base, -0.45), 0.9);
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawLeg(ctx: Ctx, m: Morph, P: Pal, len: number, w: number) {
+  const hoof = m.cls === 'mammal' && m.diet < -0.4 && m.stealth > 0.3;
+  const thigh = w * 1.2;
+  const ankle = w * (m.cls === 'mammal' ? 0.42 : 0.5);
+  const knee = m.cls === 'amphibian' ? len * 0.06 : len * (m.cls === 'mammal' ? 0.12 : 0.15);
+  const legLine = () => {
+    ctx.beginPath();
+    ctx.moveTo(-thigh * 0.62, -6);
+    ctx.bezierCurveTo(-thigh * 0.9, len * 0.28, -ankle * 0.4 + knee, len * 0.52, -ankle * 0.55, len - 3);
+    ctx.lineTo(ankle * 0.6 + 1, len - 3);
+    ctx.bezierCurveTo(ankle * 0.8 + knee, len * 0.5, thigh * 0.85, len * 0.25, thigh * 0.62, -6);
+  };
+  const path = () => {
+    legLine();
+    ctx.closePath();
+  };
+  skin(ctx, path, { outline: legLine, base: P.base, top: P.base, belly: shade(P.base, -0.2), y0: -6, y1: len, noise: 'mottle', noiseAlpha: 0.45, noiseScale: 0.28, seed: m.seed + 7, edge: P.dark, rim: 0.2 });
+  // Fuß
+  if (m.cls === 'amphibian') {
+    for (let i = 0; i < 4; i++) {
+      const a = -0.5 + i * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(1, len - 2.5);
+      ctx.lineTo(1 + Math.cos(a) * 6.5, len - 1.5 + Math.sin(a) * 2.5);
+      ctx.strokeStyle = css(shade(P.base, -0.25));
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  } else if (hoof) {
+    ctx.beginPath();
+    ctx.moveTo(-ankle * 0.7, len - 4);
+    ctx.lineTo(ankle * 0.9 + 1, len - 4);
+    ctx.lineTo(ankle + 1.5, len + 0.5);
+    ctx.lineTo(-ankle * 0.8, len + 0.5);
+    ctx.closePath();
+    ctx.fillStyle = '#1c1612';
+    ctx.fill();
+  } else {
+    ell(ctx, 2.5, len - 2.2, w * 0.68, 2.6);
+    ctx.fillStyle = css(shade(P.base, -0.3));
+    ctx.fill();
+    ctx.strokeStyle = css(P.dark, 0.9);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Krallen: länger bei Fleischfressern
+    const cl = 2 + 2.5 * Math.max(0, m.diet) + 1.5 * m.jaw;
+    for (let i = 0; i < 3; i++) {
+      const x = w * 0.45 + i * 2.2;
+      ctx.beginPath();
+      ctx.moveTo(x - 1, len - 3.2);
+      ctx.quadraticCurveTo(x + cl, len - 2.5, x + cl * 0.8, len + 1.2);
+      ctx.lineTo(x, len - 1);
+      ctx.closePath();
+      ctx.fillStyle = '#d8ccb0';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(20,14,8,0.8)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawFin(ctx: Ctx, m: Morph, P: Pal) {
+  const k = 1 + 0.5 * m.stealth;
+  ctx.beginPath();
+  ctx.moveTo(1, -2.5);
+  ctx.quadraticCurveTo(-5 * k, 9 * k, -14 * k, 10 * k);
+  ctx.quadraticCurveTo(-8 * k, 4 * k, -1, 3);
+  ctx.closePath();
+  finFill(ctx, P, -2, 10 * k);
+  ctx.strokeStyle = css(P.dark, 0.4);
+  ctx.lineWidth = 0.6;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-1, 0);
+    ctx.lineTo((-8 - i * 2) * k, (4 + i * 2) * k);
+    ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Texturen
+
+export const CREATURE_RES = 2;
 
 export interface PartTex {
   key: string;
@@ -136,10 +950,11 @@ export interface CreatureTex {
   layout: Layout;
 }
 
-function part(scene: Phaser.Scene, key: string, w: number, h: number, px: number, py: number, draw: (ctx: Ctx) => void): PartTex {
+function part(scene: Phaser.Scene, key: string, w: number, h: number, px: number, py: number, s: number, draw: (ctx: Ctx) => void): PartTex {
   if (!scene.textures.exists(key)) {
-    const [c, ctx] = newCanvas(w * RES, h * RES);
-    ctx.scale(RES, RES);
+    const R = CREATURE_RES;
+    const [c, ctx] = newCanvas(w * s * R, h * s * R);
+    ctx.scale(R * s, R * s);
     ctx.translate(px, py);
     draw(ctx);
     scene.textures.addCanvas(key, c);
@@ -147,855 +962,28 @@ function part(scene: Phaser.Scene, key: string, w: number, h: number, px: number
   return { key, ox: px / w, oy: py / h };
 }
 
-const IVORY_STROKE = '#5e4a2c';
-
-function ivory(ctx: Ctx, y0: number, y1: number, gold = false) {
-  const g = ctx.createLinearGradient(0, y0, 0, y1);
-  g.addColorStop(0, gold ? '#fff6b0' : '#fffaf0');
-  g.addColorStop(1, gold ? '#e0a020' : '#cdb68a');
-  return g;
-}
-
-function eye(ctx: Ctx, x: number, y: number, r: number, iris: number) {
-  ell(ctx, x, y, r, r);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,.55)';
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
-  ell(ctx, x + r * 0.25, y, r * 0.62, r * 0.62);
-  ctx.fillStyle = css(iris);
-  ctx.fill();
-  ell(ctx, x + r * 0.32, y, r * 0.33, r * 0.4);
-  ctx.fillStyle = '#111';
-  ctx.fill();
-  ell(ctx, x + r * 0.05, y - r * 0.35, r * 0.22, r * 0.22);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-}
-
-// ---------------------------------------------------------------------------
-// Körper
-
-function bodyPath(ctx: Ctx, cls: ClassId) {
-  ctx.beginPath();
-  switch (cls) {
-    case 'fish':
-      ctx.moveTo(22, -15);
-      ctx.bezierCurveTo(6, -19, -16, -15, -29, -5);
-      ctx.lineTo(-29, 5);
-      ctx.bezierCurveTo(-16, 15, 6, 19, 22, 15);
-      ctx.bezierCurveTo(27, 8, 27, -8, 22, -15);
-      break;
-    case 'amphibian':
-      ctx.moveTo(28, -9);
-      ctx.bezierCurveTo(14, -15, -14, -15, -30, -6);
-      ctx.bezierCurveTo(-34, -1, -33, 6, -28, 8);
-      ctx.bezierCurveTo(-12, 15, 12, 15, 28, 9);
-      ctx.bezierCurveTo(33, 4, 33, -4, 28, -9);
-      break;
-    case 'reptile':
-      ctx.moveTo(31, -12);
-      ctx.bezierCurveTo(16, -19, -14, -19, -31, -8);
-      ctx.bezierCurveTo(-36, -2, -35, 6, -30, 9);
-      ctx.bezierCurveTo(-12, 18, 14, 18, 31, 10);
-      ctx.bezierCurveTo(37, 4, 37, -6, 31, -12);
-      break;
-    case 'mammal':
-      ctx.moveTo(33, -15);
-      ctx.bezierCurveTo(18, -23, -16, -22, -32, -11);
-      ctx.bezierCurveTo(-38, -4, -37, 8, -31, 13);
-      ctx.bezierCurveTo(-12, 21, 14, 21, 32, 14);
-      ctx.bezierCurveTo(39, 7, 39, -8, 33, -15);
-      break;
-  }
-  ctx.closePath();
-}
-
-/** Ungefähre Oberkante des Körpers an Position x. */
-function topAt(sh: Shape, x: number) {
-  const hw = sh.bw / 2, hh = sh.bh / 2;
-  const k = Math.max(0, 1 - (x / hw) ** 2);
-  return -hh * Math.sqrt(k) * 0.98;
-}
-
-function bodyPattern(ctx: Ctx, a: Appearance, P: Palette, sh: Shape) {
-  const hw = sh.bw / 2, hh = sh.bh / 2;
-  const r = mulberry32(11 + a.farbe * 13 + a.haut * 31 + a.koerper * 7);
-  const dark = css(P.dark, 0.32);
-  const kind = a.haut === 0 ? `plain-${a.cls}` : `skin-${a.haut}`;
-  switch (kind) {
-    case 'plain-fish':
-      for (let i = 0; i < 14; i++) {
-        ell(ctx, -hw + r() * sh.bw, -hh + r() * hh * 1.1, 1 + r(), 1 + r());
-        ctx.fillStyle = dark;
-        ctx.fill();
-      }
-      break;
-    case 'plain-amphibian':
-      for (let i = 0; i < 9; i++) {
-        ell(ctx, -hw + 6 + r() * (sh.bw - 12), -hh + 2 + r() * hh, 2 + r() * 2.6, 1.6 + r() * 2);
-        ctx.fillStyle = css(P.dark, 0.35);
-        ctx.fill();
-      }
-      break;
-    case 'plain-reptile':
-      for (let y = -hh; y < hh; y += 4.5) {
-        for (let x = -hw; x < hw; x += 5) {
-          ell(ctx, x + ((y / 4.5) % 2 ? 2.5 : 0), y, 1, 1);
-          ctx.fillStyle = css(P.dark, 0.18);
-          ctx.fill();
-        }
-      }
-      break;
-    case 'plain-mammal':
-      ctx.strokeStyle = css(shade(P.base, -0.25), 0.4);
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 70; i++) {
-        const x = -hw + r() * sh.bw, y = -hh + r() * sh.bh;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x - 3, y + 2);
-        ctx.stroke();
-      }
-      break;
-    case 'skin-1': // Schuppen
-      ctx.strokeStyle = css(P.dark, 0.35);
-      ctx.lineWidth = 1;
-      for (let row = 0, y = -hh; y < hh + 4; y += 5.5, row++) {
-        for (let x = -hw - 4; x < hw + 4; x += 7) {
-          ctx.beginPath();
-          ctx.arc(x + (row % 2) * 3.5, y, 3.4, 0.15 * Math.PI, 0.85 * Math.PI);
-          ctx.stroke();
-        }
-      }
-      break;
-    case 'skin-2': {
-      // Knochenplatten
-      const bone = mix(P.base, 0xe6dcc0, 0.6);
-      for (let i = 0; i < 5; i++) {
-        const x = hw * 0.75 - i * 13;
-        ctx.beginPath();
-        ctx.moveTo(x, -hh - 2);
-        ctx.quadraticCurveTo(x + 6, -hh * 0.2, x + 1, hh * 0.25);
-        ctx.lineTo(x - 11, hh * 0.25);
-        ctx.quadraticCurveTo(x - 7, -hh * 0.2, x - 12, -hh - 2);
-        ctx.closePath();
-        fillStroke(ctx, css(bone, 0.95), css(P.dark, 0.6), 1.2);
-        ell(ctx, x - 5, -hh * 0.45, 1.2, 1.2);
-        ctx.fillStyle = css(P.dark, 0.5);
-        ctx.fill();
-      }
-      break;
-    }
-    case 'skin-3':
-    case 'skin-4': {
-      // Hornschuppen (Rauten), beim Stachelpanzer zusätzlich Bänder
-      ctx.strokeStyle = css(P.dark, 0.32);
-      ctx.lineWidth = 1.1;
-      for (let x = -hw - sh.bh; x < hw + sh.bh; x += 7) {
-        ctx.beginPath();
-        ctx.moveTo(x, -hh - 2);
-        ctx.lineTo(x + sh.bh, hh + 2);
-        ctx.moveTo(x, hh + 2);
-        ctx.lineTo(x + sh.bh, -hh - 2);
-        ctx.stroke();
-      }
-      ell(ctx, 0, -hh * 0.9, hw * 0.9, hh * 0.3);
-      ctx.fillStyle = css(P.dark, 0.25);
-      ctx.fill();
-      if (a.haut === 4) {
-        for (let i = -2; i <= 2; i++) {
-          ctx.fillStyle = css(P.dark, 0.22);
-          ctx.fillRect(i * 13 - 3, -hh, 5, sh.bh * 0.7);
-        }
-      }
-      break;
-    }
-    case 'skin-5': {
-      // Dichter Pelz
-      for (let i = 0; i < 160; i++) {
-        const x = -hw + r() * sh.bw, y = -hh + r() * sh.bh;
-        ctx.strokeStyle = css(r() > 0.5 ? shade(P.base, 0.25) : shade(P.base, -0.25), 0.55);
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(x - 2, y + 2, x - 4, y + 3);
-        ctx.stroke();
-      }
-      break;
-    }
-  }
-}
-
-function drawBody(ctx: Ctx, a: Appearance, P: Palette, sh: Shape) {
-  const cls = a.cls;
-  const hw = sh.bw / 2, hh = sh.bh / 2;
-  const furry = a.haut === 5;
-
-  // Teile hinter dem Körper
-  if (cls === 'fish') {
-    const k = 1 + a.schwanz * 0.25;
-    ctx.beginPath();
-    ctx.moveTo(8, -15);
-    ctx.quadraticCurveTo(-2, -15 - 14 * k, -12, -15 - 12 * k);
-    ctx.quadraticCurveTo(-13, -13, -17, -10);
-    ctx.closePath();
-    fillStroke(ctx, css(P.accent, 0.9), css(P.dark, 0.7), 1.4);
-    ctx.strokeStyle = css(shade(P.accent, -0.3), 0.6);
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(4 - i * 5, -14);
-      ctx.lineTo(-2 - i * 3.5, -15 - 11 * k + i * 2);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.moveTo(-6, 13);
-    ctx.quadraticCurveTo(-12, 24, -20, 22);
-    ctx.quadraticCurveTo(-16, 16, -17, 11);
-    ctx.closePath();
-    fillStroke(ctx, css(P.accent, 0.85), css(P.dark, 0.6), 1.2);
-  }
-  if (a.haut === 4) {
-    // Rückenstacheln
-    for (let i = 0; i < 7; i++) {
-      const x = -hw * 0.8 + i * ((hw * 1.6) / 6);
-      const y = topAt(sh, x);
-      const hgt = 9 + (i % 2) * 4;
-      ctx.beginPath();
-      ctx.moveTo(x - 4.5, y + 4);
-      ctx.lineTo(x + 1, y - hgt);
-      ctx.lineTo(x + 4.5, y + 4);
-      ctx.closePath();
-      fillStroke(ctx, ivory(ctx, y - hgt, y + 4), IVORY_STROKE, 1.2);
-    }
-  } else if (a.haut === 3) {
-    for (let i = 0; i < 9; i++) {
-      const x = -hw * 0.85 + i * ((hw * 1.7) / 8);
-      const y = topAt(sh, x);
-      ell(ctx, x, y + 0.5, 3.6, 3.4);
-      fillStroke(ctx, css(shade(P.base, -0.2)), css(P.dark), 1.2);
-    }
-  } else if (a.haut === 2 && cls !== 'fish') {
-    for (let i = 0; i < 4; i++) {
-      const x = -hw * 0.55 + i * ((hw * 1.1) / 3);
-      const y = topAt(sh, x);
-      ctx.beginPath();
-      ctx.moveTo(x - 6, y + 4);
-      ctx.quadraticCurveTo(x - 3, y - 11, x + 1, y - 11);
-      ctx.quadraticCurveTo(x + 6, y - 8, x + 6, y + 4);
-      ctx.closePath();
-      fillStroke(ctx, css(mix(P.base, 0xe6dcc0, 0.55)), css(P.dark, 0.8), 1.2);
-    }
-  }
-
-  // Körper
-  bodyPath(ctx, cls);
-  const g = ctx.createLinearGradient(0, -hh, 0, hh);
-  g.addColorStop(0, css(shade(P.base, 0.12)));
-  g.addColorStop(0.55, css(P.base));
-  g.addColorStop(1, css(shade(P.base, -0.15)));
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.save();
-  bodyPath(ctx, cls);
-  ctx.clip();
-  ell(ctx, 2, hh * 0.78, hw * 0.88, hh * 0.55);
-  ctx.fillStyle = css(P.belly, 0.92);
-  ctx.fill();
-  bodyPattern(ctx, a, P, sh);
-  ell(ctx, hw * 0.15, -hh * 0.55, hw * 0.6, hh * 0.32);
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.fill();
-  ctx.restore();
-  bodyPath(ctx, cls);
-  ctx.strokeStyle = css(P.dark);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  if (cls === 'fish') {
-    ctx.beginPath();
-    ctx.moveTo(18, -1);
-    ctx.quadraticCurveTo(-5, 2, -27, 0);
-    ctx.strokeStyle = css(P.belly, 0.45);
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-  }
-  if (furry || cls === 'mammal') {
-    // fransige Fellkante
-    const n = furry ? 26 : 14;
-    ctx.strokeStyle = css(furry ? shade(P.base, -0.15) : P.dark, 0.8);
-    ctx.lineWidth = furry ? 1.6 : 1.1;
-    for (let i = 0; i <= n; i++) {
-      const ang = Math.PI + 0.25 + (i / n) * (Math.PI - 0.5);
-      const x = Math.cos(ang) * hw * 0.98, y = Math.sin(ang) * hh * 0.98;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - (furry ? 3 : 2), y - (furry ? 3.5 : 2));
-      ctx.stroke();
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Kopf
-
-/** Kopfumriss. Mit open=true ohne Hinterkante (die geht in den Hals über). */
-function headPath(ctx: Ctx, hg: HeadGeo, open = false) {
-  const { L, H, mouthY, hingeX, snoutH } = hg;
-  const top = -H / 2, bot = H / 2;
-  ctx.beginPath();
-  ctx.moveTo(-6, top * 0.85);
-  ctx.bezierCurveTo(L * 0.2, top * 1.12, L * 0.62, top * 0.9, L * 0.9, mouthY - snoutH);
-  ctx.quadraticCurveTo(L + 2.5, mouthY - snoutH * 0.55, L, mouthY);
-  ctx.lineTo(hingeX, mouthY);
-  ctx.quadraticCurveTo(hingeX - 3, bot * 0.95, -2, bot * 0.88);
-  if (open) return;
-  ctx.bezierCurveTo(-9, bot * 0.6, -10, top * 0.4, -6, top * 0.85);
-  ctx.closePath();
-}
-
-function drawHorn(ctx: Ctx, lvl: number, hg: HeadGeo) {
-  if (!lvl) return;
-  const { L, H, mouthY, snoutH } = hg;
-  const top = -H / 2;
-  const fx = L * 0.3, fy = top * 1.02;
-  const nx = L * 0.78, ny = mouthY - snoutH - 1;
-  const cone = (bx: number, by: number, w: number, tx: number, ty: number, gold = false) => {
-    ctx.beginPath();
-    ctx.moveTo(bx - w / 2, by + 2);
-    ctx.quadraticCurveTo(bx - w * 0.2, by - (by - ty) * 0.5, tx, ty);
-    ctx.quadraticCurveTo(bx + w * 0.3, by - (by - ty) * 0.3, bx + w / 2, by + 2);
-    ctx.closePath();
-    fillStroke(ctx, ivory(ctx, ty, by, gold), IVORY_STROKE, 1.2);
-    // Rillen
-    ctx.strokeStyle = 'rgba(94,74,44,.35)';
-    ctx.lineWidth = 0.8;
-    for (let i = 1; i < 3; i++) {
-      const t = i / 3;
-      ctx.beginPath();
-      ctx.moveTo(bx - (w / 2) * (1 - t) + (tx - bx) * t * 0.6, by - (by - ty) * t * 0.6);
-      ctx.lineTo(bx + (w / 2) * (1 - t) + (tx - bx) * t * 0.6, by - (by - ty) * t * 0.6);
-      ctx.stroke();
-    }
-  };
-  switch (lvl) {
-    case 1:
-      ell(ctx, fx, fy + 1.5, 6, 4.5);
-      fillStroke(ctx, ivory(ctx, fy - 4, fy + 6), IVORY_STROKE, 1.2);
-      break;
-    case 2:
-      cone(fx, fy + 1, 11, fx + 6, fy - 16);
-      break;
-    case 3:
-      ell(ctx, fx - 2, fy + 2, 4, 3);
-      fillStroke(ctx, ivory(ctx, fy - 2, fy + 5), IVORY_STROKE, 1);
-      cone(nx, ny + 1, 13, nx + 4, ny - 20);
-      break;
-    case 4:
-      for (const off of [-3, 0]) {
-        ctx.beginPath();
-        ctx.moveTo(fx - 5 + off, fy + 3);
-        ctx.quadraticCurveTo(fx + 2 + off, fy - 16, fx + L * 0.75 + off, fy - 19);
-        ctx.quadraticCurveTo(fx + 8 + off, fy - 6, fx + 6 + off, fy + 3);
-        ctx.closePath();
-        fillStroke(ctx, ivory(ctx, fy - 19, fy + 3), IVORY_STROKE, 1.2);
-      }
-      cone(nx, ny + 1, 8, nx + 2, ny - 8);
-      break;
-    case 5:
-      for (let i = 0; i < 5; i++) {
-        const x = -2 + i * (L * 0.16);
-        const hgt = 9 + (i === 2 ? 8 : i % 2 ? 4 : 2);
-        cone(x, top * 0.95 + Math.abs(i - 2) * 0.8, 7, x + 2, top - hgt, true);
-      }
-      cone(nx, ny + 1, 12, nx + 4, ny - 18, true);
-      break;
-  }
-}
-
-function drawHead(ctx: Ctx, a: Appearance, P: Palette, hg: HeadGeo) {
-  const { L, H, mouthY, hingeX, snoutH } = hg;
-  const top = -H / 2;
-  const cls = a.cls;
-
-  // Nackenschild (Doppelhorn)
-  if (a.horn === 4) {
-    ctx.beginPath();
-    ctx.moveTo(-2, top * 0.2);
-    for (let i = 0; i <= 6; i++) {
-      const ang = -Math.PI * 0.55 - (i / 6) * Math.PI * 0.55;
-      const r = H * 0.95 + (i % 2 ? 0 : 3);
-      ctx.lineTo(-2 + Math.cos(ang) * r, top * 0.2 + Math.sin(ang) * r);
-    }
-    ctx.closePath();
-    fillStroke(ctx, css(shade(P.accent, -0.05)), css(P.dark), 1.6);
-    for (let i = 0; i < 5; i++) {
-      const ang = -Math.PI * 0.62 - (i / 4) * Math.PI * 0.42;
-      ell(ctx, -2 + Math.cos(ang) * H * 0.7, top * 0.2 + Math.sin(ang) * H * 0.7, 2, 2);
-      ctx.fillStyle = css(P.dark, 0.5);
-      ctx.fill();
-    }
-  }
-  // Ohren
-  if (cls === 'mammal') {
-    for (const [ox, dark] of [[3, true], [9, false]] as const) {
-      ctx.beginPath();
-      ctx.moveTo(ox - 5, top * 0.7);
-      ctx.lineTo(ox - 1, top - 9);
-      ctx.lineTo(ox + 5, top * 0.6);
-      ctx.closePath();
-      fillStroke(ctx, css(dark ? shade(P.base, -0.25) : P.base), css(P.dark), 1.4);
-      ctx.beginPath();
-      ctx.moveTo(ox - 2.5, top * 0.7);
-      ctx.lineTo(ox - 1, top - 5);
-      ctx.lineTo(ox + 2.5, top * 0.65);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(255,170,170,.8)';
-      ctx.fill();
-    }
-  }
-  // Maulhöhle (sichtbar, wenn der Kiefer aufgeht)
-  ctx.beginPath();
-  ctx.moveTo(hingeX, mouthY);
-  ctx.lineTo(L - 1, mouthY);
-  ctx.lineTo(L - 5, mouthY + hg.jawH);
-  ctx.lineTo(hingeX + 1, mouthY + hg.jawH * 0.85);
-  ctx.closePath();
-  ctx.fillStyle = '#5b1820';
-  ctx.fill();
-  ell(ctx, hingeX + (L - hingeX) * 0.45, mouthY + hg.jawH * 0.65, (L - hingeX) * 0.25, 2.2);
-  ctx.fillStyle = '#d9606a';
-  ctx.fill();
-
-  // Kopfform
-  headPath(ctx, hg);
-  const g = ctx.createLinearGradient(0, top, 0, H / 2);
-  g.addColorStop(0, css(shade(P.base, 0.14)));
-  g.addColorStop(0.6, css(P.base));
-  g.addColorStop(1, css(shade(P.base, -0.12)));
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.save();
-  headPath(ctx, hg);
-  ctx.clip();
-  ell(ctx, L * 0.35, H * 0.42, L * 0.6, H * 0.28);
-  ctx.fillStyle = css(P.belly, 0.85);
-  ctx.fill();
-  if (a.haut === 2) {
-    ctx.beginPath();
-    ctx.moveTo(-8, top);
-    ctx.lineTo(L * 0.7, top);
-    ctx.lineTo(L * 0.55, mouthY - 2);
-    ctx.lineTo(-8, mouthY - 1);
-    ctx.closePath();
-    fillStroke(ctx, css(mix(P.base, 0xe6dcc0, 0.6), 0.95), css(P.dark, 0.6), 1.2);
-  }
-  if (a.haut === 5 || cls === 'mammal') {
-    const r = mulberry32(5 + a.farbe);
-    ctx.strokeStyle = css(shade(P.base, -0.25), 0.45);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 25; i++) {
-      const x = -6 + r() * L * 0.6, y = top + r() * H * 0.6;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 3, y + 2);
-      ctx.stroke();
-    }
-  }
-  ell(ctx, L * 0.3, top * 0.55, L * 0.35, H * 0.18);
-  ctx.fillStyle = 'rgba(255,255,255,0.16)';
-  ctx.fill();
-  ctx.restore();
-  headPath(ctx, hg, true);
-  ctx.strokeStyle = css(P.dark);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  if (cls === 'fish') {
-    ctx.beginPath();
-    ctx.arc(-12, 0, 15, -0.5, 0.5);
-    ctx.strokeStyle = css(P.dark, 0.35);
-    ctx.lineWidth = 1.3;
-    ctx.stroke();
-  }
-
-  drawHorn(ctx, a.horn, hg);
-
-  // Auge
-  if (cls === 'amphibian') {
-    ell(ctx, hg.ex, hg.ey, hg.er + 2.6, hg.er + 2.2);
-    fillStroke(ctx, css(shade(P.base, 0.08)), css(P.dark), 1.5);
-  }
-  eye(ctx, hg.ex, hg.ey, hg.er, P.eye);
-  if (cls === 'reptile' || a.kiefer >= 4) {
-    ctx.beginPath();
-    ctx.moveTo(hg.ex - hg.er - 1, hg.ey - hg.er - 0.5);
-    ctx.quadraticCurveTo(hg.ex, hg.ey - hg.er - 3, hg.ex + hg.er + 2, hg.ey - hg.er + 1.5);
-    ctx.strokeStyle = css(P.dark);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  // Nase
-  if (cls === 'mammal') {
-    ell(ctx, L - 1, mouthY - snoutH * 0.7, 3.4, 2.6);
-    ctx.fillStyle = '#2a1e1e';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(40,30,30,.55)';
-    ctx.lineWidth = 0.7;
-    for (const dy of [-1.5, 0.5, 2.5]) {
-      ctx.beginPath();
-      ctx.moveTo(L - 7, mouthY - 3 + dy * 0.4);
-      ctx.lineTo(L + 6, mouthY - 4 + dy * 1.6);
-      ctx.stroke();
-    }
-  } else if (cls !== 'fish') {
-    ell(ctx, L - 4, mouthY - snoutH * 0.75, 1.2, 0.9);
-    ctx.fillStyle = css(P.dark);
-    ctx.fill();
-  }
-}
-
-function drawTeeth(ctx: Ctx, a: Appearance, hg: HeadGeo) {
-  const t = TEETH[a.kiefer] ?? TEETH[0];
-  const { L, mouthY, hingeX } = hg;
-  ctx.lineWidth = 0.8;
-  for (let i = 0; i < t.n; i++) {
-    const x = hingeX + 3 + ((i + 0.5) * (L - hingeX - 6)) / t.n;
-    const s = t.s * (a.kiefer === 4 ? (i % 2 ? 0.75 : 1.15) : 1) * (a.kiefer === 3 && i === t.n - 2 ? 1.6 : 1);
-    ctx.beginPath();
-    ctx.moveTo(x - s * 0.5, mouthY - 0.6);
-    ctx.lineTo(x + s * 0.5, mouthY - 0.6);
-    ctx.lineTo(x + s * 0.12, mouthY + s);
-    ctx.closePath();
-    fillStroke(ctx, '#fffef5', '#8a7a6a', 0.8);
-  }
-  if (a.kiefer === 5) {
-    const x = L * 0.7;
-    ctx.beginPath();
-    ctx.moveTo(x - 3, mouthY - 0.5);
-    ctx.quadraticCurveTo(x - 2.5, mouthY + 12, x + 1, mouthY + 18);
-    ctx.quadraticCurveTo(x + 2.5, mouthY + 9, x + 3, mouthY - 0.5);
-    ctx.closePath();
-    fillStroke(ctx, ivory(ctx, mouthY, mouthY + 18), IVORY_STROKE, 1);
-  }
-}
-
-function drawJaw(ctx: Ctx, a: Appearance, P: Palette, hg: HeadGeo) {
-  const len = hg.L - hg.hingeX - 1;
-  const h = hg.jawH;
-  const t = TEETH[a.kiefer] ?? TEETH[0];
-  const n = Math.max(0, t.n - 1);
-  for (let i = 0; i < n; i++) {
-    const x = 4 + ((i + 0.5) * (len - 8)) / n;
-    const s = t.s * 0.85;
-    ctx.beginPath();
-    ctx.moveTo(x - s * 0.5, 0.5);
-    ctx.lineTo(x + s * 0.5, 0.5);
-    ctx.lineTo(x, -s * 0.85);
-    ctx.closePath();
-    fillStroke(ctx, '#fffef5', '#8a7a6a', 0.8);
-  }
-  ctx.beginPath();
-  ctx.moveTo(-1, -0.5);
-  ctx.lineTo(len, -0.5);
-  ctx.quadraticCurveTo(len + 1.5, h * 0.55, len - 4, h);
-  ctx.quadraticCurveTo(len * 0.45, h * 1.2, -2, h * 0.75);
-  ctx.closePath();
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, css(P.belly));
-  g.addColorStop(1, css(shade(P.base, -0.05)));
-  fillStroke(ctx, g, css(P.dark), 1.6);
-}
-
-// ---------------------------------------------------------------------------
-// Schwanz / Flosse
-
-function drawTail(ctx: Ctx, a: Appearance, P: Palette, sh: Shape) {
-  if (a.cls === 'fish') {
-    const k = Math.min(2, a.schwanz);
-    ctx.beginPath();
-    if (k === 0) {
-      ctx.moveTo(-4, -4);
-      ctx.quadraticCurveTo(-16, -16, -22, -12);
-      ctx.quadraticCurveTo(-17, 0, -22, 12);
-      ctx.quadraticCurveTo(-16, 16, -4, 4);
-    } else if (k === 1) {
-      ctx.moveTo(-4, -4);
-      ctx.quadraticCurveTo(-18, -20, -30, -21);
-      ctx.quadraticCurveTo(-21, -6, -18, 0);
-      ctx.quadraticCurveTo(-21, 6, -30, 21);
-      ctx.quadraticCurveTo(-18, 20, -4, 4);
-    } else {
-      ctx.moveTo(-4, -4);
-      ctx.quadraticCurveTo(-14, -14, -34, -30);
-      ctx.quadraticCurveTo(-24, -10, -22, 0);
-      ctx.quadraticCurveTo(-24, 10, -34, 30);
-      ctx.quadraticCurveTo(-14, 14, -4, 4);
-    }
-    ctx.closePath();
-    const g = ctx.createLinearGradient(0, 0, -30, 0);
-    g.addColorStop(0, css(P.accent));
-    g.addColorStop(1, css(shade(P.accent, -0.2), 0.85));
-    fillStroke(ctx, g, css(P.dark, 0.8), 1.4);
-    ctx.strokeStyle = css(shade(P.accent, -0.35), 0.55);
-    ctx.lineWidth = 0.8;
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-6, i * 1.2);
-      ctx.lineTo(-18 - k * 4, i * (6 + k * 3));
-      ctx.stroke();
-    }
-    // Schwanzstiel
-    ctx.beginPath();
-    ctx.moveTo(4, -6);
-    ctx.lineTo(-6, -4.5);
-    ctx.lineTo(-6, 4.5);
-    ctx.lineTo(4, 6);
-    ctx.closePath();
-    ctx.fillStyle = css(P.base);
-    ctx.fill();
-    return;
-  }
-
-  const kind = a.schwanz;
-  const baseH = sh.bh * 0.42;
-  const len = [26, 44, 40, 42, 40][kind] ?? 30;
-  const tipY = a.cls === 'mammal' ? -8 : -3;
-  const path = () => {
-    ctx.beginPath();
-    ctx.moveTo(5, -baseH / 2);
-    ctx.quadraticCurveTo(-len * 0.5, -baseH * 0.45 - 2, -len, tipY);
-    ctx.quadraticCurveTo(-len * 0.5, baseH * 0.28, 5, baseH / 2);
-    ctx.closePath();
-  };
-
-  if (kind === 4) {
-    // Buschschwanz
-    const r = mulberry32(3);
-    for (let i = 0; i < 9; i++) {
-      const t = i / 8;
-      const x = -t * len, y = tipY * t - 2 + Math.sin(t * 3) * 2;
-      ell(ctx, x, y, 7 + t * 4, 6 + t * 3, -0.3);
-      fillStroke(ctx, css(i > 6 ? shade(P.base, 0.35) : shade(P.base, (r() - 0.5) * 0.15)), css(P.dark, 0.7), 1.2);
-    }
-    return;
-  }
-  if (kind === 2) {
-    ctx.beginPath();
-    ctx.moveTo(2, -baseH / 2);
-    ctx.quadraticCurveTo(-len * 0.5, -baseH - 7, -len, tipY - 2);
-    ctx.lineTo(-len, tipY + 2);
-    ctx.quadraticCurveTo(-len * 0.5, baseH + 6, 2, baseH / 2);
-    ctx.closePath();
-    fillStroke(ctx, css(P.accent, 0.85), css(P.dark, 0.8), 1.3);
-  }
-  path();
-  const g = ctx.createLinearGradient(0, -baseH, 0, baseH);
-  g.addColorStop(0, css(shade(P.base, 0.1)));
-  g.addColorStop(1, css(shade(P.base, -0.18)));
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.save();
-  path();
-  ctx.clip();
-  if (a.cls !== 'mammal' && a.haut !== 5) {
-    for (let i = 1; i < 5; i++) {
-      ctx.fillStyle = css(P.dark, 0.2);
-      ctx.fillRect(-len * (i / 5) - 2, -baseH, 3.5, baseH * 2);
-    }
-  } else {
-    ctx.strokeStyle = css(shade(P.base, -0.3), 0.5);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 18; i++) {
-      const x = -((i * 37) % 100) / 100 * len, y = ((i * 53) % 100) / 100 * baseH - baseH / 2;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 3, y + 1.5);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-  path();
-  ctx.strokeStyle = css(P.dark);
-  ctx.lineWidth = 1.8;
-  ctx.stroke();
-  if (a.cls === 'mammal' && kind < 2) {
-    ell(ctx, -len + 1, tipY, 5, 4);
-    fillStroke(ctx, css(shade(P.base, -0.3)), css(P.dark), 1.2);
-  }
-  if (kind === 3) {
-    ell(ctx, -len - 2, tipY, 8, 7);
-    fillStroke(ctx, ivory(ctx, tipY - 7, tipY + 7), IVORY_STROKE, 1.4);
-    for (const [dx, dy] of [[-4, -8], [2, -8], [-10, -2]]) {
-      ctx.beginPath();
-      ctx.moveTo(-len - 2 + dx * 0.4, tipY + dy * 0.4);
-      ctx.lineTo(-len - 2 + dx, tipY + dy);
-      ctx.lineTo(-len - 2 + dx * 0.4 + 3, tipY + dy * 0.4 + 2);
-      ctx.closePath();
-      fillStroke(ctx, '#f6edd6', IVORY_STROKE, 1);
-    }
-  }
-  if (a.haut === 4) {
-    for (let i = 0; i < 3; i++) {
-      const x = -len * (0.2 + i * 0.25);
-      const y = -baseH * 0.45 + (tipY + baseH * 0.4) * (0.2 + i * 0.25);
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y + 2);
-      ctx.lineTo(x - 1, y - 7);
-      ctx.lineTo(x + 3, y + 2);
-      ctx.closePath();
-      fillStroke(ctx, ivory(ctx, y - 7, y + 2), IVORY_STROKE, 1);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Beine & Flosse
-
-function drawLeg(ctx: Ctx, a: Appearance, P: Palette, len: number, w: number) {
-  const thigh = w * (a.beine === 2 ? 1.45 : 1.2);
-  const ankle = w * (a.beine === 4 ? 0.4 : 0.5);
-  // Knie leicht nach vorne (Säuger/Reptil), Oberschenkel geht weich in den Körper über
-  const knee = a.cls === 'amphibian' ? 0 : len * (a.cls === 'mammal' ? 0.1 : 0.14);
-  const legPath = () => {
-    ctx.beginPath();
-    ctx.moveTo(-thigh * 0.6, -6);
-    ctx.bezierCurveTo(-thigh * 0.85, len * 0.3, -ankle * 0.5 + knee, len * 0.5, -ankle * 0.55, len - 3);
-    ctx.lineTo(ankle * 0.55 + 1, len - 3);
-    ctx.bezierCurveTo(ankle * 0.7 + knee, len * 0.5, thigh * 0.8, len * 0.28, thigh * 0.6, -6);
-  };
-  legPath();
-  const g = ctx.createLinearGradient(0, -6, 0, len);
-  g.addColorStop(0, css(P.base));
-  g.addColorStop(0.35, css(P.base));
-  g.addColorStop(1, css(shade(P.base, -0.28)));
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.save();
-  legPath();
-  ctx.clip();
-  ell(ctx, -thigh * 0.15, len * 0.25, thigh * 0.25, len * 0.22);
-  ctx.fillStyle = 'rgba(255,255,255,0.14)';
-  ctx.fill();
-  ctx.restore();
-  legPath();
-  ctx.strokeStyle = css(P.dark);
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-  if (a.cls === 'mammal' || a.haut === 5) {
-    ctx.strokeStyle = css(shade(P.base, -0.3), 0.5);
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 6; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-thigh * 0.3 + (i % 3) * 3, len * (0.15 + i * 0.12));
-      ctx.lineTo(-thigh * 0.3 + (i % 3) * 3 - 2, len * (0.15 + i * 0.12) + 3);
-      ctx.stroke();
-    }
-  }
-  // Fuß
-  if (a.cls === 'amphibian') {
-    ell(ctx, 2, len - 2, w * 0.7, 2.6);
-    fillStroke(ctx, css(shade(P.base, -0.15)), css(P.dark), 1.2);
-    for (let i = 0; i < 3; i++) {
-      ell(ctx, w * 0.5 + i * 2.2, len - 1.5 + (i - 1) * 0.6, 1.5, 1.5);
-      ctx.fillStyle = css(shade(P.base, 0.1));
-      ctx.fill();
-    }
-  } else if (a.cls === 'mammal' && a.beine === 4) {
-    ctx.beginPath();
-    ctx.moveTo(-ankle / 2 - 1, len - 4);
-    ctx.lineTo(ankle / 2 + 3, len - 4);
-    ctx.lineTo(ankle / 2 + 4, len);
-    ctx.lineTo(-ankle / 2 - 2, len);
-    ctx.closePath();
-    fillStroke(ctx, '#3a2a22', css(P.dark), 1);
-  } else {
-    ell(ctx, 2.5, len - 2.5, w * 0.72, 3);
-    fillStroke(ctx, css(shade(P.base, -0.15)), css(P.dark), 1.2);
-  }
-  if (a.beine === 3 || (a.cls === 'reptile' && a.kiefer >= 4)) {
-    for (let i = 0; i < 3; i++) {
-      const x = w * 0.45 + i * 2.4;
-      ctx.beginPath();
-      ctx.moveTo(x - 1, len - 3.5);
-      ctx.quadraticCurveTo(x + 3, len - 2, x + 3, len + 1.5);
-      ctx.lineTo(x, len - 1);
-      ctx.closePath();
-      fillStroke(ctx, '#f4efe2', '#4a3a2a', 0.8);
-    }
-  }
-}
-
-function drawFin(ctx: Ctx, P: Palette) {
-  ctx.beginPath();
-  ctx.moveTo(1, -2.5);
-  ctx.quadraticCurveTo(-5, 9, -15, 10);
-  ctx.quadraticCurveTo(-9, 4, -1, 3);
-  ctx.closePath();
-  fillStroke(ctx, css(P.accent, 0.88), css(P.dark, 0.7), 1.2);
-  ctx.strokeStyle = css(shade(P.accent, -0.35), 0.55);
-  ctx.lineWidth = 0.7;
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.moveTo(-1, 0);
-    ctx.lineTo(-8 - i * 2, 4 + i * 2);
-    ctx.stroke();
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-export function appearanceKey(a: Appearance) {
-  return `${a.cls}_${a.kiefer}_${a.horn}_${a.koerper}_${a.haut}_${a.schwanz}_${a.beine}_${a.farbe}`;
-}
-
-/** Erzeugt (einmalig) alle Teil-Texturen für dieses Aussehen. */
-export function creatureTextures(scene: Phaser.Scene, a: Appearance): CreatureTex {
-  const L = layoutOf(a);
-  const P = PALETTES[a.farbe] ?? PALETTES[0];
-  const id = 'cr_' + appearanceKey(a);
-  const s = L.s;
-  const sh = L.sh;
-  const hg = L.hg;
-
-  const body = part(scene, id + '_b', (sh.bw + 56) * s, (sh.bh + 64) * s, (sh.bw / 2 + 28) * s, (sh.bh / 2 + 36) * s, (ctx) => {
-    ctx.scale(s, s);
-    drawBody(ctx, a, P, sh);
-  });
-
-  const hw = hg.L + 46, hh = hg.H + 70;
-  const hpx = 34, hpy = hg.H / 2 + 44;
-  const head = part(scene, id + '_h', hw * s, hh * s, hpx * s, hpy * s, (ctx) => {
-    ctx.scale(s, s);
-    drawHead(ctx, a, P, hg);
-  });
-  const teeth = part(scene, id + '_t', hw * s, hh * s, hpx * s, hpy * s, (ctx) => {
-    ctx.scale(s, s);
-    drawTeeth(ctx, a, hg);
-  });
-  const jlen = hg.L - hg.hingeX + 8;
-  const jaw = part(scene, id + '_j', (jlen + 6) * s, (hg.jawH + 16) * s, 4 * s, 8 * s, (ctx) => {
-    ctx.scale(s, s);
-    drawJaw(ctx, a, P, hg);
-  });
-  const tail = part(scene, id + '_s', 72 * s, 72 * s, 62 * s, 36 * s, (ctx) => {
-    ctx.scale(s, s);
-    drawTail(ctx, a, P, sh);
-  });
+/** Erzeugt (einmalig je Stufe) alle Teil-Texturen für dieses Aussehen. */
+export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
+  const m = quantize(mIn);
+  const g = geo(m);
+  const P = palette(m);
+  const L = layoutOf(m);
+  const id = 'cr2_' + morphKey(m);
+  const s = g.s;
+  const hg = g.hg;
+  const body = part(scene, id + '_b', g.bw + 90, g.bh + 80, g.bw / 2 + 45, g.bh / 2 + 44, s, (ctx) => drawBody(ctx, m, P, g));
+  const hw = hg.L + 76, hh = hg.H + 90;
+  const head = part(scene, id + '_h', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawHead(ctx, m, P, hg));
+  const teeth = part(scene, id + '_t', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawTeeth(ctx, m, hg));
+  const jl = hg.L - hg.hingeX + 10;
+  const jaw = part(scene, id + '_j', jl + 12, hg.jawH + 30, 6, 12, s, (ctx) => drawJaw(ctx, m, P, hg));
+  const tail = part(scene, id + '_s', 120, 100, 108, 50, s, (ctx) => drawTail(ctx, m, P, g));
   const out: CreatureTex = { body, head, teeth, jaw, tail, layout: L };
   if (L.land) {
-    const lw = L.legW * 1.6 + 14;
-    out.leg = part(scene, id + '_l', lw * s, (L.leg + 8) * s, (lw / 2 - 1) * s, 2 * s, (ctx) => {
-      ctx.scale(s, s);
-      drawLeg(ctx, a, P, L.leg, L.legW);
-    });
+    const lw = g.legW * 2.4 + 26;
+    out.leg = part(scene, id + '_l', lw, g.legLen + 16, lw / 2 - 1, 7, s, (ctx) => drawLeg(ctx, m, P, g.legLen, g.legW));
   } else {
-    out.fin = part(scene, id + '_f', 22 * s, 18 * s, 18 * s, 5 * s, (ctx) => {
-      ctx.scale(s, s);
-      drawFin(ctx, P);
-    });
+    out.fin = part(scene, id + '_f', 34, 30, 28, 8, s, (ctx) => drawFin(ctx, m, P));
   }
   return out;
 }

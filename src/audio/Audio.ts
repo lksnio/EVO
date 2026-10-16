@@ -1,9 +1,10 @@
 // Alle Töne werden live mit der Web Audio API erzeugt – es gibt keine Audiodateien.
 
 export type Sfx =
-  | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat' | 'crystal'
-  | 'jump' | 'swim' | 'dash' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
-  | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz';
+  | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
+  | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
+  | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
+  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle';
 
 interface ToneOpts {
   f: number;
@@ -23,6 +24,8 @@ interface NoiseOpts {
   t?: number;
   d: number;
   v?: number;
+  /** Einschwingzeit (sonst setzt das Rauschen sofort ein) */
+  a?: number;
   filter?: number;
   f2?: number;
   type?: BiquadFilterType;
@@ -41,7 +44,9 @@ interface TrackDef {
   bass?: { type: OscillatorType; v: number; filter: number; pat: string };
   arp?: { type: OscillatorType; v: number; pat: number[]; oct: number; rel: number; filter?: number };
   lead?: { type: OscillatorType; v: number; notes: (number | null)[]; oct: number; filter?: number };
-  drums?: { k: string; s: string; h: string; v: number };
+  drums?: { k: string; s: string; h: string; t?: string; v: number };
+  /** Rauschen als Klangteppich (Wind, Wasser, Brodeln) – einmal pro Takt */
+  air?: { v: number; filter: number; f2: number; q?: number };
 }
 
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
@@ -49,80 +54,84 @@ const MINOR = [0, 2, 3, 5, 7, 8, 10];
 const DORIAN = [0, 2, 3, 5, 7, 9, 10];
 const PHRYG = [0, 1, 3, 5, 7, 8, 10];
 const HARM = [0, 2, 3, 5, 7, 8, 11];
-const LYD = [0, 2, 4, 6, 7, 9, 11];
 const _ = null;
 
 const TRACKS: Record<string, TrackDef> = {
+  // Titel: tiefe Dröhnung, einzelne Töne wie aus der Tiefe
   title: {
-    bpm: 78, root: 57, scale: MINOR, prog: [0, 5, 2, 6],
-    pad: { type: 'triangle', v: 0.05, filter: 1300 },
-    bass: { type: 'sine', v: 0.2, filter: 600, pat: 'x.......x...o...' },
-    arp: { type: 'sine', v: 0.06, pat: [0, 1, 2, 3, 2, 1, 0, 1, 0, 1, 2, 4, 2, 1, 2, 1], oct: 1, rel: 0.5 },
-    lead: { type: 'triangle', v: 0.07, oct: 1, filter: 2400, notes: [4, _, _, 3, 2, _, 0, _, 1, _, 2, _, 4, _, _, _, 7, _, _, 6, 4, _, 2, _, 3, _, 2, _, 1, _, _, _] },
+    bpm: 62, root: 45, scale: PHRYG, prog: [0, 0, 1, 0],
+    pad: { type: 'sawtooth', v: 0.03, filter: 520 },
+    bass: { type: 'sine', v: 0.2, filter: 300, pat: 'x...............' },
+    arp: { type: 'sine', v: 0.05, pat: [0, -1, -1, -1, -1, -1, 2, -1, -1, -1, 1, -1, -1, -1, -1, -1], oct: 2, rel: 2.2 },
+    air: { v: 0.05, filter: 380, f2: 180, q: 1.2 },
   },
+  // Karte: ruhig, gedämpft, wie ein Lagerfeuer in der Nacht
   map: {
-    bpm: 104, root: 60, scale: MAJOR, prog: [0, 4, 5, 3],
-    pad: { type: 'triangle', v: 0.035, filter: 1500 },
-    bass: { type: 'triangle', v: 0.2, filter: 800, pat: 'x...x.x.x...x.o.' },
-    arp: { type: 'square', v: 0.025, pat: [0, -1, 1, -1, 2, -1, 1, -1, 0, -1, 1, -1, 2, -1, 3, -1], oct: 1, rel: 0.15, filter: 2200 },
-    lead: { type: 'triangle', v: 0.07, oct: 1, filter: 3000, notes: [0, _, 2, _, 4, _, 2, _, 5, _, 4, _, 2, _, _, _, 4, _, 5, _, 7, _, 5, _, 4, _, 2, _, 1, _, _, _] },
-    drums: { k: 'x.......x.......', s: '....x.......x...', h: '..x...x...x...x.', v: 0.5 },
+    bpm: 70, root: 50, scale: DORIAN, prog: [0, 6, 5, 0],
+    pad: { type: 'triangle', v: 0.04, filter: 900 },
+    bass: { type: 'sine', v: 0.18, filter: 420, pat: 'x.......x.....o.' },
+    arp: { type: 'triangle', v: 0.035, pat: [0, -1, -1, 2, -1, -1, 1, -1, 0, -1, -1, 3, -1, -1, 2, -1], oct: 1, rel: 0.9, filter: 1600 },
+    drums: { k: 'x...............', s: '................', h: '................', t: '........x.......', v: 0.35 },
   },
   ozean: {
-    bpm: 66, root: 50, scale: DORIAN, prog: [0, 3, 4, 0],
-    pad: { type: 'sine', v: 0.06, filter: 900 },
-    bass: { type: 'sine', v: 0.18, filter: 500, pat: 'x...........o...' },
-    arp: { type: 'sine', v: 0.06, pat: [0, -1, -1, 2, -1, -1, 4, -1, -1, 3, -1, -1, 1, -1, -1, -1], oct: 2, rel: 1.4 },
+    bpm: 58, root: 43, scale: DORIAN, prog: [0, 3, 6, 0],
+    pad: { type: 'sine', v: 0.06, filter: 650 },
+    bass: { type: 'sine', v: 0.18, filter: 380, pat: 'x...........o...' },
+    arp: { type: 'sine', v: 0.045, pat: [4, -1, -1, -1, 2, -1, -1, -1, -1, -1, 3, -1, -1, -1, -1, -1], oct: 2, rel: 1.8 },
+    air: { v: 0.06, filter: 300, f2: 140, q: 0.9 },
   },
   sumpf: {
-    bpm: 92, root: 52, scale: PHRYG, prog: [0, 1, 0, 6],
-    pad: { type: 'triangle', v: 0.035, filter: 900 },
-    bass: { type: 'triangle', v: 0.22, filter: 500, pat: 'x..x..x.x..x..o.' },
-    arp: { type: 'triangle', v: 0.06, pat: [0, 2, 1, 2, 0, 2, 1, 3, 0, 2, 1, 2, 4, 2, 1, 2], oct: 1, rel: 0.12 },
-    drums: { k: 'x.....x...x.....', s: '................', h: '.x.x.x.x.x.x.x.x', v: 0.35 },
+    bpm: 78, root: 47, scale: PHRYG, prog: [0, 1, 0, 6],
+    pad: { type: 'triangle', v: 0.035, filter: 700 },
+    bass: { type: 'triangle', v: 0.2, filter: 420, pat: 'x..x......x..o..' },
+    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 1, -1, -1, -1, 0, -1, 2, -1, -1, -1, 1, -1, -1, -1], oct: 1, rel: 0.25, filter: 1400 },
+    drums: { k: 'x.........x.....', s: '................', h: '.x...x...x...x.x', t: '......x.......x.', v: 0.3 },
+    air: { v: 0.03, filter: 2600, f2: 4200, q: 3 },
   },
   reptil: {
-    bpm: 118, root: 55, scale: MINOR, prog: [0, 5, 6, 4],
-    pad: { type: 'sawtooth', v: 0.018, filter: 900 },
-    bass: { type: 'sawtooth', v: 0.12, filter: 600, pat: 'x.x.x..xx.x.x..o' },
-    arp: { type: 'square', v: 0.022, pat: [0, 1, 2, 1, 0, 1, 2, 3, 0, 1, 2, 1, 4, 3, 2, 1], oct: 1, rel: 0.1, filter: 1800 },
-    lead: { type: 'triangle', v: 0.06, oct: 1, filter: 2400, notes: [0, _, _, 0, 2, _, 3, _, 4, _, _, _, 3, _, 2, _, 0, _, _, 0, 2, _, 3, _, 1, _, _, _, _, _, _, _] },
-    drums: { k: 'x..x..x.x..x..x.', s: '....x.......x..x', h: 'x.x.x.x.x.x.x.x.', v: 0.55 },
+    bpm: 92, root: 45, scale: MINOR, prog: [0, 5, 6, 0],
+    pad: { type: 'sawtooth', v: 0.02, filter: 650 },
+    bass: { type: 'sawtooth', v: 0.12, filter: 420, pat: 'x..x..x.x..x..o.' },
+    arp: { type: 'square', v: 0.016, pat: [0, -1, 1, -1, 0, -1, 2, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.12, filter: 1100 },
+    drums: { k: 'x.....x...x.....', s: '................', h: '................', t: '...x.......x..x.', v: 0.55 },
+    air: { v: 0.04, filter: 500, f2: 250, q: 1 },
   },
   eis: {
-    bpm: 80, root: 54, scale: MINOR, prog: [0, 5, 3, 4],
-    pad: { type: 'sine', v: 0.06, filter: 1100 },
-    bass: { type: 'sine', v: 0.17, filter: 500, pat: 'x.......x.......' },
-    arp: { type: 'sine', v: 0.055, pat: [4, -1, 2, -1, 3, -1, 1, -1, 4, -1, 2, -1, 0, -1, -1, -1], oct: 2, rel: 1.0 },
-    drums: { k: '................', s: '................', h: '....x.......x...', v: 0.25 },
+    bpm: 64, root: 46, scale: MINOR, prog: [0, 5, 3, 4],
+    pad: { type: 'sine', v: 0.055, filter: 900 },
+    bass: { type: 'sine', v: 0.16, filter: 380, pat: 'x...............' },
+    arp: { type: 'sine', v: 0.04, pat: [4, -1, -1, 2, -1, -1, -1, -1, 3, -1, -1, 1, -1, -1, -1, -1], oct: 2, rel: 1.6 },
+    air: { v: 0.08, filter: 900, f2: 2400, q: 0.8 },
   },
   eden: {
-    bpm: 90, root: 62, scale: MAJOR, prog: [0, 4, 5, 3],
-    pad: { type: 'triangle', v: 0.045, filter: 1600 },
-    bass: { type: 'triangle', v: 0.18, filter: 700, pat: 'x.....x.x.......' },
-    arp: { type: 'triangle', v: 0.05, pat: [0, 1, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1], oct: 1, rel: 0.4 },
-    lead: { type: 'sine', v: 0.08, oct: 1, notes: [4, _, _, 2, 4, _, 7, _, 5, _, _, 4, 2, _, _, _, 4, _, _, 5, 7, _, 9, _, 7, _, 5, _, 4, _, _, _] },
-    drums: { k: 'x.......x.......', s: '................', h: '....x.......x...', v: 0.3 },
+    bpm: 72, root: 50, scale: DORIAN, prog: [0, 3, 4, 0],
+    pad: { type: 'triangle', v: 0.045, filter: 1200 },
+    bass: { type: 'triangle', v: 0.16, filter: 520, pat: 'x.....x.........' },
+    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 2, -1, 4, -1, 2, -1, 1, -1, 3, -1, 2, -1, -1, -1], oct: 1, rel: 0.6 },
+    air: { v: 0.03, filter: 1600, f2: 3000, q: 1 },
   },
-  boss: {
-    bpm: 148, root: 48, scale: HARM, prog: [0, 0, 5, 4],
-    pad: { type: 'sawtooth', v: 0.02, filter: 1000 },
-    bass: { type: 'sawtooth', v: 0.14, filter: 700, pat: 'x.xxx.xxx.xxx.xo' },
-    arp: { type: 'square', v: 0.03, pat: [0, -1, 2, -1, 0, -1, 3, -1, 0, -1, 2, -1, 4, -1, 3, -1], oct: 1, rel: 0.08, filter: 2000 },
-    drums: { k: 'x...x...x...x...', s: '....x.......x...', h: 'xxxxxxxxxxxxxxxx', v: 0.6 },
+  // Ein Spitzenräuber hat dich entdeckt
+  apex: {
+    bpm: 126, root: 40, scale: HARM, prog: [0, 0, 1, 0],
+    pad: { type: 'sawtooth', v: 0.022, filter: 700 },
+    bass: { type: 'sawtooth', v: 0.15, filter: 520, pat: 'x.x.x.xxx.x.x.xo' },
+    arp: { type: 'square', v: 0.02, pat: [0, -1, 1, -1, 0, -1, 1, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.08, filter: 1500 },
+    drums: { k: 'x..x..x.x..x..x.', s: '....x.......x...', h: '..x...x...x...x.', t: '.............xxx', v: 0.6 },
   },
-  evolution: {
-    bpm: 70, root: 60, scale: LYD, prog: [0, 1, 0, 4],
-    pad: { type: 'sine', v: 0.06, filter: 1400 },
-    bass: { type: 'sine', v: 0.14, filter: 500, pat: 'x...............' },
-    arp: { type: 'sine', v: 0.05, pat: [0, 2, 4, 2, 3, 2, 4, 2, 0, 2, 4, 2, 3, 4, 2, 1], oct: 2, rel: 0.7 },
+  // Zwischen den Generationen
+  generation: {
+    bpm: 60, root: 48, scale: DORIAN, prog: [0, 6, 3, 0],
+    pad: { type: 'sine', v: 0.06, filter: 1000 },
+    bass: { type: 'sine', v: 0.13, filter: 380, pat: 'x...............' },
+    arp: { type: 'sine', v: 0.045, pat: [0, -1, 2, -1, 4, -1, 2, -1, 3, -1, 2, -1, 1, -1, -1, -1], oct: 2, rel: 1.2 },
+    air: { v: 0.03, filter: 600, f2: 300, q: 1 },
   },
   ending: {
-    bpm: 76, root: 62, scale: MAJOR, prog: [0, 3, 4, 0, 5, 3, 4, 4],
-    pad: { type: 'triangle', v: 0.05, filter: 1700 },
-    bass: { type: 'triangle', v: 0.18, filter: 700, pat: 'x.......x...o...' },
-    arp: { type: 'sine', v: 0.05, pat: [0, 1, 2, 4, 2, 1, 0, 1, 0, 1, 2, 4, 3, 2, 1, 2], oct: 1, rel: 0.6 },
-    lead: { type: 'triangle', v: 0.08, oct: 1, notes: [4, _, _, _, 5, _, 4, _, 2, _, _, _, 0, _, _, _, 1, _, _, _, 2, _, 4, _, 2, _, _, _, _, _, _, _] },
+    bpm: 66, root: 50, scale: MAJOR, prog: [0, 3, 4, 0, 5, 3, 4, 4],
+    pad: { type: 'triangle', v: 0.05, filter: 1500 },
+    bass: { type: 'triangle', v: 0.16, filter: 600, pat: 'x.......x...o...' },
+    arp: { type: 'sine', v: 0.045, pat: [0, 1, 2, 4, 2, 1, 0, 1, 0, 1, 2, 4, 3, 2, 1, 2], oct: 1, rel: 0.8 },
+    lead: { type: 'triangle', v: 0.06, oct: 1, notes: [4, _, _, _, 5, _, 4, _, 2, _, _, _, 0, _, _, _, 1, _, _, _, 2, _, 4, _, 2, _, _, _, _, _, _, _] },
   },
 };
 
@@ -213,7 +222,12 @@ class Sequencer {
       const dt = t - e.ctx!.currentTime;
       if (tr.drums.k[s16] === 'x') e.tone({ f: 120, f2: 40, d: 0.22, type: 'sine', v: 0.5 * v, a: 0.002, dest, t: dt });
       if (tr.drums.s[s16] === 'x') e.noise({ d: 0.14, v: 0.22 * v, filter: 1800, type: 'bandpass', q: 0.8, dest, t: dt });
-      if (tr.drums.h[s16] === 'x') e.noise({ d: 0.04, v: 0.08 * v, filter: 7000, type: 'highpass', dest, t: dt });
+      if (tr.drums.h[s16] === 'x') e.noise({ d: 0.04, v: 0.06 * v, filter: 7000, type: 'highpass', dest, t: dt });
+      if (tr.drums.t?.[s16] === 'x') e.tone({ f: 150, f2: 70, d: 0.3, type: 'sine', v: 0.35 * v, a: 0.003, dest, t: dt });
+    }
+    if (tr.air && s16 === 0) {
+      const bar = sd * 16;
+      e.noise({ d: bar * 1.1, a: bar * 0.45, v: tr.air.v, filter: tr.air.filter, f2: tr.air.f2, type: 'bandpass', q: tr.air.q ?? 1, dest, t: t - e.ctx!.currentTime });
     }
   }
 }
@@ -323,8 +337,11 @@ export class AudioEngine {
     if (o.f2) bq.frequency.exponentialRampToValueAtTime(o.f2, t0 + o.d);
     bq.Q.value = o.q ?? 0.7;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(o.v ?? 0.2, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + o.d);
+    if (o.a) {
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(o.v ?? 0.2, t0 + o.a);
+    } else g.gain.setValueAtTime(o.v ?? 0.2, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(o.d, (o.a ?? 0) + 0.02));
     src.connect(bq);
     bq.connect(g);
     g.connect(o.dest ?? this.sfxBus!);
@@ -340,96 +357,132 @@ export class AudioEngine {
     this.lastSfx[name] = now;
     switch (name) {
       case 'click':
-        this.tone({ f: 880, d: 0.05, type: 'square', v: 0.06, filter: 3000 });
+        this.noise({ d: 0.04, v: 0.12, filter: 1400, type: 'bandpass', q: 2 });
         break;
       case 'select':
-        this.tone({ f: 660, f2: 990, d: 0.09, type: 'triangle', v: 0.14 });
+        this.tone({ f: 220, f2: 330, d: 0.16, type: 'triangle', v: 0.12, filter: 1400 });
+        this.noise({ d: 0.08, v: 0.1, filter: 900, type: 'bandpass', q: 1.5 });
         break;
       case 'back':
-        this.tone({ f: 520, f2: 330, d: 0.1, type: 'triangle', v: 0.12 });
+        this.tone({ f: 260, f2: 170, d: 0.14, type: 'triangle', v: 0.1, filter: 1200 });
         break;
       case 'bite':
-        this.noise({ d: 0.07, v: 0.35, filter: 1800, type: 'bandpass', q: 1.2 });
-        this.tone({ f: 240, f2: 90, d: 0.09, type: 'square', v: 0.1, filter: 900 });
+        this.noise({ d: 0.07, v: 0.35, filter: 1500, type: 'bandpass', q: 1.2 });
+        this.tone({ f: 200, f2: 70, d: 0.09, type: 'square', v: 0.1, filter: 700 });
         break;
       case 'hit':
-        this.tone({ f: 320, f2: 120, d: 0.1, type: 'square', v: 0.12, filter: 1500 });
-        this.noise({ d: 0.06, v: 0.2, filter: 3000 });
+        this.tone({ f: 240, f2: 90, d: 0.12, type: 'square', v: 0.12, filter: 1100 });
+        this.noise({ d: 0.07, v: 0.22, filter: 2200 });
         break;
       case 'enemyDie':
-        this.tone({ f: 520, f2: 80, d: 0.28, type: 'sawtooth', v: 0.1, filter: 1300 });
-        this.noise({ d: 0.22, v: 0.18, filter: 1200, f2: 300 });
+        this.tone({ f: 300, f2: 60, d: 0.35, type: 'sawtooth', v: 0.1, filter: 900 });
+        this.noise({ d: 0.3, v: 0.2, filter: 900, f2: 200 });
         break;
       case 'hurt':
-        this.tone({ f: 420, f2: 140, d: 0.28, type: 'sawtooth', v: 0.15, filter: 1600 });
-        this.tone({ f: 400, f2: 130, d: 0.28, type: 'square', v: 0.06, filter: 1200, detune: 30 });
+        this.tone({ f: 330, f2: 110, d: 0.3, type: 'sawtooth', v: 0.15, filter: 1200 });
+        this.noise({ d: 0.12, v: 0.25, filter: 1600, type: 'bandpass', q: 1 });
         break;
       case 'eat':
-        this.tone({ f: 520, f2: 720, d: 0.07, type: 'triangle', v: 0.18 });
-        this.tone({ f: 620, f2: 900, d: 0.09, type: 'triangle', v: 0.18, t: 0.09 });
+      case 'chew':
+        for (let i = 0; i < 3; i++) this.noise({ d: 0.06, v: 0.22 - i * 0.04, filter: 900 + i * 200, type: 'bandpass', q: 2.5, t: i * 0.13 });
+        this.tone({ f: 120, f2: 80, d: 0.08, type: 'sine', v: 0.08, t: 0.02 });
         break;
-      case 'crystal':
-        [1047, 1319, 1568, 2093].forEach((f, i) => this.tone({ f, d: 0.3, type: 'sine', v: 0.1, t: i * 0.05 }));
+      case 'refuse':
+        // ein unwilliges Schnauben
+        this.noise({ d: 0.22, v: 0.2, filter: 700, f2: 300, type: 'bandpass', q: 1.2 });
+        this.tone({ f: 160, f2: 110, d: 0.18, type: 'triangle', v: 0.06, filter: 600 });
+        break;
+      case 'growl':
+        // knurrender Magen
+        this.tone({ f: 72, f2: 54, d: 0.9, type: 'sawtooth', v: 0.1, a: 0.12, filter: 260, q: 4 });
+        this.tone({ f: 60, f2: 80, d: 0.7, type: 'sawtooth', v: 0.07, a: 0.2, filter: 220, q: 3, t: 0.35 });
+        break;
+      case 'heart':
+        this.tone({ f: 62, f2: 42, d: 0.14, type: 'sine', v: 0.45, a: 0.004 });
+        this.tone({ f: 58, f2: 40, d: 0.14, type: 'sine', v: 0.3, a: 0.004, t: 0.2 });
+        break;
+      case 'rustle':
+        this.noise({ d: 0.35, v: 0.09, a: 0.08, filter: 3200, f2: 1800, type: 'bandpass', q: 0.8 });
+        break;
+      case 'ram':
+        this.tone({ f: 120, f2: 42, d: 0.3, type: 'sine', v: 0.5, a: 0.002 });
+        this.noise({ d: 0.18, v: 0.35, filter: 900, f2: 200 });
+        break;
+      case 'warn':
+        // drohendes Schnauben/Brüllen eines Verteidigers
+        this.noise({ d: 0.6, v: 0.25, a: 0.08, filter: 500, f2: 900, type: 'bandpass', q: 2 });
+        this.tone({ f: 110, f2: 140, d: 0.55, type: 'sawtooth', v: 0.08, a: 0.06, filter: 500 });
+        break;
+      case 'scurry':
+        for (let i = 0; i < 4; i++) this.noise({ d: 0.03, v: 0.08, filter: 4200, type: 'bandpass', q: 2, t: i * 0.05 });
+        break;
+      case 'squeal':
+        this.tone({ f: 900, f2: 1300, d: 0.08, type: 'triangle', v: 0.08 });
+        this.tone({ f: 1250, f2: 700, d: 0.14, type: 'triangle', v: 0.07, t: 0.08 });
+        break;
+      case 'snarl':
+        this.noise({ d: 0.4, v: 0.26, a: 0.04, filter: 420, type: 'bandpass', q: 4 });
+        this.tone({ f: 95, f2: 75, d: 0.38, type: 'sawtooth', v: 0.1, a: 0.03, filter: 380 });
         break;
       case 'jump':
-        this.tone({ f: 280, f2: 620, d: 0.14, type: 'triangle', v: 0.1 });
+        this.noise({ d: 0.1, v: 0.08, filter: 900, f2: 1600, type: 'bandpass' });
         break;
       case 'swim':
-        this.tone({ f: 500, f2: 1100, d: 0.08, type: 'sine', v: 0.05 });
+        this.noise({ d: 0.18, v: 0.05, filter: 500, f2: 900, type: 'bandpass' });
         break;
       case 'splash':
         this.noise({ d: 0.3, v: 0.15, filter: 1400, type: 'bandpass', f2: 500 });
         break;
-      case 'dash':
-        this.noise({ d: 0.25, v: 0.25, filter: 400, type: 'bandpass', f2: 2400, q: 1.5 });
-        this.tone({ f: 150, f2: 320, d: 0.2, type: 'square', v: 0.06, filter: 900 });
-        break;
       case 'evolve': {
-        [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) =>
-          this.tone({ f, d: 0.6, type: i % 2 ? 'sine' : 'triangle', v: 0.12, t: i * 0.07 }),
+        // dunkler, aufsteigender Klang – die Zeit vergeht
+        [0, 3, 7, 10, 12, 15].forEach((st, i) =>
+          this.tone({ f: 110 * Math.pow(2, st / 12), d: 1.6 - i * 0.12, type: 'sine', v: 0.1, a: 0.15, t: i * 0.18 }),
         );
-        this.noise({ d: 1.3, v: 0.05, filter: 6000, type: 'highpass', t: 0.1 });
-        this.tone({ f: 131, d: 1.2, type: 'triangle', v: 0.15, a: 0.1 });
+        this.noise({ d: 2.2, v: 0.06, a: 0.8, filter: 500, f2: 2600, type: 'bandpass' });
+        this.tone({ f: 55, d: 2.2, type: 'sawtooth', v: 0.08, a: 0.4, filter: 300 });
         break;
       }
       case 'fail':
-        this.tone({ f: 200, d: 0.14, type: 'square', v: 0.08, filter: 1000 });
-        this.tone({ f: 150, d: 0.2, type: 'square', v: 0.08, filter: 1000, t: 0.12 });
+        this.tone({ f: 140, d: 0.16, type: 'square', v: 0.07, filter: 600 });
+        this.tone({ f: 110, d: 0.2, type: 'square', v: 0.07, filter: 600, t: 0.12 });
         break;
       case 'victory':
-        [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.36]].forEach(([f, t], i) => {
-          this.tone({ f, d: i === 3 ? 0.7 : 0.14, type: 'triangle', v: 0.15, t });
-          this.tone({ f: f / 2, d: i === 3 ? 0.7 : 0.14, type: 'square', v: 0.04, t, filter: 1500 });
+        [[220, 0], [262, 0.18], [330, 0.36], [440, 0.54]].forEach(([f, t], i) => {
+          this.tone({ f, d: i === 3 ? 1.4 : 0.3, type: 'triangle', v: 0.13, t, a: 0.02 });
+          this.tone({ f: f / 2, d: i === 3 ? 1.4 : 0.3, type: 'sine', v: 0.08, t, a: 0.02 });
         });
         break;
       case 'death':
-        this.tone({ f: 440, f2: 110, d: 1.0, type: 'triangle', v: 0.18 });
-        this.tone({ f: 330, f2: 80, d: 1.1, type: 'sawtooth', v: 0.06, filter: 900, t: 0.1 });
+        this.tone({ f: 220, f2: 55, d: 1.6, type: 'triangle', v: 0.16 });
+        this.tone({ f: 165, f2: 41, d: 1.8, type: 'sawtooth', v: 0.06, filter: 600, t: 0.1 });
+        this.noise({ d: 1.2, v: 0.08, filter: 400, f2: 120, t: 0.05 });
         break;
       case 'roar':
-        this.noise({ d: 1.2, v: 0.4, filter: 700, f2: 180 });
-        this.tone({ f: 95, f2: 50, d: 1.1, type: 'sawtooth', v: 0.22, filter: 420 });
+        this.noise({ d: 1.4, v: 0.45, a: 0.08, filter: 600, f2: 150 });
+        this.tone({ f: 85, f2: 42, d: 1.3, type: 'sawtooth', v: 0.24, a: 0.06, filter: 380 });
+        this.tone({ f: 120, f2: 60, d: 1.1, type: 'sawtooth', v: 0.1, a: 0.06, filter: 500, detune: 20 });
         break;
       case 'portal':
-        this.tone({ f: 300, f2: 900, d: 0.6, type: 'sine', v: 0.14 });
-        this.tone({ f: 450, f2: 1350, d: 0.6, type: 'sine', v: 0.08, t: 0.05 });
+        // Licht am Ende des Weges
+        this.tone({ f: 196, f2: 392, d: 1.2, type: 'sine', v: 0.12, a: 0.2 });
+        this.tone({ f: 294, f2: 588, d: 1.2, type: 'sine', v: 0.07, a: 0.3, t: 0.1 });
+        this.noise({ d: 1.2, v: 0.04, a: 0.5, filter: 2400, type: 'bandpass' });
         break;
       case 'step':
-        this.noise({ d: 0.04, v: 0.06, filter: 900 });
+        this.noise({ d: 0.05, v: 0.07, filter: 700 });
         break;
       case 'unlock':
-        [784, 988, 1175].forEach((f, i) => this.tone({ f, d: 0.25, type: 'triangle', v: 0.12, t: i * 0.08 }));
+        [196, 247, 294].forEach((f, i) => this.tone({ f, d: 0.8, type: 'triangle', v: 0.1, a: 0.04, t: i * 0.14 }));
         break;
       case 'shoot':
-        this.tone({ f: 700, f2: 280, d: 0.12, type: 'square', v: 0.06, filter: 2000 });
-        this.noise({ d: 0.06, v: 0.1, filter: 2500 });
+        this.noise({ d: 0.12, v: 0.12, filter: 1200, f2: 500 });
         break;
       case 'boom':
-        this.noise({ d: 0.5, v: 0.45, filter: 500, f2: 120 });
-        this.tone({ f: 80, f2: 38, d: 0.45, type: 'sine', v: 0.4 });
+        this.noise({ d: 0.6, v: 0.5, filter: 450, f2: 100 });
+        this.tone({ f: 70, f2: 32, d: 0.55, type: 'sine', v: 0.45 });
         break;
       case 'buzz':
-        this.tone({ f: 180, f2: 240, d: 0.5, type: 'sawtooth', v: 0.06, filter: 800 });
+        this.tone({ f: 130, f2: 170, d: 0.5, type: 'sawtooth', v: 0.06, filter: 700 });
         break;
     }
   }

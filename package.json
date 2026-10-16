@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "2D-Plattformer mit Phaser und TypeScript",
+  "description": "EVO – Überlebensspiel über Evolution (Phaser 4, TypeScript)",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/alegreya-sans": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {

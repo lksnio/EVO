@@ -1,10 +1,12 @@
-# EVO – Auf der Suche nach Eden
+# EVO – Die Suche nach Eden
 
-Ein Evolutions-Abenteuer im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript und [Vite](https://vite.dev).
+Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
+und [Vite](https://vite.dev).
 
-Du beginnst als kleiner Urfisch im Urozean. Besiege Gegner, friss ihr Fleisch, sammle **EVO-Punkte**
-und entwickle deinen Körper weiter – vom **Fisch** über **Amphibie** und **Reptil** bis zum
-**Säugetier** – und finde den Weg nach **Eden**.
+Du beginnst als kleiner, schwacher Urfisch im dunklen Urozean. Es gibt keine Punkte zu sammeln und
+kein Menü, in dem du dir Körperteile aussuchst. Es geht nur ums **Überleben**: fressen, ausweichen,
+kämpfen, sich verstecken. **Was du tust, formt, was aus dir wird** – Stück für Stück, über
+Generationen. Du siehst es nur an deinem Tier und daran, wie die anderen Tiere auf dich reagieren.
 
 > Fan-Projekt, inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne
 > werden im Browser erzeugt – es werden keine Original-Inhalte verwendet.
@@ -13,44 +15,57 @@ und entwickle deinen Körper weiter – vom **Fisch** über **Amphibie** und **R
 
 ## So spielt sich EVO
 
-1. **Karte wählen** – fünf Zeitalter: Urozean, Urzeitliche Sümpfe, Zeitalter der Reptilien, Eiszeit,
-   Weg nach Eden. Jedes Zeitalter braucht eine bestimmte Entwicklungsstufe.
-2. **Weltkarte** – laufe zwischen den Orten hin und her. Geschaffte Orte schalten ihre Nachbarn frei,
-   am Ende wartet ein Endgegner.
-3. **Level** – schwimmen (als Fisch) oder laufen und springen (an Land), beißen, Hornstöße,
-   Fleisch fressen (EVO-Punkte und Lebenspunkte), Kristalle sammeln, zum Tor am Ende.
-4. **Evolution** – jederzeit auf der Karte (Taste **E**) oder im Pausenmenü. Die Vorschau zeigt sofort,
-   wie dein Tier aussieht und wie sich die Werte ändern:
+1. **Zeitalter** – Steintafeln für die Epochen der Erdgeschichte. Was du noch nicht erreicht hast,
+   bleibt ein **Fragezeichen**.
+2. **Weltkarte** – unbekannte Orte liegen im Nebel und zeigen nur ein **?**. Wer einen Ort überlebt,
+   entdeckt die Wege zu seinen Nachbarn. Irgendwo herrscht ein Spitzenräuber über sein Revier.
+3. **Level** – friss Pflanzen oder Fleisch, um nicht zu verhungern (satt frisst du nichts mehr),
+   weiche Jägern aus, versteck dich im Dickicht, sprinte – oder stell dich zum Kampf.
+   Am Ende des Weges wartet ein Lichtspalt.
+4. **Generationen** – nach jedem überlebten Ort siehst du dein Tier „einst“ und „heute“.
+   Stirbst du, setzt ein Nachkomme die Reise fort – was du auf dieser Reise geworden bist, ist dann
+   allerdings verloren. Am Ende eines Zeitalters nehmen deine Nachfahren eine neue Form an:
+   Fisch → Lurch → Echse → Säuger.
 
-   | Körperteil | Wirkung | Beispiele |
-   | --- | --- | --- |
-   | Klasse | neue Lebensräume | Fisch → Amphibie → Reptil → Säugetier |
-   | Kiefer | Bissstärke | Spitze Zähne, Knackkiefer, Reißzähne, Säbelzähne |
-   | Horn | Hornstoß | Stirnbeule, Nasenhorn, Doppelhorn mit Nackenschild, Kronenhorn |
-   | Körper | Lebenspunkte, Abwehr | Schlank, Kräftig, Massig, Riesig, Koloss |
-   | Haut | Abwehr | Schuppen, Knochenplatten, Stachelpanzer, Dichter Pelz |
-   | Flosse / Schwanz | Tempo | Sichelflosse, Ruderschwanz, Keulenschwanz, Buschschwanz |
-   | Beine | Tempo, Sprungkraft | Laufbeine, Sprungbeine, Krallenfüße, Lange Läufe |
-   | Farbe | Aussehen | acht Farben, z. B. Korallenrot oder Gold |
-
-   Einmal gekaufte Teile kannst du später kostenlos wieder auswählen.
-   Eine neue Klasse wird frei, wenn du den Endgegner des vorherigen Zeitalters besiegt hast.
+Es gibt keine Zahlen und keine Balken: Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
+am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …).
 
 Der Spielstand wird automatisch im Browser gespeichert.
+
+<details>
+<summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
+
+Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man nie als Wert sieht:
+
+| Wer so lebt … | … dessen Nachkommen bekommen |
+| --- | --- |
+| frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
+| rammt andere Tiere mit Anlauf | gewölbte Stirn, Knochenplatten, Höcker, Hörner – und tut sich beim Rammen weniger weh |
+| beißt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne |
+| frisst viel | wächst |
+
+Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
+werden schneller wütend. Friedliche Zeit lässt die Angriffslust wieder abklingen. Pflanzen- bzw.
+Fleischfresser verdauen ihre gewohnte Kost besser. Schwere Treffer, die man überlebt, hinterlassen Narben.
+
+Die Tiere der Welt haben Rollen (Beute, Räuber, Verteidiger, Gefahr, Spitzenräuber), Hunger,
+Sinne und Angst: Sie fressen selbst, jagen einander und bemerken dich je nach Tempo, Blickrichtung,
+Dickicht und Dunkelheit.
+</details>
 
 ## Steuerung
 
 | Taste | Aktion |
 | --- | --- |
 | ← → / A D | laufen bzw. schwimmen |
-| ↑ ↓ / W S | im Wasser hoch und runter |
+| ↑ ↓ / W S | im Wasser auf- und abtauchen |
 | Leertaste / ↑ | springen (an Land) |
-| J oder X | beißen |
-| K oder C | Hornstoß (braucht ein Horn) |
-| E | Evolution (auf der Karte) |
-| Esc / P | Pause |
+| J, X oder Y | beißen und fressen |
+| Shift, K oder C | sprinten (kostet Kraft) |
+| Esc / P | Rast (Pause) |
 | M | Ton an/aus |
 
+Auf der Karte: Pfeiltasten wandern, Enter bricht auf, **T** zeigt dein Tier und deine Ahnen.
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
 ## Entwickeln
@@ -69,41 +84,41 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 | `npm run preview` | Zeigt den fertigen Build lokal an |
 | `npm run typecheck` | Nur TypeScript prüfen |
 
-**Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) –
-5000 EVO-Punkte, alle Karten und Orte offen. Mit `?debug&gallery` gibt es eine Übersicht über
-alle Körperteil-Kombinationen und Gegner (Leertaste blättert). `?touch` zeigt die
-Bildschirm-Knöpfe auch am PC.
+**Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) – alle
+Zeitalter und Orte offen, im Level werden die verborgenen Werte eingeblendet. Mit `?debug&gallery`
+gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten (Leertaste blättert).
+`?touch` zeigt die Bildschirm-Knöpfe auch am PC.
 
 ### Projektstruktur
 
 ```
 src/
-├── main.ts              Start: Schrift laden, Spielstand laden, Phaser starten
-├── config.ts            Bildgröße, Kachelgröße, Schwerkraft, Ebenen
+├── main.ts              Start: Schriften laden, Spielstand laden, Phaser starten
+├── config.ts            Bildgröße, Kachelgröße, Schwerkraft, Ebenen, Farben der Oberfläche
 ├── data/                Spieldaten – hier lässt sich das Spiel am leichtesten anpassen
-│   ├── classes.ts       Entwicklungsstufen (Fisch … Säugetier) mit Grundwerten
-│   ├── parts.ts         Körperteile, Preise und Wirkung
-│   ├── enemies.ts       alle Gegner und Endgegner
-│   └── eras.ts          Zeitalter, Orte auf der Weltkarte, Wege dazwischen
-├── state/GameState.ts   Spielstand, EVO-Punkte, Fortschritt, Speichern
+│   ├── classes.ts       Körperformen (Fisch … Säuger) mit Grundwerten
+│   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
+│   └── eras.ts          Zeitalter, Orte auf der Weltkarte, Tiere je Ort, Wege dazwischen
+├── state/GameState.ts   verborgene Merkmale, Ruf, Fortschritt, Ahnenreihe, Speichern
 ├── level/LevelGen.ts    erzeugt die Level aus einer festen Saat (jeder Ort sieht immer gleich aus)
-├── art/                 alle Grafiken, per Canvas gezeichnet
-│   ├── creatureArt.ts   die Spielfigur aus Einzelteilen (Kiefer, Horn, Beine …)
-│   ├── enemyArt.ts      Gegner
-│   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Weltkarten
-│   └── uiArt.ts         Symbole und Titelbild
+├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
+│   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
+│   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
+│   ├── speciesArt.ts    alle anderen Tiere
+│   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Dickicht, Weltkarten
+│   └── uiArt.ts         Symbole, Titelbild, Steintafeln
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Gegner, Endgegner, Steuerung
+├── objects/             Spielfigur, Tiere (KI), Nahrung, Steuerung
 ├── ui/ui.ts             Knöpfe, Texte, Menü-Steuerung, Überblendungen
-└── scenes/              Titel, Intro, Kartenwahl, Weltkarte, Level, HUD, Evolution, Abspann
+└── scenes/              Titel, Intro, Zeitalter, Weltkarte, Level, HUD, Generationen, Abspann
 ```
 
 ### Ideen für später
 
 - [ ] Weitere Entwicklungswege (z. B. Vögel oder Urmenschen)
-- [ ] Mehr Endgegner-Phasen und versteckte Orte
+- [ ] Fortpflanzung und Revierverhalten der Tiere
 - [ ] Gamepad-Steuerung
-- [ ] Eigene Musikstücke pro Ort
+- [ ] Echte Zeichnungen/Sprites (z. B. von OpenGameArt oder Kenney) statt gemalter Canvas-Grafik
 
 ## Veröffentlichung
 

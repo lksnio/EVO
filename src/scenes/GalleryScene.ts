@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
-import type { Appearance } from '../art/creatureArt';
+import type { Morph } from '../art/creatureArt';
 import type { ClassId } from '../data/classes';
-import { ENEMIES } from '../data/enemies';
-import { enemyKey } from '../art/enemyArt';
+import { SPECIES } from '../data/species';
+import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
 import { text } from '../ui/ui';
 
-/** Nur für Entwickler (?debug&gallery): zeigt viele Körper-Kombinationen und alle Gegner. */
+/** Nur für Entwickler (?debug&gallery): viele Ausprägungen der Spielfigur und alle Tierarten. Leertaste blättert. */
 export class GalleryScene extends Phaser.Scene {
   private views: CreatureView[] = [];
   private page = 0;
@@ -16,7 +16,7 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#2a4a6a');
+    this.cameras.main.setBackgroundColor('#1a1814');
     this.views = [];
     this.show();
     this.input.keyboard!.on('keydown-SPACE', () => {
@@ -29,24 +29,36 @@ export class GalleryScene extends Phaser.Scene {
 
   private show() {
     if (this.page === 1) {
-      const ids = Object.keys(ENEMIES);
+      const ids = Object.keys(SPECIES);
       ids.forEach((id, i) => {
-        const col = i % 7, row = Math.floor(i / 7);
-        const big = ENEMIES[id].boss;
-        const img = this.add.image(90 + col * 180, 90 + row * 170, enemyKey(id, 0));
-        if (big) img.setScale(Math.min(160 / img.width, 140 / img.height));
-        text(this, 90 + col * 180, 165 + row * 170, id, 14).setOrigin(0.5);
+        const def = SPECIES[id];
+        makeSpeciesTextures(this, def);
+        const col = i % 8, row = Math.floor(i / 8);
+        const img = this.add.image(80 + col * 160, 80 + row * 170, speciesKey(id, 0));
+        const s = Math.min(1, 140 / img.width, 120 / img.height);
+        img.setScale(s);
+        text(this, 80 + col * 160, 150 + row * 170, `${def.name} (${def.role})`, 13).setOrigin(0.5);
       });
       return;
     }
     const classes: ClassId[] = ['fish', 'amphibian', 'reptile', 'mammal'];
+    const variants: [string, Partial<Morph>][] = [
+      ['neu', {}],
+      ['Kiefer', { jaw: 0.6, diet: 0.6 }],
+      ['Kiefer++', { jaw: 1, diet: 1, size: 1.25, scars: 3, fierce: 1 }],
+      ['Schädel', { skull: 0.6 }],
+      ['Schädel++', { skull: 1, size: 1.2, scars: 2 }],
+      ['Tarnung', { stealth: 0.6, diet: -0.6, size: 0.8 }],
+      ['Tarnung++', { stealth: 1, diet: -1, size: 0.7, belly: 0 }],
+    ];
     classes.forEach((cls, r) => {
-      for (let i = 0; i < 6; i++) {
-        const a: Appearance = { cls, kiefer: i, horn: i, koerper: Math.min(4, i), haut: i, schwanz: Math.min(4, i), beine: cls === 'fish' ? 0 : Math.min(4, i), farbe: (i + r) % 8 };
-        const v = new CreatureView(this, 110 + i * 210, 0, a, 1.2);
-        v.setY(v.L.land ? 150 + r * 175 - v.L.footY * 1.2 + 40 : 140 + r * 175);
-        this.views.push(v);
-      }
+      variants.forEach(([name, v], i) => {
+        const m: Morph = { cls, size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: r, seed: 7, ...v };
+        const view = new CreatureView(this, 95 + i * 180, 0, m, 1.05);
+        view.setY(view.L.land ? 150 + r * 172 - view.L.footY * 1.05 + 30 : 130 + r * 172);
+        this.views.push(view);
+        if (r === 0) text(this, 95 + i * 180, 14, name, 14).setOrigin(0.5, 0);
+      });
     });
   }
 

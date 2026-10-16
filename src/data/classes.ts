@@ -2,11 +2,11 @@ export type ClassId = 'fish' | 'amphibian' | 'reptile' | 'mammal';
 
 export const CLASS_ORDER: ClassId[] = ['fish', 'amphibian', 'reptile', 'mammal'];
 
-export interface Stats {
+/** Grundwerte einer Körperform, bevor die Anpassungen wirken. */
+export interface BaseStats {
   hp: number;
   bite: number;
-  horn: number;
-  def: number;
+  ram: number;
   speed: number;
   jump: number;
 }
@@ -15,49 +15,39 @@ export interface ClassDef {
   id: ClassId;
   name: string;
   habitat: 'water' | 'land';
-  base: Stats;
-  /** EVO-Punkte, die der Wechsel in diese Klasse kostet. */
-  cost: number;
-  /** Diese Ära muss (durch ihren Boss) abgeschlossen sein. */
-  requiresEra?: string;
-  desc: string;
+  base: BaseStats;
+  /** Text beim Übergang in diese Form. */
+  dawn: string;
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   fish: {
     id: 'fish',
-    name: 'Fisch',
+    name: 'Urfisch',
     habitat: 'water',
-    base: { hp: 20, bite: 3, horn: 0, def: 0, speed: 200, jump: 0 },
-    cost: 0,
-    desc: 'Ein kleiner Urfisch. Er kann nur im Wasser leben.',
+    base: { hp: 30, bite: 4, ram: 4, speed: 215, jump: 0 },
+    dawn: 'Im dunklen Urozean beginnt dein Leben.',
   },
   amphibian: {
     id: 'amphibian',
-    name: 'Amphibie',
+    name: 'Lurch',
     habitat: 'land',
-    base: { hp: 36, bite: 6, horn: 0, def: 1, speed: 190, jump: 540 },
-    cost: 100,
-    requiresEra: 'ozean',
-    desc: 'Mit Beinen und Lungen wagst du dich zum ersten Mal an Land.',
+    base: { hp: 52, bite: 7, ram: 7, speed: 190, jump: 560 },
+    dawn: 'Deine Nachfahren kriechen aus dem Wasser.\nDie Flossen sind zu Beinen geworden.',
   },
   reptile: {
     id: 'reptile',
-    name: 'Reptil',
+    name: 'Echse',
     habitat: 'land',
-    base: { hp: 64, bite: 11, horn: 0, def: 3, speed: 205, jump: 570 },
-    cost: 280,
-    requiresEra: 'sumpf',
-    desc: 'Schuppige Haut und kräftige Beine – bereit für das Zeitalter der Reptilien.',
+    base: { hp: 85, bite: 12, ram: 12, speed: 215, jump: 590 },
+    dawn: 'Schuppen schützen nun deine Haut.\nDie Sümpfe trocknen aus – eine neue Zeit beginnt.',
   },
   mammal: {
     id: 'mammal',
-    name: 'Säugetier',
+    name: 'Säuger',
     habitat: 'land',
-    base: { hp: 105, bite: 18, horn: 0, def: 6, speed: 225, jump: 610 },
-    cost: 560,
-    requiresEra: 'reptil',
-    desc: 'Warmes Blut und Fell trotzen sogar der Eiszeit.',
+    base: { hp: 125, bite: 18, ram: 18, speed: 235, jump: 620 },
+    dawn: 'Warmes Blut, dichtes Fell.\nDie Großen Echsen sind verschwunden – die Welt wird kalt.',
   },
 };
 

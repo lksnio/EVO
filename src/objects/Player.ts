@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import type { Stats } from '../data/classes';
-import { game, bus } from '../state/GameState';
+import type { Morph } from '../art/creatureArt';
+import { game, type Stats } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView } from './CreatureView';
 import type { Controls } from './Controls';
@@ -9,32 +9,40 @@ import { DEPTH } from '../config';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect): void;
-  floatText(x: number, y: number, s: string, color: string, size?: number): void;
   puff(x: number, y: number, n: number, tint?: number): void;
+  bleed(x: number, y: number, n: number): void;
   solidAt(x: number, y: number): boolean;
   surfaceY: number;
 }
 
 type Body = Phaser.Physics.Arcade.Body;
 
+/** Sättigung: 0 = verhungert, 100 = satt. */
+export const FULL = 100;
+
 export class Player {
   rect: Phaser.GameObjects.Rectangle;
   view: CreatureView;
   stats!: Stats;
   hp = 1;
+  satiety = 70;
+  stamina = 1;
   facing = 1;
   dead = false;
+  inCover = false;
+  hidden = false;
+  sprinting = false;
+  /** Tempo relativ zum Normaltempo (0..~1.5) */
+  speed01 = 0;
+  lastHurt = -1e9;
   private invulnUntil = 0;
   private biteReady = 0;
-  private hornReady = 0;
-  dashUntil = 0;
-  dashHit = new Set<object>();
   private knockUntil = 0;
   private lastGround = -1e9;
   private jumpBuf = -1e9;
   private jumpCut = false;
   private wasGround = false;
-  private swimSfx = 0;
+  private breath = 0;
   lastSafe = { x: 0, y: 0 };
   private offY = 0;
 
@@ -44,7 +52,7 @@ export class Player {
     const b = this.body;
     b.setCollideWorldBounds(true);
     if (water) b.setAllowGravity(false);
-    this.view = new CreatureView(host, x, y, game.appearance());
+    this.view = new CreatureView(host, x, y, this.morph());
     this.view.setDepth(DEPTH.player);
     this.refresh(true);
     this.lastSafe = { x, y };
@@ -62,20 +70,52 @@ export class Player {
     return this.rect.y;
   }
 
-  /** Nach einer Evolution: Aussehen, Werte und Körpergröße neu setzen. */
+  get fast() {
+    return this.speed01 > 0.8;
+  }
+
+  /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
+  morph(): Morph {
+    const t = game.traits;
+    return {
+      cls: game.cls,
+      size: game.stats().size,
+      jaw: t.jaw,
+      skull: t.skull,
+      stealth: t.stealth,
+      diet: t.diet,
+      scars: t.scars,
+      belly: this.satiety < 22 ? 0 : this.satiety > 78 ? 2 : 1,
+      fierce: game.fear(),
+      hue: game.data.hue,
+      seed: game.data.seed,
+    };
+  }
+
+  /** Werte neu berechnen und – falls sich das Aussehen sichtbar verändert hat – neu zeichnen. */
   refresh(full = false) {
+    const ratio = full ? 1 : this.hp / Math.max(1, this.stats?.maxHp ?? 1);
     this.stats = game.stats();
-    this.view.build(game.appearance());
+    const before = this.view.key;
+    this.view.build(this.morph());
+    if (before === this.view.key && !full) {
+      this.hp = Math.min(this.hp, this.stats.maxHp);
+      return false;
+    }
     const L = this.view.L;
-    const w = L.halfW * 2;
-    const h = L.footY - L.topY;
-    const oldBottom = this.body.bottom;
-    this.rect.setSize(w, h);
-    this.body.setSize(w, h);
-    if (!this.water && !full) this.rect.y = oldBottom - h / 2;
+    const w = Math.round(L.halfW * 2);
+    const h = Math.round(L.footY - L.topY);
+    if (full || w !== Math.round(this.rect.width) || h !== Math.round(this.rect.height)) {
+      // Unterkante des Objekts (nicht des Körpers!) beibehalten: Der Körper ist in diesem
+      // Moment schon weiterbewegt, das Objekt folgt erst danach – sonst rutscht man in den Boden.
+      const oldBottom = this.rect.y + this.rect.height / 2;
+      this.rect.setSize(w, h);
+      this.body.setSize(w, h);
+      if (!this.water && !full) this.rect.y = oldBottom - h / 2;
+    }
     this.offY = -(L.topY + L.footY) / 2;
-    this.hp = full ? this.stats.hp : Math.min(this.stats.hp, Math.max(this.hp, this.stats.hp));
-    bus.emit('hp', this.hp, this.stats.hp);
+    this.hp = full ? this.stats.maxHp : Math.min(this.stats.maxHp, ratio * this.stats.maxHp);
+    return !full;
   }
 
   hitRect(): Rect {
@@ -93,11 +133,7 @@ export class Player {
   }
 
   get invulnerable() {
-    return this.host.time.now < this.invulnUntil || this.dashing;
-  }
-
-  get dashing() {
-    return this.host.time.now < this.dashUntil;
+    return this.host.time.now < this.invulnUntil;
   }
 
   update(time: number, dt: number, c: Controls) {
@@ -108,22 +144,24 @@ export class Player {
     }
     const knocked = time < this.knockUntil;
     const dir = (c.held.right ? 1 : 0) - (c.held.left ? 1 : 0);
-    const sp = this.stats.speed;
+    // Sprint: hält nur kurz, erholt sich langsam
+    const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
+    this.sprinting = wantSprint && this.stamina > 0.05;
+    this.stamina = clamp(this.stamina + (this.sprinting ? -dt / 2.2 : dt / 4.5), 0, 1);
+    const hurtSlow = 1 - 0.25 * Math.max(0, 0.35 - this.hp / this.stats.maxHp) / 0.35;
+    const starving = this.satiety <= 0 ? 0.85 : 1;
+    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving;
 
     if (this.water) {
       const dy = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
-      if (!knocked && !this.dashing) {
+      if (!knocked) {
         const len = Math.hypot(dir, dy) || 1;
         b.setVelocity(approach(b.velocity.x, (dir / len) * sp, 900 * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6), 900 * dt));
       }
       if (dir) this.facing = dir;
       if (this.rect.y - b.height / 2 < this.host.surfaceY + 4 && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
-      const moving = Math.hypot(b.velocity.x, b.velocity.y);
-      if (moving > 60 && time > this.swimSfx) {
-        this.swimSfx = time + 700;
-        if (Math.random() < 0.5) this.host.puff(this.x - this.facing * 30, this.y, 1, 0xffffff);
-      }
       this.view.rotation = this.facing * clamp(b.velocity.y / (sp || 1), -1, 1) * 0.35;
+      this.speed01 = Math.hypot(b.velocity.x, b.velocity.y) / this.stats.speed;
     } else {
       const onGround = b.blocked.down || b.touching.down;
       if (onGround) {
@@ -131,10 +169,8 @@ export class Player {
         if (!this.wasGround && b.velocity.y >= 0) this.host.puff(this.x, b.bottom, 3);
       }
       this.wasGround = onGround;
-      if (!knocked && !this.dashing) {
-        b.setVelocityX(approach(b.velocity.x, dir * sp, (onGround ? 2600 : 1600) * dt));
-      }
-      if (dir && !this.dashing) this.facing = dir;
+      if (!knocked) b.setVelocityX(approach(b.velocity.x, dir * sp, (onGround ? 2600 : 1600) * dt));
+      if (dir) this.facing = dir;
       if (c.pressed.jump) this.jumpBuf = time;
       if (time - this.jumpBuf < 130 && time - this.lastGround < 110 && !knocked) {
         b.setVelocityY(-this.stats.jump);
@@ -148,54 +184,38 @@ export class Player {
         this.jumpCut = true;
       }
       if (b.velocity.y > 950) b.setVelocityY(950);
-      // Rücksetzpunkt nur auf sicherem Boden (nicht direkt an einer Kante)
-      if (onGround && !this.dashing && time > this.invulnUntil) {
+      if (onGround && time > this.invulnUntil) {
         const by = b.bottom + 6;
         if (this.host.solidAt(b.x - 30, by) && this.host.solidAt(b.right + 30, by)) this.lastSafe = { x: this.rect.x, y: this.rect.y };
       }
       this.view.rotation = 0;
+      this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
-    // Biss
+    // Beißen (und Fressen)
     if (c.pressed.bite && time >= this.biteReady) {
-      this.biteReady = time + 300;
+      this.biteReady = time + 320;
       this.view.bite();
       audio.sfx('bite');
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect()));
     }
-    // Hornstoß
-    if (c.pressed.horn) {
-      if (this.stats.horn <= 0) {
-        if (!this.hornHint) {
-          this.hornHint = true;
-          this.host.floatText(this.x, this.y - 50, 'Kein Horn! (Evolution → Horn)', '#ffd0a0', 18);
-        }
-      } else if (time >= this.hornReady) {
-        this.hornReady = time + 750;
-        this.dashUntil = time + 260;
-        this.dashHit.clear();
-        b.setVelocityX(this.facing * Math.max(sp * 2.3, 440));
-        if (this.water) b.setVelocityY(b.velocity.y * 0.3);
-        else if (b.velocity.y > -60) b.setVelocityY(-60);
-        audio.sfx('dash');
-        this.host.puff(this.x - this.facing * 20, this.y + 10, 4);
-      }
+    this.view.headTilt = this.sprinting ? 0.18 : 0;
+
+    // Atem und Erschöpfung sichtbar machen
+    if (this.stamina < 0.25 && time > this.breath) {
+      this.breath = time + 500;
+      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
     }
-    this.view.headTilt = this.dashing ? 0.28 : 0;
+    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < 12 ? 0.3 : 0) + (this.stamina < 0.2 ? 0.2 : 0), 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: 'swim' | 'walk' | 'air' | 'idle' = 'idle';
     if (this.water) mode = 'swim';
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
-    const s01 = this.water ? Math.min(1, Math.hypot(b.velocity.x, b.velocity.y) / sp) : Math.min(1, speed / sp);
-    this.syncView(dt, mode, s01);
-
-    // Unverwundbar: blinken
-    this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 80) % 2 ? 0.35 : 1) : 1);
+    this.syncView(dt, mode, Math.min(1.3, this.speed01));
+    this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : 1);
   }
-
-  private hornHint = false;
 
   private syncView(dt: number, mode: 'swim' | 'walk' | 'air' | 'idle', s01: number) {
     this.view.setPosition(this.rect.x, this.rect.y + this.offY);
@@ -203,35 +223,60 @@ export class Player {
     this.view.animate(dt, mode, s01);
   }
 
+  /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */
+  eat(nutrition: number) {
+    if (this.satiety >= FULL * 0.95) {
+      this.view.refuse();
+      audio.sfx('refuse');
+      return false;
+    }
+    this.satiety = Math.min(FULL, this.satiety + nutrition);
+    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * 0.06);
+    this.view.chew();
+    audio.sfx('chew');
+    return true;
+  }
+
   hurt(dmg: number, fromX: number) {
     if (this.dead || this.invulnerable) return;
-    const d = Math.max(1, Math.round(dmg - this.stats.def));
+    const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
     const now = this.host.time.now;
-    this.invulnUntil = now + 950;
+    this.lastHurt = now;
+    this.invulnUntil = now + 800;
     this.knockUntil = now + 220;
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
-    this.body.setVelocity(s * 300, this.water ? -60 : -280);
-    this.view.flash(0xff6060);
+    this.body.setVelocity(s * 300, this.water ? -60 : -260);
+    this.view.flash(0xff5040);
     this.host.time.delayedCall(120, () => this.view.flash(null));
+    this.host.bleed(this.x, this.y, 5);
     audio.sfx('hurt');
-    this.host.cameras.main.shake(120, 0.006);
-    this.host.floatText(this.x, this.y - 40, `-${d}`, '#ff6a6a', 26);
-    bus.emit('hp', this.hp, this.stats.hp);
+    this.host.cameras.main.shake(130, 0.007);
+    // Schwere Treffer, die man überlebt, hinterlassen Narben
+    if (d > this.stats.maxHp * 0.22 && this.hp > 0) game.addScar();
     if (this.hp <= 0) this.die();
   }
 
-  heal(n: number) {
-    if (this.dead) return;
-    this.hp = Math.min(this.stats.hp, this.hp + n);
-    bus.emit('hp', this.hp, this.stats.hp);
+  /** Rückstoß beim Rammen (ohne Unverwundbarkeit). k: 0 = kleines Tier, kaum Widerstand … 1 = prallt ab */
+  recoil(fromX: number, selfDmg: number, k = 1) {
+    const s = Math.sign(this.rect.x - fromX) || -this.facing;
+    if (k > 0.3) {
+      this.body.setVelocity(s * 220 * k, this.water ? -40 * k : -200 * k);
+      this.knockUntil = this.host.time.now + 200 * k;
+    } else this.body.setVelocityX(this.body.velocity.x * 0.6);
+    if (selfDmg > 0.5) {
+      this.hp = Math.max(0, this.hp - selfDmg);
+      this.view.flash(0xffa080);
+      this.host.time.delayedCall(90, () => this.view.flash(null));
+      if (this.hp <= 0) this.die();
+    }
   }
 
   private die() {
     this.dead = true;
-    this.body.setVelocity(0, this.water ? -40 : -300);
+    this.body.setVelocity(0, this.water ? -30 : -260);
     audio.sfx('death');
-    this.host.tweens.add({ targets: this.view, angle: this.facing * 180, alpha: 0.4, duration: 900, ease: 'Sine.in' });
+    this.host.tweens.add({ targets: this.view, angle: this.facing * 180, alpha: 0.5, duration: 1100, ease: 'Sine.in' });
     this.host.events.emit('player-dead');
   }
 }

@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
-import '@fontsource/fredoka/latin-500.css';
-import '@fontsource/fredoka/latin-700.css';
+import '@fontsource/cinzel/latin-700.css';
+import '@fontsource/alegreya-sans/latin-400.css';
+import '@fontsource/alegreya-sans/latin-500.css';
+import '@fontsource/alegreya-sans/latin-700.css';
+import '@fontsource/alegreya-sans/latin-400-italic.css';
 import { W, H, DEBUG } from './config';
 import { audio } from './audio/Audio';
 import { game } from './state/GameState';
@@ -12,15 +15,20 @@ import { EraSelectScene } from './scenes/EraSelectScene';
 import { MapScene } from './scenes/MapScene';
 import { LevelScene } from './scenes/LevelScene';
 import { HudScene } from './scenes/HudScene';
-import { EvolutionScene } from './scenes/EvolutionScene';
+import { GenerationScene } from './scenes/GenerationScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
 
 async function start() {
-  // Schrift laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
+  // Schriften laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
   try {
     await Promise.race([
-      Promise.all([document.fonts.load('500 20px Fredoka'), document.fonts.load('700 20px Fredoka')]),
+      Promise.all([
+        document.fonts.load('700 20px Cinzel'),
+        document.fonts.load('500 20px "Alegreya Sans"'),
+        document.fonts.load('700 20px "Alegreya Sans"'),
+        document.fonts.load('italic 400 20px "Alegreya Sans"'),
+      ]),
       new Promise((r) => setTimeout(r, 2000)),
     ]);
   } catch {
@@ -48,12 +56,15 @@ async function start() {
     parent: 'game',
     width: W,
     height: H,
-    backgroundColor: '#08203c',
+    backgroundColor: '#030405',
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     audio: { noAudio: true },
+    // Nur eine Textur pro Zeichenaufruf: Phaser 4 wählt bei mehreren Texturen im Shader per exaktem
+    // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
+    render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, IntroScene, EraSelectScene, MapScene, LevelScene, HudScene, EvolutionScene, EndingScene, GalleryScene],
+    scene: [BootScene, TitleScene, IntroScene, EraSelectScene, MapScene, LevelScene, HudScene, GenerationScene, EndingScene, GalleryScene],
   });
 
   // Für Tests und Entwickler-Konsole

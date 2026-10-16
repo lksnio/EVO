@@ -8,15 +8,15 @@ export const touch = {
   down: false,
   jump: false,
   bite: false,
-  horn: false,
+  sprint: false,
 };
 
-type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'bite' | 'horn';
+type Action = keyof typeof touch;
 
 /** Tastatur + Touch zusammengefasst, mit "gerade gedrückt"-Erkennung. */
 export class Controls {
   private keys: Record<Action, Phaser.Input.Keyboard.Key[]>;
-  private prev: Record<Action, boolean> = { left: false, right: false, up: false, down: false, jump: false, bite: false, horn: false };
+  private prev: Record<Action, boolean> = { left: false, right: false, up: false, down: false, jump: false, bite: false, sprint: false };
   held: Record<Action, boolean> = { ...this.prev };
   pressed: Record<Action, boolean> = { ...this.prev };
 
@@ -31,7 +31,7 @@ export class Controls {
       down: k(K.DOWN, K.S),
       jump: k(K.SPACE, K.UP, K.W),
       bite: k(K.J, K.X, K.Y),
-      horn: k(K.K, K.C),
+      sprint: k(K.SHIFT, K.K, K.C),
     };
   }
 

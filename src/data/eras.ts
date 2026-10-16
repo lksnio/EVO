@@ -11,14 +11,16 @@ export interface NodeDef {
   x: number;
   y: number;
   start?: boolean;
-  /** Boss-Gegner dieses Ortes. */
+  /** Spitzenräuber, der hier sein Revier hat. */
   boss?: string;
   /** Länge in Kacheln. */
   len?: number;
-  /** Schwierigkeit 0..1 innerhalb der Ära. */
-  diff: number;
-  /** Gegner mit Gewichtung. */
-  pool?: Record<string, number>;
+  /** Tiere: Art und Anzahl der Gruppen. */
+  fauna: [string, number][];
+  /** Wie viele fressbare Pflanzen (0..1). */
+  plants: number;
+  /** Wie viel dichtes Gestrüpp zum Verstecken (0..1). */
+  cover: number;
   cave?: boolean;
   dark?: boolean;
   kelp?: boolean;
@@ -29,15 +31,11 @@ export interface EraDef {
   id: EraId;
   name: string;
   sub: string;
-  minClass: ClassId;
-  maxClass?: ClassId;
+  /** Die Körperform, die in diesem Zeitalter lebt. */
+  cls: ClassId;
   habitat: 'water' | 'land';
   music: string;
-  /** Bonus-EVO beim ersten Abschluss eines Ortes. */
-  bonus: number;
-  /** Wert eines EVO-Kristalls. */
-  crystal: number;
-  /** Schaden durch Fallen (Dornen, Lava …). */
+  /** Schaden durch Fallen und Stürze. */
   hazardDmg: number;
   color: number;
   nodes: NodeDef[];
@@ -48,21 +46,18 @@ export const ERAS: EraDef[] = [
   {
     id: 'ozean',
     name: 'Der Urozean',
-    sub: 'vor 500 Millionen Jahren',
-    minClass: 'fish',
-    maxClass: 'fish',
+    sub: 'vor 450 Millionen Jahren',
+    cls: 'fish',
     habitat: 'water',
     music: 'ozean',
-    bonus: 15,
-    crystal: 5,
     hazardDmg: 3,
-    color: 0x2f8fd0,
+    color: 0x2a5a66,
     nodes: [
-      { id: 'o1', name: 'Seichte Lagune', desc: 'Warmes, helles Wasser. Hier beginnt dein Abenteuer.', x: 190, y: 470, start: true, len: 85, diff: 0, pool: { kleinfisch: 5, qualle: 2, trilobit: 3 } },
-      { id: 'o2', name: 'Kelpwald', desc: 'Ein Wald aus Riesentang. Zwischen den Stängeln lauern Ammoniten.', x: 420, y: 360, len: 105, diff: 0.3, kelp: true, pool: { kleinfisch: 4, qualle: 3, trilobit: 2, ammonit: 3 } },
-      { id: 'o3', name: 'Korallenriff', desc: 'Bunte Korallen – und hungrige Raubfische.', x: 650, y: 490, len: 115, diff: 0.5, reef: true, pool: { kleinfisch: 3, ammonit: 3, raubfisch: 3, qualle: 2 } },
-      { id: 'o4', name: 'Dunkle Tiefe', desc: 'Kaum Licht dringt hier herunter. Seeskorpionen jagen im Dunkeln.', x: 660, y: 220, len: 115, diff: 0.65, dark: true, pool: { seeskorpion: 3, qualle: 3, raubfisch: 2, ammonit: 2 } },
-      { id: 'oB', name: 'Höhle des Panzerfischs', desc: 'Der gepanzerte König des Urozeans wartet hier. Besiege ihn, um an Land zu gehen!', x: 960, y: 350, boss: 'panzerfisch', diff: 1 },
+      { id: 'o1', name: 'Seichte Lagune', desc: 'Lauwarmes, trübes Wasser. Hier bist du geschlüpft.', x: 190, y: 470, start: true, len: 85, plants: 0.85, cover: 0.45, fauna: [['kieferlos', 3], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1]] },
+      { id: 'o2', name: 'Kelpwald', desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.', x: 420, y: 360, len: 105, plants: 0.6, cover: 0.95, kelp: true, fauna: [['kieferlos', 3], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2]] },
+      { id: 'o3', name: 'Schwammriff', desc: 'Ein Riff voller Leben – und voller Jäger.', x: 650, y: 490, len: 110, plants: 0.7, cover: 0.5, reef: true, fauna: [['kieferlos', 4], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1]] },
+      { id: 'o4', name: 'Dunkle Tiefe', desc: 'Kaum ein Lichtstrahl erreicht diesen Grund.', x: 660, y: 220, len: 110, plants: 0.3, cover: 0.3, dark: true, fauna: [['trilobit', 2], ['qualle', 3], ['seeskorpion', 2], ['orthoceras', 1]] },
+      { id: 'oB', name: 'Die Panzerschlucht', desc: 'Etwas Großes zieht hier seine Kreise.', x: 960, y: 350, boss: 'dunkleosteus', len: 80, plants: 0.5, cover: 0.6, fauna: [['kieferlos', 3], ['trilobit', 2]] },
     ],
     edges: [['o1', 'o2'], ['o2', 'o3'], ['o2', 'o4'], ['o3', 'oB'], ['o4', 'oB']],
   },
@@ -70,39 +65,35 @@ export const ERAS: EraDef[] = [
     id: 'sumpf',
     name: 'Urzeitliche Sümpfe',
     sub: 'vor 350 Millionen Jahren',
-    minClass: 'amphibian',
+    cls: 'amphibian',
     habitat: 'land',
     music: 'sumpf',
-    bonus: 30,
-    crystal: 10,
     hazardDmg: 6,
-    color: 0x5c8a3a,
+    color: 0x3e4a2a,
     nodes: [
-      { id: 's1', name: 'Schlammufer', desc: 'Deine ersten Schritte an Land. Vorsicht vor Krötenmolchen!', x: 170, y: 450, start: true, len: 95, diff: 0, pool: { kroete: 3, libelle: 3, tausendfuessler: 2 } },
-      { id: 's2', name: 'Farnwald', desc: 'Riesige Farne und Schachtelhalme ragen in den Himmel.', x: 400, y: 290, len: 110, diff: 0.3, pool: { libelle: 3, tausendfuessler: 3, kroete: 2, spucklurch: 1 } },
-      { id: 's3', name: 'Insektennest', desc: 'Eine feuchte Höhle voller Riesenskorpione.', x: 560, y: 500, len: 110, diff: 0.5, cave: true, pool: { skorpion: 3, tausendfuessler: 2, libelle: 2 } },
-      { id: 's4', name: 'Moorsenke', desc: 'Ein giftiges Moor. Spucklurche zielen auf alles, was sich bewegt.', x: 800, y: 260, len: 120, diff: 0.7, pool: { spucklurch: 3, kroete: 2, skorpion: 2, libelle: 2 } },
-      { id: 'sB', name: 'Revier der Riesenlibelle', desc: 'Die Herrscherin der Lüfte. Beiße zu, wenn sie tief fliegt!', x: 1060, y: 400, boss: 'riesenlibelle', diff: 1 },
+      { id: 's1', name: 'Schlammufer', desc: 'Der Boden schmatzt unter jedem Schritt.', x: 170, y: 450, start: true, len: 95, plants: 0.85, cover: 0.5, fauna: [['kleinlurch', 3], ['tausendfuessler', 2], ['libelle', 2], ['skorpion', 1]] },
+      { id: 's2', name: 'Farnwald', desc: 'Riesige Farne verschlucken das Licht.', x: 400, y: 290, len: 110, plants: 0.7, cover: 0.85, fauna: [['libelle', 3], ['tausendfuessler', 3], ['kleinlurch', 2], ['eryops', 1], ['skorpion', 1]] },
+      { id: 's3', name: 'Insektennest', desc: 'Eine feuchte Höhle. Es raschelt überall.', x: 560, y: 500, len: 105, plants: 0.4, cover: 0.3, cave: true, fauna: [['tausendfuessler', 2], ['skorpion', 3]] },
+      { id: 's4', name: 'Moorsenke', desc: 'Nebel liegt über dem schwarzen Wasser.', x: 800, y: 260, len: 115, plants: 0.6, cover: 0.6, fauna: [['kleinlurch', 3], ['eryops', 2], ['libelle', 2], ['skorpion', 1]] },
+      { id: 'sB', name: 'Das Summen', desc: 'Ein tiefes Brummen erfüllt die Luft.', x: 1060, y: 400, boss: 'meganeura', len: 85, plants: 0.6, cover: 0.75, fauna: [['libelle', 3], ['kleinlurch', 2]] },
     ],
     edges: [['s1', 's2'], ['s1', 's3'], ['s2', 's4'], ['s3', 's4'], ['s4', 'sB']],
   },
   {
     id: 'reptil',
-    name: 'Zeitalter der Reptilien',
+    name: 'Zeitalter der Echsen',
     sub: 'vor 150 Millionen Jahren',
-    minClass: 'reptile',
+    cls: 'reptile',
     habitat: 'land',
     music: 'reptil',
-    bonus: 50,
-    crystal: 16,
     hazardDmg: 12,
-    color: 0xd0703a,
+    color: 0x6a3420,
     nodes: [
-      { id: 'r1', name: 'Farnsteppe', desc: 'Weites Land. Kleine Raptoren jagen im Rudel.', x: 160, y: 420, start: true, len: 105, diff: 0, pool: { raptor: 2, flugsaurier: 2, panzerechse: 2 } },
-      { id: 'r2', name: 'Vulkanhänge', desc: 'Heiße Lava fließt zwischen den Felsen. Nicht hineinfallen!', x: 400, y: 240, len: 115, diff: 0.35, pool: { stachelechse: 2, spuckechse: 2, flugsaurier: 2 } },
-      { id: 'r3', name: 'Urwald', desc: 'Dichter Dschungel mit Palmfarnen und Spuckechsen.', x: 470, y: 510, len: 115, diff: 0.45, pool: { raptor: 3, spuckechse: 2, panzerechse: 2 } },
-      { id: 'r4', name: 'Klippen der Flugsaurier', desc: 'Hoch oben nisten die Flugsaurier.', x: 770, y: 340, len: 125, diff: 0.75, pool: { flugsaurier: 4, raptor: 2, stachelechse: 2 } },
-      { id: 'rB', name: 'Reich des Tyrannosaurus', desc: 'Der König der Echsen. Lass ihn gegen die Wand rennen!', x: 1060, y: 430, boss: 'trex', diff: 1 },
+      { id: 'r1', name: 'Farnsteppe', desc: 'Weites Land. Kein Ort, um sich zu verstecken – fast.', x: 160, y: 420, start: true, len: 105, plants: 0.8, cover: 0.55, fauna: [['ornithopode', 2], ['kleinechse', 3], ['raptor', 1]] },
+      { id: 'r2', name: 'Vulkanhänge', desc: 'Die Erde ist heiß. Asche fällt wie Schnee.', x: 400, y: 240, len: 110, plants: 0.45, cover: 0.3, fauna: [['kleinechse', 3], ['flugsaurier', 2], ['ankylosaurus', 1]] },
+      { id: 'r3', name: 'Urwald', desc: 'Dichtes Grün, dumpfe Schritte in der Ferne.', x: 470, y: 510, len: 115, plants: 0.7, cover: 0.9, fauna: [['ornithopode', 2], ['kleinechse', 2], ['raptor', 2], ['ankylosaurus', 1]] },
+      { id: 'r4', name: 'Hohe Klippen', desc: 'Schatten kreisen über den Felsen.', x: 770, y: 340, len: 120, plants: 0.5, cover: 0.4, fauna: [['flugsaurier', 3], ['kleinechse', 2], ['ornithopode', 1], ['raptor', 1]] },
+      { id: 'rB', name: 'Das Beben', desc: 'Der Boden zittert in regelmäßigen Abständen.', x: 1060, y: 430, boss: 'trex', len: 90, plants: 0.6, cover: 0.7, fauna: [['ornithopode', 2], ['ankylosaurus', 1]] },
     ],
     edges: [['r1', 'r2'], ['r1', 'r3'], ['r2', 'r4'], ['r3', 'r4'], ['r4', 'rB']],
   },
@@ -110,38 +101,34 @@ export const ERAS: EraDef[] = [
     id: 'eis',
     name: 'Die Eiszeit',
     sub: 'vor 2 Millionen Jahren',
-    minClass: 'mammal',
+    cls: 'mammal',
     habitat: 'land',
     music: 'eis',
-    bonus: 80,
-    crystal: 24,
     hazardDmg: 18,
-    color: 0x7fb8e0,
+    color: 0x3a5a76,
     nodes: [
-      { id: 'e1', name: 'Gefrorene Tundra', desc: 'Eisiger Wind und hungrige Wölfe.', x: 180, y: 330, start: true, len: 110, diff: 0, pool: { eiswolf: 3, riesenvogel: 2 } },
-      { id: 'e2', name: 'Eishöhle', desc: 'Eine dunkle Höhle – Heimat der Höhlenbären.', x: 400, y: 500, len: 115, diff: 0.4, cave: true, pool: { hoehlenbaer: 2, eiswolf: 3, riesenvogel: 1 } },
-      { id: 'e3', name: 'Mammutsteppe', desc: 'Hier ziehen Mammuts und Wollnashörner umher.', x: 560, y: 240, len: 120, diff: 0.5, pool: { mammut: 2, wollnashorn: 2, eiswolf: 2 } },
-      { id: 'e4', name: 'Gletscherspalten', desc: 'Tiefe Spalten im Eis und Geier am Himmel.', x: 800, y: 430, len: 125, diff: 0.75, pool: { wollnashorn: 2, riesenvogel: 3, hoehlenbaer: 1, eiswolf: 2 } },
-      { id: 'eB', name: 'Höhle des Säbelzahntigers', desc: 'Der schnellste Jäger der Eiszeit. Er springt!', x: 1060, y: 300, boss: 'saebelzahn', diff: 1 },
+      { id: 'e1', name: 'Gefrorene Tundra', desc: 'Eisiger Wind. Spuren im Schnee.', x: 180, y: 330, start: true, len: 105, plants: 0.6, cover: 0.5, fauna: [['schneehase', 3], ['riesenhirsch', 1], ['eiswolf', 1]] },
+      { id: 'e2', name: 'Eishöhle', desc: 'Dunkel und still. Zu still.', x: 400, y: 500, len: 105, plants: 0.3, cover: 0.3, cave: true, fauna: [['hoehlenbaer', 1], ['schneehase', 2], ['eiswolf', 1]] },
+      { id: 'e3', name: 'Mammutsteppe', desc: 'Riesen ziehen durch das Grasland.', x: 560, y: 240, len: 115, plants: 0.75, cover: 0.4, fauna: [['mammut', 2], ['riesenhirsch', 2], ['schneehase', 2], ['eiswolf', 1]] },
+      { id: 'e4', name: 'Gletscherspalten', desc: 'Ein falscher Schritt, und das Eis verschluckt dich.', x: 800, y: 430, len: 120, plants: 0.45, cover: 0.5, fauna: [['eiswolf', 2], ['schneehase', 2], ['riesenhirsch', 1], ['hoehlenbaer', 1]] },
+      { id: 'eB', name: 'Die Zahnhöhle', desc: 'Knochen liegen vor dem Eingang.', x: 1060, y: 300, boss: 'saebelzahn', len: 90, plants: 0.5, cover: 0.7, fauna: [['riesenhirsch', 2], ['schneehase', 2]] },
     ],
     edges: [['e1', 'e2'], ['e1', 'e3'], ['e2', 'e4'], ['e3', 'e4'], ['e4', 'eB']],
   },
   {
     id: 'eden',
     name: 'Der Weg nach Eden',
-    sub: 'das Ziel der Evolution',
-    minClass: 'mammal',
+    sub: 'das Ende der langen Reise',
+    cls: 'mammal',
     habitat: 'land',
     music: 'eden',
-    bonus: 120,
-    crystal: 32,
     hazardDmg: 22,
-    color: 0xf0c050,
+    color: 0x6a5a2a,
     nodes: [
-      { id: 'd1', name: 'Lichtwiese', desc: 'Ein Garten voller Blumen. Doch Schatten lauern.', x: 200, y: 430, start: true, len: 110, diff: 0.2, pool: { schatten: 2, kristallkaefer: 3 } },
-      { id: 'd2', name: 'Kristallwald', desc: 'Leuchtende Kristalle wachsen wie Bäume.', x: 470, y: 290, len: 120, diff: 0.5, pool: { kristallkaefer: 2, irrlicht: 2, steinwaechter: 2 } },
-      { id: 'd3', name: 'Pfad der Prüfung', desc: 'Nur die Stärksten erreichen das Tor.', x: 760, y: 440, len: 130, diff: 0.8, pool: { steinwaechter: 2, schatten: 2, irrlicht: 2, kristallkaefer: 1 } },
-      { id: 'dB', name: 'Tor zu Eden', desc: 'Der Kristallwächter bewacht das Paradies. Besiege ihn!', x: 1050, y: 300, boss: 'kristall', diff: 1 },
+      { id: 'd1', name: 'Dämmerwiese', desc: 'Warmes Licht – zum ersten Mal seit Langem.', x: 200, y: 430, start: true, len: 110, plants: 0.85, cover: 0.6, fauna: [['urpferd', 3], ['hyaenodon', 1]] },
+      { id: 'd2', name: 'Uralter Wald', desc: 'Bäume, älter als jede Erinnerung.', x: 470, y: 290, len: 120, plants: 0.7, cover: 0.9, fauna: [['urpferd', 2], ['riesenfaultier', 1], ['terrorvogel', 1], ['hyaenodon', 1]] },
+      { id: 'd3', name: 'Pfad der Knochen', desc: 'Viele sind hier gescheitert.', x: 760, y: 440, len: 125, plants: 0.5, cover: 0.6, fauna: [['terrorvogel', 2], ['hyaenodon', 2], ['urpferd', 2], ['riesenfaultier', 1]] },
+      { id: 'dB', name: 'Das Tor', desc: 'Dahinter liegt Eden. Etwas wacht davor.', x: 1050, y: 300, boss: 'andrewsarchus', len: 95, plants: 0.6, cover: 0.7, fauna: [['urpferd', 2]] },
     ],
     edges: [['d1', 'd2'], ['d2', 'd3'], ['d3', 'dB']],
   },

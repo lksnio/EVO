@@ -1,57 +1,66 @@
 import Phaser from 'phaser';
-import { W, H } from '../config';
+import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game } from '../state/GameState';
-import { ERAS, type EraDef } from '../data/eras';
-import { CLASSES, classIndex } from '../data/classes';
+import { game } from '../state/GameState';
+import { ERAS, type EraDef, type EraId } from '../data/eras';
+import { CLASSES } from '../data/classes';
 import { mapTexture } from '../art/worldArt';
 import { CreatureView } from '../objects/CreatureView';
 import { Button, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
-import { shade } from '../util/color';
 
-const CW = 222, CH = 340, GAP = 20;
+const CW = 220, CH = 340, GAP = 18;
 
+type CardState = 'unknown' | 'play' | 'past' | 'blocked';
+
+/**
+ * Die Zeitalter als Steintafeln. Was noch nicht erreicht ist, bleibt ein Fragezeichen.
+ */
 export class EraSelectScene extends Phaser.Scene {
   private cards: { c: Phaser.GameObjects.Container; era: EraDef; frame: Phaser.GameObjects.Graphics }[] = [];
   private sel = 0;
   private creature!: CreatureView;
-  private evoText!: Phaser.GameObjects.Text;
-  private clsText!: Phaser.GameObjects.Text;
-  private hint!: Phaser.GameObjects.Text;
+  private reveal?: EraId;
+  /** Karte, die gerade aufgedeckt wird, zeigt bis dahin noch ein Fragezeichen */
+  private hiding?: EraId;
 
   constructor() {
     super('EraSelect');
   }
 
-  create() {
-    fadeIn(this);
-    audio.music('map');
+  init(d: { reveal?: EraId }) {
+    this.reveal = d?.reveal;
+    this.hiding = d?.reveal;
     this.cards = [];
-    this.add.image(0, 0, 'title_bg').setOrigin(0);
-    this.add.rectangle(0, 0, W, H, 0x04101e, 0.35).setOrigin(0);
-    title(this, 40, 26, 'Wähle eine Karte', 44, '#ffe680');
-    this.evoText = this.evoCounter(W - 330, 50);
+  }
+
+  create() {
+    fadeIn(this, 500);
+    audio.music('map');
+    this.add.image(0, 0, 'title_bg2').setOrigin(0).setTint(0x9a9a9a);
+    this.add.rectangle(0, 0, W, H, 0x050403, 0.45).setOrigin(0);
+    title(this, 40, 26, 'Zeitalter', 42);
+    text(this, 42, 82, 'Wohin führt dein Weg?', 19, UI.boneDim);
+    soundButton(this, W - 44, 50);
 
     const total = ERAS.length * CW + (ERAS.length - 1) * GAP;
     const x0 = (W - total) / 2 + CW / 2;
-    ERAS.forEach((era, i) => this.makeCard(era, x0 + i * (CW + GAP), 300, i));
+    ERAS.forEach((era, i) => this.makeCard(era, x0 + i * (CW + GAP), 316, i));
 
-    // Spielfigur unten
-    panel(this, 40, 506, 560, 190);
-    this.creature = new CreatureView(this, 150, 0, game.appearance(), 1.5);
-    this.placeCreature();
-    this.clsText = title(this, 270, 530, '', 28);
-    this.hint = text(this, 270, 574, '', 19, '#cfe8ff', { wordWrap: { width: 320 } });
-    this.updateInfo();
+    // Das eigene Tier
+    panel(this, 40, 520, 560, 180, 0.88);
+    this.add.image(150, 650, 'pedestal').setScale(0.9, 0.8);
+    this.creature = new CreatureView(this, 150, 0, game.morph({ belly: 1 }), 1.35);
+    const v = this.creature;
+    v.setY(v.L.land ? 646 - v.L.footY * 1.35 : 590);
+    title(this, 270, 548, CLASSES[game.data.cls].name, 28);
+    text(this, 272, 592, `Generation ${game.data.generations}`, 18, UI.boneDim);
+    text(this, 272, 622, 'Was du tust, formt, was aus dir wird.', 18, UI.bone, { fontStyle: 'italic', wordWrap: { width: 310 } });
 
-    new Button(this, 760, 560, 'Evolution', { w: 250, h: 62, icon: 'ic_dna', color: 0x8a4ad0, onClick: () => this.openEvolution() });
-    new Button(this, 760, 640, 'Titelbild', { w: 250, h: 50, size: 20, icon: 'ic_home', color: 0x3a6ea8, onClick: () => fadeTo(this, 'Title') });
-    new Button(this, 1070, 600, 'Spielen', { w: 260, h: 80, size: 30, icon: 'ic_play', color: 0xf08a24, onClick: () => this.choose(this.sel) });
-    soundButton(this, W - 44, 50);
+    new Button(this, 770, 610, 'Titelbild', { w: 220, h: 52, size: 19, icon: 'ic_home', onClick: () => fadeTo(this, 'Title') });
+    new Button(this, 1060, 610, 'Aufbrechen', { w: 290, h: 74, size: 28, icon: 'ic_play', color: UI.ochreN, onClick: () => this.choose(this.sel) });
 
-    // Startauswahl: die passende Ära
-    const sug = ERAS.indexOf(game.suggestedEra());
-    this.select(Math.max(0, sug), false);
+    const start = this.reveal ? ERAS.findIndex((e) => e.id === this.reveal) : ERAS.indexOf(game.suggestedEra());
+    this.select(Math.max(0, start), false);
 
     const kb = this.input.keyboard!;
     kb.on('keydown-LEFT', () => this.select(this.sel - 1));
@@ -60,55 +69,20 @@ export class EraSelectScene extends Phaser.Scene {
     kb.on('keydown-D', () => this.select(this.sel + 1));
     kb.on('keydown-ENTER', () => this.choose(this.sel));
     kb.on('keydown-SPACE', () => this.choose(this.sel));
-    kb.on('keydown-E', () => this.openEvolution());
     kb.on('keydown-ESC', () => fadeTo(this, 'Title'));
 
-    const onEvolved = () => {
-      this.creature.build(game.appearance());
-      this.placeCreature();
-      this.updateInfo();
-      this.cards.forEach((_c, i) => this.refreshCard(i));
-      this.select(this.sel, false);
-    };
-    bus.on('evolved', onEvolved);
-    bus.on('evo', this.updateEvo, this);
-    this.events.once('shutdown', () => {
-      bus.off('evolved', onEvolved);
-      bus.off('evo', this.updateEvo, this);
-    });
-    this.events.on('resume', () => this.updateEvo());
+    if (this.reveal) this.time.delayedCall(700, () => this.flip(this.reveal!));
   }
 
   update(_t: number, dms: number) {
-    this.creature.animate(dms / 1000, game.data.cls === 'fish' ? 'swim' : 'idle', 0.3);
+    this.creature.animate(dms / 1000, this.creature.L.land ? 'idle' : 'swim', 0.3);
   }
 
-  private evoCounter(x: number, y: number) {
-    panel(this, x, y - 26, 200, 52, 0.7, 0x0d2238, 26);
-    this.add.image(x + 30, y, 'evo_gem').setScale(0.85);
-    return title(this, x + 56, y, `${game.evo}`, 28, '#bff6ff').setOrigin(0, 0.5);
-  }
-
-  private updateEvo() {
-    this.evoText.setText(`${game.evo}`);
-  }
-
-  private placeCreature() {
-    const v = this.creature;
-    v.setY(v.L.land ? 640 - v.L.footY * 1.5 : 600);
-  }
-
-  private updateInfo() {
-    const cls = CLASSES[game.data.cls];
-    this.clsText.setText(`Du bist: ${cls.name}`);
-    const next = game.nextClass();
-    let hint = cls.desc;
-    if (next && game.classUnlocked(next)) {
-      hint = game.evo >= CLASSES[next].cost
-        ? `Neue Entwicklung möglich: ${CLASSES[next].name}! Öffne die Evolution.`
-        : `Nächste Stufe: ${CLASSES[next].name} (${CLASSES[next].cost} EVO).`;
-    }
-    this.hint.setText(hint);
+  private state(era: EraDef): CardState {
+    if (!game.eraReached(era) || era.id === this.hiding) return 'unknown';
+    if (game.eraPlayable(era)) return 'play';
+    if (game.data.eras.includes(era.id)) return 'past';
+    return 'blocked';
   }
 
   private makeCard(era: EraDef, x: number, y: number, i: number) {
@@ -118,7 +92,7 @@ export class EraSelectScene extends Phaser.Scene {
     this.cards.push({ c, era, frame });
     this.refreshCard(i);
     c.setSize(CW, CH);
-    c.setInteractive(new Phaser.Geom.Rectangle(-CW / 2, -CH / 2, CW, CH), Phaser.Geom.Rectangle.Contains);
+    c.setInteractive(new Phaser.Geom.Rectangle(0, 0, CW, CH), Phaser.Geom.Rectangle.Contains);
     if (c.input) c.input.cursor = 'pointer';
     c.on('pointerdown', () => {
       if (this.sel === i) this.choose(i);
@@ -130,32 +104,33 @@ export class EraSelectScene extends Phaser.Scene {
   private refreshCard(i: number) {
     const { c, era, frame } = this.cards[i];
     c.list.filter((o) => o !== frame).forEach((o) => o.destroy());
-    const block = game.eraBlockReason(era);
-    const unlocked = game.eraUnlocked(era);
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.35);
-    g.fillRoundedRect(-CW / 2 + 4, -CH / 2 + 6, CW, CH, 18);
-    g.fillStyle(shade(era.color, -0.55), 0.95);
-    g.fillRoundedRect(-CW / 2, -CH / 2, CW, CH, 18);
-    c.add(g);
-    c.sendToBack(g);
-    const img = this.add.image(0, -CH / 2 + 74, mapTexture(this, era.id)).setDisplaySize(CW - 20, 124);
-    if (!unlocked) img.setTint(0x303848);
+    const st = this.state(era);
+    const tab = this.add.image(0, 0, 'tablet');
+    c.add(tab);
+    c.sendToBack(tab);
+    if (st === 'unknown') {
+      tab.setTint(0x8a8076);
+      c.add(title(this, 0, -36, '?', 120, '#5e554a').setOrigin(0.5));
+      c.add(title(this, 0, 76, '???', 22, '#6e6458').setOrigin(0.5));
+      c.add(text(this, 0, 112, 'Diese Zeit liegt\nnoch im Dunkeln.', 16, '#6e6458', { align: 'center' }).setOrigin(0.5, 0));
+      return;
+    }
+    const img = this.add.image(0, -CH / 2 + 82, mapTexture(this, era.id)).setDisplaySize(CW - 26, 132);
+    if (st !== 'play') img.setTint(0x6a6460);
     c.add(img);
-    const nameT = title(this, 0, -CH / 2 + 146, era.name, 21, unlocked ? '#ffffff' : '#9aa6b8').setOrigin(0.5, 0).setWordWrapWidth(CW - 16).setAlign('center');
+    const nameT = title(this, 0, -CH / 2 + 160, era.name, 20, st === 'play' ? UI.bone : UI.boneDim).setOrigin(0.5, 0).setWordWrapWidth(CW - 20).setAlign('center');
     c.add(nameT);
-    c.add(text(this, 0, -CH / 2 + 150 + Math.max(58, nameT.height + 4), era.sub, 15, '#bcd8f0').setOrigin(0.5, 0));
-    const req = era.maxClass ? `Nur für: ${CLASSES[era.minClass].name}` : `Ab: ${CLASSES[era.minClass].name}`;
-    c.add(text(this, 0, -CH / 2 + 236, req, 17, '#ffe0a0').setOrigin(0.5, 0));
+    c.add(text(this, 0, -CH / 2 + 166 + Math.max(28, nameT.height), era.sub, 15, UI.boneDim).setOrigin(0.5, 0));
+    // überlebte Orte als Kratzspuren
+    const n = era.nodes.length;
     const done = game.eraProgress(era);
-    c.add(text(this, 0, -CH / 2 + 262, `${done} / ${era.nodes.length} Orte`, 18, '#ffffff').setOrigin(0.5, 0));
-    if (game.data.bosses.includes(era.id)) {
-      c.add(this.add.image(CW / 2 - 26, -CH / 2 + 26, 'ic_check').setTint(0x7aff8a).setScale(0.8));
+    for (let k = 0; k < n; k++) {
+      const dot = this.add.image((k - (n - 1) / 2) * 30, CH / 2 - 92, 'ic_claw').setScale(0.42);
+      dot.setTint(k < done ? 0xc8913c : 0x3a332c);
+      c.add(dot);
     }
-    if (!unlocked) {
-      c.add(this.add.image(0, -CH / 2 + 74, 'ic_lock').setScale(1.3).setTint(0xcfd8e8));
-    }
-    c.add(text(this, 0, CH / 2 - 34, block ?? 'Bereit!', 16, block ? '#ff9a8a' : '#8aff9a', { align: 'center', wordWrap: { width: CW - 24 } }).setOrigin(0.5));
+    const msg = st === 'play' ? 'Hier kannst du leben.' : st === 'past' ? 'Hier lebten\ndeine Vorfahren.' : 'Dein Körper ist hierfür\nnicht gemacht.';
+    c.add(text(this, 0, CH / 2 - 46, msg, 15, st === 'play' ? UI.ochre : UI.boneDim, { align: 'center' }).setOrigin(0.5));
   }
 
   private select(i: number, sound = true) {
@@ -166,11 +141,8 @@ export class EraSelectScene extends Phaser.Scene {
       const on = k === i;
       frame.clear();
       if (on) {
-        frame.lineStyle(5, 0xffe680, 1);
-        frame.strokeRoundedRect(-CW / 2 - 4, -CH / 2 - 4, CW + 8, CH + 8, 20);
-      } else {
-        frame.lineStyle(2, 0xffffff, 0.2);
-        frame.strokeRoundedRect(-CW / 2, -CH / 2, CW, CH, 18);
+        frame.lineStyle(3, 0xc8913c, 1);
+        frame.strokeRoundedRect(-CW / 2 - 6, -CH / 2 - 6, CW + 12, CH + 12, 18);
       }
       c.setScale(on ? 1.04 : 0.97);
       c.setDepth(on ? 2 : 1);
@@ -179,27 +151,41 @@ export class EraSelectScene extends Phaser.Scene {
 
   private choose(i: number) {
     const era = this.cards[i].era;
-    const block = game.eraBlockReason(era);
-    if (block) {
+    const st = this.state(era);
+    if (st !== 'play') {
       audio.sfx('fail');
       const c = this.cards[i].c;
-      this.tweens.add({ targets: c, x: c.x + 8, yoyo: true, repeat: 3, duration: 50 });
-      this.toast(block + (classIndex(game.data.cls) < classIndex(era.minClass) ? ' (→ Evolution)' : ''));
+      this.tweens.add({ targets: c, x: c.x + 6, yoyo: true, repeat: 3, duration: 50 });
+      this.toast(st === 'unknown' ? 'Diese Zeit liegt noch im Dunkeln.' : st === 'past' ? 'Für dich gibt es kein Zurück.' : 'Dein Körper ist hierfür nicht gemacht.');
       return;
     }
     audio.sfx('select');
     fadeTo(this, 'Map', { era: era.id });
   }
 
-  private toast(msg: string) {
-    const t = title(this, W / 2, 470, msg, 24, '#ffd0a0').setOrigin(0.5).setDepth(50);
-    this.tweens.add({ targets: t, y: 450, alpha: { from: 1, to: 0 }, delay: 1300, duration: 500, onComplete: () => t.destroy() });
+  /** Ein neu erreichtes Zeitalter wird aufgedeckt. */
+  private flip(id: EraId) {
+    const i = this.cards.findIndex((x) => x.era.id === id);
+    if (i < 0) return;
+    const c = this.cards[i].c;
+    this.select(i, false);
+    this.tweens.add({
+      targets: c,
+      scaleX: 0,
+      duration: 260,
+      ease: 'Sine.in',
+      onComplete: () => {
+        this.hiding = undefined;
+        this.refreshCard(i);
+        audio.sfx('unlock');
+        this.tweens.add({ targets: c, scaleX: 1.04, duration: 320, ease: 'Back.out' });
+        this.toast('Eine neue Zeit bricht an.');
+      },
+    });
   }
 
-  private openEvolution() {
-    audio.sfx('select');
-    this.scene.launch('Evolution', { from: 'EraSelect' });
-    this.scene.bringToTop('Evolution');
-    this.scene.pause();
+  private toast(msg: string) {
+    const t = title(this, W / 2, 504, msg, 21, UI.bone).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: t, y: 496, alpha: { from: 1, to: 0 }, delay: 1500, duration: 600, onComplete: () => t.destroy() });
   }
 }
