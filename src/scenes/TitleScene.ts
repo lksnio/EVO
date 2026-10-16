@@ -59,7 +59,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Das eigene Tier (oder ein frisch geschlüpfter Urfisch)
     const run = game.run;
-    const m = run ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0 }, fierce: 0, hue: 0, seed: 7, sex: 0 });
+    const m = run ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0 }, fierce: 0, hue: 0, seed: 7, sex: 0 });
     this.hero = new CreatureView(this, 250, 0, m, 1.7);
     const land = this.hero.L.land;
     this.hero.setY(land ? 640 - this.hero.L.footY * 1.7 : 560);
@@ -133,7 +133,8 @@ export class TitleScene extends Phaser.Scene {
       ['↑ ↓ / W S', 'Im Wasser auf- und abtauchen'],
       ['Leertaste / ↑', 'Springen (an Land)'],
       ['J, X oder Y', 'Beißen und Fressen'],
-      ['Shift, K oder C', 'Sprinten (kostet Kraft)'],
+      ['Shift oder K', 'Sprinten (kostet Kraft)'],
+      ['C', 'Werte deines Tiers'],
       // Rammen gibt es erst mit hartem Schädel – bis dahin bleibt es ein Fragezeichen
       game.run?.canRam ? ['R oder V', 'Rammen (Kopf voran)'] : ['?', 'Noch nicht entdeckt'],
       ['Esc / P', 'Rast (Pause)'],
@@ -141,8 +142,8 @@ export class TitleScene extends Phaser.Scene {
     ];
     rows.forEach(([k, v], i) => {
       const hidden = k === '?';
-      c.add(text(this, W / 2 - 320, 182 + i * 40, k, 23, hidden ? UI.boneDim : UI.ochre, { fontStyle: '700' }));
-      c.add(text(this, W / 2 - 50, 182 + i * 40, v, 23, hidden ? UI.boneDim : UI.bone, hidden ? { fontStyle: 'italic' } : {}));
+      c.add(text(this, W / 2 - 320, 176 + i * 37, k, 23, hidden ? UI.boneDim : UI.ochre, { fontStyle: '700' }));
+      c.add(text(this, W / 2 - 50, 176 + i * 37, v, 23, hidden ? UI.boneDim : UI.bone, hidden ? { fontStyle: 'italic' } : {}));
     });
     c.add(text(this, W / 2, 545, 'Überlebe jedes Zeitalter, bis seine Zeit abgelaufen ist – egal wie.\nStirbst du, endet deine Linie. Was du tust, formt deine Nachkommen.', 19, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
     c.add(text(this, W / 2, 604, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));

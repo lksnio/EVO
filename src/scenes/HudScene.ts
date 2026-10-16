@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game } from '../state/GameState';
+import { bus, game, skillName, type SkillKey } from '../state/GameState';
+import type { LevelScene } from './LevelScene';
+import type { Kin } from '../objects/Kin';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { CLASSES } from '../data/classes';
 import { touch } from '../objects/Controls';
@@ -12,17 +14,17 @@ import { Button, MenuNav, panel, soundButton, text, title } from '../ui/ui';
 /** Erste Schritte: nur die Steuerung, nichts über das verborgene System. */
 const HINTS: Record<string, [string, string]> = {
   ordovizium: [
-    'Schwimmen: Pfeiltasten oder WASD  ·  Beißen und Fressen: J  ·  Sprinten: Shift',
+    'Schwimmen: Pfeiltasten oder WASD  ·  Beißen und Fressen: J  ·  Sprinten: Shift  ·  Werte: C',
     'Schwimmen: Steuerkreuz  ·  Beißen und Fressen: Biss  ·  Sprinten: Sprint halten',
   ],
   karbon: [
-    'Springen: Leertaste  ·  Beißen und Fressen: J  ·  Sprinten: Shift',
+    'Springen: Leertaste  ·  Beißen und Fressen: J  ·  Sprinten: Shift  ·  Werte: C',
     'Springen: Sprung  ·  Beißen und Fressen: Biss  ·  Sprinten: Sprint halten',
   ],
 };
 
 const TIPS: Record<string, string> = {
-  ordovizium: 'Überlebe, bis das Zeitalter endet. Wie, ist dir überlassen.',
+  ordovizium: 'Überlebe und friss genug, bis das Zeitalter endet. Links und rechts warten andere Gewässer.',
   karbon: 'Das Land ist fremd. Bleib wachsam.',
 };
 
@@ -55,6 +57,11 @@ export class HudScene extends Phaser.Scene {
   private giveUpArmed = false;
   private isTouch = false;
   private ramBtn = false;
+  private foodG!: Phaser.GameObjects.Graphics;
+  private foodText!: Phaser.GameObjects.Text;
+  private foodV = { meat: 0, plant: 0, need: 1 };
+  private zoneText!: Phaser.GameObjects.Text;
+  private statsC?: Phaser.GameObjects.Container;
 
   constructor() {
     super('Hud');
@@ -67,6 +74,8 @@ export class HudScene extends Phaser.Scene {
     this.giveUp = undefined;
     this.giveUpArmed = false;
     this.ramBtn = false;
+    this.statsC = undefined;
+    this.foodV = { meat: 0, plant: 0, need: 1 };
     this.hp = 1;
     this.food = 1;
     this.hidden = false;
@@ -92,10 +101,21 @@ export class HudScene extends Phaser.Scene {
     this.clockText = text(this, W / 2, 50, yearsAgo(ep.from, (ep.from - ep.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.drawFuse();
-    this.storyText = text(this, W / 2, 100, '', 20, UI.bone, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 4, align: 'center' })
+    this.storyText = text(this, W / 2, 124, '', 20, UI.bone, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 4, align: 'center' })
       .setOrigin(0.5, 0).setAlpha(0);
 
+    // Nahrung: wie viel bis zum Ende des Zeitalters zusammenkommen muss (Fleisch rot, Pflanzen grün)
+    const fg = this.add.graphics();
+    fg.fillStyle(0x050403, 0.55);
+    fg.fillRoundedRect(W / 2 - 170, 84, 340, 32, 9);
+    this.foodG = this.add.graphics();
+    this.foodText = text(this, W / 2, 106, '', 15, UI.boneDim).setOrigin(0.5);
+    this.drawFood();
+    // Gebiet, in dem man gerade ist
+    this.zoneText = text(this, 22, 18, ep.place, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
+
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.togglePause() }).setAlpha(0.75);
+    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleStats() }).setAlpha(0.75);
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
 
     // Zeitalter und Lebensraum einblenden
@@ -121,8 +141,9 @@ export class HudScene extends Phaser.Scene {
     if (isTouch) this.touchControls(ep.habitat === 'water');
 
     const kb = this.input.keyboard!;
-    kb.on('keydown-ESC', () => this.togglePause());
+    kb.on('keydown-ESC', () => (this.statsC ? this.toggleStats() : this.togglePause()));
     kb.on('keydown-P', () => this.togglePause());
+    kb.on('keydown-C', () => this.toggleStats());
 
     const onVitals = (hp: number, food: number, hidden: boolean) => {
       this.hp = hp;
@@ -137,6 +158,13 @@ export class HudScene extends Phaser.Scene {
     const onStory = (line: string) => this.story(line);
     const onApex = (name: string) => this.announce(name);
     const onRam = () => this.ramUnlocked();
+    const onFood = (meat: number, plant: number, need: number) => {
+      this.foodV = { meat, plant, need: Math.max(1, need) };
+      this.drawFood();
+    };
+    const onZone = (name: string) => this.zoneText.setText(name);
+    bus.on('food', onFood);
+    bus.on('zone', onZone);
     bus.on('vitals', onVitals);
     bus.on('clock', onClock);
     bus.on('story', onStory);
@@ -148,6 +176,8 @@ export class HudScene extends Phaser.Scene {
       bus.off('story', onStory);
       bus.off('apex', onApex);
       bus.off('ramUnlocked', onRam);
+      bus.off('food', onFood);
+      bus.off('zone', onZone);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
   }
@@ -163,6 +193,128 @@ export class HudScene extends Phaser.Scene {
     g.fillRect(x0, y, w * this.prog, 3);
     g.fillStyle(0xffe0a0, 1);
     g.fillCircle(x0 + w * this.prog, y + 1.5, 3);
+  }
+
+  /** Die Nahrungsleiste: Fleisch (rot) und Pflanzen (grün) bis zum Ziel. */
+  private drawFood() {
+    const { meat, plant, need } = this.foodV;
+    const g = this.foodG;
+    const x0 = W / 2 - 150, w = 300, y = 89;
+    g.clear();
+    g.fillStyle(0x2a2420, 1);
+    g.fillRect(x0, y, w, 6);
+    const fm = Math.min(1, meat / need), fp = Math.min(1 - fm, plant / need);
+    g.fillStyle(0x9a2a1e, 1);
+    g.fillRect(x0, y, w * fm, 6);
+    g.fillStyle(0x5e7a2c, 1);
+    g.fillRect(x0 + w * fm, y, w * fp, 6);
+    const done = meat + plant >= need;
+    g.lineStyle(1.5, done ? 0xe0b060 : 0x6a5638, done ? 1 : 0.7);
+    g.strokeRect(x0 - 1, y - 1, w + 2, 8);
+    this.foodText.setText(`Nahrung ${Math.round(meat + plant)} / ${Math.round(need)} kcal${done ? '  ✓' : ''}`).setColor(done ? UI.ochre : UI.boneDim);
+  }
+
+  // ---------------------------------------------------------------- Werte (wie im Charakterbildschirm von Gothic)
+
+  toggleStats() {
+    if (this.statsC) {
+      this.statsC.destroy();
+      this.statsC = undefined;
+      if (!this.pauseC) this.scene.resume('Level');
+      return;
+    }
+    const lvl = this.scene.get('Level') as unknown as LevelScene;
+    if (this.pauseC || !lvl || lvl.ended || !game.run) return;
+    audio.sfx('select');
+    this.scene.pause('Level');
+    this.statsC = this.statsScreen(lvl);
+  }
+
+  private statsScreen(L: LevelScene): Phaser.GameObjects.Container {
+    const run = game.run!;
+    const t = run.traits;
+    const p = L.player;
+    const st = p.stats;
+    const c = this.add.container(0, 0).setDepth(60);
+    c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.45).setOrigin(0).setInteractive().on('pointerdown', () => this.toggleStats()));
+    const box = (x: number, w: number) => {
+      const g = this.add.graphics();
+      g.fillStyle(0x140f0a, 0.9);
+      g.fillRect(x, 60, w, 600);
+      g.lineStyle(2, 0x6a5638, 0.8);
+      g.strokeRect(x, 60, w, 600);
+      g.lineStyle(1, 0x6a5638, 0.35);
+      g.strokeRect(x + 6, 66, w - 12, 588);
+      c.add(g);
+    };
+    box(60, 560);
+    box(660, 560);
+    let y = 0;
+    const head = (x: number, str: string) => {
+      y += 14;
+      c.add(title(this, x, y, str, 19, UI.ochre));
+      const g = this.add.graphics();
+      g.lineStyle(1, 0x6a5638, 0.6);
+      g.lineBetween(x, y + 28, x + 500, y + 28);
+      c.add(g);
+      y += 36;
+    };
+    const row = (x: number, label: string, value: string, hi = false) => {
+      c.add(text(this, x, y, label, 18, UI.boneDim));
+      c.add(text(this, x + 500, y, value, 18, hi ? UI.ochre : UI.bone).setOrigin(1, 0));
+      y += 26;
+    };
+
+    // ---- links: wer du bist
+    const lx = 90;
+    y = 80;
+    c.add(title(this, W / 2 - 300, y, game.currentName, 24, UI.bone).setOrigin(0.5, 0));
+    y += 34;
+    c.add(text(this, W / 2 - 300, y, `${CLASSES[run.cls].name} · ${run.sex === 1 ? 'Männchen' : 'Weibchen'}`, 17, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5, 0));
+    y += 26;
+    head(lx, 'Linie');
+    row(lx, 'Generation', String(run.history.length + 1));
+    row(lx, 'Zeitalter', this.ep.name);
+    row(lx, 'Gebiet', L.zoneAt(p.x).def.name);
+    const ext = game.extinctCount(game.currentName);
+    row(lx, 'Diese Art ausgestorben', ext ? `${ext}-mal` : 'noch nie', ext > 0);
+    row(lx, 'Linien insgesamt', String(game.data.runs));
+    head(lx, 'Körper');
+    const m = game.measure();
+    row(lx, 'Länge', m.cm >= 100 ? `${(m.cm / 100).toFixed(2).replace('.', ',')} m` : `${Math.round(m.cm)} cm`);
+    row(lx, 'Gewicht', m.g >= 1000 ? `${(m.g / 1000).toFixed(1).replace('.', ',')} kg` : `${Math.round(m.g)} g`);
+    row(lx, 'Lebenskraft', `${Math.max(0, Math.round(p.hp))} / ${st.maxHp}`);
+    row(lx, 'Tempo', String(Math.round(st.speed)));
+    row(lx, 'Biss', st.bite.toFixed(1).replace('.', ','));
+    row(lx, 'Rammstoß', st.ram.toFixed(1).replace('.', ','));
+    const bodyWord = (v: number, neg: string, pos: string) => (v > 0.25 ? pos : v < -0.25 ? neg : 'mittel');
+    row(lx, 'Körperbau', `${bodyWord(t.len, 'gedrungen', 'lang')}, ${bodyWord(t.girth, 'schlank', 'massig')}`);
+
+    // ---- rechts: was du dir erarbeitet hast
+    const rx = 690;
+    y = 80;
+    head(rx, 'Fähigkeiten');
+    const level = (v: number) => (v < 0.15 ? 'Anfänger' : v < 0.35 ? 'Geübt' : v < 0.6 ? 'Erfahren' : 'Meister');
+    const skills = (['jaw', 'skull', 'stealth', 'green', 'sand', 'growth'] as SkillKey[]).filter((k) => t[k] >= 0.03);
+    if (!skills.length) row(rx, 'Noch keine', '–');
+    for (const k of skills) row(rx, skillName(k, t), `${level(t[k])} (${Math.round(t[k] * 100)} %)`);
+    if (run.canRam) row(rx, 'Rammen', 'erlernt', true);
+    head(rx, 'Nahrung');
+    const fv = this.foodV;
+    row(rx, 'Fleisch (dieses Zeitalter)', `${Math.round(fv.meat)} kcal`);
+    row(rx, 'Pflanzen (dieses Zeitalter)', `${Math.round(fv.plant)} kcal`);
+    row(rx, 'Nötig für Nachwuchs', `${Math.round(fv.need)} kcal`, fv.meat + fv.plant < fv.need);
+    row(rx, 'Kost', t.diet > 0.3 ? 'Fleischfresser' : t.diet < -0.3 ? 'Pflanzenfresser' : 'Allesfresser');
+    head(rx, 'Gruppe');
+    const kin = L.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
+    row(rx, 'Artgenossen', String(kin.length));
+    row(rx, 'Verbündete', String(L.animals.filter((a) => a.ally && !a.dead).length));
+    const loy = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : 0;
+    row(rx, 'Treue der Gruppe', kin.length ? (loy > 0.6 ? 'hoch' : loy > 0.35 ? 'mittel' : 'gering') : '–');
+    const fear = game.fear();
+    row(rx, 'Ruf', fear > 0.5 ? 'gefürchtet' : fear > 0.2 ? 'wachsam beäugt' : 'friedlich');
+    c.add(text(this, W / 2, 672, 'C oder Esc: zurück', 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
+    return c;
   }
 
   /** Eine Erzählzeile (Ereignisse) – kurz eingeblendet. */
@@ -232,6 +384,7 @@ export class HudScene extends Phaser.Scene {
 
   togglePause() {
     const lvl = this.scene.get('Level') as unknown as { ended?: boolean };
+    if (this.statsC) this.toggleStats();
     if (this.pauseC) {
       this.resumeGame();
       return;
@@ -260,7 +413,7 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     c.add([b1, b2]);
     c.add(text(this, bx, 420, 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.', 17, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
-    c.add(text(this, bx, 500, (game.canRam ? 'R: rammen  ·  ' : '') + 'M: Ton an/aus  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
+    c.add(text(this, bx, 500, (game.canRam ? 'R: rammen  ·  ' : '') + 'C: Werte  ·  M: Ton  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
     this.pauseC = c;
     this.pauseNav = new MenuNav(this, [b1, b2]);
   }

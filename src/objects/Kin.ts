@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { SpeciesDef } from '../data/species';
 import type { Morph } from '../art/creatureArt';
+import type { Sex, Traits } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { clamp, type Rect } from '../util/math';
@@ -28,6 +29,8 @@ export interface KinWorld extends World {
  */
 export class Kin extends Animal {
   view: CreatureView;
+  /** Erbanlagen dieses Artgenossen (kann die Linie weiterführen) */
+  genes?: { traits: Traits; sex: Sex; seed: number };
   /** Treue zum Spieler: 0 = geht eigene Wege … 1 = folgt überallhin */
   loyalty: number;
   private offY: number;

@@ -36,6 +36,10 @@ export interface Morph {
   /** Tarnfarbe: grün (Pflanzen) bzw. sandig (Boden, Höhlen) */
   green?: number;
   sand?: number;
+  /** Körperbau: -1 gedrungen … +1 lang; -1 schlank … +1 massig; -1 träge … +1 flink (größere Flossen) */
+  len?: number;
+  girth?: number;
+  swift?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -58,12 +62,15 @@ export function quantize(m: Morph): Morph {
     spike: q(m.spike ?? 0, 0.25),
     green: q(m.green ?? 0, 0.1),
     sand: q(m.sand ?? 0, 0.1),
+    len: q(m.len ?? 0, 0.2),
+    girth: q(m.girth ?? 0, 0.2),
+    swift: q(m.swift ?? 0, 0.25),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift].join('_');
 }
 
 interface Pal {
@@ -131,12 +138,14 @@ interface Geo {
 
 function geo(m: Morph): Geo {
   const st = m.stealth, jaw = m.jaw, sk = m.skull;
-  const slim = 1 - 0.16 * st;
-  const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0);
+  // Körperbau: länger gestreckt bzw. massiger
+  const lk = 1 + 0.17 * (m.len ?? 0);
+  const slim = (1 - 0.16 * st) * (1 + 0.15 * (m.girth ?? 0)) / Math.sqrt(lk);
+  const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.06 * (m.girth ?? 0);
   const s = m.size;
   switch (m.cls) {
     case 'fish': {
-      const bw = 60 * (1 + 0.06 * st), bh = 28 * slim;
+      const bw = 60 * (1 + 0.06 * st) * lk, bh = 28 * slim;
       const bb = bh * bellyK;
       const H = bh * 0.95 + 1, L = 20 + 9 * jaw;
       return {
@@ -148,7 +157,7 @@ function geo(m: Morph): Geo {
       };
     }
     case 'amphibian': {
-      const bw = 70, bh = 22 * slim, bb = bh * bellyK;
+      const bw = 70 * lk, bh = 22 * slim, bb = bh * bellyK;
       const H = 17 + 1.5 * sk, L = 26 + 10 * jaw;
       return {
         s, bw, bh,
@@ -160,7 +169,7 @@ function geo(m: Morph): Geo {
       };
     }
     case 'reptile': {
-      const bw = 74, bh = 27 * slim, bb = bh * bellyK;
+      const bw = 74 * lk, bh = 27 * slim, bb = bh * bellyK;
       const H = 18 + 2.5 * sk, L = 30 + 14 * jaw;
       return {
         s, bw, bh,
@@ -172,7 +181,7 @@ function geo(m: Morph): Geo {
       };
     }
     case 'mammal': {
-      const bw = 74, bh = 33 * slim, bb = bh * bellyK;
+      const bw = 74 * lk, bh = 33 * slim, bb = bh * bellyK;
       const H = 22 + 2.5 * sk, L = 26 + 12 * jaw;
       return {
         s, bw, bh,
@@ -869,7 +878,8 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
-    const lobe = 16 + 16 * st, fork = 3 + 11 * st, spread = 13 + 9 * st;
+    const sw = 1 + 0.22 * (m.swift ?? 0);
+    const lobe = (16 + 16 * st) * sw, fork = 3 + 11 * st, spread = (13 + 9 * st) * sw;
     ctx.beginPath();
     ctx.moveTo(-4, -4);
     ctx.quadraticCurveTo(-lobe * 0.4, -spread * 0.6, -lobe, -spread);

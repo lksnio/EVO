@@ -463,17 +463,106 @@ const GROUND: Record<Theme, GroundStyle> = {
   eden: { fill: 0x1e160c, top: 0x2e3a18, plat: 0x3a3428 },
 };
 
-export function groundTextures(scene: Phaser.Scene, theme: Theme) {
+/**
+ * Kleine Einsprengsel im Boden – Kiesel, Risse, Bewuchs, Fossilien. Zufällig verteilt brechen sie
+ * das Kachelmuster auf, ohne viel zu kosten.
+ */
+export function groundDecals(scene: Phaser.Scene, theme: Theme): string[] {
   const g = GROUND[theme];
-  const gnd = tex(scene, `gnd2_${theme}`, 128, 128, (ctx) => {
+  const stone = shade(g.fill, 0.35), dark = shade(g.fill, -0.6);
+  const patch = theme === 'eis' ? 'rgba(200,215,230,' : theme === 'reptil' ? 'rgba(150,60,20,' : 'rgba(70,96,40,';
+  const keys: string[] = [];
+  const K = (i: number, w: number, h: number, fn: (ctx: Ctx, r: Rng) => void) => {
+    keys.push(tex(scene, `gd_${theme}_${i}`, w, h, (ctx) => fn(ctx, mulberry32(theme.length * 17 + i * 7))));
+  };
+  K(0, 70, 34, (ctx, r) => {
+    for (let i = 0; i < 9; i++) {
+      const x = 8 + r() * 54, y = 8 + r() * 18, rx = 3 + r() * 6, ry = 2 + r() * 4;
+      ell(ctx, x, y, rx, ry, r());
+      ctx.fillStyle = css(shade(stone, (r() - 0.5) * 0.3));
+      ctx.fill();
+      ctx.strokeStyle = css(dark, 0.7);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ell(ctx, x - rx * 0.3, y - ry * 0.35, rx * 0.4, ry * 0.3);
+      ctx.fillStyle = 'rgba(255,255,255,.12)';
+      ctx.fill();
+    }
+  });
+  K(1, 90, 44, (ctx, r) => {
+    ctx.strokeStyle = css(dark, 0.85);
+    ctx.lineCap = 'round';
+    const crack = (x: number, y: number, a: number, l: number, wdt: number, d: number) => {
+      const x2 = x + Math.cos(a) * l, y2 = y + Math.sin(a) * l;
+      ctx.lineWidth = wdt;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (d < 3) {
+        crack(x2, y2, a + (r() - 0.5) * 1.2, l * 0.7, wdt * 0.7, d + 1);
+        if (r() < 0.5) crack(x2, y2, a + (r() - 0.5) * 2, l * 0.5, wdt * 0.6, d + 1);
+      }
+    };
+    crack(8, 22, (r() - 0.5) * 0.6, 22, 2, 0);
+  });
+  K(2, 96, 44, (ctx, r) => {
+    for (let i = 0; i < 7; i++) {
+      const x = 16 + r() * 64, y = 14 + r() * 16, rad = 8 + r() * 12;
+      ctx.fillStyle = rgrad(ctx, x, y, 0, rad, [[0, patch + '.45)'], [1, patch + '0)']]);
+      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+  });
+  K(3, 40, 32, (ctx, r) => {
+    if (theme === 'ozean') {
+      // versteinerte Schnecke
+      ctx.strokeStyle = 'rgba(190,176,150,.55)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 5; a += 0.2) {
+        const rad = 1 + a * 1.7;
+        const x = 20 + Math.cos(a) * rad, y = 16 + Math.sin(a) * rad;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(190,176,150,.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(6, 20 + r() * 4);
+      ctx.lineTo(32, 12 + r() * 6);
+      ctx.stroke();
+      for (const x of [6, 32]) {
+        ell(ctx, x, x === 6 ? 21 : 14, 3, 3);
+        ctx.fillStyle = 'rgba(190,176,150,.5)';
+        ctx.fill();
+      }
+    }
+  });
+  return keys;
+}
+
+/**
+ * Boden je Lebensraum – in drei Varianten (Startgebiet, das flache/trübe und das tiefe Gebiet),
+ * damit nicht alles gleich aussieht.
+ */
+export function groundTextures(scene: Phaser.Scene, theme: Theme, v = 0) {
+  const g0 = GROUND[theme];
+  const g: GroundStyle = v === 1
+    ? { fill: mix(g0.fill, 0x3a3a22, 0.35), top: mix(g0.top, 0x4a5426, 0.35), plat: mix(g0.plat, 0x3a3a22, 0.3) }
+    : v === 2 ? { fill: mix(shade(g0.fill, -0.25), 0x101c2a, 0.3), top: shade(g0.top, -0.3), plat: shade(g0.plat, -0.25) } : g0;
+  const sfx = v ? '_' + v : '';
+  const stoneK = [0.5, 0.8, 0.35][v] ?? 0.5;
+  const gnd = tex(scene, `gnd2_${theme}${sfx}`, 128, 128, (ctx) => {
     ctx.fillStyle = css(g.fill);
     ctx.fillRect(0, 0, 128, 128);
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = pattern(ctx, 'stone', 0.5);
+    ctx.fillStyle = pattern(ctx, 'stone', stoneK);
     ctx.fillRect(0, 0, 128, 128);
     ctx.restore();
-    const r = mulberry32(theme.length * 5);
+    const r = mulberry32(v * 31 + theme.length * 5);
     for (let i = 0; i < 26; i++) {
       const x = r() * 128, y = r() * 128, rx = 2 + r() * 7, ry = 1.5 + r() * 4;
       const c = r() > 0.5 ? shade(g.fill, 0.15 + r() * 0.1) : shade(g.fill, -0.35);
@@ -524,8 +613,8 @@ export function groundTextures(scene: Phaser.Scene, theme: Theme) {
       }
     }
   });
-  const top = tex(scene, `top2_${theme}`, 128, 30, (ctx) => {
-    const r = mulberry32(theme.length * 3);
+  const top = tex(scene, `top2_${theme}${sfx}`, 128, 30, (ctx) => {
+    const r = mulberry32(v * 31 + theme.length * 3);
     // dunkle Unterkante (Übergang zur Erde)
     ctx.fillStyle = vgrad(ctx, 8, 30, [[0, css(g.top)], [0.6, css(shade(g.top, -0.45))], [1, css(shade(g.top, -0.6), 0)]]);
     ctx.beginPath();
@@ -577,7 +666,7 @@ export function groundTextures(scene: Phaser.Scene, theme: Theme) {
       }
     }
   });
-  const plat = tex(scene, `plat2_${theme}`, 80, 22, (ctx) => {
+  const plat = tex(scene, `plat2_${theme}${sfx}`, 80, 22, (ctx) => {
     if (theme === 'sumpf' || theme === 'eden') {
       ctx.beginPath();
       ctx.moveTo(4, 2);
@@ -616,7 +705,7 @@ export function groundTextures(scene: Phaser.Scene, theme: Theme) {
     ctx.fillRect(0, 0, 80, 22);
     ctx.restore();
   });
-  const hz = tex(scene, `hz2_${theme}`, 80, 40, (ctx) => {
+  const hz = tex(scene, `hz2_${theme}${sfx}`, 80, 40, (ctx) => {
     const r = mulberry32(5);
     switch (theme) {
       case 'reptil': {
@@ -1068,12 +1157,24 @@ export function coverTextures(scene: Phaser.Scene, theme: Theme): string[] {
 // Deko (Hintergrund, nicht interaktiv) – Ursprung unten Mitte
 
 export const DECOR: Record<Theme, string[]> = {
-  ozean: ['rock', 'shell', 'seaweed', 'rock', 'bones', 'anemone', 'coral', 'seaweed', 'sponge'],
-  sumpf: ['stump', 'mushroom', 'reed', 'bones', 'rock', 'fern', 'reed', 'fern'],
-  reptil: ['boulder', 'bones', 'skull', 'stump', 'rock', 'fern', 'cycad'],
-  eis: ['rock_snow', 'bones', 'deadtree', 'rock_snow', 'grass'],
-  eden: ['rock', 'skull', 'stump', 'reed', 'bones', 'fern', 'grass', 'grass'],
+  ozean: ['rock', 'shell', 'seaweed', 'rock', 'bones', 'anemone', 'coral', 'seaweed', 'sponge', 'seagrass', 'kelp', 'seafan', 'seagrass'],
+  sumpf: ['stump', 'mushroom', 'reed', 'bones', 'rock', 'fern', 'reed', 'fern', 'horsetail', 'tallgrass', 'horsetail'],
+  reptil: ['boulder', 'bones', 'skull', 'stump', 'rock', 'fern', 'cycad', 'tallgrass', 'bush'],
+  eis: ['rock_snow', 'bones', 'deadtree', 'rock_snow', 'grass', 'grass'],
+  eden: ['rock', 'skull', 'stump', 'reed', 'bones', 'fern', 'grass', 'grass', 'tallgrass', 'flowers', 'bush', 'flowers'],
 };
+
+/** Pflanzen für die Schichten hinter und vor dem Geschehen (dunkle Schattenrisse). */
+export const SILHOUETTE: Record<Theme, string[]> = {
+  ozean: ['kelp', 'seaweed', 'seagrass', 'seafan', 'kelp'],
+  sumpf: ['reed', 'horsetail', 'fern', 'tallgrass'],
+  reptil: ['fern', 'cycad', 'tallgrass', 'bush'],
+  eis: ['grass', 'deadtree', 'grass'],
+  eden: ['tallgrass', 'fern', 'flowers', 'bush'],
+};
+
+/** Diese Pflanzen wiegen sich (in der Strömung bzw. im Wind). */
+export const SWAYS = new Set(['seaweed', 'kelp', 'seagrass', 'anemone', 'seafan', 'reed', 'horsetail', 'tallgrass', 'grass', 'flowers', 'fern']);
 
 export function decorTextures(scene: Phaser.Scene) {
   const T = (k: string, w: number, h: number, fn: (ctx: Ctx, w: number, h: number) => void) => tex(scene, 'd2_' + k, w, h, fn);
@@ -1106,14 +1207,21 @@ export function decorTextures(scene: Phaser.Scene) {
     ctx.closePath();
     fillStroke(ctx, '#6a5a48', '#1a140e', 1);
   });
-  T('seaweed', 30, 70, (ctx, w, h) => {
-    for (let k = 0; k < 3; k++) {
+  T('seaweed', 40, 74, (ctx, w, h) => {
+    const rr = mulberry32(37);
+    for (let k = 0; k < 4; k++) {
+      const bx = w / 2 + (k - 1.5) * 6, top = 8 + k * 9 + rr() * 8;
+      // ein bandförmiges Blatt, das sich in der Strömung wellt
+      const g = ctx.createLinearGradient(0, h, 0, top);
+      g.addColorStop(0, '#16220f');
+      g.addColorStop(1, ['#3e5222', '#4a5e26', '#34461c', '#56682a'][k]);
       ctx.beginPath();
-      ctx.moveTo(w / 2 + (k - 1) * 6, h);
-      for (let y = h; y > 10 + k * 12; y -= 8) ctx.lineTo(w / 2 + (k - 1) * 6 + Math.sin(y * 0.15 + k) * 5, y);
-      ctx.strokeStyle = ['#1a2a14', '#24321a', '#121e0e'][k];
-      ctx.lineWidth = 4;
-      ctx.stroke();
+      ctx.moveTo(bx - 2, h);
+      for (let y = h; y > top; y -= 6) ctx.lineTo(bx + Math.sin(y * 0.13 + k) * 5 - 2.2 * (y - top) / h - 1, y);
+      for (let y = top; y <= h; y += 6) ctx.lineTo(bx + Math.sin(y * 0.13 + k) * 5 + 2.2 * (y - top) / h + 2, y);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
     }
   });
   T('bones', 58, 22, (ctx, w, h) => {
@@ -1295,6 +1403,156 @@ export function decorTextures(scene: Phaser.Scene) {
       }
     };
     br(w / 2, h, -Math.PI / 2, 46, 8, 0);
+  });
+  // ---- reichere Vegetation: Blätter mit Verlauf, Lichtkanten, mehrere Stängel
+  const blade = (x0: number, y0: number, x1: number, y1: number, bend: number, wdt: number, c0: string, c1: string) => {
+    const mx = (x0 + x1) / 2 + bend, my = (y0 + y1) / 2;
+    ctx2(x0, y0, x1, y1, mx, my, wdt, c0, c1);
+  };
+  let cx: Ctx;
+  const ctx2 = (x0: number, y0: number, x1: number, y1: number, mx: number, my: number, wdt: number, c0: string, c1: string) => {
+    const g = cx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    cx.beginPath();
+    cx.moveTo(x0 - wdt, y0);
+    cx.quadraticCurveTo(mx - wdt * 0.6, my, x1, y1);
+    cx.quadraticCurveTo(mx + wdt * 0.6, my, x0 + wdt, y0);
+    cx.closePath();
+    cx.fillStyle = g;
+    cx.fill();
+  };
+  T('kelp', 54, 170, (ctx, w, h) => {
+    cx = ctx;
+    const rr = mulberry32(41);
+    for (let k = 0; k < 3; k++) {
+      const bx = w / 2 + (k - 1) * 7;
+      const top = 12 + k * 18 + rr() * 10;
+      ctx.beginPath();
+      ctx.moveTo(bx, h);
+      const pts: [number, number][] = [];
+      for (let y = h; y > top; y -= 10) {
+        const x = bx + Math.sin(y * 0.045 + k * 2) * 6;
+        pts.push([x, y]);
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = ['#2a2e14', '#343a18', '#22260f'][k];
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+      // Blätter abwechselnd links und rechts, mit Schwimmblase
+      pts.forEach(([x, y], i) => {
+        if (i < 2 || i % 2) return;
+        const side = (i / 2) % 2 ? 1 : -1;
+        const len = 12 + rr() * 10;
+        blade(x, y, x + side * len, y - 10 - rr() * 8, side * 3, 3.2, '#2c3214', k === 1 ? '#6a6a2c' : '#4e5222');
+        ell(ctx, x + side * 2, y - 2, 2.2, 2.6);
+        ctx.fillStyle = '#5a5626';
+        ctx.fill();
+      });
+    }
+  });
+  T('seagrass', 50, 46, (ctx, w, h) => {
+    cx = ctx;
+    const rr = mulberry32(43);
+    for (let i = 0; i < 13; i++) {
+      const x = 8 + rr() * (w - 16), ht = 18 + rr() * 26;
+      blade(x, h, x + (rr() - 0.5) * 18, h - ht, (rr() - 0.5) * 10, 1.8, '#1c2a14', rr() > 0.5 ? '#5a6a2e' : '#46582a');
+    }
+  });
+  T('seafan', 62, 58, (ctx, w, h) => {
+    const rr = mulberry32(47);
+    const br = (x: number, y: number, a: number, l: number, wdt: number, d: number) => {
+      const x2 = x + Math.cos(a) * l, y2 = y + Math.sin(a) * l;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo((x + x2) / 2 + (rr() - 0.5) * 4, (y + y2) / 2, x2, y2);
+      ctx.strokeStyle = d < 2 ? '#5a2a1e' : '#8a4630';
+      ctx.lineWidth = wdt;
+      ctx.stroke();
+      if (d < 4) {
+        br(x2, y2, a - 0.35 - rr() * 0.2, l * 0.78, wdt * 0.7, d + 1);
+        br(x2, y2, a + 0.35 + rr() * 0.2, l * 0.78, wdt * 0.7, d + 1);
+      }
+    };
+    br(w / 2, h, -Math.PI / 2, 14, 3.4, 0);
+    // feines Netz zwischen den Ästen
+    ctx.globalAlpha = 0.25;
+    blob(ctx, rr, w / 2, h * 0.42, w * 0.38, h * 0.34, 10);
+    ctx.fillStyle = '#7a3e2a';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+  T('horsetail', 34, 86, (ctx, w, h) => {
+    const rr = mulberry32(53);
+    for (let k = 0; k < 3; k++) {
+      const x = w / 2 + (k - 1) * 8, top = 8 + rr() * 26;
+      for (let y = h; y > top; y -= 7) {
+        ctx.fillStyle = (y / 7) % 2 < 1 ? '#3a4a20' : '#2c3a18';
+        ctx.fillRect(x - 1.6, y - 7, 3.2, 6.4);
+        ctx.fillStyle = '#1a2410';
+        ctx.fillRect(x - 2, y - 1, 4, 1.2);
+        if (y < h - 10 && y > top + 6) {
+          // Quirle aus feinen Nadeln
+          ctx.strokeStyle = 'rgba(80,100,46,.8)';
+          ctx.lineWidth = 0.8;
+          for (const s of [-1, 1]) {
+            ctx.beginPath();
+            ctx.moveTo(x, y - 2);
+            ctx.lineTo(x + s * (5 + rr() * 3), y + 2);
+            ctx.stroke();
+          }
+        }
+      }
+      ell(ctx, x, top - 2, 2.4, 4.4);
+      ctx.fillStyle = '#5a4a26';
+      ctx.fill();
+    }
+  });
+  T('tallgrass', 60, 58, (ctx, w, h) => {
+    cx = ctx;
+    const rr = mulberry32(59);
+    for (let i = 0; i < 22; i++) {
+      const x = 6 + rr() * (w - 12), ht = 16 + rr() * 38;
+      blade(x, h, x + (rr() - 0.5) * 22, h - ht, (rr() - 0.5) * 12, 1.5, '#2a2c14', rr() > 0.5 ? '#7a7438' : '#5e6430');
+    }
+  });
+  T('flowers', 58, 50, (ctx, w, h) => {
+    cx = ctx;
+    const rr = mulberry32(61);
+    for (let i = 0; i < 14; i++) {
+      const x = 6 + rr() * (w - 12), ht = 12 + rr() * 26;
+      blade(x, h, x + (rr() - 0.5) * 14, h - ht, (rr() - 0.5) * 8, 1.4, '#22300f', '#566a2a');
+    }
+    const cols = ['#b8a04a', '#c87a5a', '#d8d0b0', '#9a6a9a'];
+    for (let i = 0; i < 7; i++) {
+      const x = 8 + rr() * (w - 16), y = h - 18 - rr() * 22;
+      ctx.beginPath();
+      ctx.moveTo(x, h - 4);
+      ctx.quadraticCurveTo(x + 2, (y + h) / 2, x, y);
+      ctx.strokeStyle = '#2e3e16';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      const c = cols[i % cols.length];
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        ell(ctx, x + Math.cos(a) * 2.4, y + Math.sin(a) * 2.4, 2, 1.4, a);
+        ctx.fillStyle = c;
+        ctx.fill();
+      }
+      ell(ctx, x, y, 1.3, 1.3);
+      ctx.fillStyle = '#3a2a10';
+      ctx.fill();
+    }
+  });
+  T('bush', 66, 46, (ctx, w, h) => {
+    const rr = mulberry32(67);
+    for (let i = 0; i < 16; i++) {
+      const x = 10 + rr() * (w - 20), y = h - 8 - rr() * (h - 22) * (1 - Math.abs(x - w / 2) / w);
+      const rad = 6 + rr() * 8;
+      ctx.fillStyle = rgrad(ctx, x - rad * 0.3, y - rad * 0.4, 1, rad, [[0, i % 3 ? '#4a5a28' : '#5e6a30'], [1, '#1e2610']]);
+      ell(ctx, x, y, rad, rad * 0.85);
+      ctx.fill();
+    }
   });
   tex(scene, 'd2_stalactite', 34, 90, (ctx, w, h) => {
     ctx.beginPath();

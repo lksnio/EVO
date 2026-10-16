@@ -1,11 +1,12 @@
 import { TILE, GRAVITY } from '../config';
 import { CLASSES } from '../data/classes';
 import { SPECIES } from '../data/species';
-import type { EpochDef, Theme } from '../data/epochs';
+import { SIDE_ZONES, centerZone, type EpochDef, type Theme, type ZoneDef } from '../data/epochs';
 import { DECOR } from '../art/worldArt';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 
-// Jedes Zeitalter ist ein Lebensraum, den man in beide Richtungen durchstreifen kann.
+// Jedes Zeitalter ist ein Lebensraum, den man in beide Richtungen durchstreifen kann – mit drei
+// Gebieten: links (flach, trüb, pflanzenreich), in der Mitte der Start, rechts (tief, voller Jäger).
 // Er wird für jeden Lauf neu aus einer Saat erzeugt: Gelände, Pflanzen, Dickicht zum
 // Verstecken und die Tiere (in Herden, Räuber etwas abseits). Es gibt keinen Ausgang –
 // man muss nur die Zeit überstehen.
@@ -44,6 +45,20 @@ export interface LevelData {
   start: { x: number; y: number };
   /** Bodenhöhe je Kachelspalte (in Pixeln) – für Zuwanderer und Ereignisse */
   ground: number[];
+  /** die drei Gebiete von links nach rechts (in Pixeln) */
+  zones: Zone[];
+}
+
+export interface Zone {
+  x0: number;
+  x1: number;
+  def: ZoneDef;
+}
+
+/** Spalten der drei Gebiete – die Seiten sind etwas schmaler als die Mitte. */
+function zoneCols(ep: EpochDef) {
+  const side = Math.round(ep.len * 0.6);
+  return { side, center: ep.len, cols: side * 2 + ep.len };
 }
 
 const T = TILE;
@@ -66,48 +81,79 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     decor: [],
     start: { x: 0, y: 0 },
     ground: [],
+    zones: [],
   };
+}
+
+/** Gebiete anlegen und eine Funktion liefern, die zu jeder Spalte die Werte ihres Gebiets kennt. */
+function makeZones(L: LevelData, ep: EpochDef) {
+  const { side, center } = zoneCols(ep);
+  const [left, right] = SIDE_ZONES[ep.theme];
+  L.zones = [
+    { x0: 0, x1: side * T, def: left },
+    { x0: side * T, x1: (side + center) * T, def: centerZone(ep) },
+    { x0: (side + center) * T, x1: (side * 2 + center) * T, def: right },
+  ];
+  return (col: number) => L.zones[col < side ? 0 : col < side + center ? 1 : 2].def;
 }
 
 /** Bodenhöhe (in Kacheln) für jede Spalte – damit Tiere passend platziert werden. */
 type Heights = number[];
 
-function placeFauna(L: LevelData, ep: EpochDef, r: Rng, cols: number, heights: Heights, water: boolean, startCol: number) {
+function placeFauna(L: LevelData, ep: EpochDef, r: Rng, heights: Heights, water: boolean, startCol: number) {
+  const place = (id: string, cx: number) => {
+    const d = SPECIES[id];
+    const cols = heights.length;
+    const n = d.herd ? rint(r, d.herd[0], d.herd[1]) : 1;
+    for (let i = 0; i < n; i++) {
+      let col = Math.max(0, Math.min(cols - 1, Math.floor(cx + (i - n / 2) * 1.6 + r())));
+      for (let k = 0; k < 8 && !water && heights[col] > 21; k++) col = Math.min(cols - 1, col + 1);
+      const x = (col + 0.5) * T;
+      const ground = heights[col] * T;
+      let y: number;
+      if (water) y = d.crawl ? ground - 24 : (3 + r() * (heights[col] - 6)) * T;
+      else y = d.habitat === 'air' ? ground - T * (3 + r() * 1.5) : ground - 40;
+      L.spawns.push({ id, x, y });
+    }
+  };
   for (const [id, groups] of ep.fauna) {
     const d = SPECIES[id];
-    for (let g = 0; g < groups; g++) {
-      const danger = d.role === 'predator' || d.role === 'defender' || d.role === 'hazard';
-      // Räuber nicht direkt neben dem Startplatz
-      const keep = danger ? 20 : 8;
-      let cx = rint(r, 4, cols - 5);
-      for (let k = 0; k < 12 && Math.abs(cx - startCol) < keep; k++) cx = rint(r, 4, cols - 5);
-      const n = d.herd ? rint(r, d.herd[0], d.herd[1]) : 1;
-      for (let i = 0; i < n; i++) {
-        let col = Math.max(0, Math.min(cols - 1, Math.floor(cx + (i - n / 2) * 1.6 + r())));
-        for (let k = 0; k < 8 && !water && heights[col] > 21; k++) col = Math.min(cols - 1, col + 1);
-        const x = (col + 0.5) * T;
-        const ground = heights[col] * T;
-        let y: number;
-        if (water) y = d.crawl ? ground - 24 : (3 + r() * (heights[col] - 6)) * T;
-        else y = d.habitat === 'air' ? ground - T * (3 + r() * 1.5) : ground - 40;
-        L.spawns.push({ id, x, y });
+    const danger = d.role === 'predator' || d.role === 'defender' || d.role === 'hazard';
+    const hunter = d.role === 'predator' || d.role === 'apex';
+    L.zones.forEach((z, zi) => {
+      // Je Gebiet anders verteilt: links mehr Beute, rechts mehr Jäger
+      const mul = zi === 1 ? 1 : 0.75 * (hunter ? z.def.hunters : d.role === 'prey' ? z.def.prey : 1);
+      const want = groups * mul;
+      const count = Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0);
+      const c0 = Math.floor(z.x0 / T) + 4, c1 = Math.floor(z.x1 / T) - 5;
+      for (let g = 0; g < count; g++) {
+        // Räuber nicht direkt neben dem Startplatz
+        const keep = danger ? 20 : 8;
+        let cx = rint(r, c0, c1);
+        for (let k = 0; k < 12 && Math.abs(cx - startCol) < keep; k++) cx = rint(r, c0, c1);
+        place(id, cx);
       }
-    }
+    });
   }
+  // Im gefährlichen Gebiet lebt einer der ganz Großen
+  const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
+  const right = L.zones[2];
+  if (apex && right) place(apex, Math.floor((right.x0 + (right.x1 - right.x0) * 0.6) / T));
 }
 
 // ---------------------------------------------------------------------------
 
 function genLand(ep: EpochDef, r: Rng): LevelData {
-  const cols = ep.len;
+  const { cols, side, center } = zoneCols(ep);
   const rows = 22;
   const L = base(ep, 'land', cols * T, rows * T);
+  const zoneAt = makeZones(L, ep);
   const jump = CLASSES[ep.cls].base.jump;
   const jumpTiles = Math.max(2, Math.floor(((jump * jump) / (2 * GRAVITY) - 30) / T));
   const decorKinds = DECOR[ep.theme];
   const hazardOk = ep.fauna.length > 3 || ep.theme === 'reptil';
   const heights: Heights = new Array(cols).fill(17);
-  const startCol = Math.floor(cols * 0.3);
+  const startCol = side + Math.floor(center * 0.4);
 
   let h = 17;
   const ground = (x0: number, n: number, top: number, flat = false) => {
@@ -116,13 +162,15 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
     for (let i = 1; i < n - 1; i += rint(r, 2, 4)) {
       if (r() < 0.6) L.decor.push({ k: pick(r, decorKinds), x: (x0 + i + r()) * T, y: top * T + 4 });
     }
+    const z = zoneAt(x0 + Math.floor(n / 2));
+    const pl = ep.plants * z.plants;
     // fressbare Pflanzen
     if (n >= 4) {
-      const cnt = (r() < ep.plants * 0.85 ? 1 : 0) + (r() < ep.plants * 0.5 ? 1 : 0) + (n >= 9 && r() < ep.plants * 0.3 ? 1 : 0);
+      const cnt = (r() < pl * 0.85 ? 1 : 0) + (r() < pl * 0.5 ? 1 : 0) + (n >= 9 && r() < pl * 0.3 ? 1 : 0) + (n >= 7 && r() < pl - 1 ? 1 : 0);
       for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1.5 + r() * (n - 3)) * T, y: top * T + 2, v: rint(r, 0, 2) });
     }
     // Dickicht
-    if (n >= 6 && r() < ep.cover * (flat ? 0.8 : 0.6)) {
+    if (n >= 6 && r() < ep.cover * z.cover * (flat ? 0.8 : 0.6)) {
       const cw = rint(r, 3, Math.min(5, n - 2));
       const cx = x0 + rint(r, 1, n - cw - 1);
       const ch = rint(r, 3, 4);
@@ -180,7 +228,7 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   const sc = Math.min(cols - 1, startCol + 2);
   L.start = { x: (sc + 0.5) * T, y: heights[sc] * T - 60 };
-  placeFauna(L, ep, r, cols, heights, false, sc);
+  placeFauna(L, ep, r, heights, false, sc);
   L.ground = heights.map((v) => v * T);
   return L;
 }
@@ -188,26 +236,29 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
 // ---------------------------------------------------------------------------
 
 function genWater(ep: EpochDef, r: Rng): LevelData {
-  const cols = ep.len;
+  const { cols, side, center } = zoneCols(ep);
   const rows = 22;
   const L = base(ep, 'water', cols * T, rows * T);
+  const zoneAt = makeZones(L, ep);
   const covered = ep.dark || ep.cave;
   let floor = 19;
   const heights: Heights = new Array(cols).fill(floor);
   const kinds = ep.reef ? ['rock', 'shell', 'seaweed', 'coral', 'coral', 'sponge', 'anemone'] : DECOR.ozean;
-  const startCol = Math.floor(cols * 0.3);
+  const startCol = side + Math.floor(center * 0.4);
 
   const floorSeg = (x0: number, n: number, top: number) => {
     L.solids.push({ x: x0 * T, y: top * T, w: n * T, h: (rows - top) * T + 200 });
     for (let i = 0; i < n; i++) heights[Math.min(cols - 1, x0 + i)] = top;
+    const z = zoneAt(x0 + Math.floor(n / 2));
+    const pl = ep.plants * z.plants;
     for (let i = 0; i < n; i += rint(r, 1, 2)) {
-      if (r() < 0.7) L.decor.push({ k: pick(r, kinds), x: (x0 + i + r()) * T, y: top * T + 6 });
+      if (r() < 0.7) L.decor.push({ k: pick(r, kinds), x: (x0 + Math.min(n - 0.5, i + 0.25 + r() * 0.5)) * T, y: top * T + 6 });
     }
     if (n >= 3) {
-      const cnt = (r() < ep.plants * 0.9 ? 1 : 0) + (r() < ep.plants * 0.55 ? 1 : 0) + (n >= 7 && r() < ep.plants * 0.35 ? 1 : 0);
+      const cnt = (r() < pl * 0.9 ? 1 : 0) + (r() < pl * 0.55 ? 1 : 0) + (n >= 7 && r() < pl * 0.35 ? 1 : 0) + (n >= 5 && r() < pl - 1 ? 1 : 0);
       for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4, v: rint(r, 0, 2) });
     }
-    if (n >= 4 && r() < ep.cover * 0.65) {
+    if (n >= 4 && r() < ep.cover * z.cover * 0.65) {
       const cw = rint(r, 3, Math.min(6, n));
       const cx = x0 + rint(r, 0, n - cw);
       const ch = rint(r, 5, 7);
@@ -232,7 +283,7 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
       const px = x + rint(r, 1, seg - 2);
       const top = floor - rint(r, 3, 7);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
-      if (r() < ep.plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: rint(r, 0, 2) });
+      if (r() < ep.plants * zoneAt(px).plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: rint(r, 0, 2) });
     }
     if (!nearStart && r() < 0.18) {
       const rw = rint(r, 2, 4);
@@ -246,8 +297,8 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   L.start = { x: (startCol + 0.5) * T, y: 9 * T };
-  if (ep.caves && !covered) addCaves(L, ep.caves, r, cols, heights, startCol);
-  placeFauna(L, ep, r, cols, heights, true, startCol);
+  if (ep.caves && !covered) addCaves(L, ep.caves + 2, r, cols, heights, startCol);
+  placeFauna(L, ep, r, heights, true, startCol);
   // keine Tiere im Fels der Höhlen
   for (const sp of L.spawns) {
     for (const c of L.caves) if (sp.x > c.x - T && sp.x < c.x + c.w + T && sp.y > c.y - 2 * T) sp.y = c.y - 3 * T;
@@ -281,7 +332,8 @@ function addCaves(L: LevelData, n: number, r: Rng, cols: number, heights: Height
     L.solids.push({ x: x1 - T, y: (f - 4) * T, w: T, h: 4 * T });
     L.solids.push({ x: x0, y: (f - 4) * T, w: T, h: 2 * T });
     L.caves.push({ x: x0 + T, y: (f - 4) * T, w: (W - 2) * T, h: 4 * T });
-    for (let i = -1; i < W + 1; i++) if (r() < 0.5) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: x0 + (i + 0.5) * T, y: (f - 6) * T + 4 });
+    // Bewuchs auf dem Dach – genau auf der jeweiligen Felskante
+    for (let i = 0; i < W; i++) if (r() < 0.5) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: x0 + (i + 0.5) * T, y: (i === 0 || i === W - 1 ? f - 5 : f - 6) * T + 4 });
   }
   // Pflanzen, Dickicht und Deko im Innern entfernen
   const inside = (x: number, y: number) => L.caves.some((c) => x > c.x - T && x < c.x + c.w + T && y > c.y - 2 * T && y <= c.y + c.h + 8);

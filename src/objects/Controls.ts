@@ -32,7 +32,7 @@ export class Controls {
       down: k(K.DOWN, K.S),
       jump: k(K.SPACE, K.UP, K.W),
       bite: k(K.J, K.X, K.Y),
-      sprint: k(K.SHIFT, K.K, K.C),
+      sprint: k(K.SHIFT, K.K),
       ram: k(K.R, K.V),
     };
   }

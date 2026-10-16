@@ -20,6 +20,8 @@ import { clamp, mulberry32 } from '../util/math';
 //   spike   – Richtung des Kopfpanzers: -1 harter Schädel (wer einsteckt) … +1 Stachelkopf (wer austeilt)
 //   green   – Tarnfarbe vom Verstecken zwischen Pflanzen
 //   sand    – Tarnfarbe vom Verstecken am Boden und in Höhlen
+//   len, girth, swift – Körperbau (länger/kürzer, dicker/schlanker, flinker): ändert sich nur von
+//             Generation zu Generation – durch die Wahl, welches Tier die Linie weiterführt
 // Dazu kommt der Ruf: Wer oft angreift, vor dem haben andere Tiere Angst.
 //
 // Außerhalb des Spiels wächst der Stammbaum: Jeder Lauf ist ein Pfad von der
@@ -37,6 +39,12 @@ export interface Traits {
   spike: number;
   green: number;
   sand: number;
+  /** Körperlänge: -1 gedrungen … +1 lang gestreckt */
+  len: number;
+  /** Fülle: -1 schlank … +1 massig */
+  girth: number;
+  /** Flinkheit: -1 träge … +1 flink */
+  swift: number;
 }
 
 export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
@@ -90,8 +98,26 @@ export interface Run {
   canRam: boolean;
   /** erst zwischen den Zeitaltern freigeschaltet – die Meldung kommt im nächsten Zeitalter */
   ramNew?: boolean;
+  /** insgesamt gefressen (in Sättigungs-Einheiten) */
+  eaten?: { meat: number; plant: number };
   history: Ancestor[];
 }
+
+/** Ein Tier, das ein Zeitalter überlebt hat und die Linie weiterführen könnte. */
+export interface Offspring {
+  traits: Traits;
+  sex: Sex;
+  seed: number;
+  /** das eigene Tier (sonst ein überlebender Artgenosse) */
+  you: boolean;
+  /** Kartentitel: wofür dieses Tier steht */
+  label: string;
+  /** besonders ausgeprägt: eine erspielte Fähigkeit und/oder ein Körpermerkmal */
+  focus: { skill?: SkillKey; body?: BodyKey };
+}
+
+export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
+export type BodyKey = 'len' | 'girth' | 'swift' | 'snout';
 
 export interface TreeNode {
   id: string;
@@ -129,7 +155,40 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0 };
+
+const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
+
+/** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
+export function skillName(k: SkillKey, t: Partial<Traits>) {
+  switch (k) {
+    case 'jaw': return 'Gebiss';
+    case 'skull': return (t.spike ?? 0) > 0.25 ? 'Stachelkopf' : (t.spike ?? 0) < -0.25 ? 'Panzerkopf' : 'Dickschädel';
+    case 'stealth': return 'Tarnung';
+    case 'growth': return 'Wuchs';
+    case 'green': return 'Grüntarnung';
+    case 'sand': return 'Sandtarnung';
+  }
+}
+
+const SKILL_LABEL: Record<SkillKey, string> = { jaw: 'Scharfzahn', skull: 'Dickschädel', stealth: 'Schleicher', growth: 'Brocken', green: 'Grünling', sand: 'Sandling' };
+const BODY_LABEL: Record<BodyKey, string> = { len: 'Langer', girth: 'Dicker', swift: 'Flinker', snout: 'Spitzmaul' };
+export const BODY_NAME: Record<BodyKey, string> = { len: 'länger gestreckt', girth: 'massiger', swift: 'flinker', snout: 'spitzere Schnauze' };
+
+/** Kalorien je Sättigungs-Einheit (größere Tiere brauchen und liefern mehr). */
+const KCAL: Record<ClassId, number> = { fish: 4, amphibian: 12, reptile: 30, mammal: 60 };
+export const kcalOf = (units: number, cls: ClassId, size: number) => Math.round(units * KCAL[cls] * size * size);
+
+/** Wie viel ein Tier in einem Zeitalter fressen muss, um Nachwuchs zu bekommen (in Sättigungs-Einheiten). */
+export const needUnits = (ep: EpochDef, size: number) => Math.round(0.55 * ep.seconds * (0.85 + 0.3 * size));
+
+/** Grundlänge (cm) und Dichte je Körperform – für Länge und Gewicht im Werte-Bildschirm. */
+const BODY: Record<ClassId, { cm: number; g: number }> = {
+  fish: { cm: 24, g: 0.011 },
+  amphibian: { cm: 55, g: 0.012 },
+  reptile: { cm: 140, g: 0.011 },
+  mammal: { cm: 110, g: 0.03 },
+};
 
 /** Ältere Spielstände kennen manche Merkmale noch nicht. */
 const full = (t: Partial<Traits>): Traits => ({ ...ZERO, ...t });
@@ -304,13 +363,14 @@ class GameState {
     const carn = Math.max(0, t.diet), herb = Math.max(0, -t.diet);
     const spikes = Math.max(0, t.spike ?? 0) * t.skull, plates = Math.max(0, -(t.spike ?? 0)) * t.skull;
     const bite = b.bite * size * (1 + 2.2 * t.jaw) * (1 + 0.25 * carn);
-    const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.8 * spikes);
+    const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.8 * spikes) * (1 + 0.15 * (t.girth ?? 0));
+    const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * (t.girth ?? 0));
     return {
-      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates)),
+      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * (t.girth ?? 0) + 0.05 * (t.len ?? 0))),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size),
+      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body,
       jump: b.jump * (1 + 0.12 * t.stealth),
       size,
       defense: clamp(1 - 0.28 * t.skull - 0.08 * (size - 1), 0.5, 1.1),
@@ -337,6 +397,9 @@ class GameState {
       spike: t.spike ?? 0,
       green: t.green ?? 0,
       sand: t.sand ?? 0,
+      len: t.len ?? 0,
+      girth: t.girth ?? 0,
+      swift: t.swift ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -345,25 +408,137 @@ class GameState {
     };
   }
 
-  /** Ein Artgenosse: fast wie du – nur kleine Abweichungen, Männchen oder Weibchen. */
-  kinMorph(i: number, belly = 1): Morph {
+  /**
+   * Ein Artgenosse: dieselbe Art, aber jeder ein wenig anders – Männchen oder Weibchen, mal länger,
+   * mal massiger, mal flinker. Diese Unterschiede kann man später bei der Wahl des Nachwuchses nutzen.
+   */
+  kinTraits(i: number): { traits: Traits; sex: Sex; seed: number } {
     const run = this.r;
     const rnd = mulberry32(run.seed * 31 + run.epoch * 977 + i * 101);
     const j = (v: number, a: number) => clamp(v + (rnd() - 0.5) * 2 * a, 0, 1);
+    const g = (v: number, a: number) => clamp(v + (rnd() - 0.5) * 2 * a, -1, 1);
     const t = run.traits;
     const sex: Sex = (i + run.id) % 2 ? 1 : 2;
     const traits: Traits = {
-      jaw: j(t.jaw, 0.07),
-      skull: j(t.skull, 0.07),
-      stealth: j(t.stealth, 0.07),
-      growth: j(t.growth + (sex === 1 ? 0.06 : -0.06), 0.06),
+      jaw: j(t.jaw, 0.1),
+      skull: j(t.skull, 0.1),
+      stealth: j(t.stealth, 0.1),
+      growth: j(t.growth + (sex === 1 ? 0.06 : -0.06), 0.08),
       diet: t.diet,
       scars: rnd() < 0.3 ? 1 : 0,
       spike: t.spike,
-      green: j(t.green, 0.05),
-      sand: j(t.sand, 0.05),
+      green: j(t.green, 0.08),
+      sand: j(t.sand, 0.08),
+      len: g(t.len, 0.3),
+      girth: g(t.girth, 0.3),
+      swift: g(t.swift, 0.3),
     };
-    return this.morph({ traits, belly, fierce: 0, seed: run.seed + 1000 + i * 17, sex });
+    return { traits, sex, seed: run.seed + 1000 + i * 17 };
+  }
+
+  kinMorph(i: number, belly = 1): Morph {
+    const k = this.kinTraits(i);
+    return this.morph({ traits: k.traits, belly, fierce: 0, seed: k.seed, sex: k.sex });
+  }
+
+  /** Länge (cm) und Gewicht (g) eines Tiers. */
+  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits) {
+    const b = BODY[cls];
+    const size = this.stats(cls, t).size;
+    const cm = b.cm * size * (1 + 0.15 * (t.len ?? 0));
+    const g = b.g * Math.pow(cm, 3) * (1 + 0.35 * (t.girth ?? 0) - 0.08 * (t.len ?? 0)) * (0.9 + 0.2 * t.growth);
+    return { cm, g };
+  }
+
+  /** Wie oft eine Art (nach ihrem Namen im Stammbaum) schon ausgestorben ist. */
+  extinctCount(name: string) {
+    let n = 0;
+    for (const node of Object.values(this.data.nodes)) if (node.dead && speciesName(node) === name) n++;
+    return n;
+  }
+
+  /** Der Name der eigenen Linie, wie er im Stammbaum stehen würde. */
+  get currentName() {
+    const r = this.r;
+    return speciesName({ cls: r.cls, traits: r.traits, epoch: Math.max(0, r.epoch) });
+  }
+
+  /** Wie stark sich das Bewährte über die Zeit bis zum nächsten Zeitalter fortsetzt. */
+  driftFactor(i = this.r.epoch) {
+    const ep = EPOCHS[i], next = EPOCHS[i + 1];
+    if (!next) return 1;
+    return 0.9 + 0.5 * Math.log10(1 + (ep.to - next.from) / 1e6);
+  }
+
+  /**
+   * Die Überlebenden als Kandidaten für die nächste Generation. Alle tragen weiter, was die Gruppe
+   * im Zeitalter erarbeitet hat (verstärkt über die Jahrmillionen). Jeder Artgenosse betont dazu eine
+   * erspielte Fähigkeit und ein Körpermerkmal; was gefressen wurde, schiebt die Kost in diese Richtung.
+   */
+  offspring(survivors: { traits: Traits; sex: Sex; seed: number; you: boolean }[], eaten: { meat: number; plant: number }): Offspring[] {
+    const run = this.r;
+    const start = full(this.snap?.traits ?? run.traits);
+    const end = run.traits;
+    const k = this.driftFactor();
+    const rnd = mulberry32(run.seed * 7 + run.epoch * 131 + 5);
+    const earned = {} as Record<SkillKey, number>;
+    for (const key of SKILLS) earned[key] = Math.max(0, end[key] - start[key]);
+    const focusList = SKILLS.filter((key) => earned[key] > 0.012).sort((a, b) => earned[b] - earned[a]);
+    const total = eaten.meat + eaten.plant;
+    const ate = total > 0 ? (eaten.meat - eaten.plant) / total : 0;
+    const bodies: BodyKey[] = ['len', 'girth', 'swift', 'snout'];
+    const bodyOff = Math.floor(rnd() * 4);
+    return survivors.map((sv, i) => {
+      const t: Traits = full({ ...sv.traits });
+      // Artgenossen haben mit dir gelebt und gelernt: dein Stand plus ihre eigene kleine Abweichung
+      if (!sv.you) {
+        for (const key of SKILLS) t[key] = clamp(end[key] + (sv.traits[key] - start[key]), 0, 1);
+        t.diet = end.diet;
+        t.spike = end.spike;
+      }
+      for (const key of SKILLS) t[key] = clamp(t[key] + earned[key] * k, 0, 1);
+      t.diet = clamp(t.diet + (end.diet - start.diet) * k * 0.6 + (ate - t.diet) * 0.15, -1, 1);
+      t.spike = clamp(t.spike + (end.spike - start.spike) * k * 0.6, -1, 1);
+      const focus: Offspring['focus'] = {};
+      if (sv.you) {
+        for (const g of ['len', 'girth', 'swift'] as const) t[g] = clamp(t[g] + (rnd() - 0.5) * 0.1, -1, 1);
+      } else {
+        // eine erspielte Fähigkeit tritt deutlich hervor – auf Kosten einer anderen
+        if (focusList.length) {
+          const f = focusList[(i - 1) % focusList.length];
+          focus.skill = f;
+          t[f] = clamp(t[f] + (0.12 + 0.08 * rnd()) * (1 - 0.5 * t[f]), 0, 1);
+          const other = focusList.find((o) => o !== f);
+          if (other && rnd() < 0.7) t[other] = clamp(t[other] - 0.05, 0, 1);
+        }
+        // und ein Körpermerkmal
+        const b = bodies[(i - 1 + bodyOff) % bodies.length];
+        focus.body = b;
+        if (b === 'snout') t.jaw = clamp(t.jaw + 0.08, 0, 1);
+        else t[b] = clamp(t[b] + 0.35 + 0.15 * rnd(), -1, 1);
+        // Kost: schwankt, mit Neigung zu dem, was gefressen wurde
+        t.diet = clamp(t.diet + (rnd() - 0.5) * 0.3 + ate * 0.1, -1, 1);
+      }
+      const label = sv.you ? 'Du' : focus.skill ? (focus.skill === 'skull' ? skillName('skull', t) : SKILL_LABEL[focus.skill]) : BODY_LABEL[focus.body!];
+      return { traits: t, sex: sv.sex, seed: sv.seed, you: sv.you, label, focus };
+    });
+  }
+
+  /** Dieses Tier führt die Linie weiter. */
+  chooseOffspring(o: Offspring) {
+    const run = this.r;
+    run.traits = full({ ...o.traits });
+    run.sex = o.sex;
+    run.seed = o.seed;
+    if (this.checkRamUnlock()) run.ramNew = true;
+    this.save();
+  }
+
+  /** Gefressenes für den ganzen Lauf mitzählen (Werte-Bildschirm). */
+  addEaten(kind: 'meat' | 'plant', units: number) {
+    const r = this.r;
+    r.eaten ??= { meat: 0, plant: 0 };
+    r.eaten[kind] += units;
   }
 
   /** Wie gefährlich andere Tiere dich einschätzen. */
@@ -468,7 +643,7 @@ class GameState {
   }
 
   /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
-  surviveEpoch(kinAlive: number, social?: number): SurviveResult {
+  surviveEpoch(kinAlive: number, social?: number, pick?: Offspring): SurviveResult {
     const run = this.r;
     const i = run.epoch;
     const ep = EPOCHS[i];
@@ -484,18 +659,13 @@ class GameState {
     run.infamy *= 0.8;
     const next = EPOCHS[i + 1];
     const res: SurviveResult = { epoch: ep, next, node: n.id, drift: { before: { ...run.traits }, after: { ...run.traits } } };
-    if (next) {
-      // Über Jahrmillionen setzt sich fort, was sich in diesem Zeitalter bewährt hat
-      const start = this.snap?.traits ?? run.traits;
-      const k = 0.6 + 0.35 * Math.log10(1 + (ep.to - next.from) / 1e6);
-      const t = run.traits;
-      for (const key of ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'] as const) {
-        const d = t[key] - (start[key] ?? 0);
-        if (d > 0) t[key] = Math.min(1, t[key] + d * k);
-      }
-      t.diet = clamp(t.diet + (t.diet - start.diet) * k * 0.6, -1, 1);
-      t.spike = clamp(t.spike + (t.spike - (start.spike ?? 0)) * k * 0.6, -1, 1);
-      res.drift!.after = { ...t };
+    if (next && pick) {
+      // Das gewählte (bzw. vorerst das eigene) Tier führt die Linie weiter – mit allem, was sich
+      // über die Jahrmillionen fortgesetzt hat
+      run.traits = full({ ...pick.traits });
+      run.sex = pick.sex;
+      run.seed = pick.seed;
+      res.drift!.after = { ...run.traits };
       if (this.checkRamUnlock()) run.ramNew = true;
     }
     if (!next) {

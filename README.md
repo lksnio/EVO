@@ -33,6 +33,19 @@ Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleb
   Lässt du ihnen von der Beute etwas übrig, bleiben sie bei dir und werden zu Verbündeten. Frisst du
   alles allein, wenden sie sich ab und ziehen irgendwann ohne dich weiter. Wer mit dir überlebt,
   bekommt Nachwuchs – und wie eng die Gruppe zusammenhält, erben die Nachkommen.
+- **Wo du lebst, entscheidest du:** Jedes Zeitalter hat links und rechts vom Start ein eigenes
+  Gebiet, in das man fließend hinüberschwimmt bzw. -läuft – links flacher und trüber, voller Pflanzen
+  und mit wenigen Jägern (dort sieht man dich schlechter), rechts tief und dunkel, mit mehr Räubern
+  und einem der ganz Großen. Boden, Licht und Tiere sind dort anders.
+- **Nahrung:** Bis zum Ende eines Zeitalters musst du genug Kalorien fressen (Leiste oben, Fleisch
+  rot, Pflanzen grün) – sonst fehlt die Kraft für Nachwuchs, und die Linie endet.
+- **Nachwuchs wählen:** Am Ende eines Zeitalters stehen du und die überlebenden Artgenossen zur
+  Wahl. Jede Karte zeigt nur, was ihr euch erspielt habt (z. B. Gebiss, Dickschädel, Tarnung),
+  dazu Größe und Tempo. Jedes Tier betont etwas anderes – eines hat eine spitzere Schnauze, eines
+  ist länger, eines massiger, eines flinker; was du gefressen hast, schiebt die Kost in diese
+  Richtung. Wen du wählst, der führt die Linie weiter.
+- **Werte (Taste C):** Name der Art, wie oft sie schon ausgestorben ist, Länge, Gewicht,
+  Lebenskraft, Fähigkeiten, Nahrung und Gruppe – im Stil eines alten Rollenspiel-Charakterbogens.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
   Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
 - **Hunger:** Fressen hält dich am Leben, aber satt frisst du nichts mehr.
@@ -66,6 +79,7 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
 | versteckt sich oft im Dickicht | grünliche Farben |
 | liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
+| wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
 | stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
 | … und teilt dabei mehr aus, als er einsteckt | einen **Stachelkopf**: Stachelkrone und Wangenstacheln, stärkerer Rammstoß |
 | … und steckt dabei mehr ein, als er austeilt | einen **Panzerkopf**: Knochenhelm, mehr Lebenskraft, weniger eigener Schaden |
@@ -82,7 +96,8 @@ bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Übe
 wie zutraulich die Gruppe im nächsten Zeitalter beginnt.
 
 Zwischen den Zeitaltern wird verstärkt, was im letzten Zeitalter dazugekommen ist – umso stärker,
-je mehr Jahrmillionen vergehen (Faktor etwa 0,6 bis 1,4).
+je mehr Jahrmillionen vergehen (Faktor etwa 0,9 bis 1,8). Die Artgenossen tragen dasselbe weiter,
+jeder mit eigener Abweichung; der Gewählte bringt zusätzlich seine besondere Stärke mit.
 Im Stammbaum werden Linien nach Körperform, vorherrschender Anpassung und Kost zusammengefasst –
 daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 </details>
@@ -95,7 +110,8 @@ daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 | ↑ ↓ / W S | im Wasser auf- und abtauchen |
 | Leertaste / ↑ | springen (an Land) |
 | J, X oder Y | beißen und fressen |
-| Shift, K oder C | sprinten (kostet Kraft) |
+| Shift oder K | sprinten (kostet Kraft) |
+| C | Werte deines Tiers |
 | R oder V | rammen (erst mit hartem Schädel) |
 | Esc / P | Rast (Pause) |
 | M | Ton an/aus |
@@ -133,6 +149,8 @@ werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeble
   des Zeitalters gemalt, nicht erst, wenn sie zum ersten Mal auftauchen.
 - **Neu zeichnen nur in ruhigen Momenten:** Verändert sich das eigene Tier, wird es nicht mitten
   im Kampf neu gezeichnet, sondern kurz danach (höchstens alle 3 Sekunden).
+- **Nur Sichtbares wird gezeichnet:** Boden, Pflanzen, Licht und Deko außerhalb des Bildes werden
+  ausgeblendet – der Lebensraum ist dreimal so breit, kostet aber kaum mehr.
 - **Speicher bleibt begrenzt:** Nicht mehr benutzte Aussehen-Texturen werden freigegeben;
   Blutflecken und Partikel werden wiederverwendet statt immer neu erzeugt.
 - Die Spiellogik läuft mit `requestAnimationFrame` und Zeitdelta (Phaser), die KI nimmt ihre

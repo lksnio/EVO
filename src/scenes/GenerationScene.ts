@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { game } from '../state/GameState';
+import { BODY_NAME, game, skillName, type Offspring, type SkillKey } from '../state/GameState';
 import { CLASSES } from '../data/classes';
 import { EPOCHS, spanWords, yearsAgo } from '../data/epochs';
 import { levelBackgrounds } from '../art/worldArt';
@@ -31,6 +31,11 @@ export class GenerationScene extends Phaser.Scene {
   private views: { v: CreatureView; mode: 'swim' | 'idle' }[] = [];
   private group: GO[] = [];
   private nav?: MenuNav;
+  /** gewählter Nachwuchs (Index in d.offspring) */
+  private sel = 0;
+  private cards: { g: Phaser.GameObjects.Graphics; x: number; y: number; w: number; h: number }[] = [];
+  private choosing = false;
+  private zones: Phaser.GameObjects.Zone[] = [];
 
   constructor() {
     super('Generation');
@@ -41,6 +46,10 @@ export class GenerationScene extends Phaser.Scene {
     this.views = [];
     this.group = [];
     this.nav = undefined;
+    this.sel = 0;
+    this.cards = [];
+    this.choosing = false;
+    this.zones = [];
   }
 
   create() {
@@ -56,16 +65,171 @@ export class GenerationScene extends Phaser.Scene {
       speedY: { min: -12, max: -3 }, speedX: { min: -6, max: 6 },
       scale: { start: 0.35, end: 0 }, alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, tint: 0xd8c8a0,
     });
-    this.survived();
+    if (this.d.offspring?.length) this.choose();
+    else this.survived();
   }
 
   update(_t: number, dms: number) {
     for (const { v, mode } of this.views) v.animate(dms / 1000, mode, mode === 'swim' ? 0.35 : 0);
   }
 
-  private look(o: { cls?: Morph['cls']; traits?: SurvivedData['traits'] } = {}): Morph {
+  private look(o: { cls?: Morph['cls']; traits?: SurvivedData['traits']; seed?: number; sex?: number } = {}): Morph {
     const d = this.d;
-    return game.morph({ cls: o.cls ?? d.cls, traits: o.traits ?? d.traits, hue: d.look.hue, seed: d.look.seed, sex: d.look.sex, fierce: 0 });
+    return game.morph({ cls: o.cls ?? d.cls, traits: o.traits ?? d.traits, hue: d.look.hue, seed: o.seed ?? d.look.seed, sex: o.sex ?? d.look.sex, fierce: 0 });
+  }
+
+  // ---------------------------------------------------------------- Nachwuchs wählen
+
+  /**
+   * Wer hat überlebt – und wer soll die Linie weiterführen? Jede Karte zeigt nur, was man sich
+   * erspielt hat (dazu immer Größe und Tempo). Jeder Überlebende betont etwas anderes.
+   */
+  private choose() {
+    const d = this.d;
+    const ep = EPOCHS[d.epoch];
+    const offs = d.offspring!;
+    this.choosing = true;
+    const head = title(this, W / 2, 34, `Das ${ep.name} endet.`, 38).setOrigin(0.5);
+    const sub = text(this, W / 2, 76, `Du hast überlebt – ${yearsAgo(ep.to, 1e4)}. Wer führt deine Linie weiter?`, 20, UI.boneDim).setOrigin(0.5);
+    const e = d.eaten;
+    const eat = e ? text(this, W / 2, 104, `Gefressen: ${Math.round(e.meat)} kcal Fleisch · ${Math.round(e.plant)} kcal Pflanzen  (nötig waren ${Math.round(e.need)})`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5) : null;
+    this.fadeInAll([head, sub, ...(eat ? [eat] : [])], 0);
+    this.group.push(head, sub, ...(eat ? [eat] : []));
+
+    const n = offs.length;
+    const cw = Math.min(196, Math.floor((W - 80 - (n - 1) * 14) / n)), gap = 14, ch = 420;
+    const x0 = W / 2 - (n * cw + (n - 1) * gap) / 2, y0 = 126;
+    const base = offs[0];
+    offs.forEach((o, i) => {
+      const x = x0 + i * (cw + gap);
+      const parts = this.card(o, base, x, y0, cw, ch, i);
+      this.fadeInAll(parts, 300 + i * 160, 1, 600);
+      this.group.push(...parts);
+    });
+    this.select(0);
+    const kinLine = d.kinAlive === 0 ? 'Von deiner Art hat niemand außer dir überlebt.' : `${d.kinAlive} deiner Art haben mit dir überlebt.`;
+    const l1 = text(this, W / 2, y0 + ch + 18, kinLine + '  ·  Pfeiltasten oder Klick: wählen', 17, UI.boneDim).setOrigin(0.5);
+    this.fadeInAll([l1], 900);
+    const tl = this.timeline(d.epoch, 612);
+    this.fadeInAll(tl, 1000, 1, 700);
+    this.group.push(l1, ...tl);
+    const kb = this.input.keyboard!;
+    const mv = (dx: number) => () => this.choosing && this.select((this.sel + dx + n) % n);
+    kb.on('keydown-LEFT', mv(-1));
+    kb.on('keydown-RIGHT', mv(1));
+    kb.on('keydown-A', mv(-1));
+    kb.on('keydown-D', mv(1));
+    kb.on('keydown-ENTER', () => this.choosing && this.confirm());
+    kb.on('keydown-SPACE', () => this.choosing && this.confirm());
+    this.time.delayedCall(1200, () => {
+      const b = new Button(this, W / 2, H - 34, 'Weiter', { w: 240, h: 48, icon: 'ic_play', color: UI.ochreN, onClick: () => this.choosing && this.confirm() });
+      this.fadeInAll([b], 0, 1, 500);
+      this.group.push(b);
+    });
+  }
+
+  /** Eine Karte: das Tier, wofür es steht, und seine erspielten Werte als Punkte. */
+  private card(o: Offspring, base: Offspring, x: number, y: number, w: number, h: number, i: number): GO[] {
+    const d = this.d;
+    const out: GO[] = [];
+    const g = this.add.graphics();
+    out.push(g);
+    this.cards.push({ g, x, y, w, h });
+    const zone = this.add.zone(x, y, w, h).setOrigin(0).setInteractive({ useHandCursor: true });
+    zone.on('pointerdown', () => {
+      if (!this.choosing) return;
+      if (this.sel === i) this.confirm();
+      else this.select(i);
+    });
+    this.zones.push(zone);
+    // das Tier selbst
+    const m = this.look({ traits: o.traits, seed: o.seed, sex: o.sex });
+    const v = new CreatureView(this, x + w / 2, 0, m, 1);
+    const sc = Math.min(1.75, (w - 22) / (v.L.halfW * 2), 112 / Math.max(1, v.L.footY - v.L.topY));
+    v.setBaseScale(sc);
+    v.setY(v.L.land ? y + 130 - v.L.footY * sc : y + 72);
+    this.views.push({ v, mode: v.L.land ? 'idle' : 'swim' });
+    out.push(v);
+    let ty = y + 140;
+    const t1 = title(this, x + w / 2, ty, o.label, 19, o.you ? UI.bone : UI.ochre).setOrigin(0.5, 0);
+    ty += 26;
+    const extra = o.focus.body ? BODY_NAME[o.focus.body] : o.you ? 'wie du' : '';
+    const t2 = text(this, x + w / 2, ty, `${o.sex === 1 ? 'Männchen' : 'Weibchen'}${extra ? ' · ' + extra : ''}`, 14, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5, 0);
+    ty += 28;
+    out.push(t1, t2);
+    // Werte: immer Größe und Tempo, dazu nur Erspieltes
+    const st = game.stats(d.transition?.to ?? d.cls, o.traits), st0 = game.stats(d.transition?.to ?? d.cls, base.traits);
+    const sizeV = (s: number) => (s - 0.68) / 0.77;
+    const cls = d.transition?.to ?? d.cls;
+    const tempo = (sp: number) => Math.min(1, Math.max(0.05, 0.5 + (sp / CLASSES[cls].base.speed - 1) * 1.6));
+    const rows: [string, number, number][] = [
+      ['Größe', sizeV(st.size), sizeV(st0.size)],
+      ['Tempo', tempo(st.speed), tempo(st0.speed)],
+    ];
+    for (const k of ['jaw', 'skull', 'stealth', 'green', 'sand'] as SkillKey[]) {
+      if (o.traits[k] >= 0.03 || base.traits[k] >= 0.03) rows.push([skillName(k, o.traits), o.traits[k], base.traits[k]]);
+    }
+    for (const [label, val, ref] of rows.slice(0, 7)) {
+      out.push(text(this, x + 12, ty, label, 15, UI.boneDim));
+      out.push(this.pips(x + w - 12, ty + 9, val, val > ref + 0.04, val < ref - 0.04));
+      ty += 24;
+    }
+    const meas = game.measure(d.transition?.to ?? d.cls, o.traits);
+    const len = meas.cm >= 100 ? `${(meas.cm / 100).toFixed(2).replace('.', ',')} m` : `${Math.round(meas.cm)} cm`;
+    const wt = meas.g >= 1000 ? `${(meas.g / 1000).toFixed(1).replace('.', ',')} kg` : `${Math.round(meas.g)} g`;
+    const diet = o.traits.diet > 0.3 ? 'Fleischfresser' : o.traits.diet < -0.3 ? 'Pflanzenfresser' : 'Allesfresser';
+    out.push(text(this, x + w / 2, y + h - 46, `${len} · ${wt}`, 15, UI.bone).setOrigin(0.5, 0));
+    out.push(text(this, x + w / 2, y + h - 24, diet, 14, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5, 0));
+    return out;
+  }
+
+  /** Fünf Punkte (auch halbe) für einen Wert; besser als beim eigenen Tier = ockerfarben, schwächer = gedämpft. */
+  private pips(xr: number, y: number, v: number, better: boolean, worse: boolean) {
+    const g = this.add.graphics();
+    const halves = Math.max(v > 0.02 ? 1 : 0, Math.min(10, Math.round(v * 10)));
+    const col = better ? 0xe0a848 : worse ? 0x8a7a64 : 0xe6dcc4;
+    for (let i = 0; i < 5; i++) {
+      const cx = xr - (4 - i) * 13 - 5;
+      g.lineStyle(1.3, 0x6a5638, 0.9);
+      g.strokeCircle(cx, y, 4.2);
+      const fill = halves - i * 2;
+      g.fillStyle(col, 1);
+      if (fill >= 2) g.fillCircle(cx, y, 4.6);
+      else if (fill === 1) {
+        g.beginPath();
+        g.arc(cx, y, 4.6, Math.PI / 2, Math.PI * 1.5);
+        g.closePath();
+        g.fillPath();
+      }
+    }
+    return g;
+  }
+
+  private select(i: number) {
+    this.sel = i;
+    this.cards.forEach((c, k) => {
+      const on = k === i;
+      c.g.clear();
+      c.g.fillStyle(on ? 0x2a2016 : 0x120e0a, on ? 0.92 : 0.8);
+      c.g.fillRoundedRect(c.x, c.y, c.w, c.h, 12);
+      c.g.lineStyle(on ? 3 : 1.5, on ? 0xe0a848 : 0x6a5638, on ? 1 : 0.6);
+      c.g.strokeRoundedRect(c.x, c.y, c.w, c.h, 12);
+    });
+    if (this.cards.length) audio.sfx('click');
+  }
+
+  /** Die Wahl steht: Dieses Tier führt die Linie weiter. */
+  private confirm() {
+    const d = this.d;
+    const o = d.offspring![this.sel];
+    this.choosing = false;
+    audio.sfx('select');
+    this.zones.forEach((z) => z.destroy());
+    this.zones = [];
+    game.chooseOffspring(o);
+    d.drifted = o.traits;
+    d.look = { ...d.look, seed: o.seed, sex: o.sex };
+    this.next();
   }
 
   /** Ein Tier auf einem Felssockel (an Land) bzw. schwebend mit Schatten (im Wasser). */
@@ -199,7 +363,7 @@ export class GenerationScene extends Phaser.Scene {
     audio.sfx('evolve');
 
     // dein Tier, während die Zeit vergeht
-    const mNow = this.look();
+    const mNow = this.look({ traits: d.traits });
     const mLater = d.drifted ? this.look({ traits: d.drifted }) : mNow;
     const gy = 520, scale = 1.8;
     const [v1, b1] = this.creature(mNow, W / 2, gy, scale);

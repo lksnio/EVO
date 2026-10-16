@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game, type Traits } from '../state/GameState';
+import { bus, game, kcalOf, needUnits, type Offspring, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import { generateLevel, type LevelData } from '../level/LevelGen';
-import { caveShade, coverTextures, groundTextures, levelBackgrounds, plantTextures, THEME_TINT } from '../art/worldArt';
+import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
+import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
@@ -36,6 +36,10 @@ export interface SurvivedData {
   transition?: { from: Morph['cls']; to: Morph['cls'] };
   /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter */
   drifted?: Traits;
+  /** wer die Linie weiterführen kann (das eigene Tier zuerst) */
+  offspring?: Offspring[];
+  /** in diesem Zeitalter gefressen und gebraucht (kcal) */
+  eaten?: { meat: number; plant: number; need: number };
   finished?: boolean;
   node: string;
 }
@@ -98,7 +102,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private huntLost = 0;
   private announced = new Set<string>();
   private bloodClouds?: Phaser.GameObjects.Particles.ParticleEmitter;
-  private caustics: { s: Phaser.GameObjects.TileSprite; v: number }[] = [];
+  private caustics: { s: Phaser.GameObjects.TileSprite; v: number; a: number }[] = [];
   private glints = new Map<object, Phaser.GameObjects.Image>();
   private leftNoted = false;
   /** Blutflecken am Boden – werden wiederverwendet statt immer neu erzeugt */
@@ -107,6 +111,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private fightAt = -1e9;
   /** frühestens dann das Aussehen wieder neu zeichnen */
   private redrawAt = 0;
+  /** Schleier je Gebiet (Trübung, Dunst, Dunkelheit) */
+  private veil!: Phaser.GameObjects.Rectangle;
+  private surfGlow?: Phaser.GameObjects.TileSprite;
+  /** Gebiet, in dem man gerade ist (0 links, 1 Mitte, 2 rechts) */
+  zoneIdx = 1;
+  /** Trübung am aktuellen Ort (0..1) – macht unauffälliger */
+  private murk = 0;
+  private zoneLight = 1;
+  /** feste Dinge, die außerhalb des Bildes nicht gezeichnet werden */
+  private cullList: { o: Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible; x0: number; x1: number }[] = [];
+  private cullAt = 0;
+  /** Pflanzen, die sich in Strömung oder Wind wiegen */
+  private swayList: { o: Phaser.GameObjects.Image; amp: number; sp: number; ph: number }[] = [];
+  /** in diesem Zeitalter gefressen (Sättigungs-Einheiten) */
+  eatenMeat = 0;
+  eatenPlant = 0;
+  /** so viel muss es bis zum Ende sein, damit es Nachwuchs gibt */
+  needUnits = 0;
+  private foodWarned = false;
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -150,6 +173,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.splats = [];
     this.fightAt = -1e9;
     this.redrawAt = 0;
+    this.surfGlow = undefined;
+    this.zoneIdx = 1;
+    this.murk = 0;
+    this.zoneLight = 1;
+    this.cullList = [];
+    this.cullAt = 0;
+    this.swayList = [];
+    this.eatenMeat = this.eatenPlant = 0;
+    this.needUnits = 0;
+    this.foodWarned = false;
   }
 
   create() {
@@ -173,16 +206,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bgMid = this.add.tileSprite(0, 0, W, H, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1);
     this.fog = this.add.tileSprite(0, H * 0.35, W, H * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35);
 
-    // Gelände
-    const gt = groundTextures(this, L.theme);
+    // Gelände – je Gebiet ein anderer Boden, dazu Steine, Risse und Bewuchs als Abwechslung
+    const gts = [0, 1, 2].map((v) => groundTextures(this, L.theme, v));
+    const decals = groundDecals(this, L.theme);
     this.solids = this.physics.add.staticGroup();
-    for (const r of L.solids) this.addSolid(r, gt.gnd, gt.top);
-    for (const r of L.platforms) this.addPlatform(r, gt.plat);
-    for (const r of L.hazards) this.addHazard(r, gt.hz);
-    for (const d of L.decor) {
-      const key = 'd2_' + d.k;
-      if (this.textures.exists(key)) this.add.image(d.x, d.y, key).setOrigin(0.5, d.hang ? 0 : 1).setDepth(DEPTH.decoBack);
+    for (const r of L.solids) {
+      const gt = gts[this.zoneAt(r.x + r.w / 2).def.ground] ?? gts[0];
+      this.addSolid(r, gt.gnd, gt.top, decals);
     }
+    for (const r of L.platforms) this.addPlatform(r, (gts[this.zoneAt(r.x + r.w / 2).def.ground] ?? gts[0]).plat);
+    for (const r of L.hazards) this.addHazard(r, gts[0].hz);
+    this.buildDecor();
     if (this.water && L.surfaceY > 0) {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
       this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
@@ -192,12 +226,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // sonst stockt das Spiel, wenn eines zum ersten Mal auftaucht.
     for (const [id] of ep.fauna) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     for (const e of ep.events) if (e.species && SPECIES[e.species]) makeSpeciesTextures(this, SPECIES[e.species]);
-    for (const p of L.plants) this.plants.push(new Plant(this, p.x, p.y, L.theme, 3, p.v));
+    for (const p of L.plants) {
+      // fest auf den Boden setzen (nicht über eine Kante ragen lassen)
+      const hw = (this.textures.get(foodKey(L.theme, 0, p.v)).getSourceImage().width as number) / 2;
+      const at = this.settle(p.x, p.y, hw) ?? { x: p.x, y: p.y - 4 };
+      const pl = new Plant(this, at.x, at.y + 4, L.theme, 3, p.v);
+      this.plants.push(pl);
+      this.cullAdd(pl.img, at.x - hw, at.x + hw);
+    }
     this.buildCover();
     this.buildCaves();
     // Artgenossen verstecken sich auch in Höhlen
     this.cover = [...L.cover, ...L.caves];
     if (this.water && L.surfaceY > 0) this.surfaceLight();
+    else if (!this.water && L.variant === 'normal') this.landLight();
 
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
@@ -205,6 +247,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawnKin();
     for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y);
     this.faunaCount = L.spawns.length;
+    this.needUnits = needUnits(ep, this.player.stats.size);
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -235,6 +278,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.darkness = this.add.image(0, 0, 'darkness').setScale(L.variant === 'dark' ? 3.4 : 4.2).setDepth(DEPTH.dark);
     }
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(W, H).setDepth(DEPTH.dark + 1).setAlpha(0.55);
+    // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
+    this.veil = this.add.rectangle(0, 0, W, H, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
 
     // Kamera
     const cam = this.cameras.main;
@@ -261,10 +306,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Aufbau
 
-  private addSolid(r: Rect, gnd: string, top: string) {
-    this.add.tileSprite(r.x, r.y, r.w, r.h, gnd).setOrigin(0).setDepth(DEPTH.terrain);
+  private addSolid(r: Rect, gnd: string, top: string, decals: string[] = []) {
+    // an der Welt ausgerichtet: Nachbarstücke gehen nahtlos ineinander über
+    const t = this.add.tileSprite(r.x, r.y, r.w, r.h, gnd).setOrigin(0).setDepth(DEPTH.terrain).setTilePosition(r.x, r.y);
+    this.cullAdd(t, r.x, r.x + r.w);
     if (r.y > 0) {
-      for (const [x0, x1] of this.exposedTop(r)) this.add.tileSprite(x0 - 4, r.y - 10, x1 - x0 + 8, 30, top).setOrigin(0).setDepth(DEPTH.terrain + 1);
+      for (const [x0, x1] of this.exposedTop(r)) {
+        const s = this.add.tileSprite(x0 - 4, r.y - 10, x1 - x0 + 8, 30, top).setOrigin(0).setDepth(DEPTH.terrain + 1).setTilePosition(x0 - 4, 0);
+        this.cullAdd(s, x0 - 4, x1 + 4);
+      }
+      // Steine, Risse, Bewuchs, Fossilien – damit der Boden nicht überall gleich aussieht
+      const bottom = Math.min(r.y + r.h, this.L.height) - 18;
+      if (decals.length && bottom - r.y > 50) {
+        for (let x = r.x + 20 + Math.random() * 60; x < r.x + r.w - 24; x += 70 + Math.random() * 170) {
+          const y = r.y + 26 + Math.random() * Math.min(260, bottom - r.y - 40);
+          const d = this.add.image(x, y, pick(Math.random, decals)).setDepth(DEPTH.terrain + 0.5)
+            .setAlpha(0.55 + Math.random() * 0.4).setScale(0.7 + Math.random() * 0.6).setFlipX(Math.random() < 0.5).setAngle((Math.random() - 0.5) * 30);
+          this.cullAdd(d, x - 50, x + 50);
+        }
+      }
     } else this.add.rectangle(r.x, r.y + r.h - 8, r.w, 8, 0x000000, 0.4).setOrigin(0).setDepth(DEPTH.terrain + 1);
     const rect = this.add.rectangle(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h).setVisible(false);
     this.solids.add(rect);
@@ -287,7 +347,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   private addPlatform(r: Rect, plat: string) {
-    this.add.tileSprite(r.x, r.y - 2, r.w, 22, plat).setOrigin(0).setDepth(DEPTH.terrain + 1);
+    const t = this.add.tileSprite(r.x, r.y - 2, r.w, 22, plat).setOrigin(0).setDepth(DEPTH.terrain + 1);
+    this.cullAdd(t, r.x, r.x + r.w);
     const rect = this.add.rectangle(r.x + r.w / 2, r.y + 8, r.w, 16).setVisible(false);
     this.solids.add(rect);
     const b = rect.body as Phaser.Physics.Arcade.StaticBody;
@@ -329,6 +390,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
             img.setDepth(DEPTH.cover).setAlpha(0.82);
             front.push(img);
           }
+          this.cullAdd(img, img.x - img.displayWidth / 2, img.x + img.displayWidth / 2);
           if (this.water) this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, yoyo: true, repeat: -1, duration: 2200 + ((bi * 131) % 900), ease: 'Sine.inOut' });
         }
       }
@@ -338,29 +400,217 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Höhlen: dunkle Rückwand, davor ein Schatten – drinnen sieht man nur noch die Augen. */
   private buildCaves() {
     this.L.caves.forEach((c, i) => {
-      this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
-      const sh = caveShade(this, c.w, c.h, TILE, i % 3, groundTextures(this, this.L.theme).gnd);
-      this.add.image(c.x + sh.ox, c.y + sh.oy, sh.key).setOrigin(0).setDepth(DEPTH.cover);
+      const back = this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
+      const gv = this.zoneAt(c.x + c.w / 2).def.ground;
+      const sh = caveShade(this, c.w, c.h, TILE, i % 3, groundTextures(this, this.L.theme, gv).gnd);
+      const shade = this.add.image(c.x + sh.ox, c.y + sh.oy, sh.key).setOrigin(0).setDepth(DEPTH.cover);
+      this.cullAdd(back, c.x - 60, c.x + c.w + 60);
+      this.cullAdd(shade, c.x - 80, c.x + c.w + 60);
     });
   }
 
-  /** Licht von oben: Lichtbahnen, Kaustik und ein heller Schein unter der Oberfläche. */
+  /**
+   * Licht von oben: Lichtbahnen, Kaustik und ein heller Schein unter der Oberfläche. Breite, Neigung,
+   * Helligkeit und Takt jeder Lichtbahn sind verschieden; am Grund liegen Lichtflecken. Im trüben bzw.
+   * tiefen Gebiet ist es dunkler.
+   */
   private surfaceLight() {
     const L = this.L;
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
-    this.add.tileSprite(0, L.surfaceY - 8, L.width, 352, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
+    this.surfGlow = this.add.tileSprite(0, L.surfaceY - 8, L.width, 352, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
       .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.42);
-    for (const [key, a, v] of [['caustics', 0.34, 9], ['caustics2', 0.26, -6]] as const) {
+    // zwei Lichtnetze in verschiedener Größe, die gegeneinander laufen – so wiederholt sich nichts sichtbar
+    for (const [key, a, v, sc] of [['caustics', 0.34, 9, 1], ['caustics2', 0.26, -6, 1.37]] as const) {
       const s = this.add.tileSprite(0, L.surfaceY - 4, L.width, 194, key).setOrigin(0).setDepth(DEPTH.decoBack - 1)
-        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a);
-      this.caustics.push({ s, v });
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc);
+      this.caustics.push({ s, v, a });
     }
-    for (let x = 120; x < L.width; x += 260 + ((x * 37) % 220)) {
+    let x = 60 + Math.random() * 120;
+    while (x < L.width) {
+      const light = this.zoneAt(x).def.light;
+      const base = (0.12 + Math.random() * 0.26) * light;
       const ray = this.add.image(x, L.surfaceY - 30, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack)
-        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(0.8 + ((x * 13) % 7) / 10, 1.1);
-      ray.setAngle(-14 + ((x * 7) % 9));
-      this.tweens.add({ targets: ray, angle: ray.angle + 5, alpha: 0.12, yoyo: true, repeat: -1, duration: 4200 + ((x * 31) % 2500), ease: 'Sine.inOut' });
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.45 + Math.random() * 1.25, 0.9 + Math.random() * 0.5);
+      ray.setAngle(-16 + Math.random() * 12);
+      this.tweens.add({ targets: ray, angle: ray.angle + 3 + Math.random() * 5, alpha: base * (0.35 + Math.random() * 0.3), yoyo: true, repeat: -1, duration: 3000 + Math.random() * 4500, ease: 'Sine.inOut', delay: Math.random() * 2000 });
+      this.cullAdd(ray, x - 260, x + 160);
+      // ein Lichtfleck am Grund unter der Bahn
+      if (Math.random() < 0.6) {
+        const gx = x - Math.tan((ray.angle * Math.PI) / 180) * 420;
+        const col = clamp(Math.floor(gx / TILE), 0, L.ground.length - 1);
+        const gy = L.ground[col];
+        if (gy < L.height) {
+          const spot = this.add.image(gx, gy - 6, 'glow').setDepth(DEPTH.decoBack + 1).setBlendMode(Phaser.BlendModes.ADD)
+            .setTint(0xbfe8e0).setScale(1 + Math.random() * 1.4, 0.3 + Math.random() * 0.12).setAlpha((0.07 + Math.random() * 0.1) * light);
+          this.tweens.add({ targets: spot, alpha: spot.alpha * 0.4, yoyo: true, repeat: -1, duration: 2500 + Math.random() * 3000, ease: 'Sine.inOut' });
+          this.cullAdd(spot, gx - 150, gx + 150);
+        }
+      }
+      x += 110 + Math.random() * 380;
     }
+  }
+
+  /** An Land: Sonnenstrahlen durch Blätterdach, Dunst oder Schneetreiben – je Gebiet anders hell. */
+  private landLight() {
+    const L = this.L;
+    const tint = L.theme === 'eis' ? 0xd0e4ff : L.theme === 'sumpf' ? 0xd8e8b0 : 0xffe0a0;
+    let x = 100 + Math.random() * 200;
+    while (x < L.width) {
+      const light = this.zoneAt(x).def.light;
+      const base = (0.05 + Math.random() * 0.12) * light;
+      const ray = this.add.image(x, -40, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack).setTint(tint)
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.6 + Math.random() * 1.4, 1.3 + Math.random() * 0.4);
+      ray.setAngle(-22 + Math.random() * 14);
+      this.tweens.add({ targets: ray, alpha: base * 0.4, yoyo: true, repeat: -1, duration: 4000 + Math.random() * 5000, ease: 'Sine.inOut', delay: Math.random() * 3000 });
+      this.cullAdd(ray, x - 400, x + 200);
+      x += 260 + Math.random() * 640;
+    }
+  }
+
+  // ---------------------------------------------------------------- Gebiete, Pflanzen, Sichtbarkeit
+
+  /** Das Gebiet an einer Stelle. */
+  zoneAt(x: number): Zone {
+    const z = this.L.zones;
+    return x < z[0].x1 ? z[0] : x < z[1].x1 ? z[1] : z[2];
+  }
+
+  /** Oberkante des Bodens bei x in der Nähe der Höhe y (Infinity, wenn dort keiner ist). */
+  private groundTop(x: number, y: number) {
+    let best = Infinity;
+    let bd = 50;
+    for (const list of [this.solidRects, this.platRects]) {
+      for (const r of list) {
+        if (x < r.x || x > r.x + r.w) continue;
+        const d = Math.abs(r.y - y);
+        if (d < bd) {
+          bd = d;
+          best = r.y;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** Einen Fuß der halben Breite hw auf festen Boden setzen – notfalls etwas zur Mitte rücken. */
+  private settle(x: number, y: number, hw: number): { x: number; y: number } | null {
+    const reach = Math.max(4, hw * 0.5);
+    for (const dx of [0, -6, 6, -12, 12, -20, 20, -30, 30, -44, 44]) {
+      const px = x + dx;
+      const top = this.groundTop(px, y);
+      if (!isFinite(top)) continue;
+      if (this.solidAt(px - reach, top + 4) && this.solidAt(px + reach, top + 4) && !this.solidAt(px, top - 6)) return { x: px, y: top };
+    }
+    return null;
+  }
+
+  private cullAdd(o: Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible, x0: number, x1: number) {
+    this.cullList.push({ o, x0, x1 });
+  }
+
+  /** Was weit außerhalb des Bildes liegt, wird nicht gezeichnet. */
+  private cullStep(time: number) {
+    if (time < this.cullAt) return;
+    this.cullAt = time + 150;
+    const v = this.cameras.main.worldView;
+    const a = v.x - 320, b = v.right + 320;
+    for (const c of this.cullList) {
+      const vis = c.x1 > a && c.x0 < b;
+      if (c.o.visible !== vis) c.o.setVisible(vis);
+    }
+  }
+
+  /**
+   * Deko und Bewuchs: jedes Stück etwas anders groß, gedreht, gefärbt; Pflanzen wachsen in Grüppchen
+   * und wiegen sich. Dahinter eine Schicht dunkler Pflanzen, davor vereinzelt Schattenrisse.
+   */
+  private buildDecor() {
+    const L = this.L;
+    const rnd = Math.random;
+    const tintOf = (f: number) => {
+      const c = Math.round(255 * f);
+      return (c << 16) | (c << 8) | c;
+    };
+    const put = (key: string, x: number, y: number, sc: number, depth: number, tint: number, alpha = 1, sink = 5) => {
+      const tx = this.textures.get(key);
+      const hw = ((tx.getSourceImage().width as number) * sc) / 2;
+      const at = this.settle(x, y - sink, hw);
+      if (!at) return null;
+      if (L.caves.some((c) => at.x > c.x - 10 && at.x < c.x + c.w + 10 && at.y > c.y - 4 && at.y <= c.y + c.h + 4)) return null;
+      const k = key.slice(3);
+      const img = this.add.image(at.x, at.y + sink, key).setOrigin(0.5, 1).setDepth(depth).setScale(sc).setTint(tint).setAlpha(alpha).setFlipX(rnd() < 0.5);
+      this.cullAdd(img, at.x - hw - 20, at.x + hw + 20);
+      if (SWAYS.has(k)) this.swayList.push({ o: img, amp: (this.water ? 3 : 1.6) + rnd() * (this.water ? 4 : 2), sp: 0.5 + rnd() * 0.9, ph: rnd() * 6 });
+      return img;
+    };
+    for (const d of L.decor) {
+      const key = 'd2_' + d.k;
+      if (!this.textures.exists(key)) continue;
+      if (d.hang) {
+        const img = this.add.image(d.x, d.y, key).setOrigin(0.5, 0).setDepth(DEPTH.decoBack).setScale(0.8 + rnd() * 0.5);
+        this.cullAdd(img, d.x - 40, d.x + 40);
+        continue;
+      }
+      const plant = SWAYS.has(d.k) || d.k === 'coral' || d.k === 'sponge' || d.k === 'cycad' || d.k === 'bush' || d.k === 'mushroom';
+      const sc = plant ? 0.75 + rnd() * 0.6 : 0.8 + rnd() * 0.45;
+      put(key, d.x, d.y, sc, DEPTH.decoBack, tintOf(0.78 + rnd() * 0.22));
+      // Pflanzen wachsen selten allein
+      if (plant && rnd() < 0.55) {
+        for (let i = 0, n = 1 + Math.floor(rnd() * 2); i < n; i++) {
+          put(key, d.x + (rnd() < 0.5 ? -1 : 1) * (10 + rnd() * 16), d.y, sc * (0.55 + rnd() * 0.3), DEPTH.decoBack, tintOf(0.7 + rnd() * 0.25));
+        }
+      }
+    }
+    // Hintergrund: dunkle, größere Pflanzen hinter allem
+    const sil = SILHOUETTE[L.theme].map((k) => 'd2_' + k).filter((k) => this.textures.exists(k));
+    const backTint = this.water ? 0x1e3a36 : L.theme === 'eis' ? 0x3a4652 : 0x1c2414;
+    const foreTint = this.water ? 0x040a09 : 0x040503;
+    if (sil.length) {
+      for (let x = 30 + rnd() * 80; x < L.width; x += 60 + rnd() * 130) {
+        const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
+        if (L.ground[col] >= L.height) continue;
+        put(pick(rnd, sil), x, L.ground[col], 1.2 + rnd() * 1.1, DEPTH.decoBack - 4, backTint, 0.75);
+      }
+      // Vordergrund: vereinzelt niedrige Schattenrisse vor dem Geschehen
+      const low = sil.filter((k) => !k.includes('kelp') && !k.includes('deadtree') && !k.includes('reed') && !k.includes('horsetail'));
+      for (let x = 200 + rnd() * 300; x < L.width && low.length; x += 380 + rnd() * 520) {
+        const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
+        if (L.ground[col] >= L.height) continue;
+        put(pick(rnd, low), x, L.ground[col], 1.5 + rnd() * 0.8, DEPTH.decoFront, foreTint, 0.88, -14);
+      }
+    }
+  }
+
+  /** Gebiet: Schleier, Nebel und Licht gehen beim Durchschwimmen fließend ineinander über. */
+  private zoneFx(time: number) {
+    const L = this.L;
+    const [zl, zc, zr] = L.zones;
+    const cx = this.cameras.main.scrollX + W / 2;
+    const T = 450;
+    const wl = clamp((zl.x1 + T - cx) / (2 * T), 0, 1);
+    const wr = clamp((cx - (zr.x0 - T)) / (2 * T), 0, 1);
+    const wc = Math.max(0, 1 - wl - wr);
+    const mixv = (k: 'fog' | 'light') => zl.def[k] * wl + zc.def[k] * wc + zr.def[k] * wr;
+    if (wl >= wr) this.veil.setFillStyle(zl.def.veil, zl.def.veilA * wl);
+    else this.veil.setFillStyle(zr.def.veil, zr.def.veilA * wr);
+    this.fog.setAlpha(Math.min(0.85, 0.35 * mixv('fog')));
+    this.zoneLight = mixv('light');
+    this.murk = zl.def.veilA * wl;
+    this.surfGlow?.setAlpha(0.42 * this.zoneLight);
+    for (const c of this.caustics) c.s.setAlpha(c.a * this.zoneLight);
+    // Gebietswechsel melden (mit etwas Abstand zur Grenze, damit es nicht flackert)
+    const px = this.player.x;
+    const idx = px < zl.x1 - 120 ? 0 : px > zr.x0 + 120 ? 2 : px > zl.x1 + 120 && px < zr.x0 - 120 ? 1 : this.zoneIdx;
+    if (idx !== this.zoneIdx) {
+      this.zoneIdx = idx;
+      const z = L.zones[idx].def;
+      bus.emit('zone', z.name);
+      const tail = idx === 0 ? (this.water ? 'trübes Wasser, viel Grün, wenige Jäger.' : 'viel Grün, wenige Jäger.') : idx === 2 ? 'hier jagen die Großen.' : '';
+      bus.emit('story', tail ? `${z.name} – ${tail}` : z.name);
+    }
+    // Pflanzen wiegen sich (nur die sichtbaren)
+    const t = time / 1000;
+    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
   }
 
   /** Eine kleine Gruppe deiner eigenen Art – fast gleich, aber nicht ganz. */
@@ -381,7 +631,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const x = clamp(s.x + side * (46 + Math.floor(i / 2) * 40), 60, this.L.width - 60);
       const y = this.water ? s.y + ((i % 3) - 1) * 34 : s.y;
       const social = game.run?.social ?? 0.55;
-      const k = new Kin(this, this.kinDef, x, y, game.kinMorph(i), i, social + (Math.random() - 0.5) * 0.12);
+      const genes = game.kinTraits(i);
+      const k = new Kin(this, this.kinDef, x, y, game.morph({ traits: genes.traits, fierce: 0, seed: genes.seed, sex: genes.sex }), i, social + (Math.random() - 0.5) * 0.12);
+      k.genes = genes;
       k.omni = d >= -0.3 && d <= 0.3;
       k.dir = -side;
       this.animals.push(k);
@@ -497,6 +749,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else if (p.grounded) k *= 0.75 - 0.4 * t.sand;
     k *= 0.55 + 0.6 * Math.min(1, p.speed01);
     if (this.L.variant !== 'normal') k *= 0.7;
+    // im trüben Wasser bzw. Dunst sieht man schlechter
+    k *= 1 - 0.9 * this.murk;
     if (this.stormK > 0) k *= 1 - 0.45 * this.stormK;
     if (!a.alerted && Math.sign(p.x - a.x) !== a.dir) k *= 0.6;
     return k;
@@ -626,6 +880,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const c of this.carcasses) {
       if (c.gone || c.units <= 0 || !overlaps(rect, c.rect)) continue;
       if (p.eat(24 * st.digestMeat)) {
+        this.ate('meat', 24 * st.digestMeat);
         c.take();
         c.playerBites++;
         game.grow('jaw', 0.012);
@@ -645,6 +900,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const pl of this.plants) {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       if (p.eat(15 * st.digestPlant)) {
+        this.ate('plant', 15 * st.digestPlant);
         pl.take(this.time.now);
         if (pl.units <= 0) for (const w of pl.wanted) if (w instanceof Kin) w.snub(0.07);
         game.grow('stealth', 0.012);
@@ -654,6 +910,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
       return;
     }
+  }
+
+  /** Mitzählen, was gefressen wurde (für das Kalorienziel und die Wahl des Nachwuchses). */
+  private ate(kind: 'meat' | 'plant', units: number) {
+    if (kind === 'meat') this.eatenMeat += units;
+    else this.eatenPlant += units;
+    game.addEaten(kind, units);
+  }
+
+  /** Kalorien (für die Anzeige) */
+  kcal(units: number) {
+    return kcalOf(units, game.cls, this.player.stats.size);
   }
 
   /**
@@ -727,6 +995,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
     this.darkness?.setPosition(p.x, p.y);
     this.eyeGlints();
+    this.zoneFx(time);
+    this.cullStep(time);
 
     if (!p.dead && !this.ended) {
       this.elapsed += dt;
@@ -849,13 +1119,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     makeSpeciesTextures(this, def);
     const L = this.L;
     const p = this.player;
-    const fromLeft = p.x > L.width / 2;
+    // Sie tauchen außerhalb des Bildes neben dir auf und ziehen an dir vorbei (der Lebensraum ist groß)
+    let fromLeft = Math.random() < 0.5;
+    if (p.x < 1100) fromLeft = false;
+    if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
+    const sx = clamp(p.x - dir * 1000, 50, L.width - 50);
+    const endX = clamp(p.x + dir * 1600, 40, L.width - 40);
     audio.sfx('rumble');
     for (let i = 0; i < count; i++) {
       this.time.delayedCall(i * 900, () => {
         if (this.ended) return;
-        const x = fromLeft ? 50 + i * 20 : L.width - 50 - i * 20;
+        const x = clamp(sx - dir * i * 20, 50, L.width - 50);
         const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
         const ground = L.ground[col] < L.height ? L.ground[col] : L.start.y + 60;
         let y: number;
@@ -872,7 +1147,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         }
         const a = new Animal(this, def, x, y);
         this.groundIt(a);
-        a.visitor = { dir, endX: fromLeft ? L.width - 40 : 40, cruiseY, huntUntil: 0, boredUntil: 0 };
+        a.visitor = { dir, endX, cruiseY, huntUntil: 0, boredUntil: 0 };
         a.dir = dir;
         a.setAlpha(0);
         this.tweens.add({ targets: a, alpha: 1, duration: 900 });
@@ -889,10 +1164,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (resident >= this.faunaCount) return;
     const pool = this.ep.fauna.map(([id]) => id).filter((id) => SPECIES[id].role !== 'hazard');
     if (!pool.length) return;
-    const id = pick(Math.random, pool);
-    const def = SPECIES[id];
     const L = this.L;
-    const x = this.player.x > L.width / 2 ? 70 : L.width - 70;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const x = clamp(this.player.x + side * (1000 + Math.random() * 400), 70, L.width - 70);
+    // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
+    const z = this.zoneAt(x).def;
+    const weight = (id: string) => {
+      const r = SPECIES[id].role;
+      return r === 'predator' || r === 'apex' ? z.hunters : r === 'prey' ? z.prey : 1;
+    };
+    let roll = Math.random() * pool.reduce((sum, id) => sum + weight(id), 0);
+    const id = pool.find((pid) => (roll -= weight(pid)) <= 0) ?? pool[0];
+    const def = SPECIES[id];
     const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
     const ground = L.ground[col];
     const y = this.water ? (def.crawl ? ground - 24 : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40)) : def.habitat === 'air' ? ground - 150 : ground - 50;
@@ -1081,6 +1364,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / FULL, p.hidden);
+      bus.emit('food', this.kcal(this.eatenMeat), this.kcal(this.eatenPlant), this.kcal(this.needUnits));
+      // rechtzeitig warnen, wenn es für Nachwuchs nicht reichen wird
+      const prog = this.elapsed / this.ep.seconds;
+      if (!this.foodWarned && prog > 0.6 && this.eatenMeat + this.eatenPlant < this.needUnits * prog * 0.75) {
+        this.foodWarned = true;
+        bus.emit('story', 'Du hast noch zu wenig gefressen – ohne genug Nahrung gibt es keinen Nachwuchs.');
+      }
     }
   }
 
@@ -1089,9 +1379,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Die Zeit ist um, und du lebst noch. */
   private complete() {
     if (this.ended) return;
+    if (this.eatenMeat + this.eatenPlant < this.needUnits) {
+      // zu wenig gefressen: keine Kraft für Nachwuchs – die Linie endet
+      this.endLine('Zu wenig gefressen – keine Kraft für Nachwuchs', 600);
+      return;
+    }
     this.ended = true;
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
+    // Wer überlebt hat, kann die Linie weiterführen – du und deine Artgenossen
+    const survivors = [
+      { traits: { ...game.traits }, sex: run.sex, seed: run.seed, you: true },
+      ...kin.filter((k) => k.genes).slice(0, 5).map((k) => ({ ...k.genes!, you: false })),
+    ];
+    const offspring = game.offspring(survivors, { meat: this.eatenMeat, plant: this.eatenPlant });
     const data: SurvivedData = {
       epoch: this.epochIdx,
       before: game.startTraits(),
@@ -1103,7 +1404,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       node: '',
     };
     const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
-    const res = game.surviveEpoch(kin.length, social);
+    const eaten = { meat: this.kcal(this.eatenMeat), plant: this.kcal(this.eatenPlant), need: this.kcal(this.needUnits) };
+    const res = game.surviveEpoch(kin.length, social, offspring[0]);
+    data.offspring = res.finished ? undefined : offspring;
+    data.eaten = eaten;
     data.transition = res.transition;
     if (res.drift && !res.finished) data.drifted = res.drift.after;
     data.finished = res.finished;

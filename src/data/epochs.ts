@@ -57,6 +57,43 @@ export interface EpochDef {
   events: EventDef[];
 }
 
+/**
+ * Ein Gebiet im Lebensraum. Jedes Zeitalter hat links und rechts vom Startgebiet noch ein eigenes:
+ * links flacher, trüber, reich an Pflanzen und ruhiger – rechts tiefer, dunkler und voller Jäger.
+ * Wo man seine Zeit verbringt, entscheidet man selbst.
+ */
+export interface ZoneDef {
+  name: string;
+  /** Farbe und Stärke des Schleiers über dem Bild (Trübung, Dunst, Dunkelheit) */
+  veil: number;
+  veilA: number;
+  /** Nebel (Faktor) und Licht von oben (Faktor) */
+  fog: number;
+  light: number;
+  /** Häufigkeit von Pflanzen, Dickicht, Beutetieren und Jägern (Faktor) */
+  plants: number;
+  cover: number;
+  prey: number;
+  hunters: number;
+  /** Bodenvariante */
+  ground: number;
+}
+
+const zone = (name: string, veil: number, veilA: number, fog: number, light: number, plants: number, cover: number, prey: number, hunters: number, ground: number): ZoneDef =>
+  ({ name, veil, veilA, fog, light, plants, cover, prey, hunters, ground });
+
+/** Linkes und rechtes Gebiet je Lebensraum. */
+export const SIDE_ZONES: Record<Theme, [ZoneDef, ZoneDef]> = {
+  ozean: [zone('Trübe Bucht', 0x2e3a1c, 0.34, 1.9, 0.55, 1.6, 1.4, 1.3, 0.45, 1), zone('Tiefe Kante', 0x061424, 0.4, 0.6, 0.65, 0.5, 0.6, 0.9, 1.8, 2)],
+  sumpf: [zone('Moorwasser', 0x22301a, 0.28, 1.8, 0.7, 1.5, 1.4, 1.2, 0.5, 1), zone('Altwald', 0x0c140c, 0.36, 0.8, 0.6, 0.7, 1.1, 0.9, 1.7, 2)],
+  reptil: [zone('Farnebene', 0x3a3a18, 0.16, 1.4, 1.1, 1.6, 1.3, 1.3, 0.5, 1), zone('Glutfelder', 0x3a0c04, 0.3, 0.9, 0.8, 0.5, 0.6, 0.8, 1.8, 2)],
+  eis: [zone('Windstille Senke', 0x2a3440, 0.14, 1.5, 1, 1.5, 1.3, 1.3, 0.55, 1), zone('Gletscherrand', 0x0c1a2c, 0.32, 0.8, 0.7, 0.5, 0.7, 0.8, 1.8, 2)],
+  eden: [zone('Blumenwiese', 0x3a3418, 0.12, 1.2, 1.15, 1.6, 1.2, 1.4, 0.45, 1), zone('Dunkler Forst', 0x0a1208, 0.36, 1, 0.6, 0.8, 1.3, 0.9, 1.8, 2)],
+};
+
+/** Das Startgebiet: so, wie das Zeitalter beschrieben ist. */
+export const centerZone = (ep: EpochDef): ZoneDef => zone(ep.place, 0, 0, 1, 1, 1, 1, 1, 1, 0);
+
 const M = 1e6;
 
 export const EPOCHS: EpochDef[] = [
