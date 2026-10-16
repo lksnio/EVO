@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Theme } from '../data/eras';
+import type { Theme } from '../data/epochs';
 import type { SpeciesDef } from '../data/species';
 import { foodKey } from '../art/worldArt';
 import { speciesKey } from '../art/speciesArt';
@@ -37,12 +37,20 @@ export class Plant {
     return true;
   }
 
-  update(now: number) {
+  update(now: number, fast = false) {
     if (this.units < this.max && now > this.regrowAt) {
       this.units++;
-      this.regrowAt = now + 22000;
+      this.regrowAt = now + (fast ? 2500 : 22000);
       this.img.setTexture(foodKey(this.theme, this.stage));
     }
+  }
+
+  /** Alles wächst auf einmal nach (Blütezeit). */
+  refill() {
+    if (this.units >= this.max) return;
+    this.units = this.max;
+    this.img.setTexture(foodKey(this.theme, this.stage));
+    this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.6, to: 1 }, duration: 600, ease: 'Back.out' });
   }
 }
 
@@ -55,7 +63,17 @@ export class Carcass {
   private bornAt: number;
   gone = false;
 
-  constructor(private scene: Phaser.Scene, public x: number, public y: number, public def: SpeciesDef, water: boolean, now: number, dir: number) {
+  constructor(
+    private scene: Phaser.Scene,
+    public x: number,
+    public y: number,
+    public def: SpeciesDef,
+    water: boolean,
+    now: number,
+    dir: number,
+    /** vom Spieler erlegt – wer davon mitfrisst, fasst Vertrauen */
+    public byPlayer = false,
+  ) {
     this.units = Math.max(1, def.meat);
     this.max = this.units;
     this.bornAt = now;

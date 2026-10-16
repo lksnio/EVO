@@ -1,23 +1,27 @@
 import Phaser from 'phaser';
-import { CLASSES, classIndex, type ClassId } from '../data/classes';
-import { ERAS, eraById, eraIndex, neighbors, type EraDef, type EraId } from '../data/eras';
-import { DEBUG } from '../config';
+import { CLASSES, type ClassId } from '../data/classes';
+import { EPOCHS, type EpochDef } from '../data/epochs';
 import type { Morph } from '../art/creatureArt';
-import { clamp } from '../util/math';
+import { clamp, mulberry32 } from '../util/math';
 
 // ---------------------------------------------------------------------------
-// Das verborgene Anpassungssystem.
+// Spielstand.
 //
-// Der Spieler wählt nichts aus. Was er TUT, verändert sein Tier – Stück für Stück:
+// Ein "Lauf" ist ein Spiel: eine Linie, die vom Urfisch an durch die Zeitalter
+// zieht. Stirbt das Tier, ist der Lauf vorbei – die Linie stirbt aus.
+//
+// Das verborgene Anpassungssystem (der Spieler sieht keine Werte):
 //   jaw     – wächst durch Beißen und Fleischfressen (stärkeres Gebiss)
 //   skull   – wächst durch Rammen mit hohem Tempo (dickerer Schädel)
 //   stealth – wächst durch Pflanzenfressen, Ausweichen und Verstecken
-//             (kleiner, schneller, besser getarnt)
 //   growth  – wächst mit allem, was gefressen wird (Körpergröße)
-//   diet    – -1 Pflanzenfresser … +1 Fleischfresser (verdaut die eine Kost besser)
+//   diet    – -1 Pflanzenfresser … +1 Fleischfresser
 //   scars   – Narben überlebter Kämpfe
 // Dazu kommt der Ruf: Wer oft angreift, vor dem haben andere Tiere Angst.
-// Nichts davon wird angezeigt – man sieht es nur am Tier und am Verhalten der anderen.
+//
+// Außerhalb des Spiels wächst der Stammbaum: Jeder Lauf ist ein Pfad von der
+// Wurzel nach unten (= in der Zeit nach vorne). Linien, die sich gleichen,
+// teilen sich einen Ast; wo sie sich unterscheiden, verzweigt er sich.
 // ---------------------------------------------------------------------------
 
 export interface Traits {
@@ -49,79 +53,127 @@ export interface Stats {
   digestPlant: number;
 }
 
-/** Ein Vorfahre: so sah das Tier aus, als es einen Ort überlebt hatte. */
+/** 1 = männlich, 2 = weiblich */
+export type Sex = 1 | 2;
+
+/** Ein Vorfahre: so sah das Tier aus, als es ein Zeitalter überlebt hatte. */
 export interface Ancestor {
   cls: ClassId;
   traits: Traits;
-  era: EraId;
+  epoch: number;
 }
 
-export interface SaveData {
-  v: 2;
+export interface Run {
+  id: number;
   cls: ClassId;
   traits: Traits;
-  /** kurzfristige Angriffslust */
   aggression: number;
-  /** Ruf, der über Generationen bleibt */
   infamy: number;
   hue: number;
   seed: number;
-  completed: string[];
-  eras: string[];
-  reached: string[];
-  mapPos: Record<string, string>;
-  muted: boolean;
-  seenIntro: boolean;
-  finished: boolean;
-  deaths: number;
-  generations: number;
-  /** Die Ahnenreihe (nur das Aussehen, keine Werte). */
+  sex: Sex;
+  /** Zeitalter, das gerade (bzw. als Nächstes) gelebt wird */
+  epoch: number;
+  /** Knoten im Stammbaum: zuletzt überlebtes Zeitalter (oder die Wurzel) */
+  node: string;
+  /** Artgenossen zu Beginn des Zeitalters */
+  kin: number;
   history: Ancestor[];
 }
 
-const KEY = 'evo-save-v2';
+export interface TreeNode {
+  id: string;
+  parent: string | null;
+  /** -1 = Urahn, sonst das überlebte (bzw. beim Aussterben: das laufende) Zeitalter */
+  epoch: number;
+  cls: ClassId;
+  traits: Traits;
+  hue: number;
+  seed: number;
+  sig: string;
+  children: string[];
+  /** Wie viele Linien hier durchkamen */
+  runs: number;
+  /** Ende einer Linie: hier ausgestorben (frac = wie weit ins Zeitalter) */
+  dead?: { frac: number; cause: string; run: number };
+  /** Wie viele Linien von hier bis heute überlebten */
+  present?: number;
+  /** zuletzt von diesem Lauf berührt */
+  last: number;
+}
+
+export interface SaveData {
+  v: 3;
+  muted: boolean;
+  seenIntro: boolean;
+  runs: number;
+  nextId: number;
+  nodes: Record<string, TreeNode>;
+  run: Run | null;
+  /** Ende des zuletzt beendeten Laufs (wird im Stammbaum hervorgehoben) */
+  lastEnd: string | null;
+  /** tiefstes je erreichte Zeitalter – was darunter liegt, bleibt ein Fragezeichen */
+  deepest: number;
+}
+
+const KEY = 'evo-save-v3';
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0 };
 
 function fresh(): SaveData {
   return {
-    v: 2,
-    cls: 'fish',
-    traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0 },
-    aggression: 0,
-    infamy: 0,
-    hue: Math.floor(Math.random() * 4),
-    seed: Math.floor(Math.random() * 100000),
-    completed: [],
-    eras: [],
-    reached: ['ozean'],
-    mapPos: {},
+    v: 3,
     muted: false,
     seenIntro: false,
-    finished: false,
-    deaths: 0,
-    generations: 1,
-    history: [],
+    runs: 0,
+    nextId: 1,
+    nodes: {
+      root: { id: 'root', parent: null, epoch: -1, cls: 'fish', traits: { ...ZERO }, hue: 0, seed: 1, sig: 'root', children: [], runs: 0, last: 0 },
+    },
+    run: null,
+    lastEnd: null,
+    deepest: -1,
   };
 }
 
-/** Ereignisse zwischen den Szenen (HUD, Level, Karte …). */
-export const bus = new Phaser.Events.EventEmitter();
-
-interface Snapshot {
-  traits: Traits;
-  aggression: number;
-  infamy: number;
+/** Grobe Einordnung einer Linie – gleiche Signatur im selben Zeitalter = derselbe Ast. */
+export function sigOf(cls: ClassId, t: Traits) {
+  const top = Math.max(t.jaw, t.skull, t.stealth);
+  const dom = top < 0.15 ? 'basal' : t.jaw === top ? 'jaw' : t.skull === top ? 'skull' : 'stealth';
+  const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
+  return `${cls}:${dom}:${diet}`;
 }
 
-export interface CompleteResult {
-  first: boolean;
-  /** Zeitalter abgeschlossen → Übergang zur nächsten Form */
-  transition?: { from: ClassId; to: ClassId; era: EraId };
+const GENUS_ROOT: Record<ClassId, string> = { fish: 'ichthys', amphibian: 'batrachus', reptile: 'saurus', mammal: 'therium' };
+const GENUS_PRE: Record<string, string> = { basal: 'Prot', jaw: 'Odont', skull: 'Cerat', stealth: 'Crypt' };
+const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris', carn: 'carnivorus' };
+
+/** Ein wissenschaftlich klingender Name für eine Linie (nur im Stammbaum zu sehen). */
+export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'>) {
+  if (n.epoch < 0) return 'Der Urahn';
+  const [, dom, diet] = sigOf(n.cls, n.traits).split(':');
+  const root = GENUS_ROOT[n.cls];
+  const genus = GENUS_PRE[dom] + (/^[aeiou]/.test(root) ? '' : 'o') + root;
+  return `${genus} ${EPITHET[diet]}`;
+}
+
+/** Ereignisse zwischen den Szenen (HUD, Level …). */
+export const bus = new Phaser.Events.EventEmitter();
+
+export interface SurviveResult {
+  epoch: EpochDef;
+  next?: EpochDef;
+  /** Die Nachkommen nehmen eine neue Form an */
+  transition?: { from: ClassId; to: ClassId };
+  /** bis in die Gegenwart überlebt */
   finished?: boolean;
+  node: string;
 }
 
 class GameState {
   data: SaveData = fresh();
-  private snap: Snapshot | null = null;
+  private snap: { traits: Traits; aggression: number; infamy: number } | null = null;
+  /** Das gerade beendete Leben – damit Anzeigen bis zum Szenenwechsel weiterlaufen können. */
+  private ghost: Run | null = null;
 
   load() {
     try {
@@ -129,7 +181,7 @@ class GameState {
       if (raw) {
         const d = JSON.parse(raw) as Partial<SaveData>;
         const f = fresh();
-        this.data = { ...f, ...d, traits: { ...f.traits, ...d.traits } } as SaveData;
+        this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
       }
     } catch {
       this.data = fresh();
@@ -144,28 +196,79 @@ class GameState {
     }
   }
 
-  hasProgress() {
-    return this.data.completed.length > 0 || this.data.deaths > 0;
-  }
-
-  reset() {
+  /** Alles löschen, auch den Stammbaum. */
+  resetAll() {
     const muted = this.data.muted;
     this.data = fresh();
     this.data.muted = muted;
     this.save();
   }
 
+  // ---------------------------------------------------------------- Lauf
+
+  get run() {
+    return this.data.run;
+  }
+
+  hasRun() {
+    return !!this.data.run;
+  }
+
+  /**
+   * Der laufende Lauf. Nach dem Aussterben bleibt das letzte Leben noch kurz greifbar
+   * (die Welt läuft bis zur Überblendung weiter); ganz ohne Lauf wird einer begonnen.
+   */
+  private get r(): Run {
+    return this.data.run ?? this.ghost ?? this.newRun();
+  }
+
   get cls() {
-    return this.data.cls;
+    return this.r.cls;
   }
 
   get traits() {
-    return this.data.traits;
+    return this.r.traits;
+  }
+
+  get epoch(): EpochDef {
+    return EPOCHS[Math.min(EPOCHS.length - 1, this.r.epoch)];
+  }
+
+  get epochIndex() {
+    return this.r.epoch;
+  }
+
+  /** Ein neues Leben beginnt – als kleiner Urfisch an der Wurzel des Stammbaums. */
+  newRun(): Run {
+    const d = this.data;
+    d.runs += 1;
+    const run: Run = {
+      id: d.runs,
+      cls: 'fish',
+      traits: { ...ZERO },
+      aggression: 0,
+      infamy: 0,
+      hue: Math.floor(Math.random() * 4),
+      seed: Math.floor(Math.random() * 100000),
+      sex: Math.random() < 0.5 ? 1 : 2,
+      epoch: 0,
+      node: 'root',
+      kin: 4,
+      history: [],
+    };
+    d.run = run;
+    this.ghost = null;
+    const root = d.nodes.root;
+    root.runs += 1;
+    root.last = run.id;
+    this.snap = null;
+    this.save();
+    return run;
   }
 
   // ---------------------------------------------------------------- Werte
 
-  stats(cls: ClassId = this.data.cls, t: Traits = this.data.traits): Stats {
+  stats(cls: ClassId = this.r.cls, t: Traits = this.r.traits): Stats {
     const b = CLASSES[cls].base;
     const size = clamp(0.85 + 0.5 * t.growth - 0.28 * t.stealth, 0.68, 1.45);
     const carn = Math.max(0, t.diet), herb = Math.max(0, -t.diet);
@@ -188,9 +291,10 @@ class GameState {
   }
 
   /** Das Aussehen zu einer Form und ihren Merkmalen. */
-  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number } = {}): Morph {
-    const cls = o.cls ?? this.data.cls;
-    const t = o.traits ?? this.data.traits;
+  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number } = {}): Morph {
+    const run = this.data.run;
+    const cls = o.cls ?? run?.cls ?? 'fish';
+    const t = o.traits ?? run?.traits ?? ZERO;
     return {
       cls,
       size: this.stats(cls, t).size,
@@ -200,15 +304,35 @@ class GameState {
       diet: t.diet,
       scars: t.scars,
       belly: o.belly ?? 1,
-      fierce: o.fierce ?? this.fear(),
-      hue: this.data.hue,
-      seed: this.data.seed,
+      fierce: o.fierce ?? (run ? this.fear() : 0),
+      hue: o.hue ?? run?.hue ?? 0,
+      seed: o.seed ?? run?.seed ?? 1,
+      sex: o.sex ?? run?.sex ?? 0,
     };
+  }
+
+  /** Ein Artgenosse: fast wie du – nur kleine Abweichungen, Männchen oder Weibchen. */
+  kinMorph(i: number, belly = 1): Morph {
+    const run = this.r;
+    const rnd = mulberry32(run.seed * 31 + run.epoch * 977 + i * 101);
+    const j = (v: number, a: number) => clamp(v + (rnd() - 0.5) * 2 * a, 0, 1);
+    const t = run.traits;
+    const sex: Sex = (i + run.id) % 2 ? 1 : 2;
+    const traits: Traits = {
+      jaw: j(t.jaw, 0.07),
+      skull: j(t.skull, 0.07),
+      stealth: j(t.stealth, 0.07),
+      growth: j(t.growth + (sex === 1 ? 0.06 : -0.06), 0.06),
+      diet: t.diet,
+      scars: rnd() < 0.3 ? 1 : 0,
+    };
+    return this.morph({ traits, belly, fierce: 0, seed: run.seed + 1000 + i * 17, sex });
   }
 
   /** Wie gefährlich andere Tiere dich einschätzen. */
   fear() {
-    return clamp(this.data.aggression * 0.7 + this.data.infamy * 0.6, 0, 1);
+    const r = this.data.run;
+    return r ? clamp(r.aggression * 0.7 + r.infamy * 0.6, 0, 1) : 0;
   }
 
   threat() {
@@ -219,123 +343,138 @@ class GameState {
 
   /** Ein Merkmal wächst ein kleines Stück – je weiter entwickelt, desto langsamer. */
   grow(k: TraitKey, amount: number) {
-    const t = this.data.traits;
+    const t = this.r.traits;
     t[k] = Math.min(1, t[k] + amount * Math.pow(1 - t[k], 1.3));
   }
 
   shiftDiet(amount: number) {
-    const t = this.data.traits;
+    const t = this.r.traits;
     t.diet = clamp(t.diet + amount, -1, 1);
   }
 
   addScar() {
-    this.data.traits.scars = Math.min(6, this.data.traits.scars + 1);
+    this.r.traits.scars = Math.min(6, this.r.traits.scars + 1);
   }
 
   addAggression(a: number) {
-    this.data.aggression = clamp(this.data.aggression + a, 0, 1);
-    this.data.infamy = clamp(this.data.infamy + a * 0.22, 0, 1);
+    const r = this.r;
+    r.aggression = clamp(r.aggression + a, 0, 1);
+    r.infamy = clamp(r.infamy + a * 0.22, 0, 1);
   }
 
   /** Friedliche Zeit lässt die Angriffslust abklingen. */
   calm(dt: number) {
-    this.data.aggression = Math.max(0, this.data.aggression - 0.006 * dt);
+    const r = this.r;
+    r.aggression = Math.max(0, r.aggression - 0.006 * dt);
   }
 
-  /** Zustand zu Beginn eines Levels merken (Tod/Abbruch setzt darauf zurück). */
-  beginJourney() {
-    this.snap = {
-      traits: { ...this.data.traits },
-      aggression: this.data.aggression,
-      infamy: this.data.infamy,
-    };
+  /** Zu Beginn eines Zeitalters: Stand merken (für "einst/heute") und speichern. */
+  beginEpoch() {
+    const r = this.r;
+    this.snap = { traits: { ...r.traits }, aggression: r.aggression, infamy: r.infamy };
+    this.save();
   }
 
   startTraits(): Traits {
-    return this.snap ? { ...this.snap.traits } : { ...this.data.traits };
+    return this.snap ? { ...this.snap.traits } : { ...this.r.traits };
   }
 
-  revertJourney() {
-    if (!this.snap) return;
-    this.data.traits = { ...this.snap.traits };
-    this.data.aggression = this.snap.aggression;
-    this.data.infamy = this.snap.infamy;
-  }
+  // ---------------------------------------------------------------- Stammbaum
 
-  // ---------------------------------------------------------------- Fortschritt
-
-  eraReached(era: EraDef) {
-    return this.data.reached.includes(era.id) || DEBUG;
-  }
-
-  /** Kann die aktuelle Form dieses Zeitalter bereisen? */
-  eraPlayable(era: EraDef) {
-    if (!this.eraReached(era)) return false;
-    const c = CLASSES[this.data.cls];
-    if (c.habitat !== era.habitat) return false;
-    return classIndex(this.data.cls) >= classIndex(era.cls);
-  }
-
-  isCompleted(nodeId: string) {
-    return this.data.completed.includes(nodeId);
-  }
-
-  nodeOpen(era: EraDef, nodeId: string) {
-    const n = era.nodes.find((x) => x.id === nodeId);
-    if (!n) return false;
-    if (n.start || this.isCompleted(nodeId) || DEBUG) return true;
-    return neighbors(era, nodeId).some((id) => this.isCompleted(id));
-  }
-
-  eraProgress(era: EraDef) {
-    return era.nodes.filter((n) => this.isCompleted(n.id)).length;
-  }
-
-  completeNode(eraId: EraId, nodeId: string): CompleteResult {
-    const first = !this.isCompleted(nodeId);
-    if (first) this.data.completed.push(nodeId);
-    const era = eraById(eraId);
-    const node = era.nodes.find((n) => n.id === nodeId);
-    const res: CompleteResult = { first };
-    this.data.history.push({ cls: this.data.cls, traits: { ...this.data.traits }, era: eraId });
-    if (this.data.history.length > 24) this.data.history.splice(1, 1);
-    if (node?.boss && !this.data.eras.includes(eraId)) {
-      this.data.eras.push(eraId);
-      const next = ERAS[eraIndex(eraId) + 1];
-      if (next) {
-        if (!this.data.reached.includes(next.id)) this.data.reached.push(next.id);
-        if (next.cls !== this.data.cls) {
-          res.transition = { from: this.data.cls, to: next.cls, era: next.id };
-          this.data.cls = next.cls;
+  private node(parent: TreeNode, epoch: number, cls: ClassId, traits: Traits, runId: number, merge: boolean): TreeNode {
+    const sig = sigOf(cls, traits);
+    if (merge) {
+      for (const cid of parent.children) {
+        const c = this.data.nodes[cid];
+        if (c && !c.dead && c.epoch === epoch && c.sig === sig) {
+          c.runs += 1;
+          c.last = runId;
+          return c;
         }
-      } else {
-        this.data.finished = true;
-        res.finished = true;
       }
     }
-    this.data.generations += 1;
-    // Der Ruf verblasst über die Generationen etwas
-    this.data.aggression *= 0.5;
-    this.data.infamy *= 0.8;
+    const run = this.r;
+    const n: TreeNode = {
+      id: 'n' + this.data.nextId++,
+      parent: parent.id,
+      epoch,
+      cls,
+      traits: { ...traits },
+      hue: run.hue,
+      seed: run.seed,
+      sig,
+      children: [],
+      runs: 1,
+      last: runId,
+    };
+    this.data.nodes[n.id] = n;
+    parent.children.push(n.id);
+    return n;
+  }
+
+  /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
+  surviveEpoch(kinAlive: number): SurviveResult {
+    const run = this.r;
+    const i = run.epoch;
+    const ep = EPOCHS[i];
+    const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
+    const n = this.node(parent, i, run.cls, run.traits, run.id, true);
+    run.node = n.id;
+    run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
+    if (run.history.length > 24) run.history.splice(1, 1);
+    this.data.deepest = Math.max(this.data.deepest, i);
+    run.kin = clamp(kinAlive + 1, 2, 6);
+    run.aggression *= 0.5;
+    run.infamy *= 0.8;
+    const next = EPOCHS[i + 1];
+    const res: SurviveResult = { epoch: ep, next, node: n.id };
+    if (!next) {
+      n.present = (n.present ?? 0) + 1;
+      this.data.lastEnd = n.id;
+      this.ghost = run;
+      this.data.run = null;
+      res.finished = true;
+    } else {
+      run.epoch = i + 1;
+      if (next.cls !== run.cls) {
+        res.transition = { from: run.cls, to: next.cls };
+        run.cls = next.cls;
+      }
+    }
+    this.snap = null;
     this.save();
     return res;
   }
 
-  mapPos(era: EraDef) {
-    const p = this.data.mapPos[era.id];
-    return p && era.nodes.some((n) => n.id === p) ? p : era.nodes.find((n) => n.start)!.id;
-  }
-
-  setMapPos(eraId: EraId, nodeId: string) {
-    this.data.mapPos[eraId] = nodeId;
+  /** Das Tier ist gestorben: Die Linie endet hier. Gibt den Knoten des Astendes zurück. */
+  extinct(frac: number, cause: string): string {
+    const run = this.r;
+    const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
+    const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false);
+    leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id };
+    this.data.lastEnd = leaf.id;
+    this.data.deepest = Math.max(this.data.deepest, run.epoch);
+    this.ghost = run;
+    this.data.run = null;
+    this.snap = null;
     this.save();
+    return leaf.id;
   }
 
-  /** Die Ära, die am besten zum aktuellen Stand passt. */
-  suggestedEra(): EraDef {
-    let best = ERAS[0];
-    for (const e of ERAS) if (this.eraPlayable(e)) best = e;
-    return best;
+  /** Pfad von der Wurzel bis zu einem Knoten. */
+  pathTo(id: string | null): string[] {
+    const out: string[] = [];
+    let n = id ? this.data.nodes[id] : undefined;
+    while (n) {
+      out.unshift(n.id);
+      n = n.parent ? this.data.nodes[n.parent] : undefined;
+    }
+    return out;
+  }
+
+  /** Gibt es schon einen Stammbaum (mindestens ein beendeter oder laufender Versuch)? */
+  hasTree() {
+    return this.data.runs > 0;
   }
 }
 

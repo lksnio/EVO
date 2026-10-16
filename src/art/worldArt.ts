@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Theme } from '../data/eras';
+import type { Theme } from '../data/epochs';
 import { css, mix, shade } from '../util/color';
 import { type Ctx, ell, fillStroke, newCanvas, rgrad, smooth, tex, vgrad, wrapX } from '../util/canvas';
 import { mulberry32, type Rng } from '../util/math';
@@ -1324,6 +1324,17 @@ export function commonTextures(scene: Phaser.Scene) {
       ctx.fillStyle = 'rgba(40,30,22,.9)';
       ctx.fill();
     }
+  });
+  // Glühender Brocken (Meteoritenregen)
+  tex(scene, 'fireball', 48, 48, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 24, 24, 2, 24, [[0, 'rgba(255,240,190,1)'], [0.35, 'rgba(255,150,50,.95)'], [0.7, 'rgba(160,40,10,.5)'], [1, 'rgba(60,10,0,0)']]);
+    ctx.fillRect(0, 0, 48, 48);
+    blob(ctx, mulberry32(5), 24, 24, 9, 8, 8);
+    ctx.fillStyle = 'rgba(40,16,8,.85)';
+    ctx.fill();
+    blob(ctx, mulberry32(6), 22, 22, 5, 4, 7);
+    ctx.fillStyle = 'rgba(255,170,60,.9)';
+    ctx.fill();
   });
   tex(scene, 'pedestal', 220, 60, (ctx) => {
     blob(ctx, mulberry32(9), 110, 34, 100, 18, 12);

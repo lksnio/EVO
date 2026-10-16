@@ -11,11 +11,10 @@ import { setMuteHandler, toggleMute } from './ui/ui';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { IntroScene } from './scenes/IntroScene';
-import { EraSelectScene } from './scenes/EraSelectScene';
-import { MapScene } from './scenes/MapScene';
 import { LevelScene } from './scenes/LevelScene';
 import { HudScene } from './scenes/HudScene';
 import { GenerationScene } from './scenes/GenerationScene';
+import { TreeScene } from './scenes/TreeScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
 
@@ -64,7 +63,7 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, IntroScene, EraSelectScene, MapScene, LevelScene, HudScene, GenerationScene, EndingScene, GalleryScene],
+    scene: [BootScene, TitleScene, IntroScene, LevelScene, HudScene, GenerationScene, TreeScene, EndingScene, GalleryScene],
   });
 
   // Für Tests und Entwickler-Konsole

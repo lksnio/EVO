@@ -1,38 +1,61 @@
 import Phaser from 'phaser';
-import { W, H, DEPTH, GRAVITY, DEBUG } from '../config';
+import { W, H, DEPTH, GRAVITY, DEBUG, TILE } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game } from '../state/GameState';
-import { eraById, type EraDef, type EraId, type NodeDef } from '../data/eras';
-import { SPECIES } from '../data/species';
+import { bus, game, type Traits } from '../state/GameState';
+import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
+import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData } from '../level/LevelGen';
 import { coverTextures, groundTextures, levelBackgrounds, plantTextures, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
+import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
 import { Player, FULL } from '../objects/Player';
 import { Animal, type World } from '../objects/Animal';
+import { Kin } from '../objects/Kin';
 import { Carcass, Plant } from '../objects/Food';
 import { fadeIn, fadeTo } from '../ui/ui';
-import { clamp, overlaps, type Rect } from '../util/math';
+import { clamp, overlaps, pick, type Rect } from '../util/math';
 
 type PImg = Phaser.Physics.Arcade.Image;
 
-const DUST: Record<EraId, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
+const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
 
 /** Hunger pro Sekunde (Sättigung 0..100). */
 const HUNGER_RATE = 0.55;
 
+/** Daten für den Generationen-Bildschirm nach einem überlebten Zeitalter. */
+export interface SurvivedData {
+  epoch: number;
+  before: Traits;
+  traits: Traits;
+  cls: Morph['cls'];
+  look: { hue: number; seed: number; sex: number };
+  kinAlive: number;
+  kinLooks: Morph[];
+  transition?: { from: Morph['cls']; to: Morph['cls'] };
+  finished?: boolean;
+  node: string;
+}
+
+/**
+ * Ein Zeitalter. Die Uhr läuft von Beginn bis Ende des Zeitraums – wer bis dahin
+ * überlebt, dessen Linie zieht weiter. Wie, ist egal: verstecken, kämpfen, teilen.
+ * Wer stirbt, beendet das Spiel: Die Linie stirbt aus.
+ */
 export class LevelScene extends Phaser.Scene implements World {
-  era!: EraDef;
-  node!: NodeDef;
+  ep!: EpochDef;
+  epochIdx = 0;
   L!: LevelData;
   player!: Player;
   water = false;
   surfaceY = 0;
-  territory?: { x0: number; x1: number; floor: number };
   animals: Animal[] = [];
   plants: Plant[] = [];
   carcasses: Carcass[] = [];
+  cover: Rect[] = [];
   ended = false;
+  /** gelebte Sekunden in diesem Zeitalter */
+  elapsed = 0;
   private controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   private solidRects: Rect[] = [];
@@ -40,27 +63,37 @@ export class LevelScene extends Phaser.Scene implements World {
   private hazards: Rect[] = [];
   private lava: Phaser.GameObjects.TileSprite[] = [];
   private shots: PImg[] = [];
-  private apex?: Animal;
-  private exitAt = { x: 0, y: 0 };
   private bgFar!: Phaser.GameObjects.TileSprite;
   private bgMid!: Phaser.GameObjects.TileSprite;
   private fog!: Phaser.GameObjects.TileSprite;
   private darkness?: Phaser.GameObjects.Image;
   private puffer!: Phaser.GameObjects.Particles.ParticleEmitter;
   private blood!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private glints!: Phaser.GameObjects.Particles.ParticleEmitter;
   private ramHit = new Map<Animal, number>();
   private vitalsAt = 0;
+  private clockAt = 0;
   private lookAt = 0;
   private hideTick = 0;
   private growlAt = 0;
   private wasInCover = false;
-  /** vordere Büsche je Dickicht – werden durchsichtiger, wenn man darin steckt */
   private coverFront: Phaser.GameObjects.Image[][] = [];
   private curCover = -1;
-  /** Zeitpunkt, seit dem der Spitzenräuber den Spieler jagt (0 = nicht) */
-  private apexHuntAt = 0;
-  private apexLostAt = 0;
-  private apexAnnounced = false;
+  private timeline: { def: EventDef; done: boolean }[] = [];
+  private kinDef!: SpeciesDef;
+  private faunaCount = 0;
+  private nextMigrate = 0;
+  private bloomUntil = 0;
+  private stormUntil = 0;
+  private stormK = 0;
+  private stormFx?: { veil: Phaser.GameObjects.Image; p: Phaser.GameObjects.Particles.ParticleEmitter };
+  private quakeUntil = 0;
+  private meteorUntil = 0;
+  private skyFire?: Phaser.GameObjects.Rectangle;
+  private nextRock = 0;
+  private huntMusic = 0;
+  private huntLost = 0;
+  private announced = new Set<string>();
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -68,38 +101,45 @@ export class LevelScene extends Phaser.Scene implements World {
     super('Level');
   }
 
-  init(d: { era: EraId; node: string }) {
-    this.era = eraById(d.era);
-    this.node = this.era.nodes.find((n) => n.id === d.node)!;
+  init(d: { epoch?: number }) {
+    this.epochIdx = d?.epoch ?? game.epochIndex;
+    this.ep = EPOCHS[this.epochIdx];
     this.animals = [];
     this.plants = [];
     this.carcasses = [];
+    this.cover = [];
     this.solidRects = [];
     this.platRects = [];
     this.hazards = [];
     this.lava = [];
     this.shots = [];
-    this.apex = undefined;
     this.ended = false;
+    this.elapsed = 0;
     this.darkness = undefined;
-    this.territory = undefined;
     this.ramHit = new Map();
     this.dbg = undefined;
     this.t = 0;
     this.wasInCover = false;
     this.coverFront = [];
     this.curCover = -1;
-    this.apexHuntAt = 0;
-    this.apexLostAt = 0;
-    this.apexAnnounced = false;
+    this.timeline = this.ep.events.map((def) => ({ def, done: false }));
+    this.bloomUntil = this.stormUntil = this.quakeUntil = this.meteorUntil = 0;
+    this.stormK = 0;
+    this.stormFx = undefined;
+    this.skyFire = undefined;
+    this.huntMusic = this.huntLost = 0;
+    this.announced = new Set();
+    this.nextMigrate = 0;
   }
 
   create() {
-    fadeIn(this, 600);
-    game.beginJourney();
-    const L = (this.L = generateLevel(this.era, this.node));
+    fadeIn(this, 900);
+    game.beginEpoch();
+    const ep = this.ep;
+    const L = (this.L = generateLevel(ep, game.run?.id ?? 0));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
+    this.cover = L.cover;
     const world = this.physics.world;
     world.gravity.y = this.water ? 0 : GRAVITY;
     if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
@@ -127,51 +167,16 @@ export class LevelScene extends Phaser.Scene implements World {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
       this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
     }
-    // Pflanzen
     plantTextures(this, L.theme);
     for (const p of L.plants) this.plants.push(new Plant(this, p.x, p.y, L.theme));
-    // Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent
-    const bushes = coverTextures(this, L.theme);
-    let bi = 0;
-    for (const c of L.cover) {
-      const front: Phaser.GameObjects.Image[] = [];
-      this.coverFront.push(front);
-      const n = Math.max(2, Math.round(c.w / 55));
-      for (let layer = 0; layer < 2; layer++) {
-        for (let i = 0; i < n; i++) {
-          const key = bushes[(bi++ * 7 + i) % bushes.length];
-          const x = c.x + ((i + 0.5) / n) * c.w + ((bi * 37) % 17) - 8;
-          const hgt = (c.h + 24 + ((bi * 53) % 30)) * (layer ? 1 : 1.08);
-          const img = this.add.image(x + (layer ? 0 : 14), c.y + c.h + 4, key).setOrigin(0.5, 1);
-          img.setScale(((c.w / n) * 1.9) / 150 * (layer ? 1 : 1.1), hgt / 210);
-          if ((bi + i) % 2) img.setFlipX(true);
-          if (layer === 0) img.setDepth(DEPTH.decoBack + 1).setTint(0x5a5a5a);
-          else {
-            img.setDepth(DEPTH.cover).setAlpha(0.82);
-            front.push(img);
-          }
-          if (this.water) this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, yoyo: true, repeat: -1, duration: 2200 + ((bi * 131) % 900), ease: 'Sine.inOut' });
-        }
-      }
-    }
+    this.buildCover();
 
-    // Spieler & Tiere
+    // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
     this.player = new Player(this, L.start.x, L.start.y, this.water);
+    this.spawnKin();
     for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y);
-    if (L.apex) {
-      this.territory = L.territory;
-      this.apex = this.spawnAnimal(L.apex.id, L.apex.x, L.apex.y);
-    }
-
-    // Ausgang: ein Lichtspalt
-    this.exitAt = { x: L.exit.x, y: L.exit.y };
-    const beam = this.add.image(L.exit.x, L.exit.y + 90, 'exitlight').setOrigin(0.5, 1).setDepth(DEPTH.decoBack + 2).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55);
-    this.tweens.add({ targets: beam, alpha: 0.3, yoyo: true, repeat: -1, duration: 2200, ease: 'Sine.inOut' });
-    this.add.particles(L.exit.x, L.exit.y, 'p_dot', {
-      x: { min: -40, max: 40 }, y: { min: -60, max: 60 }, speedY: { min: -14, max: -4 }, lifespan: 2600, frequency: 220,
-      scale: { start: 0.35, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: 0xffe8c0,
-    }).setDepth(DEPTH.fx);
+    this.faunaCount = L.spawns.length;
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -187,11 +192,14 @@ export class LevelScene extends Phaser.Scene implements World {
       speed: { min: 40, max: 160 }, lifespan: 700, scale: { start: 0.9, end: 0.2 }, alpha: { start: 0.9, end: 0 },
       gravityY: this.water ? 30 : 500, emitting: false,
     }).setDepth(DEPTH.fx);
+    this.glints = this.add.particles(0, 0, 'p_dot', {
+      speed: { min: 10, max: 50 }, lifespan: 1400, scale: { start: 0.5, end: 0 }, alpha: { start: 0.9, end: 0 },
+      gravityY: -30, tint: [0xffd890, 0xfff0c8], emitting: false, blendMode: Phaser.BlendModes.ADD,
+    }).setDepth(DEPTH.fx);
     this.ambient();
     if (L.variant !== 'normal') {
       this.darkness = this.add.image(0, 0, 'darkness').setScale(L.variant === 'dark' ? 3.4 : 4.2).setDepth(DEPTH.dark);
     }
-    // leichte Abdunklung zum Rand hin – macht die Welt bedrohlicher
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(W, H).setDepth(DEPTH.dark + 1).setAlpha(0.55);
 
     // Kamera
@@ -200,8 +208,8 @@ export class LevelScene extends Phaser.Scene implements World {
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
-    this.scene.launch('Hud', { era: this.era.id, node: this.node.id });
-    audio.music(this.era.music);
+    this.scene.launch('Hud', { epoch: this.epochIdx });
+    audio.music(ep.music);
 
     if (DEBUG) {
       this.dbg = this.add.text(12, H - 120, '', { fontFamily: 'monospace', fontSize: '13px', color: '#9f9', backgroundColor: 'rgba(0,0,0,.6)' })
@@ -250,6 +258,55 @@ export class LevelScene extends Phaser.Scene implements World {
     this.hazards.push(r);
   }
 
+  /** Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent. */
+  private buildCover() {
+    const bushes = coverTextures(this, this.L.theme);
+    let bi = 0;
+    for (const c of this.L.cover) {
+      const front: Phaser.GameObjects.Image[] = [];
+      this.coverFront.push(front);
+      const n = Math.max(2, Math.round(c.w / 55));
+      for (let layer = 0; layer < 2; layer++) {
+        for (let i = 0; i < n; i++) {
+          const key = bushes[(bi++ * 7 + i) % bushes.length];
+          const x = c.x + ((i + 0.5) / n) * c.w + ((bi * 37) % 17) - 8;
+          const hgt = (c.h + 24 + ((bi * 53) % 30)) * (layer ? 1 : 1.08);
+          const img = this.add.image(x + (layer ? 0 : 14), c.y + c.h + 4, key).setOrigin(0.5, 1);
+          img.setScale((((c.w / n) * 1.9) / 150) * (layer ? 1 : 1.1), hgt / 210);
+          if ((bi + i) % 2) img.setFlipX(true);
+          if (layer === 0) img.setDepth(DEPTH.decoBack + 1).setTint(0x5a5a5a);
+          else {
+            img.setDepth(DEPTH.cover).setAlpha(0.82);
+            front.push(img);
+          }
+          if (this.water) this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, yoyo: true, repeat: -1, duration: 2200 + ((bi * 131) % 900), ease: 'Sine.inOut' });
+        }
+      }
+    }
+  }
+
+  /** Eine kleine Gruppe deiner eigenen Art – fast gleich, aber nicht ganz. */
+  private spawnKin() {
+    const st = game.stats();
+    const diet = game.traits.diet > 0.3 ? 'meat' : 'plant';
+    this.kinDef = {
+      id: 'kin', name: 'Artgenosse', art: { t: 'jelly', r: 1, c: 0 }, role: 'prey', diet,
+      habitat: this.water ? 'water' : 'land',
+      hp: Math.max(8, st.maxHp * 0.6), dmg: Math.max(1, st.bite * 0.6), power: st.power * 0.75,
+      speed: st.speed * 0.95, sense: 280, meat: 2, sprint: 1.35,
+    };
+    const n = game.run?.kin ?? 4;
+    const s = this.L.start;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 ? 1 : -1;
+      const x = clamp(s.x + side * (46 + Math.floor(i / 2) * 40), 60, this.L.width - 60);
+      const y = this.water ? s.y + ((i % 3) - 1) * 34 : s.y;
+      const k = new Kin(this, this.kinDef, x, y, game.kinMorph(i), i);
+      k.dir = -side;
+      this.animals.push(k);
+    }
+  }
+
   private ambient() {
     const t = this.L.theme;
     const base = { x: { min: 0, max: W }, lifespan: 9000, frequency: 170, quantity: 1 };
@@ -282,14 +339,30 @@ export class LevelScene extends Phaser.Scene implements World {
     const def = SPECIES[id];
     makeSpeciesTextures(this, def);
     const a = new Animal(this, def, x, y);
+    this.groundIt(a);
     this.animals.push(a);
     return a;
+  }
+
+  /** Landtiere mit den Füßen auf den Boden stellen (große Tiere steckten sonst im Fels). */
+  private groundIt(a: Animal) {
+    if (this.water || a.def.habitat === 'air') return;
+    const L = this.L;
+    let col = clamp(Math.floor(a.x / TILE), 0, L.ground.length - 1);
+    for (let k = 1; k < 8 && L.ground[col] >= L.height; k++) {
+      const c2 = clamp(col + (k % 2 ? k : -k), 0, L.ground.length - 1);
+      if (L.ground[c2] < L.height) col = c2;
+    }
+    const gy = L.ground[col];
+    if (gy >= L.height) return;
+    a.b.reset((col + 0.5) * TILE, gy - a.displayHeight / 2 - 2);
   }
 
   shoot(x: number, y: number, vx: number, vy: number, tex: string, dmg: number, gravity: boolean) {
     const s = this.physics.add.image(x, y, tex).setDepth(DEPTH.fx - 1);
     s.setData('dmg', dmg);
     s.setData('wave', tex === 'pr_wave');
+    s.setData('by', tex === 'pr_wave' ? 'Druckwelle' : tex === 'fireball' ? 'Feuerregen' : 'Steinschlag');
     s.setData('die', this.time.now + 4500);
     const b = s.body as Phaser.Physics.Arcade.Body;
     b.setAllowGravity(gravity && !this.water);
@@ -301,6 +374,7 @@ export class LevelScene extends Phaser.Scene implements World {
 
   private popShot(s: PImg) {
     this.puff(s.x, s.y, 4);
+    if (s.texture.key === 'fireball') this.cameras.main.shake(120, 0.004);
     s.destroy();
   }
 
@@ -321,13 +395,20 @@ export class LevelScene extends Phaser.Scene implements World {
     else if (p.inCover) k *= 0.5;
     k *= 0.55 + 0.6 * Math.min(1, p.speed01);
     if (this.L.variant !== 'normal') k *= 0.7;
+    if (this.stormK > 0) k *= 1 - 0.45 * this.stormK;
     if (!a.alerted && Math.sign(p.x - a.x) !== a.dir) k *= 0.6;
     return k;
   }
 
   playerThreat() {
     const p = this.player;
-    return game.threat() * (0.6 + 0.4 * (p.hp / p.stats.maxHp));
+    let t = game.threat() * (0.6 + 0.4 * (p.hp / p.stats.maxHp));
+    // Wer nicht allein ist, wirkt gefährlicher
+    for (const a of this.animals) {
+      if (a.dead || !(a.ally || a.kin)) continue;
+      if (Math.abs(a.x - p.x) < 260 && Math.abs(a.y - p.y) < 200) t += a.def.power * (a.ally ? 0.5 : 0.15);
+    }
+    return t;
   }
 
   playerFear() {
@@ -340,19 +421,37 @@ export class LevelScene extends Phaser.Scene implements World {
     game.grow('stealth', a.role === 'apex' ? 0.05 : 0.03);
   }
 
+  bonded(a: Animal) {
+    this.glints.explode(14, a.x, a.y - 10);
+    audio.sfx('bond');
+  }
+
+  left(a: Animal) {
+    this.removeAnimal(a);
+  }
+
+  /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
+  private removeAnimal(a: Animal) {
+    const i = this.animals.indexOf(a);
+    if (i >= 0) this.animals.splice(i, 1);
+  }
+
   animalDied(a: Animal, byPlayer: boolean) {
-    this.animals = this.animals.filter((x) => x !== a);
+    this.removeAnimal(a);
     this.bleed(a.x, a.y, 14);
+    if (a.kin) {
+      audio.sfx('squeal');
+      if (byPlayer) game.addAggression(0.2);
+      return;
+    }
     let y = a.y;
     if (a.def.habitat === 'air' || this.water) {
       // Leiche sinkt zu Boden
       for (let k = 0; k < 80 && !this.solidAt(a.x, y + 6); k++) y += 8;
     } else y = a.b.bottom;
-    this.carcasses.push(new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir));
+    this.carcasses.push(new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, byPlayer));
     if (byPlayer) game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
-    if (a === this.apex) {
-      this.apex = undefined;
-      audio.music(this.era.music);
+    if (a.visitor) {
       this.cameras.main.shake(600, 0.012);
       audio.sfx('boom');
     }
@@ -369,8 +468,8 @@ export class LevelScene extends Phaser.Scene implements World {
       hit = true;
       a.hurt(st.bite, p, 'bite');
       game.grow('jaw', 0.004);
-      if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x);
-      else game.addAggression(a.role === 'prey' ? 0.04 : 0.025);
+      if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
+      else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
     }
     if (hit) {
       this.cameras.main.shake(70, 0.004);
@@ -383,7 +482,7 @@ export class LevelScene extends Phaser.Scene implements World {
         game.grow('jaw', 0.012);
         game.shiftDiet(0.05);
         game.grow('growth', 0.012 * st.digestMeat);
-        this.crumbs(c.x, c.y - 10, 0x6a1a10);
+        this.puff(c.x, c.y - 10, 4, 0x6a1a10);
       }
       return;
     }
@@ -394,14 +493,10 @@ export class LevelScene extends Phaser.Scene implements World {
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
         game.grow('growth', 0.007 * st.digestPlant);
-        this.crumbs(pl.x, pl.y - 20, 0x6a7a3a);
+        this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
       return;
     }
-  }
-
-  private crumbs(x: number, y: number, tint: number) {
-    this.puff(x, y, 4, tint);
   }
 
   /** Mit hohem Tempo in ein Tier rennen. */
@@ -412,7 +507,8 @@ export class LevelScene extends Phaser.Scene implements World {
     this.ramHit.set(a, this.time.now);
     a.hurt(st.ram * (0.6 + 0.8 * sf), p, 'ram');
     // kleine Tiere werden einfach umgestoßen, an großen prallt man ab
-    p.recoil(a.x, st.ramSelf * sf * clamp(a.def.power / (st.power + 1), 0.2, 1.5), clamp(a.def.power / (st.power + 1), 0, 1));
+    const k = clamp(a.def.power / (st.power + 1), 0, 1);
+    p.recoil(a.x, st.ramSelf * sf * clamp(a.def.power / (st.power + 1), 0.2, 1.5), k);
     game.grow('skull', 0.022 * sf);
     if (a.role !== 'hazard') game.addAggression(0.035);
     audio.sfx('ram');
@@ -433,11 +529,12 @@ export class LevelScene extends Phaser.Scene implements World {
     for (const a of [...this.animals]) {
       a.tick(time, dt);
       if (!a.dead && a.y > L.height + 200) {
-        this.animals = this.animals.filter((x) => x !== a);
+        this.removeAnimal(a);
         a.destroy();
       }
     }
-    for (const pl of this.plants) pl.update(time);
+    const bloom = time < this.bloomUntil;
+    for (const pl of this.plants) pl.update(time, bloom);
     for (const c of this.carcasses) c.update(time);
     this.carcasses = this.carcasses.filter((c) => !c.gone);
 
@@ -449,11 +546,16 @@ export class LevelScene extends Phaser.Scene implements World {
     this.darkness?.setPosition(p.x, p.y);
 
     if (!p.dead && !this.ended) {
+      this.elapsed += dt;
+      this.clock(time);
       this.interact(time, dt);
-      this.apexMood(time);
+      this.weather(time, dt);
+      this.migrate(time);
+      this.huntMood(time);
+      if (this.elapsed >= this.ep.seconds) this.complete();
     }
 
-    // Geschosse (Schockwellen der großen Räuber)
+    // Geschosse (Druckwellen, Steinschlag, Feuerregen)
     for (const s of this.shots) {
       if (!s.active) continue;
       if (time > (s.getData('die') as number) || s.y > L.height + 100 || s.x < -50 || s.x > L.width + 50) {
@@ -461,20 +563,200 @@ export class LevelScene extends Phaser.Scene implements World {
         continue;
       }
       if (!p.dead && !this.ended && overlaps(p.hitRect(), { x: s.x - s.width * 0.3, y: s.y - s.height * 0.3, w: s.width * 0.6, h: s.height * 0.6 })) {
-        p.hurt(s.getData('dmg') as number, s.x);
+        p.hurt(s.getData('dmg') as number, s.x, s.getData('by') as string);
         if (!s.getData('wave')) this.popShot(s);
       }
     }
-    this.shots = this.shots.filter((s) => s.active);
+    for (let i = this.shots.length - 1; i >= 0; i--) if (!this.shots[i].active) this.shots.splice(i, 1);
 
     if (this.dbg && time > this.lookAt - 300) {
       const t = game.traits;
+      const kin = this.animals.filter((a) => a.kin).length;
+      const allies = this.animals.filter((a) => a.ally).length;
+      const vis = this.animals.filter((a) => a.visitor).length;
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Zeit ${this.elapsed.toFixed(0)}/${this.ep.seconds}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
-          `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.data.aggression.toFixed(2)}  Ruf ${game.data.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
-          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}`,
+          `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
+          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
       );
+    }
+  }
+
+  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. */
+  private clock(time: number) {
+    const ep = this.ep;
+    const prog = clamp(this.elapsed / ep.seconds, 0, 1);
+    for (const e of this.timeline) {
+      if (!e.done && prog >= e.def.at) {
+        e.done = true;
+        this.trigger(e.def);
+      }
+    }
+    if (time > this.clockAt) {
+      this.clockAt = time + 100;
+      const span = ep.from - ep.to;
+      bus.emit('clock', ep.from - span * prog, prog, (span / ep.seconds) * 0.1);
+    }
+  }
+
+  private trigger(ev: EventDef) {
+    if (ev.line) bus.emit('story', ev.line);
+    const now = this.time.now;
+    switch (ev.kind) {
+      case 'predator':
+        this.spawnVisitors(ev.species!, ev.count ?? 1);
+        break;
+      case 'bloom':
+        this.bloomUntil = now + 20000;
+        for (const pl of this.plants) {
+          pl.refill();
+          this.glints.explode(4, pl.x, pl.y - 24);
+        }
+        break;
+      case 'storm':
+        this.stormUntil = now + (ev.dur ?? 18) * 1000;
+        this.startStormFx();
+        break;
+      case 'quake':
+        this.quakeUntil = now + (ev.dur ?? 6) * 1000;
+        this.cameras.main.shake((ev.dur ?? 6) * 1000, 0.004);
+        audio.sfx('rumble');
+        break;
+      case 'meteor':
+        this.meteorUntil = now + (ev.dur ?? 20) * 1000;
+        this.cameras.main.flash(900, 255, 160, 80);
+        audio.sfx('boom');
+        audio.sfx('rumble');
+        this.skyFire = this.add.rectangle(0, 0, W, H, 0x8a1a06, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.dark - 1).setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({ targets: this.skyFire, fillAlpha: 0.22, duration: 6000 });
+        break;
+    }
+  }
+
+  /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */
+  private spawnVisitors(id: string, count: number) {
+    const def = SPECIES[id];
+    if (!def) return;
+    makeSpeciesTextures(this, def);
+    const L = this.L;
+    const p = this.player;
+    const fromLeft = p.x > L.width / 2;
+    const dir = fromLeft ? 1 : -1;
+    audio.sfx('rumble');
+    for (let i = 0; i < count; i++) {
+      this.time.delayedCall(i * 900, () => {
+        if (this.ended) return;
+        const x = fromLeft ? 50 + i * 20 : L.width - 50 - i * 20;
+        const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
+        const ground = L.ground[col] < L.height ? L.ground[col] : L.start.y + 60;
+        let y: number;
+        let cruiseY: number;
+        if (this.water) {
+          cruiseY = clamp(p.y + (Math.random() - 0.5) * 160 + i * 40, L.surfaceY + 90, ground - 90);
+          y = cruiseY;
+        } else if (def.habitat === 'air') {
+          cruiseY = ground - 190 - Math.random() * 80;
+          y = cruiseY;
+        } else {
+          y = ground - 90;
+          cruiseY = y;
+        }
+        const a = new Animal(this, def, x, y);
+        this.groundIt(a);
+        a.visitor = { dir, endX: fromLeft ? L.width - 40 : 40, cruiseY, huntUntil: 0, boredUntil: 0 };
+        a.dir = dir;
+        a.setAlpha(0);
+        this.tweens.add({ targets: a, alpha: 1, duration: 900 });
+        this.animals.push(a);
+      });
+    }
+  }
+
+  /** Neue Tiere wandern ein, wenn der Lebensraum leerer wird. */
+  private migrate(time: number) {
+    if (time < this.nextMigrate) return;
+    this.nextMigrate = time + 15000;
+    const resident = this.animals.filter((a) => !a.dead && !a.kin && !a.visitor).length;
+    if (resident >= this.faunaCount) return;
+    const pool = this.ep.fauna.map(([id]) => id).filter((id) => SPECIES[id].role !== 'hazard');
+    if (!pool.length) return;
+    const id = pick(Math.random, pool);
+    const def = SPECIES[id];
+    const L = this.L;
+    const x = this.player.x > L.width / 2 ? 70 : L.width - 70;
+    const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
+    const ground = L.ground[col];
+    const y = this.water ? (def.crawl ? ground - 24 : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40)) : def.habitat === 'air' ? ground - 150 : ground - 50;
+    const a = this.spawnAnimal(id, x, y);
+    a.setAlpha(0);
+    this.tweens.add({ targets: a, alpha: 1, duration: 800 });
+  }
+
+  /** Wetter, Beben und Feuerregen. */
+  private weather(time: number, dt: number) {
+    const storm = time < this.stormUntil;
+    this.stormK = clamp(this.stormK + (storm ? dt / 3 : -dt / 3), 0, 1);
+    if (this.stormFx) {
+      this.stormFx.veil.setAlpha(this.stormK * 0.55);
+      if (!storm && this.stormK <= 0) {
+        this.stormFx.p.stop();
+        this.stormFx.veil.destroy();
+        this.stormFx = undefined;
+      }
+    }
+    const p = this.player;
+    const cam = this.cameras.main;
+    if (time < this.quakeUntil && !this.water && time > this.nextRock) {
+      this.nextRock = time + 650;
+      const x = clamp(p.x + (Math.random() - 0.5) * 700, 40, this.L.width - 40);
+      this.shoot(x, cam.scrollY - 40, (Math.random() - 0.5) * 40, 80, 'd2_rock', this.ep.hazardDmg * 0.8, true);
+    }
+    if (time < this.meteorUntil && time > this.nextRock) {
+      this.nextRock = time + 420;
+      const x = clamp(p.x + (Math.random() - 0.5) * 1000, 40, this.L.width - 40);
+      this.shoot(x, cam.scrollY - 60, (Math.random() - 0.5) * 140, 260, 'fireball', this.ep.hazardDmg * 1.2, true);
+      if (Math.random() < 0.25) cam.shake(200, 0.004);
+    }
+  }
+
+  private startStormFx() {
+    if (this.stormFx) return;
+    const t = this.L.theme;
+    const veilTint = t === 'eis' ? 0xc8d4e0 : t === 'ozean' ? 0x1a3a30 : t === 'sumpf' ? 0x3a3020 : 0x2a2018;
+    const veil = this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(W * 1.4, H * 1.4).setTint(veilTint).setAlpha(0).setDepth(DEPTH.dark - 2);
+    const key = t === 'eis' ? 'p_snow' : this.water ? 'p_dot' : 'p_dot';
+    const cfg: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig = t === 'eis'
+      ? { x: { min: 0, max: W + 200 }, y: -10, speedX: { min: -260, max: -140 }, speedY: { min: 120, max: 220 }, lifespan: 4000, frequency: 12, scale: { min: 0.4, max: 1.2 }, alpha: { start: 0.9, end: 0.3 } }
+      : this.water
+        ? { x: { min: 0, max: W }, y: { min: 0, max: H }, speedX: { min: -60, max: 60 }, speedY: { min: -20, max: 20 }, lifespan: 3000, frequency: 20, scale: { start: 0.6, end: 0.1 }, alpha: { start: 0.5, end: 0 }, tint: 0x6a7a60 }
+        : t === 'reptil' || t === 'sumpf'
+          ? { x: { min: 0, max: W + 300 }, y: { min: 0, max: H }, speedX: { min: -320, max: -180 }, speedY: { min: -10, max: 30 }, lifespan: 3000, frequency: 14, scale: { start: 0.5, end: 0.1 }, alpha: { start: 0.6, end: 0 }, tint: 0x9a7a50 }
+          : { x: { min: 0, max: W }, y: -10, speedX: { min: -40, max: -10 }, speedY: { min: 500, max: 700 }, lifespan: 1600, frequency: 10, scaleX: 0.12, scaleY: 1.4, alpha: { start: 0.5, end: 0.1 }, tint: 0x9ab0b8 };
+    const pe = this.add.particles(0, 0, key, cfg).setScrollFactor(0).setDepth(DEPTH.decoFront);
+    this.stormFx = { veil, p: pe };
+  }
+
+  /** Musik und Ankündigung, wenn ein großer Räuber Jagd auf dich macht. */
+  private huntMood(time: number) {
+    const hunter = this.animals.find((a) => !a.dead && a.huntingPlayer && (a.visitor || a.role === 'apex'));
+    if (hunter) {
+      this.huntLost = 0;
+      if (!this.huntMusic) {
+        this.huntMusic = time;
+        audio.music('apex');
+      }
+      if (!this.announced.has(hunter.def.id)) {
+        this.announced.add(hunter.def.id);
+        bus.emit('apex', hunter.def.name);
+      }
+    } else if (this.huntMusic) {
+      if (!this.huntLost) this.huntLost = time;
+      else if (time - this.huntLost > 5000) {
+        this.huntMusic = 0;
+        this.huntLost = 0;
+        audio.music(this.ep.music);
+      }
     }
   }
 
@@ -487,6 +769,8 @@ export class LevelScene extends Phaser.Scene implements World {
     // Dickicht: verstecken
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
     p.inCover = ci >= 0;
+    p.hidden = p.inCover && p.speed01 < 0.55 && !p.sprinting;
+    p.view.setShade(p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
     if (p.inCover !== this.wasInCover) {
       this.wasInCover = p.inCover;
       if (p.inCover) audio.sfx('rustle');
@@ -497,12 +781,10 @@ export class LevelScene extends Phaser.Scene implements World {
       if (ci >= 0) this.tweens.add({ targets: this.coverFront[ci], alpha: 0.5, duration: 300 });
       this.curCover = ci;
     }
-    p.hidden = p.inCover && p.speed01 < 0.55 && !p.sprinting;
-    p.view.setShade(p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
 
-    // Tiere berühren: Rammen, Angriffe, Nesseln
+    // Tiere berühren: Rammen, Angriffe, Nesseln (Artgenossen und Verbündete stören nicht)
     for (const a of this.animals) {
-      if (a.dead) continue;
+      if (a.dead || a.kin || a.ally) continue;
       const ar = a.hitRect();
       if (!overlaps(pr, ar)) continue;
       const inFront = Math.sign(a.x - p.x) === p.facing || this.water;
@@ -515,7 +797,10 @@ export class LevelScene extends Phaser.Scene implements World {
         this.ram(a);
         continue;
       }
-      if (a.attacking || a.role === 'hazard') p.hurt(a.def.dmg * (a.attacking ? 1.15 : 1), a.x);
+      if (a.attacking || a.role === 'hazard') {
+        p.hurt(a.def.dmg * (a.attacking ? 1.15 : 1), a.x, a.def.name);
+        a.hitPlayerAt = time;
+      }
     }
 
     // Fallen und Abgründe
@@ -524,27 +809,28 @@ export class LevelScene extends Phaser.Scene implements World {
       if (!overlaps(pr, h)) continue;
       if (h.h > 40) fell = true;
       else {
-        p.hurt(this.era.hazardDmg, p.x - p.facing * 10);
+        p.hurt(this.ep.hazardDmg, p.x - p.facing * 10, this.L.theme === 'reptil' ? 'Glühende Felsen' : 'Dornen');
         if (!p.dead) p.body.setVelocityY(-420);
       }
       break;
     }
     if (fell) {
-      p.hurt(this.era.hazardDmg, p.x);
+      p.hurt(this.ep.hazardDmg, p.x, this.L.theme === 'reptil' ? 'Lava' : 'Sturz in die Tiefe');
       if (!p.dead) {
         p.body.reset(p.lastSafe.x, p.lastSafe.y - 10);
         this.cameras.main.flash(260, 0, 0, 0);
       }
     }
 
-    // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper
-    const rate = HUNGER_RATE * (p.sprinting ? 2 : 1) * (0.85 + 0.3 * p.stats.size);
+    // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper (Kälte zehrt mehr)
+    const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
+    const rate = HUNGER_RATE * (p.sprinting ? 2 : 1) * (0.85 + 0.3 * p.stats.size) * cold;
     p.satiety = Math.max(0, p.satiety - rate * dt);
     if (p.satiety <= 0) {
       p.hp -= p.stats.maxHp * 0.012 * dt;
       if (p.hp <= 0) {
         p.hp = 0;
-        p.hurt(999, p.x);
+        p.hurt(999, p.x, this.L.theme === 'eis' ? 'Verhungert und erfroren' : 'Verhungert');
       }
     } else if (p.satiety > 40 && time - p.lastHurt > 3000) {
       p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.01 * dt);
@@ -555,11 +841,11 @@ export class LevelScene extends Phaser.Scene implements World {
     }
     game.calm(dt);
 
-    // Still im Dickicht, während ein Jäger in der Nähe sucht → unauffälliger
+    // Still im Dickicht, während ein Jäger in der Nähe ist → unauffälliger
     if (time > this.hideTick) {
       this.hideTick = time + 1000;
       if (p.hidden) {
-        const near = this.animals.some((a) => !a.dead && (a.role === 'predator' || a.role === 'apex') && Math.hypot(a.x - p.x, a.y - p.y) < 300);
+        const near = this.animals.some((a) => !a.dead && !a.ally && (a.role === 'predator' || a.role === 'apex') && Math.hypot(a.x - p.x, a.y - p.y) < 320);
         if (near) game.grow('stealth', 0.008);
       }
     }
@@ -575,80 +861,61 @@ export class LevelScene extends Phaser.Scene implements World {
       this.vitalsAt = time + 150;
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / FULL, p.hidden);
     }
-
-    // Ausgang
-    if (Math.abs(p.x - this.exitAt.x) < 50 && Math.abs(p.y - this.exitAt.y) < 140) this.complete();
-  }
-
-  /** Musik und Ankündigung, wenn der Spitzenräuber Jagd auf dich macht. */
-  private apexMood(time: number) {
-    const a = this.apex;
-    if (!a || a.dead) return;
-    if (a.huntingPlayer) {
-      this.apexLostAt = 0;
-      if (!this.apexHuntAt) {
-        this.apexHuntAt = time;
-        audio.music('apex');
-        if (!this.apexAnnounced) {
-          this.apexAnnounced = true;
-          bus.emit('apex', a.def.name);
-        }
-      }
-    } else if (this.apexHuntAt) {
-      if (!this.apexLostAt) this.apexLostAt = time;
-      else if (time - this.apexLostAt > 5000) {
-        this.apexHuntAt = 0;
-        this.apexLostAt = 0;
-        audio.music(this.era.music);
-      }
-    }
   }
 
   // ---------------------------------------------------------------- Ende
 
+  /** Die Zeit ist um, und du lebst noch. */
   private complete() {
     if (this.ended) return;
     this.ended = true;
-    const p = this.player;
-    p.body.setVelocity(p.facing * 80, 0);
-    p.body.setAllowGravity(false);
-    const startCls = game.cls;
-    const before = game.startTraits();
-    const res = game.completeNode(this.era.id, this.node.id);
+    const run = game.run!;
+    const kin = this.animals.filter((a) => a.kin && !a.dead);
+    const data: SurvivedData = {
+      epoch: this.epochIdx,
+      before: game.startTraits(),
+      traits: { ...game.traits },
+      cls: game.cls,
+      look: { hue: run.hue, seed: run.seed, sex: run.sex },
+      kinAlive: kin.length,
+      kinLooks: kin.slice(0, 3).map((k) => (k as Kin).view.m),
+      node: '',
+    };
+    const res = game.surviveEpoch(kin.length);
+    data.transition = res.transition;
+    data.finished = res.finished;
+    data.node = res.node;
+    bus.emit('clock', this.ep.to, 1, 1);
     audio.sfx('portal');
-    this.tweens.add({ targets: p.view, alpha: 0, duration: 1400, ease: 'Sine.in' });
-    this.cameras.main.fadeOut(1600, 255, 240, 210);
-    this.time.delayedCall(1700, () => {
+    this.player.body.setVelocity(0, 0);
+    this.cameras.main.fadeOut(1800, 230, 214, 180);
+    this.time.delayedCall(1900, () => {
       this.scene.stop('Hud');
-      this.scene.start('Generation', {
-        mode: 'complete', era: this.era.id, node: this.node.id, before, cls: startCls,
-        first: res.first, transition: res.transition, finished: res.finished,
-      });
+      this.scene.start('Generation', data);
     });
   }
 
+  /** Das Tier ist tot – das Spiel ist vorbei, die Linie stirbt aus. */
   private onDeath() {
     if (this.ended) return;
-    this.ended = true;
-    const morphAtDeath = this.player.morph();
-    game.revertJourney();
-    game.data.deaths++;
-    // ein Nachkomme setzt die Reise fort
-    game.data.generations++;
-    game.save();
-    audio.music(null);
-    this.time.delayedCall(2400, () => {
-      this.scene.stop('Hud');
-      fadeTo(this, 'Generation', { mode: 'death', era: this.era.id, node: this.node.id, morph: morphAtDeath });
-    });
+    this.endLine(this.player.lastCause, 2600);
   }
 
   private abort() {
     if (this.ended) return;
+    this.endLine('Aufgegeben', 300);
+  }
+
+  private endLine(cause: string, wait: number) {
     this.ended = true;
-    game.revertJourney();
-    game.save();
-    this.scene.stop('Hud');
-    fadeTo(this, 'Map', { era: this.era.id, message: 'Die Reise wurde abgebrochen.' });
+    const frac = clamp(this.elapsed / this.ep.seconds, 0, 1);
+    const years = this.ep.from - (this.ep.from - this.ep.to) * frac;
+    const morph = this.player.morph();
+    const leaf = game.extinct(frac, cause);
+    audio.music(null);
+    this.time.delayedCall(wait, () => {
+      this.scene.stop('Hud');
+      fadeTo(this, 'Tree', { mode: 'extinct', leaf, morph, epoch: this.epochIdx, cause, years }, 1200);
+    });
   }
 }

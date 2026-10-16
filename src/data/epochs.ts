@@ -1,0 +1,208 @@
+import type { ClassId } from './classes';
+
+// ---------------------------------------------------------------------------
+// Die Zeitalter. Jedes ist ein fester Zeitraum der Erdgeschichte: Eine Uhr läuft
+// von "from" bis "to" (Jahre vor heute). Wer bis zum Ende überlebt, dessen Linie
+// lebt im nächsten Zeitalter weiter. Es gibt kein Ziel und keinen Endgegner –
+// nur Überleben, egal wie.
+// ---------------------------------------------------------------------------
+
+export type Theme = 'ozean' | 'sumpf' | 'reptil' | 'eis' | 'eden';
+
+export type EventKind = 'predator' | 'bloom' | 'storm' | 'quake' | 'meteor';
+
+export interface EventDef {
+  /** Zeitpunkt im Zeitalter: 0 = Beginn, 1 = Ende */
+  at: number;
+  kind: EventKind;
+  /** Räuber, die durchziehen */
+  species?: string;
+  count?: number;
+  /** Dauer (Wetter, Beben, Meteoriten) in Sekunden */
+  dur?: number;
+  /** kurze Erzählzeile */
+  line?: string;
+}
+
+export interface EpochDef {
+  id: string;
+  /** erdgeschichtlicher Name */
+  name: string;
+  /** Lebensraum */
+  place: string;
+  desc: string;
+  theme: Theme;
+  /** Körperform, die in diesem Zeitalter lebt */
+  cls: ClassId;
+  habitat: 'water' | 'land';
+  /** Jahre vor heute zu Beginn bzw. am Ende */
+  from: number;
+  to: number;
+  /** Spielzeit in Sekunden */
+  seconds: number;
+  music: string;
+  hazardDmg: number;
+  /** Breite in Kacheln */
+  len: number;
+  plants: number;
+  cover: number;
+  cave?: boolean;
+  dark?: boolean;
+  kelp?: boolean;
+  reef?: boolean;
+  /** Tiere: Art und Anzahl der Gruppen */
+  fauna: [string, number][];
+  events: EventDef[];
+}
+
+const M = 1e6;
+
+export const EPOCHS: EpochDef[] = [
+  {
+    id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
+    desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
+    from: 470 * M, to: 458 * M, seconds: 100, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.9, cover: 0.5,
+    fauna: [['kieferlos', 3], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1]],
+    events: [
+      { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
+      { at: 0.72, kind: 'bloom', line: 'Das Wasser wird grün. Überall sprießt Futter.' },
+    ],
+  },
+  {
+    id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
+    desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
+    from: 438 * M, to: 427 * M, seconds: 110, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.7, cover: 0.95,
+    fauna: [['kieferlos', 3], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2]],
+    events: [
+      { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3, line: 'Seeskorpione jagen im Rudel durch den Tang.' },
+      { at: 0.68, kind: 'storm', dur: 18, line: 'Ein Sturm wühlt den Grund auf. Das Wasser wird trüb.' },
+    ],
+  },
+  {
+    id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
+    desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
+    from: 382 * M, to: 372 * M, seconds: 120, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.65, cover: 0.55,
+    fauna: [['kieferlos', 4], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1]],
+    events: [
+      { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Ein Panzerfisch zieht durch das Riff.' },
+      { at: 0.78, kind: 'predator', species: 'dunkleosteus', line: 'Er kehrt zurück.' },
+    ],
+  },
+  {
+    id: 'karbon', name: 'Karbon', place: 'Kohlesumpf', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
+    desc: 'Riesige Farne und schwarzes Wasser. Die Luft ist schwer und feucht.',
+    from: 318 * M, to: 304 * M, seconds: 120, music: 'sumpf', hazardDmg: 7, len: 90, plants: 0.85, cover: 0.6,
+    fauna: [['kleinlurch', 3], ['tausendfuessler', 2], ['libelle', 2], ['skorpion', 1]],
+    events: [
+      { at: 0.4, kind: 'predator', species: 'meganeura', line: 'Ein tiefes Summen erfüllt die Luft.' },
+      { at: 0.66, kind: 'bloom', line: 'Nach dem Regen sprießt es überall.' },
+    ],
+  },
+  {
+    id: 'perm', name: 'Perm', place: 'Trockene Senke', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
+    desc: 'Die Sümpfe trocknen aus. Wasser und Futter werden knapp.',
+    from: 280 * M, to: 262 * M, seconds: 120, music: 'sumpf', hazardDmg: 8, len: 95, plants: 0.45, cover: 0.45,
+    fauna: [['kleinlurch', 2], ['tausendfuessler', 2], ['skorpion', 2], ['eryops', 1]],
+    events: [
+      { at: 0.28, kind: 'storm', dur: 20, line: 'Heiße Winde treiben Staub über das Land.' },
+      { at: 0.55, kind: 'predator', species: 'eryops', count: 2, line: 'Zwei Eryops durchstreifen die Senke.' },
+      { at: 0.86, kind: 'quake', dur: 8, line: 'Die Erde bebt.' },
+    ],
+  },
+  {
+    id: 'trias', name: 'Trias', place: 'Farnsteppe', theme: 'reptil', cls: 'reptile', habitat: 'land',
+    desc: 'Nach dem großen Sterben erobern die Echsen das Land.',
+    from: 228 * M, to: 214 * M, seconds: 120, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.8, cover: 0.55,
+    fauna: [['kleinechse', 3], ['ornithopode', 2], ['raptor', 1]],
+    events: [
+      { at: 0.35, kind: 'predator', species: 'flugsaurier', count: 3, line: 'Schatten kreisen über der Steppe.' },
+      { at: 0.7, kind: 'bloom', line: 'Die Farne treiben frisch aus.' },
+    ],
+  },
+  {
+    id: 'jura', name: 'Jura', place: 'Urwald', theme: 'reptil', cls: 'reptile', habitat: 'land',
+    desc: 'Dichtes Grün, dumpfe Schritte in der Ferne.',
+    from: 158 * M, to: 147 * M, seconds: 125, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.75, cover: 0.9,
+    fauna: [['ornithopode', 2], ['kleinechse', 2], ['ankylosaurus', 1], ['raptor', 1]],
+    events: [
+      { at: 0.4, kind: 'predator', species: 'raptor', count: 3, line: 'Ein Rudel bricht durch das Unterholz.' },
+      { at: 0.74, kind: 'storm', dur: 16, line: 'Warmer Regen prasselt herab.' },
+    ],
+  },
+  {
+    id: 'kreide', name: 'Kreide', place: 'Vulkanhänge', theme: 'reptil', cls: 'reptile', habitat: 'land',
+    desc: 'Die Erde ist heiß. Asche fällt wie Schnee.',
+    from: 69 * M, to: 66 * M, seconds: 130, music: 'reptil', hazardDmg: 12, len: 100, plants: 0.5, cover: 0.55,
+    fauna: [['ornithopode', 2], ['kleinechse', 2], ['ankylosaurus', 1], ['flugsaurier', 1]],
+    events: [
+      { at: 0.28, kind: 'quake', dur: 5, line: 'Der Boden zittert in regelmäßigen Abständen.' },
+      { at: 0.34, kind: 'predator', species: 'trex' },
+      { at: 0.84, kind: 'meteor', dur: 22, line: 'Ein zweites Licht steht am Himmel …' },
+    ],
+  },
+  {
+    id: 'palaeogen', name: 'Paläogen', place: 'Dämmerwald', theme: 'eden', cls: 'mammal', habitat: 'land',
+    desc: 'Die großen Echsen sind fort. Im Dämmerlicht wagen sich neue Tiere hervor.',
+    from: 52 * M, to: 42 * M, seconds: 125, music: 'eden', hazardDmg: 14, len: 95, plants: 0.85, cover: 0.7,
+    fauna: [['urpferd', 3], ['riesenfaultier', 1], ['hyaenodon', 1]],
+    events: [
+      { at: 0.45, kind: 'predator', species: 'andrewsarchus', line: 'Etwas Uraltes wandert durch den Wald.' },
+    ],
+  },
+  {
+    id: 'neogen', name: 'Neogen', place: 'Grasland', theme: 'eden', cls: 'mammal', habitat: 'land',
+    desc: 'Weites, hohes Gras. Wer rennen kann, ist im Vorteil.',
+    from: 12 * M, to: 5 * M, seconds: 125, music: 'eden', hazardDmg: 14, len: 100, plants: 0.75, cover: 0.5,
+    fauna: [['urpferd', 3], ['terrorvogel', 1], ['hyaenodon', 1], ['riesenfaultier', 1]],
+    events: [
+      { at: 0.35, kind: 'predator', species: 'terrorvogel', count: 2, line: 'Terrorvögel jagen durch das hohe Gras.' },
+      { at: 0.7, kind: 'bloom', line: 'Die Regenzeit bringt frisches Grün.' },
+    ],
+  },
+  {
+    id: 'quartaer', name: 'Quartär', place: 'Gefrorene Tundra', theme: 'eis', cls: 'mammal', habitat: 'land',
+    desc: 'Die Eiszeit. Wer nicht frisst, erfriert.',
+    from: 400e3, to: 12e3, seconds: 140, music: 'eis', hazardDmg: 16, len: 100, plants: 0.5, cover: 0.55,
+    fauna: [['schneehase', 3], ['riesenhirsch', 2], ['mammut', 1], ['eiswolf', 1], ['hoehlenbaer', 1]],
+    events: [
+      { at: 0.22, kind: 'storm', dur: 22, line: 'Ein Schneesturm zieht auf.' },
+      { at: 0.48, kind: 'predator', species: 'saebelzahn', line: 'Fußspuren im Schnee. Große Fußspuren.' },
+      { at: 0.8, kind: 'predator', species: 'eiswolf', count: 3, line: 'In der Ferne heulen Wölfe.' },
+    ],
+  },
+];
+
+export const epochIndex = (id: string) => EPOCHS.findIndex((e) => e.id === id);
+
+// ---------------------------------------------------------------- Zeitangaben
+
+const de = (n: number) => Math.round(n).toLocaleString('de-DE');
+
+/**
+ * "vor 452.320.000 Jahren": Die Uhr zählt in Zehnerpotenzen – so fein, wie die Zeit
+ * gerade vergeht (step = Jahre, die ungefähr pro Anzeige-Takt verstreichen).
+ */
+export function yearsAgo(years: number, step: number) {
+  const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, step)))));
+  const v = Math.round(years / p) * p;
+  return v <= 0 ? 'heute' : `vor ${de(v)} Jahren`;
+}
+
+/** Kurz: "470 Mio. J.", "400.000 J." */
+export function shortYears(years: number) {
+  if (years >= 1e6) {
+    const m = years / 1e6;
+    return `${m >= 10 ? de(m) : m.toLocaleString('de-DE', { maximumFractionDigits: 1 })} Mio. J.`;
+  }
+  return `${de(years)} J.`;
+}
+
+/** Dauer in Worten: "11 Millionen Jahre", "388.000 Jahre" */
+export function spanWords(years: number) {
+  if (years >= 1e6) {
+    const m = years / 1e6;
+    const s = m >= 10 ? de(m) : m.toLocaleString('de-DE', { maximumFractionDigits: 1 });
+    return `${s} ${m < 1.5 ? 'Million' : 'Millionen'} Jahre`;
+  }
+  return `${de(years)} Jahre`;
+}

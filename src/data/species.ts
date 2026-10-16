@@ -3,7 +3,7 @@
 //   predator  – jagt, wenn sie hungrig ist und sich überlegen fühlt
 //   defender  – friedlich, verteidigt sich aber heftig
 //   hazard    – treibt umher, ist nur bei Berührung gefährlich
-//   apex      – Spitzenräuber, beherrscht sein Revier
+//   apex      – Spitzenräuber, zieht (als Ereignis) durch den Lebensraum
 // "art" beschreibt, wie das Tier gezeichnet wird (siehe art/speciesArt.ts).
 
 export type Role = 'prey' | 'predator' | 'defender' | 'hazard' | 'apex';
@@ -64,6 +64,7 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'trilobit', name: 'Trilobit', art: { t: 'trilo', len: 34, c: 0x5e4c38 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.2, speed: 34, sense: 120, meat: 2, herd: [1, 3], crawl: true, sprint: 1.4 }),
     S({ id: 'qualle', name: 'Qualle', art: { t: 'jelly', r: 16, c: 0x7a5a96 }, role: 'hazard', diet: 'none', habitat: 'water', hp: 5, dmg: 4, power: 2, speed: 24, sense: 0, meat: 1, hit: [0.7, 0.7] }),
     S({ id: 'orthoceras', name: 'Orthoceras', art: { t: 'cone', len: 74, c: 0x7a6248 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 22, dmg: 5, power: 6, speed: 118, sense: 300, meat: 3, hit: [0.75, 0.6] }),
+    S({ id: 'cameroceras', name: 'Riesenkopffüßer', art: { t: 'cone', len: 250, c: 0x5e4a3a }, role: 'apex', diet: 'meat', habitat: 'water', hp: 140, dmg: 8, power: 18, speed: 82, sense: 380, meat: 8, boss: true, hit: [0.75, 0.5] }),
     S({ id: 'seeskorpion', name: 'Seeskorpion', art: { t: 'bug', len: 72, h: 18, segs: 8, c: 0x4e3228, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 30, dmg: 6, power: 8, speed: 104, sense: 260, meat: 4 }),
     S({ id: 'dunkleosteus', name: 'Panzerfisch', art: { t: 'fish', len: 230, h: 100, c: 0x39444a, belly: 0x7e8a86, fin: 0x252c32, armor: true, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 170, dmg: 9, power: 22, speed: 100, sense: 430, meat: 10, boss: true, hit: [0.8, 0.7] }),
 

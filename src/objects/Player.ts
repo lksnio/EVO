@@ -35,6 +35,8 @@ export class Player {
   /** Tempo relativ zum Normaltempo (0..~1.5) */
   speed01 = 0;
   lastHurt = -1e9;
+  /** woran das Tier zuletzt Schaden nahm (für den Stammbaum) */
+  lastCause = 'unbekannt';
   private invulnUntil = 0;
   private biteReady = 0;
   private knockUntil = 0;
@@ -76,20 +78,7 @@ export class Player {
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
   morph(): Morph {
-    const t = game.traits;
-    return {
-      cls: game.cls,
-      size: game.stats().size,
-      jaw: t.jaw,
-      skull: t.skull,
-      stealth: t.stealth,
-      diet: t.diet,
-      scars: t.scars,
-      belly: this.satiety < 22 ? 0 : this.satiety > 78 ? 2 : 1,
-      fierce: game.fear(),
-      hue: game.data.hue,
-      seed: game.data.seed,
-    };
+    return game.morph({ belly: this.satiety < 22 ? 0 : this.satiety > 78 ? 2 : 1, fierce: game.fear() });
   }
 
   /** Werte neu berechnen und – falls sich das Aussehen sichtbar verändert hat – neu zeichnen. */
@@ -237,8 +226,9 @@ export class Player {
     return true;
   }
 
-  hurt(dmg: number, fromX: number) {
+  hurt(dmg: number, fromX: number, by?: string) {
     if (this.dead || this.invulnerable) return;
+    if (by) this.lastCause = by;
     const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
     const now = this.host.time.now;
@@ -266,6 +256,7 @@ export class Player {
     } else this.body.setVelocityX(this.body.velocity.x * 0.6);
     if (selfDmg > 0.5) {
       this.hp = Math.max(0, this.hp - selfDmg);
+      this.lastCause = 'Beim Rammen verletzt';
       this.view.flash(0xffa080);
       this.host.time.delayedCall(90, () => this.view.flash(null));
       if (this.hp <= 0) this.die();

@@ -7,10 +7,11 @@ import { CreatureView } from '../objects/CreatureView';
 import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 
 const PAGES = [
-  'Vor unvorstellbar langer Zeit war die Erde ein einziger Ozean.',
-  'In seiner Tiefe kämpft alles Leben ums Überleben.\nFressen – oder gefressen werden.',
-  'Du bist ein kleiner Urfisch.\nSchwach, unscheinbar … und hungrig.',
-  'Was du tust, formt, was aus dir wird.\nUnd was aus deinen Nachkommen wird.',
+  'Vor 470 Millionen Jahren ist die Erde fast nur Wasser.',
+  'Im Dunkel der Urmeere kämpft alles Leben ums Überleben.\nFressen – oder gefressen werden.',
+  'Du bist ein kleiner Urfisch.\nEiner von wenigen deiner Art.',
+  'Jedes Zeitalter dauert Jahrmillionen.\nÜberlebe es – egal wie.',
+  'Stirbst du, endet deine Linie.\nDoch jeder Versuch wird ein Ast im Stammbaum des Lebens.',
 ];
 
 export class IntroScene extends Phaser.Scene {
@@ -67,6 +68,6 @@ export class IntroScene extends Phaser.Scene {
     if (!this.scene.isActive()) return;
     game.data.seenIntro = true;
     game.save();
-    fadeTo(this, 'Map', { era: 'ozean' }, 900);
+    fadeTo(this, 'Level', { epoch: 0 }, 900);
   }
 }

@@ -29,6 +29,8 @@ export interface Morph {
   fierce: number;
   hue: number;
   seed: number;
+  /** 0 = ohne Angabe, 1 = Männchen (Kehlfleck, etwas kräftiger gefärbt), 2 = Weibchen */
+  sex?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -47,12 +49,13 @@ export function quantize(m: Morph): Morph {
     fierce: q(m.fierce, 0.25),
     hue: m.hue,
     seed: m.seed,
+    sex: m.sex ?? 0,
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex].join('_');
 }
 
 interface Pal {
@@ -74,8 +77,9 @@ const LINEAGE: Pal[] = [
 function palette(m: Morph): Pal {
   const p = LINEAGE[m.hue % LINEAGE.length];
   const st = m.stealth;
+  const male = m.sex === 1;
   return {
-    base: mix(p.base, shade(p.camo, 0.2), st * 0.35),
+    base: mix(mix(p.base, shade(p.camo, 0.2), st * 0.35), shade(p.base, -0.12), male ? 0.5 : 0),
     belly: mix(p.belly, p.base, st * 0.25),
     dark: p.dark,
     camo: p.camo,
@@ -548,6 +552,15 @@ function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
           c.lineWidth = 0.8;
           c.stroke();
         }
+      }
+      // Männchen tragen einen farbigen Kehlfleck
+      if (m.sex === 1) {
+        ell(c, L * 0.32, H * 0.3, L * 0.24, H * 0.17, -0.15);
+        c.fillStyle = css(mix(P.base, 0xb4502c, 0.7), 0.85);
+        c.fill();
+        ell(c, L * 0.3, H * 0.27, L * 0.12, H * 0.07, -0.15);
+        c.fillStyle = 'rgba(255,200,150,0.18)';
+        c.fill();
       }
       // Kiemendeckel
       if (m.cls === 'fish') {

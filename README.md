@@ -3,10 +3,13 @@
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
 
-Du beginnst als kleiner, schwacher Urfisch im dunklen Urozean. Es gibt keine Punkte zu sammeln und
-kein Menü, in dem du dir Körperteile aussuchst. Es geht nur ums **Überleben**: fressen, ausweichen,
-kämpfen, sich verstecken. **Was du tust, formt, was aus dir wird** – Stück für Stück, über
-Generationen. Du siehst es nur an deinem Tier und daran, wie die anderen Tiere auf dich reagieren.
+Du beginnst als kleiner, schwacher Urfisch im Urozean – einer von wenigen deiner Art. Jedes
+**Zeitalter** ist ein fester Zeitraum der Erdgeschichte: Oben läuft eine Uhr („vor 452.320.000 Jahren“),
+und wer bis zum Ende des Zeitraums überlebt, dessen Linie zieht ins nächste Zeitalter weiter.
+Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleben – egal wie**.
+
+**Stirbst du, ist das Spiel vorbei.** Deine Linie stirbt aus – und bleibt als Ast im
+**Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
 > Fan-Projekt, inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne
 > werden im Browser erzeugt – es werden keine Original-Inhalte verwendet.
@@ -15,22 +18,34 @@ Generationen. Du siehst es nur an deinem Tier und daran, wie die anderen Tiere a
 
 ## So spielt sich EVO
 
-1. **Zeitalter** – Steintafeln für die Epochen der Erdgeschichte. Was du noch nicht erreicht hast,
-   bleibt ein **Fragezeichen**.
-2. **Weltkarte** – unbekannte Orte liegen im Nebel und zeigen nur ein **?**. Wer einen Ort überlebt,
-   entdeckt die Wege zu seinen Nachbarn. Irgendwo herrscht ein Spitzenräuber über sein Revier.
-3. **Level** – friss Pflanzen oder Fleisch, um nicht zu verhungern (satt frisst du nichts mehr),
-   weiche Jägern aus, versteck dich im Dickicht, sprinte – oder stell dich zum Kampf.
-   Am Ende des Weges wartet ein Lichtspalt.
-4. **Generationen** – nach jedem überlebten Ort siehst du dein Tier „einst“ und „heute“.
-   Stirbst du, setzt ein Nachkomme die Reise fort – was du auf dieser Reise geworden bist, ist dann
-   allerdings verloren. Am Ende eines Zeitalters nehmen deine Nachfahren eine neue Form an:
-   Fisch → Lurch → Echse → Säuger.
+- **Überleben, wie du willst:**
+  - **Verstecken** – still im Dickicht übersehen dich die meisten Jäger; große Räuber, die nur
+    durchziehen, schwimmen fast immer einfach vorbei.
+  - **Kämpfen** – beißen, mit Anlauf rammen, dich durchfressen.
+  - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
+    Vertrauen. Solche Verbündeten bleiben in deiner Nähe und verteidigen dich.
+  - …oder eine Mischung davon.
+- **Deine Art:** Jedes Zeitalter beginnt mit einer kleinen Gruppe von Artgenossen – fast wie du,
+  mit kleinen Abweichungen, Männchen (mit Kehlfleck) und Weibchen. Sie folgen dir, fressen, warnen
+  mit Rufen, fliehen und verstecken sich mit dir. Wer mit dir überlebt, bekommt Nachwuchs.
+- **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
+  Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
+- **Hunger:** Fressen hält dich am Leben, aber satt frisst du nichts mehr.
+- **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen.
+  Manchmal nehmen deine Nachfahren dabei eine neue Form an: Fisch → Lurch → Echse → Säuger.
+- **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
+  Zeitleiste Fragezeichen.
 
 Es gibt keine Zahlen und keine Balken: Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …).
 
-Der Spielstand wird automatisch im Browser gespeichert.
+### Der Stammbaum
+
+Jedes Spiel ist ein Pfad von der Wurzel (dem Urahn) nach unten – nach unten vergeht die Zeit.
+Linien, die sich gleichen, teilen sich einen Ast; wo sie sich unterscheiden, verzweigt er sich.
+Ausgestorbene Zweige enden mit einem Schädel (mit Zeitpunkt und Ursache), gut angepasste Linien
+reichen weiter – vielleicht bis heute. Der Baum ist vorher nicht festgelegt, er entsteht nur
+durch das Spielen.
 
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
@@ -45,12 +60,9 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | frisst viel | wächst |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
-werden schneller wütend. Friedliche Zeit lässt die Angriffslust wieder abklingen. Pflanzen- bzw.
-Fleischfresser verdauen ihre gewohnte Kost besser. Schwere Treffer, die man überlebt, hinterlassen Narben.
-
-Die Tiere der Welt haben Rollen (Beute, Räuber, Verteidiger, Gefahr, Spitzenräuber), Hunger,
-Sinne und Angst: Sie fressen selbst, jagen einander und bemerken dich je nach Tempo, Blickrichtung,
-Dickicht und Dunkelheit.
+werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.
+Im Stammbaum werden Linien nach Körperform, vorherrschender Anpassung und Kost zusammengefasst –
+daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 </details>
 
 ## Steuerung
@@ -65,7 +77,6 @@ Dickicht und Dunkelheit.
 | Esc / P | Rast (Pause) |
 | M | Ton an/aus |
 
-Auf der Karte: Pfeiltasten wandern, Enter bricht auf, **T** zeigt dein Tier und deine Ahnen.
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
 ## Entwickeln
@@ -84,10 +95,10 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 | `npm run preview` | Zeigt den fertigen Build lokal an |
 | `npm run typecheck` | Nur TypeScript prüfen |
 
-**Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) – alle
-Zeitalter und Orte offen, im Level werden die verborgenen Werte eingeblendet. Mit `?debug&gallery`
-gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten (Leertaste blättert).
-`?touch` zeigt die Bildschirm-Knöpfe auch am PC.
+**Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) – im Level
+werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
+`?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
+(Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC.
 
 ### Projektstruktur
 
@@ -98,25 +109,25 @@ src/
 ├── data/                Spieldaten – hier lässt sich das Spiel am leichtesten anpassen
 │   ├── classes.ts       Körperformen (Fisch … Säuger) mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
-│   └── eras.ts          Zeitalter, Orte auf der Weltkarte, Tiere je Ort, Wege dazwischen
-├── state/GameState.ts   verborgene Merkmale, Ruf, Fortschritt, Ahnenreihe, Speichern
-├── level/LevelGen.ts    erzeugt die Level aus einer festen Saat (jeder Ort sieht immer gleich aus)
+│   └── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Lebensraum, Tiere, Ereignisse
+├── state/GameState.ts   Leben (Lauf), verborgene Merkmale, Ruf, Stammbaum, Speichern
+├── level/LevelGen.ts    erzeugt den Lebensraum für jedes Zeitalter (bei jedem Leben etwas anders)
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
 │   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
 │   ├── speciesArt.ts    alle anderen Tiere
-│   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Dickicht, Weltkarten
-│   └── uiArt.ts         Symbole, Titelbild, Steintafeln
+│   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Dickicht, Effekte
+│   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Tiere (KI), Nahrung, Steuerung
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung
 ├── ui/ui.ts             Knöpfe, Texte, Menü-Steuerung, Überblendungen
-└── scenes/              Titel, Intro, Zeitalter, Weltkarte, Level, HUD, Generationen, Abspann
+└── scenes/              Titel, Intro, Level, HUD, Generationen, Stammbaum, Abspann
 ```
 
 ### Ideen für später
 
-- [ ] Weitere Entwicklungswege (z. B. Vögel oder Urmenschen)
-- [ ] Fortpflanzung und Revierverhalten der Tiere
+- [ ] Fortpflanzung im Level (Partnerwahl unter den Artgenossen)
+- [ ] Weitere Entwicklungswege (z. B. Vögel oder Urmenschen) als eigene Äste
 - [ ] Gamepad-Steuerung
 - [ ] Echte Zeichnungen/Sprites (z. B. von OpenGameArt oder Kenney) statt gemalter Canvas-Grafik
 

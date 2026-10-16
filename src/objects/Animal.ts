@@ -4,7 +4,7 @@ import { speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { clamp, overlaps, type Rect } from '../util/math';
-import type { Carcass, Plant } from './Food';
+import { Carcass, type Plant } from './Food';
 
 type Body = Phaser.Physics.Arcade.Body;
 
@@ -18,7 +18,7 @@ export interface PlayerLike {
   /** still im Dickicht versteckt */
   hidden: boolean;
   hitRect(): Rect;
-  hurt(dmg: number, fromX: number): void;
+  hurt(dmg: number, fromX: number, by?: string): void;
 }
 
 /** Die Welt, in der die Tiere leben (wird vom Level bereitgestellt). */
@@ -28,7 +28,8 @@ export interface World extends Phaser.Scene {
   animals: Animal[];
   plants: Plant[];
   carcasses: Carcass[];
-  territory?: { x0: number; x1: number; floor: number };
+  /** Dickicht zum Verstecken */
+  cover: Rect[];
   solidAt(x: number, y: number): boolean;
   shoot(x: number, y: number, vx: number, vy: number, tex: string, dmg: number, gravity: boolean): void;
   animalDied(a: Animal, byPlayer: boolean): void;
@@ -42,18 +43,34 @@ export interface World extends Phaser.Scene {
   playerFear(): number;
   /** Ein Jäger hat den Spieler aus den Augen verloren. */
   playerEscaped(a: Animal): void;
+  /** Ein Tier hat mit dir gefressen und vertraut dir jetzt. */
+  bonded(a: Animal): void;
+  /** Ein durchziehendes Tier hat den Lebensraum verlassen. */
+  left(a: Animal): void;
 }
 
-type St = 'wander' | 'idle' | 'graze' | 'flee' | 'hunt' | 'search' | 'warn' | 'charge' | 'rest';
-type Target = Animal | PlayerLike;
+export type St = 'wander' | 'idle' | 'graze' | 'flee' | 'hunt' | 'search' | 'warn' | 'charge' | 'rest' | 'cruise' | 'follow' | 'hide';
+export type Target = Animal | PlayerLike;
 
 const APEX_MOVES: Record<string, string[]> = {
+  cameroceras: ['lunge', 'lunge', 'charge'],
   dunkleosteus: ['lunge', 'charge'],
   meganeura: ['dive', 'dive', 'lunge'],
   trex: ['lunge', 'charge', 'roar'],
   saebelzahn: ['pounce', 'lunge', 'pounce'],
   andrewsarchus: ['lunge', 'charge', 'roar'],
 };
+
+/** Ein Tier, das nur durch den Lebensraum zieht (Ereignis). */
+export interface Visitor {
+  dir: number;
+  endX: number;
+  cruiseY: number;
+  /** wie lange es einem Ziel höchstens nachjagt */
+  huntUntil: number;
+  /** bis dahin hat es das Interesse am Spieler verloren */
+  boredUntil: number;
+}
 
 export class Animal extends Phaser.Physics.Arcade.Sprite {
   def: SpeciesDef;
@@ -71,31 +88,42 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   huntingPlayer = false;
   /** bei einem Angriff gefährlich bei Berührung */
   attacking = false;
-  private world: World;
-  private t = 0;
-  private threatObj: Target | null = null;
-  private food: Plant | Carcass | null = null;
-  private attacker: Target | null = null;
-  private attackedAt = -1e9;
-  private lastSeen = { x: 0, y: 0 };
-  private nextSense = 0;
-  private biteReady = 0;
-  private stunUntil = 0;
-  private knockUntil = 0;
-  private wanderAt = 0;
-  private wanderX = 0;
-  private wanderY = 0;
-  private feedAt = 0;
-  private phase = Math.random() * 6;
-  private mv = '';
-  private mvT = 0;
-  private mvDir = { x: 1, y: 0 };
-  private nextMove = 0;
-  private weak = 1;
-  private roared = false;
+  /** Vertrauen durch geteilte Beute (ab 1: Verbündeter) */
+  bond = 0;
+  ally = false;
+  /** ein Artgenosse des Spielers */
+  kin = false;
+  /** gerade im Dickicht versteckt */
+  hiddenNow = false;
+  /** zieht nur durch (Ereignis) */
+  visitor: Visitor | null = null;
+  /** zuletzt den Spieler gebissen */
+  hitPlayerAt = -1e9;
+  protected world: World;
+  protected t = 0;
+  protected threatObj: Target | null = null;
+  protected food: Plant | Carcass | null = null;
+  protected attacker: Target | null = null;
+  protected attackedAt = -1e9;
+  protected lastSeen = { x: 0, y: 0 };
+  protected nextSense = 0;
+  protected biteReady = 0;
+  protected stunUntil = 0;
+  protected knockUntil = 0;
+  protected wanderAt = 0;
+  protected wanderX = 0;
+  protected wanderY = 0;
+  protected feedAt = 0;
+  protected phase = Math.random() * 6;
+  protected mv = '';
+  protected mvT = 0;
+  protected mvDir = { x: 1, y: 0 };
+  protected nextMove = 0;
+  protected weak = 1;
+  protected roared = false;
 
-  constructor(world: World, def: SpeciesDef, x: number, y: number) {
-    super(world, x, y, speciesKey(def.id, 0));
+  constructor(world: World, def: SpeciesDef, x: number, y: number, opts: { texture?: string } = {}) {
+    super(world, x, y, opts.texture ?? speciesKey(def.id, 0));
     this.world = world;
     this.def = def;
     this.hp = def.hp;
@@ -116,8 +144,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (flies || swims) b.setAllowGravity(false);
     if (world.water && def.crawl) b.setGravityY(900);
     b.setCollideWorldBounds(true);
-    this.play(`anim_${def.id}`);
-    this.anims.setProgress(Math.random());
+    if (world.anims.exists(`anim_${def.id}`)) {
+      this.play(`anim_${def.id}`);
+      this.anims.setProgress(Math.random());
+    }
     this.setDepth(DEPTH.enemies);
     this.dir = Math.random() < 0.5 ? -1 : 1;
     this.nextSense = world.time.now + Math.random() * 300;
@@ -136,26 +166,46 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     return { x: b.x, y: b.y, w: b.width, h: b.height };
   }
 
-  private get flies() {
+  protected get flies() {
     return this.def.habitat === 'air';
   }
 
-  private get swims() {
+  protected get swims() {
     return this.world.water && !this.def.crawl;
   }
 
-  private get onFloor() {
+  protected get onFloor() {
     return this.b.blocked.down || this.b.touching.down;
   }
 
-  private go(st: St) {
+  protected go(st: St) {
     if (this.st === st) return;
     this.st = st;
     this.stT = 0;
   }
 
-  private dist(o: { x: number; y: number }) {
+  protected dist(o: { x: number; y: number }) {
     return Math.hypot(o.x - this.x, o.y - this.y);
+  }
+
+  /** Wer ist (oder macht sich) zum Feind des Spielers? */
+  protected playerEnemy(range: number): Animal | null {
+    const W = this.world;
+    const p = W.player;
+    const now = W.time.now;
+    let best: Animal | null = null;
+    let bd = range;
+    for (const a of W.animals) {
+      if (a === this || a.dead || a.ally || a.kin) continue;
+      const hunting = a.target === p && (a.st === 'hunt' || a.attacking || !!a.mv);
+      if (!hunting && now - a.hitPlayerAt > 5000) continue;
+      const d = Math.min(this.dist(a), Math.hypot(a.x - p.x, a.y - p.y) + 60);
+      if (d < bd) {
+        bd = d;
+        best = a;
+      }
+    }
+    return best;
   }
 
   // ------------------------------------------------------------------ Ablauf
@@ -183,27 +233,29 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   // ------------------------------------------------------------------ Wahrnehmen
 
-  private sense(time: number) {
+  protected sense(time: number) {
     const W = this.world;
     const p = W.player;
     const role = this.role;
     const d = this.def;
     const dp = this.dist(p);
+    const friend = this.ally || this.kin;
+    if (this.visitor) this.hunger = 1;
     const feeding = this.st === 'graze';
-    let k = W.detectFactor(this) * (feeding ? 0.7 : 1);
-    // Im eigenen Revier entgeht dem Spitzenräuber kaum etwas – außer man versteckt sich
-    const A = W.territory;
-    if (role === 'apex' && A && !p.hidden && p.x > A.x0 && p.x < A.x1) k = Math.max(k, 0.85);
-    const seen = !p.dead && role !== 'hazard' && dp < d.sense * k;
+    let seen = !p.dead && role !== 'hazard' && dp < d.sense * W.detectFactor(this) * (feeding ? 0.7 : 1);
+    // Wer nur durchzieht, übersieht ein verstecktes Tier fast immer
+    if (this.visitor && p.hidden && dp > 70) seen = false;
+    if (this.visitor && time < this.visitor.boredUntil) seen = false;
     this.seesPlayer = seen;
     if (seen) {
       this.lastSeen = { x: p.x, y: p.y };
       this.alerted = true;
     } else if (this.alerted && dp > d.sense * 1.4) this.alerted = false;
     const T = W.playerThreat();
+    const attackedByPlayer = this.attacker === p && time - this.attackedAt < 8000 && !p.dead;
     let threat: Target | null = null;
     let threatD = Infinity;
-    if (seen) {
+    if (seen && !friend) {
       if (role === 'prey') {
         const fear = W.playerFear();
         const fleeR = d.sense * (0.22 + 0.78 * fear) + (p.fast ? 70 : 0);
@@ -218,7 +270,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         }
       }
     }
-    if ((role === 'prey' || role === 'predator') && this.attacker === p && time - this.attackedAt < 8000 && !p.dead) {
+    if ((role === 'prey' || role === 'predator') && attackedByPlayer) {
       if (role === 'prey' || T > d.power * 1.2) {
         threat = p;
         threatD = dp;
@@ -226,9 +278,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     for (const a of W.animals) {
       if (a === this || a.dead || a.def.id === d.id) continue;
+      if ((friend && (a.ally || a.kin)) || (this.kin && a.kin)) continue;
       const da = this.dist(a);
       if (da > d.sense || da >= threatD) continue;
-      if (role === 'prey' && (a.role === 'predator' || a.role === 'apex') && da < d.sense * 0.75) {
+      if (role === 'prey' && (a.role === 'predator' || a.role === 'apex') && !a.ally && da < d.sense * 0.75) {
         threat = a;
         threatD = da;
       } else if (role === 'predator' && a.role === 'apex' && a.def.power > d.power * 1.5 && da < 260) {
@@ -238,12 +291,31 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.threatObj = threat;
 
+    // Nahrung in der Nähe (Aas wird gern genommen – auch die Beute des Spielers)
+    let carcass: Carcass | null = null;
+    if (d.diet === 'meat') {
+      let cd = 300;
+      for (const c of W.carcasses) {
+        if (c.gone || c.units <= 0) continue;
+        const dd = this.dist(c);
+        if (dd < cd) {
+          cd = dd;
+          carcass = c;
+        }
+      }
+    }
+
     // Jagdziel
     if (role === 'predator' || role === 'apex') {
       let best: Target | null = null;
       let bd = Infinity;
       const hungry = role === 'apex' || this.hunger > 0.35;
-      if (hungry) {
+      // Wer Aas in der Nähe hat, frisst lieber, als zu kämpfen
+      const scavenging = !!carcass && this.hunger > 0.3 && !attackedByPlayer && !this.visitor;
+      if (this.ally) {
+        best = this.playerEnemy(d.sense);
+        if (best && best.def.power > d.power * 3) best = null;
+      } else if (hungry && !scavenging) {
         const bold = this.hunger > 0.75 ? 1.4 : 1.15;
         if (seen && (role === 'apex' || T < d.power * bold)) {
           best = p;
@@ -255,6 +327,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           if (a.def.power > d.power) continue;
           if (a.flies && !this.flies && !this.swims) continue;
           const da = this.dist(a);
+          // Versteckte Artgenossen bemerkt man nur aus nächster Nähe
+          if (a.hiddenNow && da > 70) continue;
           if (da < d.sense * 0.85 && da < bd) {
             best = a;
             bd = da;
@@ -263,9 +337,6 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
       if (this.attacker && time - this.attackedAt < 6000 && !this.attacker.dead) {
         if (this.attacker !== p || role === 'apex' || T < d.power * 1.6) best = this.attacker;
-      }
-      if (this.target === p && best !== p && p.dead === false && !seen) {
-        // gerade aus den Augen verloren
       }
       this.target = best;
     }
@@ -298,10 +369,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   // ------------------------------------------------------------------ Entscheiden
 
-  private think(time: number, dt: number) {
+  protected think(time: number, dt: number) {
     const role = this.role;
     this.attacking = false;
     if (role === 'hazard') return this.drift();
+    if (this.visitor) return this.thinkVisitor(time, dt);
     if (role === 'defender') return this.thinkDefender(time);
     if (role === 'apex') return this.thinkApex(time, dt);
 
@@ -338,35 +410,74 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     if (this.food) return this.eatFood(time);
+    if (this.ally) return this.followPlayer(time, 160, 300);
     this.wander(time);
   }
 
-  private eatFood(time: number) {
+  /** Verbündete halten sich in der Nähe des Spielers. */
+  protected followPlayer(time: number, near: number, far: number) {
+    const p = this.world.player;
+    if (p.dead) return this.wander(time);
+    const d = this.dist(p);
+    if (d > far) {
+      this.go('follow');
+      const side = this.x < p.x ? -1 : 1;
+      this.moveTo(p.x + side * near * 0.7, p.y, this.def.speed * (d > far * 2 ? 1.2 : 0.8), true);
+    } else if (d > near) {
+      this.go('follow');
+      this.moveTo(p.x + (this.x < p.x ? -1 : 1) * near * 0.6, p.y, this.def.speed * 0.5);
+    } else {
+      this.go('idle');
+      this.halt();
+    }
+  }
+
+  protected eatFood(time: number) {
     const f = this.food!;
-    const fy = 'def' in f ? f.y - 10 : f.y - 20;
-    if (this.dist({ x: f.x, y: fy }) < this.width * 0.5 + 24) {
+    const isMeat = f instanceof Carcass;
+    const fy = isMeat ? f.y - 10 : f.y - 20;
+    if (this.dist({ x: f.x, y: fy }) < this.width * 0.5 + 24 || (this.kin && this.dist({ x: f.x, y: fy }) < 40)) {
       this.go('graze');
       this.halt();
       this.dir = Math.sign(f.x - this.x) || this.dir;
       if (time > this.feedAt) {
         this.feedAt = time + 1300;
         if (f.take(time)) {
-          this.hunger = Math.max(0, this.hunger - ('def' in f ? 0.35 : 0.25));
-          this.world.puff(f.x, f.y - 14, 3, 'def' in f ? 0x6a1a10 : 0x6a7a3a);
+          this.hunger = Math.max(0, this.hunger - (isMeat ? 0.35 : 0.25));
+          this.world.puff(f.x, f.y - 14, 3, isMeat ? 0x6a1a10 : 0x6a7a3a);
+          if (isMeat) this.sharedMeal(f, time);
         }
       }
     } else this.moveTo(f.x, fy, this.def.speed * 0.8);
   }
 
-  private thinkDefender(time: number) {
+  /** Frisst ein Tier von deiner Beute, während du dabei bist, wächst Vertrauen. */
+  protected sharedMeal(c: Carcass, time: number) {
+    const W = this.world;
+    const p = W.player;
+    if (!c.byPlayer || p.dead || this.visitor || this.ally) return;
+    if (this.dist(p) > 280) return;
+    if (this.attacker === p && time - this.attackedAt < 10000) return;
+    // eine geteilte Mahlzeit genügt
+    this.bond += 0.5;
+    if (this.bond >= 1) {
+      this.ally = true;
+      this.target = null;
+      this.threatObj = null;
+      W.bonded(this);
+    }
+  }
+
+  protected thinkDefender(time: number) {
     const W = this.world;
     const p = W.player;
     let provoker: Target | null = null;
     if (this.attacker && time - this.attackedAt < 7000 && !this.attacker.dead) provoker = this.attacker;
+    else if (this.ally) provoker = this.playerEnemy(220);
     else if (this.seesPlayer && this.dist(p) < 130 && (W.playerFear() > 0.35 || p.fast)) provoker = p;
     else {
       for (const a of W.animals) {
-        if (a !== this && !a.dead && a.role === 'predator' && this.dist(a) < 140) provoker = a;
+        if (a !== this && !a.dead && a.role === 'predator' && !a.ally && this.dist(a) < 140) provoker = a;
       }
     }
     switch (this.st) {
@@ -388,8 +499,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         else this.b.setVelocityX(this.dir * this.def.speed * 3.2);
         if (tg && !tg.dead && overlaps(this.hitRect(), tg.hitRect()) && time > this.biteReady) {
           this.biteReady = time + 900;
-          if (tg === p) p.hurt(this.def.dmg * 1.3, this.x);
-          else (tg as Animal).hurt(this.def.dmg * 1.3, this, 'ram');
+          if (tg === p) {
+            p.hurt(this.def.dmg * 1.3, this.x, this.def.name);
+            this.hitPlayerAt = time;
+          } else (tg as Animal).hurt(this.def.dmg * 1.3, this, 'ram');
           audio.sfx('ram');
           this.go('rest');
         }
@@ -407,48 +520,19 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     if (this.food) return this.eatFood(time);
+    if (this.ally) return this.followPlayer(time, 160, 320);
     this.wander(time);
   }
 
   // ------------------------------------------------------------------ Spitzenräuber
 
-  private thinkApex(time: number, dt: number) {
+  protected thinkApex(time: number, dt: number) {
     const W = this.world;
     const p = W.player;
-    const A = W.territory;
     if (this.mv) return this.apexMove(time, dt);
     const tg = this.target;
     if (tg && !tg.dead) {
-      if (tg === p && !this.huntingPlayer) {
-        this.huntingPlayer = true;
-        if (!this.roared) {
-          this.roared = true;
-          audio.sfx('roar');
-          W.cameras.main.shake(500, 0.008);
-        }
-      }
-      if (this.st !== 'hunt') this.go('hunt');
-      // Revier nicht verlassen
-      if (A && (tg.x < A.x0 + 30 || tg.x > A.x1 - 30) && Math.abs(tg.x - this.x) > 120) {
-        this.halt();
-        this.dir = Math.sign(tg.x - this.x) || this.dir;
-        if (this.stT > 2.5) {
-          this.target = null;
-          if (this.huntingPlayer) W.playerEscaped(this);
-          this.huntingPlayer = false;
-          this.go('wander');
-        }
-        return;
-      }
-      this.chase(tg, this.def.speed * 1.1);
-      this.tryBite(time, tg);
-      const d = this.dist(tg);
-      if (time > this.nextMove && d < 460) {
-        const moves = APEX_MOVES[this.def.id] ?? ['lunge'];
-        const m = moves[Math.floor(Math.random() * moves.length)];
-        if (m !== 'lunge' || d < 260) this.startMove(m, tg);
-        this.nextMove = time + 1800 + Math.random() * 1800;
-      }
+      this.huntTarget(time, tg);
       return;
     }
     if (this.huntingPlayer) {
@@ -462,18 +546,72 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     if (this.food && this.hunger > 0.5) return this.eatFood(time);
-    // Revier ablaufen
-    if (A) {
-      if (time > this.wanderAt || Math.abs(this.x - this.wanderX) < 30) {
-        this.wanderAt = time + 4000 + Math.random() * 3000;
-        this.wanderX = A.x0 + 120 + Math.random() * (A.x1 - A.x0 - 240);
-        this.wanderY = this.home.y + (Math.random() - 0.5) * 120;
-      }
-      this.moveTo(this.wanderX, this.wanderY, this.def.speed * 0.45);
-    } else this.wander(time);
+    this.wander(time);
   }
 
-  private startMove(m: string, tg: Target) {
+  /** Jagd eines großen Räubers – mit Spezialangriffen. */
+  protected huntTarget(time: number, tg: Target) {
+    const W = this.world;
+    const p = W.player;
+    if (tg === p && !this.huntingPlayer) {
+      this.huntingPlayer = true;
+      if (!this.roared) {
+        this.roared = true;
+        audio.sfx('roar');
+        W.cameras.main.shake(500, 0.008);
+      }
+    }
+    if (this.st !== 'hunt') this.go('hunt');
+    this.chase(tg, this.def.speed * 1.1);
+    this.tryBite(time, tg, this.role === 'apex' ? 1.2 : 1);
+    const d = this.dist(tg);
+    const moves = APEX_MOVES[this.def.id];
+    if (moves && time > this.nextMove && d < 460) {
+      const m = moves[Math.floor(Math.random() * moves.length)];
+      if (m !== 'lunge' || d < 260) this.startMove(m, tg);
+      this.nextMove = time + 1800 + Math.random() * 1800;
+    }
+  }
+
+  /** Durchziehende Räuber: jagen, was ihnen vor das Maul kommt, und ziehen dann weiter. */
+  protected thinkVisitor(time: number, dt: number) {
+    const v = this.visitor!;
+    const W = this.world;
+    const p = W.player;
+    if (this.mv) return this.apexMove(time, dt);
+    const tg = this.target;
+    if (tg && !tg.dead) {
+      if (!v.huntUntil) v.huntUntil = time + 7000;
+      if (time < v.huntUntil) {
+        this.huntTarget(time, tg);
+        return;
+      }
+      // genug gejagt – weiterziehen
+      if (tg === p) v.boredUntil = time + 6000;
+      this.target = null;
+    }
+    v.huntUntil = 0;
+    if (this.huntingPlayer) {
+      this.huntingPlayer = false;
+      if (!p.dead) W.playerEscaped(this);
+    }
+    this.go('cruise');
+    const ty = this.swims || this.flies ? v.cruiseY + Math.sin(this.t * 0.7 + this.phase) * 40 : this.y;
+    this.moveTo(v.endX, ty, this.def.speed * 0.8);
+    if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) this.leave();
+  }
+
+  /** Verlässt den Lebensraum (ohne zu sterben). */
+  leave() {
+    if (this.dead) return;
+    this.dead = true;
+    this.attacking = false;
+    this.b.enable = false;
+    this.world.left(this);
+    this.world.tweens.add({ targets: this, alpha: 0, duration: 500, onComplete: () => this.destroy() });
+  }
+
+  protected startMove(m: string, tg: Target) {
     this.mv = m;
     this.mvT = 0;
     this.dir = Math.sign(tg.x - this.x) || this.dir;
@@ -484,7 +622,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (m === 'charge' || m === 'lunge' || m === 'pounce') this.setTint(0xffb0a0);
   }
 
-  private endMove() {
+  protected endMove() {
     this.mv = '';
     this.mvT = 0;
     this.clearTint();
@@ -492,7 +630,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.setScale(1);
   }
 
-  private apexMove(time: number, dt: number) {
+  protected apexMove(time: number, dt: number) {
     this.mvT += dt;
     const t = this.mvT;
     const b = this.b;
@@ -521,9 +659,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           if (this.swims) b.setVelocity(this.mvDir.x * sp * 3, this.mvDir.y * sp * 3);
           else b.setVelocityX(this.dir * sp * 3.2);
           if (Math.random() < 0.3) W.puff(this.x - this.dir * 50, b.bottom, 1);
-          const A = W.territory;
-          const wall = b.blocked.left || b.blocked.right || (A && (this.x < A.x0 + 60 || this.x > A.x1 - 60));
-          if (wall) {
+          if (b.blocked.left || b.blocked.right) {
             audio.sfx('boom');
             W.cameras.main.shake(380, 0.012);
             this.stunUntil = time + 1700;
@@ -531,7 +667,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
             W.time.delayedCall(1700, () => (this.weak = 1));
             b.setVelocity(-this.dir * 80, 0);
             this.endMove();
-          } else if (t > 2.4) this.endMove();
+          } else if (t > 2.2) this.endMove();
           if (tg && tg !== W.player && overlaps(this.hitRect(), tg.hitRect())) (tg as Animal).hurt(this.def.dmg, this, 'ram');
         }
         break;
@@ -581,7 +717,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           this.mvDir.y = 77;
           W.cameras.main.shake(600, 0.01);
           if (!this.swims && !this.flies) {
-            const floor = W.territory?.floor ?? this.b.bottom;
+            const floor = this.b.bottom;
             for (const s of [-1, 1]) W.shoot(this.x + s * 60, floor - 20, s * 300, 0, 'pr_wave', this.def.dmg * 0.8, false);
           }
         }
@@ -594,13 +730,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   // ------------------------------------------------------------------ Bewegung
 
-  private halt() {
+  protected halt() {
     const b = this.b;
     if (this.swims || this.flies) b.setVelocity(b.velocity.x * 0.85, b.velocity.y * 0.85);
     else b.setVelocityX(0);
   }
 
-  private moveTo(x: number, y: number, speed: number, fleeing = false) {
+  protected moveTo(x: number, y: number, speed: number, fleeing = false) {
     const b = this.b;
     const dx = x - this.x, dy = y - this.y;
     if (Math.abs(dx) > 4) this.dir = dx > 0 ? 1 : -1;
@@ -617,10 +753,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       b.setVelocityX(0);
       return;
     }
-    this.walk(speed, fleeing || this.st === 'hunt' || this.st === 'charge', fleeing);
+    const jumpy = fleeing || this.st === 'hunt' || this.st === 'charge' || this.st === 'cruise' || this.st === 'follow';
+    this.walk(speed, jumpy, fleeing);
   }
 
-  private walk(speed: number, jumpy: boolean, fleeing: boolean) {
+  protected walk(speed: number, jumpy: boolean, fleeing: boolean) {
     const b = this.b;
     const floor = this.onFloor;
     const blocked = (b.blocked.left && this.dir < 0) || (b.blocked.right && this.dir > 0);
@@ -638,22 +775,22 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     b.setVelocityX(this.dir * speed);
   }
 
-  private jumpV() {
+  protected jumpV() {
     return this.def.power > 20 ? 600 : 520;
   }
 
-  private runFrom(x: number, y: number, speed: number) {
+  protected runFrom(x: number, y: number, speed: number) {
     const away = this.x >= x ? 1 : -1;
     const ty = this.swims || this.flies ? this.y + (this.y >= y ? 120 : -120) : this.y;
     this.moveTo(this.x + away * 240, ty, speed, true);
   }
 
-  private chase(tg: Target, speed: number) {
+  protected chase(tg: Target, speed: number) {
     const aboveY = this.flies && this.mv !== 'dive' && this.dist(tg) > 160 ? tg.y - 110 : tg.y;
     this.moveTo(tg.x, aboveY, speed, false);
   }
 
-  private wander(time: number) {
+  protected wander(time: number) {
     if (time > this.wanderAt) {
       this.wanderAt = time + 2500 + Math.random() * 3500;
       if (Math.random() < 0.3) {
@@ -673,7 +810,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.moveTo(this.wanderX, this.wanderY, this.def.speed * 0.55);
   }
 
-  private drift() {
+  protected drift() {
     this.b.setVelocity(Math.sin(this.t * 0.5 + this.phase) * this.def.speed * 0.7, Math.sin(this.t * 1.3 + this.phase) * this.def.speed * 1.3);
     this.setScale(1 + Math.sin(this.t * 2.6) * 0.06, 1 - Math.sin(this.t * 2.6) * 0.06);
   }
@@ -681,7 +818,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   // ------------------------------------------------------------------ Kampf
 
   /** Biss in Reichweite? */
-  private tryBite(time: number, tg: Target, reach = 1) {
+  protected tryBite(time: number, tg: Target, reach = 1) {
     if (time < this.biteReady || tg.dead) return;
     const b = this.b;
     const w = (b.width * 0.5 + 18) * reach;
@@ -690,7 +827,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.biteReady = time + (this.role === 'apex' ? 1100 : 900);
     const p = this.world.player;
     if (tg === p) {
-      p.hurt(this.def.dmg, this.x);
+      p.hurt(this.def.dmg, this.x, this.def.name);
+      this.hitPlayerAt = time;
       if (Math.random() < 0.5) audio.sfx('snarl');
     } else {
       (tg as Animal).hurt(this.def.dmg, this, 'bite');
@@ -704,6 +842,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.hp -= dmg * this.weak;
     this.attacker = from;
     this.attackedAt = now;
+    // Wer von dir angegriffen wird, vertraut dir nicht mehr
+    if (from === this.world.player && (this.ally || this.bond > 0)) {
+      this.ally = false;
+      this.bond = 0;
+    }
     this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.world.time.delayedCall(90, () => {
       if (this.active) this.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
@@ -723,10 +866,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     audio.sfx(this.role === 'prey' ? 'squeal' : 'hit');
-    if (this.role === 'apex' || this.role === 'predator') this.target = from;
+    if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && from === this.world.player)) this.target = from;
   }
 
-  private die(byPlayer: boolean) {
+  protected die(byPlayer: boolean) {
     this.dead = true;
     this.attacking = false;
     this.b.enable = false;

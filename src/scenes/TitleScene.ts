@@ -5,7 +5,9 @@ import { game } from '../state/GameState';
 import { SPECIES } from '../data/species';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
+import { EPOCHS } from '../data/epochs';
 import { Button, MenuNav, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
+import { continueLife, startNewLife } from './flow';
 
 /**
  * Titelbild: Tiefsee, ein kleines Tier im Dunkeln – und ab und zu zieht ein riesiger Schatten vorbei.
@@ -56,22 +58,30 @@ export class TitleScene extends Phaser.Scene {
     title(this, W / 2, 232, 'Die Suche nach Eden', 30, UI.boneDim).setOrigin(0.5);
 
     // Das eigene Tier (oder ein frisch geschlüpfter Urfisch)
-    const m = game.hasProgress() ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0 }, fierce: 0 });
+    const run = game.run;
+    const m = run ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0 }, fierce: 0, hue: 0, seed: 7, sex: 0 });
     this.hero = new CreatureView(this, 250, 0, m, 1.7);
     const land = this.hero.L.land;
     this.hero.setY(land ? 640 - this.hero.L.footY * 1.7 : 560);
     if (land) this.add.image(250, 646, 'pedestal').setScale(1.1, 0.9).setDepth(-1);
     else this.tweens.add({ targets: this.hero, y: 548, yoyo: true, repeat: -1, duration: 2200, ease: 'Sine.inOut' });
+    if (run) {
+      text(this, 250, 676, `Deine Linie lebt – ${EPOCHS[run.epoch].name}`, 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8);
+    }
 
     // Knöpfe
     const items: Button[] = [];
     let y = 330;
-    if (game.hasProgress()) {
+    if (run) {
       items.push(new Button(this, W / 2, y, 'Weiterleben', { w: 300, color: UI.ochreN, onClick: () => this.continueGame() }));
-      y += 70;
+      y += 68;
     }
-    items.push(new Button(this, W / 2, y, 'Neues Leben', { w: 300, color: game.hasProgress() ? UI.stone : UI.ochreN, onClick: () => this.newGame() }));
-    y += 70;
+    items.push(new Button(this, W / 2, y, 'Neues Leben', { w: 300, color: run ? UI.stone : UI.ochreN, onClick: () => this.newGame() }));
+    y += 68;
+    if (game.hasTree()) {
+      items.push(new Button(this, W / 2, y, 'Stammbaum', { w: 300, onClick: () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view' }, 600) }));
+      y += 68;
+    }
     items.push(new Button(this, W / 2, y, 'Steuerung', { w: 300, onClick: () => this.showHelp() }));
     this.nav = new MenuNav(this, items);
     soundButton(this, W - 44, 40);
@@ -86,20 +96,16 @@ export class TitleScene extends Phaser.Scene {
 
   private continueGame() {
     if (this.overlay) return;
-    fadeTo(this, 'EraSelect', {}, 600);
+    continueLife(this);
   }
 
   private newGame() {
     if (this.overlay) return;
-    if (game.hasProgress()) {
-      this.confirm('Ein neues Leben beginnen?\nDeine Ahnenreihe geht verloren.', () => {
-        game.reset();
-        fadeTo(this, 'Intro', {}, 800);
-      });
+    if (game.hasRun()) {
+      this.confirm('Ein neues Leben beginnen?\nDeine jetzige Linie endet dann.', () => startNewLife(this));
       return;
     }
-    game.reset();
-    fadeTo(this, 'Intro', {}, 800);
+    startNewLife(this);
   }
 
   private confirm(msg: string, yes: () => void) {
@@ -135,7 +141,7 @@ export class TitleScene extends Phaser.Scene {
       c.add(text(this, W / 2 - 320, 186 + i * 44, k, 23, UI.ochre, { fontStyle: '700' }));
       c.add(text(this, W / 2 - 50, 186 + i * 44, v, 23, UI.bone));
     });
-    c.add(text(this, W / 2, 545, 'Fressen hält dich am Leben – doch du frisst nur, solange du Hunger hast.\nWas du tust, formt, was aus dir und deinen Nachkommen wird.', 19, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
+    c.add(text(this, W / 2, 545, 'Überlebe jedes Zeitalter, bis seine Zeit abgelaufen ist – egal wie.\nStirbst du, endet deine Linie. Was du tust, formt deine Nachkommen.', 19, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
     c.add(text(this, W / 2, 604, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;

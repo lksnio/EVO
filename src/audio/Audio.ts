@@ -4,7 +4,8 @@ export type Sfx =
   | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
-  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle';
+  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
+  | 'call' | 'bond' | 'rumble' | 'extinct';
 
 interface ToneOpts {
   f: number;
@@ -483,6 +484,24 @@ export class AudioEngine {
         break;
       case 'buzz':
         this.tone({ f: 130, f2: 170, d: 0.5, type: 'sawtooth', v: 0.06, filter: 700 });
+        break;
+      case 'call':
+        // Warnruf der Artgenossen
+        this.tone({ f: 620, f2: 880, d: 0.09, type: 'triangle', v: 0.07, filter: 2200 });
+        this.tone({ f: 640, f2: 900, d: 0.09, type: 'triangle', v: 0.06, filter: 2200, t: 0.14 });
+        break;
+      case 'bond':
+        // leises, warmes Brummen: Vertrauen
+        [196, 247, 294].forEach((f, i) => this.tone({ f, d: 0.9, type: 'sine', v: 0.06, a: 0.15, t: i * 0.09 }));
+        break;
+      case 'rumble':
+        // etwas Großes nähert sich
+        this.noise({ d: 2.2, v: 0.22, a: 0.6, filter: 160, f2: 90, q: 0.8 });
+        this.tone({ f: 46, f2: 38, d: 2, type: 'sine', v: 0.18, a: 0.5 });
+        break;
+      case 'extinct':
+        [220, 196, 175, 147].forEach((f, i) => this.tone({ f, d: 1.4, type: 'triangle', v: 0.08, a: 0.1, t: i * 0.45 }));
+        this.noise({ d: 2.6, v: 0.05, a: 1, filter: 400, f2: 120 });
         break;
     }
   }
