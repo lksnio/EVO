@@ -101,6 +101,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   hiddenNow = false;
   /** zieht nur durch (Ereignis) */
   visitor: Visitor | null = null;
+  /** Endgegner der Region: bleibt, bis er besiegt ist, und sucht dich */
+  boss = false;
+  /** Größe dieses Tieres: nicht jedes Exemplar ist gleich groß */
+  sz = 1;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -132,13 +136,15 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     super(world, x, y, opts.texture ?? speciesKey(def.id, 0));
     this.world = world;
     this.def = def;
-    this.hp = def.hp;
-    this.maxHp = def.hp;
+    this.sz = def.boss ? 0.95 + Math.random() * 0.1 : 0.86 + Math.random() * 0.28;
+    this.hp = Math.round(def.hp * this.sz);
+    this.maxHp = this.hp;
     this.hunger = 0.15 + Math.random() * 0.5;
     this.home = { x, y };
     this.wanderX = x;
     this.wanderY = y;
     world.add.existing(this);
+    this.setScale(this.sz);
     world.physics.add.existing(this);
     const [fw, fh] = def.hit ?? [0.8, 0.8];
     const w = this.width * fw, h = this.height * fh;
@@ -266,6 +272,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected sense(time: number) {
     const W = this.world;
     const p = W.player;
+    // Der Endgegner streift immer in deiner Nähe umher
+    if (this.boss && !p.dead) {
+      this.home.x = p.x;
+      this.home.y = p.y;
+      this.hunger = 1;
+    }
     const role = this.role;
     const d = this.def;
     const dp = this.dist(p);
@@ -514,9 +526,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       case 'warn':
         this.halt();
         if (provoker) this.dir = Math.sign(provoker.x - this.x) || this.dir;
-        this.setScale(1 + Math.sin(this.stT * 30) * 0.03, 1);
+        this.setScale(this.sz * (1 + Math.sin(this.stT * 30) * 0.03), this.sz);
         if (this.stT > 0.9) {
-          this.setScale(1);
+          this.setScale(this.sz);
           this.target = provoker;
           this.go(provoker ? 'charge' : 'wander');
         }
@@ -665,7 +677,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.mvT = 0;
     this.clearTint();
     this.setAngle(0);
-    this.setScale(1);
+    this.setScale(this.sz);
   }
 
   protected apexMove(time: number, dt: number) {
@@ -689,10 +701,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       case 'charge':
         if (t < 0.6) {
           this.halt();
-          this.setScale(1 + Math.sin(t * 40) * 0.02, 1);
+          this.setScale(this.sz * (1 + Math.sin(t * 40) * 0.02), this.sz);
         } else {
           this.clearTint();
-          this.setScale(1);
+          this.setScale(this.sz);
           this.attacking = true;
           if (this.swims) b.setVelocity(this.mvDir.x * sp * 3, this.mvDir.y * sp * 3);
           else b.setVelocityX(this.dir * sp * 3.2);
@@ -712,9 +724,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       case 'pounce':
         if (t < 0.4) {
           this.halt();
-          this.setScale(1.05, 0.9);
+          this.setScale(this.sz * 1.05, this.sz * 0.9);
         } else if (this.mvDir.y !== 99) {
-          this.setScale(1);
+          this.setScale(this.sz);
           this.clearTint();
           const tx = tg ? tg.x : this.x + this.dir * 200;
           b.setVelocity(clamp((tx - this.x) / 0.9, -460, 460), -640);
@@ -854,7 +866,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   protected drift() {
     this.b.setVelocity(Math.sin(this.t * 0.5 + this.phase) * this.def.speed * 0.7, Math.sin(this.t * 1.3 + this.phase) * this.def.speed * 1.3);
-    this.setScale(1 + Math.sin(this.t * 2.6) * 0.06, 1 - Math.sin(this.t * 2.6) * 0.06);
+    this.setScale(this.sz * (1 + Math.sin(this.t * 2.6) * 0.06), this.sz * (1 - Math.sin(this.t * 2.6) * 0.06));
   }
 
   // ------------------------------------------------------------------ Kampf

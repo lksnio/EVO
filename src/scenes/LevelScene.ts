@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, needUnits, type Offspring, type Traits } from '../state/GameState';
+import { bus, FOOD, fedRef, game, hungerRate, kcalOf, type Offspring, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
@@ -9,7 +9,7 @@ import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelB
 import { makeSpeciesTextures } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
-import { Player, FULL } from '../objects/Player';
+import { Player } from '../objects/Player';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
 import { Carcass, Plant } from '../objects/Food';
@@ -23,8 +23,6 @@ const UI_BONE = '#e6dcc4';
 
 const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
 
-/** Hunger pro Sekunde (Sättigung 0..100). */
-const HUNGER_RATE = 0.55;
 
 /** Daten für den Generationen-Bildschirm nach einem überlebten Zeitalter. */
 export interface SurvivedData {
@@ -40,8 +38,15 @@ export interface SurvivedData {
   drifted?: Traits;
   /** wer die Linie weiterführen kann (das eigene Tier zuerst) */
   offspring?: Offspring[];
-  /** in diesem Zeitalter gefressen und gebraucht (kcal) */
+  /** in diesem Zeitalter gefressen (kcal) */
   eaten?: { meat: number; plant: number; need: number };
+  /** Endgegner noch nicht besiegt: das Zeitalter wird wiederholt */
+  repeat?: boolean;
+  /** Name des Endgegners (falls es einen gab) */
+  boss?: string;
+  bossBeaten?: boolean;
+  /** Jahre vor heute am Ende dieser Runde */
+  years?: number;
   finished?: boolean;
   node: string;
 }
@@ -129,9 +134,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** in diesem Zeitalter gefressen (Sättigungs-Einheiten) */
   eatenMeat = 0;
   eatenPlant = 0;
-  /** so viel muss es bis zum Ende sein, damit es Nachwuchs gibt */
+  /** so viel frisst ein Tier, das gut über die Runden kommt (Maß für die Vielfalt des Nachwuchses) */
   needUnits = 0;
-  private foodWarned = false;
+  /** der Endgegner dieser Region (falls er schon da ist) */
+  private bossA?: Animal;
+  private bossBeaten = false;
+  private span = { from: 0, to: 0 };
   /** bis dahin gilt ein Angriff als Überraschungsangriff (aus dem Versteck heraus) */
   private ambushUntil = 0;
   /** dunkle Vorahnung: ein Riese ist in der Nähe */
@@ -194,7 +202,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swayList = [];
     this.eatenMeat = this.eatenPlant = 0;
     this.needUnits = 0;
-    this.foodWarned = false;
+    this.bossA = undefined;
+    this.bossBeaten = false;
     this.ambushUntil = 0;
     this.dreadK = 0;
     this.dreadAt = -1e9;
@@ -267,7 +276,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawnKin();
     for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y);
     this.faunaCount = L.spawns.length;
-    this.needUnits = needUnits(ep, this.player.stats.size);
+    this.needUnits = fedRef(ep, this.player.stats.size);
+    this.span = game.epochSpan(this.epochIdx);
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -991,6 +1001,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.cameras.main.shake(600, 0.012);
       audio.sfx('boom');
     }
+    if (a === this.bossA && !this.ended) {
+      this.bossBeaten = true;
+      bus.emit('boss', a.def.name, 0);
+      bus.emit('story', `${a.def.name} ist besiegt! Der Weg in eine neue Zeit ist frei.`);
+      this.cameras.main.flash(700, 255, 230, 180);
+      audio.sfx('victory');
+      this.time.delayedCall(3200, () => !this.ended && !this.player.dead && this.complete());
+    }
   }
 
   // ---------------------------------------------------------------- Spieler-Aktionen
@@ -1073,7 +1091,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
-  /** Mitzählen, was gefressen wurde (für das Kalorienziel und die Wahl des Nachwuchses). */
+  /** Mitzählen, was gefressen wurde (für die Statistik und die Vielfalt des Nachwuchses). */
   private ate(kind: 'meat' | 'plant', units: number) {
     if (kind === 'meat') this.eatenMeat += units;
     else this.eatenPlant += units;
@@ -1243,8 +1261,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (time > this.clockAt) {
       this.clockAt = time + 100;
-      const span = ep.from - ep.to;
-      bus.emit('clock', ep.from - span * prog, prog, (span / ep.seconds) * 0.1);
+      const sp = this.span;
+      const span = sp.from - sp.to;
+      bus.emit('clock', sp.from - span * prog, prog, (span / ep.seconds) * 0.1);
     }
   }
 
@@ -1254,6 +1273,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     switch (ev.kind) {
       case 'predator':
         this.spawnVisitors(ev.species!, ev.count ?? 1, !!ev.fast);
+        break;
+      case 'boss':
+        this.spawnBoss(ev.species!);
         break;
       case 'bloom':
         this.bloomUntil = now + 20000;
@@ -1325,6 +1347,32 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.animals.push(a);
       });
     }
+  }
+
+  /**
+   * Der Endgegner der Region taucht auf und bleibt: Wer ihn besiegt, darf in die nächste Zeit.
+   * Wer nur überlebt, bleibt eine weitere Generation in diesem Zeitalter.
+   */
+  private spawnBoss(id: string) {
+    const def = SPECIES[id];
+    if (!def || this.bossA) return;
+    makeSpeciesTextures(this, def);
+    const L = this.L;
+    const p = this.player;
+    const side = p.x > L.width - 1200 ? -1 : p.x < 1200 ? 1 : Math.random() < 0.5 ? -1 : 1;
+    const x = clamp(p.x + side * 950, 60, L.width - 60);
+    const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
+    const y = this.water ? clamp(p.y, L.surfaceY + 120, L.ground[col] - 120) : L.ground[col] - 120;
+    const a = new Animal(this, def, x, y);
+    this.groundIt(a);
+    a.boss = true;
+    a.dir = -side;
+    a.setAlpha(0);
+    this.tweens.add({ targets: a, alpha: 1, duration: 900 });
+    this.animals.push(a);
+    this.bossA = a;
+    this.warnGiant({ x, y });
+    audio.music('apex');
   }
 
   /** Neue Tiere wandern ein, wenn der Lebensraum leerer wird. */
@@ -1441,6 +1489,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     p.ambush = p.hidden || (p.grounded && game.traits.sand > 0.15);
     if (p.ambush) this.ambushUntil = time + 900;
     // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
+    // Oben im Licht wird man heller, unten in der Tiefe (bzw. im Schatten) dunkler
+    if (this.water) {
+      const col = clamp(Math.floor(cx / TILE), 0, L.ground.length - 1);
+      const depth = (cy - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY);
+      if (depth < 0.32) game.shiftLight(0.004 * dt);
+      else if (depth > 0.72) game.shiftLight(-0.004 * dt);
+    } else if (p.inCover || p.inCave) game.shiftLight(-0.003 * dt);
+    else game.shiftLight(0.0015 * dt);
+    // Wer viel und schnell schwimmt bzw. läuft, wird länglicher und flinker
+    if (p.speed01 > 0.7) {
+      game.shiftBody('len', 0.0035 * dt * Math.min(1.5, p.speed01));
+      if (p.sprinting) game.shiftBody('swift', 0.002 * dt);
+    }
     if (p.hidden && ci >= 0) game.grow('green', 0.006 * dt);
     else if (p.hidden && p.inCave) game.grow('sand', 0.005 * dt);
     else if (p.grounded) game.grow('sand', 0.004 * dt);
@@ -1500,7 +1561,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper (Kälte zehrt mehr)
     const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
-    const rate = HUNGER_RATE * (p.sprinting ? 2 : 1) * (0.85 + 0.3 * p.stats.size) * cold;
+    const rate = hungerRate(p.stats.size, p.speed01) * cold;
     p.satiety = Math.max(0, p.satiety - rate * dt);
     if (p.satiety <= 0) {
       p.hp -= p.stats.maxHp * 0.012 * dt;
@@ -1508,10 +1569,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         p.hp = 0;
         p.hurt(999, p.x, this.L.theme === 'eis' ? 'Verhungert und erfroren' : 'Verhungert');
       }
-    } else if (p.satiety > 40 && time - p.lastHurt > 3000) {
+    } else if (p.satiety > p.maxSat * 0.4 && time - p.lastHurt > 3000) {
       p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.01 * dt);
     }
-    if (p.satiety < 18 && time > this.growlAt) {
+    if (p.satiety < p.maxSat * 0.18 && time > this.growlAt) {
       this.growlAt = time + 9000;
       audio.sfx('growl');
     }
@@ -1541,14 +1602,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Anzeige (ohne Zahlen)
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
-      bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / FULL, p.hidden);
-      bus.emit('food', this.kcal(this.eatenMeat), this.kcal(this.eatenPlant), this.kcal(this.needUnits));
-      // rechtzeitig warnen, wenn es für Nachwuchs nicht reichen wird
-      const prog = this.elapsed / this.ep.seconds;
-      if (!this.foodWarned && prog > 0.6 && this.eatenMeat + this.eatenPlant < this.needUnits * prog * 0.75) {
-        this.foodWarned = true;
-        bus.emit('story', 'Du hast noch zu wenig gefressen – ohne genug Nahrung gibt es keinen Nachwuchs.');
-      }
+      bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
+      bus.emit('food', this.kcal(this.eatenMeat), this.kcal(this.eatenPlant), 0);
+      const bs = this.bossA;
+      if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }
   }
 
@@ -1557,12 +1614,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Die Zeit ist um, und du lebst noch. */
   private complete() {
     if (this.ended) return;
-    if (this.eatenMeat + this.eatenPlant < this.needUnits) {
-      // zu wenig gefressen: keine Kraft für Nachwuchs – die Linie endet
-      this.endLine('Zu wenig gefressen – keine Kraft für Nachwuchs', 600);
-      return;
-    }
     this.ended = true;
+    // Gibt es hier einen Endgegner, geht es nur weiter, wenn er besiegt ist
+    const bossEv = this.ep.events.find((e) => e.kind === 'boss');
+    const repeat = !!bossEv && !this.bossBeaten;
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
     // Fünf Nachkommen zur Wahl – je mehr gefressen wurde, desto verschiedener
@@ -1580,14 +1635,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     };
     const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
     const eaten = { meat: this.kcal(this.eatenMeat), plant: this.kcal(this.eatenPlant), need: this.kcal(this.needUnits) };
-    const res = game.surviveEpoch(kin.length, social, offspring[0]);
+    const res = game.surviveEpoch(kin.length, social, offspring[0], repeat);
     data.offspring = res.finished ? undefined : offspring;
     data.eaten = eaten;
+    data.repeat = repeat;
+    data.boss = bossEv ? SPECIES[bossEv.species!]?.name : undefined;
+    data.bossBeaten = this.bossBeaten;
+    data.years = this.span.to;
     data.transition = res.transition;
     if (res.drift && !res.finished) data.drifted = res.drift.after;
     data.finished = res.finished;
     data.node = res.node;
-    bus.emit('clock', this.ep.to, 1, 1);
+    bus.emit('clock', this.span.to, 1, 1);
     audio.sfx('portal');
     this.player.body.setVelocity(0, 0);
     this.cameras.main.fadeOut(1800, 230, 214, 180);
@@ -1611,7 +1670,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private endLine(cause: string, wait: number) {
     this.ended = true;
     const frac = clamp(this.elapsed / this.ep.seconds, 0, 1);
-    const years = this.ep.from - (this.ep.from - this.ep.to) * frac;
+    const years = this.span.from - (this.span.from - this.span.to) * frac;
     const morph = this.player.morph();
     const leaf = game.extinct(frac, cause);
     audio.music(null);

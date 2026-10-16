@@ -9,7 +9,7 @@ import type { ClassId } from './classes';
 
 export type Theme = 'ozean' | 'sumpf' | 'reptil' | 'eis' | 'eden';
 
-export type EventKind = 'predator' | 'bloom' | 'storm' | 'quake' | 'meteor';
+export type EventKind = 'predator' | 'bloom' | 'storm' | 'quake' | 'meteor' | 'boss';
 
 export interface EventDef {
   /** Zeitpunkt im Zeitalter: 0 = Beginn, 1 = Ende */
@@ -103,7 +103,7 @@ export const EPOCHS: EpochDef[] = [
     id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
     from: 470 * M, to: 458 * M, seconds: 100, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5, caves: 2,
-    fauna: [['kieferlos', 3], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1], ['megalograptus', 0.6]],
+    fauna: [['kieferlos', 3], ['sacabambaspis', 2], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1], ['megalograptus', 0.6]],
     events: [
       { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
       { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
@@ -114,7 +114,7 @@ export const EPOCHS: EpochDef[] = [
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
     from: 438 * M, to: 427 * M, seconds: 110, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95, caves: 1,
-    fauna: [['kieferlos', 3], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
+    fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
       { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3, line: 'Seeskorpione jagen im Rudel durch den Tang.' },
@@ -125,11 +125,11 @@ export const EPOCHS: EpochDef[] = [
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
     from: 382 * M, to: 372 * M, seconds: 120, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55, caves: 2,
-    fauna: [['kieferlos', 4], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1], ['hyneria', 0.5]],
+    fauna: [['kieferlos', 2], ['bothriolepis', 2], ['cephalaspis', 1], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1], ['cladoselache', 1], ['hyneria', 0.5]],
     events: [
       { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
       { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Der Panzerfisch zieht durch das Riff.' },
-      { at: 0.78, kind: 'predator', species: 'dunkleosteus', line: 'Er kehrt zurück.' },
+      { at: 0.8, kind: 'boss', species: 'dunkleosteus', line: 'Dunkleosteus beherrscht dieses Meer. Besiege ihn – sonst bleibt deine Linie in seinem Schatten.' },
     ],
   },
   {
@@ -150,7 +150,8 @@ export const EPOCHS: EpochDef[] = [
     events: [
       { at: 0.28, kind: 'storm', dur: 20, line: 'Heiße Winde treiben Staub über das Land.' },
       { at: 0.55, kind: 'predator', species: 'eryops', count: 2, line: 'Zwei Eryops durchstreifen die Senke.' },
-      { at: 0.86, kind: 'quake', dur: 8, line: 'Die Erde bebt.' },
+      { at: 0.7, kind: 'quake', dur: 8, line: 'Die Erde bebt.' },
+      { at: 0.8, kind: 'boss', species: 'dimetrodon', line: 'Ein Segel erhebt sich über der Senke: Dimetrodon. Besiege ihn, um weiterzukommen.' },
     ],
   },
   {
@@ -181,7 +182,8 @@ export const EPOCHS: EpochDef[] = [
     events: [
       { at: 0.28, kind: 'quake', dur: 5, line: 'Der Boden zittert in regelmäßigen Abständen.' },
       { at: 0.34, kind: 'predator', species: 'trex' },
-      { at: 0.84, kind: 'meteor', dur: 22, line: 'Ein zweites Licht steht am Himmel …' },
+      { at: 0.78, kind: 'boss', species: 'trex', line: 'Der Tyrannosaurus ist zurück – er herrscht über dieses Land. Besiege ihn.' },
+      { at: 0.9, kind: 'meteor', dur: 22, line: 'Ein zweites Licht steht am Himmel …' },
     ],
   },
   {
@@ -211,7 +213,8 @@ export const EPOCHS: EpochDef[] = [
     events: [
       { at: 0.22, kind: 'storm', dur: 22, line: 'Ein Schneesturm zieht auf.' },
       { at: 0.48, kind: 'predator', species: 'saebelzahn', line: 'Fußspuren im Schnee. Große Fußspuren.' },
-      { at: 0.8, kind: 'predator', species: 'eiswolf', count: 3, line: 'In der Ferne heulen Wölfe.' },
+      { at: 0.62, kind: 'predator', species: 'eiswolf', count: 3, line: 'In der Ferne heulen Wölfe.' },
+      { at: 0.8, kind: 'boss', species: 'saebelzahn', line: 'Die Säbelzahnkatze ist zurück. Nur wer sie besiegt, findet den Weg nach Eden.' },
     ],
   },
 ];

@@ -20,7 +20,7 @@ export class GalleryScene extends Phaser.Scene {
     this.views = [];
     this.show();
     this.input.keyboard!.on('keydown-SPACE', () => {
-      this.page = (this.page + 1) % 2;
+      this.page = (this.page + 1) % (1 + Math.ceil(Object.keys(SPECIES).length / 18));
       this.children.removeAll(true);
       this.views = [];
       this.show();
@@ -28,16 +28,16 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   private show() {
-    if (this.page === 1) {
-      const ids = Object.keys(SPECIES);
+    if (this.page >= 1) {
+      const ids = Object.keys(SPECIES).slice((this.page - 1) * 18, this.page * 18);
       ids.forEach((id, i) => {
         const def = SPECIES[id];
         makeSpeciesTextures(this, def);
-        const col = i % 8, row = Math.floor(i / 8);
-        const img = this.add.image(80 + col * 160, 80 + row * 170, speciesKey(id, 0));
-        const s = Math.min(1, 140 / img.width, 120 / img.height);
+        const col = i % 6, row = Math.floor(i / 6);
+        const img = this.add.image(110 + col * 212, 110 + row * 230, speciesKey(id, 0));
+        const s = Math.min(1.6, 196 / img.width, 170 / img.height);
         img.setScale(s);
-        text(this, 80 + col * 160, 150 + row * 170, `${def.name} (${def.role})`, 13).setOrigin(0.5);
+        text(this, 110 + col * 212, 210 + row * 230, `${def.name} (${def.role})`, 14).setOrigin(0.5);
       });
       return;
     }

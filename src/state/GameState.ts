@@ -25,7 +25,8 @@ import { clamp, mulberry32 } from '../util/math';
 //   nerve   – Nervenstärke: wer oft nah an Räubern bleibt, ohne aufzufallen, wird später bemerkt
 //   tox     – Giftfestigkeit: giftige Pflanzen schaden weniger
 //   fang    – Reißzähne: wachsen durch viel Fleisch, stehen vorn aus dem Maul
-//   len, girth, swift – Körperbau (länger/kürzer, dicker/schlanker, flinker): ändert sich nur von
+//   light   – Färbung: -1 dunkel (lebt tief unten bzw. im Schatten) … +1 hell (lebt oben im Licht)
+//   len, girth, swift – Körperbau (wer viel und schnell schwimmt, wird länglicher) (länger/kürzer, dicker/schlanker, flinker): ändert sich nur von
 //             Generation zu Generation – durch die Wahl, welches Tier die Linie weiterführt
 // Dazu kommt der Ruf: Wer oft angreift, vor dem haben andere Tiere Angst.
 //
@@ -55,16 +56,27 @@ export interface Traits {
   nerve: number;
   tox: number;
   fang: number;
+  /** Färbung: -1 dunkel … +1 hell */
+  light: number;
 }
 
 export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand' | 'digM' | 'digP' | 'nerve' | 'tox' | 'fang';
 
-/** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (zählt fürs Kalorienziel). */
+/** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (zählt für die Vielfalt des Nachwuchses). */
 export const FOOD = {
-  meat: { sat: 16, kcal: 34 },
-  plant: { sat: 11, kcal: 9 },
-  toxic: { sat: 9, kcal: 14 },
+  meat: { sat: 12, kcal: 14 },
+  plant: { sat: 4, kcal: 4 },
+  toxic: { sat: 3, kcal: 6 },
 };
+
+/** Wie viel in den Magen passt – größere Tiere fassen mehr (verbrauchen aber auch mehr). */
+export const maxSatiety = (size: number) => Math.round(100 * (0.7 + 0.45 * size));
+
+/** Hunger je Sekunde: in Ruhe wenig, beim Schwimmen bzw. Laufen deutlich mehr; Große brauchen mehr. */
+export const hungerRate = (size: number, speed01: number) => (0.3 + 0.6 * Math.min(1.5, speed01)) * Math.pow(size, 1.3);
+
+/** Bezugsgröße für die Vielfalt des Nachwuchses: so viel frisst ein Tier, das gut über die Runden kommt. */
+export const fedRef = (ep: EpochDef, size: number) => 0.45 * ep.seconds * (0.85 + 0.3 * size);
 
 export interface Stats {
   maxHp: number;
@@ -117,6 +129,8 @@ export interface Run {
   ramNew?: boolean;
   /** insgesamt gefressen (in Sättigungs-Einheiten) */
   eaten?: { meat: number; plant: number };
+  /** wie oft das aktuelle Zeitalter schon gespielt wurde (der Endgegner ist noch nicht besiegt) */
+  round?: number;
   history: Ancestor[];
 }
 
@@ -172,7 +186,7 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0 };
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
 /** verborgene Anlagen – sie werden genauso weitervererbt, aber nirgends gezeigt */
@@ -197,8 +211,6 @@ export const BODY_NAME: Record<BodyKey, string> = { len: 'länger gestreckt', gi
 const KCAL: Record<ClassId, number> = { fish: 4, amphibian: 12, reptile: 30, mammal: 60 };
 export const kcalOf = (units: number, cls: ClassId, size: number) => Math.round(units * KCAL[cls] * size * size);
 
-/** Wie viel ein Tier in einem Zeitalter fressen muss, um Nachwuchs zu bekommen (in Sättigungs-Einheiten). */
-export const needUnits = (ep: EpochDef, size: number) => Math.round(0.42 * ep.seconds * (0.85 + 0.3 * size));
 
 /** Grundlänge (cm) und Dichte je Körperform – für Länge und Gewicht im Werte-Bildschirm. */
 const BODY: Record<ClassId, { cm: number; g: number }> = {
@@ -264,6 +276,8 @@ export interface SurviveResult {
   transition?: { from: ClassId; to: ClassId };
   /** bis in die Gegenwart überlebt */
   finished?: boolean;
+  /** das Zeitalter wird wiederholt (Endgegner nicht besiegt) */
+  repeat?: boolean;
   node: string;
 }
 
@@ -419,6 +433,7 @@ class GameState {
       girth: t.girth ?? 0,
       swift: t.swift ?? 0,
       fang: t.fang ?? 0,
+      light: t.light ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -456,6 +471,7 @@ class GameState {
       nerve: t.nerve,
       tox: t.tox,
       fang: j(t.fang, 0.06),
+      light: g(t.light ?? 0, 0.15),
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -487,6 +503,22 @@ class GameState {
     return speciesName({ cls: r.cls, traits: r.traits, epoch: Math.max(0, r.epoch) });
   }
 
+  /**
+   * Der Zeitraum, den eine Runde in einem Zeitalter abdeckt. Wird ein Zeitalter wiederholt (der
+   * Endgegner ist noch nicht besiegt), läuft die Uhr weiter – immer kürzer bis zum nächsten Zeitalter.
+   */
+  epochSpan(i = this.r.epoch, round = this.data.run?.round ?? 0) {
+    const ep = EPOCHS[i];
+    const floor = EPOCHS[i + 1]?.from ?? 0;
+    let from = ep.from, to = ep.to;
+    for (let k = 0; k < round; k++) {
+      const f = (ep.from - ep.to) / (ep.from - floor || 1);
+      from = to;
+      to = from - (from - floor) * Math.min(0.5, f);
+    }
+    return { from, to };
+  }
+
   /** Wie stark sich das Bewährte über die Zeit bis zum nächsten Zeitalter fortsetzt. */
   driftFactor(i = this.r.epoch) {
     const ep = EPOCHS[i], next = EPOCHS[i + 1];
@@ -514,6 +546,8 @@ class GameState {
     const ate = total > 0 ? (eaten.meat - eaten.plant) / total : 0;
     main.diet = clamp(end.diet + (end.diet - start.diet) * k * 0.6 + (ate - end.diet) * 0.15, -1, 1);
     main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 1);
+    // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
+    for (const g of ['len', 'girth', 'swift', 'light'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
     // Vielfalt: wer gerade so satt wurde, bekommt ähnliche Nachkommen – wer viel gefressen hat, sehr verschiedene
     const spread = clamp(0.35 + 0.55 * fed, 0.6, 2);
     const earned = SKILLS.filter((key) => end[key] - start[key] > 0.012).sort((a, b) => end[b] - start[b] - (end[a] - start[a]));
@@ -532,11 +566,14 @@ class GameState {
       const b = bodies[(i - 1 + bodyOff) % bodies.length];
       focus.body = b;
       if (b === 'snout') t.jaw = clamp(t.jaw + 0.05 * spread, 0, 1);
-      else t[b] = clamp(t[b] + (0.2 + 0.12 * rnd()) * spread, -1, 1);
-      for (const g of ['len', 'girth', 'swift'] as const) if (g !== b) t[g] = clamp(t[g] + (rnd() - 0.5) * 0.16 * spread, -1, 1);
+      else t[b] = clamp(t[b] + (0.28 + 0.14 * rnd()) * spread, -1, 1);
+      for (const g of ['len', 'girth', 'swift'] as const) if (g !== b) t[g] = clamp(t[g] + (rnd() - 0.5) * 0.36 * spread, -1, 1);
       for (const h of HIDDEN) t[h] = clamp(t[h] + (rnd() - 0.4) * 0.08 * spread, 0, 1);
+      t.light = clamp(t.light + (rnd() - 0.5) * 0.5 * spread, -1, 1);
       t.diet = clamp(t.diet + (rnd() - 0.5) * 0.25 * spread + ate * 0.12, -1, 1);
       const sex: Sex = (run.sex + i) % 2 ? 1 : 2;
+      // nicht alle gleich groß: Männchen etwas größer, dazu etwas Streuung
+      if (f !== 'growth') t.growth = clamp(t.growth + (rnd() - 0.45) * 0.22 * spread + (sex === 1 ? 0.04 : -0.04), 0, 1);
       const label = f === 'skull' ? skillName('skull', t) : SKILL_LABEL[f];
       out.push({ traits: t, sex, seed: run.seed + 1000 + run.epoch * 53 + i * 17, main: false, label, focus });
     }
@@ -581,6 +618,18 @@ class GameState {
   shiftDiet(amount: number) {
     const t = this.r.traits;
     t.diet = clamp(t.diet + amount, -1, 1);
+  }
+
+  /** Färbung: + heller (oben im Licht), - dunkler (unten in der Tiefe) */
+  shiftLight(amount: number) {
+    const t = this.r.traits;
+    t.light = clamp((t.light ?? 0) + amount, -1, 1);
+  }
+
+  /** Körperbau verschiebt sich (wer viel und schnell schwimmt, wird länglicher) */
+  shiftBody(k: 'len' | 'girth' | 'swift', amount: number) {
+    const t = this.r.traits;
+    t[k] = clamp((t[k] ?? 0) + amount, -1, 1);
   }
 
   /** Kopfpanzer: + Richtung Stachelkopf, - Richtung harter Schädel */
@@ -662,11 +711,32 @@ class GameState {
   }
 
   /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
-  surviveEpoch(kinAlive: number, social?: number, pick?: Offspring): SurviveResult {
+  surviveEpoch(kinAlive: number, social?: number, pick?: Offspring, repeat = false): SurviveResult {
     const run = this.r;
     const i = run.epoch;
     const ep = EPOCHS[i];
     if (social !== undefined) run.social = clamp(social, 0.15, 0.9);
+    if (repeat) {
+      // Der Endgegner lebt noch: Die Linie bleibt in diesem Zeitalter – eine weitere Generation
+      run.round = (run.round ?? 0) + 1;
+      run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
+      if (run.history.length > 24) run.history.splice(1, 1);
+      run.kin = clamp(kinAlive + 1, 2, 6);
+      run.aggression *= 0.5;
+      run.infamy *= 0.8;
+      const res: SurviveResult = { epoch: ep, next: ep, node: run.node, drift: { before: { ...run.traits }, after: { ...run.traits } }, repeat: true };
+      if (pick) {
+        run.traits = full({ ...pick.traits });
+        run.sex = pick.sex;
+        run.seed = pick.seed;
+        res.drift!.after = { ...run.traits };
+        if (this.checkRamUnlock()) run.ramNew = true;
+      }
+      this.snap = null;
+      this.save();
+      return res;
+    }
+    run.round = 0;
     const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
     const n = this.node(parent, i, run.cls, run.traits, run.id, true);
     run.node = n.id;

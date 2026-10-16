@@ -198,36 +198,56 @@ export function skin(ctx: Ctx, path: () => void, o: SkinOpts) {
   lg.addColorStop(1, 'rgba(0,0,0,0.28)');
   ctx.fillStyle = lg;
   ctx.fillRect(-2000, o.y0 - 2, 4000, o.y1 - o.y0 + 4);
-  // Randlicht oben, Kernschatten unten
+  // Plastizität: weiche Schatten unten und an den Rändern, Licht von oben – statt harter Striche
   const op = o.outline ?? path;
+  const ht = Math.max(4, o.y1 - o.y0);
   const rim = o.rim ?? 0.3;
-  ctx.lineWidth = 3.2;
-  ctx.save();
-  ctx.translate(0.6, 2.2);
-  op();
-  ctx.strokeStyle = `rgba(255,232,190,${rim})`;
-  ctx.stroke();
-  ctx.restore();
-  ctx.save();
-  ctx.translate(-0.4, -2.4);
-  op();
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-  ctx.stroke();
-  ctx.restore();
+  innerShade(ctx, path, op, 'rgba(0,0,0,0.5)', ht * 0.22, 0, -ht * 0.14, ht * 0.12);
+  innerShade(ctx, path, op, 'rgba(0,0,0,0.32)', ht * 0.08, 0, 0, ht * 0.05);
+  innerShade(ctx, path, op, `rgba(255,236,200,${Math.min(0.5, rim * 1.2)})`, ht * 0.12, 0, ht * 0.1, ht * 0.06);
   if (o.wet) {
+    // nasser Glanz: ein weicher Lichtstreif auf dem Rücken
     ctx.save();
-    ctx.translate(0, 3.6);
-    op();
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = 'rgba(230,255,240,0.22)';
-    ctx.stroke();
+    path();
+    ctx.clip();
+    const sg = ctx.createLinearGradient(0, o.y0, 0, o.y0 + ht * 0.45);
+    sg.addColorStop(0, 'rgba(230,255,245,0)');
+    sg.addColorStop(0.45, 'rgba(230,255,245,0.16)');
+    sg.addColorStop(1, 'rgba(230,255,245,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(-2000, o.y0, 4000, ht * 0.45);
     ctx.restore();
   }
   ctx.restore();
+  // zarte Kante: Die Form soll sich abheben, aber nicht wie ausgeschnitten wirken
   op();
-  ctx.strokeStyle = css(o.edge ?? shade(o.base, -0.75), 0.9);
-  ctx.lineWidth = o.edgeW ?? 1.3;
+  ctx.strokeStyle = css(o.edge ?? shade(o.base, -0.6), 0.5);
+  ctx.lineWidth = (o.edgeW ?? 1.3) * 0.75;
   ctx.stroke();
+}
+
+/**
+ * Weicher Innenschatten (oder Innenlicht) entlang einer Linie: Die Linie wird weit außerhalb
+ * gezeichnet, nur ihr verschwommener Schatten fällt – verschoben – in die Form.
+ */
+export function innerShade(ctx: Ctx, clip: () => void, line: () => void, color: string, blur: number, dx: number, dy: number, w: number) {
+  const m = ctx.getTransform();
+  const k = Math.hypot(m.a, m.b) || 1;
+  const OFF = 6000;
+  ctx.save();
+  clip();
+  ctx.clip();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur * k;
+  ctx.shadowOffsetX = OFF * m.a + dx * k;
+  ctx.shadowOffsetY = OFF * m.b + dy * k;
+  ctx.translate(-OFF, 0);
+  line();
+  ctx.lineWidth = w;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#000';
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Ein Tierauge: wenig Weiß, dunkle Iris, kleiner Glanzpunkt. */

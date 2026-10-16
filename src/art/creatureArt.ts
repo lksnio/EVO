@@ -42,6 +42,8 @@ export interface Morph {
   swift?: number;
   /** Reißzähne, die vorn aus dem Maul stehen (viel Fleisch gefressen) */
   fang?: number;
+  /** Färbung: -1 dunkel (Tiefe, Schatten) … +1 hell (oben im Licht) */
+  light?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -68,12 +70,13 @@ export function quantize(m: Morph): Morph {
     girth: q(m.girth ?? 0, 0.2),
     swift: q(m.swift ?? 0, 0.25),
     fang: q(m.fang ?? 0, 0.2),
+    light: q(m.light ?? 0, 0.2),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light].join('_');
 }
 
 interface Pal {
@@ -98,11 +101,14 @@ function palette(m: Morph): Pal {
   const male = m.sex === 1;
   // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
   const g = m.green ?? 0, sd = m.sand ?? 0;
-  const camoBase = (c: number) => mix(mix(c, 0x4e6a34, Math.min(0.7, g * 0.75)), 0x8a7a5c, Math.min(0.7, sd * 0.75));
+  // oben im Licht wird die Färbung heller, in der Tiefe dunkler
+  const li = m.light ?? 0;
+  const lit = (c: number) => shade(c, li * 0.42);
+  const camoBase = (c: number) => lit(mix(mix(c, 0x4e6a34, Math.min(0.7, g * 0.75)), 0x8a7a5c, Math.min(0.7, sd * 0.75)));
   return {
     base: mix(mix(camoBase(p.base), shade(p.camo, 0.2), st * 0.35), shade(p.base, -0.12), male ? 0.5 : 0),
     belly: mix(mix(p.belly, 0xa89a78, Math.min(0.6, sd * 0.6)), p.base, st * 0.25),
-    dark: p.dark,
+    dark: shade(p.dark, li * 0.26),
     camo: camoBase(p.camo),
     eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
     fin: mix(camoBase(p.fin), p.camo, st * 0.3),
@@ -142,9 +148,9 @@ interface Geo {
 function geo(m: Morph): Geo {
   const st = m.stealth, jaw = m.jaw, sk = m.skull;
   // Körperbau: länger gestreckt bzw. massiger
-  const lk = 1 + 0.17 * (m.len ?? 0);
-  const slim = (1 - 0.16 * st) * (1 + 0.15 * (m.girth ?? 0)) / Math.sqrt(lk);
-  const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.06 * (m.girth ?? 0);
+  const lk = 1 + 0.34 * (m.len ?? 0);
+  const slim = (1 - 0.16 * st) * (1 + 0.3 * (m.girth ?? 0)) / Math.sqrt(lk);
+  const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.1 * (m.girth ?? 0);
   const s = m.size;
   switch (m.cls) {
     case 'fish': {
@@ -891,7 +897,7 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
-    const sw = 1 + 0.22 * (m.swift ?? 0);
+    const sw = 1 + 0.35 * (m.swift ?? 0);
     const lobe = (16 + 16 * st) * sw, fork = 3 + 11 * st, spread = (13 + 9 * st) * sw;
     ctx.beginPath();
     ctx.moveTo(-4, -4);

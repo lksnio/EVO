@@ -3,7 +3,7 @@ import type { Art, Role, SpeciesDef } from '../data/species';
 import { css, mix, shade } from '../util/color';
 import { type Ctx, ell, newCanvas, rgrad, trimCanvases } from '../util/canvas';
 import { mulberry32 } from '../util/math';
-import { eye, ivory, skin, tooth } from './paint';
+import { eye, ivory, pattern, skin, tooth } from './paint';
 
 // Alle Tierarten im dunklen, organischen Stil. Jede Art wird in zwei
 // Bewegungsphasen gezeichnet (Beine, Flügel, Flossen) und zugeschnitten.
@@ -24,150 +24,416 @@ function chitin(ctx: Ctx, path: () => void, c: number, y0: number, y1: number, s
 
 // ---------------------------------------------------------------------------
 
+type P2 = [number, number];
+
+/**
+ * Eine Flosse: durchscheinende Haut zwischen Flossenstrahlen. root0/root1 sitzen am Körper,
+ * edge ist der freie Rand (von root0 nach root1).
+ */
+function finMembrane(ctx: Ctx, root0: P2, edge: P2[], root1: P2, col: number, lw: number, spine = false) {
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(root0[0], root0[1]);
+    const pts = [...edge, root1];
+    let prev = root0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const mid: P2 = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], mid[0], mid[1]);
+      prev = mid;
+    }
+    void prev;
+    ctx.lineTo(root1[0], root1[1]);
+    ctx.closePath();
+  };
+  const rx = (root0[0] + root1[0]) / 2, ry = (root0[1] + root1[1]) / 2;
+  const far = edge[Math.floor(edge.length / 2)];
+  path();
+  const g = ctx.createLinearGradient(rx, ry, far[0], far[1]);
+  g.addColorStop(0, css(col, 0.95));
+  g.addColorStop(0.7, css(shade(col, 0.18), 0.6));
+  g.addColorStop(1, css(shade(col, 0.3), 0.35));
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.save();
+  path();
+  ctx.clip();
+  ctx.strokeStyle = css(shade(col, -0.5), 0.42);
+  ctx.lineWidth = Math.max(0.5, lw * 0.6);
+  const n = Math.max(4, edge.length * 3);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const a = edge[Math.min(edge.length - 1, Math.floor(t * (edge.length - 1)))];
+    const b = edge[Math.min(edge.length - 1, Math.ceil(t * (edge.length - 1)))];
+    const k = t * (edge.length - 1) - Math.floor(t * (edge.length - 1));
+    const ex = a[0] + (b[0] - a[0]) * k, ey = a[1] + (b[1] - a[1]) * k;
+    const bx = root0[0] + (root1[0] - root0[0]) * t, by = root0[1] + (root1[1] - root0[1]) * t;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo((bx + ex) / 2 + (ey - by) * 0.06, (by + ey) / 2, ex, ey);
+    ctx.stroke();
+  }
+  ctx.restore();
+  path();
+  ctx.strokeStyle = css(shade(col, -0.55), 0.45);
+  ctx.lineWidth = lw * 0.6;
+  ctx.stroke();
+  if (spine) {
+    // kräftiger Stachel an der Vorderkante
+    ctx.beginPath();
+    ctx.moveTo(root0[0], root0[1]);
+    ctx.quadraticCurveTo((root0[0] + edge[0][0]) / 2, (root0[1] + edge[0][1]) / 2 - lw, edge[0][0], edge[0][1]);
+    ctx.strokeStyle = css(shade(col, 0.3), 0.7);
+    ctx.lineWidth = lw * 0.9;
+    ctx.stroke();
+  }
+}
+
+/** Ein Fisch – stromlinienförmig, mit durchscheinenden Flossen, Kiemendeckel, Seitenlinie und feinen Schuppen. */
 function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) {
   const { len, h, c } = p;
   const hw = len / 2, hh = h / 2;
-  const lw = Math.max(1.2, len / 70);
-  const sw = f ? 0.2 : -0.2;
-  const finStyle = (y0: number, y1: number) => {
-    const g = ctx.createLinearGradient(0, y0, 0, y1);
-    g.addColorStop(0, css(shade(p.fin, -0.2), 0.8));
-    g.addColorStop(1, css(p.fin, 0.95));
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = css(dark(p.fin), 0.8);
-    ctx.lineWidth = lw;
-    ctx.stroke();
-  };
-  // Schwanzflosse
+  const lw = Math.max(0.8, len / 90);
+  const sw = (f ? 1 : -1) * 0.15;
+  const r = mulberry32(len * 3 + h * 7);
+  const D = dark(c);
+  const fc = p.fin;
+  // Panzerfisch (Dunkleosteus): wuchtiger Panzerkopf, Knochenklingen statt Zähnen, Haischwanz
+  const placo = !!(p.armor && p.teeth && !p.arms && !p.eyesFront);
+  const bone = placo ? mix(c, 0x7a7e74, 0.55) : mix(c, 0xb4aa92, 0.55);
+  const ny = p.shark ? -hh * 0.06 : placo ? hh * 0.18 : p.armor ? hh * 0.08 : hh * 0.04;
+
+  // ---- Schwanzflosse (hinter dem Körper), schlägt hin und her
   ctx.save();
-  ctx.translate(-hw + len * 0.06, 0);
+  ctx.translate(-hw * 0.95, 0);
   ctx.rotate(sw);
-  ctx.beginPath();
-  ctx.moveTo(0, -hh * 0.22);
-  ctx.quadraticCurveTo(-len * 0.16, -hh * 0.9, -len * 0.3, -hh * (p.armor ? 1.1 : 1.0));
-  ctx.quadraticCurveTo(-len * 0.2, 0, -len * 0.3, hh * (p.armor ? 0.7 : 1.0));
-  ctx.quadraticCurveTo(-len * 0.16, hh * 0.8, 0, hh * 0.22);
-  ctx.closePath();
-  finStyle(-hh, hh);
+  const T = len * 0.24;
+  if (p.shark || placo || (p.jawless && !p.armor)) {
+    // ungleiche Schwanzflosse: der obere Lappen ist länger
+    finMembrane(ctx, [0, -hh * 0.2], [[-T * 0.45, -hh * 0.6], [-T * 1.05, -hh * 1.35], [-T * 0.75, -hh * 0.35], [-T * 0.45, hh * 0.3], [-T * 0.5, hh * 0.75]], [0, hh * 0.2], fc, lw);
+  } else {
+    finMembrane(ctx, [0, -hh * 0.22], [[-T * 0.5, -hh * 0.75], [-T, -hh * (p.armor ? 1.25 : 1.05)], [-T * 0.62, -hh * 0.1], [-T * 0.62, hh * 0.1], [-T, hh * (p.armor ? 0.95 : 1.05)], [-T * 0.5, hh * 0.75]], [0, hh * 0.22], fc, lw);
+  }
   ctx.restore();
-  // Rücken- und Afterflosse
-  ctx.beginPath();
-  ctx.moveTo(hw * 0.25, -hh * 0.82);
-  ctx.quadraticCurveTo(-hw * 0.05, -hh * 1.75, -hw * 0.4, -hh * 1.3);
-  ctx.lineTo(-hw * 0.45, -hh * 0.62);
-  ctx.closePath();
-  finStyle(-hh * 1.7, -hh * 0.6);
-  ctx.beginPath();
-  ctx.moveTo(-hw * 0.3, hh * 0.7);
-  ctx.quadraticCurveTo(-hw * 0.45, hh * 1.3, -hw * 0.62, hh * 1.1);
-  ctx.lineTo(-hw * 0.6, hh * 0.5);
-  ctx.closePath();
-  finStyle(hh * 0.5, hh * 1.3);
-  // Körper
+
+  // ---- Rücken- und Afterflossen (hinter dem Körper)
+  if (p.shark) {
+    finMembrane(ctx, [hw * 0.2, -hh * 0.92], [[hw * 0.02, -hh * 1.55], [-hw * 0.12, -hh * 1.85], [-hw * 0.14, -hh * 1.2]], [-hw * 0.12, -hh * 0.9], fc, lw, false);
+    finMembrane(ctx, [-hw * 0.45, -hh * 0.62], [[-hw * 0.55, -hh * 1.05], [-hw * 0.62, -hh * 1.25], [-hw * 0.64, -hh * 0.8]], [-hw * 0.62, -hh * 0.52], fc, lw);
+  } else if (!p.eyesFront && !p.shield && !p.spines) {
+    const dh = p.armor ? 1.5 : 1.7;
+    finMembrane(ctx, [hw * 0.18, -hh * 0.94], [[hw * 0.05, -hh * 1.4], [-hw * 0.12, -hh * dh], [-hw * 0.32, -hh * 1.3], [-hw * 0.42, -hh * 0.95]], [-hw * 0.42, -hh * 0.7], fc, lw);
+  } else if (p.shield) {
+    finMembrane(ctx, [-hw * 0.35, -hh * 0.75], [[-hw * 0.45, -hh * 1.2], [-hw * 0.58, -hh * 1.15]], [-hw * 0.6, -hh * 0.55], fc, lw);
+  }
+  if (!p.eyesFront) finMembrane(ctx, [-hw * 0.42, hh * 0.72], [[-hw * 0.52, hh * 1.2], [-hw * 0.66, hh * 1.2], [-hw * 0.7, hh * 0.85]], [-hw * 0.7, hh * 0.5], fc, lw);
+  // Bauchflosse
+  finMembrane(ctx, [-hw * 0.02, hh * 0.92], [[-hw * 0.12, hh * 1.3], [-hw * 0.24, hh * 1.25]], [-hw * 0.22, hh * 0.85], fc, lw);
+
+  // ---- Körper
+  const top0 = p.armor ? -hh * 0.55 : p.shark ? -hh * 0.5 : -hh * 0.72;
   const path = () => {
     ctx.beginPath();
-    ctx.moveTo(hw, hh * 0.12);
-    ctx.bezierCurveTo(hw * 0.92, -hh * 1.15, -hw * 0.55, -hh * 1.12, -hw, -hh * 0.2);
-    ctx.lineTo(-hw, hh * 0.2);
-    ctx.bezierCurveTo(-hw * 0.55, hh * 1.1, hw * 0.82, hh * 1.18, hw, hh * 0.12);
+    ctx.moveTo(hw, ny);
+    if (placo) ctx.bezierCurveTo(hw * 1.05, -hh * 0.85, hw * 0.62, -hh * 1.18, hw * 0.12, -hh * 1.04);
+    else ctx.bezierCurveTo(hw * (p.armor ? 1.03 : 0.98), top0, hw * 0.55, -hh * 1.02, hw * 0.12, -hh);
+    ctx.bezierCurveTo(-hw * 0.28, -hh * 0.98, -hw * 0.62, -hh * 0.45, -hw * 0.86, -hh * 0.22);
+    ctx.lineTo(-hw * 0.97, -hh * 0.18);
+    ctx.lineTo(-hw * 0.97, hh * 0.18);
+    ctx.lineTo(-hw * 0.86, hh * 0.24);
+    ctx.bezierCurveTo(-hw * 0.6, hh * 0.46, -hw * 0.2, hh * 1.04, hw * 0.15, hh);
+    ctx.bezierCurveTo(hw * 0.62, hh * 0.95, hw * 0.96, hh * 0.58, hw, ny);
     ctx.closePath();
   };
-  const r = mulberry32(len);
   skin(ctx, path, {
-    base: c, top: shade(c, -0.4), belly: p.belly, bellyBand: [hh * 0.75, hh * 0.6, hw, 0], y0: -hh, y1: hh,
-    noise: 'mottle', noiseAlpha: 0.5, noiseScale: len > 150 ? 0.6 : 0.3, seed: len, wet: true, edge: dark(c), edgeW: lw,
+    base: c, top: shade(c, -0.42), belly: p.belly, bellyBand: [hh * 0.72, hh * 0.55, hw * 0.95, hw * 0.08], y0: -hh, y1: hh,
+    noise: 'mottle', noiseAlpha: 0.28, noiseScale: len > 150 ? 0.55 : 0.3, seed: len, wet: true, edge: D, edgeW: lw, rim: 0.32,
     inner: (cx) => {
-      if (!p.armor) {
-        cx.strokeStyle = css(dark(c), 0.18);
-        cx.lineWidth = 0.7;
-        for (let row = 0, y = -hh; y < hh; y += h / 7, row++) {
-          for (let x = -hw; x < hw; x += len / 11) {
+      // feine Schuppen (mit einem Hauch Glanz)
+      if (!p.shark) {
+        const step = Math.max(2.4, len / 18);
+        for (let row = 0, y = -hh; y < hh; y += step * 0.7, row++) {
+          for (let x = -hw; x < hw * 0.5; x += step) {
             cx.beginPath();
-            cx.arc(x + (row % 2) * len / 22, y, len / 22, 0.2 * Math.PI, 0.8 * Math.PI);
+            cx.arc(x + (row % 2) * step * 0.5, y, step * 0.55, 0.25 * Math.PI, 0.75 * Math.PI);
+            cx.strokeStyle = 'rgba(0,0,0,0.09)';
+            cx.lineWidth = 0.6;
+            cx.stroke();
+            cx.beginPath();
+            cx.arc(x + (row % 2) * step * 0.5, y - 0.6, step * 0.5, 0.3 * Math.PI, 0.7 * Math.PI);
+            cx.strokeStyle = 'rgba(255,255,240,0.05)';
             cx.stroke();
           }
         }
       }
-      if (p.armor || p.jawless) {
-        // Kopfpanzer
-        const bone = mix(c, 0x8c8676, 0.6);
-        cx.beginPath();
-        cx.moveTo(hw + 4, -hh * 1.2);
-        cx.lineTo(hw * (p.jawless ? 0.25 : 0.02), -hh * 1.2);
-        cx.quadraticCurveTo(hw * (p.jawless ? 0.15 : -0.12), 0, hw * (p.jawless ? 0.25 : 0.02), hh * 1.2);
-        cx.lineTo(hw + 4, hh * 1.2);
-        cx.closePath();
-        cx.fillStyle = css(bone, 0.95);
-        cx.fill();
-        cx.strokeStyle = css(dark(c), 0.8);
-        cx.lineWidth = lw;
-        cx.stroke();
-        cx.strokeStyle = css(shade(bone, -0.45), 0.7);
-        for (const [x0, y0, x1, y1] of [[hw * 0.45, -hh, hw * 0.4, hh * 0.3], [hw * 0.05, -hh * 0.2, hw * 0.9, -hh * 0.3], [hw * 0.7, -hh, hw * 0.75, -hh * 0.3]]) {
-          cx.beginPath();
-          cx.moveTo(x0, y0);
-          cx.lineTo(x1, y1);
-          cx.stroke();
+      if (p.stripes) {
+        for (let i = 0; i < 5; i++) {
+          const x = hw * 0.35 - i * hw * 0.3;
+          const g = cx.createLinearGradient(x - len * 0.04, 0, x + len * 0.04, 0);
+          g.addColorStop(0, 'rgba(0,0,0,0)');
+          g.addColorStop(0.5, css(D, 0.22));
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          cx.fillStyle = g;
+          cx.fillRect(x - len * 0.04, -hh, len * 0.08, hh * 1.1);
         }
-        for (let i = 0; i < 18; i++) {
-          ell(cx, hw * (0.1 + r() * 0.8), -hh + r() * hh * 1.6, lw * 0.7, lw * 0.7);
-          cx.fillStyle = css(shade(bone, -0.5), 0.6);
+      }
+      if (p.spots) {
+        for (let i = 0; i < 16; i++) {
+          ell(cx, -hw * 0.8 + r() * hw * 1.5, -hh * 0.85 + r() * hh * 1.1, 0.8 + r() * len / 45, 0.7 + r() * len / 55);
+          cx.fillStyle = css(D, 0.28);
           cx.fill();
         }
       }
-      for (let i = 0; i < 5; i++) {
-        const x = hw * 0.4 - i * hw * 0.35;
-        cx.fillStyle = css(dark(c), 0.12);
-        cx.fillRect(x, -hh, len * 0.05, h * 0.8);
+      // Seitenlinie
+      cx.beginPath();
+      cx.moveTo(hw * 0.42, -hh * 0.18);
+      cx.quadraticCurveTo(0, -hh * 0.3, -hw * 0.9, -hh * 0.02);
+      cx.strokeStyle = 'rgba(235,230,210,0.22)';
+      cx.lineWidth = Math.max(0.6, lw * 0.6);
+      cx.stroke();
+      // Panzerplatten (Kopf und Brust)
+      if (p.armor) {
+        const back = p.arms ? -hw * 0.15 : p.eyesFront ? -hw * 0.05 : placo ? hw * 0.06 : hw * 0.12;
+        const plate = () => {
+          cx.beginPath();
+          cx.moveTo(hw + 6, -hh * 1.3);
+          cx.lineTo(back + hw * 0.08, -hh * 1.3);
+          cx.quadraticCurveTo(back - hw * 0.06, 0, back + hw * 0.08, hh * 1.3);
+          cx.lineTo(hw + 6, hh * 1.3);
+          cx.closePath();
+        };
+        plate();
+        const pg = cx.createLinearGradient(0, -hh, 0, hh);
+        pg.addColorStop(0, css(shade(bone, -0.15)));
+        pg.addColorStop(0.5, css(bone));
+        pg.addColorStop(1, css(shade(bone, -0.3)));
+        cx.fillStyle = pg;
+        cx.fill();
+        cx.save();
+        plate();
+        cx.clip();
+        cx.globalCompositeOperation = 'multiply';
+        cx.globalAlpha = 0.55;
+        cx.fillStyle = pattern(cx, 'stone', len > 150 ? 0.5 : 0.28, len, h);
+        cx.fillRect(-hw * 2, -hh * 2, len * 2, h * 2);
+        cx.restore();
+        // Nähte zwischen den Platten und kleine Höcker
+        cx.strokeStyle = css(shade(bone, -0.55), 0.55);
+        cx.lineWidth = Math.max(0.6, lw * 0.8);
+        const seams: [number, number, number, number][] = [[hw * 0.55, -hh, hw * 0.5, hh * 0.25], [back + hw * 0.25, -hh * 0.2, hw * 0.92, -hh * 0.25], [hw * 0.78, -hh * 0.95, hw * 0.8, -hh * 0.3]];
+        for (const [x0, y0, x1, y1] of seams) {
+          cx.beginPath();
+          cx.moveTo(x0, y0);
+          cx.quadraticCurveTo((x0 + x1) / 2 + 2, (y0 + y1) / 2, x1, y1);
+          cx.stroke();
+        }
+        for (let i = 0; i < 26; i++) {
+          ell(cx, back + hw * 0.15 + r() * (hw * 0.85 - back), -hh + r() * hh * 1.7, lw * 0.6, lw * 0.6);
+          cx.fillStyle = css(shade(bone, 0.25), 0.55);
+          cx.fill();
+        }
+        if (placo) {
+          // große Platten mit hellen Kanten: Kopfplatte, Wangenplatte, Brustring
+          const plateEdge = (pts: P2[]) => {
+            cx.beginPath();
+            pts.forEach(([x, y], i) => (i ? cx.lineTo(x, y) : cx.moveTo(x, y)));
+            cx.strokeStyle = 'rgba(0,0,0,0.42)';
+            cx.lineWidth = lw * 1.4;
+            cx.stroke();
+            cx.save();
+            cx.translate(0, -lw * 0.9);
+            cx.beginPath();
+            pts.forEach(([x, y], i) => (i ? cx.lineTo(x, y) : cx.moveTo(x, y)));
+            cx.strokeStyle = 'rgba(235,235,220,0.28)';
+            cx.lineWidth = lw * 0.7;
+            cx.stroke();
+            cx.restore();
+          };
+          plateEdge([[hw * 0.36, -hh * 1.1], [hw * 0.42, -hh * 0.5], [hw * 0.98, -hh * 0.32]]);
+          plateEdge([[hw * 0.42, -hh * 0.5], [hw * 0.34, hh * 0.35], [hw * 0.52, hh * 0.9]]);
+          plateEdge([[hw * 0.24, -hh * 1.05], [hw * 0.2, hh * 1.0]]);
+          // schwere Braue über dem Auge
+          cx.beginPath();
+          cx.moveTo(hw * 0.58, -hh * 0.5);
+          cx.quadraticCurveTo(hw * 0.68, -hh * 0.72, hw * 0.8, -hh * 0.52);
+          cx.strokeStyle = 'rgba(0,0,0,0.5)';
+          cx.lineWidth = lw * 2.2;
+          cx.stroke();
+        }
+        // dunkle Fuge am Hals
+        cx.beginPath();
+        cx.moveTo(back + hw * 0.08, -hh * 1.2);
+        cx.quadraticCurveTo(back - hw * 0.06, 0, back + hw * 0.08, hh * 1.2);
+        cx.strokeStyle = 'rgba(0,0,0,0.35)';
+        cx.lineWidth = lw * 2;
+        cx.stroke();
+      } else if (!p.shark && !p.jawless) {
+        // Kiemendeckel
+        cx.beginPath();
+        cx.moveTo(hw * 0.5, -hh * 0.75);
+        cx.quadraticCurveTo(hw * 0.36, 0, hw * 0.46, hh * 0.72);
+        cx.strokeStyle = 'rgba(0,0,0,0.3)';
+        cx.lineWidth = lw * 1.6;
+        cx.stroke();
+        cx.strokeStyle = 'rgba(255,245,220,0.16)';
+        cx.lineWidth = lw * 0.6;
+        cx.stroke();
+      } else if (p.shark) {
+        for (let i = 0; i < 5; i++) {
+          const x = hw * 0.5 - i * hw * 0.05;
+          cx.beginPath();
+          cx.moveTo(x, -hh * 0.3);
+          cx.quadraticCurveTo(x - hw * 0.025, 0, x, hh * 0.3);
+          cx.strokeStyle = 'rgba(0,0,0,0.3)';
+          cx.lineWidth = lw * 0.9;
+          cx.stroke();
+        }
+      } else {
+        // Kiemenöffnungen der Kieferlosen
+        for (let i = 0; i < 6; i++) {
+          ell(cx, hw * 0.42 - i * hw * 0.06, hh * 0.05, lw * 0.6, lw * 0.9);
+          cx.fillStyle = 'rgba(0,0,0,0.35)';
+          cx.fill();
+        }
       }
     },
   });
-  // Maul
-  const my = hh * 0.22;
-  if (p.armor) {
-    // Knochenklingen statt Zähnen
+
+  // ---- Kopfschild wie ein Hufeisen (Cephalaspis)
+  if (p.shield) {
+    const sh = () => {
+      ctx.beginPath();
+      ctx.moveTo(hw * 0.12, -hh * 0.95);
+      ctx.bezierCurveTo(hw * 0.7, -hh * 1.15, hw * 1.12, -hh * 0.6, hw * 1.05, hh * 0.15);
+      ctx.bezierCurveTo(hw * 0.95, hh * 0.65, hw * 0.4, hh * 0.7, hw * 0.1, hh * 0.62);
+      ctx.lineTo(-hw * 0.2, hh * 1.05);
+      ctx.lineTo(-hw * 0.02, hh * 0.3);
+      ctx.quadraticCurveTo(-hw * 0.05, -hh * 0.4, hw * 0.12, -hh * 0.95);
+      ctx.closePath();
+    };
+    skin(ctx, sh, { base: bone, top: shade(bone, -0.2), y0: -hh, y1: hh, noise: 'stone', noiseAlpha: 0.5, noiseScale: 0.3, seed: len + 3, edge: D, edgeW: lw, rim: 0.4 });
+  }
+  // ---- Stachelreihe auf dem Rücken (Birkenia)
+  if (p.spines) {
+    for (let i = 0; i < 7; i++) {
+      const x = hw * 0.3 - i * hw * 0.16;
+      const y = -hh * (0.98 - Math.abs(i - 2) * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(x + 1.5, y + 1);
+      ctx.lineTo(x - 1.8, y - hh * 0.55);
+      ctx.lineTo(x - 2.2, y + 1);
+      ctx.closePath();
+      ctx.fillStyle = css(shade(c, -0.3));
+      ctx.fill();
+    }
+  }
+
+  // ---- Maul
+  const my = ny + hh * 0.12;
+  if (placo) {
+    // Knochenklingen: oben ein spitzer Haken, unten eine aufragende Kieferplatte – dazwischen der dunkle Schlund
     ctx.beginPath();
-    ctx.moveTo(hw + 2, my - hh * 0.05);
-    ctx.lineTo(hw * 0.6, my);
-    ctx.lineTo(hw * 0.98, my + hh * 0.32);
+    ctx.moveTo(hw * 1.0, my - hh * 0.06);
+    ctx.quadraticCurveTo(hw * 0.8, my + hh * 0.2, hw * 0.55, my + hh * 0.05);
+    ctx.lineTo(hw * 0.55, my + hh * 0.35);
+    ctx.quadraticCurveTo(hw * 0.85, my + hh * 0.45, hw * 1.03, my + hh * 0.08);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(16,6,6,0.92)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hw * 1.01, my - hh * 0.08);
+    ctx.lineTo(hw * 0.96, my + hh * 0.2);
+    ctx.lineTo(hw * 0.84, my + hh * 0.02);
+    ctx.lineTo(hw * 0.74, my + hh * 0.12);
+    ctx.lineTo(hw * 0.66, my - hh * 0.0);
+    ctx.closePath();
+    ctx.fillStyle = ivory(ctx, my - hh * 0.08, my + hh * 0.2, 1);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(30,20,10,0.7)';
+    ctx.lineWidth = lw * 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(hw * 0.58, my + hh * 0.42);
+    ctx.quadraticCurveTo(hw * 0.86, my + hh * 0.5, hw * 1.05, my + hh * 0.02);
+    ctx.lineTo(hw * 0.98, my + hh * 0.26);
+    ctx.lineTo(hw * 0.86, my + hh * 0.2);
+    ctx.lineTo(hw * 0.76, my + hh * 0.3);
+    ctx.closePath();
+    ctx.fillStyle = ivory(ctx, my, my + hh * 0.5, 1);
+    ctx.fill();
+    ctx.stroke();
+  } else if (p.armor && !p.arms && !p.eyesFront) {
+    // Knochenklingen statt Zähnen – wie eine Schere
+    ctx.beginPath();
+    ctx.moveTo(hw + 1, my - hh * 0.06);
+    ctx.lineTo(hw * 0.62, my);
+    ctx.lineTo(hw * 0.98, my + hh * 0.3);
     ctx.closePath();
     ctx.fillStyle = ivory(ctx, my, my + hh * 0.3, 1);
     ctx.fill();
-    ctx.strokeStyle = '#1a140c';
+    ctx.beginPath();
+    ctx.moveTo(hw + 1, my - hh * 0.05);
+    ctx.lineTo(hw * 0.58, my + hh * 0.02);
+    ctx.strokeStyle = 'rgba(14,8,6,0.85)';
+    ctx.lineWidth = lw * 1.6;
+    ctx.stroke();
+  } else if (p.jawless || p.arms) {
+    ell(ctx, hw - 1, my, Math.max(1, hh * 0.1), Math.max(0.8, hh * 0.08));
+    ctx.fillStyle = 'rgba(20,10,8,0.8)';
+    ctx.fill();
+  } else if (p.shark) {
+    ctx.beginPath();
+    ctx.moveTo(hw * 0.86, hh * 0.32);
+    ctx.quadraticCurveTo(hw * 0.74, hh * 0.5, hw * 0.6, hh * 0.38);
+    ctx.strokeStyle = 'rgba(20,10,8,0.75)';
     ctx.lineWidth = lw;
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(hw + 1, my - hh * 0.04);
-    ctx.lineTo(hw * 0.55, my);
-    ctx.strokeStyle = '#120806';
-    ctx.lineWidth = lw * 2;
-    ctx.stroke();
-  } else if (p.jawless) {
-    ell(ctx, hw - 1, my * 0.6, hh * 0.12, hh * 0.1);
-    ctx.fillStyle = '#140a08';
-    ctx.fill();
+    if (p.teeth) for (let i = 0; i < 4; i++) tooth(ctx, hw * 0.64 + i * hw * 0.05, hh * 0.4 + i * 0.6, hh * 0.06, hh * 0.12, 1);
   } else {
     ctx.beginPath();
     ctx.moveTo(hw, my);
-    ctx.lineTo(hw * 0.62, my + hh * 0.05);
-    ctx.strokeStyle = '#140a08';
+    ctx.quadraticCurveTo(hw * 0.86, my + hh * 0.08, hw * 0.7, my + hh * 0.04);
+    ctx.strokeStyle = 'rgba(20,10,8,0.7)';
     ctx.lineWidth = lw;
     ctx.stroke();
-    if (p.teeth) for (let i = 0; i < 4; i++) tooth(ctx, hw * 0.68 + i * hw * 0.07, my, hh * 0.08, hh * 0.18, 1);
+    if (p.teeth) for (let i = 0; i < 4; i++) tooth(ctx, hw * 0.74 + i * hw * 0.06, my + hh * 0.02, hh * 0.08, hh * 0.17, 1);
   }
-  // Brustflosse
-  ctx.save();
-  ctx.translate(hw * 0.2, hh * 0.4);
-  ctx.rotate(f ? 0.45 : 0.1);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-hw * 0.3, hh * 0.6, -hw * 0.45, hh * 0.45);
-  ctx.quadraticCurveTo(-hw * 0.25, hh * 0.15, 0, 0);
-  ctx.closePath();
-  finStyle(0, hh * 0.6);
-  ctx.restore();
-  eye(ctx, hw * 0.62, -hh * 0.3, Math.max(1.8, hh * (p.armor ? 0.12 : 0.2)), E.iris, { glow: E.glow, lid: p.armor ? 0.4 : 0 });
+
+  // ---- Ruderarme (Bothriolepis)
+  if (p.arms) {
+    const a = f ? 0.25 : -0.1;
+    ctx.save();
+    ctx.translate(hw * 0.32, hh * 0.55);
+    ctx.rotate(a);
+    const seg = (x0: number, y0: number, x1: number, y1: number, wd: number) => {
+      const pth = () => {
+        ctx.beginPath();
+        const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1;
+        const nx = (-dy / l) * wd, ny2 = (dx / l) * wd;
+        ctx.moveTo(x0 + nx, y0 + ny2);
+        ctx.lineTo(x1 + nx * 0.7, y1 + ny2 * 0.7);
+        ctx.quadraticCurveTo(x1 + dx / l * wd, y1 + dy / l * wd, x1 - nx * 0.7, y1 - ny2 * 0.7);
+        ctx.lineTo(x0 - nx, y0 - ny2);
+        ctx.closePath();
+      };
+      skin(ctx, pth, { base: bone, y0: Math.min(y0, y1) - wd, y1: Math.max(y0, y1) + wd, noise: 'stone', noiseAlpha: 0.4, noiseScale: 0.3, edge: D, edgeW: lw * 0.8, rim: 0.3 });
+    };
+    seg(0, 0, -hw * 0.28, hh * 0.55, hh * 0.12);
+    seg(-hw * 0.28, hh * 0.55, -hw * 0.6, hh * 0.45, hh * 0.1);
+    ctx.restore();
+  } else {
+    // ---- Brustflosse (vor dem Körper), bewegt sich mit
+    ctx.save();
+    ctx.translate(hw * 0.36, hh * 0.38);
+    ctx.rotate(f ? 0.35 : 0.05);
+    finMembrane(ctx, [0, -hh * 0.06], [[-hw * 0.14, hh * 0.45], [-hw * 0.34, hh * 0.62], [-hw * 0.4, hh * 0.38]], [-hw * 0.06, hh * 0.08], fc, lw, p.shark);
+    ctx.restore();
+  }
+
+  // ---- Auge
+  const ex = p.eyesFront ? hw * 0.86 : p.shield ? hw * 0.62 : p.shark ? hw * 0.74 : hw * 0.68;
+  const ey = p.eyesFront ? -hh * 0.02 : p.shield ? -hh * 0.62 : -hh * 0.2;
+  const er = Math.max(1.6, hh * (p.armor && !p.eyesFront ? 0.12 : p.shark ? 0.13 : 0.19));
+  eye(ctx, ex, ey, er, E.iris, { glow: E.glow, lid: p.armor && !p.eyesFront ? 0.4 : p.shark ? 0.25 : 0 });
 }
 
 function drawJelly(ctx: Ctx, p: Extract<Art, { t: 'jelly' }>, f: number) {
@@ -553,6 +819,54 @@ function drawQuad(ctx: Ctx, p: Extract<Art, { t: 'quad' }>, f: number, E: Eyes) 
       ctx.lineWidth = lw;
       ctx.stroke();
     }
+  }
+  // Rückensegel (Dimetrodon): Stacheln mit gespannter Haut dazwischen
+  if (p.sail) {
+    const n = 13, x0 = hw * 0.42, x1 = -hw * 0.5;
+    const tips: P2[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const x = x0 + (x1 - x0) * t;
+      tips.push([x - bh * 0.12, -hh * 0.6 - bh * 1.55 * Math.sin(Math.PI * (0.08 + t * 0.84))]);
+    }
+    const sailPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(x0, -hh * 0.55);
+      tips.forEach(([x, y], i) => {
+        if (i === 0) ctx.lineTo(x, y);
+        else ctx.quadraticCurveTo((tips[i - 1][0] + x) / 2, (tips[i - 1][1] + y) / 2 + bh * 0.12, x, y);
+      });
+      ctx.lineTo(x1, -hh * 0.55);
+      ctx.closePath();
+    };
+    sailPath();
+    const sg = ctx.createLinearGradient(0, -hh - bh * 1.6, 0, -hh * 0.5);
+    sg.addColorStop(0, css(mix(c, 0xb0502a, 0.45), 0.85));
+    sg.addColorStop(1, css(shade(c, -0.2), 0.95));
+    ctx.fillStyle = sg;
+    ctx.fill();
+    ctx.save();
+    sailPath();
+    ctx.clip();
+    for (let i = 0; i < 9; i++) {
+      ell(ctx, x0 + (x1 - x0) * r(), -hh - r() * bh * 1.2, 3 + r() * 4, 2 + r() * 3);
+      ctx.fillStyle = css(shade(c, -0.4), 0.3);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.strokeStyle = css(shade(c, -0.55), 0.85);
+    ctx.lineWidth = lw * 0.9;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      ctx.beginPath();
+      ctx.moveTo(x0 + (x1 - x0) * t, -hh * 0.5);
+      ctx.lineTo(tips[i][0], tips[i][1]);
+      ctx.stroke();
+    }
+    sailPath();
+    ctx.strokeStyle = css(D, 0.5);
+    ctx.lineWidth = lw * 0.7;
+    ctx.stroke();
   }
   // Rückenplatten / Stacheln
   if (p.plates || p.spikes) {

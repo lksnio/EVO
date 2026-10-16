@@ -10,7 +10,22 @@ export type Role = 'prey' | 'predator' | 'defender' | 'hazard' | 'apex';
 export type Habitat = 'water' | 'land' | 'air';
 
 export type Art =
-  | { t: 'fish'; len: number; h: number; c: number; belly: number; fin: number; teeth?: boolean; armor?: boolean; jawless?: boolean }
+  | {
+      t: 'fish'; len: number; h: number; c: number; belly: number; fin: number; teeth?: boolean; armor?: boolean; jawless?: boolean;
+      /** Hai: spitze Schnauze, ungleiche Schwanzflosse, Flossenstachel */
+      shark?: boolean;
+      /** Kopfschild wie ein Hufeisen (Cephalaspis) */
+      shield?: boolean;
+      /** gepanzerte Ruderarme (Bothriolepis) */
+      arms?: boolean;
+      /** Stachelreihe auf dem Rücken */
+      spines?: boolean;
+      /** Augen ganz vorn (Sacabambaspis) */
+      eyesFront?: boolean;
+      /** Muster */
+      spots?: boolean;
+      stripes?: boolean;
+    }
   | { t: 'jelly'; r: number; c: number }
   | { t: 'trilo'; len: number; c: number }
   | { t: 'cone'; len: number; c: number }
@@ -25,6 +40,8 @@ export type Art =
       spikes?: boolean; club?: boolean; frill?: boolean; crest?: boolean; horn?: 'rhino'; fangs?: boolean; sabre?: boolean;
       tusks?: boolean; trunk?: boolean; ears?: 'pointy' | 'round' | 'long'; fur?: boolean; arms?: boolean; antlers?: boolean;
       beak?: boolean; claws?: boolean; mane?: boolean; hump?: boolean;
+      /** Rückensegel (Dimetrodon) */
+      sail?: boolean;
     }
   | { t: 'bird'; span: number; c: number; belly: number; ptero?: boolean; crest?: boolean };
 
@@ -62,7 +79,13 @@ const S = (d: SpeciesDef) => d;
 export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
   [
     // ---------------------------------------------------------------- Urozean
-    S({ id: 'kieferlos', name: 'Kieferloser Fisch', art: { t: 'fish', len: 34, h: 13, c: 0x6e7a6c, belly: 0xb8bca4, fin: 0x4e5a50, jawless: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.5, speed: 95, sense: 230, meat: 2, herd: [3, 5], sprint: 1.7 }),
+    S({ id: 'kieferlos', name: 'Kieferloser Fisch', art: { t: 'fish', len: 34, h: 13, c: 0x6e7a6c, belly: 0xb8bca4, fin: 0x4e5a50, jawless: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.5, speed: 95, sense: 230, meat: 2, herd: [3, 5], sprint: 1.7 }),
+    // weitere Fische ihrer Zeit
+    S({ id: 'sacabambaspis', name: 'Sacabambaspis', art: { t: 'fish', len: 40, h: 16, c: 0x7a6a50, belly: 0xc8b890, fin: 0x5a4c38, jawless: true, armor: true, eyesFront: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.6, speed: 72, sense: 200, meat: 2, herd: [2, 4], sprint: 1.5 }),
+    S({ id: 'birkenia', name: 'Birkenia', art: { t: 'fish', len: 26, h: 8, c: 0x4e6262, belly: 0xb0bca8, fin: 0x34443e, jawless: true, spines: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 1, speed: 125, sense: 240, meat: 1, herd: [5, 8], sprint: 1.8 }),
+    S({ id: 'cephalaspis', name: 'Cephalaspis', art: { t: 'fish', len: 46, h: 13, c: 0x6a5c44, belly: 0xa89c78, fin: 0x4a4030, jawless: true, shield: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 10, dmg: 0, power: 2, speed: 62, sense: 180, meat: 2, herd: [1, 3], sprint: 1.4 }),
+    S({ id: 'bothriolepis', name: 'Bothriolepis', art: { t: 'fish', len: 50, h: 22, c: 0x6e6650, belly: 0xb8ae8c, fin: 0x4e4836, armor: true, arms: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 16, dmg: 0, power: 3, speed: 56, sense: 200, meat: 3, herd: [2, 4], sprint: 1.4 }),
+    S({ id: 'cladoselache', name: 'Cladoselache', art: { t: 'fish', len: 112, h: 30, c: 0x46525c, belly: 0xc4ccc8, fin: 0x323c44, shark: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 45, dmg: 8, power: 11, speed: 145, sense: 320, meat: 5, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'trilobit', name: 'Trilobit', art: { t: 'trilo', len: 34, c: 0x5e4c38 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.2, speed: 34, sense: 120, meat: 2, herd: [1, 3], crawl: true, sprint: 1.4 }),
     S({ id: 'qualle', name: 'Qualle', art: { t: 'jelly', r: 16, c: 0x7a5a96 }, role: 'hazard', diet: 'none', habitat: 'water', hp: 5, dmg: 4, power: 2, speed: 24, sense: 0, meat: 1, hit: [0.7, 0.7] }),
     S({ id: 'orthoceras', name: 'Orthoceras', art: { t: 'cone', len: 74, c: 0x7a6248 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 22, dmg: 5, power: 6, speed: 118, sense: 300, meat: 3, hit: [0.75, 0.6] }),
@@ -80,6 +103,8 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'libelle', name: 'Libelle', art: { t: 'dragonfly', len: 46, c: 0x2a5a5a }, role: 'prey', diet: 'plant', habitat: 'air', hp: 4, dmg: 0, power: 1, speed: 110, sense: 200, meat: 1, herd: [1, 3], sprint: 1.5, hit: [0.7, 0.5] }),
     S({ id: 'kleinlurch', name: 'Kleiner Lurch', art: { t: 'quad', len: 30, bh: 12, leg: 8, head: 15, headH: 9, tail: 26, c: 0x4e5034, belly: 0x989470, sprawl: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'land', hp: 9, dmg: 0, power: 2, speed: 82, sense: 200, meat: 2, herd: [2, 4], sprint: 1.5 }),
     S({ id: 'skorpion', name: 'Riesenskorpion', art: { t: 'bug', len: 64, h: 18, segs: 6, c: 0x2a201c, legs: 4, pincers: true, stinger: 'up' }, role: 'predator', diet: 'meat', habitat: 'land', hp: 34, dmg: 8, power: 10, speed: 84, sense: 240, meat: 3 }),
+    // Dimetrodon (Perm): Segelrücken, Endgegner der Sümpfe
+    S({ id: 'dimetrodon', name: 'Dimetrodon', art: { t: 'quad', len: 96, bh: 30, leg: 22, head: 44, headH: 22, tail: 74, c: 0x6a4630, belly: 0xa8886a, sprawl: true, fangs: true, sail: true, stripes: true }, role: 'apex', diet: 'meat', habitat: 'land', hp: 260, dmg: 16, power: 30, speed: 92, sense: 400, meat: 10, boss: true, hit: [0.75, 0.6] }),
     S({ id: 'eryops', name: 'Eryops', art: { t: 'quad', len: 72, bh: 22, leg: 14, head: 42, headH: 18, tail: 52, c: 0x363c2a, belly: 0x6e6e52, sprawl: true, fangs: true, spots: true }, role: 'predator', diet: 'meat', habitat: 'land', hp: 52, dmg: 10, power: 13, speed: 72, sense: 260, meat: 5, hit: [0.7, 0.8] }),
     S({ id: 'meganeura', name: 'Riesenlibelle', art: { t: 'dragonfly', len: 240, c: 0x1c4040 }, role: 'apex', diet: 'meat', habitat: 'air', hp: 240, dmg: 13, power: 30, speed: 130, sense: 480, meat: 6, boss: true, hit: [0.6, 0.45] }),
 

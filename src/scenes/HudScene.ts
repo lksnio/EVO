@@ -24,7 +24,7 @@ const HINTS: Record<string, [string, string]> = {
 };
 
 const TIPS: Record<string, string> = {
-  ordovizium: 'Überlebe und friss genug, bis das Zeitalter endet. Links und rechts warten andere Gewässer.',
+  ordovizium: 'Überlebe, bis das Zeitalter endet – und verhungere nicht. Links und rechts warten andere Gewässer.',
   karbon: 'Das Land ist fremd. Bleib wachsam.',
 };
 
@@ -61,6 +61,10 @@ export class HudScene extends Phaser.Scene {
   private foodText!: Phaser.GameObjects.Text;
   private foodV = { meat: 0, plant: 0, need: 1 };
   private zoneText!: Phaser.GameObjects.Text;
+  private bossC!: Phaser.GameObjects.Container;
+  private bossName!: Phaser.GameObjects.Text;
+  private bossBar!: Phaser.GameObjects.Graphics;
+  private bossShown = false;
   private statsC?: Phaser.GameObjects.Container;
 
   constructor() {
@@ -75,6 +79,7 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     this.ramBtn = false;
     this.statsC = undefined;
+    this.bossShown = false;
     this.foodV = { meat: 0, plant: 0, need: 1 };
     this.hp = 1;
     this.food = 1;
@@ -98,19 +103,25 @@ export class HudScene extends Phaser.Scene {
     g.fillStyle(0x050403, 0.55);
     g.fillRoundedRect(W / 2 - 200, 8, 400, 70, 12);
     title(this, W / 2, 26, ep.name.toUpperCase(), 18, UI.ochre).setOrigin(0.5).setLetterSpacing(3);
-    this.clockText = text(this, W / 2, 50, yearsAgo(ep.from, (ep.from - ep.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
+    const span = game.epochSpan();
+    this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.drawFuse();
     this.storyText = text(this, W / 2, 124, '', 20, UI.bone, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 4, align: 'center' })
       .setOrigin(0.5, 0).setAlpha(0);
 
-    // Nahrung: wie viel bis zum Ende des Zeitalters zusammenkommen muss (Fleisch rot, Pflanzen grün)
+    // Hunger: startet etwa halb voll, sinkt mit der Zeit (schneller, wenn man viel schwimmt)
     const fg = this.add.graphics();
     fg.fillStyle(0x050403, 0.55);
-    fg.fillRoundedRect(W / 2 - 170, 84, 340, 32, 9);
+    fg.fillRoundedRect(W / 2 - 170, 84, 340, 22, 8);
     this.foodG = this.add.graphics();
-    this.foodText = text(this, W / 2, 106, '', 15, UI.boneDim).setOrigin(0.5);
+    this.foodText = text(this, W / 2 - 160, 95, 'Hunger', 14, UI.boneDim).setOrigin(0, 0.5);
     this.drawFood();
+    // Lebensbalken des Endgegners (unten)
+    this.bossC = this.add.container(W / 2, H - 46).setAlpha(0).setDepth(8);
+    this.bossName = title(this, 0, -18, '', 22, '#d8b070').setOrigin(0.5);
+    this.bossBar = this.add.graphics();
+    this.bossC.add([this.bossBar, this.bossName]);
     // Gebiet, in dem man gerade ist
     this.zoneText = text(this, 22, 18, ep.place, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
 
@@ -120,7 +131,9 @@ export class HudScene extends Phaser.Scene {
 
     // Zeitalter und Lebensraum einblenden
     const head = title(this, W / 2, H / 2 - 90, ep.place, 46).setOrigin(0.5).setAlpha(0);
-    const sub = text(this, W / 2, H / 2 - 44, ep.desc, 20, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
+    const round = game.run?.round ?? 0;
+    const desc = round ? `Die ${round + 1}. Generation – der Herrscher dieser Zeit lebt noch.` : ep.desc;
+    const sub = text(this, W / 2, H / 2 - 44, desc, 20, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: [head, sub], alpha: 1, duration: 900, hold: 2200, yoyo: true });
 
     const isTouch = (this.isTouch = this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
@@ -149,6 +162,7 @@ export class HudScene extends Phaser.Scene {
       this.hp = hp;
       this.food = food;
       this.hidden = hidden;
+      this.drawFood();
     };
     const onClock = (years: number, prog: number, step: number) => {
       this.clockText.setText(yearsAgo(years, step));
@@ -163,6 +177,8 @@ export class HudScene extends Phaser.Scene {
       this.drawFood();
     };
     const onZone = (name: string) => this.zoneText.setText(name);
+    const onBoss = (name: string, f: number) => this.drawBoss(name, f);
+    bus.on('boss', onBoss);
     bus.on('food', onFood);
     bus.on('zone', onZone);
     bus.on('vitals', onVitals);
@@ -178,6 +194,7 @@ export class HudScene extends Phaser.Scene {
       bus.off('ramUnlocked', onRam);
       bus.off('food', onFood);
       bus.off('zone', onZone);
+      bus.off('boss', onBoss);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
   }
@@ -195,23 +212,43 @@ export class HudScene extends Phaser.Scene {
     g.fillCircle(x0 + w * this.prog, y + 1.5, 3);
   }
 
-  /** Die Nahrungsleiste: Fleisch (rot) und Pflanzen (grün) bis zum Ziel. */
+  /** Die Hungerleiste: wie voll der Magen ist (das Maximum hängt von der Größe ab). */
   private drawFood() {
-    const { meat, plant, need } = this.foodV;
     const g = this.foodG;
-    const x0 = W / 2 - 150, w = 300, y = 89;
+    const x0 = W / 2 - 100, w = 250, y = 92;
+    const f = Math.max(0, Math.min(1, this.food));
     g.clear();
     g.fillStyle(0x2a2420, 1);
     g.fillRect(x0, y, w, 6);
-    const fm = Math.min(1, meat / need), fp = Math.min(1 - fm, plant / need);
-    g.fillStyle(0x9a2a1e, 1);
-    g.fillRect(x0, y, w * fm, 6);
-    g.fillStyle(0x5e7a2c, 1);
-    g.fillRect(x0 + w * fm, y, w * fp, 6);
-    const done = meat + plant >= need;
-    g.lineStyle(1.5, done ? 0xe0b060 : 0x6a5638, done ? 1 : 0.7);
+    const low = f < 0.2;
+    g.fillStyle(low ? 0xb03a24 : f < 0.4 ? 0xb07a2c : 0xc8a050, 1);
+    g.fillRect(x0, y, w * f, 6);
+    g.lineStyle(1.2, 0x6a5638, 0.7);
     g.strokeRect(x0 - 1, y - 1, w + 2, 8);
-    this.foodText.setText(`Nahrung ${Math.round(meat + plant)} / ${Math.round(need)} kcal${done ? '  ✓' : ''}`).setColor(done ? UI.ochre : UI.boneDim);
+    this.foodText.setColor(low ? '#d06048' : UI.boneDim);
+  }
+
+  /** Lebensbalken des Endgegners. */
+  private drawBoss(name: string, f: number) {
+    if (!this.bossShown && f > 0) {
+      this.bossShown = true;
+      this.tweens.add({ targets: this.bossC, alpha: 1, duration: 800 });
+    }
+    this.bossName.setText(name.toUpperCase());
+    const g = this.bossBar;
+    const w = 520;
+    g.clear();
+    g.fillStyle(0x050403, 0.7);
+    g.fillRoundedRect(-w / 2 - 8, -4, w + 16, 22, 6);
+    g.fillStyle(0x3a1410, 1);
+    g.fillRect(-w / 2, 2, w, 10);
+    g.fillStyle(0xb8321e, 1);
+    g.fillRect(-w / 2, 2, w * f, 10);
+    g.fillStyle(0xffffff, 0.15);
+    g.fillRect(-w / 2, 2, w * f, 3);
+    g.lineStyle(1.5, 0x8a6a40, 0.9);
+    g.strokeRect(-w / 2 - 1, 1, w + 2, 12);
+    if (f <= 0 && this.bossShown) this.tweens.add({ targets: this.bossC, alpha: 0, duration: 1200, delay: 1500 });
   }
 
   // ---------------------------------------------------------------- Werte (wie im Charakterbildschirm von Gothic)
@@ -296,7 +333,7 @@ export class HudScene extends Phaser.Scene {
     head(rx, 'Nahrung');
     const fv = this.foodV;
     row(rx, 'Gefressen', `${Math.round(fv.meat + fv.plant)} kcal`);
-    row(rx, 'Nötig für Nachwuchs', `${Math.round(fv.need)} kcal`, fv.meat + fv.plant < fv.need);
+    row(rx, 'Magen', this.food < 0.2 ? 'fast leer' : this.food < 0.45 ? 'hungrig' : this.food < 0.8 ? 'satt' : 'voll', this.food < 0.2);
     head(rx, 'Gruppe');
     const kin = L.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
     row(rx, 'Artgenossen', String(kin.length));

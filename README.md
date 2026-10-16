@@ -6,7 +6,8 @@ und [Vite](https://vite.dev).
 Du beginnst als kleiner, schwacher Urfisch im Urozean – einer von wenigen deiner Art. Jedes
 **Zeitalter** ist ein fester Zeitraum der Erdgeschichte: Oben läuft eine Uhr („vor 452.320.000 Jahren“),
 und wer bis zum Ende des Zeitraums überlebt, dessen Linie zieht ins nächste Zeitalter weiter.
-Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleben – egal wie**.
+Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende jeder großen Region
+(Urmeer, Sümpfe, Reptilienzeit, Eiszeit) herrscht ein Gigant – erst wer ihn besiegt, kommt weiter.
 
 **Stirbst du, ist das Spiel vorbei.** Deine Linie stirbt aus – und bleibt als Ast im
 **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
@@ -37,41 +38,54 @@ Es gibt keine Punkte, kein Ziel und keinen Endgegner. Es geht **nur ums Überleb
   Gebiet, in das man fließend hinüberschwimmt bzw. -läuft – links flacher und trüber, voller Pflanzen
   und mit wenigen Jägern (dort sieht man dich schlechter), rechts tief und dunkel, mit mehr Räubern
   und einem der ganz Großen. Boden, Licht und Tiere sind dort anders.
-- **Nahrung:** Bis zum Ende eines Zeitalters musst du genug Kalorien fressen (Leiste oben, Fleisch
-  rot, Pflanzen grün) – sonst fehlt die Kraft für Nachwuchs, und die Linie endet. Pflanzen sind
-  überall und ungefährlich, bringen aber wenig; Fleisch bringt ein Vielfaches, muss aber erbeutet
-  (oder einem Riesen weggeschnappt) werden. Manche Pflanzen sind giftig: Sie brennen, machen aber
-  kurz hellwach und schnell.
+- **Hunger:** Der Magen startet etwa halb voll und leert sich mit der Zeit – schneller, wenn du viel
+  und schnell schwimmst bzw. läufst. Fressen füllt ihn wieder auf, aber nie über das Maximum. Wie
+  viel hineinpasst, hängt von der Größe ab: Große Tiere richten mehr Schaden an, verbrauchen aber
+  auch mehr. Ein Happen bringt nicht viel – Pflanzen sind überall und ungefährlich, sättigen aber
+  kaum; Fleisch sättigt dreimal so gut, muss aber erbeutet (oder einem Riesen weggeschnappt)
+  werden. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
+- **Herrscher der Region:** Im letzten Zeitalter jeder Region erscheint kurz vor Schluss der
+  Endgegner – im Devon *Dunkleosteus*, im Perm *Dimetrodon*, in der Kreide der *T. rex*, im Quartär
+  der Säbelzahntiger – mit Lebensbalken unten im Bild. Überlebst du, ohne ihn zu besiegen, bleibt
+  deine Linie in diesem Zeitalter: eine neue Generation, etwas später, etwas stärker. Man spielt
+  ein Zeitalter also mehrmals und entwickelt sich weiter – anfangs frisst man nur die kleinen
+  Fische, später größere. Erst wer den Herrscher besiegt, zieht in die neue Zeit.
 - **Überraschungsangriff:** Wer aus Dickicht, Höhle, Felsspalte oder gut getarnt angreift (das Tier
   ist dann leicht durchsichtig), trifft mit dem ersten Biss oder Stoß zwei- bis dreifach und betäubt.
 - **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Ordovizium ein
   Riesenkopffüßer, im Silur *Pterygotus*, im Devon *Dunkleosteus*. Vorher wird das Wasser dunkler,
   es grollt, das Herz klopft, und die kleinen Fische fliehen: Zeit, sich zu verstecken. Selten
-  streifen auch große Jäger wie *Megalograptus* oder *Hyneria* umher. Wen ein Riese reißt, von dem
-  bleibt meist etwas übrig …
+  streifen auch große Jäger wie *Megalograptus*, *Cladoselache* oder *Hyneria* umher. Wen ein Riese
+  reißt, von dem bleibt meist etwas übrig …
+- **Tiere ihrer Zeit:** Im Urmeer leben u. a. *Sacabambaspis*, *Birkenia*, *Cephalaspis* und der
+  Panzerfisch *Bothriolepis*; kein Tier gleicht dem anderen ganz – manche sind etwas größer,
+  andere etwas kleiner.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
 - **Nachwuchs wählen:** Am Ende eines Zeitalters stehen fünf Nachkommen zur Wahl – die Art ist
-  größer als deine Gruppe. Der erste ist die **Hauptlinie** (deine bisherige Wahl mit allem, was
-  dazugelernt wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast.
-  Jeder betont eine erspielte Fähigkeit und ein Körpermerkmal (spitzere Schnauze, länger, massiger,
-  flinker); was du gefressen hast, schiebt die Kost in diese Richtung.
+  größer als deine Gruppe. Man sieht **nur die Tiere selbst**, keine Werte: alle im selben Maßstab
+  in einem Stück Lebensraum, sodass Größe, Körperbau und Färbung direkt vergleichbar sind; ein Klick
+  wählt aus. Der erste ist die **Hauptlinie** (deine bisherige Wahl mit allem, was dazugelernt
+  wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast – länger,
+  massiger, flinker, heller oder dunkler, etwas größer oder kleiner.
 - **Werte (Taste C):** Name der Art, wie oft sie schon ausgestorben ist, Länge, Gewicht,
   Lebenskraft, sichtbare Fähigkeiten und Nahrung – im Stil eines alten Rollenspiel-Charakterbogens.
   Das meiste bleibt verborgen.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
   Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
-- **Hunger:** Fressen hält dich am Leben, aber satt frisst du nichts mehr.
 - **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
   und was sich bewährt hat, setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher.
-  Manchmal nehmen deine Nachfahren dabei eine neue Form an: Fisch → Lurch → Echse → Säuger.
+  Nach dem Sieg über einen Herrscher nehmen deine Nachfahren eine neue Form an (Fisch → Lurch →
+  Echse → Säuger): Das Wasser weicht dem Ufer, das Tier flackert zwischen alter und neuer Gestalt –
+  immer schneller –, bis die neue bleibt.
 - **Blutig:** Bisse und Zusammenstöße bluten (im Wasser als Wolke, an Land als Fleck am Boden), und
   wer Beute reißt, hat eine Weile einen Brocken Fleisch im Maul und eine blutige Schnauze.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
   Zeitleiste Fragezeichen.
 
-Es gibt keine Zahlen und keine Balken: Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
+Kaum Zahlen und Balken – nur die Uhr, der Magen und (wenn er kommt) der Lebensbalken des Herrschers.
+Verletzung, Hunger und Verstecktsein zeigen sich außerdem am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
@@ -102,6 +116,8 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | frisst viel | wächst |
+| hält sich oft oben im Licht bzw. unten in der Tiefe (an Land: offen bzw. im Dickicht) | hellere bzw. dunklere Färbung |
+| schwimmt bzw. läuft viel und schnell | deutlich länglicheren, schlankeren Körper und größere Flossen |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.

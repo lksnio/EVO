@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
-import { game, type Stats } from '../state/GameState';
+import { game, maxSatiety, type Stats } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView } from './CreatureView';
 import type { Controls } from './Controls';
@@ -17,7 +17,7 @@ export interface PlayerHost extends Phaser.Scene {
 
 type Body = Phaser.Physics.Arcade.Body;
 
-/** Sättigung: 0 = verhungert, 100 = satt. */
+/** Sättigung: 0 = verhungert … maxSat = randvoll (je nach Größe). */
 export const FULL = 100;
 
 export class Player {
@@ -25,7 +25,9 @@ export class Player {
   view: CreatureView;
   stats!: Stats;
   hp = 1;
-  satiety = 70;
+  satiety = 50;
+  /** so viel passt in den Magen (größere Tiere fassen mehr) */
+  maxSat = 100;
   stamina = 1;
   facing = 1;
   dead = false;
@@ -67,6 +69,8 @@ export class Player {
     this.view = new CreatureView(host, x, y, this.morph());
     this.view.setDepth(DEPTH.player);
     this.refresh(true);
+    // Jedes Zeitalter beginnt etwa halb satt
+    this.satiety = this.maxSat * 0.5;
     this.lastSafe = { x, y };
   }
 
@@ -98,7 +102,8 @@ export class Player {
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
   morph(): Morph {
-    return game.morph({ belly: this.satiety < 22 ? 0 : this.satiety > 78 ? 2 : 1, fierce: game.fear() });
+    const f = this.satiety / Math.max(1, this.maxSat);
+    return game.morph({ belly: f < 0.22 ? 0 : f > 0.78 ? 2 : 1, fierce: game.fear() });
   }
 
   /**
@@ -109,6 +114,8 @@ export class Player {
   refresh(full = false, look = true) {
     const ratio = full ? 1 : this.hp / Math.max(1, this.stats?.maxHp ?? 1);
     this.stats = game.stats();
+    this.maxSat = maxSatiety(this.stats.size);
+    this.satiety = Math.min(this.satiety, this.maxSat);
     const before = this.view.key;
     if (look || full) this.view.build(this.morph());
     if (before === this.view.key && !full) {
@@ -242,7 +249,7 @@ export class Player {
       this.breath = time + 500;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
     }
-    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < 12 ? 0.3 : 0) + (this.stamina < 0.2 ? 0.2 : 0), 0, 1);
+    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < this.maxSat * 0.1 ? 0.3 : 0) + (this.stamina < 0.2 ? 0.2 : 0), 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: 'swim' | 'walk' | 'air' | 'idle' = 'idle';
@@ -261,13 +268,14 @@ export class Player {
 
   /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */
   eat(nutrition: number) {
-    if (this.satiety >= FULL * 0.95) {
+    // nie mehr als das Maximum
+    if (this.satiety >= this.maxSat - 0.5) {
       this.view.refuse();
       audio.sfx('refuse');
       return false;
     }
-    this.satiety = Math.min(FULL, this.satiety + nutrition);
-    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * 0.06);
+    this.satiety = Math.min(this.maxSat, this.satiety + nutrition);
+    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * 0.02);
     this.view.chew();
     audio.sfx('chew');
     return true;
