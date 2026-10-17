@@ -89,26 +89,54 @@ Teile: `body` (Rumpf mit Rückenflosse), `head` (Kopf mit Maul-Innenraum), `jaw`
 Biss), `teeth` (Zähne), `tail` (Schwanzflosse), `fin` (Brust-/Bauchflosse).
 `spieler/_uebersicht_fisch.png` zeigt alle sieben zusammengesetzt.
 
-## Feste Evolutionslinien (Vorschlag – noch nicht umgesetzt)
+## Entwicklungslinien (festgelegt)
 
-Mit eigenen Bildern wird das Tier nicht mehr stufenlos aus Anlagen gezeichnet, sondern es gibt
-**feste Formen**, die am Ende eines Zeitalters zur Wahl stehen. Vorschlag für die Fischzeit
-(an echten Linien orientiert):
+Der Spieler wählt seine Form **nicht** mehr aus – sie entsteht aus dem, wie er überlebt. Es gibt drei
+Linien, an echten Fischgruppen orientiert:
 
-```
-Ordovizium            Silur                          Devon
-                 ┌─ Panzerlinie ───────────┬─ Beißer-Panzer (Dunkleosteus-artig)
-Urfisch ─────────┤  (Kopfschild, Rammen)   └─ Tank (Bothriolepis-artig)
-(kieferlos)      ├─ Stachelhai-Linie ──────┬─ Jäger (Cladoselache-artig)
-                 │  (flink, jagt)          └─ Schleicher (Rolfosteus-artig, Tarnung)
-                 └─ Fleischflosser-Linie ──┬─ Räuber (Eusthenopteron-artig)
-                    (Stielflossen)         └─ Landgänger-Vorstufe (Tiktaalik-artig)
-```
+| Linie | Vorbild | Überlebensart |
+|---|---|---|
+| **Panzer** | Placodermen (Dunkleosteus, Bothriolepis) | Kopfschild, Rammen, kräftiger Biss, wenig Tempo |
+| **Jäger** | Stachelhaie / frühe Haie (Cheiracanthus, Cladoselache) | schlank, schnell, jagt viele kleine Bisse |
+| **Fleischflosser** | Eusthenopteron & Verwandte | Stielflossen, zäh, Weg ans Land |
 
-= **1 + 3 + 6 = 10 Formen.** Jede Form bräuchte:
+Jedes der drei Zeitalter gibt **einen Punkt** an die Linie, die zu seinem Spielstil passt. Daraus
+ergeben sich zehn Grundkombinationen: **3-0-0** (rein, 3 Möglichkeiten), **2-1-0** (Hauptlinie mit einem
+Schuss einer zweiten, 6 Möglichkeiten) und **1-1-1** (von allem etwas). Größe, Farbe, Muster und
+Verhalten kommen zusätzlich aus dem Code (Größe wirkt sich auf das Verhalten im Spiel aus). Der
+Zeichenstil ist mit den Vorlagen unten festgelegt.
 
-- `form.png` – Ruhe/Schwimmen, Blick nach rechts
-- `form_2.png` – zweite Schwimmphase (optional, sonst biege ich das Bild beim Schwimmen selbst)
-- `form_biss.png` – Maul offen (optional; sonst nur Kopfstoß mit Wackeln)
+## Biss-Vorlagen (`art/vorlagen/`)
 
-Farbe und Kleinigkeiten (Narben, Tarnmuster) kommen später aus dem Code über das Bild.
+Je Linie ein Sprite-Sheet mit **5 Bildern** nebeneinander – Maul **geschlossen → ganz offen**
+(Kiefer 0° / 14° / 28° / 42° / 56°). Jedes Bild ist 480 × 300 groß, Blick nach rechts.
+
+| Datei | Inhalt |
+|---|---|
+| `panzer_biss.svg` / `.png` | Panzerlinie – das Kopfschild klappt beim Aufreißen leicht nach oben |
+| `jaeger_biss.svg` / `.png` | Jägerlinie – schlank, Querbinden, zwei Rückenflossen mit Stachel |
+| `fleischflosser_biss.svg` / `.png` | Fleischflosser – Schuppen, Stielflossen, lange Reißzähne |
+| `_uebersicht.png` | alle drei untereinander (nur zum Anschauen) |
+
+Die **SVG** sind die Vorlage zum Bearbeiten (Inkscape, Illustrator, Affinity …); die `.png` sind
+transparente Auszüge in doppelter Größe (4800 × 600, je Bild 960 × 600) zum Ansehen oder Weitermalen.
+
+Aufbau im SVG – alles in benannten Ebenen, je Bild (`bild1-…` bis `bild5-…`):
+`tail`, `fin-dorsal`, `fin-pelvic`, `mouth-interior`, `jaw-lower` (mit `teeth-lower`), `body`,
+`head` (mit `teeth-upper` und `eye`) und `fin-pectoral`. Der Unterkiefer dreht sich um das
+**Kiefergelenk** (steht im `transform` der Ebene `jaw-lower`: bei Panzer und Jäger bei x = 340, y = 168,
+beim Fleischflosser bei x = 352, y = 170). Die Ebene `hilfslinien` (ausgeblendet) zeigt das Bildraster.
+
+**Damit sich die Linien später mischen lassen** (z. B. Kopf und Kiefer der Hauptlinie, Schwanz und
+Flossen der zweiten), bitte beim Überarbeiten beibehalten: Blickrichtung rechts, Bildgröße 480 × 300,
+Schnauzenspitze etwa bei x = 466, Schwanzansatz etwa bei x = 60–75, Kiefergelenk bei x ≈ 340–352 – und die
+Ebenennamen.
+
+### Rückgabe
+
+Bearbeitete Dateien bitte unter **gleichem Namen** nach `art/neu/spieler/` legen
+(z. B. `art/neu/spieler/panzer_biss.svg`; PNG-Auszug gern dazu). Die Vorlagen in `art/vorlagen/` bleiben
+dann als Original stehen. Mehr als 5 Bilder oder andere Größen sind kein Problem – bitte kurz sagen.
+
+Die Vorlagen stammen aus `tools/bite_sheets.py` (`python3 tools/bite_sheets.py` schreibt sie neu).
+**Nicht neu erzeugen, wenn du die SVG-Dateien von Hand bearbeitet hast** – das überschreibt sie.
