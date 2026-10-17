@@ -791,12 +791,59 @@ export function foodKey(theme: Theme, stage: number, variant = 0) {
 export const PLANT_VARIANTS = 3;
 /** Variante der giftigen Pflanze (Giftanemone im Meer, Giftbeeren an Land) */
 export const TOXIC = 3;
+/** Variante des Heilkrauts (leuchtet leise rosa-golden und schließt Wunden) */
+export const HEAL = 4;
 
 export function plantTextures(scene: Phaser.Scene, theme: Theme) {
   for (let stage = 0; stage < 3; stage++) {
     tex(scene, foodKey(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));
     for (let v = 1; v < PLANT_VARIANTS; v++) tex(scene, foodKey(theme, stage, v), 70, 64, (ctx) => drawPlant2(ctx, theme, stage, v));
     tex(scene, foodKey(theme, stage, TOXIC), 70, 64, (ctx) => drawToxic(ctx, theme, stage));
+    tex(scene, foodKey(theme, stage, HEAL), 70, 64, (ctx) => drawHeal(ctx, theme, stage));
+  }
+}
+
+/** Heilkraut: hellgrüner Wedel mit zarten rosa Blüten und einem goldenen Schimmer. */
+function drawHeal(ctx: Ctx, theme: Theme, stage: number) {
+  const r = mulberry32(theme.length * 17 + 11);
+  const n = stage === 0 ? 1 : stage === 1 ? 0.5 : 0;
+  const bx = 35, by = 62;
+  if (n > 0) {
+    ell(ctx, bx, by - 24, 26, 26);
+    ctx.fillStyle = rgrad(ctx, bx, by - 24, 2, 26, [[0, 'rgba(255,225,150,.30)'], [1, 'rgba(255,225,150,0)']]);
+    ctx.fill();
+  }
+  // Stängel mit gefiederten Blättern
+  const stems = Math.max(1, Math.round(4 * (n || 0.4)));
+  for (let i = 0; i < stems; i++) {
+    const dx = (i - (stems - 1) / 2) * 9;
+    const ht = (18 + r() * 14) * (n ? 1 : 0.5);
+    ctx.beginPath();
+    ctx.moveTo(bx + dx * 0.4, by);
+    ctx.quadraticCurveTo(bx + dx * 0.9 + (r() - 0.5) * 8, by - ht * 0.5, bx + dx * 1.5, by - ht);
+    ctx.strokeStyle = '#6fb86a';
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+    for (let k = 1; k <= 3; k++) {
+      const t = k / 3.4;
+      const lx = bx + dx * (0.4 + 1.1 * t), ly = by - ht * t;
+      for (const sd of [-1, 1]) {
+        ell(ctx, lx + sd * 4.5, ly - 1, 4.6, 1.8, sd * 0.5);
+        fillStroke(ctx, vgrad(ctx, ly - 3, ly + 2, [[0, '#b6ec9a'], [1, '#4e9a58']]), 'rgba(0,30,10,.4)', 0.6);
+      }
+    }
+    if (n >= 0.9) {
+      const fx = bx + dx * 1.5, fy = by - ht - 2;
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        ell(ctx, fx + Math.cos(a) * 3.4, fy + Math.sin(a) * 3.4, 2.6, 1.8, a);
+        ctx.fillStyle = '#ffc6dc';
+        ctx.fill();
+      }
+      ell(ctx, fx, fy, 1.7, 1.7);
+      ctx.fillStyle = '#ffe9a0';
+      ctx.fill();
+    }
   }
 }
 

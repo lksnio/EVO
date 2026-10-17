@@ -73,6 +73,9 @@ function glyph(g: Phaser.GameObjects.Graphics, id: string, x: number, y: number,
       case 'swift': // zwei Pfeilspitzen nach rechts
         g.moveTo(X - s * 0.9, Y - s * 0.7); g.lineTo(X - s * 0.1, Y); g.lineTo(X - s * 0.9, Y + s * 0.7); g.moveTo(X + s * 0.1, Y - s * 0.7); g.lineTo(X + s * 0.9, Y); g.lineTo(X + s * 0.1, Y + s * 0.7);
         break;
+      case 'stamina': // Lunge: zwei Bögen mit Mittelstrich
+        g.moveTo(X, Y - s); g.lineTo(X, Y + s * 0.1); g.moveTo(X, Y + s * 0.1); g.lineTo(X - s * 0.8, Y + s * 0.8); g.lineTo(X - s * 0.9, Y - s * 0.2); g.moveTo(X, Y + s * 0.1); g.lineTo(X + s * 0.8, Y + s * 0.8); g.lineTo(X + s * 0.9, Y - s * 0.2);
+        break;
       case 'limb': // Boden mit zwei Stützen
         g.moveTo(X - s, Y + s * 0.8); g.lineTo(X + s, Y + s * 0.8); g.moveTo(X - s * 0.6, Y + s * 0.8); g.lineTo(X - s * 0.2, Y - s * 0.4); g.moveTo(X + s * 0.6, Y + s * 0.8); g.lineTo(X + s * 0.2, Y - s * 0.4);
         break;

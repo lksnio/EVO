@@ -94,7 +94,8 @@ export class TabletScreen {
     line(472);
     label(500, 'Muscheln');
     c.add(text(scene, rx + rw - 44, 500, `${unlocked} von ${STAT_COUNT}`, 22, unlocked >= STAT_COUNT ? UI.ochre : UI.bone).setOrigin(1, 0.5));
-    const per = 7;
+    // zwei Reihen, egal wie viele Zeilen die Tafel hat
+    const per = Math.ceil(STAT_COUNT / 2);
     for (let i = 0; i < STAT_COUNT; i++) {
       const col = i % per, row = Math.floor(i / per);
       const x = rx + 74 + col * ((rw - 148) / (per - 1));

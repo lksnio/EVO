@@ -22,9 +22,8 @@ interface NodeVis {
 }
 
 /**
- * Die Karte des Zeitalters. Wer am Rand eines Ortes hinausschwimmt, landet hier und sucht sich den
- * nächsten Ort aus: ein dicht bewachsenes Gewässer mit viel Nahrung, eine trübe Bucht – oder die
- * Tiefe, wo die schlimmen Tiere warten. Orte, die man nicht kennt, bleiben im Dunkeln.
+ * Die Karte des Zeitalters. Wer durch einen Durchgang schwimmt, sieht hier, wohin es geht – ein neuer Ort wird
+ * dabei freigeschaltet und erscheint auf der Karte. Orte, die man nicht entdeckt hat, sind gar nicht zu sehen.
  */
 export class MapScene extends Phaser.Scene {
   private ep!: EpochDef;
@@ -42,13 +41,18 @@ export class MapScene extends Phaser.Scene {
   private restNav?: MenuNav;
   private glow?: Phaser.GameObjects.Image;
   private leaving = false;
+  private fromId?: string;
+  private toId?: string;
+  private isNew = false;
 
   constructor() {
     super('Map');
   }
 
-  init(d: { epoch?: number }) {
+  init(d: { epoch?: number; from?: string; to?: string }) {
     this.ep = EPOCHS[d?.epoch ?? game.epochIndex];
+    this.fromId = d?.from;
+    this.toId = d?.to;
     this.places = placesOf(this.ep);
     this.nodes = new Map();
     this.moving = false;
@@ -65,14 +69,16 @@ export class MapScene extends Phaser.Scene {
     this.events.once('shutdown', () => audio.sea(0, 0.8));
     const prog = game.prog;
     this.cur = this.places.find((p) => p.id === prog.place) ?? this.places[0];
-    this.focus = this.cur;
 
-    // Welche Orte kennt man? Besuchte und alle, die von dort aus zu erreichen sind.
-    const known = new Set<string>();
-    for (const id of prog.seen) {
-      known.add(id);
-      for (const l of this.places.find((p) => p.id === id)?.links ?? []) known.add(l);
+    // Welche Orte kennt man? Nur die, durch deren Durchgang man schon geschwommen ist.
+    const known = new Set<string>(prog.known);
+    if (this.fromId) {
+      const f = this.places.find((p) => p.id === this.fromId);
+      if (f) this.cur = f;
     }
+    this.isNew = !!this.toId && !known.has(this.toId);
+    const target = this.places.find((p) => p.id === this.toId);
+    this.focus = target ?? this.cur;
 
     const pos = (p: PlaceDef) => mapPos(p.x, p.y);
     const seed = hashStr(this.ep.id) + (game.run?.id ?? 0);
@@ -103,6 +109,8 @@ export class MapScene extends Phaser.Scene {
     this.places.forEach((p, i) => {
       const { x, y } = pos(p);
       const isKnown = known.has(p.id);
+      const isTarget = p.id === this.toId;
+      if (!isKnown && !isTarget) return;
       const field = this.add.image(x, y, placeField(this, p.kind, seed + i)).setDepth(1).setScale(1.15).setAlpha(isKnown ? 0.95 : 0);
       const c = this.add.container(x, y).setDepth(5);
       const ring = this.add.graphics();
@@ -112,17 +120,13 @@ export class MapScene extends Phaser.Scene {
       const label = text(this, 0, 42, p.name, 17, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 4 }).setOrigin(0.5);
       c.add(label);
       c.setVisible(isKnown);
+      if (!isKnown) field.setAlpha(0);
       // Wer noch nie dort war: ein Funkeln über dem Ort
       if (isKnown && !visited) {
         const star = this.add.image(0, -34, 'glow').setTint(0xffe8b0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(46, 46).setAlpha(0.5);
         c.add(star);
         this.tweens.add({ targets: star, alpha: 0.12, yoyo: true, repeat: -1, duration: 900 + i * 130, ease: 'Sine.inOut' });
       }
-      const zone = this.add.zone(x, y, 120, 100).setDepth(6).setInteractive({ useHandCursor: true });
-      zone.on('pointerover', () => this.setFocus(p));
-      zone.on('pointerout', () => this.setFocus(this.cur));
-      zone.on('pointerdown', () => this.click(p));
-      if (!isKnown) zone.disableInteractive();
       const vis: NodeVis = { def: p, x, y, c, field, ring, known: isKnown };
       this.nodes.set(p.id, vis);
       this.drawRing(vis);
@@ -143,9 +147,9 @@ export class MapScene extends Phaser.Scene {
 
     // Überschrift und Auskunft
     title(this, 86, 40, this.ep.name.toUpperCase(), 30, UI.ochre).setOrigin(0, 0.5).setLetterSpacing(3).setDepth(9);
-    text(this, 88, 72, 'Wohin schwimmst du?', 18, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0, 0.5).setDepth(9);
+    text(this, 88, 72, this.isNew ? 'Du hast einen neuen Ort entdeckt.' : this.toId ? 'Du schwimmst weiter …' : 'Die Karte', 18, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0, 0.5).setDepth(9);
     this.buildInfo();
-    this.setFocus(this.cur);
+    this.setFocus(this.focus);
 
     // Knöpfe oben rechts (wie im Level)
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.toggleRest() }).setAlpha(0.8).setDepth(20);
@@ -155,14 +159,11 @@ export class MapScene extends Phaser.Scene {
     this.updateGlow();
 
     const kb = this.input.keyboard!;
-    kb.on('keydown-LEFT', () => this.go(-1, 0));
-    kb.on('keydown-RIGHT', () => this.go(1, 0));
-    kb.on('keydown-UP', () => this.go(0, -1));
-    kb.on('keydown-DOWN', () => this.go(0, 1));
-    for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => this.enter());
+    for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => this.skip());
     kb.on('keydown-C', () => this.toggleTablet());
     kb.on('keydown-ESC', () => (this.tablet ? this.toggleTablet() : this.toggleRest()));
     kb.on('keydown-P', () => this.toggleRest());
+    if (this.toId) this.time.delayedCall(1100, () => this.travel());
   }
 
   update(_t: number, dms: number) {
@@ -209,7 +210,7 @@ export class MapScene extends Phaser.Scene {
     const seen = game.prog.seen.includes(p.id);
     this.infoName.setText(p.name);
     this.infoBlurb.setText(p.blurb);
-    this.infoState.setText(p.id === this.cur.id ? 'Hier bist du' : seen ? 'Schon besucht' : 'Noch unbekannt');
+    this.infoState.setText(p.id === this.cur.id && !this.toId ? 'Hier bist du' : this.isNew ? 'Neu entdeckt' : seen ? 'Schon besucht' : '');
   }
 
   private ctrl(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -228,32 +229,39 @@ export class MapScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- Bewegen und betreten
 
-  /** Mit den Pfeiltasten zum nächsten Ort in dieser Richtung schwimmen. */
-  private go(dx: number, dy: number) {
-    if (this.moving || this.tablet || this.rest || this.leaving) return;
-    const from = this.nodes.get(this.cur.id)!;
-    let best: PlaceDef | null = null;
-    let bestScore = 0.4;
-    for (const lid of this.cur.links) {
-      const to = this.nodes.get(lid);
-      if (!to?.known) continue;
-      const vx = to.x - from.x, vy = to.y - from.y;
-      const len = Math.hypot(vx, vy) || 1;
-      const score = (vx * dx + vy * dy) / len;
-      if (score > bestScore) {
-        bestScore = score;
-        best = to.def;
+  /** Das Ziel erscheint (falls neu), dann schwimmt das Tier hin und taucht dort auf. */
+  private travel() {
+    if (this.moving || this.leaving || this.tablet || this.rest) return;
+    const to = this.places.find((p) => p.id === this.toId);
+    if (!to) return;
+    const n = this.nodes.get(to.id);
+    if (!n) return;
+    const go = () => {
+      if (!this.leaving) this.swimTo(to);
+    };
+    if (this.isNew && !n.known) {
+      n.known = true;
+      audio.sfx('shell');
+      n.c.setVisible(true).setAlpha(0);
+      this.tweens.add({ targets: [n.c, n.field], alpha: { from: 0, to: 1 }, duration: 900 });
+      const sp = this.add.particles(n.x, n.y, 'p_dot', {
+        emitting: false, lifespan: 1200, speed: { min: 30, max: 120 }, scale: { start: 0.8, end: 0 }, alpha: { start: 0.9, end: 0 },
+        tint: [0xffe8b0, 0xe0a848, 0xfff4dc], blendMode: 'ADD',
+      }).setDepth(7);
+      sp.explode(30);
+      // der Weg dorthin: eine Spur aus Blasen
+      const a = this.nodes.get(this.cur.id)!;
+      const c = this.ctrl(a, n);
+      const paths = this.add.graphics().setDepth(2);
+      const steps = Math.ceil(Math.hypot(n.x - a.x, n.y - a.y) / 14);
+      for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        const pt = this.bez(a, c, n, t);
+        paths.fillStyle(0xbfeee4, 0.1 + 0.28 * Math.sin(t * Math.PI));
+        paths.fillCircle(pt.x, pt.y, 2.2 + 0.9 * Math.sin(t * 9));
       }
-    }
-    if (best) this.swimTo(best);
-    else audio.sfx('fail');
-  }
-
-  private click(p: PlaceDef) {
-    if (this.moving || this.tablet || this.rest || this.leaving) return;
-    if (p.id === this.cur.id) this.enter();
-    else if (this.cur.links.includes(p.id)) this.swimTo(p);
-    else audio.sfx('fail');
+      this.time.delayedCall(1300, go);
+    } else go();
   }
 
   private swimTo(p: PlaceDef) {
@@ -267,7 +275,7 @@ export class MapScene extends Phaser.Scene {
     this.tweens.add({
       targets: k,
       t: 1,
-      duration: Math.max(600, dist * 2.6),
+      duration: Math.max(900, dist * 3),
       ease: 'Sine.inOut',
       onUpdate: () => {
         const pt = this.bez({ x: a.x, y: a.y - 56 }, { x: c.x, y: c.y - 56 }, { x: b.x, y: b.y - 56 }, k.t);
@@ -278,17 +286,25 @@ export class MapScene extends Phaser.Scene {
         this.moving = false;
         this.setFocus(p);
         audio.sfx('click');
+        this.time.delayedCall(700, () => this.enter());
       },
     });
   }
 
-  /** Den Ort betreten, an dem man gerade ist. */
+  /** Mit Enter geht es sofort weiter. */
+  private skip() {
+    if (this.tablet || this.rest || this.leaving) return;
+    this.enter();
+  }
+
+  /** Den Zielort betreten (bzw. den eigenen, wenn man nur die Karte ansieht). */
   private enter() {
-    if (this.moving || this.tablet || this.rest || this.leaving) return;
+    if (this.leaving || this.tablet || this.rest) return;
     this.leaving = true;
-    game.enterPlace(this.cur.id);
+    const dest = this.places.find((p) => p.id === this.toId) ?? this.cur;
+    game.enterPlace(dest.id, dest.id === this.toId ? this.fromId : undefined);
     audio.sfx('travel');
-    fadeTo(this, 'Level', { epoch: game.epochIndex, place: this.cur.id }, 900);
+    fadeTo(this, 'Level', { epoch: game.epochIndex, place: dest.id }, 900);
   }
 
   // ---------------------------------------------------------------- Steintafel und Rast
@@ -330,7 +346,7 @@ export class MapScene extends Phaser.Scene {
       this.closeRest();
       return;
     }
-    if (this.tablet || this.leaving || this.moving) return;
+    if (this.tablet || this.leaving) return;
     audio.sfx('select');
     const c = this.add.container(0, 0).setDepth(50);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.66).setOrigin(0).setInteractive());

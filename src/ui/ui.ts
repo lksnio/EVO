@@ -53,12 +53,12 @@ export const CONTROL_ROWS: [string, string][] = [
   ['← ↑ → ↓', 'Schwimmen'],
   ['E  (auch Q oder J)', 'Beißen und Fressen'],
   ['W  (auch Shift)', 'Sprinten – kostet Kraft'],
-  ['R', 'Stoß – betäubt kurz'],
+  ['R', 'Stoß – betäubt kurz, kostet Kraft'],
   ['Leertaste', 'Auftauchen'],
+  ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
   ['C', 'Steintafel mit Hunger und Zeit'],
   ['Esc  oder  P', 'Rast (Pause)'],
   ['M', 'Ton an/aus'],
-  ['Karte: ← ↑ → ↓, Enter', 'Ort wählen und hinschwimmen'],
 ];
 
 /** Zeichnet die Steuerung als Liste in einen Container. */

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, type EpochDef } from '../data/epochs';
-import { placeOf, startPlace, TRAVEL_SECONDS } from '../data/world';
+import { placeOf, placesOf, startPlace, TRAVEL_SECONDS } from '../data/world';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 
@@ -122,6 +122,10 @@ export interface Stats {
   digestPlant: number;
   /** Tempo beim Laufen am Grund (Anteil am Schwimmtempo) */
   groundSpeed: number;
+  /** Wie lange die Kraft für Spurt, Rammen und Beißen reicht (1 = normal) */
+  endurance: number;
+  /** Wie schnell man sich beim Treiben und Ausruhen erholt (1 = normal) */
+  recover: number;
 }
 
 /** 1 = männlich, 2 = weiblich */
@@ -140,6 +144,10 @@ export interface EpochProg {
   place: string;
   /** schon besuchte Orte */
   seen: string[];
+  /** freigeschaltete Orte (nur diese zeigt die Karte) – ein neuer Ort wird frei, sobald man durch seinen Durchgang schwimmt */
+  known: string[];
+  /** von welchem Ort man gekommen ist (dort liegt der Ankunftsplatz) */
+  from?: string;
   /** gelebte Sekunden in diesem Zeitalter */
   elapsed: number;
   /** schon eingetretene Ereignisse (Nummern aus der Ereignisliste) */
@@ -159,6 +167,7 @@ export interface EpochProg {
 export const newProg = (epoch: number): EpochProg => ({
   place: startPlace(EPOCHS[epoch]).id,
   seen: [startPlace(EPOCHS[epoch]).id],
+  known: [startPlace(EPOCHS[epoch]).id],
   elapsed: 0,
   events: [],
   boss: 0,
@@ -191,6 +200,8 @@ export interface Run {
   eaten?: { meat: number; plant: number };
   /** wie oft das aktuelle Zeitalter schon gespielt wurde (der Endgegner ist noch nicht besiegt) */
   round?: number;
+  /** Die Farbe aus einer Höhle gibt es nur einmal pro Lauf: danach bleibt sie, wie sie ist */
+  coatSet?: boolean;
   /** Stand im aktuellen Zeitalter */
   prog: EpochProg;
   /** gefundene Muscheln (jede legt eine Zeile der Steintafel frei) */
@@ -415,6 +426,11 @@ class GameState {
           r.prog ??= newProg(r.epoch);
           r.prog.train ??= { hunt: 0, ground: 0, ram: 0, swim: 0 };
           r.prog.eaten ??= { meat: 0, plant: 0 };
+          r.prog.known ??= [...r.prog.seen];
+          // Orte aus einer älteren Karte, die es nicht mehr gibt
+          r.prog.known = r.prog.known.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
+          r.prog.seen = r.prog.seen.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
+          if (!placesOf(EPOCHS[r.epoch]).some((p) => p.id === r.prog.place)) r.prog = newProg(r.epoch);
           r.shells ??= [];
           r.seenRows ??= r.shells.length;
           r.traits = full(r.traits);
@@ -547,7 +563,9 @@ class GameState {
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * (1 + 0.12 * lv.jg - 0.07 * lv.pz),
+      // Kompromisse: Wer ein starkes Gebiss und einen harten Kopf hat, schwimmt dafür langsamer
+      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * (1 + 0.12 * lv.jg - 0.07 * lv.pz)
+        * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0)),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       size,
       defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.1 * lv.pz, 0.4, 1.1),
@@ -556,6 +574,9 @@ class GameState {
       detect: 1 - 0.55 * t.stealth,
       digestMeat: Math.max(0.4, 1 + 0.4 * carn - 0.5 * herb + 0.5 * (t.digM ?? 0) + 0.1 * lv.ff),
       digestPlant: Math.max(0.4, 1 + 0.4 * herb - 0.5 * carn + 0.5 * (t.digP ?? 0)),
+      // Schwere Waffen ermüden: starke Kiefer und Panzer kosten Kraft, schlanke Jäger halten länger durch
+      endurance: clamp(1 + 0.36 * lv.jg + 0.18 * lv.ff - 0.3 * lv.pz - 0.32 * t.jaw - 0.22 * t.skull - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -(t.girth ?? 0)), 0.5, 1.9),
+      recover: clamp(1 + 0.22 * lv.jg + 0.2 * lv.ff - 0.24 * lv.pz - 0.2 * t.jaw - 0.12 * Math.max(0, size - 1), 0.55, 1.6),
     };
   }
 
@@ -858,8 +879,8 @@ class GameState {
     this.save();
   }
 
-  /** Auf der Karte einen Ort wählen: Der Weg kostet Zeit und ein wenig Kraft. */
-  enterPlace(id: string) {
+  /** Durch einen Durchgang in einen Nachbarort: Er wird freigeschaltet, der Weg kostet etwas Zeit und Kraft. */
+  enterPlace(id: string, from?: string) {
     const run = this.r;
     const p = run.prog;
     if (id !== p.place) {
@@ -868,8 +889,15 @@ class GameState {
       if (p.sat !== undefined) p.sat = Math.max(0.01, p.sat - hungerRate(size, 0.8) * TRAVEL_SECONDS * 0.6);
     }
     p.place = placeOf(EPOCHS[run.epoch], id).id;
+    p.from = from;
     if (!p.seen.includes(p.place)) p.seen.push(p.place);
+    if (!p.known.includes(p.place)) p.known.push(p.place);
     this.save();
+  }
+
+  /** Ist dieser Ort schon freigeschaltet? */
+  isKnown(id: string) {
+    return this.r.prog.known.includes(id);
   }
 
   get shells(): string[] {

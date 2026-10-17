@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
-import { foodKey, MEAT_SIZES, TOXIC } from '../art/worldArt';
+import { foodKey, HEAL, MEAT_SIZES, TOXIC } from '../art/worldArt';
 import { DEPTH } from '../config';
 import type { Rect } from '../util/math';
 
@@ -12,6 +12,8 @@ export class Plant {
   private regrowAt = 0;
   /** giftig: schadet ein wenig, gibt aber kurz Schwung */
   readonly toxic: boolean;
+  /** Heilkraut: schließt Wunden (Fleisch und gewöhnliche Pflanzen tun das nicht) */
+  readonly heals: boolean;
   /** Artgenossen, die gerade hierher wollen */
   wanted = new Set<object>();
 
@@ -19,6 +21,7 @@ export class Plant {
     this.max = units;
     this.units = units;
     this.toxic = variant === TOXIC;
+    this.heals = variant === HEAL;
     this.img = scene.add.image(x, y, foodKey(theme, 0, variant)).setOrigin(0.5, 1).setDepth(DEPTH.plants);
     if (x % 2 > 1) this.img.setFlipX(true);
   }

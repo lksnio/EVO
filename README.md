@@ -59,26 +59,31 @@ zuerst wird das Fischreich ausgebaut.
   mehr zum **Rudeltier**: Artgenossen helfen dann öfter – wollen aber auch **mitfressen**. Frisst du
   gemeinsame Beute allein, beißt dich der Helfer und schwimmt verärgert davon; wer zu oft leer
   ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
-- **Orte und Weltkarte:** Jedes Zeitalter hat mehrere **Orte**, und die unterscheiden sich in **Form**, Leben und Licht:
+- **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
+  links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
   - **Der Startort** ist eine **Mulde** (ein Ufer fällt sanfter ab als das andere) und wimmelt von **kleinen Fischen**.
-  - **Bewachsene Orte** (Tangwiese, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
+  - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
-  - **Trübe Orte** sind **Hügelketten** – man sieht kaum etwas, und auch du wirst schlechter gesehen.
-  - **Tiefe Orte** (Tiefe Kante, Dunkler Graben, Steilwand) fallen in einem **V-förmigen Trichter** immer weiter ab,
-    die **Abgründe** als **Schacht zwischen zwei Rändern**. Dort gibt es **kaum Fische, aber sehr starke, große Tiere**.
-    Je tiefer du schwimmst, desto **trüber und dunkler** wird es: Um dich bleibt nur ein kleiner Lichtkreis, die
-    Musik verklingt, das Meer rauscht, dein Herz schlägt, und manchmal grollt es in der Ferne.
-  - **Felsen ragen aus dem Meer** und über die Oberfläche hinaus; **Licht fällt nur stellenweise** ins Wasser –
-    dazwischen liegt Schatten, oben sieht man den Himmel.
-  - **Höhlen:** Pro Ort gibt es nur **zwei bis drei**, und jede ist ein **Tunnel, den man durchschwimmen kann**. Wer auf
-    der anderen Seite herauskommt, hat eine **andere Farbe**: die **grüne** Höhle färbt grün (mit Querbinden wie bei einem
-    Barsch), die **schwarze** schwarz. Wer umkehrt, ändert nichts. Die erste Höhle liegt nicht weit vom Ankunftsplatz.
-    Die **Färbung** steht auf der Steintafel. Daneben gibt es einige niedrige **Felsspalten** zum Verstecken für Schlanke.
-  Schwimmst du am **rechten (oder linken) Rand** eines Ortes hinaus – das
-  können andere Tiere auch, manche ziehen so in andere Gewässer weiter –, landest du auf der
-  **Karte** und suchst dir den nächsten Ort aus (Pfeiltasten wählen, Enter schwimmt hin). Orte, die
-  du nicht kennst, bleiben im Dunkeln, bis du einen Nachbarn besucht hast. Jeder Weg kostet etwas
-  Zeit. Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
+  - **Trübe Orte** (Trübe Bucht, Sandfeld, Schlickebene …) sind **Hügelketten** oder flache Sandebenen – man sieht
+    kaum etwas, und auch du wirst schlechter gesehen.
+  - **Tiefe Orte** (Tiefe Kante, Klippenhang, Dunkler Graben, Steilwand) fallen in einem **V-förmigen Trichter** oder
+    zerklüfteten Hängen immer weiter ab, die **Abgründe** als **Schacht zwischen zwei Rändern**. Dort gibt es
+    **kaum Fische, aber sehr starke, große Tiere**. Je tiefer du schwimmst, desto **trüber und dunkler** wird es:
+    Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das Meer rauscht, dein Herz schlägt, und
+    manchmal grollt es in der Ferne.
+  - **Licht fällt nur stellenweise** ins Wasser – dazwischen liegt Schatten. Es gibt keine Felstürme, die den Weg
+    versperren; der Grund hat nur niedrige Buckel.
+  - **Farbtunnel sind selten und gut versteckt:** Nur **zwei Orte im ganzen Zeitalter** haben einen – ein
+    **grüner** (mit Querbinden wie bei einem Barsch) und ein **schwarzer** in der Tiefe. Wer auf der anderen Seite
+    herauskommt, hat die neue Farbe. Die Farbe lässt sich **nur einmal pro Spieldurchlauf** wählen – wer einmal
+    gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht auf der Steintafel. Daneben gibt es einige
+    niedrige **Felsspalten** zum Verstecken für Schlanke.
+  - **Neue Orte schaltest du frei, indem du hinausschwimmst:** An den Rändern (links/rechts in der Wand),
+    **im Boden** (ein Schacht nach unten) und **oben im Licht** liegen **Durchgänge** – man muss sie erst
+    finden. Schwimmst du durch einen hinaus, landest du auf der **Karte**, und der Ort, zu dem du schwimmst,
+    **erscheint dort zum ersten Mal**. Du kommst am Gegenstück des Durchgangs im neuen Ort heraus. Die Karte
+    zeigt **nur, was du schon entdeckt hast**; der Rest bleibt im Dunkeln. Jeder Weg kostet etwas Zeit. Das Meer
+    ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
 - **Wachsen in Stufen – und nach deinem Spielstil:** Gebiss, Schädel, Wuchs und Reißzähne wachsen in
   einem Zeitalter nur **bis zu einem Deckel**, dann ist Schluss – ein Zeitalter bringt eine Stufe.
   Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du
@@ -86,6 +91,18 @@ zuerst wird das Fischreich ausgebaut.
   ein stärkeres Gebiss; wer **kleine Fische jagt**, wird eher **flink und wendig**; wer die meiste Zeit
   **in der Tiefe überlebt**, wird selbst größer, massiger und gefährlicher. Die **Größe** hängt also am Verhalten – und
   mit ihr Hunger, Tempo und Kraft.
+- **Kompromisse:** Alles hat seinen Preis. Wer durch viel Beißen ein **starkes Gebiss** bekommt und damit größere
+  Tiere erledigt, schwimmt dafür **langsamer** und wird **schneller müde**; ein harter Schädel macht ebenso träge.
+  Schlanke Jäger sind flink und halten länger durch, hauen aber weniger weg. Das steht (verdeckt) hinter dem
+  Aussehen – die Tafel zeigt es als **Ausdauer**.
+- **Kraft, Ermüdung und Ruhe:** Spurt (W), Stoß (R) und kräftiges Beißen kosten **Kraft**. Wer ständig stößt
+  und sprintet, ist irgendwann **erschöpft** – dann geht es nur noch lahm voran, ohne Spurt und Stoß. Verschiedene
+  Fische ermüden **verschieden schnell** (siehe Kompromisse). Beim normalen Schwimmen kehrt die Kraft nur langsam
+  zurück; **ausruhen** geht schneller: nichts tun und sich **vom Wasser treiben lassen** (man steht dabei nie ganz
+  still, sondern gleitet leicht nach links oder rechts). So füllt sich die Kraft **ganz**; die **Lebenskraft** kehrt
+  beim Ausruhen aber nur **bis etwa drei Viertel** zurück (und nur, wenn man nicht ausgehungert ist). Alles darüber
+  heilen **Heilkräuter** (hellgrün mit rosa Blüten, goldener Schimmer) – manche Pflanzen heilen also, **Fleisch
+  heilt nicht**, es macht nur satt.
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
   mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
   spannen sich vor dem Angriff an und glühen auf, schnellen mit einer Spur vor, und wer sie anbeißt,
@@ -157,7 +174,7 @@ zuerst wird das Fischreich ausgebaut.
   Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste
   Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, **Färbung** (aus den Höhlen), Gebiss,
-  Länge, Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, Bodenkontakt, Zusammenhalt und Nerven.
+  Länge, Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, **Ausdauer**, Bodenkontakt, Zusammenhalt und Nerven.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
@@ -178,8 +195,9 @@ zuerst wird das Fischreich ausgebaut.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
   Zeitleiste Fragezeichen.
 
-Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet, nur der Name des Ortes und (wenn er
-kommt) der Lebensbalken des Herrschers. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
+Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Zeit** (Name des
+Zeitalters, „vor 470.000.000 Jahren“ und die Zündschnur), oben links der Ort und (wenn er kommt) der
+Lebensbalken des Herrschers. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
@@ -247,11 +265,11 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | Leertaste | auftauchen |
 | E (auch Q oder J) | beißen und fressen |
 | W (auch Shift) | sprinten (kostet Kraft) |
+| (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß (betäubt kleine und mittelgroße Tiere kurz) |
 | C | Steintafel: Werte, Hunger, Zeit, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung |
 | M | Ton an/aus |
-| Karte: ← → ↑ ↓, Enter | Ort wählen und hinschwimmen |
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 

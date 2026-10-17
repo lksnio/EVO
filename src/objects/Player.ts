@@ -29,6 +29,10 @@ export class Player {
   /** so viel passt in den Magen (größere Tiere fassen mehr) */
   maxSat = 100;
   stamina = 1;
+  /** erschöpft: lahm unterwegs, kein Spurt und kein Rammen, bis wieder etwas Kraft da ist */
+  exhausted = false;
+  /** lässt sich ruhig treiben bzw. liegt still und sammelt Kraft (und heilt ein wenig) */
+  resting = false;
   facing = 1;
   dead = false;
   inCover = false;
@@ -60,9 +64,14 @@ export class Player {
   ambush = false;
   /** stützt sich am Grund ab und läuft dort entlang (im Wasser) */
   bottomWalk = false;
+  /** lässt sich vom Wasser tragen (keine Steuerung) */
+  drifting = false;
   /** während eines Kino-Moments: nichts kann einem etwas tun */
   shielded = false;
   private boostUntil = 0;
+  /** wann zuletzt etwas getan wurde (schwimmen, beißen, rammen …) – danach beginnt das Ausruhen */
+  private lastAct = 0;
+  private driftPh = Math.random() * 6.28;
   /** kurzer Vorstoß beim Beißen */
   private lungeUntil = 0;
 
@@ -104,6 +113,12 @@ export class Player {
   /** kurzer Schwung (z. B. nach einer giftigen Pflanze): schneller, die Kraft kehrt rasch zurück */
   boost(ms: number) {
     this.boostUntil = Math.max(this.boostUntil, this.host.time.now + ms);
+  }
+
+  /** Heilung (Heilkraut): Anteil an der maximalen Lebenskraft */
+  heal(frac: number) {
+    if (this.dead) return;
+    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * frac);
   }
 
   /** gerade mitten im gezielten Rammstoß */
@@ -176,32 +191,54 @@ export class Player {
     }
     const knocked = time < this.knockUntil || time < this.lungeUntil;
     const dir = (c.held.right ? 1 : 0) - (c.held.left ? 1 : 0);
-    // Sprint: hält nur kurz, erholt sich langsam
+    const dyIn = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
+    // Ausruhen: eine Weile nichts tun (nicht schwimmen, beißen, rammen) – im Wasser lässt man sich treiben
+    if (dir !== 0 || (this.water && dyIn !== 0) || c.held.sprint || c.held.bite || c.held.ram || c.pressed.jump || knocked) this.lastAct = time;
+    this.resting = time - this.lastAct > 650 && time - this.lastHurt > 1200;
+    const en = this.stats.endurance;
+    // Sprint: hält je nach Körperbau kürzer oder länger
     const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
-    this.sprinting = wantSprint && this.stamina > 0.05;
-    this.stamina = clamp(this.stamina + (this.sprinting ? -dt / 2.2 : dt / 4.5), 0, 1);
+    this.sprinting = wantSprint && !this.exhausted && this.stamina > 0.05;
+    // Kraft: der Spurt zehrt sie auf, beim Schwimmen kehrt sie nur langsam zurück, beim Treiben rasch
+    const refill = this.stats.recover * (0.5 + 0.5 * this.hungerK);
+    this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (3 * en) : this.resting ? dt * refill / 5 : dt * refill / 14), 0, 1);
+    if (!this.exhausted && this.stamina <= 0.02) {
+      this.exhausted = true;
+      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 4, this.water ? 0xffffff : 0xcfd8dc);
+    } else if (this.exhausted && this.stamina >= 0.35) this.exhausted = false;
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
     // ausgehungert: langsamer
     const starving = 0.65 + 0.35 * this.hungerK;
     const boosted = time < this.boostUntil;
-    if (boosted) this.stamina = Math.min(1, this.stamina + dt * 0.6);
-    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving * (boosted ? 1.25 : 1);
+    if (boosted) {
+      this.stamina = Math.min(1, this.stamina + dt * 0.6);
+      this.exhausted = false;
+    }
+    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
 
     if (this.water) {
-      const dy = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
+      const dy = dyIn;
       // Am Grund abstützen und entlanglaufen: kostet wenig Kraft; mit kräftigen Flossen geht es flott
       const floor = (b.blocked.down || b.touching.down) && dy >= 0;
       this.bottomWalk = floor && dir !== 0 && !knocked;
       if (!knocked) {
         const len = Math.hypot(dir, dy) || 1;
-        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (this.sprinting ? 1.3 : 1) * hurtSlow * starving : (dir / len) * sp;
-        b.setVelocity(approach(b.velocity.x, vx, 900 * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6), 900 * dt));
+        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (this.sprinting ? 1.3 : 1) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp;
+        // Ohne Steuerung steht man nie ganz still: das Wasser trägt einen leicht nach links oder rechts
+        const drift = dir === 0 && dy === 0 && !floor;
+        this.driftPh += dt;
+        const dvx = drift ? Math.sin(this.driftPh * 0.42) * 20 + Math.sin(this.driftPh * 1.3 + 1) * 7 : 0;
+        const dvy = drift ? Math.sin(this.driftPh * 0.9) * 6 : 0;
+        b.setVelocity(approach(b.velocity.x, vx + dvx, (drift ? 260 : 900) * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6) + dvy, (drift ? 260 : 900) * dt));
+        this.drifting = drift;
       }
       if (dir) this.facing = dir;
       if (this.rect.y - b.height / 2 < this.host.surfaceY + 4 && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
       this.view.rotation = this.facing * clamp(b.velocity.y / (sp || 1), -1, 1) * 0.35;
       this.speed01 = Math.hypot(b.velocity.x, b.velocity.y) / this.stats.speed;
+      // das Treiben zählt als ruhig (fürs Verstecken und Auffallen)
+      if (this.drifting && !knocked) this.speed01 = Math.min(this.speed01, 0.08);
     } else {
       const onGround = b.blocked.down || b.touching.down;
       if (onGround) {
@@ -233,10 +270,10 @@ export class Player {
     }
 
     // Rammstoß (erst mit hartem Kopf möglich)
-    if (c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.2 && !knocked) {
+    if (c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
       this.ramReady = time + 1100;
       this.ramUntil = time + 380;
-      this.stamina = Math.max(0, this.stamina - 0.25);
+      this.stamina = Math.max(0, this.stamina - 0.27 / en);
       const dy = this.water ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
       const len = Math.hypot(this.facing, dy * 0.7) || 1;
       this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
@@ -254,6 +291,8 @@ export class Player {
     // Beißen (und Fressen)
     if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 380;
+      // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
+      this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.view.bite();
       audio.sfx('bite', game.traits.jaw);
       // mit dem ganzen Körper nach vorn schnellen
@@ -267,11 +306,11 @@ export class Player {
     this.view.headTilt = time < this.ramUntil ? 0.42 : this.sprinting ? 0.18 : 0;
 
     // Atem und Erschöpfung sichtbar machen
-    if (this.stamina < 0.25 && time > this.breath) {
+    if ((this.stamina < 0.25 || this.exhausted) && time > this.breath) {
       this.breath = time + 500;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
     }
-    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < this.maxSat * 0.1 ? 0.3 : 0) + (this.stamina < 0.2 ? 0.2 : 0), 0, 1);
+    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < this.maxSat * 0.1 ? 0.3 : 0) + (this.exhausted ? 0.3 : this.stamina < 0.2 ? 0.2 : 0), 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: AnimMode = 'idle';
@@ -296,8 +335,8 @@ export class Player {
       audio.sfx('refuse');
       return false;
     }
+    // Fleisch und Pflanzen machen satt – heilen tun nur Ruhe und besondere Heilkräuter
     this.satiety = Math.min(this.maxSat, this.satiety + nutrition);
-    this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * 0.02);
     this.view.chew();
     audio.sfx(kind === 'meat' ? 'eatMeat' : 'eatPlant');
     return true;

@@ -297,7 +297,7 @@ export class Kin extends Animal {
     if (!best && (this.def.diet === 'plant' || this.omni) && this.hunger > 0.4) {
       let bd = 280;
       for (const pl of W.plants) {
-        if (pl.units <= 0 || pl.toxic) continue;
+        if (pl.units <= 0 || pl.toxic || pl.heals) continue;
         const d = this.dist(pl);
         if (d < bd && (W.water || Math.abs(pl.y - this.b.bottom) < 90)) {
           bd = d;

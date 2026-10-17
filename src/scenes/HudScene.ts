@@ -4,7 +4,7 @@ import { audio } from '../audio/Audio';
 import { bus, game } from '../state/GameState';
 import type { LevelScene } from './LevelScene';
 import type { Kin } from '../objects/Kin';
-import { EPOCHS, type EpochDef } from '../data/epochs';
+import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
 import { touch } from '../objects/Controls';
@@ -14,7 +14,7 @@ import { Button, MenuNav, controlsList, panel, soundButton, text, title } from '
 import { TabletScreen } from '../ui/tabletScreen';
 
 /**
- * Die Anzeige im Level: kaum etwas. Hunger und Zeit stehen nur auf der Steintafel (Taste C).
+ * Die Anzeige im Level: oben die Zeit (Zeitalter und Jahresangabe), sonst kaum etwas. Hunger steht nur auf der Steintafel (Taste C).
  * Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand, am Herzschlag und am Tier.
  */
 export class HudScene extends Phaser.Scene {
@@ -51,6 +51,9 @@ export class HudScene extends Phaser.Scene {
   private bossShown = false;
   private tabletView?: TabletScreen;
   private tabletGlow?: Phaser.GameObjects.Image;
+  private clockText!: Phaser.GameObjects.Text;
+  private fuse!: Phaser.GameObjects.Graphics;
+  private fuseProg = 0;
 
   constructor() {
     super('Hud');
@@ -74,6 +77,7 @@ export class HudScene extends Phaser.Scene {
     this.food = 1;
     this.hidden = false;
     this.hurtA = this.hungerA = this.hideA = this.pulse = 0;
+    this.fuseProg = 0;
     this.beatAt = 0;
   }
 
@@ -94,6 +98,15 @@ export class HudScene extends Phaser.Scene {
     this.bossName = title(this, 0, -18, '', 22, '#d8b070').setOrigin(0.5);
     this.bossBar = this.add.graphics();
     this.bossC.add([this.bossBar, this.bossName]);
+    // Die Uhr des Zeitalters: Name der Zeit, Jahresangabe und eine dünne Zündschnur
+    const clockBg = this.add.graphics();
+    clockBg.fillStyle(0x050403, 0.55);
+    clockBg.fillRoundedRect(W / 2 - 200, 8, 400, 70, 12);
+    title(this, W / 2, 26, ep.name.toUpperCase(), 18, UI.ochre).setOrigin(0.5).setLetterSpacing(3);
+    const span = game.epochSpan();
+    this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
+    this.fuse = this.add.graphics();
+    this.drawFuse();
     // Ort, an dem man gerade ist
     this.zoneText = text(this, 22, 18, this.placeName, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
 
@@ -133,6 +146,11 @@ export class HudScene extends Phaser.Scene {
       this.food = food;
       this.hidden = hidden;
     };
+    const onClock = (years: number, prog: number, step: number) => {
+      this.clockText.setText(yearsAgo(years, step));
+      this.fuseProg = prog;
+      this.drawFuse();
+    };
     const onStory = (line: string) => this.story(line);
     const onApex = (name: string) => this.announce(name);
     const onRam = () => this.ramUnlocked();
@@ -142,6 +160,7 @@ export class HudScene extends Phaser.Scene {
       this.updateGlow();
       this.story(n === 1 ? 'Eine Muschel! Auf der Steintafel wird etwas sichtbar. (C)' : n >= STAT_COUNT ? 'Die letzte Muschel – die Steintafel ist ganz frei.' : 'Die Steintafel zeigt dir etwas Neues. (C)');
     };
+    bus.on('clock', onClock);
     bus.on('boss', onBoss);
     bus.on('zone', onZone);
     bus.on('vitals', onVitals);
@@ -165,9 +184,23 @@ export class HudScene extends Phaser.Scene {
       bus.off('ramUnlocked', onRam);
       bus.off('zone', onZone);
       bus.off('boss', onBoss);
+      bus.off('clock', onClock);
       bus.off('shell', onShell);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
+  }
+
+  /** Die Zündschnur: Wie viel vom Zeitalter noch vor dir liegt. */
+  private drawFuse() {
+    const g = this.fuse;
+    const x0 = W / 2 - 170, w = 340, y = 70;
+    g.clear();
+    g.fillStyle(0x2a2420, 1);
+    g.fillRect(x0, y, w, 3);
+    g.fillStyle(0xc8913c, 0.9);
+    g.fillRect(x0, y, w * this.fuseProg, 3);
+    g.fillStyle(0xffe0a0, 1);
+    g.fillCircle(x0 + w * this.fuseProg, y + 1.5, 3);
   }
 
   /** Der Knopf der Steintafel leuchtet, solange es dort etwas Neues zu sehen gibt. */

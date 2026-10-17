@@ -1,8 +1,8 @@
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
-import { SHAPE_OF, shellId, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
-import { DECOR, TOXIC } from '../art/worldArt';
+import { gateKind, placeOf, SHAPE_OF, shellId, type CaveKind, type GateKind, type PlaceDef, type ZoneDef } from '../data/world';
+import { DECOR, HEAL, TOXIC } from '../art/worldArt';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
@@ -54,10 +54,18 @@ export interface LevelData {
   currents: (Rect & { dir: number })[];
   /** Felsspalten: niedrige Durchgänge unter einer Felsplatte – nur Schlanke passen hindurch */
   crevices: Rect[];
-  /** Felsen, die aus dem Meer ragen und über die Oberfläche hinausreichen (x, Breite) */
-  islets: { x: number; w: number }[];
   /** Stellen an der Oberfläche, an denen Licht ins Wasser fällt – überall sonst liegt Schatten */
   lit: { x0: number; x1: number }[];
+  /** Durchgänge zu den Nachbarorten */
+  gates: Gate[];
+}
+
+/** Ein Durchgang: Wer hindurchschwimmt, kommt im Nachbarort an (und schaltet ihn frei). */
+export interface Gate extends Rect {
+  to: string;
+  kind: GateKind;
+  /** wo man im Ort ankommt, wenn man von dort (to) kommt */
+  arrive: { x: number; y: number };
 }
 
 /** Ein Tunnel: Innenraum und die Farbe, die man beim Durchschwimmen annimmt (1 grün, 2 schwarz). */
@@ -96,13 +104,16 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     startCol: 0,
     currents: [],
     crevices: [],
-    islets: [],
     lit: [],
+    gates: [],
   };
 }
 
 /** Manche Pflanzen sind giftig (etwa jede achte). */
-const plantVariant = (r: Rng) => (r() < 0.12 ? TOXIC : rint(r, 0, 2));
+const plantVariant = (r: Rng) => {
+  const q = r();
+  return q < 0.1 ? TOXIC : q < 0.18 ? HEAL : rint(r, 0, 2);
+};
 
 /** Bodenhöhe (in Kacheln) für jede Spalte – damit Tiere passend platziert werden. */
 type Heights = number[];
@@ -141,7 +152,8 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
     const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1);
     const sizeK = (d.role === 'predator' || d.role === 'apex' || d.role === 'defender') && d.power >= 8 ? bigK : d.role === 'prey' && d.power <= 3 ? smallK : 1;
-    const want = groups * mul * sizeK * place.wide * (1 + Math.max(0, place.deep) * 0.015);
+    // die Orte sind groß: Auf die Strecke gerechnet leben hier etwas weniger Tiere als früher
+    const want = groups * mul * sizeK * place.wide * 0.6 * (1 + Math.max(0, place.deep) * 0.008);
     const count = Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0);
     const c0 = 4, c1 = cols - 5;
     for (let g = 0; g < count; g++) {
@@ -161,7 +173,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
 
 // ---------------------------------------------------------------------------
 
-function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
+function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelData {
   const cols = Math.round(ep.len * place.wide);
   const extra = place.deep;
   // das Meer ist tief: Unten wird es dunkel, oben fällt das Licht herein
@@ -244,10 +256,11 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
       floorSeg(vx, seg, fl);
       if (r() < (vee ? 0.3 : 0.26) && seg >= 4 && Math.abs(vx - startCol) > 6) {
         const px = vx + rint(r, 1, seg - 2);
-        const top = fl - rint(r, 3, 9 + Math.floor(extra / 2));
+        // nur niedrige Felsbuckel – nichts, was das Wasser versperrt
+        const top = fl - rint(r, 1, 3);
         L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (fl - top) * T + 2 });
       }
-      if (r() < 0.22 && Math.abs(vx - startCol) > 6) L.solids.push({ x: (vx + 1) * T, y: rint(r, 8, Math.max(9, fl - 6)) * T, w: rint(r, 2, 4) * T, h: T });
+      if (r() < 0.14 && Math.abs(vx - startCol) > 6) L.solids.push({ x: (vx + 1) * T, y: rint(r, 8, Math.max(9, fl - 6)) * T, w: rint(r, 2, 4) * T, h: T });
       vx += seg;
     }
     floor = heights[Math.floor(cols / 2)];
@@ -265,11 +278,11 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     if (covered) ceilSeg(x, seg);
     if (!nearStart && r() < 0.28) {
       const px = x + rint(r, 1, seg - 2);
-      const top = floor - rint(r, 3, 7);
+      const top = floor - rint(r, 1, 3);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
       if (r() < ep.plants * zoneAt().plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: plantVariant(r) });
     }
-    if (!nearStart && r() < 0.18) {
+    if (!nearStart && r() < 0.12) {
       const rw = rint(r, 2, 4);
       const ry = rint(r, 8, floor - 6);
       L.solids.push({ x: (x + 1) * T, y: ry * T, w: rw * T, h: T });
@@ -282,14 +295,18 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   L.start = { x: (startCol + 0.5) * T, y: 12 * T };
   if (!covered) {
-    addIslets(L, place.rocks, r, cols, heights, startCol);
     addTunnels(L, place.caves, r, cols, heights, startCol);
   }
   addCrevices(L, 2, r, cols, heights, startCol);
   addCurrents(L, r, cols, heights, startCol);
-  placeShells(L, ep, place, r, heights, startCol);
-  placeFauna(L, ep, place, r, heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
+  addGates(L, ep, place, r, cols, heights, startCol);
+  placeShells(L, ep, place, r, heights, startCol);
+  // Wer durch einen Durchgang kommt, taucht dort auf – Räuber halten Abstand zu dieser Stelle
+  const arrive = from ? L.gates.find((g) => g.to === from)?.arrive : undefined;
+  const arrCol = arrive ? Math.floor(arrive.x / T) : startCol;
+  placeFauna(L, ep, place, r, heights, arrCol);
+  if (arrive) L.start = { x: arrive.x, y: arrive.y };
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T);
   // keine Tiere im Fels (Felsplatten, Säulen)
@@ -298,10 +315,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
       if (s.y > 0 && s.h < 200 && sp.x > s.x - 20 && sp.x < s.x + s.w + 20 && sp.y > s.y - 40 && sp.y < s.y + s.h + 40) sp.y = Math.max(L.surfaceY + 60, s.y - 60);
     }
   }
-  // keine Tiere im Fels der Tunnel (das Dach reicht vier Kacheln über den Gang) und der aus dem Meer ragenden Felsen
+  // keine Tiere im Fels der Tunnel (das Dach reicht vier Kacheln über den Gang)
   for (const sp of L.spawns) {
     for (const c of L.caves) if (sp.x > c.x - 2 * T && sp.x < c.x + c.w + 2 * T && sp.y > c.y - 5 * T) sp.y = c.y - 5 * T - 30;
-    for (const k of L.islets) if (sp.x > k.x - 20 && sp.x < k.x + k.w + 20) sp.x = sp.x < k.x + k.w / 2 ? k.x - 40 : k.x + k.w + 40;
   }
   L.ground = heights.map((v) => v * T);
   return L;
@@ -309,32 +325,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/**
- * Felsen, die im Meer beginnen und über die Oberfläche hinausragen: ein gestufter Turm aus Fels. Sie werfen Schatten –
- * unter ihnen fällt kaum Licht ins Wasser.
- */
-function addIslets(L: LevelData, n: number, r: Rng, cols: number, heights: Heights, startCol: number) {
-  for (let k = 0; k < 40 && L.islets.length < n; k++) {
-    const w = rint(r, 3, 5);
-    const c0 = rint(r, 8, cols - w - 8);
-    if (Math.abs(c0 + w / 2 - startCol) < 10) continue;
-    if (L.islets.some((i) => c0 * T < i.x + i.w + 10 * T && (c0 + w) * T > i.x - 10 * T)) continue;
-    let low = 0;
-    for (let i = c0; i < c0 + w; i++) low = Math.max(low, heights[i]);
-    if (low > 29) continue;
-    const top = -rint(r, 3, 6) * T;
-    // Sockel bis unter die Oberfläche, darüber zwei schmalere Stufen
-    L.solids.push({ x: c0 * T, y: 3 * T, w: w * T, h: low * T - 3 * T + 4 });
-    L.solids.push({ x: (c0 + 1) * T, y: -T, w: (w - 1) * T, h: 4 * T });
-    L.solids.push({ x: (c0 + (w > 3 ? 1 : 0)) * T, y: top, w: Math.max(1, w - 2) * T, h: -top });
-    L.islets.push({ x: c0 * T, w: w * T });
-    for (let i = 0; i < w; i++) if (r() < 0.6) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: (c0 + i + 0.5) * T, y: 3 * T + 4 });
-  }
-}
-
 /** Stellen an der Oberfläche, an denen Licht ins Wasser fällt (eine davon beim Ankunftsplatz). */
 function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: number) {
-  const free = (c0: number, w: number) => !L.islets.some((i) => c0 * T < i.x + i.w + 2 * T && (c0 + w) * T > i.x - 2 * T) && !L.lit.some((l) => c0 * T < l.x1 + 6 * T && (c0 + w) * T > l.x0 - 6 * T);
+  const free = (c0: number, w: number) => !L.lit.some((l) => c0 * T < l.x1 + 6 * T && (c0 + w) * T > l.x0 - 6 * T);
   for (let k = 0; k < 80 && L.lit.length < n; k++) {
     const w = rint(r, 9, 18);
     const c0 = L.lit.length === 0 ? clampN(startCol - rint(r, 2, w - 2), 2, cols - w - 2) : rint(r, 2, cols - w - 2);
@@ -365,8 +358,7 @@ function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, heigh
       if (hi - lo > (k < 200 ? 3 : 5) || lo < 14) continue;
       const f = lo;
       const rx0 = (c0 - 2) * T, rx1 = (c0 + W + 2) * T, ry0 = (f - 9) * T, ry1 = f * T;
-      // aus dem Meer ragende Felsen bleiben stehen (anderer Platz suchen) – Säulen und Platten über dem Gang werden abgetragen
-      if (L.islets.some((i) => i.x < rx1 && i.x + i.w > rx0)) continue;
+      // Säulen und Platten über dem Gang werden abgetragen
       L.solids = L.solids.filter((s) => !(s.x > -T && s.x < cols * T && s.x < rx1 && s.x + s.w > rx0 && s.y < ry1 - 2 && s.y + s.h > ry0));
       // einebnen: tiefer liegende Spalten bis zur Höhe des höchsten Punkts auffüllen
       for (let i = c0 - 2; i < c0 + W + 2; i++) {
@@ -389,6 +381,11 @@ function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, heigh
       L.plants = L.plants.filter((p) => !inside(p.x));
       L.cover = L.cover.filter((c) => !(c.x < rx1 && c.x + c.w > rx0));
       L.decor = L.decor.filter((d) => !inside(d.x) || d.y < (f - 8) * T);
+      // Die Eingänge liegen hinter dichtem Bewuchs – man muss genau hinsehen
+      for (const side of [-1, 1]) {
+        const bx = side < 0 ? x0 - 4 * T : x1 + T;
+        L.cover.push({ x: bx, y: (f - 7) * T, w: 3 * T, h: 7 * T });
+      }
       break;
     }
   });
@@ -475,8 +472,65 @@ function placeShells(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, height
   }
 }
 
+/**
+ * Durchgänge zu den Nachbarorten. Westen und Osten: eine Öffnung in der Felswand an einer bestimmten Höhe. Süden: ein Loch
+ * im Boden. Norden: eine Lichtöffnung an der Oberfläche. Man muss sie finden – nur dort kommt man hinaus.
+ */
+function addGates(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, cols: number, heights: Heights, startCol: number) {
+  const rows = L.height / T;
+  const usedRows: Record<'left' | 'right', number[]> = { left: [], right: [] };
+  const usedCols: number[] = [];
+  let sun = 0;
+  // Öffnungen räumen alles ab, was im Weg steht (Säulen, Platten)
+  const clear = (x0: number, y0: number, x1: number, y1: number) => {
+    L.solids = L.solids.filter((s) => !(s.x > -T && s.x < cols * T && s.x < x1 && s.x + s.w > x0 && s.y < y1 && s.y + s.h > y0 && s.y + s.h < rows * T - 2 * T));
+    L.plants = L.plants.filter((p) => !(p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 + T));
+  };
+  const wall = (kind: 'left' | 'right', to: string) => {
+    const idx = kind === 'left' ? [0, 1, 2, 3, 4, 5] : [cols - 6, cols - 5, cols - 4, cols - 3, cols - 2, cols - 1];
+    const hEdge = Math.min(...idx.map((i) => heights[i]));
+    const lo = 6, hi = Math.max(lo + 1, hEdge - 7);
+    let row = rint(r, lo, hi);
+    for (let k = 0; k < 40; k++) {
+      row = rint(r, lo, hi);
+      if (usedRows[kind].every((u) => Math.abs(u - row) >= 8)) break;
+    }
+    usedRows[kind].push(row);
+    const x = kind === 'left' ? 0 : (cols - 3) * T;
+    clear(kind === 'left' ? 0 : (cols - 10) * T, (row - 1) * T, kind === 'left' ? 10 * T : cols * T, (row + 5) * T);
+    L.gates.push({ x, y: row * T, w: 3 * T, h: 4 * T, to, kind, arrive: { x: kind === 'left' ? 7 * T : (cols - 7) * T, y: (row + 2) * T } });
+  };
+  for (const lid of place.links) {
+    const q = placeOf(ep, lid);
+    let kind = gateKind(place, q);
+    if (kind === 'surface' && !L.lit.length) kind = 'left';
+    if (kind === 'surface') {
+      const lit = L.lit[sun % L.lit.length];
+      const nth = Math.floor(sun++ / L.lit.length);
+      const x = Math.round(((lit.x0 + lit.x1) / 2 + (nth % 2 ? 1 : -1) * nth * 5 * T) / T) * T - 2 * T;
+      clear(x - T, L.surfaceY, x + 5 * T, L.surfaceY + 7 * T);
+      L.gates.push({ x, y: L.surfaceY, w: 4 * T, h: 4 * T, to: lid, kind, arrive: { x: x + 2 * T, y: L.surfaceY + 7 * T } });
+    } else if (kind === 'floor') {
+      let done = false;
+      for (let k = 0; k < 400 && !done; k++) {
+        const c = rint(r, 8, cols - 14);
+        const f = heights[c];
+        let flat = true;
+        for (let i = -1; i <= 5; i++) if (heights[c + i] !== f) flat = false;
+        if (!flat || Math.abs(c + 2 - startCol) < 12 || usedCols.some((u) => Math.abs(u - c) < 14) || L.caves.some((cv) => c * T < cv.x + cv.w + 4 * T && (c + 4) * T > cv.x - 4 * T)) continue;
+        if (f < 12) continue;
+        usedCols.push(c);
+        clear(c * T - T, (f - 7) * T, (c + 5) * T, f * T);
+        L.gates.push({ x: c * T, y: f * T - 80, w: 4 * T, h: 100, to: lid, kind, arrive: { x: (c + 2) * T, y: f * T - 150 } });
+        done = true;
+      }
+      if (!done) wall(q.x < place.x ? 'left' : 'right', lid);
+    } else wall(kind, lid);
+  }
+}
+
 /** Ein Ort dieses Zeitalters – bei jedem Lauf etwas anders, aber immer derselbe für einen Lauf. */
-export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef): LevelData {
+export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, from?: string): LevelData {
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
-  return genWater(ep, r, place);
+  return genWater(ep, r, place, from);
 }

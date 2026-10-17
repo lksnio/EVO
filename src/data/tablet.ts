@@ -99,6 +99,12 @@ export const STATS: StatDef[] = [
   skill('stealth', () => 'Tarnung', (t) => t.stealth),
   skill('growth', () => 'Wuchs', (t) => t.growth),
   skill('swift', () => 'Flinkheit', (t) => Math.max(0, t.swift ?? 0), [0.1, 0.4, 0.7]),
+  {
+    id: 'stamina',
+    label: () => 'Ausdauer',
+    // schwere Waffen ermüden: wer kräftig zubeißt, hält nicht lange durch
+    value: (c) => ({ t: 'fish', n: fishRating(game.stats(c.cls, c.traits).endurance - 0.7, [0.12, 0.45, 0.85]) }),
+  },
   skill('limb', () => 'Bodenkontakt', (t) => t.limb ?? 0),
   skill('pack', () => 'Zusammenhalt', (t) => t.pack ?? 0),
   skill('nerve', () => 'Nerven', (t) => t.nerve ?? 0),

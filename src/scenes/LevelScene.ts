@@ -5,7 +5,7 @@ import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type LineId, 
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { placeOf, type PlaceDef } from '../data/world';
-import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
+import { generateLevel, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
@@ -28,6 +28,10 @@ const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 
 /** Daten für den Generationen-Bildschirm nach einem überlebten Zeitalter. */
 /** Bildschirmfeste Ebenen müssen beim Herauszoomen größer sein, damit sie das ganze Bild füllen. */
 const Z = LEVEL_ZOOM;
+/** Beim Ausruhen heilt der Körper nur bis zu diesem Anteil der Lebenskraft */
+const REST_HEAL_CAP = 0.75;
+/** Ein Bissen Heilkraut gibt so viel Lebenskraft zurück (Anteil am Maximum) */
+const HEAL_BITE = 0.17;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
 
 export interface SurvivedData {
@@ -126,9 +130,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Muscheln auf dem Grund */
   private shells: Shell[] = [];
   /** wie lange man schon gegen den Rand schwimmt (dann geht es auf die Karte) */
-  private edgeHold = 0;
-  private exitFx?: { l: Phaser.GameObjects.Image; r: Phaser.GameObjects.Image };
-  private edgeNoted = false;
+  /** Durchgänge: Sichtbares je Tor (wird mit der Entfernung stärker), wie lange man schon darin schwimmt */
+  private gateFx: { g: Gate; items: { o: Phaser.GameObjects.Image; a: number }[]; pe?: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
+  private gateHold = 0;
+  private gateNoted = false;
   /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
   private deepDark?: Phaser.GameObjects.Image;
   private deepK = 0;
@@ -158,6 +163,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private primedUntil = 0;
   /** Zeitpunkt, seit dem man still im Versteck ist (0 = nicht still) */
   private stillT = 0;
+  private winded = false;
+  /** kleine Kraftanzeige am Fisch – nur zu sehen, solange er nicht frisch ist */
+  private stamG!: Phaser.GameObjects.Graphics;
+  private stamA = 0;
+  private healNoted = false;
   private primeNoted = false;
   /** Tunnel, in dem man gerade schwimmt (-1 = keiner) und von welcher Seite man hineingekommen ist */
   private curCave = -1;
@@ -232,12 +242,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.redrawAt = 0;
     this.surfGlow = undefined;
     this.shells = [];
-    this.edgeHold = 0;
+    this.gateHold = 0;
+    this.gateFx = [];
     this.deepDark = undefined;
     this.deepK = 0;
     this.deepBeatAt = this.deepRumbleAt = 0;
     this.endNoted = false;
-    this.exitFx = undefined;
     this.murk = 0;
     this.zoneLight = 1;
     this.cullList = [];
@@ -251,6 +261,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.ambushUntil = 0;
     this.primedUntil = 0;
     this.stillT = 0;
+    this.winded = false;
+    this.healNoted = false;
     this.curCave = -1;
     this.caveSide = 0;
     this.caveFx = [];
@@ -275,7 +287,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     fadeIn(this, 900);
     game.beginEpoch();
     const ep = this.ep;
-    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place));
+    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place, game.prog.from));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
@@ -304,16 +316,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     this.buildDecor();
     if (this.water && L.surfaceY > 0) {
-      this.buildSky();
-      // die Wasseroberfläche läuft nicht durch die Felsen hindurch, die aus dem Meer ragen
-      let sx = 0;
-      for (const k of [...L.islets].sort((a, b) => a.x - b.x).concat([{ x: L.width, w: 0 }])) {
-        if (k.x - sx > 20) {
-          const s = this.add.tileSprite(sx, L.surfaceY - 14, k.x - sx, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
-          this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
-        }
-        sx = k.x + k.w;
-      }
+      const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
+      this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
     }
     plantTextures(this, L.theme);
     // Alle Tierarten dieses Zeitalters schon jetzt malen (auch die großen Durchzügler) –
@@ -343,6 +347,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
     this.player = new Player(this, L.start.x, L.start.y, this.water);
+    this.stamG = this.add.graphics().setDepth(DEPTH.fx + 2);
+    this.stamA = 0;
     // von einem Ort zum nächsten bleibt man, wie man war: Kraft, Magen und Artgenossen
     const pr = game.prog;
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
@@ -354,7 +360,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.span = game.epochSpan(this.epochIdx);
     // Muscheln, die noch nicht gefunden sind
     for (const sh of L.shells) if (!game.hasShell(sh.id)) this.shells.push(new Shell(this, sh.x, sh.y, sh.id));
-    this.buildExits();
+    this.buildGates();
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -398,9 +404,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.setZoom(Z);
     const bottom = this.water ? L.height : L.height - 70;
     const camH = Math.max(bottom, VH + 40);
-    // ragen Felsen über das Wasser, darf die Kamera ein Stück über die Oberfläche hinaus
-    const camTop = this.water && L.islets.length ? -300 : bottom - camH;
-    cam.setBounds(0, camTop, L.width, bottom - camTop);
+    cam.setBounds(0, bottom - camH, L.width, camH);
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
@@ -560,9 +564,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     });
   }
 
-  /** Aus einem Tunnel herausgeschwommen: Der Körper nimmt die Farbe der Höhle an. */
+  /** Aus einem Tunnel herausgeschwommen: Der Körper nimmt die Farbe der Höhle an – aber nur ein einziges Mal pro Lauf. */
   private paintCoat(coat: number) {
     const p = this.player;
+    const run = game.run;
+    if (!run || run.coatSet) return;
+    run.coatSet = true;
     if (game.traits.coat === coat) return;
     game.traits.coat = coat;
     p.refresh(false, true);
@@ -605,8 +612,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Strömung: schiebt alles mit – je massiger, desto weniger. Riesen bleiben unbeeindruckt. */
   private flowStep(dt: number) {
     const cv = this.cameras.main.worldView;
+    const unset = !game.run?.coatSet;
     for (const f of this.caveFx) {
-      const on = f.c.x + f.c.w > cv.x - 200 && f.c.x < cv.right + 200;
+      const on = unset && f.c.x + f.c.w > cv.x - 100 && f.c.x < cv.right + 100;
       if (on !== f.on) {
         f.on = on;
         if (on) f.pe.start();
@@ -746,10 +754,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         .setTint(0xcfeee0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.2).setDepth(DEPTH.fx + 1);
       this.tweens.add({ targets: pool, alpha: 0.12, yoyo: true, repeat: -1, duration: 3800 + Math.random() * 2400, ease: 'Sine.inOut' });
       this.cullAdd(pool, lit.x0 - 200, lit.x1 + 200);
-      // und ein Lichtschein darüber am Himmel
-      const sun = this.add.image((lit.x0 + lit.x1) / 2, L.surfaceY - 110, 'glow').setDisplaySize((lit.x1 - lit.x0) * 0.9, 260)
-        .setTint(0xd8f4e4).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setDepth(DEPTH.bg + 4);
-      this.cullAdd(sun, lit.x0 - 200, lit.x1 + 200);
+
     }
     // Schatten dazwischen: oben dunkel, nach unten hin auslaufend, an den Rändern weich
     const gaps: [number, number][] = [];
@@ -789,23 +794,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
-  /** Der Himmel über dem Wasser (sichtbar, wo Felsen aus dem Meer ragen). */
-  private buildSky() {
-    const L = this.L;
-    if (!this.textures.exists('sky')) {
-      const ct = this.textures.createCanvas('sky', 8, 512)!;
-      const ctx = ct.getContext();
-      const g = ctx.createLinearGradient(0, 0, 0, 512);
-      g.addColorStop(0, '#091114');
-      g.addColorStop(0.55, '#1b3a3b');
-      g.addColorStop(1, '#4c7f78');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 8, 512);
-      ct.refresh();
-    }
-    this.add.image(0, L.surfaceY, 'sky').setOrigin(0, 1).setDisplaySize(L.width, 640).setDepth(DEPTH.bg + 3);
-  }
-
   /** Je tiefer, desto dunkler: Unten am Meeresgrund kommt kaum noch Licht an. */
   private depthShade() {
     const L = this.L;
@@ -827,6 +815,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       ct.refresh();
     }
     this.add.image(0, L.surfaceY, key).setOrigin(0).setDisplaySize(L.width, H0).setDepth(DEPTH.decoFront + 0.5);
+    // tiefer als die Verlaufstextur: gleichmäßig dunkel weiter
+    if (L.height - L.surfaceY > H0) {
+      this.add.rectangle(0, L.surfaceY + H0 - 1, L.width, L.height - L.surfaceY - H0 + 400, 0x010509, key === 'depth_shade3v' ? 0.55 : 0.8)
+        .setOrigin(0).setDepth(DEPTH.decoFront + 0.5);
+    }
   }
 
   /** An Land: Sonnenstrahlen durch Blätterdach, Dunst oder Schneetreiben – je Gebiet anders hell. */
@@ -1387,11 +1380,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       const food = pl.toxic ? FOOD.toxic : FOOD.plant;
       const gain = Math.min(food.sat * st.digestPlant, p.maxSat - p.satiety);
+      // Ein Heilkraut hilft auch dem, der satt ist – dann wird es nur nicht verdaut
+      if (pl.heals && gain < 0.5 && p.hp < p.stats.maxHp - 0.5) {
+        pl.take(now);
+        this.healed(pl);
+        return;
+      }
       if (p.eat(gain, 'plant')) {
         this.floatNum(pl.x, pl.y - 44, gain, pl.toxic ? 'toxic' : 'plant');
         this.ate('plant', food.kcal * st.digestPlant);
         pl.take(now);
         if (pl.toxic) this.poisoned();
+        else if (pl.heals) this.healed(pl);
         else game.grow('digP', 0.012);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
@@ -1427,6 +1427,37 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.tweens.add({ targets: t, scale: 1, duration: 180, ease: 'Back.out' });
     this.tweens.add({ targets: t, y: y - 70, duration: 1500, ease: 'Sine.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 1000, duration: 500, onComplete: () => t.destroy() });
+  }
+
+  /** Kraftbalken über dem Fisch: blendet sich ein, wenn die Kraft schwindet, und wieder aus, wenn sie zurück ist. */
+  private drawStamina(p: Player, dt: number) {
+    const show = !p.dead && (p.stamina < 0.97 || p.exhausted);
+    this.stamA = clamp(this.stamA + (show ? dt * 5 : -dt * 1.6), 0, 1);
+    const g = this.stamG;
+    g.clear();
+    if (this.stamA < 0.03) return;
+    const w = 64, h = 5;
+    const x = p.x - w / 2, y = p.y - p.rect.height / 2 - 26;
+    g.fillStyle(0x050403, 0.5 * this.stamA);
+    g.fillRoundedRect(x - 2, y - 2, w + 4, h + 4, 4);
+    const f = clamp(p.stamina, 0, 1);
+    const col = p.exhausted ? 0xd8803c : p.resting ? 0x8fe0c0 : 0x9ad0e8;
+    g.fillStyle(col, 0.9 * this.stamA);
+    g.fillRoundedRect(x, y, Math.max(2, w * f), h, 3);
+  }
+
+  /** Heilkraut: die Wunden schließen sich, die Kraft kehrt zurück. */
+  private healed(pl: Plant) {
+    const p = this.player;
+    p.heal(HEAL_BITE);
+    p.stamina = Math.min(1, p.stamina + 0.3);
+    p.view.flash(0xffc8e0);
+    this.time.delayedCall(160, () => p.view.flash(null));
+    this.puff(pl.x, pl.y - 24, 6, 0xffb0d0);
+    if (!this.healNoted) {
+      this.healNoted = true;
+      bus.emit('story', 'Dieses Kraut tut gut – die Wunden schließen sich.');
+    }
   }
 
   /** Giftige Pflanze: brennt und schwächt – macht aber kurz hellwach und schnell. */
@@ -1510,6 +1541,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended && !(this.cine && !this.cine.released)) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
+    this.drawStamina(p, dt);
     for (const a of [...this.animals]) {
       try {
         a.tick(time, dt);
@@ -1556,7 +1588,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.clock(time);
       this.interact(time, dt);
       this.shellStep(time);
-      this.edgeStep(time, dt);
+      this.gateStep(time, dt);
       this.weather(time, dt);
       this.migrate(time);
       this.huntMood(time);
@@ -1953,7 +1985,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (depth < 0.32) game.shiftLight(0.004 * dt);
       else if (depth > 0.72) game.shiftLight(-0.004 * dt);
       // Wer die meiste Zeit tief unten überlebt, wird selbst größer, massiger und gefährlicher
-      const deep = clamp((cy - L.surfaceY - 750) / 900, 0, 1) * (this.place.kind === 'abyss' ? 1.4 : 1);
+      const deep = this.deepK * (this.place.kind === 'abyss' ? 1.4 : 1);
       if (deep > 0.05) {
         game.grow('growth', 0.0014 * dt * deep);
         game.shiftBody('girth', 0.0011 * dt * deep);
@@ -2045,7 +2077,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
 
-    // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper (Kälte zehrt mehr)
+    // Hunger: ohne Nahrung geht es bergab (Kälte zehrt mehr). Heilen tun nur Ruhe und Heilkräuter – Fleisch nicht.
     const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
     // Am Grund entlangzulaufen kostet weniger Kraft als zu schwimmen
     // Je leerer der Magen, desto langsamer sinkt er (der Körper spart) – ganz leer wird er nie.
@@ -2053,8 +2085,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const fill = p.satiety / Math.max(1, p.maxSat);
     const rate = hungerRate(p.stats.size, p.speed01) * cold * (p.bottomWalk ? 0.55 : 1) * Math.min(1, fill / 0.5);
     p.satiety = Math.max(0.01, p.satiety - rate * dt);
-    if (p.satiety > p.maxSat * 0.4 && time - p.lastHurt > 3000) {
-      p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.01 * dt);
+    // Wer sich treiben lässt, kommt wieder zu Kräften – die Lebenskraft aber nur bis etwa drei Viertel
+    // (ausgehungert geht das nicht). Mehr braucht ein Heilkraut.
+    if (p.resting && p.satiety > p.maxSat * 0.2 && p.hp < p.stats.maxHp * REST_HEAL_CAP) {
+      p.hp = Math.min(p.stats.maxHp * REST_HEAL_CAP, p.hp + p.stats.maxHp * 0.02 * p.stats.recover * dt);
+    }
+    if (p.exhausted && !this.winded) {
+      this.winded = true;
+      bus.emit('story', 'Die Kraft ist weg. Lass dich treiben – dann kehrt sie zurück.');
     }
     if (p.satiety < p.maxSat * 0.18 && time > this.growlAt) {
       this.growlAt = time + 9000;
@@ -2101,8 +2139,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private deepStep(time: number, dt: number) {
     if (!this.deepDark) return;
     const p = this.player;
-    const from = this.place.kind === 'abyss' ? 600 : 800;
-    const target = clamp((p.y - this.L.surfaceY - from) / (this.place.kind === 'abyss' ? 1500 : 1400), 0, 1);
+    // die Dunkelheit wächst mit dem Anteil der Tiefe, den man schon hinabgeschwommen ist (die Orte sind verschieden tief)
+    const frac = (p.y - this.L.surfaceY) / Math.max(400, this.L.height - this.L.surfaceY);
+    const abyss = this.place.kind === 'abyss';
+    const target = clamp((frac - (abyss ? 0.23 : 0.38)) / (abyss ? 0.58 : 0.62), 0, 1);
     this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
     const k = this.deepK;
     this.deepDark.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
@@ -2119,39 +2159,87 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Ränder, Karte, Muscheln
 
-  /** An beiden Enden des Ortes schimmert helleres Wasser: Dort geht es hinaus auf die Karte. */
-  private buildExits() {
+  /**
+   * Durchgänge: Die Ränder des Ortes sind Felswand, nur an einigen Stellen öffnet sie sich. Dazu ein Loch im Boden und
+   * Lichtöffnungen oben an der Oberfläche. Aus der Ferne sieht man sie kaum – erst wer in die Nähe kommt, sieht es schimmern.
+   */
+  private buildGates() {
     const L = this.L;
-    const h = L.height - L.surfaceY;
-    const mk = (x: number) =>
-      this.add.image(x, L.surfaceY + h / 2, 'glow').setDisplaySize(760, h * 1.15).setTint(0xb4f0e2)
-        .setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.4);
-    this.exitFx = { l: mk(0), r: mk(L.width) };
+    const gt = groundTextures(this, L.theme, 0);
+    // Felswand an beiden Rändern, nur an den Toren offen
+    for (const side of ['left', 'right'] as const) {
+      const x0 = side === 'left' ? 0 : L.width - 64;
+      let y = L.surfaceY;
+      const seg = (ya: number, yb: number) => {
+        if (yb - ya < 4) return;
+        const t = this.add.tileSprite(x0, ya, 64, yb - ya, gt.gnd).setOrigin(0).setDepth(DEPTH.terrain + 1).setTint(0x6c7a7c);
+        this.cullAdd(t, x0 - 200, x0 + 300);
+      };
+      for (const g of L.gates.filter((q) => q.kind === side).sort((a, b) => a.y - b.y)) {
+        seg(y, g.y);
+        y = g.y + g.h;
+      }
+      seg(y, L.height);
+    }
+    for (const g of L.gates) {
+      const cx = g.x + g.w / 2, cy = g.y + g.h / 2;
+      const items: { o: Phaser.GameObjects.Image; a: number }[] = [];
+      const add = (o: Phaser.GameObjects.Image, a: number) => {
+        o.setAlpha(0);
+        items.push({ o, a });
+      };
+      let pe: Phaser.GameObjects.Particles.ParticleEmitter | undefined;
+      if (g.kind === 'left' || g.kind === 'right') {
+        add(this.add.image(cx, cy, 'glow').setDisplaySize(520, 420).setTint(0xb4f0e2).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.5);
+      } else if (g.kind === 'surface') {
+        add(this.add.image(cx, L.surfaceY, 'lightray').setOrigin(0.5, 0).setScale(1.1, 1.2).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD).setTint(0xe8fff4), 0.55);
+        add(this.add.image(cx, L.surfaceY + 60, 'glow').setDisplaySize(380, 300).setTint(0xd8fff0).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.4);
+      } else {
+        // ein dunkles Loch im Boden, aus dem kalte Blasen aufsteigen
+        const floorY = g.y + 80;
+        const hole = this.add.graphics().setDepth(DEPTH.terrain + 2);
+        hole.fillStyle(0x010304, 0.95);
+        hole.fillEllipse(cx, floorY + 4, g.w * 0.92, 30);
+        hole.fillStyle(0x0a1a22, 0.9);
+        hole.fillEllipse(cx, floorY + 2, g.w * 0.7, 18);
+        this.cullAdd(hole, g.x - 100, g.x + g.w + 100);
+        add(this.add.image(cx, floorY - 40, 'glow').setDisplaySize(300, 220).setTint(0x8fe0d0).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.4);
+        pe = this.add.particles(0, 0, 'p_bubble', {
+          x: { min: g.x + 20, max: g.x + g.w - 20 }, y: floorY, lifespan: 2600, frequency: 220, speedY: { min: -60, max: -26 }, speedX: { min: -10, max: 10 },
+          scale: { start: 0.5, end: 0.9 }, alpha: { start: 0.5, end: 0 }, emitting: false,
+        }).setDepth(DEPTH.fx);
+      }
+      this.gateFx.push({ g, items, pe });
+    }
   }
 
-  /** Wer gegen den Rand schwimmt, verlässt den Ort und kommt auf die Karte. */
-  private edgeStep(time: number, dt: number) {
+  /** Die Durchgänge schimmern erst, wenn man nah genug ist; wer ganz hineinschwimmt, kommt im Nachbarort an. */
+  private gateStep(time: number, dt: number) {
     const p = this.player;
-    const L = this.L;
-    const dl = p.body.left, dr = L.width - p.body.right;
-    const near = Math.min(dl, dr);
-    const fx = this.exitFx;
-    if (fx) {
-      const pulse = 0.5 + 0.5 * Math.sin(time / 600);
-      fx.l.setAlpha(0.5 + 0.12 * pulse + 0.35 * clamp(1 - dl / 900, 0, 1));
-      fx.r.setAlpha(0.5 + 0.12 * pulse + 0.35 * clamp(1 - dr / 900, 0, 1));
-    }
-    if (near < 420 && !this.edgeNoted) {
-      this.edgeNoted = true;
-      bus.emit('story', 'Dort schimmert offenes Wasser. Schwimm hindurch, und du kommst auf die Karte.');
-    }
-    const pushing = (dr < 16 && this.controls.held.right) || (dl < 16 && this.controls.held.left);
-    this.edgeHold = pushing ? this.edgeHold + dt : Math.max(0, this.edgeHold - dt * 2);
-    if (this.edgeHold > 0.3) this.leave();
+    let inside = -1;
+    this.gateFx.forEach((f, i) => {
+      const g = f.g;
+      const cx = g.x + g.w / 2, cy = g.y + g.h / 2;
+      const d = Math.hypot(p.x - cx, p.y - cy);
+      const k = Math.pow(clamp(1 - (d - 450) / 1300, 0, 1), 1.3);
+      const pulse = 0.85 + 0.15 * Math.sin(time / 600 + i);
+      for (const it of f.items) it.o.setAlpha(it.a * k * pulse);
+      if (f.pe) {
+        if (k > 0.05 && !f.pe.emitting) f.pe.start();
+        else if (k <= 0.05 && f.pe.emitting) f.pe.stop();
+      }
+      if (p.x > g.x && p.x < g.x + g.w && p.y > g.y && p.y < g.y + g.h) inside = i;
+      if (d < 700 && !this.gateNoted) {
+        this.gateNoted = true;
+        bus.emit('story', 'Dort schimmert es. Ein Durchgang – wohin er wohl führt?');
+      }
+    });
+    this.gateHold = inside >= 0 ? this.gateHold + dt : Math.max(0, this.gateHold - dt * 2);
+    if (inside >= 0 && this.gateHold > 0.25) this.leave(this.gateFx[inside].g);
   }
 
-  /** Den Ort verlassen: Der Stand wird gemerkt, dann geht es auf die Karte. */
-  private leave() {
+  /** Durch den Durchgang: Der Stand wird gemerkt, dann geht es (über die Karte) in den Nachbarort. */
+  private leave(g: Gate) {
     if (this.ended) return;
     this.ended = true;
     this.saveProgress();
@@ -2160,7 +2248,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cameras.main.fadeOut(900, 2, 3, 4);
     this.time.delayedCall(950, () => {
       this.scene.stop('Hud');
-      this.scene.start('Map', { epoch: this.epochIdx });
+      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to: g.to });
     });
   }
 
