@@ -25,7 +25,9 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
     nur noch die Augen.
   - **Kämpfen** – beißen und dich durchfressen. Wer in ein Tier hineinschwimmt oder -rennt, verletzt
     **beide**. Mit der Zeit wird der Kopf härter – irgendwann kannst du gezielt **rammen**.
-    Zweimal schnell hintereinander zugebissen heißt: gepackt – kleinere Tiere zappeln dann nur noch.
+    Beim Biss schnellt das Tier nach vorn, reißt das Maul auf, schnappt zu und knirscht mit den
+    Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
+    gepackt – kleinere Tiere zappeln dann nur noch.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
@@ -39,15 +41,19 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
 - **Wo du lebst, entscheidest du:** Jedes Zeitalter hat links und rechts vom Start ein eigenes
   Gebiet, in das man fließend hinüberschwimmt bzw. -läuft – links flacher und trüber, voller Pflanzen
   und mit wenigen Jägern (dort sieht man dich schlechter), rechts tief und dunkel, mit mehr Räubern
-  und einem der ganz Großen. Boden, Licht und Tiere sind dort anders.
-- **Hunger:** Der Magen startet etwa halb voll und leert sich mit der Zeit – schneller, wenn du viel
-  und schnell schwimmst bzw. läufst (am Grund entlangzulaufen spart Kraft). Fressen füllt ihn wieder
-  auf, aber nie über das Maximum. Wie viel hineinpasst, hängt von der Größe ab: Große Tiere richten
-  mehr Schaden an, verbrauchen aber auch mehr. Jeder Happen zeigt kurz, was er gebracht hat –
-  **rot** für Fleisch, **grün** für Pflanzen (z. B. „+20“ bzw. „+4“). Manche Pflanzen sind giftig:
-  Sie brennen, machen aber kurz hellwach und schnell.
-- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einem **saftigen
-  Fleischstück**, große Tiere zu mehreren. Kleine Stücke treiben langsam nach oben, große sinken zu
+  und einem der ganz Großen. Boden, Licht und Tiere sind dort anders. Das Meer ist tief: Oben fällt
+  das Licht herein, nach unten wird es immer dunkler – die Kamera zeigt ein großes Stück davon.
+- **Wer frisst wen:** Große Jäger jagen nur, wenn sie Hunger haben – satt liegen sie oft lange am
+  Meeresgrund (bzw. am Boden) und dösen. Kleine Tiere fliehen früh und verstecken sich im Dickicht,
+  in Höhlen und Felsspalten, bis die Gefahr vorbei ist.
+- **Hunger:** Der Magen startet etwa halb voll und leert sich ständig – auch in Ruhe spürbar, beim
+  Schwimmen bzw. Laufen deutlich schneller (am Grund entlangzulaufen spart Kraft). Fressen füllt ihn
+  wieder auf, aber nie über das Maximum. Wie viel hineinpasst, hängt von der Größe ab: Große Tiere
+  richten mehr Schaden an, verbrauchen aber auch mehr. Ein Happen bringt wenig – jeder zeigt kurz,
+  was er gebracht hat: **rot** für Fleisch, **grün** für Pflanzen (eine Pflanze „+2“, ein kleiner
+  Fisch etwa „+6“). Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
+- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einer **saftigen
+  Fleischkeule mit Knochen**, große Tiere zu mehreren. Kleine Stücke treiben langsam nach oben, große sinken zu
   Boden, an Land fällt alles herunter – und nach einer Weile verdirbt es. Andere Fleischfresser
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus.
 - **Herrscher der Region:** Im letzten Zeitalter jeder Region erscheint kurz vor Schluss der
@@ -73,8 +79,10 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   größer als deine Gruppe. Man sieht **nur die Tiere selbst**, keine Werte: alle im selben Maßstab
   in einem Stück Lebensraum, sodass Größe, Körperbau und Färbung direkt vergleichbar sind; ein Klick
   wählt aus. Der erste ist die **Hauptlinie** (deine bisherige Wahl mit allem, was dazugelernt
-  wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast – länger,
-  massiger, flinker, heller oder dunkler, etwas größer oder kleiner.
+  wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast – in
+  verschiedene Richtungen: länger oder massiger, größere oder kleinere Flossen, ein breiterer oder
+  schmalerer Schwanz, eine höhere oder flachere Rückenflosse, etwas größer oder kleiner, heller,
+  dunkler oder im Farbton leicht verschoben.
 - **Werte (Taste C):** Name der Art, wie oft sie schon ausgestorben ist, Länge, Gewicht,
   Lebenskraft, sichtbare Fähigkeiten, Nahrung, Zusammenhalt – und was du in diesem Zeitalter
   **gelebt** hast (Beute gepackt, am Grund entlang, gerammt, geschwommen: „kaum“ bis „sehr oft“) –
@@ -117,7 +125,6 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
-| versteckt sich oft im Dickicht | grünliche Farben |
 | liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
 | wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
 | stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
@@ -130,7 +137,10 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | frisst viel | wächst |
 | hält sich oft oben im Licht bzw. unten in der Tiefe (an Land: offen bzw. im Dickicht) | hellere bzw. dunklere Färbung |
-| schwimmt bzw. läuft viel und schnell | deutlich länglicheren, schlankeren Körper und größere Flossen |
+| schwimmt bzw. läuft viel und schnell – besonders gegen Strömungen | deutlich länglicheren, schlankeren Körper und größere Flossen |
+| sprintet oft | einen breiteren, kräftigeren Schwanz |
+| versteckt sich zwischen Pflanzen | grünere Farben, größere (wendigere) Flossen, eine flachere Rückenflosse |
+| wird oft verletzt | eine höhere, wehrhaftere Rückenflosse bzw. einen Rückenkamm |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.

@@ -2,6 +2,8 @@
 export const W = 1280;
 export const H = 720;
 export const TILE = 40;
+/** Kamera im Level: etwas herausgezoomt – man sieht mehr vom Lebensraum, die Tiere wirken kleiner. */
+export const LEVEL_ZOOM = 0.72;
 export const GRAVITY = 1400;
 
 /** Fließtext */

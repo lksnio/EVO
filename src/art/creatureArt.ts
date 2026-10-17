@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { ClassId } from '../data/classes';
-import { css, mix, shade } from '../util/color';
+import { css, hueShift, mix, shade } from '../util/color';
 import { type Ctx, ell, newCanvas, smooth } from '../util/canvas';
 import { mulberry32 } from '../util/math';
 import { eye, ivory, skin, tooth } from './paint';
@@ -46,6 +46,12 @@ export interface Morph {
   light?: number;
   /** Bodenkontakt: fleischige Stützflossen (Fisch) bzw. kräftigere Beine */
   limb?: number;
+  /** Flossengröße, Schwanzbreite, Rückenflosse/Kamm: -1 klein … +1 groß */
+  fin?: number;
+  tail?: number;
+  crest?: number;
+  /** leicht verschobener Farbton (-1 … +1) */
+  tint?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -74,12 +80,16 @@ export function quantize(m: Morph): Morph {
     fang: q(m.fang ?? 0, 0.2),
     light: q(m.light ?? 0, 0.2),
     limb: q(m.limb ?? 0, 0.2),
+    fin: q(m.fin ?? 0, 0.25),
+    tail: q(m.tail ?? 0, 0.25),
+    crest: q(m.crest ?? 0, 0.25),
+    tint: q(m.tint ?? 0, 0.2),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint].join('_');
 }
 
 interface Pal {
@@ -99,7 +109,10 @@ const LINEAGE: Pal[] = [
 ];
 
 function palette(m: Morph): Pal {
-  const p = LINEAGE[m.hue % LINEAGE.length];
+  const p0 = LINEAGE[m.hue % LINEAGE.length];
+  // jede Linie kann im Farbton etwas abweichen
+  const hs = (m.tint ?? 0) * 34;
+  const p: Pal = { ...p0, base: hueShift(p0.base, hs), camo: hueShift(p0.camo, hs), fin: hueShift(p0.fin, hs * 1.3), belly: hueShift(p0.belly, hs * 0.5) };
   const st = m.stealth;
   const male = m.sex === 1;
   // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
@@ -255,7 +268,9 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const r = mulberry32(m.seed + 3);
   // Rückenflosse / Rückenkamm hinter dem Körper
   if (m.cls === 'fish') {
-    const k = 1 + 0.6 * st;
+    // Rückenflosse (crest) und Afterflosse (fin) – bei jeder Linie etwas anders groß
+    const k = (1 + 0.6 * st) * (1 + 0.5 * (m.crest ?? 0));
+    const ka = (1 + 0.6 * st) * (1 + 0.4 * (m.fin ?? 0));
     ctx.beginPath();
     ctx.moveTo(bw * 0.16, -bh * 0.5);
     ctx.bezierCurveTo(bw * 0.06, -bh * 0.5 - 12 * k, -bw * 0.06, -bh * 0.55 - 13 * k, -bw * 0.16, -bh * 0.52 - 10 * k);
@@ -264,22 +279,37 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     finFill(ctx, P, -bh * 0.5 - 13 * k, -bh * 0.4);
     ctx.beginPath();
     ctx.moveTo(-bw * 0.18, bh * 0.4);
-    ctx.quadraticCurveTo(-bw * 0.28, bh * 0.5 + 9 * k, -bw * 0.38, bh * 0.46 + 6 * k);
+    ctx.quadraticCurveTo(-bw * 0.28, bh * 0.5 + 9 * ka, -bw * 0.38, bh * 0.46 + 6 * ka);
     ctx.quadraticCurveTo(-bw * 0.36, bh * 0.32, -bw * 0.34, bh * 0.26);
     ctx.closePath();
-    finFill(ctx, P, bh * 0.3, bh * 0.5 + 9 * k);
+    finFill(ctx, P, bh * 0.3, bh * 0.5 + 9 * ka);
     // Bauchflosse: wer sich oft am Grund abstützt, bekommt einen fleischigen Stiel
     const lb = m.limb ?? 0;
     if (lb > 0.1) lobe(ctx, m, P, -bw * 0.04, bh * 0.36, 7 + 9 * lb, 3 + 3 * lb, 1.1);
   }
+  const cr = m.crest ?? 0;
+  if (m.cls === 'amphibian' && cr > 0.1) {
+    // Rückenkamm wie bei einem Molch
+    const hgt = 3 + 7 * cr;
+    ctx.beginPath();
+    ctx.moveTo(bw * 0.3, -bh * 0.42);
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      ctx.lineTo(bw * 0.3 - t * bw * 0.78, -bh * 0.48 - hgt * Math.sin(t * Math.PI) * (i % 2 ? 0.75 : 1));
+    }
+    ctx.lineTo(-bw * 0.48, -bh * 0.2);
+    ctx.closePath();
+    finFill(ctx, P, -bh * 0.5 - hgt, -bh * 0.4);
+  }
   if (m.cls === 'reptile' || (m.cls === 'mammal' && m.skull > 0.6)) {
-    // kleine Rückenhöcker
+    // kleine Rückenhöcker (bei manchen Linien größer, bei anderen kaum zu sehen)
     const n = 9;
+    const ck = Math.max(0.35, 1 + 0.6 * cr);
     for (let i = 0; i < n; i++) {
       const t = i / (n - 1);
       const x = bw * 0.3 - t * bw * 0.72;
       const y = -bh * 0.52 + Math.abs(t - 0.4) * bh * 0.22;
-      ell(ctx, x, y, 3.2, 2.6 + m.skull * 1.5);
+      ell(ctx, x, y, 3.2 * ck, (2.6 + m.skull * 1.5) * ck);
       ctx.fillStyle = css(shade(P.base, -0.35));
       ctx.fill();
     }
@@ -863,8 +893,8 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
-    const sw = 1 + 0.35 * (m.swift ?? 0);
-    const lobe = (16 + 16 * st) * sw, fork = 3 + 11 * st, spread = (13 + 9 * st) * sw;
+    const sw = 1 + 0.35 * (m.swift ?? 0), tw = m.tail ?? 0;
+    const lobe = (16 + 16 * st) * sw * (1 + 0.15 * tw), fork = 3 + 11 * st, spread = (13 + 9 * st) * sw * (1 + 0.4 * tw);
     ctx.beginPath();
     ctx.moveTo(-4, -4);
     ctx.quadraticCurveTo(-lobe * 0.4, -spread * 0.6, -lobe, -spread);
@@ -893,7 +923,7 @@ function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     return;
   }
   const len = m.cls === 'amphibian' ? 46 * (1 + 0.3 * st) : m.cls === 'reptile' ? 56 * (1 + 0.35 * st) : 30 * (1 + 0.45 * st);
-  const baseH = g.bh * (m.cls === 'mammal' ? 0.32 : 0.5);
+  const baseH = g.bh * (m.cls === 'mammal' ? 0.32 : 0.5) * (1 + 0.25 * (m.tail ?? 0));
   const tipY = m.cls === 'mammal' ? -6 : -2;
   const tailLine = () => {
     ctx.beginPath();
@@ -907,7 +937,7 @@ function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   };
   if (m.cls === 'amphibian') {
     // Flossensaum, wird mit der Zeit schmaler
-    const fh = 5 * (1 - 0.5 * st);
+    const fh = 5 * (1 - 0.5 * st) * (1 + 0.6 * (m.tail ?? 0));
     ctx.beginPath();
     ctx.moveTo(2, -baseH / 2);
     ctx.quadraticCurveTo(-len * 0.5, -baseH / 2 - fh * 1.6, -len, tipY - 1);
@@ -1066,10 +1096,10 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
   const lb = m.limb ?? 0;
   if (lb > 0.1) {
     // Brustflosse mit kräftigem Stiel – damit stützt sich der Fisch am Grund ab
-    lobe(ctx, m, P, 0, 0, 8 + 10 * lb, 3 + 3.2 * lb, 2.4);
+    lobe(ctx, m, P, 0, 0, (8 + 10 * lb) * (1 + 0.2 * (m.fin ?? 0)), 3 + 3.2 * lb, 2.4);
     return;
   }
-  const k = 1 + 0.5 * m.stealth;
+  const k = (1 + 0.5 * m.stealth) * (1 + 0.4 * (m.fin ?? 0));
   ctx.beginPath();
   ctx.moveTo(1, -2.5);
   ctx.quadraticCurveTo(-5 * k, 9 * k, -14 * k, 10 * k);

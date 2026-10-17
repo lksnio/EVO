@@ -307,10 +307,10 @@ export class GenerationScene extends Phaser.Scene {
       c.g.lineStyle(on ? 3 : c.hover ? 2 : 1.5, on ? 0xe0a848 : c.hover ? 0xb08a58 : 0x5a4a34, on ? 1 : 0.7);
       c.g.strokeRoundedRect(c.x, c.y, c.w, c.h, 14);
       if (!on) {
-        c.g.fillStyle(0x050403, c.hover ? 0.08 : 0.2);
+        c.g.fillStyle(0x050403, c.hover ? 0.05 : 0.12);
         c.g.fillRoundedRect(c.x, c.y, c.w, c.h, 14);
       }
-      c.v.setShade(on || c.hover ? null : 0xb4b4b4);
+      c.v.setShade(on || c.hover ? null : 0xcacaca);
       this.tweens.killTweensOf([c.glow, c.beam]);
       this.tweens.add({ targets: c.glow, alpha: on ? 0.22 : 0, duration: 260 });
       this.tweens.add({ targets: c.beam, alpha: on ? 0.16 : 0, duration: 260 });

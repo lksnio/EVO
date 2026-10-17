@@ -246,11 +246,12 @@ function genLand(ep: EpochDef, r: Rng): LevelData {
 
 function genWater(ep: EpochDef, r: Rng): LevelData {
   const { cols, side, center } = zoneCols(ep);
-  const rows = 22;
+  // das Meer ist tief: Unten wird es dunkel, oben fällt das Licht herein
+  const rows = 31;
   const L = base(ep, 'water', cols * T, rows * T);
   const zoneAt = makeZones(L, ep);
   const covered = ep.dark || ep.cave;
-  let floor = 19;
+  let floor = 27;
   const heights: Heights = new Array(cols).fill(floor);
   const kinds = ep.reef ? ['rock', 'shell', 'seaweed', 'coral', 'coral', 'sponge', 'anemone'] : DECOR.ozean;
   const startCol = side + Math.floor(center * 0.4);
@@ -285,18 +286,18 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   while (x < cols - 10) {
     const seg = rint(r, 5, 10);
     const nearStart = x >= startCol - 5 && x < startCol + 5;
-    if (!nearStart && r() < 0.5) floor = Math.max(16, Math.min(20, floor + pick(r, [-1, 1, 2, -2])));
+    if (!nearStart && r() < 0.5) floor = Math.max(24, Math.min(29, floor + pick(r, [-1, 1, 2, -2])));
     floorSeg(x, seg, floor);
     if (covered) ceilSeg(x, seg);
     if (!nearStart && r() < 0.28) {
       const px = x + rint(r, 1, seg - 2);
-      const top = floor - rint(r, 3, 7);
+      const top = floor - rint(r, 3, 9);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
       if (r() < ep.plants * zoneAt(px).plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: plantVariant(r) });
     }
     if (!nearStart && r() < 0.18) {
       const rw = rint(r, 2, 4);
-      const ry = rint(r, 6, 11);
+      const ry = rint(r, 8, floor - 6);
       L.solids.push({ x: (x + 1) * T, y: ry * T, w: rw * T, h: T });
     }
     x += seg;
@@ -305,7 +306,7 @@ function genWater(ep: EpochDef, r: Rng): LevelData {
   if (covered) ceilSeg(x, cols - x);
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
-  L.start = { x: (startCol + 0.5) * T, y: 9 * T };
+  L.start = { x: (startCol + 0.5) * T, y: 12 * T };
   if (ep.caves && !covered) addCaves(L, ep.caves + 2, r, cols, heights, startCol);
   addCrevices(L, 3, r, cols, heights, startCol);
   addCurrents(L, r, cols, heights, startCol);

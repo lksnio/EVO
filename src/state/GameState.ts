@@ -66,25 +66,31 @@ export interface Traits {
   limb: number;
   /** Rudeltier: Artgenossen helfen öfter (und wollen mitfressen) */
   pack: number;
+  /** Flossengröße, Schwanzbreite, Rückenflosse/Kamm (-1 … +1) – ändern sich vor allem durch die Wahl des Nachwuchses */
+  fin: number;
+  tail: number;
+  crest: number;
+  /** Farbton (-1 … +1) */
+  tint: number;
 }
 
 export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand' | 'digM' | 'digP' | 'nerve' | 'tox' | 'fang' | 'limb' | 'pack';
 
 /** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (zählt für die Vielfalt des Nachwuchses). */
 export const FOOD = {
-  meat: { sat: 12, kcal: 14 },
-  plant: { sat: 4, kcal: 4 },
-  toxic: { sat: 3, kcal: 6 },
+  meat: { sat: 6, kcal: 7 },
+  plant: { sat: 2, kcal: 2 },
+  toxic: { sat: 1.5, kcal: 3 },
 };
 
 /** Wie viel in den Magen passt – größere Tiere fassen mehr (verbrauchen aber auch mehr). */
 export const maxSatiety = (size: number) => Math.round(100 * (0.7 + 0.45 * size));
 
-/** Hunger je Sekunde: in Ruhe wenig, beim Schwimmen bzw. Laufen deutlich mehr; Große brauchen mehr. */
-export const hungerRate = (size: number, speed01: number) => (0.3 + 0.6 * Math.min(1.5, speed01)) * Math.pow(size, 1.3);
+/** Hunger je Sekunde: auch in Ruhe spürbar, beim Schwimmen bzw. Laufen deutlich mehr; Große brauchen mehr. */
+export const hungerRate = (size: number, speed01: number) => (0.9 + 1.0 * Math.min(1.5, speed01)) * Math.pow(size, 1.3);
 
 /** Bezugsgröße für die Vielfalt des Nachwuchses: so viel frisst ein Tier, das gut über die Runden kommt. */
-export const fedRef = (ep: EpochDef, size: number) => 0.45 * ep.seconds * (0.85 + 0.3 * size);
+export const fedRef = (ep: EpochDef, size: number) => 0.7 * ep.seconds * (0.85 + 0.3 * size);
 
 export interface Stats {
   maxHp: number;
@@ -196,12 +202,15 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
 /** verborgene Anlagen – sie werden genauso weitervererbt, aber nirgends gezeigt */
 const HIDDEN = ['digM', 'digP', 'nerve', 'tox', 'fang', 'limb', 'pack'] as const;
+
+/** Richtungen, in die Nachkommen im Aussehen abweichen: Flossen, Schwanz, Rückenflosse (+ größer, - kleiner) */
+const LOOKS: [number, number, number][] = [[1, -1, 1], [-1, 1, -1], [1, 1, -1], [-1, -1, 1]];
 
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
 export function skillName(k: SkillKey, t: Partial<Traits>) {
@@ -452,6 +461,10 @@ class GameState {
       fang: t.fang ?? 0,
       light: t.light ?? 0,
       limb: t.limb ?? 0,
+      fin: t.fin ?? 0,
+      tail: t.tail ?? 0,
+      crest: t.crest ?? 0,
+      tint: t.tint ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -492,6 +505,10 @@ class GameState {
       light: g(t.light ?? 0, 0.15),
       limb: j(t.limb ?? 0, 0.06),
       pack: t.pack ?? 0,
+      fin: g(t.fin ?? 0, 0.25),
+      tail: g(t.tail ?? 0, 0.25),
+      crest: g(t.crest ?? 0, 0.25),
+      tint: g(t.tint ?? 0, 0.15),
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -567,7 +584,7 @@ class GameState {
     main.diet = clamp(end.diet + (end.diet - start.diet) * k * 0.6 + (ate - end.diet) * 0.15, -1, 1);
     main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 0);
     // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
-    for (const g of ['len', 'girth', 'swift', 'light'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
+    for (const g of ['len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
     // Vielfalt: wer gerade so satt wurde, bekommt ähnliche Nachkommen – wer viel gefressen hat, sehr verschiedene
     const spread = clamp(0.35 + 0.55 * fed, 0.6, 2);
     const earned = SKILLS.filter((key) => end[key] - start[key] > 0.012).sort((a, b) => end[b] - start[b] - (end[a] - start[a]));
@@ -590,6 +607,14 @@ class GameState {
       for (const g of ['len', 'girth', 'swift'] as const) if (g !== b) t[g] = clamp(t[g] + (rnd() - 0.5) * 0.36 * spread, -1, 1);
       for (const h of HIDDEN) t[h] = clamp(t[h] + (rnd() - 0.4) * 0.08 * spread, 0, 1);
       t.light = clamp(t.light + (rnd() - 0.5) * 0.5 * spread, -1, 1);
+      // Aussehen in verschiedene Richtungen: mal größere Flossen und ein schmalerer Schwanz, mal ein
+      // breiter Schwanz und eine kleine Rückenflosse … – jeder Nachkomme anders, dazu ein etwas anderer Farbton
+      const look = LOOKS[(i - 1 + bodyOff) % LOOKS.length];
+      const amt = () => (0.28 + 0.2 * rnd()) * spread;
+      t.fin = clamp(t.fin + look[0] * amt(), -1, 1);
+      t.tail = clamp(t.tail + look[1] * amt(), -1, 1);
+      t.crest = clamp(t.crest + look[2] * amt(), -1, 1);
+      t.tint = clamp(t.tint + (rnd() - 0.5) * 0.7 * spread, -1, 1);
       t.diet = clamp(t.diet + (rnd() - 0.5) * 0.25 * spread + ate * 0.12, -1, 1);
       const sex: Sex = (run.sex + i) % 2 ? 1 : 2;
       // nicht alle gleich groß: Männchen etwas größer, dazu etwas Streuung
@@ -647,7 +672,7 @@ class GameState {
   }
 
   /** Körperbau verschiebt sich (wer viel und schnell schwimmt, wird länglicher) */
-  shiftBody(k: 'len' | 'girth' | 'swift', amount: number) {
+  shiftBody(k: 'len' | 'girth' | 'swift' | 'fin' | 'tail' | 'crest', amount: number) {
     const t = this.r.traits;
     t[k] = clamp((t[k] ?? 0) + amount, -1, 1);
   }

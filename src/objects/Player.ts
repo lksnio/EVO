@@ -61,6 +61,8 @@ export class Player {
   /** stützt sich am Grund ab und läuft dort entlang (im Wasser) */
   bottomWalk = false;
   private boostUntil = 0;
+  /** kurzer Vorstoß beim Beißen */
+  private lungeUntil = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
@@ -165,7 +167,7 @@ export class Player {
       this.syncView(dt, 'idle', 0);
       return;
     }
-    const knocked = time < this.knockUntil;
+    const knocked = time < this.knockUntil || time < this.lungeUntil;
     const dir = (c.held.right ? 1 : 0) - (c.held.left ? 1 : 0);
     // Sprint: hält nur kurz, erholt sich langsam
     const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
@@ -243,9 +245,15 @@ export class Player {
 
     // Beißen (und Fressen)
     if (c.pressed.bite && time >= this.biteReady) {
-      this.biteReady = time + 320;
+      this.biteReady = time + 380;
       this.view.bite();
       audio.sfx('bite', game.traits.jaw);
+      // mit dem ganzen Körper nach vorn schnellen
+      if (!knocked) {
+        const v = this.stats.speed * (0.75 + 0.35 * game.traits.jaw);
+        this.body.setVelocityX(this.facing * Math.max(Math.abs(this.body.velocity.x), v));
+        this.lungeUntil = time + 110;
+      }
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect()));
     }
     this.view.headTilt = time < this.ramUntil ? 0.42 : this.sprinting ? 0.18 : 0;

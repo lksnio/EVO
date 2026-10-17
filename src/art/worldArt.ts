@@ -7,7 +7,7 @@ import { W, H } from '../config';
 import { noiseTex, pattern } from './paint';
 
 /** Größe der Fleischstücke (Breite, Höhe in Pixeln): klein, mittel, groß */
-export const MEAT_SIZES: [number, number][] = [[24, 18], [36, 26], [52, 36]];
+export const MEAT_SIZES: [number, number][] = [[32, 22], [42, 29], [56, 38]];
 
 // ---------------------------------------------------------------------------
 // Hilfen
@@ -1906,92 +1906,104 @@ export function commonTextures(scene: Phaser.Scene) {
       ctx.fill();
     }
   });
-  // Saftige Fleischstücke, die erlegte Tiere hinterlassen (klein, mittel, groß) – doppelt aufgelöst
+  // Fleisch wie in E.V.O.: eine saftige Keule mit Knochen – vorn der Anschnitt (rosa, marmoriert, mit
+  // Fettrand), hinten die gebräunte Seite. Klein, mittel, groß; doppelt aufgelöst.
   MEAT_SIZES.forEach(([w, h], size) => {
     tex(scene, `meat_${size}`, w * 2, h * 2, (ctx) => {
       ctx.scale(2, 2);
-      const r = mulberry32(57 + size * 13);
-      const cx = w * 0.5 - (size ? w * 0.06 : 0), cy = h * 0.54;
-      const rx = w * (size ? 0.36 : 0.42), ry = h * 0.36;
-      // Knochen (bei größeren Stücken) schaut seitlich heraus
-      if (size > 0) {
-        const bx = cx + rx * 0.7, by = cy - ry * 0.15, bl = w * 0.3, bt = h * 0.11;
+      const r = mulberry32(71 + size * 7);
+      const fx = w * 0.34, fy = h * 0.53, frx = w * 0.17, fry = h * 0.4;
+      const ex = w * 0.84, ery = fry * 0.62;
+      // Knochen: Schaft mit zwei runden Gelenkköpfen am Ende (erst dunkel umranden, dann füllen)
+      const bone = (x0: number, y0: number, x1: number, y1: number, t: number, knob: number) => {
+        const a = Math.atan2(y1 - y0, x1 - x0), len = Math.hypot(x1 - x0, y1 - y0);
         ctx.save();
-        ctx.translate(bx, by);
-        ctx.rotate(-0.35);
-        ctx.beginPath();
-        ctx.moveTo(0, -bt);
-        ctx.lineTo(bl, -bt * 0.8);
-        ctx.arc(bl + bt * 0.6, -bt * 0.9, bt * 0.85, Math.PI * 0.9, Math.PI * 0.1, false);
-        ctx.arc(bl + bt * 0.6, bt * 0.9, bt * 0.85, -Math.PI * 0.1, -Math.PI * 0.9, false);
-        ctx.lineTo(0, bt);
-        ctx.closePath();
-        const bg = ctx.createLinearGradient(0, -bt * 2, 0, bt * 2);
-        bg.addColorStop(0, '#fbf3e2');
-        bg.addColorStop(1, '#bfae8e');
-        fillStroke(ctx, bg, '#3a2a1a', 0.9);
-        ctx.restore();
-      }
-      // das Fleisch: rund, prall, mit Fett-Marmorierung und feuchtem Glanz
-      blob(ctx, r, cx, cy, rx, ry, 10);
-      fillStroke(ctx, rgrad(ctx, cx - rx * 0.25, cy - ry * 0.3, 1, Math.max(rx, ry) * 1.25, [[0, '#ff8a7c'], [0.35, '#e4434a'], [0.75, '#a81a26'], [1, '#5a0a10']]), '#2e0406', 1.1);
-      ctx.save();
-      blob(ctx, mulberry32(57 + size * 13), cx, cy, rx, ry, 10);
-      ctx.clip();
-      // Fettadern
-      ctx.strokeStyle = 'rgba(255,226,214,.75)';
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 2 + size; i++) {
-        const y = cy - ry * 0.4 + i * ry * (0.75 / (1 + size * 0.5)) + r() * 2;
-        ctx.lineWidth = 0.9 + r() * 0.8 + size * 0.3;
-        ctx.beginPath();
-        ctx.moveTo(cx - rx * 0.8, y + r() * 2);
-        ctx.bezierCurveTo(cx - rx * 0.3, y - 3 - r() * 2, cx + rx * 0.2, y + 3 + r() * 2, cx + rx * 0.85, y - 1);
+        ctx.translate(x0, y0);
+        ctx.rotate(a);
+        const kx = len + knob * 0.3;
+        const path = () => {
+          ctx.beginPath();
+          ctx.rect(0, -t, kx, t * 2);
+          for (const sy of [-1, 1]) {
+            ctx.moveTo(kx + knob * 0.62, sy * knob * 0.52);
+            ctx.arc(kx, sy * knob * 0.52, knob * 0.62, 0, Math.PI * 2);
+          }
+        };
+        path();
+        ctx.strokeStyle = '#2a1a0e';
+        ctx.lineWidth = 2;
         ctx.stroke();
-      }
-      // dunkler Rand unten, Glanzlicht oben
-      const sh = ctx.createLinearGradient(0, cy, 0, cy + ry * 1.2);
-      sh.addColorStop(0, 'rgba(60,0,6,0)');
-      sh.addColorStop(1, 'rgba(60,0,6,.55)');
-      ctx.fillStyle = sh;
-      ctx.fillRect(cx - rx * 1.5, cy, rx * 3, ry * 1.5);
-      ctx.restore();
-      ell(ctx, cx - rx * 0.32, cy - ry * 0.45, rx * 0.34, ry * 0.2, -0.25);
-      ctx.fillStyle = 'rgba(255,250,244,.6)';
-      ctx.fill();
-      ell(ctx, cx - rx * 0.05, cy - ry * 0.55, rx * 0.08, ry * 0.08);
-      ctx.fillStyle = 'rgba(255,255,255,.85)';
-      ctx.fill();
-    });
-  });
-  // Zuschnappende Zahnreihe beim Biss (oben; unten gespiegelt) – mit großen Reißzähnen bei starkem Gebiss
-  [0, 1].forEach((v) => {
-    tex(scene, `chomp_${v}`, 64, 28, (ctx) => {
-      const arc = (x: number) => 5 + Math.pow((x - 32) / 30, 2) * 7;
+        path();
+        const g = ctx.createLinearGradient(0, -knob * 1.2, 0, knob * 1.2);
+        g.addColorStop(0, '#fffaf0');
+        g.addColorStop(0.55, '#ece2cc');
+        g.addColorStop(1, '#ab9b7c');
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(1, -t * 0.45);
+        ctx.lineTo(kx - knob * 0.2, -t * 0.45);
+        ctx.strokeStyle = 'rgba(255,255,255,.7)';
+        ctx.lineWidth = Math.max(0.6, t * 0.35);
+        ctx.stroke();
+        ctx.restore();
+      };
+      // hinterer Knochen (schaut rechts unten heraus)
+      bone(ex - 2, fy + ery * 0.25, w * 0.9, fy + ery * 0.5, h * 0.06, h * 0.11);
+      // die Keule: vorn breit (Anschnitt), nach hinten schmaler und abgerundet
       ctx.beginPath();
-      ctx.moveTo(2, arc(2));
-      for (let x = 4; x <= 62; x += 2) ctx.lineTo(x, arc(x));
-      ctx.strokeStyle = 'rgba(150,40,36,.85)';
-      ctx.lineWidth = 3;
+      ctx.moveTo(fx, fy - fry);
+      ctx.bezierCurveTo(fx + (ex - fx) * 0.45, fy - fry * 1.02, ex - w * 0.04, fy - ery * 1.05, ex, fy - ery * 0.55);
+      ctx.quadraticCurveTo(ex + w * 0.08, fy, ex, fy + ery * 0.6);
+      ctx.bezierCurveTo(ex - w * 0.04, fy + ery * 1.1, fx + (ex - fx) * 0.45, fy + fry * 1.04, fx, fy + fry);
+      ctx.closePath();
+      const sk = ctx.createLinearGradient(0, fy - fry, 0, fy + fry);
+      sk.addColorStop(0, '#d8664a');
+      sk.addColorStop(0.3, '#b8422e');
+      sk.addColorStop(0.75, '#8a2a1c');
+      sk.addColorStop(1, '#4e140c');
+      fillStroke(ctx, sk, '#2a0c06', 1.1);
+      // Glanzstreifen und ein paar Poren auf der Haut
+      ctx.save();
+      ctx.clip();
+      ctx.beginPath();
+      ctx.moveTo(fx + frx * 0.5, fy - fry * 0.62);
+      ctx.bezierCurveTo(fx + (ex - fx) * 0.5, fy - fry * 0.78, ex - w * 0.1, fy - ery * 0.8, ex - w * 0.03, fy - ery * 0.4);
+      ctx.strokeStyle = 'rgba(255,214,190,.55)';
+      ctx.lineWidth = Math.max(1.4, h * 0.07);
       ctx.lineCap = 'round';
       ctx.stroke();
-      const n = v ? 6 : 8;
-      for (let i = 0; i < n; i++) {
-        const x = 6 + (i + 0.5) * (52 / n);
-        const fang = v === 1 && (i === 1 || i === n - 2);
-        const len = fang ? 19 : v ? 10 : 8;
-        const w = fang ? 6 : 4.2;
-        const y = arc(x) + 1;
-        ctx.beginPath();
-        ctx.moveTo(x - w / 2, y);
-        ctx.quadraticCurveTo(x - w * 0.2, y + len * 0.7, x + w * 0.1, y + len);
-        ctx.quadraticCurveTo(x + w * 0.35, y + len * 0.5, x + w / 2, y);
-        ctx.closePath();
-        const g = ctx.createLinearGradient(0, y, 0, y + len);
-        g.addColorStop(0, '#fff8ea');
-        g.addColorStop(1, '#d8ccb0');
-        fillStroke(ctx, g, 'rgba(30,18,10,.85)', 1);
+      for (let i = 0; i < 6 + size * 4; i++) {
+        ell(ctx, fx + frx + r() * (ex - fx - frx), fy - fry * 0.2 + r() * fry, 0.5, 0.5);
+        ctx.fillStyle = 'rgba(60,10,4,.45)';
+        ctx.fill();
       }
+      ctx.restore();
+      // Anschnitt: Fettrand, darin rosa Fleisch mit Fettadern
+      ell(ctx, fx, fy, frx, fry);
+      fillStroke(ctx, '#f4e6d2', '#2a0c06', 1.1);
+      ell(ctx, fx + frx * 0.05, fy + fry * 0.04, frx * 0.82, fry * 0.84);
+      ctx.fillStyle = rgrad(ctx, fx - frx * 0.2, fy - fry * 0.3, 1, fry * 1.1, [[0, '#f6a2a0'], [0.6, '#e2706e'], [1, '#c4484a']]);
+      ctx.fill();
+      ctx.save();
+      ell(ctx, fx + frx * 0.05, fy + fry * 0.04, frx * 0.82, fry * 0.84);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,240,232,.8)';
+      ctx.lineWidth = 0.7 + size * 0.2;
+      for (let i = 0; i < 4 + size * 2; i++) {
+        const y0 = fy - fry + r() * fry * 2;
+        ctx.beginPath();
+        ctx.moveTo(fx - frx, y0);
+        ctx.bezierCurveTo(fx - frx * 0.3, y0 + (r() - 0.5) * fry * 0.8, fx + frx * 0.3, y0 + (r() - 0.5) * fry * 0.8, fx + frx, y0 + (r() - 0.5) * fry * 0.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+      // vorderer Knochen: groß, schräg nach oben aus dem Anschnitt
+      bone(fx + frx * 0.1, fy - fry * 0.05, w * 0.14, h * 0.26, h * 0.08, h * 0.14);
+      // Glanzpunkt
+      ell(ctx, fx + (ex - fx) * 0.45, fy - fry * 0.55, w * 0.06, h * 0.035, -0.1);
+      ctx.fillStyle = 'rgba(255,246,236,.7)';
+      ctx.fill();
     });
   });
   // Blut an der Schnauze

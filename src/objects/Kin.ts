@@ -341,19 +341,6 @@ export class Kin extends Animal {
     if (m.kill.fed.has(this)) this.view.showMeat(2000);
   }
 
-  private nearCover(range: number): Rect | null {
-    let best: Rect | null = null;
-    let bd = range;
-    for (const c of this.world.cover) {
-      const d = Math.hypot(c.x + c.w / 2 - this.x, c.y + c.h / 2 - this.y);
-      if (d < bd) {
-        bd = d;
-        best = c;
-      }
-    }
-    return best;
-  }
-
   private coverY(c: Rect) {
     return this.world.water ? c.y + c.h * 0.6 : this.y;
   }

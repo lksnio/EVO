@@ -387,6 +387,8 @@ export class AudioEngine {
         this.noise({ d: 0.06, v: 0.12, filter: 700, f2: 1800, type: 'bandpass', q: 1 });
         this.noise({ t: 0.07, d: 0.035, v: 0.32 + 0.15 * k, filter: 3600 - 1400 * k, type: 'bandpass', q: 2.2 });
         this.tone({ t: 0.07, f: 260 - 90 * k, f2: 80 - 25 * k, d: 0.07 + 0.04 * k, type: 'square', v: 0.09 + 0.06 * k, filter: 900 });
+        // Knirschen: die Kiefer mahlen noch ein paar Mal aufeinander
+        for (let i = 0; i < 3; i++) this.noise({ t: 0.15 + i * 0.07, d: 0.045, v: (0.13 + 0.08 * k) * (1 - i * 0.25), filter: 1700 - 500 * k + i * 150, type: 'bandpass', q: 4 });
         break;
       case 'crunch':
         // Zähne treffen Fleisch: dumpfer Schlag und Knacken

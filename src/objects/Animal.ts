@@ -108,6 +108,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** Artgenossen des Spielers, die mitgekämpft haben (wollen später mitfressen) */
   helpers = new Set<Animal>();
   protected snackAt = 0;
+  /** satt: ruht bis dahin (am Meeresgrund bzw. am Boden) */
+  protected restUntil = 0;
+  protected nextRestAt = Math.random() * 6000;
+  protected restY = 0;
+  /** Beute: bleibt bis dahin im Versteck */
+  protected hideUntil = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -253,7 +259,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.threatObj && this.threatObj !== this.world.player && this.threatObj.dead) this.threatObj = null;
     this.t += dt;
     this.stT += dt;
-    this.hunger = Math.min(1, this.hunger + dt * (this.def.diet === 'meat' ? 0.012 : 0.009));
+    // Jäger werden nur langsam wieder hungrig – sie jagen nicht den ganzen Tag
+    const hr = this.role === 'apex' ? 0.005 : this.role === 'predator' ? 0.006 : 0.009;
+    this.hunger = Math.min(1, this.hunger + dt * hr);
     if (time < this.stunUntil) {
       this.b.setVelocityX(this.b.velocity.x * 0.92);
       if (this.swims || this.flies) this.b.setVelocityY(this.b.velocity.y * 0.92);
@@ -314,7 +322,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const friend = this.ally || this.kin;
     if (this.visitor) this.hunger = 1;
     const feeding = this.st === 'graze';
-    let seen = !p.dead && role !== 'hazard' && dp < d.sense * W.detectFactor(this) * (feeding ? 0.7 : 1);
+    const resting = this.st === 'rest';
+    // Wer ruht, wacht auf, wenn er angegriffen wird oder wieder Hunger hat
+    if (resting && (time - this.attackedAt < 3000 || this.hunger > 0.72)) {
+      this.restUntil = 0;
+      this.go('wander');
+    }
+    let seen = !p.dead && role !== 'hazard' && dp < d.sense * W.detectFactor(this) * (feeding ? 0.7 : 1) * (this.st === 'rest' ? 0.4 : 1);
     // Wer nur durchzieht, übersieht ein verstecktes Tier fast immer
     if (this.visitor && p.hidden && dp > 70) seen = false;
     if (this.visitor && time < this.visitor.boredUntil) seen = false;
@@ -353,7 +367,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if ((friend && (a.ally || a.kin)) || (this.kin && a.kin)) continue;
       const da = this.dist(a);
       if (da > d.sense || da >= threatD) continue;
-      if (role === 'prey' && (a.role === 'predator' || a.role === 'apex') && !a.ally && da < d.sense * 0.75) {
+      // Beute flieht früh vor Jägern – außer sie liegen satt und ruhig am Grund
+      if (role === 'prey' && (a.role === 'predator' || a.role === 'apex') && !a.ally && (a.st === 'rest' ? da < 110 : da < d.sense * 0.95)) {
         threat = a;
         threatD = da;
       } else if (role === 'predator' && a.role === 'apex' && a.def.power > d.power * 1.5 && da < 260) {
@@ -381,7 +396,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (role === 'predator' || role === 'apex') {
       let best: Target | null = null;
       let bd = Infinity;
-      const hungry = role === 'apex' || this.hunger > 0.35;
+      // gejagt wird erst mit Hunger (der Endgegner und Durchzügler sind immer hungrig)
+      const hungry = this.boss || !!this.visitor || this.hunger > (role === 'apex' ? 0.62 : 0.5);
       // Wer Aas in der Nähe hat, frisst lieber, als zu kämpfen
       const scavenging = !!meatNear && this.hunger > 0.3 && !attackedByPlayer && !this.visitor;
       if (this.ally) {
@@ -449,9 +465,25 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (role === 'defender') return this.thinkDefender(time);
     if (role === 'apex') return this.thinkApex(time, dt);
 
+    this.hiddenNow = false;
     if (this.threatObj) {
-      if (this.st !== 'flee' && role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');
-      this.go('flee');
+      if (this.st !== 'flee' && this.st !== 'hide' && role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');
+      if (this.st !== 'hide') this.go('flee');
+    }
+    // Beute: ins Dickicht, in eine Höhle oder Felsspalte – und dort still bleiben, bis die Gefahr vorbei ist
+    if (role === 'prey' && (this.st === 'flee' || this.st === 'hide')) {
+      if (this.threatObj) this.hideUntil = time + 2500;
+      const c = time < this.hideUntil ? this.nearCover(300) : null;
+      if (c) {
+        if (this.st !== 'hide') this.go('hide');
+        const cx = c.x + c.w / 2, cy = this.swims ? c.y + c.h * 0.6 : this.y;
+        if (this.x > c.x + 6 && this.x < c.x + c.w - 6 && (!this.swims || (this.y > c.y && this.y < c.y + c.h + 10))) {
+          this.hiddenNow = true;
+          this.halt();
+        } else this.moveTo(cx, cy, this.def.speed * (this.def.sprint ?? 1.3), true);
+        return;
+      }
+      if (this.st === 'hide') this.go(this.threatObj ? 'flee' : 'wander');
     }
     if (this.st === 'flee') {
       const th = this.threatObj;
@@ -483,7 +515,55 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     if (this.food) return this.eatFood(time);
     if (this.ally) return this.followPlayer(time, 160, 300);
+    if (this.wantsRest(time)) return this.restOnGround(time);
     this.wander(time);
+  }
+
+  /** Satte Jäger ruhen oft – am Meeresgrund bzw. am Boden. */
+  protected wantsRest(time: number) {
+    if ((this.role !== 'predator' && this.role !== 'apex') || this.visitor || this.boss || this.flies || this.kin) return false;
+    if (this.st === 'rest') return time < this.restUntil;
+    return this.hunger < 0.45 && time > this.nextRestAt;
+  }
+
+  protected restOnGround(time: number) {
+    if (this.st !== 'rest') {
+      this.go('rest');
+      this.restUntil = time + 14000 + Math.random() * 22000;
+      this.restY = this.floorBelow();
+    }
+    if (this.swims) {
+      // hinabsinken bis knapp über den Grund, dann still liegen
+      const ty = this.restY - this.b.height * 0.5 - 2;
+      if (this.y < ty - 8) this.moveTo(this.x, ty, this.def.speed * 0.3);
+      else this.halt();
+    } else this.halt();
+    if (time > this.restUntil) {
+      this.go('wander');
+      this.nextRestAt = time + 6000 + Math.random() * 9000;
+    }
+  }
+
+  /** Höhe des Bodens unter dem Tier. */
+  protected floorBelow() {
+    const wb = this.world.physics.world.bounds;
+    let y = this.y;
+    while (y < wb.bottom && !this.world.solidAt(this.x, y + 4)) y += 12;
+    return Math.min(y, wb.bottom);
+  }
+
+  /** Das nächste Versteck (Dickicht, Höhle, Felsspalte). */
+  protected nearCover(range: number): Rect | null {
+    let best: Rect | null = null;
+    let bd = range;
+    for (const c of this.world.cover) {
+      const d = Math.hypot(c.x + c.w / 2 - this.x, c.y + c.h / 2 - this.y);
+      if (d < bd) {
+        bd = d;
+        best = c;
+      }
+    }
+    return best;
   }
 
   /** Verbündete halten sich in der Nähe des Spielers. */
@@ -621,6 +701,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     if (this.food && this.hunger > 0.5) return this.eatFood(time);
+    if (this.wantsRest(time)) return this.restOnGround(time);
     this.wander(time);
   }
 

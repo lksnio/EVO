@@ -229,25 +229,28 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.t += dt * slow;
     const t = this.t;
     const L = this.L;
-    // Biss: Maul weit aufreißen (Kopf holt kurz aus), vorstoßen und zuschnappen, dann festbeißen.
-    // Je stärker das Gebiss, desto weiter das Maul und desto wuchtiger der Stoß.
-    let open = 0, lunge = 0, clench = 0;
+    // Biss: Maul weit aufreißen (der Kopf holt kurz aus), vorstoßen und zuschnappen – dann knirschen
+    // die Kiefer ein paar Mal aufeinander, der Kopf rüttelt. Je stärker das Gebiss, desto weiter das Maul
+    // und desto wuchtiger Stoß und Knirschen.
+    let open = 0, lunge = 0, clench = 0, grind = 0;
     if (this.biteT >= 0) {
       this.biteT += dt;
       const b = this.biteT;
-      if (b < 0.08) {
-        open = b / 0.08;
-        lunge = -0.4 * open;
-      } else if (b < 0.13) {
-        const k = (b - 0.08) / 0.05;
+      if (b < 0.07) {
+        open = b / 0.07;
+        lunge = -0.35 * open;
+      } else if (b < 0.12) {
+        const k = (b - 0.07) / 0.05;
         open = 1 - k;
-        lunge = -0.4 + 1.4 * k;
+        lunge = -0.35 + 1.35 * k;
       } else {
-        const k = Math.min(1, (b - 0.13) / 0.2);
+        const k = Math.min(1, (b - 0.12) / 0.34);
         clench = 1 - k;
-        lunge = 1 - k;
+        lunge = 1 - k * k;
+        grind = Math.sin((b - 0.12) * 46) * (1 - k);
+        open = Math.max(0, grind) * 0.32;
       }
-      if (b > 0.33) this.biteT = -1;
+      if (b > 0.46) this.biteT = -1;
     }
     const J = this.m.jaw;
     let dip = 0;
@@ -264,10 +267,10 @@ export class CreatureView extends Phaser.GameObjects.Container {
       shake = Math.sin(this.shakeT * 30) * 0.18 * (1 - this.shakeT / 0.5);
       if (this.shakeT > 0.5) this.shakeT = -1;
     }
-    this.jaw.rotation = open * (0.95 + 0.45 * J) - clench * 0.08 + (mode === 'idle' ? Math.max(0, Math.sin(t * 1.3)) * 0.04 : 0);
-    this.headC.x = L.neck[0] + lunge * (2.5 + 3.5 * J) * L.s;
-    this.headC.setScale(1 + clench * (0.04 + 0.06 * J));
-    const biteTilt = -open * 0.14 + clench * 0.08;
+    this.jaw.rotation = open * (0.95 + 0.45 * J) - clench * 0.06 + (mode === 'idle' ? Math.max(0, Math.sin(t * 1.3)) * 0.04 : 0);
+    this.headC.x = L.neck[0] + lunge * (3 + 3 * J) * L.s;
+    this.headC.setScale(1 + clench * (0.05 + 0.07 * J));
+    const biteTilt = (this.biteT >= 0 && this.biteT < 0.12 ? -open * 0.16 : 0) + grind * (0.05 + 0.05 * J);
     const now = this.scene.time.now;
     if (this.meat) {
       const on = now < this.meatUntil;
