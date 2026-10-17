@@ -29,10 +29,12 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
     zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf. Beim Biss schnellt das Tier nach vorn, reißt das Maul auf, schnappt zu und knirscht mit den
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
-  - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell und halten Abstand. Wer aber
-    eine Weile ruhig und friedlich neben ihnen herschwimmt (nicht sprinten, nicht kämpfen), dem gegenüber
-    lassen sie ihre Deckung fallen: Dann reichen ein Stoß und ein, zwei Bisse – zu Beginn sind kleine
-    Fische mit zwei Bissen erledigt. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
+  - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell und schwimmen davon, sobald
+    man näher kommt. Wer lange ruhig in der Nähe bleibt (nicht sprinten, nicht kämpfen), kommt etwas
+    näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
+    zu Beginn sind kleine Fische mit zwei Bissen erledigt. Oder man **reizt einen großen Räuber**
+    (beißen, stoßen, frech nah heran) und schwimmt davon: Er verfolgt einen und reißt unterwegs alles,
+    was ihm vor das Maul kommt – bis man sich versteckt. Was er liegen lässt, kann man fressen. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
     man anfangs nur meiden; später gibt es vier Wege: ein **starkes Gebiss**, schnelle **Stöße und
     Ausweichen**, immer wieder aus dem **Hinterhalt** – oder man lässt sich **verfolgen, bis das Tier
     erschöpft ist**, und greift dann an (erschöpfte Tiere treiben langsam, schnappen nach Luft und
