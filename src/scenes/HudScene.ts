@@ -138,7 +138,7 @@ export class HudScene extends Phaser.Scene {
 
     const isTouch = (this.isTouch = this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
     let hint = HINTS[ep.id]?.[isTouch ? 1 : 0];
-    if (game.canRam) hint = (hint ? hint + '\n' : '') + (isTouch ? 'Rammen: Ramm-Knopf' : 'Rammen: R');
+    if (game.canRam && hint) hint += isTouch ? '\nStoß (betäubt kurz): Stoß-Knopf' : '\nStoß (betäubt kurz): R';
     if (hint) {
       const ht = text(this, W / 2, H - 70, hint, 21, UI.bone, { align: 'center', stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5).setAlpha(0);
       this.tweens.add({ targets: ht, alpha: 1, duration: 700, delay: 1200, hold: 7000, yoyo: true });
@@ -335,9 +335,8 @@ export class HudScene extends Phaser.Scene {
     head(rx, 'Fähigkeiten');
     const level = (v: number) => (v < 0.15 ? 'Anfänger' : v < 0.35 ? 'Geübt' : v < 0.6 ? 'Erfahren' : 'Meister');
     const skills = (['jaw', 'skull', 'stealth'] as SkillKey[]).filter((k) => t[k] >= 0.05);
-    if (!skills.length && !run.canRam) row(rx, 'Noch keine', '–');
+    if (!skills.length) row(rx, 'Noch keine', '–');
     for (const k of skills) row(rx, skillName(k, t), level(t[k]));
-    if (run.canRam) row(rx, 'Rammen', 'erlernt', true);
     head(rx, 'Nahrung');
     const fv = this.foodV;
     row(rx, 'Gefressen', `${Math.round(fv.meat + fv.plant)} kcal`);
@@ -449,7 +448,7 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     c.add([b1, b2]);
     c.add(text(this, bx, 420, 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.', 17, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
-    c.add(text(this, bx, 500, (game.canRam ? 'R: rammen  ·  ' : '') + 'C: Werte  ·  M: Ton  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
+    c.add(text(this, bx, 500, (game.canRam ? 'R: Stoß  ·  ' : '') + 'C: Werte  ·  M: Ton  ·  Esc: weiter', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
     this.pauseC = c;
     this.pauseNav = new MenuNav(this, [b1, b2]);
   }
@@ -490,11 +489,11 @@ export class HudScene extends Phaser.Scene {
     if (game.canRam) this.ramButton();
   }
 
-  /** Erst mit hartem Schädel: der Ramm-Knopf. */
+  /** Der Stoß-Knopf. */
   private ramButton() {
     if (this.ramBtn) return;
     this.ramBtn = true;
-    this.touchBtn(1195, 460, 44, 'Ramm', 'ram', 0xb89a70);
+    this.touchBtn(1195, 460, 44, 'Stoß', 'ram', 0xb89a70);
   }
 
   private touchBtn(x: number, y: number, r: number, label: string, key: keyof typeof touch, color = 0xe6dcc4) {

@@ -47,6 +47,12 @@ export interface World extends Phaser.Scene {
   bonded(a: Animal): void;
   /** Ein durchziehendes Tier hat den Lebensraum verlassen. */
   left(a: Animal): void;
+  /** Der Spieler schwimmt ruhig und friedlich (nicht schnell, hat eine Weile nicht gekämpft). */
+  playerCalm(): boolean;
+  /** Kampfkraft des Spielers (ohne Ruf und Gruppe). */
+  playerPower(): number;
+  /** Ein Tier ist erschöpft. */
+  tired(a: Animal): void;
 }
 
 export type St = 'wander' | 'idle' | 'graze' | 'flee' | 'hunt' | 'search' | 'warn' | 'charge' | 'rest' | 'cruise' | 'follow' | 'hide';
@@ -114,6 +120,19 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected restY = 0;
   /** Beute: bleibt bis dahin im Versteck */
   protected hideUntil = 0;
+  /** Beute: wie ruhig sie neben dir bleibt (wer lange friedlich in der Nähe schwimmt, dem gegenüber lässt sie die Deckung fallen) */
+  calm = 0;
+  /** Beute, die sich wehrt: beißt bis dahin zurück */
+  protected defendUntil = 0;
+  /** Angriff: ausholen → zuschnappen → erholen */
+  protected atk: '' | 'wind' | 'strike' | 'recover' = '';
+  protected atkT = 0;
+  protected atkTarget: Target | null = null;
+  protected atkDir = { x: 1, y: 0 };
+  /** Ausdauer: Wer lange jagt oder flieht, wird müde */
+  stam = 1;
+  tiredUntil = 0;
+  protected puffAt = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -263,13 +282,52 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const hr = this.role === 'apex' ? 0.005 : this.role === 'predator' ? 0.006 : 0.009;
     this.hunger = Math.min(1, this.hunger + dt * hr);
     if (time < this.stunUntil) {
+      if (this.atk) this.endAttack(time);
       this.b.setVelocityX(this.b.velocity.x * 0.92);
       if (this.swims || this.flies) this.b.setVelocityY(this.b.velocity.y * 0.92);
       this.setAngle(Math.sin(this.t * 30) * 4);
       return;
     }
-    if (this.angle && !this.mv) this.setAngle(0);
+    // erschöpft: treibt langsam dahin, schnappt nach Luft – und kann sich kaum wehren
+    if (time < this.tiredUntil) {
+      if (this.atk) this.endAttack(time);
+      this.b.setVelocity(this.b.velocity.x * 0.9, this.swims || this.flies ? this.b.velocity.y * 0.9 : this.b.velocity.y);
+      if (time > this.puffAt) {
+        this.puffAt = time + 520;
+        this.world.puff(this.x + this.dir * this.displayWidth * 0.4, this.y - this.displayHeight * 0.2, 2, 0xffffff);
+      }
+      this.setAngle(Math.sin(this.t * 3) * 3);
+      return;
+    }
+    if (this.tiredUntil) {
+      this.tiredUntil = 0;
+      this.stam = 0.45;
+      this.setAngle(0);
+    }
+    if (this.angle && !this.mv && !this.atk) this.setAngle(0);
     if (time < this.knockUntil) return;
+    // Ausdauer: Wer lange jagt oder flieht, wird müde (Durchzügler und Nesseltiere ausgenommen)
+    if (!this.visitor && this.role !== 'hazard') {
+      const fast = Math.hypot(this.b.velocity.x, this.swims || this.flies ? this.b.velocity.y : 0) > this.def.speed * 0.75;
+      const exert = fast && (this.st === 'hunt' || this.st === 'flee' || this.st === 'charge' || !!this.mv || !!this.atk);
+      if (exert) {
+        const drain = this.role === 'apex' || this.def.boss ? 0.065 : this.role === 'prey' ? 0.11 : 0.085;
+        this.stam -= dt * drain;
+        if (this.stam <= 0) {
+          this.stam = 0;
+          this.tiredUntil = time + (this.role === 'apex' || this.def.boss ? 5200 : 4000);
+          if (this.mv) this.endMove();
+          this.world.tired(this);
+          return;
+        }
+      } else this.stam = Math.min(1, this.stam + dt * 0.14);
+    }
+    // ein Angriff läuft: ausholen, zuschnappen, erholen
+    if (this.atk) {
+      this.attackStep(time, dt);
+      this.setFlipX(this.dir < 0);
+      return;
+    }
     if (time > this.nextSense) {
       this.nextSense = time + 220 + Math.random() * 90;
       this.sense(time);
@@ -341,15 +399,21 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const attackedByPlayer = this.attacker === p && time - this.attackedAt < 8000 && !p.dead;
     let threat: Target | null = null;
     let threatD = Infinity;
+    if (role === 'prey' && !friend) {
+      // Vorsicht: Beute hält Abstand. Wer lange ruhig und friedlich in der Nähe schwimmt, dem gegenüber
+      // lässt sie die Deckung fallen – wer heranrast oder kämpft, vor dem flieht sie
+      const calmNow = W.playerCalm();
+      const fear = W.playerFear();
+      const aware = !p.dead && !p.hidden && dp < Math.max(260, d.sense * 1.3);
+      if (aware) this.calm = clamp(this.calm + (calmNow ? 0.03 * (1 - 0.7 * fear) : -0.25), 0, 1);
+      else if (dp > 450) this.calm = Math.max(0, this.calm - 0.004);
+      if (seen && T > d.power * 1.15 && (!calmNow || fear > 0.6) && dp < d.sense * (0.3 + 0.55 * (1 - this.calm)) + (p.fast ? 70 : 0)) {
+        threat = p;
+        threatD = dp;
+      }
+    }
     if (seen && !friend) {
-      if (role === 'prey') {
-        const fear = W.playerFear();
-        const fleeR = d.sense * (0.22 + 0.78 * fear) + (p.fast ? 70 : 0);
-        if (T > d.power * 1.15 && dp < fleeR) {
-          threat = p;
-          threatD = dp;
-        }
-      } else if (role === 'predator') {
+      if (role === 'predator') {
         if (T > d.power * 1.8 && dp < d.sense * 0.8) {
           threat = p;
           threatD = dp;
@@ -466,6 +530,23 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (role === 'apex') return this.thinkApex(time, dt);
 
     this.hiddenNow = false;
+    // Beute, die sich wehrt (mittlere Tiere beißen zurück)
+    if (role === 'prey' && time < this.defendUntil && this.target && !this.target.dead) {
+      if (this.st !== 'hunt') this.go('hunt');
+      this.chase(this.target, this.def.speed * 1.15);
+      this.tryBite(time, this.target);
+      return;
+    }
+    // Neben einem fremden Tier ausweichen – je ruhiger sie dir gegenüber ist, desto näher darfst du heran
+    if (role === 'prey' && !this.threatObj && this.st !== 'hide' && this.st !== 'flee' && this.seesPlayer) {
+      const p = this.world.player;
+      const keep = 40 + 150 * (1 - this.calm);
+      if (!p.dead && this.dist(p) < keep) {
+        if (this.st !== 'wander') this.go('wander');
+        this.runFrom(p.x, p.y, this.def.speed * 0.9);
+        return;
+      }
+    }
     if (this.threatObj) {
       if (this.st !== 'flee' && this.st !== 'hide' && role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');
       if (this.st !== 'hide') this.go('flee');
@@ -480,7 +561,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (this.x > c.x + 6 && this.x < c.x + c.w - 6 && (!this.swims || (this.y > c.y && this.y < c.y + c.h + 10))) {
           this.hiddenNow = true;
           this.halt();
-        } else this.moveTo(cx, cy, this.def.speed * (this.def.sprint ?? 1.3), true);
+        } else this.moveTo(cx, cy, this.fleeSpeed(), true);
         return;
       }
       if (this.st === 'hide') this.go(this.threatObj ? 'flee' : 'wander');
@@ -488,9 +569,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.st === 'flee') {
       const th = this.threatObj;
       if (th) {
-        this.runFrom(th.x, th.y, this.def.speed * (this.def.sprint ?? 1.3));
+        this.runFrom(th.x, th.y, this.fleeSpeed());
       } else if (this.stT > 1.4) this.go('wander');
-      else this.moveTo(this.x + this.dir * 200, this.y, this.def.speed * (this.def.sprint ?? 1.3), true);
+      else this.moveTo(this.x + this.dir * 200, this.y, this.fleeSpeed(), true);
       if (this.stT > 7) this.go('wander');
       return;
     }
@@ -517,6 +598,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.ally) return this.followPlayer(time, 160, 300);
     if (this.wantsRest(time)) return this.restOnGround(time);
     this.wander(time);
+  }
+
+  /** Tempo auf der Flucht: kleine Fische sind pfeilschnell – hinterherschwimmen allein reicht nicht. */
+  protected fleeSpeed() {
+    const s = this.def.speed * (this.def.sprint ?? 1.3);
+    return this.role === 'prey' && this.def.power <= 2.2 && this.swims ? Math.max(s, 255) : s;
   }
 
   /** Satte Jäger ruhen oft – am Meeresgrund bzw. am Boden. */
@@ -809,7 +896,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           this.attacking = true;
           if (this.swims || this.flies) b.setVelocity(this.mvDir.x * sp * 2.6, this.mvDir.y * sp * 2.6);
           else b.setVelocityX(this.dir * sp * 2.6);
-          if (tg) this.tryBite(time, tg, 1.4);
+          if (tg && tg !== W.player) this.contactBite(time, tg);
         } else this.endMove();
         break;
       case 'charge':
@@ -867,11 +954,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           const len = Math.hypot(dx, dy) || 1;
           b.setVelocity((dx / len) * sp * 3, (dy / len) * sp * 3);
           this.dir = Math.sign(dx) || this.dir;
-          this.tryBite(time, tg, 1.3);
+          if (tg !== W.player) this.contactBite(time, tg);
         } else if (t < 3.2) {
           this.attacking = true;
           b.setVelocity(this.dir * sp * 2, 0);
-          this.tryBite(time, tg, 1.3);
+          if (tg !== W.player) this.contactBite(time, tg);
         } else this.endMove();
         break;
       }
@@ -986,29 +1073,128 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   // ------------------------------------------------------------------ Kampf
 
   /** Biss in Reichweite? */
+  /**
+   * Angreifen: Erst holt das Tier sichtbar aus (man kann noch ausweichen), dann schnellt es vor und
+   * beißt zu. Nur der Biss selbst schadet – bloßes Berühren nicht.
+   */
   protected tryBite(time: number, tg: Target, reach = 1) {
-    if (time < this.biteReady || tg.dead) return false;
+    if (this.atk || time < this.biteReady || tg.dead || time < this.tiredUntil) return false;
     const b = this.b;
-    const w = (b.width * 0.5 + 18) * reach;
-    const r: Rect = this.dir > 0 ? { x: this.x, y: b.y, w, h: b.height } : { x: this.x - w, y: b.y, w, h: b.height };
+    const w = (b.width * 0.5 + 46) * reach;
+    const r: Rect = this.dir > 0 ? { x: this.x, y: b.y - 12, w, h: b.height + 24 } : { x: this.x - w, y: b.y - 12, w, h: b.height + 24 };
     if (!overlaps(r, tg.hitRect())) return false;
-    this.biteReady = time + (this.role === 'apex' ? 1100 : 900);
+    this.atk = 'wind';
+    this.atkT = 0;
+    this.atkTarget = tg;
+    return true;
+  }
+
+  /** Während eines großen Angriffs (Vorstoß, Sturzflug): Wer berührt wird, wird gebissen (den Spieler trifft es über die Berührung). */
+  protected contactBite(time: number, tg: Target) {
+    if (time < this.biteReady || tg.dead || !overlaps(this.hitRect(), tg.hitRect())) return;
+    this.biteReady = time + 900;
+    (tg as Animal).hurt(this.def.dmg, this, 'bite');
+  }
+
+  /** Schaden eines Bisses (Pflanzenfresser, die sich wehren, beißen auch – nur schwächer). */
+  protected get biteDmg() {
+    return Math.max(this.def.dmg, this.def.power * 0.8);
+  }
+
+  /** Teile der Angriffsbewegung, die an der Figur sichtbar sind (Artgenossen zeigen sie an ihrer Ansicht). */
+  protected get showsAttack() {
+    return true;
+  }
+
+  protected attackStep(time: number, dt: number) {
+    const tg = this.atkTarget;
+    this.atkT += dt;
+    const big = this.role === 'apex' || !!this.def.boss;
+    const WIND = big ? 0.45 : 0.28, STRIKE = 0.2, REC = 0.3;
+    if (!tg || tg.dead) return this.endAttack(time);
+    const sx = this.sz, vis = this.showsAttack, free = this.swims || this.flies;
+    if (this.atk === 'wind') {
+      // ausholen: zurückweichen, sich spannen, rötlich aufglühen
+      this.dir = Math.sign(tg.x - this.x) || this.dir;
+      const k = Math.min(1, this.atkT / WIND);
+      if (free) this.b.setVelocity(-this.dir * 50 * k, this.b.velocity.y * 0.85);
+      else this.b.setVelocityX(-this.dir * 30 * k);
+      if (vis) {
+        this.setScale(sx * (1 - 0.1 * k), sx * (1 + 0.07 * k));
+        if (free) this.setAngle(-this.dir * 7 * k);
+        this.setTint(0xffb8a8);
+      }
+      if (this.atkT >= WIND) {
+        this.atk = 'strike';
+        this.atkT = 0;
+        const dx = tg.x - this.x, dy = free ? tg.y - this.y : 0;
+        const l = Math.hypot(dx, dy) || 1;
+        this.atkDir = { x: dx / l, y: dy / l };
+        this.onStrike();
+      }
+    } else if (this.atk === 'strike') {
+      // vorschnellen und zuschnappen
+      const v = Math.max(this.def.speed * 2.6, 280);
+      if (free) this.b.setVelocity(this.atkDir.x * v, this.atkDir.y * v);
+      else this.b.setVelocityX(this.atkDir.x * v);
+      if (vis) {
+        this.setScale(sx * 1.14, sx * 0.93);
+        if (free) this.setAngle(this.dir * 6);
+        this.clearTint();
+      }
+      const b = this.b;
+      const w = b.width * 0.5 + 16;
+      const r: Rect = this.dir > 0 ? { x: this.x, y: b.y, w, h: b.height } : { x: this.x - w, y: b.y, w, h: b.height };
+      if (overlaps(r, tg.hitRect())) {
+        this.strikeHit(time, tg);
+        this.atk = 'recover';
+        this.atkT = 0;
+      } else if (this.atkT >= STRIKE) {
+        this.atk = 'recover';
+        this.atkT = 0;
+      }
+    } else {
+      this.halt();
+      if (vis) this.setScale(sx * (1 + 0.05 * (1 - this.atkT / REC)), sx);
+      if (this.atkT >= REC) this.endAttack(time);
+    }
+  }
+
+  protected endAttack(time: number) {
+    this.atk = '';
+    this.atkTarget = null;
+    if (this.showsAttack) {
+      this.setScale(this.sz);
+      if (!this.mv) this.setAngle(0);
+      this.clearTint();
+    }
+    this.biteReady = time + (this.role === 'apex' ? 1100 : 850);
+  }
+
+  protected strikeHit(time: number, tg: Target) {
     const p = this.world.player;
     if (tg === p) {
-      p.hurt(this.def.dmg, this.x, this.def.name);
+      p.hurt(this.biteDmg, this.x, this.def.name);
       this.hitPlayerAt = time;
       if (Math.random() < 0.5) audio.sfx('snarl');
-    } else {
-      (tg as Animal).hurt(this.def.dmg, this, 'bite');
-    }
-    return true;
+    } else (tg as Animal).hurt(this.biteDmg, this, 'bite');
+    this.onStrikeHit(tg);
+  }
+
+  /** Augenblick des Zuschnappens (Artgenossen öffnen hier ihr Maul). */
+  protected onStrike() {}
+
+  /** Der Biss hat getroffen. */
+  protected onStrikeHit(tg: Target) {
+    void tg;
   }
 
   /** Schaden nehmen. */
   hurt(dmg: number, from: Target, kind: 'bite' | 'ram' | 'other') {
     if (this.dead) return;
     const now = this.world.time.now;
-    this.hp -= dmg * this.weak;
+    // erschöpft kann es sich kaum wehren
+    this.hp -= dmg * this.weak * (now < this.tiredUntil ? 1.5 : 1);
     this.attacker = from;
     this.attackedAt = now;
     if (from instanceof Animal && from.kin) this.helpers.add(from);
@@ -1038,6 +1224,14 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     audio.sfx(this.role === 'prey' ? 'squeal' : 'hit');
     if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && from === this.world.player)) this.target = from;
+    // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen
+    const W = this.world;
+    if (this.role === 'prey' && from === W.player && !this.kin && this.hp > this.maxHp * 0.35 && this.def.power >= W.playerPower() * 0.6) {
+      this.defendUntil = now + 3500;
+      this.target = from;
+    }
+    // wer angegriffen wird, ist dir gegenüber nicht mehr ruhig
+    if (from === W.player) this.calm = 0;
   }
 
   protected die(byPlayer: boolean) {

@@ -23,11 +23,22 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   - **Verstecken** – still im Dickicht übersehen dich die meisten Jäger; große Räuber, die nur
     durchziehen, schwimmen fast immer einfach vorbei. In den Höhlen des Urmeers sieht man von dir
     nur noch die Augen.
-  - **Kämpfen** – beißen und dich durchfressen. Wer in ein Tier hineinschwimmt oder -rennt, verletzt
-    **beide**. Mit der Zeit wird der Kopf härter – irgendwann kannst du gezielt **rammen**.
-    Beim Biss schnellt das Tier nach vorn, reißt das Maul auf, schnappt zu und knirscht mit den
+  - **Kämpfen** – angreifen tun nur der **Biss** (J) und der **Stoß** (R); bloßes Berühren tut
+    niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
+    Anfang an: Er macht kaum Schaden, **betäubt** kleine und mittelgroße Tiere aber kurz – Zeit für ein,
+    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf. Beim Biss schnellt das Tier nach vorn, reißt das Maul auf, schnappt zu und knirscht mit den
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
+  - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell und halten Abstand. Wer aber
+    eine Weile ruhig und friedlich neben ihnen herschwimmt (nicht sprinten, nicht kämpfen), dem gegenüber
+    lassen sie ihre Deckung fallen: Dann reichen ein Stoß und ein, zwei Bisse – zu Beginn sind kleine
+    Fische mit zwei Bissen erledigt. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
+    man anfangs nur meiden; später gibt es vier Wege: ein **starkes Gebiss**, schnelle **Stöße und
+    Ausweichen**, immer wieder aus dem **Hinterhalt** – oder man lässt sich **verfolgen, bis das Tier
+    erschöpft ist**, und greift dann an (erschöpfte Tiere treiben langsam, schnappen nach Luft und
+    nehmen mehr Schaden). Das klappt auch bei kleineren.
+  - **Jeder Angriff ist zu sehen:** Alle Tiere holen vor dem Biss sichtbar aus (sie spannen sich und
+    glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
@@ -50,11 +61,11 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   Schwimmen bzw. Laufen deutlich schneller (am Grund entlangzulaufen spart Kraft). Fressen füllt ihn
   wieder auf, aber nie über das Maximum. Wie viel hineinpasst, hängt von der Größe ab: Große Tiere
   richten mehr Schaden an, verbrauchen aber auch mehr. Ein Happen bringt wenig – jeder zeigt kurz,
-  was er gebracht hat: **rot** für Fleisch, **grün** für Pflanzen (eine Pflanze „+2“, ein kleiner
-  Fisch etwa „+6“). Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
+  was er gebracht hat: **rot** für Fleisch, **grün** für Pflanzen (eine Pflanze „+1“, ein kleiner
+  Fisch etwa „+3“). Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
 - **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einer **saftigen
-  Fleischkeule mit Knochen**, große Tiere zu mehreren. Kleine Stücke treiben langsam nach oben, große sinken zu
-  Boden, an Land fällt alles herunter – und nach einer Weile verdirbt es. Andere Fleischfresser
+  Fleischkeule mit Knochen**, große Tiere zu mehreren. Im Wasser sinkt das Fleisch zügig zu Boden
+  (große Stücke schneller), an Land fällt es herunter – und nach einer Weile verdirbt es. Andere Fleischfresser
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus.
 - **Herrscher der Region:** Im letzten Zeitalter jeder Region erscheint kurz vor Schluss der
   Endgegner – im Devon *Dunkleosteus*, im Perm *Dimetrodon*, in der Kreide der *T. rex*, im Quartär
@@ -89,7 +100,7 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   im Stil eines alten Rollenspiel-Charakterbogens. Das meiste bleibt verborgen.
 - **Vier Verhaltensweisen formen deine Art:** Beutejagd (zubeißen, Beute packen und festhalten) →
   kräftige Kiefer; Bodenkontakt (sich am Grund abstützen und dort entlanglaufen) → fleischige
-  Stützflossen, später kräftigere Beine; Rammen → ein gepanzerter Schädel; Schwimmen (Strecke,
+  Stützflossen, später kräftigere Beine; Stoßen → ein gepanzerter Schädel; Schwimmen (Strecke,
   Tempo, gegen Strömungen) → ein länglicher, flinker Körper. Das Verhalten schaltet keine Art frei –
   es verschiebt nur nach und nach, wie deine Nachkommen aussehen und was sie können.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
@@ -99,8 +110,8 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   Nach dem Sieg über einen Herrscher nehmen deine Nachfahren eine neue Form an (Fisch → Lurch →
   Echse → Säuger): Das Wasser weicht dem Ufer, das Tier flackert zwischen alter und neuer Gestalt –
   immer schneller –, bis die neue bleibt.
-- **Blutig:** Bisse und Zusammenstöße bluten (im Wasser als Wolke, an Land als Fleck am Boden), und
-  wer Beute reißt, hat eine Weile einen Brocken Fleisch im Maul und eine blutige Schnauze.
+- **Blutig:** Bisse und Stöße bluten – im Wasser als Wolke dort, wo gekämpft wurde, an Land als
+  Fleck am Boden.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
   Zeitleiste Fragezeichen.
 
@@ -127,8 +138,8 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
 | liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
 | wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
-| stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
-| … rammt oft und erlegt damit Tiere | einen **Panzerkopf**: Knochenplatten, stärkerer Rammstoß, mehr Lebenskraft, weniger eigener Schaden |
+| stößt oft (Taste R) | einen härteren Schädel und einen kräftigeren Stoß |
+| … und erlegt damit Tiere | einen **Panzerkopf**: Knochenplatten, stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
 | beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen); an Land kräftigere Beine |
 | kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier**: Artgenossen helfen öfter (und wollen mitfressen) |
@@ -168,7 +179,7 @@ daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
 | J, X oder Y | beißen und fressen |
 | Shift oder K | sprinten (kostet Kraft) |
 | C | Werte deines Tiers |
-| R oder V | rammen (erst mit hartem Schädel) |
+| R oder V | Stoß (betäubt kleine und mittelgroße Tiere kurz) |
 | Esc / P | Rast (Pause) |
 | M | Ton an/aus |
 

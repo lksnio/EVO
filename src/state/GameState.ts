@@ -78,9 +78,9 @@ export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand'
 
 /** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (zählt für die Vielfalt des Nachwuchses). */
 export const FOOD = {
-  meat: { sat: 6, kcal: 7 },
-  plant: { sat: 2, kcal: 2 },
-  toxic: { sat: 1.5, kcal: 3 },
+  meat: { sat: 3, kcal: 3.5 },
+  plant: { sat: 1, kcal: 1 },
+  toxic: { sat: 0.75, kcal: 1.5 },
 };
 
 /** Wie viel in den Magen passt – größere Tiere fassen mehr (verbrauchen aber auch mehr). */
@@ -90,7 +90,7 @@ export const maxSatiety = (size: number) => Math.round(100 * (0.7 + 0.45 * size)
 export const hungerRate = (size: number, speed01: number) => (0.9 + 1.0 * Math.min(1.5, speed01)) * Math.pow(size, 1.3);
 
 /** Bezugsgröße für die Vielfalt des Nachwuchses: so viel frisst ein Tier, das gut über die Runden kommt. */
-export const fedRef = (ep: EpochDef, size: number) => 0.7 * ep.seconds * (0.85 + 0.3 * size);
+export const fedRef = (ep: EpochDef, size: number) => 0.35 * ep.seconds * (0.85 + 0.3 * size);
 
 export interface Stats {
   maxHp: number;
@@ -321,7 +321,7 @@ class GameState {
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
           r.traits.spike = -Math.abs(r.traits.spike);
           r.social ??= 0.55;
-          r.canRam ??= false;
+          r.canRam = true;
         }
       }
     } catch {
@@ -396,7 +396,8 @@ class GameState {
       node: 'root',
       kin: 4,
       social: 0.55,
-      canRam: false,
+      // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
+      canRam: true,
       history: [],
     };
     d.run = run;

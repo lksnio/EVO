@@ -88,11 +88,11 @@ export class Kill {
 }
 
 /** Fressen für andere Tiere: so viel Sättigung nimmt ein Tier mit einem Bissen. */
-const ANIMAL_BITE = 4;
+const ANIMAL_BITE = 2;
 
 /**
- * Ein saftiges Stück Fleisch (wie in E.V.O.). Kleine Stücke treiben langsam nach oben, große sinken
- * zu Boden, an Land fällt alles herunter. Nach einer Weile verdirbt es.
+ * Ein saftiges Stück Fleisch (wie in E.V.O.). Im Wasser sinkt es zügig zu Boden (große Stücke
+ * schneller), an Land fällt es herunter. Nach einer Weile verdirbt es.
  */
 export class Meat {
   img: Phaser.GameObjects.Image;
@@ -126,7 +126,7 @@ export class Meat {
   ) {
     this.value = value;
     this.max = value;
-    this.size = value < 6 ? 0 : value < 12 ? 1 : 2;
+    this.size = value < 3 ? 0 : value < 6 ? 1 : 2;
     this.vx = vx;
     this.vy = vy;
     this.bornAt = now;
@@ -172,11 +172,11 @@ export class Meat {
     const e = this.env;
     const h = MEAT_SIZES[this.size][1] * 0.5;
     if (e.water) {
-      // kleine Stücke steigen langsam auf, mittlere schweben, große sinken
-      const target = this.size === 0 ? -15 : this.size === 1 ? 6 : 30;
+      // Fleisch sinkt zu Boden – große Stücke schneller
+      const target = this.size === 0 ? 45 : this.size === 1 ? 70 : 100;
       this.vy += (target - this.vy) * Math.min(1, dt * 1.6);
       this.vx *= Math.max(0, 1 - dt * 1.8);
-      const sway = Math.sin(now / 900 + this.ph) * (this.size === 0 ? 9 : 4);
+      const sway = this.vy > 0 && !this.resting ? Math.sin(now / 900 + this.ph) * 5 : 0;
       let ny = this.y + this.vy * dt;
       const nx = this.x + (this.vx + sway) * dt;
       if (this.vy < 0 && (ny - h < e.surfaceY + 6 || e.solidAt(nx, ny - h))) {

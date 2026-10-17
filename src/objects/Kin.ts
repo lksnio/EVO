@@ -200,10 +200,7 @@ export class Kin extends Animal {
       this.target = p;
       this.go('hunt');
       this.chase(p, sprint);
-      if (this.tryBite(time, p)) {
-        this.angryUntil = 0;
-        audio.sfx('snarl');
-      }
+      this.tryBite(time, p);
       return;
     }
 
@@ -326,7 +323,6 @@ export class Kin extends Animal {
           if (isMeat) {
             f.ateFrom.add(this);
             f.kill.fed.add(this);
-            this.view.showMeat(2400);
             this.view.chew();
             this.sharedMeal(f, time);
           }
@@ -335,10 +331,21 @@ export class Kin extends Animal {
     } else this.moveTo(f.x, fy, this.def.speed * 0.9, true);
   }
 
-  /** Fleisch, an das er herankommt (auch beim Vorbeischwimmen) */
-  protected snack(m: Meat, time: number) {
-    super.snack(m, time);
-    if (m.kill.fed.has(this)) this.view.showMeat(2000);
+  /** Die Angriffsbewegung zeigt die Ansicht: Maul auf, vorstoßen, zuschnappen. */
+  protected get showsAttack() {
+    return false;
+  }
+
+  protected onStrike() {
+    this.view.bite();
+  }
+
+  protected onStrikeHit(tg: Animal | World['player']) {
+    // verärgert: einmal zugebissen – jetzt zieht er ab
+    if (tg === this.world.player && this.angryUntil) {
+      this.angryUntil = 0;
+      audio.sfx('snarl');
+    }
   }
 
   private coverY(c: Rect) {

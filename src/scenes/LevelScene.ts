@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, fedRef, game, hungerRate, kcalOf, type Offspring, type Traits } from '../state/GameState';
+import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type Offspring, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
@@ -155,6 +155,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private flowNoted = false;
   private toxNoted = false;
   private shareNoted = false;
+  private tiredNoted = false;
   private hurtSeen = -1e9;
   private grudgeNoted = false;
   /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
@@ -224,6 +225,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.flowNoted = false;
     this.toxNoted = false;
     this.shareNoted = false;
+    this.tiredNoted = false;
     this.hurtSeen = -1e9;
     this.grudgeNoted = false;
     this.train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
@@ -881,6 +883,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const def = SPECIES[id];
     makeSpeciesTextures(this, def);
     const a = new Animal(this, def, x, y);
+    // Kleine Beutetiere sind zerbrechlich: Schon ein frisch geschlüpftes Tier braucht nur zwei Bisse
+    if (def.role === 'prey' && def.power <= 2.2) {
+      const fresh = game.stats(game.cls, { ...ZERO_TRAITS }).bite;
+      a.hp = a.maxHp = Math.min(a.maxHp, Math.round(fresh * 1.9 * 10) / 10);
+    }
     this.groundIt(a);
     this.animals.push(a);
     return a;
@@ -982,6 +989,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return game.fear();
   }
 
+  playerCalm() {
+    const p = this.player;
+    // ruhig = nicht sprinten, nicht stoßen, eine Weile nicht gekämpft (normales Schwimmen ist in Ordnung)
+    return !p.dead && !p.sprinting && !p.isRamming && this.time.now - this.fightAt > 5000;
+  }
+
+  playerPower() {
+    return this.player.stats.power;
+  }
+
+  tired(a: Animal) {
+    if (a.kin) return;
+    this.pop('erschöpft', a.x, a.y - a.displayHeight * 0.5 - 12, '#9fd0e0');
+    if (!this.tiredNoted && (a.role === 'apex' || a.role === 'predator')) {
+      this.tiredNoted = true;
+      bus.emit('story', `${a.def.name} ist erschöpft – jetzt ist es verwundbar.`);
+    }
+  }
+
   playerEscaped(a: Animal) {
     if (this.ended || this.player.dead) return;
     // wer Jägern entkommt, wird vorsichtiger und unauffälliger
@@ -1077,7 +1103,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
     const meat = Math.max(1, a.def.meat);
     const n = (meat <= 4 ? 1 : meat <= 8 ? 2 : 3) + (giant ? 1 : 0);
-    const each = (3.4 * meat * a.sz) / (meat <= 4 ? 1 : meat <= 8 ? 2 : 3);
+    const each = (1.7 * meat * a.sz) / (meat <= 4 ? 1 : meat <= 8 ? 2 : 3);
     for (let i = 0; i < n; i++) {
       const spread = (i - (n - 1) / 2) * 70 + (Math.random() - 0.5) * 30;
       const vy = this.water ? -40 - Math.random() * 40 : -220 - Math.random() * 120;
@@ -1153,8 +1179,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       game.grow('digM', 0.02 * k);
       game.shiftDiet(0.05 * k);
       game.grow('growth', 0.016 * k * dig);
-      this.bleed(m.x, m.y, 3);
-      p.view.showMeat(3000);
       this.checkShare(m.kill);
       return;
     }
@@ -1233,43 +1257,43 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Zusammenstoß: Wer in ein Tier hineinschwimmt oder -rennt, verletzt beide.
-   * Wer oft rammt, dessen Schädel wird härter und schließlich zum Panzer.
-   * Ein gezielter Rammstoß (erst mit hartem Kopf) trifft viel stärker und schont den eigenen Kopf.
+   * Stoß: Wer mit Schwung in ein Tier stößt, betäubt kleine und mittelgroße Tiere einen Moment lang –
+   * Zeit für ein, zwei Bisse, bevor sie fliehen oder zurückbeißen. Schaden macht er anfangs kaum; wer oft
+   * stößt, bekommt einen harten, später gepanzerten Kopf und stößt kräftiger. Große Tiere taumeln nur kurz,
+   * und wer gegen etwas viel Größeres stößt, tut sich selbst weh.
    */
-  private collide(a: Animal, approach: number, rammed: boolean) {
+  private collide(a: Animal, approach: number) {
     const p = this.player;
     const st = p.stats;
     const t = game.traits;
-    const sf = rammed ? 1.3 : clamp(approach, 0.5, 1.4);
+    const sf = clamp(approach, 0.6, 1.4);
     this.ramHit.set(a, this.time.now);
     this.fightAt = this.time.now;
-    const dealt = st.ram * sf * (rammed ? 1.6 : 0.7);
     const plates = Math.max(0, -t.spike) * t.skull;
-    const back = (a.def.power * 0.32 + a.def.dmg * 0.25) * sf * (rammed ? 0.45 : 1) * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
-    const sneak = rammed && this.time.now < this.ambushUntil && !a.seesPlayer;
-    a.hurt(dealt * (sneak ? 2 : 1), p, 'ram');
+    const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
+    const dealt = st.ram * 0.5 * sf;
+    const small = a.def.power <= st.power * 3;
+    a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
+    if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
     if (sneak) {
       this.surprise(a);
       this.ambushUntil = 0;
     }
+    // gegen etwas viel Größeres zu stoßen, tut weh (ein harter Schädel schützt)
+    const back = Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
-    p.recoil(a.x, back, rammed ? k * 0.6 : k);
-    game.grow('skull', (rammed ? 0.02 : 0.012) * sf);
+    p.recoil(a.x, back, k * 0.6);
+    game.grow('skull', 0.02 * sf);
     // Ein viel benutzter Kopf wird zum Panzer – erst recht, wenn damit Tiere erlegt werden
-    game.armorHead(a.dead ? 0.09 : rammed ? 0.03 : 0.015);
+    game.armorHead(a.dead ? 0.09 : 0.03);
     if (a.dead) game.grow('skull', 0.02);
     this.train.ram += a.dead ? 3 : 1;
-    if (game.checkRamUnlock()) {
-      bus.emit('ramUnlocked');
-      game.save();
-    }
-    if (a.role !== 'hazard') game.addAggression(rammed ? 0.035 : 0.02);
+    if (a.role !== 'hazard') game.addAggression(0.035);
     if (!a.dead) this.callHunt(a);
     audio.sfx('ram');
-    this.cameras.main.shake(rammed ? 180 : 110, rammed ? 0.011 : 0.007);
+    this.cameras.main.shake(160, 0.009);
     this.puff((a.x + p.x) / 2, p.y, 6);
-    this.bleed((a.x + p.x) / 2, (a.y + p.y) / 2, rammed ? 8 : 4);
+    this.bleed((a.x + p.x) / 2, (a.y + p.y) / 2, 5);
   }
 
   // ---------------------------------------------------------------- Ablauf
@@ -1682,12 +1706,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const dl = Math.hypot(dx, dy) || 1;
       const approach = Math.max(0, (v.x * dx + v.y * dy) / dl) / Math.max(1, p.stats.speed);
       const since = time - (this.ramHit.get(a) ?? -1e9);
+      // Nur ein Stoß greift an – bloßes Berühren tut niemandem etwas (außer Nesseltieren)
       if (p.isRamming && since > 400) {
-        this.collide(a, approach, true);
-        continue;
-      }
-      if (approach > 0.5 && since > 700) {
-        this.collide(a, approach, false);
+        this.collide(a, approach);
         continue;
       }
       if (a.attacking || a.role === 'hazard') {

@@ -1886,26 +1886,6 @@ export function commonTextures(scene: Phaser.Scene) {
     side(0, 0, 120, 0, 0, 0, 120, 360);
     side(640, 0, 520, 0, 520, 0, 120, 360);
   });
-  // Ein Brocken rohes Fleisch (hängt nach dem Fressen aus dem Maul)
-  tex(scene, 'meat_chunk', 44, 34, (ctx) => {
-    const r = mulberry32(31);
-    blob(ctx, r, 22, 17, 16, 11, 10);
-    fillStroke(ctx, rgrad(ctx, 18, 13, 2, 20, [[0, '#d0584a'], [0.6, '#8a1a14'], [1, '#4a0806']]), '#2a0402', 1.2);
-    ctx.beginPath();
-    ctx.moveTo(10, 14);
-    ctx.quadraticCurveTo(20, 9, 32, 15);
-    ctx.strokeStyle = 'rgba(240,210,190,.7)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ell(ctx, 34, 22, 4, 2.4, 0.4);
-    ctx.fillStyle = '#e8dcc4';
-    ctx.fill();
-    for (let i = 0; i < 3; i++) {
-      ell(ctx, 14 + i * 7, 28 + (i % 2) * 2, 1.6, 3);
-      ctx.fillStyle = 'rgba(110,4,2,.9)';
-      ctx.fill();
-    }
-  });
   // Fleisch wie in E.V.O.: eine saftige Keule mit Knochen – vorn der Anschnitt (rosa, marmoriert, mit
   // Fettrand), hinten die gebräunte Seite. Klein, mittel, groß; doppelt aufgelöst.
   MEAT_SIZES.forEach(([w, h], size) => {
@@ -2005,21 +1985,6 @@ export function commonTextures(scene: Phaser.Scene) {
       ctx.fillStyle = 'rgba(255,246,236,.7)';
       ctx.fill();
     });
-  });
-  // Blut an der Schnauze
-  tex(scene, 'muzzle_blood', 44, 26, (ctx) => {
-    const r = mulberry32(17);
-    blob(ctx, r, 22, 11, 18, 7, 11);
-    ctx.fillStyle = 'rgba(120,8,6,.8)';
-    ctx.fill();
-    for (let i = 0; i < 4; i++) {
-      const x = 10 + i * 8 + r() * 3;
-      ctx.beginPath();
-      ctx.moveTo(x - 1.5, 14);
-      ctx.quadraticCurveTo(x, 20 + r() * 5, x + 1.5, 14);
-      ctx.fillStyle = 'rgba(100,4,2,.85)';
-      ctx.fill();
-    }
   });
   // Blutwolke im Wasser, Blutfleck am Boden
   tex(scene, 'blood_cloud', 48, 48, (ctx) => {
