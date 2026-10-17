@@ -26,14 +26,15 @@ export class Controls {
     const K = Phaser.Input.Keyboard.KeyCodes;
     const k = (...codes: number[]) => codes.map((c) => kb.addKey(c, true, false));
     this.keys = {
-      left: k(K.LEFT, K.A),
-      right: k(K.RIGHT, K.D),
-      up: k(K.UP, K.W),
-      down: k(K.DOWN, K.S),
-      jump: k(K.SPACE, K.UP, K.W),
-      bite: k(K.J, K.X, K.Y),
-      sprint: k(K.SHIFT, K.K),
-      ram: k(K.R, K.V),
+      // Pfeiltasten schwimmen, die linke Hand liegt auf Q W E R
+      left: k(K.LEFT),
+      right: k(K.RIGHT),
+      up: k(K.UP),
+      down: k(K.DOWN),
+      jump: k(K.SPACE, K.UP),
+      bite: k(K.E, K.Q, K.J),
+      sprint: k(K.W, K.SHIFT),
+      ram: k(K.R),
     };
   }
 

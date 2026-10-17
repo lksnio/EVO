@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, type EpochDef } from '../data/epochs';
+import { placeOf, startPlace, TRAVEL_SECONDS } from '../data/world';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 
@@ -122,6 +123,38 @@ export interface Ancestor {
   epoch: number;
 }
 
+/** Wo man im aktuellen Zeitalter steht – über mehrere Orte hinweg (die Zeit läuft auch auf der Karte weiter). */
+export interface EpochProg {
+  /** aktueller Ort */
+  place: string;
+  /** schon besuchte Orte */
+  seen: string[];
+  /** gelebte Sekunden in diesem Zeitalter */
+  elapsed: number;
+  /** schon eingetretene Ereignisse (Nummern aus der Ereignisliste) */
+  events: number[];
+  /** Endgegner: 0 noch nicht da, 1 lebt, 2 besiegt */
+  boss: 0 | 1 | 2;
+  /** in diesem Zeitalter gefressen (Sättigungs-Einheiten) */
+  eaten: { meat: number; plant: number };
+  /** Zustand beim Verlassen eines Ortes */
+  hp?: number;
+  sat?: number;
+  kin?: number;
+  /** was getan wurde (Beutejagd, Bodenkontakt, Rammen, Schwimmen) */
+  train: { hunt: number; ground: number; ram: number; swim: number };
+}
+
+export const newProg = (epoch: number): EpochProg => ({
+  place: startPlace(EPOCHS[epoch]).id,
+  seen: [startPlace(EPOCHS[epoch]).id],
+  elapsed: 0,
+  events: [],
+  boss: 0,
+  eaten: { meat: 0, plant: 0 },
+  train: { hunt: 0, ground: 0, ram: 0, swim: 0 },
+});
+
 export interface Run {
   id: number;
   cls: ClassId;
@@ -147,6 +180,12 @@ export interface Run {
   eaten?: { meat: number; plant: number };
   /** wie oft das aktuelle Zeitalter schon gespielt wurde (der Endgegner ist noch nicht besiegt) */
   round?: number;
+  /** Stand im aktuellen Zeitalter */
+  prog: EpochProg;
+  /** gefundene Muscheln (jede legt eine Zeile der Steintafel frei) */
+  shells: string[];
+  /** so viele Zeilen der Tafel hat man schon freigelegt gesehen */
+  seenRows: number;
   history: Ancestor[];
 }
 
@@ -315,8 +354,15 @@ class GameState {
         const f = fresh();
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
         for (const n of Object.values(this.data.nodes)) n.traits = full(n.traits);
+        // Nur noch die Fischzeit: alles, was dahinter lag, wird verworfen
+        this.prune();
         const r = this.data.run;
         if (r) {
+          r.prog ??= newProg(r.epoch);
+          r.prog.train ??= { hunt: 0, ground: 0, ram: 0, swim: 0 };
+          r.prog.eaten ??= { meat: 0, plant: 0 };
+          r.shells ??= [];
+          r.seenRows ??= r.shells.length;
           r.traits = full(r.traits);
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
           r.traits.spike = -Math.abs(r.traits.spike);
@@ -327,6 +373,20 @@ class GameState {
     } catch {
       this.data = fresh();
     }
+  }
+
+  /** Knoten und Läufe aus den Zeitaltern, die es nicht mehr gibt, entfernen. */
+  private prune() {
+    const d = this.data;
+    const bad = new Set<string>();
+    for (const n of Object.values(d.nodes)) if (n.epoch >= EPOCHS.length || n.cls !== 'fish') bad.add(n.id);
+    if (bad.size) {
+      for (const id of bad) delete d.nodes[id];
+      for (const n of Object.values(d.nodes)) n.children = n.children.filter((c) => !bad.has(c));
+      if (d.lastEnd && !d.nodes[d.lastEnd]) d.lastEnd = null;
+    }
+    d.deepest = Math.min(d.deepest, EPOCHS.length - 1);
+    if (d.run && (d.run.epoch >= EPOCHS.length || d.run.cls !== 'fish' || !d.nodes[d.run.node])) d.run = null;
   }
 
   save() {
@@ -398,6 +458,9 @@ class GameState {
       social: 0.55,
       // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
       canRam: true,
+      prog: newProg(0),
+      shells: [],
+      seenRows: 0,
       history: [],
     };
     d.run = run;
@@ -715,7 +778,60 @@ class GameState {
   /** Zu Beginn eines Zeitalters: Stand merken (für "einst/heute") und speichern. */
   beginEpoch() {
     const r = this.r;
-    this.snap = { traits: { ...r.traits }, aggression: r.aggression, infamy: r.infamy };
+    // nur zu Beginn des Zeitalters – beim Wechsel zwischen Orten bleibt der Stand von damals
+    if (!this.snap) this.snap = { traits: { ...r.traits }, aggression: r.aggression, infamy: r.infamy };
+    this.save();
+  }
+
+  // ---------------------------------------------------------------- Orte und Muscheln
+
+  get prog(): EpochProg {
+    return this.r.prog;
+  }
+
+  /** Den Ort verlassen: Zustand merken (Lebenskraft, Magen, Artgenossen, Gefressenes …). */
+  leavePlace(s: Partial<EpochProg>) {
+    Object.assign(this.r.prog, s);
+    this.save();
+  }
+
+  /** Auf der Karte einen Ort wählen: Der Weg kostet Zeit und ein wenig Kraft. */
+  enterPlace(id: string) {
+    const run = this.r;
+    const p = run.prog;
+    if (id !== p.place) {
+      p.elapsed += TRAVEL_SECONDS;
+      const size = this.stats().size;
+      if (p.sat !== undefined) p.sat = Math.max(0.01, p.sat - hungerRate(size, 0.8) * TRAVEL_SECONDS * 0.6);
+    }
+    p.place = placeOf(EPOCHS[run.epoch], id).id;
+    if (!p.seen.includes(p.place)) p.seen.push(p.place);
+    this.save();
+  }
+
+  get shells(): string[] {
+    return this.r.shells;
+  }
+
+  hasShell(id: string) {
+    return this.r.shells.includes(id);
+  }
+
+  /** Eine Muschel gefunden: Sie legt die nächste Zeile der Steintafel frei. */
+  collectShell(id: string) {
+    const run = this.r;
+    if (!run.shells.includes(id)) run.shells.push(id);
+    this.save();
+    return run.shells.length;
+  }
+
+  /** Wie viele Zeilen der Tafel schon freigelegt gesehen wurden. */
+  get seenRows() {
+    return this.r.seenRows;
+  }
+
+  set seenRows(n: number) {
+    this.r.seenRows = n;
     this.save();
   }
 
@@ -770,6 +886,7 @@ class GameState {
       run.kin = clamp(kinAlive + 1, 2, 6);
       run.aggression *= 0.5;
       run.infamy *= 0.8;
+      run.prog = newProg(i);
       const res: SurviveResult = { epoch: ep, next: ep, node: run.node, drift: { before: { ...run.traits }, after: { ...run.traits } }, repeat: true };
       if (pick) {
         run.traits = full({ ...pick.traits });
@@ -811,6 +928,7 @@ class GameState {
       res.finished = true;
     } else {
       run.epoch = i + 1;
+      run.prog = newProg(run.epoch);
       if (next.cls !== run.cls) {
         res.transition = { from: run.cls, to: next.cls };
         run.cls = next.cls;

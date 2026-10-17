@@ -6,7 +6,7 @@ export type Sfx =
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
-  | 'eatMeat' | 'eatPlant' | 'crunch';
+  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet';
 
 interface ToneOpts {
   f: number;
@@ -608,6 +608,30 @@ export class AudioEngine {
         // etwas Großes nähert sich
         this.noise({ d: 2.2, v: 0.22, a: 0.6, filter: 160, f2: 90, q: 0.8 });
         this.tone({ f: 46, f2: 38, d: 2, type: 'sine', v: 0.18, a: 0.5 });
+        break;
+      case 'shell':
+        // heller, kristallener Klang: etwas Seltenes ist gefunden
+        [[784, 0], [1047, 0.09], [1319, 0.18], [1568, 0.27]].forEach(([f, t], i) => {
+          this.tone({ f, d: 1.1 - i * 0.1, type: 'sine', v: 0.11, a: 0.008, t });
+          this.tone({ f: f * 2.01, d: 0.5, type: 'sine', v: 0.03, a: 0.008, t });
+        });
+        this.noise({ d: 0.5, v: 0.025, a: 0.01, filter: 5200, f2: 9000, type: 'highpass', t: 0.05 });
+        break;
+      case 'moss':
+        // Moos löst sich von Stein: leises Rascheln, dumpfes Knirschen
+        this.noise({ d: 0.55, v: 0.1, a: 0.04, filter: 1800, f2: 700, type: 'bandpass' });
+        this.noise({ d: 0.25, v: 0.07, filter: 300, f2: 120, t: 0.05 });
+        this.tone({ f: 98, f2: 70, d: 0.3, type: 'triangle', v: 0.06, filter: 400, t: 0.04 });
+        break;
+      case 'tablet':
+        // Stein schiebt sich über Stein
+        this.noise({ d: 0.35, v: 0.12, a: 0.05, filter: 420, f2: 160, q: 0.9 });
+        this.tone({ f: 80, f2: 55, d: 0.3, type: 'sine', v: 0.08, a: 0.04 });
+        break;
+      case 'travel':
+        // Wasser rauscht vorbei
+        this.noise({ d: 0.9, v: 0.12, a: 0.25, filter: 500, f2: 2200, type: 'bandpass' });
+        this.tone({ f: 220, f2: 330, d: 0.7, type: 'sine', v: 0.05, a: 0.2 });
         break;
       case 'extinct':
         [220, 196, 175, 147].forEach((f, i) => this.tone({ f, d: 1.4, type: 'triangle', v: 0.08, a: 0.1, t: i * 0.45 }));

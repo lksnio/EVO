@@ -15,7 +15,7 @@ type TreeData =
   | { mode?: 'view' };
 
 const TOP = 112;
-const ROW = 45;
+const ROW = 118;
 const AX = 196; // linke Kante des Baums
 const AW = 724; // Breite des Baumbereichs
 const PANEL_X = 944;
@@ -288,7 +288,7 @@ export class TreeScene extends Phaser.Scene {
       } else title(this, 24, y - 12, '?', 18, '#5e554a');
     });
     const reachedNow = Object.values(game.data.nodes).some((n) => n.present);
-    if (reachedNow) text(this, 24, rowY(EPOCHS.length) - 9, 'Heute', 16, UI.ochre);
+    if (reachedNow) text(this, 24, rowY(EPOCHS.length) - 9, 'Demo-Ende', 16, UI.ochre);
     else title(this, 24, rowY(EPOCHS.length) - 12, '?', 18, '#5e554a');
   }
 

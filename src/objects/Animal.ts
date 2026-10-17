@@ -136,6 +136,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   stam = 1;
   tiredUntil = 0;
   protected puffAt = 0;
+  /** zieht weiter zum Rand des Gewässers und verlässt es (-1 links, 1 rechts) */
+  leaveDir = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -575,6 +577,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.runFrom(pl.x, pl.y, dp < keep * 0.6 ? this.fleeSpeed() : this.def.speed * 1.25);
         return;
       }
+    }
+    // Wer weiterzieht, schwimmt zum Rand des Gewässers – es sei denn, etwas ist hinter ihm her
+    if (this.leaveDir && !this.threatObj && !this.target && this.st !== 'flee' && this.st !== 'hide') {
+      if (this.st !== 'wander') this.go('wander');
+      this.moveTo(this.x + this.leaveDir * 500, this.y, this.def.speed * 0.65);
+      return;
     }
     if (this.threatObj) {
       if (this.st !== 'flee' && this.st !== 'hide' && role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');

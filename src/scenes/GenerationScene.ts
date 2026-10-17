@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { game, type Offspring } from '../state/GameState';
+import { STAT_COUNT } from '../data/tablet';
+import { Tablet } from '../ui/tablet';
 import { CLASSES } from '../data/classes';
 import { EPOCHS, spanWords, yearsAgo } from '../data/epochs';
 import { levelBackgrounds } from '../art/worldArt';
@@ -123,8 +125,8 @@ export class GenerationScene extends Phaser.Scene {
 
     const n = offs.length;
     const gap = 16;
-    const cw = Math.min(226, Math.floor((W - 56 - (n - 1) * gap) / n)), ch = 410;
-    const x0 = W / 2 - (n * cw + (n - 1) * gap) / 2, y0 = 118;
+    const cw = Math.min(226, Math.floor((W - 56 - (n - 1) * gap) / n)), ch = 524;
+    const x0 = W / 2 - (n * cw + (n - 1) * gap) / 2, y0 = 108;
     const bg = this.cardTex(ep, cw, ch);
     // erst alle Tiere bauen, dann einen gemeinsamen Maßstab finden
     const views = offs.map((o) => new CreatureView(this, 0, 0, this.look({ traits: o.traits, seed: o.seed, sex: o.sex }), 1));
@@ -132,18 +134,16 @@ export class GenerationScene extends Phaser.Scene {
     const SPAN: Record<string, number> = { fish: 3.9, amphibian: 4.4, reptile: 4.6, mammal: 3.6 };
     const maxW = Math.max(...views.map((v) => v.L.halfW * (SPAN[v.m.cls] ?? 4.4)));
     const maxH = Math.max(...views.map((v) => v.L.footY - v.L.topY));
-    const sc = Math.min(2.6, (cw - 30) / maxW, (ch * 0.42) / maxH);
+    const sc = Math.min(2.6, (cw - 30) / maxW, (ch * 0.3) / maxH);
     offs.forEach((o, i) => {
       const parts = this.card(o, views[i], sc, bg, x0 + i * (cw + gap), y0, cw, ch, i);
       this.fadeInAll(parts.filter((p) => !(p instanceof Phaser.GameObjects.Image && p.texture.key === 'glow')), 250 + i * 140, 1, 650);
       this.group.push(...parts);
     });
     this.select(0, true);
-    const hint = text(this, W / 2, y0 + ch + 20, '← →  oder Klick  ·  Enter bestätigt', 15, UI.boneDim).setOrigin(0.5);
+    const hint = text(this, W / 2, y0 + ch + 18, '← →  oder Klick  ·  Enter bestätigt', 15, UI.boneDim).setOrigin(0.5);
     this.fadeInAll([hint], 1100, 0.8);
-    const tl = this.timeline(d.epoch, 606);
-    this.fadeInAll(tl, 1000, 1, 700);
-    this.group.push(hint, ...tl);
+    this.group.push(hint);
     const kb = this.input.keyboard!;
     const mv = (dx: number) => () => this.choosing && this.select((this.sel + dx + n) % n);
     kb.on('keydown-LEFT', mv(-1));
@@ -164,22 +164,20 @@ export class GenerationScene extends Phaser.Scene {
     const glow = this.add.image(x + w / 2, y + h / 2, 'glow').setDisplaySize(w * 1.9, h * 1.5).setTint(0xe0a848).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
     const img = this.add.image(x, y, bg).setOrigin(0);
     const land = v.L.land;
-    const floorY = y + h * (land ? 0.72 : 0.78);
     const cx = x + w / 2;
-    const foot = land
-      ? this.add.image(cx, floorY + 10, 'shadow').setDisplaySize(v.L.halfW * 2 * sc * 0.9, 16).setAlpha(0.55)
-      : this.add.image(cx, floorY + 2, 'shadow').setDisplaySize(v.L.halfW * 2 * sc * 0.75, 12).setAlpha(0.35);
-    v.setPosition(cx, land ? floorY + 8 - v.L.footY * sc : y + h * 0.44);
+    v.setPosition(cx, y + h * 0.25);
     v.setBaseScale(sc);
     this.views.push({ v, mode: land ? 'idle' : 'swim' });
     // Licht von oben auf das gewählte Tier
-    const beam = this.add.image(cx, v.y + ((v.L.topY + v.L.footY) / 2) * sc, 'glow').setDisplaySize(w * 0.9, h * 0.9).setTint(0xffe8c0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+    const beam = this.add.image(cx, v.y + ((v.L.topY + v.L.footY) / 2) * sc, 'glow').setDisplaySize(w * 0.9, h * 0.55).setTint(0xffe8c0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
     this.children.bringToTop(v);
     const frame = this.add.graphics();
-    const out: GO[] = [glow, img, foot, beam, v, frame];
+    // Die Steintafel dieses Tieres: genau so viel, wie die Muscheln schon freigelegt haben
+    const tab = new Tablet(this, x + 9, y + Math.round(h * 0.47), w - 18, Math.round(h * 0.53) - 10, { cls: this.d.cls, traits: o.traits }, Math.min(STAT_COUNT, game.shells.length), { mini: true });
+    const out: GO[] = [glow, img, beam, v, tab, frame];
     this.cards.push({ g: frame, glow, beam, v, sc, x, y, w, h, hover: false });
     if (o.main) {
-      const mark = text(this, cx, y + h - 30, 'Hauptlinie', 15, UI.ochre, { fontStyle: 'italic' }).setOrigin(0.5);
+      const mark = text(this, cx, y + 16, 'Hauptlinie', 15, UI.ochre, { fontStyle: 'italic' }).setOrigin(0.5);
       out.push(mark);
     }
     const zone = this.add.zone(x, y, w, h).setOrigin(0).setInteractive({ useHandCursor: true });

@@ -6,7 +6,7 @@ import { SPECIES } from '../data/species';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
 import { EPOCHS } from '../data/epochs';
-import { Button, MenuNav, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
+import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
 import { continueLife, startNewLife } from './flow';
 
 /**
@@ -126,26 +126,10 @@ export class TitleScene extends Phaser.Scene {
     this.closeOverlay();
     const c = this.add.container(0, 0).setDepth(100);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0).setInteractive().on('pointerdown', () => this.closeOverlay()));
-    c.add(panel(this, W / 2 - 380, 80, 760, 560, 0.95));
-    c.add(title(this, W / 2, 128, 'Steuerung', 38).setOrigin(0.5));
-    const rows: [string, string][] = [
-      ['← → / A D', 'Laufen bzw. schwimmen'],
-      ['↑ ↓ / W S', 'Im Wasser auf- und abtauchen'],
-      ['Leertaste / ↑', 'Springen (an Land)'],
-      ['J, X oder Y', 'Beißen und Fressen'],
-      ['Shift oder K', 'Sprinten (kostet Kraft)'],
-      ['C', 'Werte deines Tiers'],
-      // Rammen gibt es erst mit hartem Schädel – bis dahin bleibt es ein Fragezeichen
-      game.run?.canRam ? ['R oder V', 'Rammen (Kopf voran)'] : ['?', 'Noch nicht entdeckt'],
-      ['Esc / P', 'Rast (Pause)'],
-      ['M', 'Ton an/aus'],
-    ];
-    rows.forEach(([k, v], i) => {
-      const hidden = k === '?';
-      c.add(text(this, W / 2 - 320, 176 + i * 37, k, 23, hidden ? UI.boneDim : UI.ochre, { fontStyle: '700' }));
-      c.add(text(this, W / 2 - 50, 176 + i * 37, v, 23, hidden ? UI.boneDim : UI.bone, hidden ? { fontStyle: 'italic' } : {}));
-    });
-    c.add(text(this, W / 2, 545, 'Überlebe jedes Zeitalter, bis seine Zeit abgelaufen ist – egal wie.\nStirbst du, endet deine Linie. Was du tust, formt deine Nachkommen.', 19, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
+    c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.95));
+    c.add(title(this, W / 2, 124, 'Steuerung', 38).setOrigin(0.5));
+    controlsList(this, c, W / 2 + 30, 176, 22, 36);
+    c.add(text(this, W / 2, 530, 'Überlebe das Zeitalter – egal wie. Schwimm am Rand eines Gewässers hinaus, um auf die Karte zu kommen.\nStirbst du, endet deine Linie. Was du tust, formt deine Nachkommen.', 18, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
     c.add(text(this, W / 2, 604, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;

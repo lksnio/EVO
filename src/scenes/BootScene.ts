@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { W, H, DEBUG, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
 import { uiTextures } from '../art/uiArt';
+import { tabletTextures } from '../art/tabletArt';
+import { mapTextures } from '../art/mapArt';
 import { text, title } from '../ui/ui';
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
@@ -18,6 +20,8 @@ export class BootScene extends Phaser.Scene {
     this.time.delayedCall(40, () => {
       commonTextures(this);
       uiTextures(this);
+      tabletTextures(this);
+      mapTextures(this);
       decorTextures(this);
       const q = new URLSearchParams(location.search);
       this.scene.start(DEBUG && q.has('gallery') ? 'Gallery' : 'Title');

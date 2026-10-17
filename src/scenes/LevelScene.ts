@@ -4,6 +4,7 @@ import { audio } from '../audio/Audio';
 import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type Offspring, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
+import { placeOf, type PlaceDef } from '../data/world';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
@@ -12,7 +13,7 @@ import { Controls } from '../objects/Controls';
 import { Player } from '../objects/Player';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
-import { Kill, Meat, Plant } from '../objects/Food';
+import { Kill, Meat, Plant, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -90,14 +91,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private sparkle!: Phaser.GameObjects.Particles.ParticleEmitter;
   private ramHit = new Map<Animal, number>();
   private vitalsAt = 0;
-  private clockAt = 0;
   private lookAt = 0;
   private hideTick = 0;
   private growlAt = 0;
   private wasInCover = false;
   private coverFront: Phaser.GameObjects.Image[][] = [];
   private curCover = -1;
-  private timeline: { def: EventDef; done: boolean }[] = [];
+  private timeline: { def: EventDef; done: boolean; i: number }[] = [];
   private kinDef!: SpeciesDef;
   private faunaCount = 0;
   private nextMigrate = 0;
@@ -105,10 +105,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private stormUntil = 0;
   private stormK = 0;
   private stormFx?: { veil: Phaser.GameObjects.Image; p: Phaser.GameObjects.Particles.ParticleEmitter };
-  private quakeUntil = 0;
-  private meteorUntil = 0;
-  private skyFire?: Phaser.GameObjects.Rectangle;
-  private nextRock = 0;
   private huntMusic = 0;
   private huntLost = 0;
   private announced = new Set<string>();
@@ -125,8 +121,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Schleier je Gebiet (Trübung, Dunst, Dunkelheit) */
   private veil!: Phaser.GameObjects.Rectangle;
   private surfGlow?: Phaser.GameObjects.TileSprite;
-  /** Gebiet, in dem man gerade ist (0 links, 1 Mitte, 2 rechts) */
-  zoneIdx = 1;
+  /** der Ort, an dem man gerade ist */
+  place!: PlaceDef;
+  /** Muscheln auf dem Grund */
+  private shells: Shell[] = [];
+  private shellSparkAt = 0;
+  /** wie lange man schon gegen den Rand schwimmt (dann geht es auf die Karte) */
+  private edgeHold = 0;
+  private exitFx?: { l: Phaser.GameObjects.Image; r: Phaser.GameObjects.Image };
+  private edgeNoted = false;
   /** Trübung am aktuellen Ort (0..1) – macht unauffälliger */
   private murk = 0;
   private zoneLight = 1;
@@ -176,9 +179,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     super('Level');
   }
 
-  init(d: { epoch?: number }) {
+  init(d: { epoch?: number; place?: string }) {
     this.epochIdx = d?.epoch ?? game.epochIndex;
     this.ep = EPOCHS[this.epochIdx];
+    const prog = game.prog;
+    this.place = placeOf(this.ep, d?.place ?? prog.place);
     this.animals = [];
     this.plants = [];
     this.meats = [];
@@ -189,7 +194,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.lava = [];
     this.shots = [];
     this.ended = false;
-    this.elapsed = 0;
+    this.elapsed = prog.elapsed;
     this.darkness = undefined;
     this.ramHit = new Map();
     this.dbg = undefined;
@@ -197,11 +202,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.wasInCover = false;
     this.coverFront = [];
     this.curCover = -1;
-    this.timeline = this.ep.events.map((def) => ({ def, done: false }));
-    this.bloomUntil = this.stormUntil = this.quakeUntil = this.meteorUntil = 0;
+    this.timeline = this.ep.events.map((def, i) => ({ def, done: prog.events.includes(i), i }));
+    this.bloomUntil = this.stormUntil = 0;
     this.stormK = 0;
     this.stormFx = undefined;
-    this.skyFire = undefined;
     this.huntMusic = this.huntLost = 0;
     this.announced = new Set();
     this.nextMigrate = 0;
@@ -213,16 +217,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = -1e9;
     this.redrawAt = 0;
     this.surfGlow = undefined;
-    this.zoneIdx = 1;
+    this.shells = [];
+    this.shellSparkAt = 0;
+    this.edgeHold = 0;
+    this.exitFx = undefined;
     this.murk = 0;
     this.zoneLight = 1;
     this.cullList = [];
     this.cullAt = 0;
     this.swayList = [];
-    this.eatenMeat = this.eatenPlant = 0;
+    this.eatenMeat = prog.eaten.meat;
+    this.eatenPlant = prog.eaten.plant;
     this.needUnits = 0;
     this.bossA = undefined;
-    this.bossBeaten = false;
+    this.bossBeaten = prog.boss === 2;
     this.ambushUntil = 0;
     this.dreadK = 0;
     this.dreadAt = -1e9;
@@ -236,7 +244,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.slow = 1;
     this.hurtSeen = -1e9;
     this.grudgeNoted = false;
-    this.train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
+    this.train = { ...prog.train };
     this.lastBitten = null;
 
   }
@@ -245,7 +253,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     fadeIn(this, 900);
     game.beginEpoch();
     const ep = this.ep;
-    const L = (this.L = generateLevel(ep, game.run?.id ?? 0));
+    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
@@ -305,11 +313,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
     this.player = new Player(this, L.start.x, L.start.y, this.water);
+    // von einem Ort zum nächsten bleibt man, wie man war: Kraft, Magen und Artgenossen
+    const pr = game.prog;
+    if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
+    if (pr.sat !== undefined) this.player.satiety = clamp(pr.sat, 0.01, this.player.maxSat);
     this.spawnKin();
     for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y);
     this.faunaCount = L.spawns.length;
     this.needUnits = fedRef(ep, this.player.stats.size);
     this.span = game.epochSpan(this.epochIdx);
+    // Muscheln, die noch nicht gefunden sind
+    for (const sh of L.shells) if (!game.hasShell(sh.id)) this.shells.push(new Shell(this, sh.x, sh.y, sh.id));
+    this.buildExits();
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -354,7 +369,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
-    this.scene.launch('Hud', { epoch: this.epochIdx });
+    this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, blurb: this.place.kind === 'start' ? '' : this.place.blurb, tutorial: this.shells.some((sh) => sh.id === 'ordovizium:lagune:0') });
     audio.music(ep.music);
     // im Wasser rauscht leise das Meer; Zeitlupe aus einem abgebrochenen Kino-Moment zurücksetzen
     audio.musicLevel(1, 0.3);
@@ -372,6 +387,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.dbg = this.add.text(VX + 12, VY + VH - 160, '', { fontFamily: 'monospace', fontSize: '13px', color: '#9f9', backgroundColor: 'rgba(0,0,0,.6)' })
         .setScrollFactor(0).setDepth(DEPTH.text + 10);
     }
+
+    // Ein Endgegner, der noch lebt, folgt dir von Ort zu Ort
+    const bossEv = ep.events.find((e) => e.kind === 'boss');
+    if (bossEv && pr.boss === 1) this.time.delayedCall(2600, () => !this.ended && this.spawnBoss(bossEv.species!));
+    // Der Weg über die Karte hat die letzten Sekunden gekostet
+    if (this.elapsed >= ep.seconds) this.time.delayedCall(1600, () => !this.ended && this.complete());
 
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
@@ -647,19 +668,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Je tiefer, desto dunkler: Unten am Meeresgrund kommt kaum noch Licht an. */
   private depthShade() {
     const L = this.L;
-    if (!this.textures.exists('depth_shade')) {
-      const ct = this.textures.createCanvas('depth_shade', 4, 256)!;
+    // Die Dunkelheit hängt an der Tiefe in Pixeln (nicht am Anteil des Levels): Je tiefer der Ort
+    // reicht, desto schwärzer wird es ganz unten.
+    const H0 = 2400;
+    if (!this.textures.exists('depth_shade2')) {
+      const ct = this.textures.createCanvas('depth_shade2', 4, H0)!;
       const ctx = ct.getContext();
-      const g = ctx.createLinearGradient(0, 0, 0, 256);
-      g.addColorStop(0, 'rgba(1,6,10,0)');
-      g.addColorStop(0.28, 'rgba(1,6,10,0)');
-      g.addColorStop(0.7, 'rgba(1,6,10,0.42)');
-      g.addColorStop(1, 'rgba(1,5,8,0.7)');
+      const g = ctx.createLinearGradient(0, 0, 0, H0);
+      const stops: [number, number, number][] = [[0, 0, 0.0], [400, 1, 0], [1000, 1, 0.42], [1424, 2, 0.7], [1900, 3, 0.88], [H0, 3, 0.95]];
+      for (const [y, c, a] of stops) g.addColorStop(y / H0, c === 0 ? `rgba(1,6,10,${a})` : c === 1 ? `rgba(1,6,10,${a})` : `rgba(1,5,8,${a})`);
       ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 4, 256);
+      ctx.fillRect(0, 0, 4, H0);
       ct.refresh();
     }
-    this.add.image(0, L.surfaceY, 'depth_shade').setOrigin(0).setDisplaySize(L.width, L.height - L.surfaceY + 240).setDepth(DEPTH.decoFront + 0.5);
+    this.add.image(0, L.surfaceY, 'depth_shade2').setOrigin(0).setDisplaySize(L.width, H0).setDepth(DEPTH.decoFront + 0.5);
   }
 
   /** An Land: Sonnenstrahlen durch Blätterdach, Dunst oder Schneetreiben – je Gebiet anders hell. */
@@ -682,9 +704,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- Gebiete, Pflanzen, Sichtbarkeit
 
   /** Das Gebiet an einer Stelle. */
-  zoneAt(x: number): Zone {
-    const z = this.L.zones;
-    return x < z[0].x1 ? z[0] : x < z[1].x1 ? z[1] : z[2];
+  zoneAt(_x?: number): Zone {
+    return this.L.zones[0];
   }
 
   /** Oberkante des Bodens bei x in der Nähe der Höhe y (Infinity, wenn dort keiner ist). */
@@ -795,31 +816,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Gebiet: Schleier, Nebel und Licht gehen beim Durchschwimmen fließend ineinander über. */
   private zoneFx(time: number) {
-    const L = this.L;
-    const [zl, zc, zr] = L.zones;
-    const cx = this.cameras.main.scrollX + W / 2;
-    const T = 450;
-    const wl = clamp((zl.x1 + T - cx) / (2 * T), 0, 1);
-    const wr = clamp((cx - (zr.x0 - T)) / (2 * T), 0, 1);
-    const wc = Math.max(0, 1 - wl - wr);
-    const mixv = (k: 'fog' | 'light') => zl.def[k] * wl + zc.def[k] * wc + zr.def[k] * wr;
-    if (wl >= wr) this.veil.setFillStyle(zl.def.veil, zl.def.veilA * wl);
-    else this.veil.setFillStyle(zr.def.veil, zr.def.veilA * wr);
-    this.fog.setAlpha(Math.min(0.85, 0.35 * mixv('fog')));
-    this.zoneLight = mixv('light');
-    this.murk = zl.def.veilA * wl;
+    const z = this.L.zones[0].def;
+    this.veil.setFillStyle(z.veil, z.veilA);
+    this.fog.setAlpha(Math.min(0.85, 0.35 * z.fog));
+    this.zoneLight = z.light;
+    // trübes Wasser macht unauffälliger
+    this.murk = this.place.kind === 'murky' ? z.veilA : 0;
     this.surfGlow?.setAlpha(0.42 * this.zoneLight);
     for (const c of this.caustics) c.s.setAlpha(c.a * this.zoneLight);
-    // Gebietswechsel melden (mit etwas Abstand zur Grenze, damit es nicht flackert)
-    const px = this.player.x;
-    const idx = px < zl.x1 - 120 ? 0 : px > zr.x0 + 120 ? 2 : px > zl.x1 + 120 && px < zr.x0 - 120 ? 1 : this.zoneIdx;
-    if (idx !== this.zoneIdx) {
-      this.zoneIdx = idx;
-      const z = L.zones[idx].def;
-      bus.emit('zone', z.name);
-      const tail = idx === 0 ? (this.water ? 'trübes Wasser, viel Grün, wenige Jäger.' : 'viel Grün, wenige Jäger.') : idx === 2 ? 'hier jagen die Großen.' : '';
-      bus.emit('story', tail ? `${z.name} – ${tail}` : z.name);
-    }
     // Pflanzen wiegen sich (nur die sichtbaren)
     const t = time / 1000;
     for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
@@ -837,7 +841,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       speed: st.speed * 0.95, sense: 280, meat: 2, sprint: 1.35,
     };
     // Je mehr Rudeltier, desto mehr Artgenossen leben in der Gegend
-    const n = (game.run?.kin ?? 4) + (game.traits.pack > 0.5 ? 1 : 0);
+    const n = game.prog.kin ?? ((game.run?.kin ?? 4) + (game.traits.pack > 0.5 ? 1 : 0));
     const s = this.L.start;
     for (let i = 0; i < n; i++) {
       // Artgenossen leben verstreut in der Gegend, jeder in seinem Revier – kein Schwarm um dich herum
@@ -1141,6 +1145,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (a === this.bossA && !this.ended) {
       this.bossBeaten = true;
+      game.prog.boss = 2;
       bus.emit('boss', a.def.name, 0);
       bus.emit('story', `${a.def.name} ist besiegt! Der Weg in eine neue Zeit ist frei.`);
       this.cameras.main.flash(700, 255, 230, 180);
@@ -1343,6 +1348,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         // aus der Welt gefallen: als fort markieren, damit niemand mehr danach greift
         this.removeAnimal(a);
         a.vanish();
+      } else if (a.leaveDir && !a.dead && (a.leaveDir > 0 ? a.body!.right >= L.width - 6 : a.body!.left <= 6)) {
+        // am Rand angekommen: zieht in andere Gewässer weiter
+        this.removeAnimal(a);
+        this.tweens.add({ targets: a, alpha: 0, duration: 500, onComplete: () => a.vanish() });
       }
     }
     const bloom = time < this.bloomUntil;
@@ -1369,6 +1378,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.elapsed += dt;
       this.clock(time);
       this.interact(time, dt);
+      this.shellStep(time);
+      this.edgeStep(time, dt);
       this.weather(time, dt);
       this.migrate(time);
       this.huntMood(time);
@@ -1428,21 +1439,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     g.setVisible(true).setPosition(e.x, e.y).setScale(sc, blink ? 0.08 : sc).setAlpha(0.9);
   }
 
-  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. */
-  private clock(time: number) {
-    const ep = this.ep;
-    const prog = clamp(this.elapsed / ep.seconds, 0, 1);
+  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. Sichtbar ist sie nur auf der Steintafel (C). */
+  private clock(_time: number) {
+    const prog = clamp(this.elapsed / this.ep.seconds, 0, 1);
     for (const e of this.timeline) {
       if (!e.done && prog >= e.def.at) {
         e.done = true;
+        game.prog.events.push(e.i);
         this.trigger(e.def);
       }
-    }
-    if (time > this.clockAt) {
-      this.clockAt = time + 100;
-      const sp = this.span;
-      const span = sp.from - sp.to;
-      bus.emit('clock', sp.from - span * prog, prog, (span / ep.seconds) * 0.1);
     }
   }
 
@@ -1454,6 +1459,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.spawnVisitors(ev.species!, ev.count ?? 1, !!ev.fast);
         break;
       case 'boss':
+        game.prog.boss = 1;
         this.spawnBoss(ev.species!);
         break;
       case 'bloom':
@@ -1467,21 +1473,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.stormUntil = now + (ev.dur ?? 18) * 1000;
         this.startStormFx();
         break;
-      case 'quake':
-        this.quakeUntil = now + (ev.dur ?? 6) * 1000;
-        this.cameras.main.shake((ev.dur ?? 6) * 1000, 0.004);
-        audio.sfx('rumble');
-        break;
       case 'leviathan':
         this.cineWanted = true;
-        break;
-      case 'meteor':
-        this.meteorUntil = now + (ev.dur ?? 20) * 1000;
-        this.cameras.main.flash(900, 255, 160, 80);
-        audio.sfx('boom');
-        audio.sfx('rumble');
-        this.skyFire = this.add.rectangle(VX, VY, VW, VH, 0x8a1a06, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.dark - 1).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: this.skyFire, fillAlpha: 0.22, duration: 6000 });
         break;
     }
   }
@@ -1635,6 +1628,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (time < this.nextMigrate) return;
     this.nextMigrate = time + 15000;
     const resident = this.animals.filter((a) => !a.dead && !a.kin && !a.visitor).length;
+    // Auch die Tiere hier ziehen weiter: Manche schwimmen zum Rand und verlassen das Gewässer
+    if (Math.random() < 0.55) {
+      const p = this.player;
+      const goers = this.animals.filter((a) => !a.dead && !a.kin && !a.ally && !a.visitor && !a.boss && !a.leaveDir && a.role !== 'hazard' && a.role !== 'apex'
+        && Math.abs(a.x - p.x) > 700 && !a.target);
+      const a = goers[Math.floor(Math.random() * goers.length)];
+      if (a) a.leaveDir = a.x < this.L.width / 2 ? -1 : 1;
+    }
     if (resident >= this.faunaCount) return;
     const pool = this.ep.fauna.map(([id]) => id).filter((id) => SPECIES[id].role !== 'hazard');
     if (!pool.length) return;
@@ -1658,7 +1659,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.tweens.add({ targets: a, alpha: 1, duration: 800 });
   }
 
-  /** Wetter, Beben und Feuerregen. */
+  /** Wetter: Sturm wühlt das Wasser auf. */
   private weather(time: number, dt: number) {
     const storm = time < this.stormUntil;
     this.stormK = clamp(this.stormK + (storm ? dt / 3 : -dt / 3), 0, 1);
@@ -1670,35 +1671,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.stormFx = undefined;
       }
     }
-    const p = this.player;
-    const cam = this.cameras.main;
-    if (time < this.quakeUntil && !this.water && time > this.nextRock) {
-      this.nextRock = time + 650;
-      const x = clamp(p.x + (Math.random() - 0.5) * 700, 40, this.L.width - 40);
-      this.shoot(x, cam.worldView.y - 40, (Math.random() - 0.5) * 40, 80, 'd2_rock', this.ep.hazardDmg * 0.8, true);
-    }
-    if (time < this.meteorUntil && time > this.nextRock) {
-      this.nextRock = time + 420;
-      const x = clamp(p.x + (Math.random() - 0.5) * 1000, 40, this.L.width - 40);
-      this.shoot(x, cam.worldView.y - 60, (Math.random() - 0.5) * 140, 260, 'fireball', this.ep.hazardDmg * 1.2, true);
-      if (Math.random() < 0.25) cam.shake(200, 0.004);
-    }
   }
 
   private startStormFx() {
     if (this.stormFx) return;
-    const t = this.L.theme;
-    const veilTint = t === 'eis' ? 0xc8d4e0 : t === 'ozean' ? 0x1a3a30 : t === 'sumpf' ? 0x3a3020 : 0x2a2018;
-    const veil = this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW * 1.4, VH * 1.4).setTint(veilTint).setAlpha(0).setDepth(DEPTH.dark - 2);
-    const key = t === 'eis' ? 'p_snow' : this.water ? 'p_dot' : 'p_dot';
-    const cfg: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig = t === 'eis'
-      ? { x: { min: VX, max: VX + VW + 200 }, y: VY - 10, speedX: { min: -260, max: -140 }, speedY: { min: 120, max: 220 }, lifespan: 4000, frequency: 12, scale: { min: 0.4, max: 1.2 }, alpha: { start: 0.9, end: 0.3 } }
-      : this.water
-        ? { x: { min: VX, max: VX + VW }, y: { min: VY, max: VY + VH }, speedX: { min: -60, max: 60 }, speedY: { min: -20, max: 20 }, lifespan: 3000, frequency: 20, scale: { start: 0.6, end: 0.1 }, alpha: { start: 0.5, end: 0 }, tint: 0x6a7a60 }
-        : t === 'reptil' || t === 'sumpf'
-          ? { x: { min: VX, max: VX + VW + 300 }, y: { min: VY, max: VY + VH }, speedX: { min: -320, max: -180 }, speedY: { min: -10, max: 30 }, lifespan: 3000, frequency: 14, scale: { start: 0.5, end: 0.1 }, alpha: { start: 0.6, end: 0 }, tint: 0x9a7a50 }
-          : { x: { min: VX, max: VX + VW }, y: VY - 10, speedX: { min: -40, max: -10 }, speedY: { min: 500, max: 700 }, lifespan: 1600, frequency: 10, scaleX: 0.12, scaleY: 1.4, alpha: { start: 0.5, end: 0.1 }, tint: 0x9ab0b8 };
-    const pe = this.add.particles(0, 0, key, cfg).setScrollFactor(0).setDepth(DEPTH.decoFront);
+    // aufgewühltes, trübes Wasser: Schwebeteilchen und ein dunkler Schleier
+    const veil = this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW * 1.4, VH * 1.4).setTint(0x1a3a30).setAlpha(0).setDepth(DEPTH.dark - 2);
+    const pe = this.add.particles(0, 0, 'p_dot', {
+      x: { min: VX, max: VX + VW }, y: { min: VY, max: VY + VH }, speedX: { min: -60, max: 60 }, speedY: { min: -20, max: 20 }, lifespan: 3000, frequency: 20,
+      scale: { start: 0.6, end: 0.1 }, alpha: { start: 0.5, end: 0 }, tint: 0x6a7a60,
+    }).setScrollFactor(0).setDepth(DEPTH.decoFront);
     this.stormFx = { veil, p: pe };
   }
 
@@ -1877,10 +1859,96 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
-      bus.emit('food', this.kcal(this.eatenMeat), this.kcal(this.eatenPlant), 0);
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }
+  }
+
+  // ---------------------------------------------------------------- Ränder, Karte, Muscheln
+
+  /** An beiden Enden des Ortes schimmert helleres Wasser: Dort geht es hinaus auf die Karte. */
+  private buildExits() {
+    const L = this.L;
+    const h = L.height - L.surfaceY;
+    const mk = (x: number) =>
+      this.add.image(x, L.surfaceY + h / 2, 'glow').setDisplaySize(760, h * 1.15).setTint(0xb4f0e2)
+        .setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.4);
+    this.exitFx = { l: mk(0), r: mk(L.width) };
+  }
+
+  /** Wer gegen den Rand schwimmt, verlässt den Ort und kommt auf die Karte. */
+  private edgeStep(time: number, dt: number) {
+    const p = this.player;
+    const L = this.L;
+    const dl = p.body.left, dr = L.width - p.body.right;
+    const near = Math.min(dl, dr);
+    const fx = this.exitFx;
+    if (fx) {
+      const pulse = 0.5 + 0.5 * Math.sin(time / 600);
+      fx.l.setAlpha(0.5 + 0.12 * pulse + 0.35 * clamp(1 - dl / 900, 0, 1));
+      fx.r.setAlpha(0.5 + 0.12 * pulse + 0.35 * clamp(1 - dr / 900, 0, 1));
+    }
+    if (near < 420 && !this.edgeNoted) {
+      this.edgeNoted = true;
+      bus.emit('story', 'Dort schimmert offenes Wasser. Schwimm hindurch, und du kommst auf die Karte.');
+    }
+    const pushing = (dr < 16 && this.controls.held.right) || (dl < 16 && this.controls.held.left);
+    this.edgeHold = pushing ? this.edgeHold + dt : Math.max(0, this.edgeHold - dt * 2);
+    if (this.edgeHold > 0.3) this.leave();
+  }
+
+  /** Den Ort verlassen: Der Stand wird gemerkt, dann geht es auf die Karte. */
+  private leave() {
+    if (this.ended) return;
+    this.ended = true;
+    this.saveProgress();
+    audio.sfx('travel');
+    this.player.body.setVelocity(0, 0);
+    this.cameras.main.fadeOut(900, 2, 3, 4);
+    this.time.delayedCall(950, () => {
+      this.scene.stop('Hud');
+      this.scene.start('Map', { epoch: this.epochIdx });
+    });
+  }
+
+  /** Zustand für den nächsten Ort bzw. die Karte festhalten. */
+  private saveProgress() {
+    const p = this.player;
+    game.leavePlace({
+      elapsed: this.elapsed,
+      hp: p.hp,
+      sat: p.satiety,
+      kin: this.animals.filter((a) => a instanceof Kin && !a.dead).length,
+      eaten: { meat: this.eatenMeat, plant: this.eatenPlant },
+      train: { ...this.train },
+    });
+  }
+
+  /** Muscheln: funkeln ab und zu und werden beim Berühren aufgehoben. */
+  private shellStep(time: number) {
+    if (!this.shells.length) return;
+    const p = this.player;
+    const pr = p.hitRect();
+    const view = this.cameras.main.worldView;
+    const spark = time > this.shellSparkAt;
+    if (spark) this.shellSparkAt = time + 520;
+    for (const sh of this.shells) {
+      if (sh.taken) continue;
+      if (spark && sh.x > view.x - 40 && sh.x < view.right + 40 && sh.y > view.y - 40 && sh.y < view.bottom + 40) {
+        this.sparkle.explode(1, sh.x + (Math.random() - 0.5) * 30, sh.y - 12 - Math.random() * 26);
+      }
+      if (overlaps(pr, sh.rect)) this.pickShell(sh);
+    }
+    this.shells = this.shells.filter((s) => !s.taken);
+  }
+
+  private pickShell(sh: Shell) {
+    sh.take();
+    const n = game.collectShell(sh.id);
+    audio.sfx('shell');
+    this.sparkle.explode(26, sh.x, sh.y - 20);
+    this.cameras.main.flash(260, 255, 244, 220);
+    bus.emit('shell', n);
   }
 
   // ---------------------------------------------------------------- Ende
@@ -1920,7 +1988,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (res.drift && !res.finished) data.drifted = res.drift.after;
     data.finished = res.finished;
     data.node = res.node;
-    bus.emit('clock', this.span.to, 1, 1);
     audio.sfx('portal');
     this.player.body.setVelocity(0, 0);
     this.cameras.main.fadeOut(1800, 230, 214, 180);
