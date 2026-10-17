@@ -103,8 +103,10 @@ Linien, an echten Fischgruppen orientiert:
 Jedes der drei Zeitalter gibt **einen Punkt** an die Linie, die zu seinem Spielstil passt. Daraus
 ergeben sich zehn Grundkombinationen: **3-0-0** (rein, 3 Möglichkeiten), **2-1-0** (Hauptlinie mit einem
 Schuss einer zweiten, 6 Möglichkeiten) und **1-1-1** (von allem etwas). Größe, Farbe, Muster und
-Verhalten kommen zusätzlich aus dem Code (Größe wirkt sich auf das Verhalten im Spiel aus). Der
-Zeichenstil ist mit den Vorlagen unten festgelegt.
+Verhalten kommen zusätzlich aus dem Code (Größe wirkt sich auf das Verhalten im Spiel aus). **Jede
+Kombination bekommt ihre eigenen, fertig gezeichneten Animationen** – es wird nichts aus Teilen
+verschiedener Linien zusammengesetzt und im Spiel nichts gedreht. Der Zeichenstil ist mit den Vorlagen
+unten festgelegt.
 
 ## Biss-Vorlagen (`art/vorlagen/`)
 
@@ -128,34 +130,12 @@ Aufbau im SVG – alles in benannten Ebenen, je Bild (`bild1-…` bis `bild5-…
 Der Unterkiefer dreht sich um das **Kiefergelenk** (steht im `transform` der Ebene `jaw-lower`: bei Panzer
 und Jäger bei x = 340, y = 168, beim Fleischflosser bei x = 352, y = 170).
 
-### Bewegung: kommt aus den Ebenen, nicht aus weiteren Bildern
+### Bewegung: ganze Bilder, keine Drehung
 
-Schwimmen, Flossenschlag usw. zeichnest du **nicht** Bild für Bild – das baue ich im Spiel aus den
-Ebenen zusammen (so macht es der Code heute schon mit dem gemalten Fisch):
-
-| Bewegung | kommt aus |
-|---|---|
-| Schwanzschlag, Körperwelle beim Schwimmen | `tail` dreht sich um `gelenk-schwanz`; der Körper wird leicht gebogen |
-| Flossenschlag, Schweben | `fin-pectoral`, `fin-pectoral-far`, `fin-pelvic`, `fin-dorsal` drehen sich um ihre Gelenke |
-| Biss, Maulaufreißen | `jaw-lower` um `gelenk-kiefer` (wie in den 5 Bildern) |
-| Kopfstoß, Ausholen, Zusammenzucken | der Fisch als Ganzes, Kopf neigt sich |
-| Atmen, Treiben, Treffer, Tod | leichte Bewegungen, Blinken, Auf-den-Rücken-Drehen |
-
-Damit das sauber aussieht, bitte beim Überarbeiten:
-
-1. **Teile an Gelenken überlappen lassen.** Schwanz und Flossen reichen mit der Wurzel ein Stück *unter*
-   den Körper (liegen in der Ebene dahinter) – sonst klafft beim Bewegen eine Lücke. Der Körper sollte
-   die Ansätze verdecken.
-2. **Gelenke markieren.** Die ausgeblendete Ebene `gelenke` hat je Drehpunkt ein Fadenkreuz
-   (`gelenk-schwanz`, `-kiefer`, `-brustflosse`, `-bauchflosse`, `-rueckenflosse`, …). Wenn du Teile
-   verschiebst oder neu zeichnest: Ebene einblenden, Fadenkreuz an die neue Stelle setzen, wieder ausblenden.
-3. **Jedes bewegliche Teil in eine eigene Ebene** (nicht mit dem Körper verschmelzen).
-4. Flossen **ohne den Rumpf-Umriss** zeichnen (sie werden einzeln gedreht).
-
-**Damit sich die Linien später mischen lassen** (z. B. Kopf und Kiefer der Hauptlinie, Schwanz und
-Flossen der zweiten), bitte beim Überarbeiten beibehalten: Blickrichtung rechts, Bildgröße 480 × 300,
-Schnauzenspitze etwa bei x = 466, Schwanzansatz etwa bei x = 60–75, Kiefergelenk bei x ≈ 340–352 – und die
-Ebenennamen.
+Alle Bewegungen (Schwimmen, Tauchen, Fressen, Zucken …) werden **Bild für Bild als Sprite-Sheet**
+gezeichnet – das Spiel spielt sie nur ab. Die Ebenen und Gelenke in diesen SVG-Vorlagen sind darum
+nur noch eine **Zeichenhilfe**. Ein Muster mit allen nötigen Bewegungen liegt in `art/vorlagen/tiere/`
+(siehe unten).
 
 ### Rückgabe
 
@@ -166,16 +146,56 @@ dann als Original stehen. Mehr als 5 Bilder oder andere Größen sind kein Probl
 Die Vorlagen stammen aus `tools/bite_sheets.py` (`python3 tools/bite_sheets.py` schreibt sie neu).
 **Nicht neu erzeugen, wenn du die SVG-Dateien von Hand bearbeitet hast** – das überschreibt sie.
 
+## Bewegungs-Sprite-Sheet (Muster: Cladoselache)
+
+Zum Ausprobieren der ganzen Kette (Zeichnen → Zurücklegen → Einbau) mit einem **gleichbleibenden Gegner**
+liegt in `art/vorlagen/tiere/` ein vollständiges Sheet für den *Cladoselache* (Räuber, kann also alles):
+
+| Datei | Zweck |
+|---|---|
+| `cladoselache_sheet.png` | **transparent**, 3584 × 2880 – darüber oder danach malen |
+| `cladoselache_sheet_raster.png` | mit Raster, Mittenkreuz und Beschriftung (halbe Größe) – nur zur Orientierung |
+| `cladoselache_sheet.svg` | dasselbe als bearbeitbares SVG (Ebenen je Bild) |
+| `cladoselache_sheet.json` | Raster, Reihen, Bilderzahl, Zeiten – **das liest später das Spiel** |
+
+**Aufbau:** Jede **Reihe ist eine Bewegung**, jedes **Bild eine fertige Pose** (links nach rechts abspielen).
+Zelle 448 × 360, Blick nach rechts, die Körpermitte liegt im Zellmittelpunkt (Kreuz im Raster).
+
+| Reihe | Bilder | Wann im Spiel | Zeit je Bild |
+|---|---|---|---|
+| `schwimmen` | 8 | normales Umherschwimmen (Schleife) | 100 ms |
+| `schnell` | 6 | Flucht, Jagd, Anlauf (Schleife) | 70 ms |
+| `tauchen` | 6 | schwimmt nach unten, Kopf ca. 26° geneigt (Schleife) | 100 ms |
+| `steigen` | 6 | schwimmt nach oben, Kopf ca. 26° geneigt (Schleife) | 100 ms |
+| `ruhen` | 6 | Ruhen, Lauern, Dösen (Schleife) | 160 ms |
+| `fressen` | 6 | Pflanzen und Fleischstücke fressen (Schleife) | 110 ms |
+| `beissen` | 8 | Angriff: Ausholen (1–3), Vorstoß (4–5), Zubeißen (6), Erholen (7–8) | 140/140/120/70/70/90/120/140 ms |
+| `zucken` | 4 | Treffer: zusammenzucken, Auge zukneifen, fangen | 60/80/100/120 ms |
+
+Zusammen 50 Bilder. Das Wenden bleibt vorerst beim Spiegeln des Bildes.
+
+**Zeichnen & Zurücklegen:**
+
+- Die Posen in der Vorlage sind nur Anhaltspunkte (Körperwelle, Flossen, Kiefer) – gern frei neu zeichnen.
+- **Anordnung beibehalten** (Reihenfolge der Reihen, Bilder je Reihe, Körpermitte im Zellmittelpunkt). Das Bild
+  darf gleichmäßig größer sein (z. B. 2× oder 4× der Zellgröße), nicht anders angeordnet.
+- Nichts über den Zellrand hinaus – die Vorlage lässt mindestens 11 px Rand.
+- Fertige Datei als **`art/neu/tiere/cladoselache_sheet.png`** ablegen (gern zusätzlich das SVG). Weitere Reihen
+  oder andere Bilderzahlen sind kein Problem – bitte die Änderung im JSON mitschreiben oder kurz sagen.
+- Hinweis zum Aufwand: Kleine Beute braucht weniger – `schwimmen`, `schnell`, `ruhen/fressen`, `zucken`, auch
+  mit je 4–6 Bildern; `beissen`, `tauchen`, `steigen` nur für Räuber und große Tiere.
+
+Das Sheet stammt aus `tools/fish_sheet.py`. **Nicht neu erzeugen, wenn du die Dateien bearbeitet hast** – das überschreibt sie.
+
 ## Die anderen Tiere
 
-Auch die übrigen 18 Arten (`art/alt/tiere/`) sind bisher im Code gemalt und würden neben den neuen
-Fischen auffallen. Sie lassen sich **einzeln** ersetzen – was nicht ersetzt ist, bleibt wie bisher.
-Vorschlag für das Format: **eine Vorlage je Art wie die Biss-Blätter** (Ebenen für Körper, Schwanz, Flossen
-und – bei Räubern – Kiefer), damit die Bewegung wieder aus den Ebenen kommt; bei Räubern zusätzlich
-„Maul zu“ und „Maul offen“, weil sie vor dem Biss sichtbar ausholen.
+Auch die übrigen Arten (`art/alt/tiere/`) sind bisher im Code gemalt und würden neben den neuen Fischen
+auffallen. Sie lassen sich **einzeln** ersetzen – was nicht ersetzt ist, bleibt wie bisher. Jede Art bekommt
+ein Sheet wie oben (mit den Reihen, die sie braucht).
 
 | Gruppe | Arten | Hinweis |
 |---|---|---|
-| Linien-Verwandte | Dunkleosteus, Bothriolepis (Panzer) · Cladoselache, Cheiracanthus (Jäger) · Eusthenopteron, Hyneria (Fleischflosser) | lassen sich zum großen Teil aus den drei Linien-Vorlagen ableiten (Größe, Farbe, Proportion) – wenig Extra-Arbeit |
-| Kleine Beute | Kieferloser Fisch, Sacabambaspis, Birkenia, Cephalaspis, Rolfosteus | einfach: Körper, Schwanz, eine Flosse |
-| Wirbellose | Trilobit, Qualle, Orthoceras, Riesenkopffüßer, Seeskorpion, Megalograptus, Pterygotus | eigene Körperform: Fangarme, Scheren, Beine, Ruderplatten als eigene Ebenen |
+| Fische (Räuber) | Cladoselache (Muster), Rolfosteus, Eusthenopteron, Hyneria, Dunkleosteus | alle Reihen |
+| Kleine Beute | Kieferloser Fisch, Sacabambaspis, Birkenia, Cephalaspis, Cheiracanthus | schwimmen, schnell, ruhen/fressen, zucken |
+| Gepanzert, langsam | Bothriolepis | wie Räuber, aber ohne Sprint |
+| Wirbellose | Trilobit, Qualle, Orthoceras, Riesenkopffüßer, Seeskorpion, Megalograptus, Pterygotus | eigene Reihen je Körperform (Fangarme, Scheren, Beine) |

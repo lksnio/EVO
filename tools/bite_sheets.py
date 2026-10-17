@@ -226,10 +226,15 @@ def pivots(items):
     return f'<g id="gelenke" display="none">{g}</g>'
 
 
-def far_fin(pref, d):
+def far_fin(pref, d, rot=0.0, pv=(0, 0)):
     """Brustflosse der abgewandten Körperseite: dunkler, etwas versetzt, hinter dem Körper."""
-    return (f'<g id="fin-pectoral-far" transform="translate(16 -12)" opacity="0.8"><path d="{d}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
+    return (f'<g id="fin-pectoral-far" transform="translate(16 -12) rotate({_fmt(rot)} {pv[0]} {pv[1]})" opacity="0.8"><path d="{d}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
             f'<path d="{d}" fill="#000" opacity="0.28"/></g>')
+
+
+def eye_shut(cx, cy, r):
+    """Zusammengekniffenes Auge (beim Zucken)."""
+    return (f'<g id="eye"><path d="M{cx - r} {cy - r * 0.5}L{cx + r * 0.2} {cy}L{cx - r} {cy + r * 0.5}" fill="none" stroke="{INK}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>')
 
 
 # ----------------------------------------------------------------------------- Linie 1: Panzer
@@ -294,7 +299,7 @@ def panzer(theta):
 
 # ----------------------------------------------------------------------------- Linie 2: Jäger
 
-def jaeger(theta):
+def jaeger(theta, tail_rot=0.0, pect_rot=0.0, pelv_rot=0.0, dors_rot=0.0, shut=False, stripes=True, pivs=True):
     pref = 'jg'
     H = ANCHOR['hinge']
     body = [(70, 147, 's'), (130, 132), (200, 116), (270, 108), (335, 110), (392, 121), (430, 136), (466, 152, 's'),
@@ -314,15 +319,15 @@ def jaeger(theta):
     up_t = sample(mline[::-1], 12)
     low_t = sample(jaw_top, 12)
     s = []
-    s.append(f'<g id="tail"><path d="{path(tail, True, 0.2)}" fill="url(#{pref}-fin)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
+    s.append(f'<g id="tail" transform="rotate({_fmt(tail_rot)} 74 150)"><path d="{path(tail, True, 0.2)}" fill="url(#{pref}-fin)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
              f'<path d="M66 149 Q40 112 14 62 M66 151 Q40 190 18 240 M66 150 L30 150" fill="none" stroke="{INK}" stroke-width="1" opacity="0.35"/></g>')
-    s.append(f'<g id="fin-dorsal"><path d="{path(dorsal2, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
+    s.append(f'<g id="fin-dorsal" transform="rotate({_fmt(dors_rot)} 240 112)"><path d="{path(dorsal2, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
              f'<path d="{path(spine2, True, 0.2)}" fill="#c9cfc2" stroke="{INK}" stroke-width="1.4" stroke-linejoin="round"/>'
              f'<path d="{path(dorsal1, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
              f'<path d="{path(spine1, True, 0.2)}" fill="#c9cfc2" stroke="{INK}" stroke-width="1.6" stroke-linejoin="round"/></g>')
-    s.append(f'<g id="fin-pelvic"><path d="{path(pelvic, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
+    s.append(f'<g id="fin-pelvic" transform="rotate({_fmt(pelv_rot)} 190 206)"><path d="{path(pelvic, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
              f'<path d="{path(anal, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/></g>')
-    s.append(far_fin(pref, path(pect, True, 0.2)))
+    s.append(far_fin(pref, path(pect, True, 0.2), -pect_rot * 0.8, (304, 180)))
     s.append(f'<g id="mouth-interior">{mouth_interior(sample(mline[::-1], 6), sample(jaw_top, 6), [(346, 198), (333, 184)], (344, 196), theta, H)}</g>')
     s.append(f'<g id="jaw-lower" transform="rotate({_fmt(theta)} {H[0]} {H[1]})">'
              f'<path d="{path(jaw, True, 0.17)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
@@ -332,17 +337,18 @@ def jaeger(theta):
              f'<path d="{path(body, True, 0.16)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.6" stroke-linejoin="round"/>'
              f'<path d="{path(body, True, 0.16)}" fill="url(#{pref}-sheen)" opacity="0.55"/>'
              # Querbinden wie beim Stachelhai
-             f'<g clip-path="url(#{pref}-clip-body)" fill="#1d2e36" opacity="0.28">'
-             + ''.join(f'<path d="M{x} 100 Q{x + 14} 150 {x - 8} 215 L{x + 12} 215 Q{x + 34} 150 {x + 22} 100Z"/>' for x in (130, 168, 206, 244, 282))
-             + '</g>'
+             + (f'<g clip-path="url(#{pref}-clip-body)" fill="#1d2e36" opacity="0.28">'
+                + ''.join(f'<path d="M{x} 100 Q{x + 14} 150 {x - 8} 215 L{x + 12} 215 Q{x + 34} 150 {x + 22} 100Z"/>' for x in (130, 168, 206, 244, 282))
+                + '</g>' if stripes else '') +
              f'<path d="M96 138 Q250 120 400 138" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.16"/>'
              # Kiemenspalten
              f'<path d="M352 124 Q340 148 350 176 M366 122 Q354 148 364 174 M380 124 Q370 148 378 170" fill="none" stroke="{INK}" stroke-width="1.6" opacity="0.5"/>'
              + f'<g id="teeth-upper">' + teeth(up_t, 11, 4, 9, True, w=0.6) + '</g>'
-             + eye(418, 138, 10) + '</g>')
-    s.append(f'<g id="fin-pectoral"><path d="{path(pect, True, 0.2)}" fill="url(#{pref}-fin)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
+             + (eye_shut(418, 138, 10) if shut else eye(418, 138, 10)) + '</g>')
+    s.append(f'<g id="fin-pectoral" transform="rotate({_fmt(pect_rot)} 304 180)"><path d="{path(pect, True, 0.2)}" fill="url(#{pref}-fin)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
              f'<path d="M304 182 Q290 200 272 232 M310 186 Q300 206 284 226" fill="none" stroke="{INK}" stroke-width="1" opacity="0.4"/></g>')
-    s.append(pivots({'kiefer': H, 'schwanz': (74, 150), 'brustflosse': (304, 180), 'bauchflosse': (210, 205), 'afterflosse': (140, 190), 'rueckenflosse-1': (240, 110), 'rueckenflosse-2': (140, 126)}))
+    if pivs:
+        s.append(pivots({'kiefer': H, 'schwanz': (74, 150), 'brustflosse': (304, 180), 'bauchflosse': (210, 205), 'afterflosse': (140, 190), 'rueckenflosse-1': (240, 110), 'rueckenflosse-2': (140, 126)}))
     return ''.join(s)
 
 

@@ -310,7 +310,7 @@ src/
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
-tools/                   bite_sheets.py erzeugt die Biss-Vorlagen (SVG)
+tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
 
 ### Ideen für später
