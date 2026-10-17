@@ -101,13 +101,33 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
   const placo = !!(p.armor && p.teeth && !p.arms && !p.eyesFront);
   const bone = placo ? mix(c, 0x7a7e74, 0.55) : mix(c, 0xb4aa92, 0.55);
   const ny = p.shark ? -hh * 0.06 : placo ? hh * 0.18 : p.armor ? hh * 0.08 : hh * 0.04;
+  // Fleischflosser: kräftiger Flossenstiel mit einem Fächer aus Flossenstrahlen am Ende
+  const lobe = (x: number, y: number, ang: number, L: number, wd: number, fan: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(0, -wd);
+      ctx.quadraticCurveTo(L * 0.6, -wd * 1.05, L, -wd * 0.55);
+      ctx.lineTo(L, wd * 0.55);
+      ctx.quadraticCurveTo(L * 0.6, wd * 1.05, 0, wd);
+      ctx.closePath();
+    };
+    skin(ctx, path, { base: mix(c, fc, 0.5), y0: -wd, y1: wd, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.3, edge: D, edgeW: lw * 0.8, rim: 0.3 });
+    finMembrane(ctx, [L * 0.92, -wd * 0.55], [[L * 1.18, -fan * 0.9], [L * 1.5, -fan * 0.35], [L * 1.55, fan * 0.1], [L * 1.3, fan * 0.8]], [L * 0.92, wd * 0.55], fc, lw);
+    ctx.restore();
+  };
 
   // ---- Schwanzflosse (hinter dem Körper), schlägt hin und her
   ctx.save();
   ctx.translate(-hw * 0.95, 0);
   ctx.rotate(sw);
   const T = len * 0.24;
-  if (p.shark || placo || (p.jawless && !p.armor)) {
+  if (p.lobed) {
+    // spitz auslaufender Schwanz mit drei Lappen
+    finMembrane(ctx, [0, -hh * 0.3], [[-T * 0.5, -hh * 0.62], [-T * 1.05, -hh * 0.22], [-T * 1.3, 0], [-T * 1.05, hh * 0.22], [-T * 0.5, hh * 0.62]], [0, hh * 0.3], fc, lw);
+  } else if (p.shark || placo || (p.jawless && !p.armor)) {
     // ungleiche Schwanzflosse: der obere Lappen ist länger
     finMembrane(ctx, [0, -hh * 0.2], [[-T * 0.45, -hh * 0.6], [-T * 1.05, -hh * 1.35], [-T * 0.75, -hh * 0.35], [-T * 0.45, hh * 0.3], [-T * 0.5, hh * 0.75]], [0, hh * 0.2], fc, lw);
   } else {
@@ -125,9 +145,30 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
   } else if (p.shield) {
     finMembrane(ctx, [-hw * 0.35, -hh * 0.75], [[-hw * 0.45, -hh * 1.2], [-hw * 0.58, -hh * 1.15]], [-hw * 0.6, -hh * 0.55], fc, lw);
   }
+  if (p.lobed) finMembrane(ctx, [-hw * 0.5, -hh * 0.55], [[-hw * 0.58, -hh * 1.15], [-hw * 0.72, -hh * 1.3], [-hw * 0.76, -hh * 0.7]], [-hw * 0.76, -hh * 0.4], fc, lw);
   if (!p.eyesFront) finMembrane(ctx, [-hw * 0.42, hh * 0.72], [[-hw * 0.52, hh * 1.2], [-hw * 0.66, hh * 1.2], [-hw * 0.7, hh * 0.85]], [-hw * 0.7, hh * 0.5], fc, lw);
   // Bauchflosse
-  finMembrane(ctx, [-hw * 0.02, hh * 0.92], [[-hw * 0.12, hh * 1.3], [-hw * 0.24, hh * 1.25]], [-hw * 0.22, hh * 0.85], fc, lw);
+  if (p.lobed) lobe(-hw * 0.04, hh * 0.78, f ? 2.0 : 2.25, hw * 0.22, hh * 0.17, hh * 0.75);
+  else finMembrane(ctx, [-hw * 0.02, hh * 0.92], [[-hw * 0.12, hh * 1.3], [-hw * 0.24, hh * 1.25]], [-hw * 0.22, hh * 0.85], fc, lw);
+  // Stachelhai: kräftige Stacheln vor den Flossen
+  if (p.spiny) {
+    const sp = (x: number, y: number, tx: number, ty: number, wd: number) => {
+      ctx.beginPath();
+      ctx.moveTo(x - wd, y);
+      ctx.lineTo(tx, ty);
+      ctx.lineTo(x + wd, y + wd * 0.3);
+      ctx.closePath();
+      ctx.fillStyle = css(shade(bone, 0.12));
+      ctx.fill();
+      ctx.strokeStyle = css(shade(c, -0.5), 0.6);
+      ctx.lineWidth = lw * 0.7;
+      ctx.stroke();
+    };
+    sp(hw * 0.2, -hh * 0.95, -hw * 0.02, -hh * 2.0, hh * 0.13);
+    sp(hw * 0.26, hh * 0.7, hw * 0.08, hh * 1.85, hh * 0.11);
+    sp(-hw * 0.1, hh * 0.85, -hw * 0.32, hh * 1.75, hh * 0.1);
+    sp(-hw * 0.5, hh * 0.72, -hw * 0.64, hh * 1.6, hh * 0.09);
+  }
 
   // ---- Körper
   const top0 = p.armor ? -hh * 0.55 : p.shark ? -hh * 0.5 : -hh * 0.72;
@@ -312,6 +353,25 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
     };
     skin(ctx, sh, { base: bone, top: shade(bone, -0.2), y0: -hh, y1: hh, noise: 'stone', noiseAlpha: 0.5, noiseScale: 0.3, seed: len + 3, edge: D, edgeW: lw, rim: 0.4 });
   }
+  // ---- Schnauzenfortsatz aus Knochen (Rolfosteus): lang, spitz, mit einer Naht in der Mitte
+  if (p.snout) {
+    const tipX = hw * (1 + p.snout), tipY = ny - hh * 0.1;
+    const rost = () => {
+      ctx.beginPath();
+      ctx.moveTo(hw * 0.58, -hh * 0.66);
+      ctx.quadraticCurveTo(hw * 0.95, -hh * 0.5, tipX, tipY);
+      ctx.quadraticCurveTo(hw * 1.0, ny + hh * 0.02, hw * 0.9, ny + hh * 0.06);
+      ctx.lineTo(hw * 0.7, -hh * 0.1);
+      ctx.closePath();
+    };
+    skin(ctx, rost, { base: bone, top: shade(bone, -0.2), y0: -hh * 0.7, y1: ny, noise: 'stone', noiseAlpha: 0.5, noiseScale: 0.3, seed: len + 9, edge: D, edgeW: lw, rim: 0.4 });
+    ctx.beginPath();
+    ctx.moveTo(hw * 0.66, -hh * 0.42);
+    ctx.quadraticCurveTo(hw * 1.0, -hh * 0.25, tipX - 2, tipY);
+    ctx.strokeStyle = css(shade(bone, -0.55), 0.6);
+    ctx.lineWidth = lw * 0.8;
+    ctx.stroke();
+  }
   // ---- Stachelreihe auf dem Rücken (Birkenia)
   if (p.spines) {
     for (let i = 0; i < 7; i++) {
@@ -420,6 +480,8 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
     seg(0, 0, -hw * 0.28, hh * 0.55, hh * 0.12);
     seg(-hw * 0.28, hh * 0.55, -hw * 0.6, hh * 0.45, hh * 0.1);
     ctx.restore();
+  } else if (p.lobed) {
+    lobe(hw * 0.34, hh * 0.55, f ? 1.7 : 2.05, hw * 0.26, hh * 0.19, hh * 0.8);
   } else {
     // ---- Brustflosse (vor dem Körper), bewegt sich mit
     ctx.save();

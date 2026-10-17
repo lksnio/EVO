@@ -8,7 +8,7 @@ import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { Tablet } from './tablet';
-import { panel, text, title } from './ui';
+import { text, title } from './ui';
 
 export interface TabletScreenData {
   ctx: StatCtx;
@@ -46,7 +46,13 @@ export class TabletScreen {
     // ---- rechts: Tier, Zeit, Muscheln
     const rx = 640, rw = W - rx - 52;
     const cx = rx + rw / 2;
-    c.add(panel(scene, rx, 34, rw, 652, 0.9, UI.stone));
+    // schlichte, flache Tafel: dunkel, mit einer dünnen Linie
+    const bg = scene.add.graphics();
+    bg.fillStyle(0x0d0c0b, 0.86);
+    bg.fillRoundedRect(rx, 34, rw, 652, 10);
+    bg.lineStyle(1.5, 0x6a5638, 0.5);
+    bg.strokeRoundedRect(rx + 0.5, 34.5, rw - 1, 651, 10);
+    c.add(bg);
     c.add(title(scene, cx, 78, d.placeName, 29).setOrigin(0.5));
     const run = game.run;
     const ep = game.epoch;
@@ -75,7 +81,7 @@ export class TabletScreen {
     c.add(text(scene, rx + rw - 44, 384, yearsAgo(years, (span.from - span.to) / ep.seconds / 10), 22, UI.bone).setOrigin(1, 0.5));
     const g = scene.add.graphics();
     const bx = rx + 44, bw = rw - 88;
-    g.fillStyle(0x0a0908, 0.8);
+    g.fillStyle(0x2c261f, 1);
     g.fillRoundedRect(bx - 2, 410, bw + 4, 12, 4);
     g.fillStyle(0xc8913c, 1);
     g.fillRoundedRect(bx, 412, bw * frac, 8, 3);
@@ -94,8 +100,8 @@ export class TabletScreen {
       const x = rx + 74 + col * ((rw - 148) / (per - 1));
       const y = 568 + row * 54;
       const has = i < unlocked;
-      const sh = scene.add.image(x, y + 18, 'shell').setOrigin(0.5, 1).setScale(has ? 0.92 : 0.8);
-      if (!has) sh.setTint(0x000000).setAlpha(0.4);
+      const sh = scene.add.image(x, y + 20, 'shell').setOrigin(0.5, 1).setDisplaySize(44, 48);
+      if (!has) sh.setTint(0x000000).setAlpha(0.32);
       c.add(sh);
     }
 

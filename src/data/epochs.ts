@@ -78,7 +78,7 @@ export const EPOCHS: EpochDef[] = [
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
     from: 438 * M, to: 427 * M, seconds: 220, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95, caves: 1,
-    fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
+    fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1.5], ['cheiracanthus', 0.6], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
       { at: 0.22, kind: 'leviathan' },
@@ -90,7 +90,7 @@ export const EPOCHS: EpochDef[] = [
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
     from: 382 * M, to: 372 * M, seconds: 240, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55, caves: 2,
-    fauna: [['kieferlos', 2], ['bothriolepis', 2], ['cephalaspis', 1], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1], ['cladoselache', 1], ['hyneria', 0.5]],
+    fauna: [['kieferlos', 1.5], ['cheiracanthus', 1], ['bothriolepis', 1], ['cephalaspis', 1], ['trilobit', 2], ['orthoceras', 1.5], ['seeskorpion', 1], ['cladoselache', 1.2], ['rolfosteus', 0.9], ['eusthenopteron', 0.8], ['hyneria', 0.4]],
     events: [
       { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
       { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Der Panzerfisch zieht durch das Riff.' },

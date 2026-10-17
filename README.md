@@ -96,9 +96,22 @@ zuerst wird das Fischreich ausgebaut.
 - **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
   Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
   riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
-- **Tiere ihrer Zeit:** Im Urmeer leben u. a. *Sacabambaspis*, *Birkenia*, *Cephalaspis* und der
-  Panzerfisch *Bothriolepis*; kein Tier gleicht dem anderen ganz – manche sind etwas größer,
-  andere etwas kleiner.
+- **Tiere ihrer Zeit:** Jede Art lebt in ihrer Wasserschicht und an den Orten, die zu ihr passen –
+  mit eigenem Verhalten:
+  - *Cephalaspis* – kieferlos, mit Kopfschild; klein, bodennah, am liebsten in flachen, bewachsenen
+    Gewässern.
+  - *Cheiracanthus* – ein kleiner „Stachelhai“ der mittleren Wasserschichten; häufige Beute und
+    Futterkonkurrent.
+  - *Bothriolepis* – schwer gepanzert, langsam, am Boden; setzt auf Schutz statt Tempo und rammt zurück,
+    wenn man ihm zu nahe kommt.
+  - *Cladoselache* – früher Hai, schnell und stromlinienförmig; jagt andere Fische durchs offene Wasser,
+    vor allem in der Tiefe.
+  - *Rolfosteus* – Panzerfisch mit langem, spitzem Schnauzenfortsatz; ein Jäger des Bodens, der aus
+    trübem oder tiefem Wasser vorschnellt.
+  - *Eusthenopteron* – kräftiger Fleischflosser mit Stielflossen; ein großer Räuber der tieferen Orte.
+
+  Dazu *Sacabambaspis*, *Birkenia* und andere. Kein Tier gleicht dem anderen ganz – manche sind etwas
+  größer, andere etwas kleiner.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
@@ -111,12 +124,13 @@ zuerst wird das Fischreich ausgebaut.
   oder massiger, größere oder kleinere Flossen, ein breiterer oder schmalerer Schwanz, eine höhere
   oder flachere Rückenflosse, etwas größer oder kleiner, heller, dunkler oder im Farbton leicht
   verschoben.
-- **Die Steintafel (Taste C):** Eine **vermooste Steinplatte** – anfangs ist alles überwuchert.
+- **Die Steintafel (Taste C):** Eine **gebrochene, vermooste Steinplatte** mit Rissen und eingemeißelten
+  Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste
   Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, Gebiss, Länge,
   Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, Bodenkontakt, Zusammenhalt und Nerven.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
-  bisschen“, zwei für mehr, drei für stark. Muscheln sind selten – sie liegen in Höhlen, Felsspalten
+  bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
   Tier, die **Zeit** („vor 452.320.000 Jahren“ mit der Zündschnur des Zeitalters) und deine Muscheln.
   Hunger und Zeit sieht man sonst nirgends im Spiel. Das meiste andere an deinem Tier bleibt

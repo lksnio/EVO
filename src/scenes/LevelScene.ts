@@ -125,7 +125,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   place!: PlaceDef;
   /** Muscheln auf dem Grund */
   private shells: Shell[] = [];
-  private shellSparkAt = 0;
   /** wie lange man schon gegen den Rand schwimmt (dann geht es auf die Karte) */
   private edgeHold = 0;
   private exitFx?: { l: Phaser.GameObjects.Image; r: Phaser.GameObjects.Image };
@@ -219,7 +218,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.redrawAt = 0;
     this.surfGlow = undefined;
     this.shells = [];
-    this.shellSparkAt = 0;
     this.edgeHold = 0;
     this.endNoted = false;
     this.exitFx = undefined;
@@ -1652,15 +1650,23 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
     const z = this.zoneAt(x).def;
     const weight = (id: string) => {
-      const r = SPECIES[id].role;
-      return r === 'predator' || r === 'apex' ? z.hunters : r === 'prey' ? z.prey : 1;
+      const d = SPECIES[id];
+      const r = d.role;
+      return (r === 'predator' || r === 'apex' ? z.hunters : r === 'prey' ? z.prey : 1) * (d.where?.[this.place.kind] ?? 1);
     };
     let roll = Math.random() * pool.reduce((sum, id) => sum + weight(id), 0);
     const id = pool.find((pid) => (roll -= weight(pid)) <= 0) ?? pool[0];
     const def = SPECIES[id];
     const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
     const ground = L.ground[col];
-    const y = this.water ? (def.crawl ? ground - 24 : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40)) : def.habitat === 'air' ? ground - 150 : ground - 50;
+    const depth = ground - L.surfaceY;
+    const y = this.water
+      ? (def.crawl ? ground - 24
+        : def.layer === 'floor' ? ground - 70 - Math.random() * 150
+          : def.layer === 'mid' ? L.surfaceY + depth * (0.3 + Math.random() * 0.35)
+            : def.layer === 'open' ? L.surfaceY + depth * (0.12 + Math.random() * 0.5)
+              : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40))
+      : def.habitat === 'air' ? ground - 150 : ground - 50;
     const a = this.spawnAnimal(id, x, y);
     a.setAlpha(0);
     this.tweens.add({ targets: a, alpha: 1, duration: 800 });
@@ -1931,21 +1937,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     });
   }
 
-  /** Muscheln: funkeln ab und zu und werden beim Berühren aufgehoben. */
-  private shellStep(time: number) {
+  /** Muscheln werden beim Berühren aufgehoben. */
+  private shellStep(_time: number) {
     if (!this.shells.length) return;
-    const p = this.player;
-    const pr = p.hitRect();
-    const view = this.cameras.main.worldView;
-    const spark = time > this.shellSparkAt;
-    if (spark) this.shellSparkAt = time + 520;
-    for (const sh of this.shells) {
-      if (sh.taken) continue;
-      if (spark && sh.x > view.x - 40 && sh.x < view.right + 40 && sh.y > view.y - 40 && sh.y < view.bottom + 40) {
-        this.sparkle.explode(1, sh.x + (Math.random() - 0.5) * 30, sh.y - 12 - Math.random() * 26);
-      }
-      if (overlaps(pr, sh.rect)) this.pickShell(sh);
-    }
+    const pr = this.player.hitRect();
+    for (const sh of this.shells) if (!sh.taken && overlaps(pr, sh.rect)) this.pickShell(sh);
     this.shells = this.shells.filter((s) => !s.taken);
   }
 
@@ -1953,8 +1949,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     sh.take();
     const n = game.collectShell(sh.id);
     audio.sfx('shell');
-    this.sparkle.explode(26, sh.x, sh.y - 20);
-    this.cameras.main.flash(260, 255, 244, 220);
+    this.puff(sh.x, sh.y - 16, 6, 0xf0dccc);
+    this.sparkle.explode(5, sh.x, sh.y - 20);
     bus.emit('shell', n);
   }
 

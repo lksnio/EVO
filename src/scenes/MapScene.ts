@@ -298,8 +298,8 @@ export class MapScene extends Phaser.Scene {
     if (!g) return;
     this.tweens.killTweensOf(g);
     if (Math.min(STAT_COUNT, game.shells.length) <= game.seenRows) return g.setAlpha(0);
-    g.setAlpha(0.2);
-    this.tweens.add({ targets: g, alpha: 0.7, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+    g.setAlpha(0.1);
+    this.tweens.add({ targets: g, alpha: 0.32, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
   }
 
   private toggleTablet() {

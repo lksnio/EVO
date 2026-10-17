@@ -234,25 +234,26 @@ export class Meat {
 /** Eine Muschel auf dem Grund. Wer sie berührt, legt eine Zeile der Steintafel frei. */
 export class Shell {
   img: Phaser.GameObjects.Image;
-  glow: Phaser.GameObjects.Image;
+  /** nur ein ganz zarter Schimmer, damit man sie findet – kein Leuchten */
+  halo: Phaser.GameObjects.Image;
   taken = false;
 
   constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly id: string) {
-    this.glow = scene.add.image(x, y - 14, 'glow').setTint(0xffe4c0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setScale(1.5).setAlpha(0.4);
-    this.img = scene.add.image(x, y + 2, 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setScale(0.9);
-    scene.tweens.add({ targets: this.glow, alpha: 0.16, scale: 1.05, yoyo: true, repeat: -1, duration: 1300 + (x % 7) * 90, ease: 'Sine.inOut' });
+    this.halo = scene.add.image(x, y - 20, 'glow').setTint(0xffe6d6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setDisplaySize(130, 100).setAlpha(0.09);
+    this.img = scene.add.image(x, y + 4, 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(62, 68);
+    scene.tweens.add({ targets: this.halo, alpha: 0.045, yoyo: true, repeat: -1, duration: 2400 + (x % 7) * 110, ease: 'Sine.inOut' });
   }
 
   get rect(): Rect {
-    return { x: this.x - 26, y: this.y - 44, w: 52, h: 50 };
+    return { x: this.x - 34, y: this.y - 62, w: 68, h: 68 };
   }
 
-  /** Aufgehoben: Die Muschel steigt auf und verglüht. */
+  /** Aufgehoben: Die Muschel steigt ein Stück auf und verblasst. */
   take() {
     if (this.taken) return;
     this.taken = true;
-    this.scene.tweens.killTweensOf(this.glow);
-    this.scene.tweens.add({ targets: this.glow, alpha: 0.9, scale: 3.4, duration: 380, ease: 'Sine.out', yoyo: true, onComplete: () => this.glow.destroy() });
-    this.scene.tweens.add({ targets: this.img, y: this.y - 50, alpha: 0, scale: 1.5, duration: 700, ease: 'Sine.out', onComplete: () => this.img.destroy() });
+    this.scene.tweens.killTweensOf(this.halo);
+    this.scene.tweens.add({ targets: this.halo, alpha: 0, duration: 600, onComplete: () => this.halo.destroy() });
+    this.scene.tweens.add({ targets: this.img, y: this.y - 34, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => this.img.destroy() });
   }
 }

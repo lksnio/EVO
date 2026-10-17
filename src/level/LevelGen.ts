@@ -109,7 +109,12 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
       const x = (col + 0.5) * T;
       const ground = heights[col] * T;
       const span = heights[col] - 6;
-      const y = d.crawl ? ground - 24 : (3 + span * (deepDweller ? low + r() * (1 - low) : r())) * T;
+      let y: number;
+      if (d.crawl) y = ground - 24;
+      else if (d.layer === 'floor') y = ground - (70 + r() * 150);
+      else if (d.layer === 'mid') y = (3 + span * (0.3 + r() * 0.35)) * T;
+      else if (d.layer === 'open') y = (3 + span * (0.12 + r() * 0.5)) * T;
+      else y = (3 + span * (deepDweller ? low + r() * (1 - low) : r())) * T;
       L.spawns.push({ id, x, y });
     }
   };
@@ -118,7 +123,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
     const danger = d.role === 'predator' || d.role === 'defender' || d.role === 'hazard';
     const hunter = d.role === 'predator' || d.role === 'apex';
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
-    const mul = hunter ? def.hunters : d.role === 'prey' ? def.prey : 1;
+    const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1);
     const want = groups * mul * place.wide * (1 + place.deep * 0.015);
     const count = Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0);
     const c0 = 4, c1 = cols - 5;
