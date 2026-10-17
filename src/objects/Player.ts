@@ -310,16 +310,19 @@ export class Player {
     const d = Math.max(1, dmg * this.stats.defense * (1 + 0.7 * (1 - this.hungerK)));
     this.hp = Math.max(0, this.hp - d);
     const now = this.host.time.now;
+    // Wie hart war der Treffer? Schwere Treffer schleudern einen weit zurück, betäuben kurz und erschüttern das Bild.
+    const ratio = clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
     this.lastHurt = now;
     this.invulnUntil = now + 800;
-    this.knockUntil = now + 220;
+    this.knockUntil = now + 220 + 420 * ratio;
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
-    this.body.setVelocity(s * 300, this.water ? -60 : -260);
+    this.body.setVelocity(s * (300 + 520 * ratio), this.water ? -60 - 120 * ratio : -260);
     this.view.flash(0xff5040);
-    this.host.time.delayedCall(120, () => this.view.flash(null));
-    this.host.bleed(this.x, this.y, 5);
+    this.host.time.delayedCall(120 + 160 * ratio, () => this.view.flash(null));
+    this.host.bleed(this.x, this.y, 5 + Math.round(ratio * 16));
     audio.sfx('hurt');
-    this.host.cameras.main.shake(130, 0.007);
+    this.host.cameras.main.shake(130 + 320 * ratio, 0.007 + 0.022 * ratio);
+    if (ratio > 0.25) this.host.cameras.main.flash(140 + 200 * ratio, 140, 10, 0);
     // Schwere Treffer, die man überlebt, hinterlassen Narben
     if (d > this.stats.maxHp * 0.22 && this.hp > 0) game.addScar();
     if (this.hp <= 0) this.die();

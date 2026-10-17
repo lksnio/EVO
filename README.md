@@ -55,14 +55,33 @@ zuerst wird das Fischreich ausgebaut.
   mehr zum **Rudeltier**: Artgenossen helfen dann öfter – wollen aber auch **mitfressen**. Frisst du
   gemeinsame Beute allein, beißt dich der Helfer und schwimmt verärgert davon; wer zu oft leer
   ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
-- **Orte und Weltkarte:** Jedes Zeitalter hat mehrere **Orte**, und die sind verschieden: manche
-  **dicht bewachsen**, mit viel Nahrung und wenigen Jägern; andere **trüb** – man sieht kaum etwas,
-  und auch du wirst schlechter gesehen; wieder andere reichen **tief hinab**, wo es dunkel wird und
-  die schlimmen Tiere warten. Schwimmst du am **rechten (oder linken) Rand** eines Ortes hinaus – das
+- **Orte und Weltkarte:** Jedes Zeitalter hat mehrere **Orte**, und die sehen nicht nur anders aus –
+  sie leben anders:
+  - **Der Startort** wimmelt von **kleinen Fischen**, große Jäger sind selten – hier lernt man.
+  - **Bewachsene Orte** (Tangwiese, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
+    Bewuchs, viel Nahrung, kaum Jäger.
+  - **Trübe Orte** sind eng und dunstig – man sieht kaum etwas, und auch du wirst schlechter gesehen.
+  - **Tiefe Orte** (Tiefe Kante, Dunkler Graben, Steilwand) und die **Abgründe** dahinter fallen in einem
+    **V-förmigen Trichter** immer weiter ab: Terrasse um Terrasse nach unten, in der Mitte am tiefsten.
+    Dort gibt es **kaum Fische, aber sehr starke, große Tiere**. Je tiefer du schwimmst, desto
+    **trüber und dunkler** wird es: Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das
+    Meer rauscht, dein Herz schlägt, und manchmal grollt es in der Ferne.
+  Schwimmst du am **rechten (oder linken) Rand** eines Ortes hinaus – das
   können andere Tiere auch, manche ziehen so in andere Gewässer weiter –, landest du auf der
   **Karte** und suchst dir den nächsten Ort aus (Pfeiltasten wählen, Enter schwimmt hin). Orte, die
   du nicht kennst, bleiben im Dunkeln, bis du einen Nachbarn besucht hast. Jeder Weg kostet etwas
   Zeit. Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
+- **Wachsen in Stufen – und nach deinem Spielstil:** Gebiss, Schädel, Wuchs und Reißzähne wachsen in
+  einem Zeitalter nur **bis zu einem Deckel**, dann ist Schluss – ein Zeitalter bringt eine Stufe.
+  Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du
+  wächst, hängt davon ab, was du tust: Wer sich mit **Starken anlegt** und Fleisch frisst, bekommt
+  ein stärkeres Gebiss; wer **kleine Fische jagt**, wird eher **flink und wendig**; wer die meiste Zeit
+  **in der Tiefe überlebt**, wird selbst größer, massiger und gefährlicher.
+- **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
+  mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
+  spannen sich vor dem Angriff an und glühen auf, schnellen mit einer Spur vor, und wer sie anbeißt,
+  muss mit **Gegenwehr** rechnen. Treffer schleudern dich zurück, betäuben kurz und lassen dich bluten.
+  Zu fliehen ist oft die beste Idee.
 - **Wer frisst wen:** Große Jäger jagen nur, wenn sie Hunger haben – satt liegen sie oft lange am
   Meeresgrund (bzw. am Boden) und dösen. Kleine Tiere fliehen früh und verstecken sich im Dickicht,
   in Höhlen und Felsspalten, bis die Gefahr vorbei ist.
@@ -119,11 +138,13 @@ zuerst wird das Fischreich ausgebaut.
   größer als deine Gruppe. Jeder steht im selben Maßstab in einem Stück Lebensraum, sodass Größe,
   Körperbau und Färbung direkt vergleichbar sind, und trägt **seine eigene Steintafel** – genau so
   weit freigelegt, wie deine Muscheln es erlauben. Ein Klick wählt aus. Der erste ist die
-  **Hauptlinie** (deine bisherige Wahl mit allem, was dazugelernt wurde); die anderen weichen
-  davon ab, und zwar umso weiter, je mehr du gefressen hast – in verschiedene Richtungen: länger
-  oder massiger, größere oder kleinere Flossen, ein breiterer oder schmalerer Schwanz, eine höhere
-  oder flachere Rückenflosse, etwas größer oder kleiner, heller, dunkler oder im Farbton leicht
-  verschoben.
+  **Hauptlinie** (deine bisherige Wahl mit allem, was dazugelernt wurde). Die anderen vier sind
+  **verschiedene Richtungen** – zufällig vier aus sechs Typen: ein wuchtiger **Brocken**, ein schlanker
+  **Flitzer**, ein **Panzerkopf** mit hohem Kamm, ein farbenprächtiger **Gaukler** mit riesigen Flossen,
+  ein **Schnapper** mit langer Schnauze und schwerem Kiefer oder ein dunkler, gedrungener **Grundler** –,
+  jeweils mit eigener Körperform, Flossen, Schwanz, Rückenflosse,
+  Schnauze, Größe und Färbung. Je mehr du gefressen hast, desto weiter weichen sie ab, und was du
+  trainiert hast, wird in der passenden Richtung noch betont.
 - **Die Steintafel (Taste C):** Eine **gebrochene, vermooste Steinplatte** mit Rissen und eingemeißelten
   Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste

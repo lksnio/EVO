@@ -1815,6 +1815,11 @@ export function commonTextures(scene: Phaser.Scene) {
     ctx.fillStyle = rgrad(ctx, 256, 256, 40, 256, [[0, 'rgba(0,3,6,0)'], [0.45, 'rgba(0,3,6,.45)'], [1, 'rgba(0,3,6,.96)']]);
     ctx.fillRect(0, 0, 512, 512);
   });
+  // Die Dunkelheit der Tiefe: ein kleiner, klarer Kreis um dich, dahinter wird es schnell schwarz
+  tex(scene, 'deepdark', 512, 512, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 256, 256, 0, 256, [[0, 'rgba(0,2,5,0)'], [0.2, 'rgba(0,2,5,0)'], [0.48, 'rgba(0,2,5,.5)'], [1, 'rgba(0,2,5,.97)']]);
+    ctx.fillRect(0, 0, 512, 512);
+  });
   tex(scene, 'vignette', 640, 360, (ctx) => {
     const g = ctx.createRadialGradient(320, 180, 120, 320, 180, 380);
     g.addColorStop(0, 'rgba(0,0,0,0)');

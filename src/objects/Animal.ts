@@ -132,6 +132,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected atkT = 0;
   protected atkTarget: Target | null = null;
   protected atkDir = { x: 1, y: 0 };
+  /** dieser Angriff hat schon gewarnt */
+  protected warned = false;
+  protected trailAt = 0;
   /** Ausdauer: Wer lange jagt oder flieht, wird müde */
   stam = 1;
   tiredUntil = 0;
@@ -1154,12 +1157,17 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       // ausholen: zurückweichen, sich spannen, rötlich aufglühen
       this.dir = Math.sign(tg.x - this.x) || this.dir;
       const k = Math.min(1, this.atkT / WIND);
+      // Warnung, wenn es dich trifft: ein rotes Ausrufezeichen, Blasen und ein Knurren – jetzt ausweichen!
+      if (!this.warned && tg === this.world.player && (this.def.power >= 6 || this.role === 'defender')) {
+        this.warned = true;
+        this.cueAttack(big);
+      }
       if (free) this.b.setVelocity(-this.dir * 50 * k, this.b.velocity.y * 0.85);
       else this.b.setVelocityX(-this.dir * 30 * k);
       if (vis) {
-        this.setScale(sx * (1 - 0.1 * k), sx * (1 + 0.07 * k));
-        if (free) this.setAngle(-this.dir * 7 * k);
-        this.setTint(0xffb8a8);
+        this.setScale(sx * (1 - 0.16 * k), sx * (1 + 0.1 * k));
+        if (free) this.setAngle(-this.dir * 10 * k);
+        this.setTint(k > 0.5 ? 0xff9a82 : 0xffb8a8);
       }
       if (this.atkT >= WIND) {
         this.atk = 'strike';
@@ -1170,8 +1178,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.onStrike();
       }
     } else if (this.atk === 'strike') {
-      // vorschnellen und zuschnappen
-      const v = Math.max(this.def.speed * 2.6, 280);
+      // vorschnellen und zuschnappen – mit einer Blasenspur
+      const v = Math.max(this.def.speed * 2.6, 280) * (big ? 1.15 : 1);
+      if (this.world.time.now > this.trailAt) {
+        this.trailAt = this.world.time.now + 45;
+        this.world.puff(this.x - this.atkDir.x * this.displayWidth * 0.3, this.y, 1, 0xffffff);
+      }
       if (free) this.b.setVelocity(this.atkDir.x * v, this.atkDir.y * v);
       else this.b.setVelocityX(this.atkDir.x * v);
       if (vis) {
@@ -1197,7 +1209,19 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /** Hinweis auf einen Angriff, der dich trifft: Ausrufezeichen, Blasen, Knurren. */
+  protected cueAttack(big: boolean) {
+    const sc = this.scene;
+    const t = sc.add.text(this.x, this.y - this.displayHeight * 0.55 - 18, '!', { fontFamily: 'Cinzel, serif', fontSize: big ? '58px' : '44px', color: '#e0412e', fontStyle: '700', stroke: '#1a0604', strokeThickness: 7 })
+      .setOrigin(0.5).setDepth(DEPTH.text);
+    sc.tweens.add({ targets: t, y: t.y - 26, scale: { from: 0.6, to: 1.15 }, duration: 260, ease: 'Back.out' });
+    sc.tweens.add({ targets: t, alpha: 0, delay: 260, duration: 260, onComplete: () => t.destroy() });
+    this.world.puff(this.x, this.y - this.displayHeight * 0.3, big ? 6 : 3, 0xffb8a0);
+    audio.sfx(big ? 'growl' : 'warn');
+  }
+
   protected endAttack(time: number) {
+    this.warned = false;
     this.atk = '';
     this.atkTarget = null;
     if (this.showsAttack) {
@@ -1260,6 +1284,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     audio.sfx(this.role === 'prey' ? 'squeal' : 'hit');
+    // Wer sich wehren kann, schlägt sofort zurück: aufblähen, rot aufglühen, kurz danach der Gegenangriff
+    if (from === this.world.player && (this.role === 'predator' || this.role === 'apex' || this.role === 'defender') && !this.atk) {
+      this.fightBack(now);
+    }
     if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && from === this.world.player)) this.target = from;
     // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen
     const W = this.world;
@@ -1269,6 +1297,21 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     // wer angegriffen wird, ist dir gegenüber nicht mehr ruhig
     if (from === W.player) this.calm = 0;
+  }
+
+  /** Die Gegenwehr nach einem Treffer: sichtbar aufbäumen und schnell zurückschnappen. */
+  protected fightBack(now: number) {
+    const sc = this.scene;
+    sc.tweens.add({ targets: this, scaleX: this.sz * 1.2, scaleY: this.sz * 0.84, yoyo: true, duration: 90, repeat: 1 });
+    this.world.time.delayedCall(120, () => {
+      if (!this.dead && !this.atk) this.setTint(0xff7a62);
+    });
+    this.world.time.delayedCall(420, () => {
+      if (!this.dead && !this.atk) this.clearTint();
+    });
+    this.world.puff(this.x, this.y, this.role === 'apex' ? 8 : 4, 0xffa890);
+    this.biteReady = Math.min(this.biteReady, now + (this.role === 'apex' ? 380 : 300));
+    if (this.role === 'apex' || this.def.power >= 10) audio.sfx('growl');
   }
 
   protected die(byPlayer: boolean) {

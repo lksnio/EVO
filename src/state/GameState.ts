@@ -73,7 +73,12 @@ export interface Traits {
   crest: number;
   /** Farbton (-1 … +1) */
   tint: number;
+  /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
+  snout: number;
 }
+
+/** Wie weit ein Merkmal in einem Zeitalter höchstens durch Spielen wächst (ohne die Wahl des Nachwuchses). */
+const EPOCH_CAP: Partial<Record<string, number>> = { jaw: 0.22, skull: 0.2, growth: 0.24, fang: 0.22 };
 
 export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand' | 'digM' | 'digP' | 'nerve' | 'tox' | 'fang' | 'limb' | 'pack';
 
@@ -241,15 +246,13 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
 /** verborgene Anlagen – sie werden genauso weitervererbt, aber nirgends gezeigt */
 const HIDDEN = ['digM', 'digP', 'nerve', 'tox', 'fang', 'limb', 'pack'] as const;
 
-/** Richtungen, in die Nachkommen im Aussehen abweichen: Flossen, Schwanz, Rückenflosse (+ größer, - kleiner) */
-const LOOKS: [number, number, number][] = [[1, -1, 1], [-1, 1, -1], [1, 1, -1], [-1, -1, 1]];
 
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
 export function skillName(k: SkillKey, t: Partial<Traits>) {
@@ -262,6 +265,30 @@ export function skillName(k: SkillKey, t: Partial<Traits>) {
     case 'sand': return 'Sandtarnung';
   }
 }
+
+/**
+ * Die Typen, in die sich eine Linie verzweigen kann. Jeder verschiebt mehrere Merkmale deutlich
+ * (Körperbau, Flossen, Kopfform, Farbe, Größe) – daran erkennt man sofort, wohin er führt.
+ */
+interface Arche {
+  d: Partial<Record<keyof Traits, number>>;
+  skill: SkillKey;
+  body: BodyKey;
+}
+const ARCHES: Arche[] = [
+  // wuchtig, groß, stumpfer Kopf, kurze Flossen
+  { d: { growth: 0.2, girth: 0.9, len: 0.2, fin: -0.5, tail: 0.3, snout: -0.6, light: -0.2, jaw: 0.04 }, skill: 'growth', body: 'girth' },
+  // lang, schlank, flink: großer Schwanz, große Flossen
+  { d: { len: 0.9, girth: -0.8, swift: 0.7, tail: 0.9, fin: 0.5, growth: -0.1, snout: 0.4, light: 0.4 }, skill: 'stealth', body: 'swift' },
+  // Panzerkopf: hoher Kamm, kleine Flossen, dunkel
+  { d: { skull: 0.07, crest: 0.9, fin: -0.7, girth: 0.3, tint: -0.5, light: -0.6, snout: -0.3, jaw: 0.04 }, skill: 'skull', body: 'girth' },
+  // Gaukler: auffällige Farbe, riesige Flossen, spitze Schnauze
+  { d: { tint: 0.9, fin: 0.9, crest: 0.5, len: 0.3, girth: -0.3, snout: 0.7 }, skill: 'stealth', body: 'len' },
+  // Schnapper: lange Schnauze, kräftiges Gebiss
+  { d: { jaw: 0.08, snout: 0.9, girth: -0.2, len: 0.4, crest: 0.3, tint: 0.4, tail: 0.3 }, skill: 'jaw', body: 'snout' },
+  // Grundler: gedrungen, breite Flossen, dunkel, stumpf
+  { d: { limb: 0.06, fin: 0.4, girth: 0.5, len: -0.7, snout: -0.6, light: -0.4, tint: -0.4 }, skill: 'stealth', body: 'girth' },
+];
 
 const SKILL_LABEL: Record<SkillKey, string> = { jaw: 'Scharfzahn', skull: 'Dickschädel', stealth: 'Schleicher', growth: 'Brocken', green: 'Grünling', sand: 'Sandling' };
 export const BODY_NAME: Record<BodyKey, string> = { len: 'länger gestreckt', girth: 'massiger', swift: 'flinker', snout: 'spitzere Schnauze' };
@@ -483,7 +510,7 @@ class GameState {
     const plates = Math.max(0, -(t.spike ?? 0)) * t.skull;
     const land = CLASSES[cls].habitat === 'land';
     const limb = t.limb ?? 0;
-    const bite = b.bite * size * (1 + 2.2 * t.jaw) * (1 + 0.25 * carn) * (1 + 0.5 * (t.fang ?? 0));
+    const bite = b.bite * size * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
     const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * (t.girth ?? 0));
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * (t.girth ?? 0));
     return {
@@ -529,6 +556,7 @@ class GameState {
       tail: t.tail ?? 0,
       crest: t.crest ?? 0,
       tint: t.tint ?? 0,
+      snout: t.snout ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -573,6 +601,7 @@ class GameState {
       tail: g(t.tail ?? 0, 0.25),
       crest: g(t.crest ?? 0, 0.25),
       tint: g(t.tint ?? 0, 0.15),
+      snout: g(t.snout ?? 0, 0.2),
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -648,43 +677,32 @@ class GameState {
     main.diet = clamp(end.diet + (end.diet - start.diet) * k * 0.6 + (ate - end.diet) * 0.15, -1, 1);
     main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 0);
     // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
-    for (const g of ['len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
-    // Vielfalt: wer gerade so satt wurde, bekommt ähnliche Nachkommen – wer viel gefressen hat, sehr verschiedene
-    const spread = clamp(0.35 + 0.55 * fed, 0.6, 2);
+    for (const g of ['len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
+    // Vielfalt: Jeder Nachkomme ist ein anderer Typ – nicht bloß ein bisschen anders. Wer viel gefressen
+    // hat, bekommt noch größere Unterschiede. Welche vier Typen zur Wahl stehen, wechselt von Zeitalter zu Zeitalter.
+    const spread = clamp(0.5 + 0.55 * fed, 0.9, 2);
+    const amt = 0.85 + 0.45 * spread;
     const earned = SKILLS.filter((key) => end[key] - start[key] > 0.012).sort((a, b) => end[b] - start[b] - (end[a] - start[a]));
-    const pool: SkillKey[] = earned.length ? earned : ['jaw', 'skull', 'stealth'];
-    const bodies: BodyKey[] = ['len', 'girth', 'swift', 'snout'];
-    const bodyOff = Math.floor(rnd() * 4);
+    const order = [...ARCHES.keys()].sort(() => rnd() - 0.5);
     const out: Offspring[] = [{ traits: main, sex: run.sex, seed: run.seed, main: true, label: 'Hauptlinie', focus: {} }];
     for (let i = 1; i < n; i++) {
+      const ar = ARCHES[order[(i - 1) % ARCHES.length]];
       const t = full({ ...main });
-      const focus: Offspring['focus'] = {};
-      const f = pool[(i - 1) % pool.length];
-      focus.skill = f;
-      t[f] = clamp(t[f] + (0.07 + 0.05 * rnd()) * spread * (1 - 0.5 * t[f]), 0, 1);
-      const other = pool.find((o) => o !== f);
-      if (other && rnd() < 0.7) t[other] = clamp(t[other] - 0.04 * spread, 0, 1);
-      const b = bodies[(i - 1 + bodyOff) % bodies.length];
-      focus.body = b;
-      if (b === 'snout') t.jaw = clamp(t.jaw + 0.05 * spread, 0, 1);
-      else t[b] = clamp(t[b] + (0.28 + 0.14 * rnd()) * spread, -1, 1);
-      for (const g of ['len', 'girth', 'swift'] as const) if (g !== b) t[g] = clamp(t[g] + (rnd() - 0.5) * 0.36 * spread, -1, 1);
+      for (const [key, d] of Object.entries(ar.d) as [keyof Traits, number][]) {
+        const noise = (rnd() - 0.5) * 0.25;
+        if (SKILLS.includes(key as SkillKey) || key === 'limb') {
+          // Fähigkeiten verschieben sich nur wenig – und eher dort, wo man schon etwas gelernt hat
+          const boost = earned.includes(key as SkillKey) ? 1.25 : 1;
+          t[key] = clamp(t[key] + d * boost * Math.min(1.3, spread) * (1 - 0.4 * t[key]), 0, 1);
+        } else t[key] = clamp(t[key] + (d + noise) * amt, -1, 1);
+      }
       for (const h of HIDDEN) t[h] = clamp(t[h] + (rnd() - 0.4) * 0.08 * spread, 0, 1);
-      t.light = clamp(t.light + (rnd() - 0.5) * 0.5 * spread, -1, 1);
-      // Aussehen in verschiedene Richtungen: mal größere Flossen und ein schmalerer Schwanz, mal ein
-      // breiter Schwanz und eine kleine Rückenflosse … – jeder Nachkomme anders, dazu ein etwas anderer Farbton
-      const look = LOOKS[(i - 1 + bodyOff) % LOOKS.length];
-      const amt = () => (0.28 + 0.2 * rnd()) * spread;
-      t.fin = clamp(t.fin + look[0] * amt(), -1, 1);
-      t.tail = clamp(t.tail + look[1] * amt(), -1, 1);
-      t.crest = clamp(t.crest + look[2] * amt(), -1, 1);
-      t.tint = clamp(t.tint + (rnd() - 0.5) * 0.7 * spread, -1, 1);
       t.diet = clamp(t.diet + (rnd() - 0.5) * 0.25 * spread + ate * 0.12, -1, 1);
       const sex: Sex = (run.sex + i) % 2 ? 1 : 2;
-      // nicht alle gleich groß: Männchen etwas größer, dazu etwas Streuung
-      if (f !== 'growth') t.growth = clamp(t.growth + (rnd() - 0.45) * 0.22 * spread + (sex === 1 ? 0.04 : -0.04), 0, 1);
-      const label = f === 'skull' ? skillName('skull', t) : SKILL_LABEL[f];
-      out.push({ traits: t, sex, seed: run.seed + 1000 + run.epoch * 53 + i * 17, main: false, label, focus });
+      // Männchen etwas größer, dazu etwas Streuung
+      if (!('growth' in ar.d)) t.growth = clamp(t.growth + (rnd() - 0.45) * 0.14 * spread + (sex === 1 ? 0.04 : -0.04), 0, 1);
+      const label = ar.skill === 'skull' ? skillName('skull', t) : SKILL_LABEL[ar.skill];
+      out.push({ traits: t, sex, seed: run.seed + 1000 + run.epoch * 53 + i * 17, main: false, label, focus: { skill: ar.skill, body: ar.body } });
     }
     return out;
   }
@@ -718,10 +736,21 @@ class GameState {
 
   // ---------------------------------------------------------------- Anpassung
 
-  /** Ein Merkmal wächst ein kleines Stück – je weiter entwickelt, desto langsamer. */
+  /**
+   * Ein Merkmal wächst ein kleines Stück – je weiter entwickelt, desto langsamer. Die großen Merkmale
+   * (Gebiss, Schädel, Wuchs, Reißzähne) wachsen in einem Zeitalter nur bis zu einem Deckel: Sie
+   * steigern sich Stufe um Stufe über mehrere Zeitalter, statt auf einmal auszuschöpfen.
+   */
   grow(k: TraitKey, amount: number) {
     const t = this.r.traits;
-    t[k] = Math.min(1, t[k] + amount * Math.pow(1 - t[k], 1.3));
+    let gain = amount * Math.pow(1 - t[k], 1.3);
+    const cap = EPOCH_CAP[k];
+    if (cap !== undefined) {
+      const start = this.snap?.traits[k] ?? t[k];
+      const used = clamp((t[k] - start) / cap, 0, 1);
+      gain *= Math.pow(1 - used, 1.6);
+    }
+    t[k] = Math.min(1, t[k] + gain);
   }
 
   shiftDiet(amount: number) {

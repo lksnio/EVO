@@ -52,6 +52,8 @@ export interface Morph {
   crest?: number;
   /** leicht verschobener Farbton (-1 … +1) */
   tint?: number;
+  /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
+  snout?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -84,12 +86,13 @@ export function quantize(m: Morph): Morph {
     tail: q(m.tail ?? 0, 0.25),
     crest: q(m.crest ?? 0, 0.25),
     tint: q(m.tint ?? 0, 0.2),
+    snout: q(m.snout ?? 0, 0.25),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout].join('_');
 }
 
 interface Pal {
@@ -164,24 +167,25 @@ interface Geo {
 function geo(m: Morph): Geo {
   const st = m.stealth, jaw = m.jaw, sk = m.skull;
   // Körperbau: länger gestreckt bzw. massiger
-  const lk = 1 + 0.34 * (m.len ?? 0);
-  const slim = (1 - 0.16 * st) * (1 + 0.3 * (m.girth ?? 0)) / Math.sqrt(lk);
+  const lk = 1 + 0.42 * (m.len ?? 0);
+  const slim = (1 - 0.16 * st) * (1 + 0.38 * (m.girth ?? 0)) / Math.sqrt(lk);
   const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.1 * (m.girth ?? 0);
   const s = m.size;
   const lg = 1 + 0.22 * (m.limb ?? 0), lt = 1 + 0.35 * (m.limb ?? 0);
   // ein harter (gepanzerter) Kopf wird im Verhältnis zum Körper größer
   const hk = 1 + 0.28 * sk + 0.14 * Math.max(0, -(m.spike ?? 0)) * sk;
+  const sn = m.snout ?? 0;
   switch (m.cls) {
     case 'fish': {
       const bw = 60 * (1 + 0.06 * st) * lk, bh = 28 * slim;
       const bb = bh * bellyK;
-      const H = (bh * 0.95 + 1) * hk, L = (20 + 9 * jaw) * hk;
+      const H = (bh * 0.95 + 1) * hk * (1 + 0.1 * jaw) * (1 - 0.1 * sn), L = (20 + 16 * jaw) * hk * (1 + 0.34 * sn);
       return {
         s, bw, bh,
         pts: [[bw * 0.38, -bh * 0.42], [bw * 0.12, -bh * 0.56], [-bw * 0.2, -bh * 0.45], [-bw * 0.44, -bh * 0.17], [-bw * 0.52, -bh * 0.1],
           [-bw * 0.52, bh * 0.1], [-bw * 0.4, bb * 0.26], [-bw * 0.05, bb * 0.5], [bw * 0.28, bb * 0.44], [bw * 0.4, bh * 0.3]],
         neck: [bw * 0.34, -bh * 0.03], tailAt: [-bw * 0.5, 0], legF: [0, 0], legB: [0, 0], legLen: 0, legW: 0,
-        hg: { L, H, mouthY: H * 0.14, hingeX: L * (0.42 - 0.14 * jaw), jawH: 4 + 6 * jaw, dome: 4.5 * sk, snoutH: H * 0.3, ex: L * 0.4, ey: -H * 0.14, er: 2.8 * (1 + 0.25 * st) },
+        hg: { L, H, mouthY: H * 0.14, hingeX: L * (0.42 - 0.16 * jaw), jawH: 4 + 9 * jaw, dome: 4.5 * sk, snoutH: H * 0.3, ex: L * 0.4, ey: -H * 0.14, er: 2.8 * (1 + 0.25 * st) * (1 + 0.45 * Math.max(0, -(m.light ?? 0))) },
       };
     }
     case 'amphibian': {
@@ -271,8 +275,8 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   // Rückenflosse / Rückenkamm hinter dem Körper
   if (m.cls === 'fish') {
     // Rückenflosse (crest) und Afterflosse (fin) – bei jeder Linie etwas anders groß
-    const k = (1 + 0.6 * st) * (1 + 0.5 * (m.crest ?? 0));
-    const ka = (1 + 0.6 * st) * (1 + 0.4 * (m.fin ?? 0));
+    const k = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0));
+    const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0));
     ctx.beginPath();
     ctx.moveTo(bw * 0.16, -bh * 0.5);
     ctx.bezierCurveTo(bw * 0.06, -bh * 0.5 - 12 * k, -bw * 0.06, -bh * 0.55 - 13 * k, -bw * 0.16, -bh * 0.52 - 10 * k);
@@ -734,7 +738,7 @@ function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 
 function teethCount(m: Morph) {
   switch (m.cls) {
-    case 'fish': return Math.round(2 + 6 * m.jaw);
+    case 'fish': return Math.round(2 + 10 * m.jaw);
     case 'amphibian': return Math.round(3 + 7 * m.jaw);
     case 'reptile': return Math.round(4 + 8 * m.jaw);
     case 'mammal': return Math.round(3 + 4 * m.jaw);
@@ -746,7 +750,7 @@ function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
   const herb = m.diet < -0.3;
   const carn = Math.max(0, m.diet);
   const n = teethCount(m);
-  const len = (0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * (1 + 0.3 * carn);
+  const len = (0.8 + (m.cls === 'fish' ? 6.5 : 4.5) * m.jaw) * (herb ? 0.6 : 1) * (1 + 0.3 * carn);
   const span = L - hingeX - 4;
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n;
@@ -774,7 +778,7 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   const h = hg.jawH;
   const herb = m.diet < -0.3;
   const n = Math.max(0, teethCount(m) - 1);
-  const tl = (0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * 0.75;
+  const tl = (0.8 + (m.cls === 'fish' ? 6.5 : 4.5) * m.jaw) * (herb ? 0.6 : 1) * 0.75;
   for (let i = 0; i < n; i++) {
     const x = 3 + ((i + 0.5) * (len - 7)) / n;
     tooth(ctx, x, 0.4, 1.4 + tl * 0.45, tl, -1, herb, -0.2);
@@ -806,7 +810,7 @@ function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
     const sw = 1 + 0.35 * (m.swift ?? 0), tw = m.tail ?? 0;
-    const lobe = (16 + 16 * st) * sw * (1 + 0.15 * tw), fork = 3 + 11 * st, spread = (13 + 9 * st) * sw * (1 + 0.4 * tw);
+    const lobe = (16 + 16 * st) * sw * (1 + 0.28 * tw), fork = 3 + 11 * st, spread = (13 + 9 * st) * sw * (1 + 0.65 * tw);
     ctx.beginPath();
     ctx.moveTo(-4, -4);
     ctx.quadraticCurveTo(-lobe * 0.4, -spread * 0.6, -lobe, -spread);
@@ -1011,7 +1015,7 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
     lobe(ctx, m, P, 0, 0, (8 + 10 * lb) * (1 + 0.2 * (m.fin ?? 0)), 3 + 3.2 * lb, 2.4);
     return;
   }
-  const k = (1 + 0.5 * m.stealth) * (1 + 0.4 * (m.fin ?? 0));
+  const k = (1 + 0.5 * m.stealth) * (1 + 0.6 * (m.fin ?? 0));
   ctx.beginPath();
   ctx.moveTo(1, -2.5);
   ctx.quadraticCurveTo(-5 * k, 9 * k, -14 * k, 10 * k);

@@ -100,7 +100,12 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
   const def = place.def;
   const cols = heights.length;
   // im tiefen Wasser leben die Jäger weiter unten
-  const low = Math.min(0.62, place.deep / 20);
+  const low = Math.max(0, Math.min(0.62, place.deep / 20));
+  // Wer lebt wo? Am Start wimmelt es von kleinen Fischen, in bewachsenen Orten weiden sie in Ruhe, in der
+  // Tiefe gibt es kaum noch kleine – dafür starke, große Tiere, die dort unten warten.
+  const SIZE_K: Record<string, [number, number]> = { start: [0.6, 1.25], lush: [0.3, 0.85], murky: [1, 1], deep: [2.4, 0.2], abyss: [3.2, 0.05] };
+  const [bigK, smallK] = SIZE_K[place.kind] ?? [1, 1];
+  const vee = place.kind === 'deep' || place.kind === 'abyss';
   const put = (id: string, cx: number, deepDweller: boolean) => {
     const d = SPECIES[id];
     const n = d.herd ? rint(r, d.herd[0], d.herd[1]) : 1;
@@ -124,14 +129,17 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
     const hunter = d.role === 'predator' || d.role === 'apex';
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
     const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1);
-    const want = groups * mul * place.wide * (1 + place.deep * 0.015);
+    const sizeK = (d.role === 'predator' || d.role === 'apex' || d.role === 'defender') && d.power >= 8 ? bigK : d.role === 'prey' && d.power <= 3 ? smallK : 1;
+    const want = groups * mul * sizeK * place.wide * (1 + Math.max(0, place.deep) * 0.015);
     const count = Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0);
     const c0 = 4, c1 = cols - 5;
     for (let g = 0; g < count; g++) {
       // Räuber nicht direkt neben dem Ankunftsplatz
       const keep = danger ? 20 : 8;
-      let cx = rint(r, c0, c1);
-      for (let k = 0; k < 12 && Math.abs(cx - startCol) < keep; k++) cx = rint(r, c0, c1);
+      // Im Trichter sammeln sich die großen Jäger in der Mitte, ganz unten
+      const pickCol = () => (vee && hunter && sizeK > 1 && r() < 0.7 ? Math.round(cols / 2 + (r() - 0.5) * cols * 0.45) : rint(r, c0, c1));
+      let cx = pickCol();
+      for (let k = 0; k < 12 && Math.abs(cx - startCol) < keep; k++) cx = pickCol();
       put(id, cx, hunter && place.deep > 0);
     }
   }
@@ -166,16 +174,16 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     // bewachsene Orte: dichter und mit viel Tang
     const lush = place.kind === 'lush';
     for (let i = 0; i < n; i += rint(r, 1, 2)) {
-      if (r() < (lush ? 0.95 : 0.7)) L.decor.push({ k: lush && r() < 0.5 ? 'seaweed' : pick(r, kinds), x: (x0 + Math.min(n - 0.5, i + 0.25 + r() * 0.5)) * T, y: top * T + 6 });
+      if (r() < (lush ? 0.95 : 0.7)) L.decor.push({ k: lush && r() < 0.6 ? pick(r, ['seaweed', 'kelp', 'seagrass', 'seaweed']) : pick(r, kinds), x: (x0 + Math.min(n - 0.5, i + 0.25 + r() * 0.5)) * T, y: top * T + 6 });
     }
     if (n >= 3) {
       const cnt = (r() < pl * 0.9 ? 1 : 0) + (r() < pl * 0.55 ? 1 : 0) + (n >= 7 && r() < pl * 0.35 ? 1 : 0) + (n >= 5 && r() < pl - 1 ? 1 : 0);
       for (let i = 0; i < cnt; i++) L.plants.push({ x: (x0 + 1 + r() * (n - 2)) * T, y: top * T + 4, v: plantVariant(r) });
     }
-    if (n >= 4 && r() < ep.cover * z.cover * 0.65) {
-      const cw = rint(r, 3, Math.min(6, n));
+    if (n >= 4 && r() < ep.cover * z.cover * (lush ? 0.85 : 0.65)) {
+      const cw = rint(r, 3, Math.min(lush ? 8 : 6, n));
       const cx = x0 + rint(r, 0, n - cw);
-      const ch = rint(r, 5, 7);
+      const ch = lush ? rint(r, 6, 10) : rint(r, 5, 7);
       L.cover.push({ x: cx * T, y: (top - ch) * T, w: cw * T, h: ch * T });
     }
   };
@@ -184,9 +192,31 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     L.solids.push({ x: x0 * T, y: -200, w: n * T, h: d * T + 200 });
   };
 
-  floorSeg(0, 10, floor);
+  // Tiefe Orte sind ein Trichter: Der Grund fällt von beiden Seiten in Stufen zur Mitte hin ab, immer weiter nach
+  // unten – wie ein V. Wer hineinschwimmt, wird von Stufe zu Stufe dunkler und tiefer.
+  const vee = place.kind === 'deep' || place.kind === 'abyss';
+  if (vee) {
+    const rim = 21, bottom = rows - 4, mid = (cols - 1) / 2;
+    const steep = place.kind === 'abyss' ? 0.8 : 0.95;
+    const prof = (col: number) => Math.round(rim + (bottom - rim) * Math.pow(Math.max(0, 1 - Math.abs(col - mid) / (mid * 0.93)), steep));
+    let vx = 0;
+    while (vx < cols) {
+      const seg = Math.min(cols - vx, rint(r, 5, 9));
+      const fl = prof(vx + Math.floor(seg / 2));
+      floorSeg(vx, seg, fl);
+      if (r() < 0.3 && seg >= 4 && Math.abs(vx - startCol) > 6) {
+        const px = vx + rint(r, 1, seg - 2);
+        const top = fl - rint(r, 3, 9 + Math.floor(extra / 2));
+        L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (fl - top) * T + 2 });
+      }
+      if (r() < 0.22 && Math.abs(vx - startCol) > 6) L.solids.push({ x: (vx + 1) * T, y: rint(r, 8, Math.max(9, fl - 6)) * T, w: rint(r, 2, 4) * T, h: T });
+      vx += seg;
+    }
+    floor = heights[Math.floor(cols / 2)];
+  }
+  if (!vee) floorSeg(0, 10, floor);
   if (covered) ceilSeg(0, 10);
-  let x = 10;
+  let x = vee ? cols : 10;
   while (x < cols - 10) {
     const seg = rint(r, 5, 10);
     const nearStart = x >= startCol - 5 && x < startCol + 5;
@@ -206,7 +236,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     }
     x += seg;
   }
-  floorSeg(x, cols - x, floor);
+  if (!vee) floorSeg(x, cols - x, floor);
   if (covered) ceilSeg(x, cols - x);
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });

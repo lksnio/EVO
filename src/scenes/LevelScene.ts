@@ -129,6 +129,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private edgeHold = 0;
   private exitFx?: { l: Phaser.GameObjects.Image; r: Phaser.GameObjects.Image };
   private edgeNoted = false;
+  /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
+  private deepDark?: Phaser.GameObjects.Image;
+  private deepK = 0;
+  private deepBeatAt = 0;
+  private deepRumbleAt = 0;
   private endNoted = false;
   /** Trübung am aktuellen Ort (0..1) – macht unauffälliger */
   private murk = 0;
@@ -219,6 +224,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.surfGlow = undefined;
     this.shells = [];
     this.edgeHold = 0;
+    this.deepDark = undefined;
+    this.deepK = 0;
+    this.deepBeatAt = this.deepRumbleAt = 0;
     this.endNoted = false;
     this.exitFx = undefined;
     this.murk = 0;
@@ -353,6 +361,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.ambient();
     if (L.variant !== 'normal') {
       this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z).setDepth(DEPTH.dark);
+    }
+    if (this.place.kind === 'deep' || this.place.kind === 'abyss') {
+      this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z);
     }
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(0.55);
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
@@ -670,18 +681,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const L = this.L;
     // Die Dunkelheit hängt an der Tiefe in Pixeln (nicht am Anteil des Levels): Je tiefer der Ort
     // reicht, desto schwärzer wird es ganz unten.
-    const H0 = 2400;
-    if (!this.textures.exists('depth_shade2')) {
-      const ct = this.textures.createCanvas('depth_shade2', 4, H0)!;
+    const H0 = 3400;
+    // In den Trichtern der Tiefe übernimmt der Lichtkreis um dich das Dunkel – der Grund selbst bleibt etwas heller
+    const key = this.place.kind === 'deep' || this.place.kind === 'abyss' ? 'depth_shade3v' : 'depth_shade3';
+    if (!this.textures.exists(key)) {
+      const ct = this.textures.createCanvas(key, 4, H0)!;
       const ctx = ct.getContext();
       const g = ctx.createLinearGradient(0, 0, 0, H0);
-      const stops: [number, number, number][] = [[0, 0, 0.0], [400, 1, 0], [1000, 1, 0.42], [1424, 2, 0.7], [1900, 3, 0.88], [H0, 3, 0.95]];
-      for (const [y, c, a] of stops) g.addColorStop(y / H0, c === 0 ? `rgba(1,6,10,${a})` : c === 1 ? `rgba(1,6,10,${a})` : `rgba(1,5,8,${a})`);
+      const stops: [number, number][] = key === 'depth_shade3v'
+        ? [[0, 0], [400, 0], [1000, 0.3], [1424, 0.4], [1900, 0.47], [2400, 0.52], [H0, 0.55]]
+        : [[0, 0], [400, 0], [1000, 0.42], [1424, 0.64], [1900, 0.72], [2400, 0.77], [H0, 0.8]];
+      for (const [y, a] of stops) g.addColorStop(y / H0, `rgba(1,5,9,${a})`);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 4, H0);
       ct.refresh();
     }
-    this.add.image(0, L.surfaceY, 'depth_shade2').setOrigin(0).setDisplaySize(L.width, H0).setDepth(DEPTH.decoFront + 0.5);
+    this.add.image(0, L.surfaceY, key).setOrigin(0).setDisplaySize(L.width, H0).setDepth(DEPTH.decoFront + 0.5);
   }
 
   /** An Land: Sonnenstrahlen durch Blätterdach, Dunst oder Schneetreiben – je Gebiet anders hell. */
@@ -1156,6 +1171,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Spieler-Aktionen
 
+  /** Wie viel ein Kampf gegen dieses Tier das Gebiss stärkt: Kleine bringen kaum etwas, Starke viel. */
+  private foeWeight(a: Animal) {
+    const r = a.def.power / Math.max(1, this.player.stats.power);
+    return clamp(0.12 + r * 0.9, 0.15, 1.6);
+  }
+
+  /** Kleine, flinke Beute zu jagen macht selbst schneller und wendiger: länger gestreckt, schlanker, flinker. */
+  private agile(k: number) {
+    game.shiftBody('swift', 0.022 * k);
+    game.shiftBody('len', 0.014 * k);
+    game.shiftBody('girth', -0.012 * k);
+    game.grow('stealth', 0.003 * k);
+  }
+
   playerBite(rect: Rect) {
     const p = this.player;
     const st = p.stats;
@@ -1173,7 +1202,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
-      game.grow('jaw', held ? 0.008 : 0.004);
+      // Wer sich mit Starken anlegt, bekommt ein stärkeres Gebiss; kleine Fische jagen macht eher flink und wendig
+      const mult = this.foeWeight(a);
+      game.grow('jaw', (held ? 0.0024 : 0.0012) * mult);
+      if (mult < 0.5 && a.role !== 'hazard') this.agile(held ? 0.5 : 0.35);
       this.train.hunt += held ? 1.5 : 1;
       if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
@@ -1199,11 +1231,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       m.kill.playerAte = true;
       // Fleisch macht den Kiefer stark – und vorn wachsen Reißzähne
       const k = Math.min(2, got / FOOD.meat.sat);
-      game.grow('jaw', 0.02 * k);
-      game.grow('fang', 0.028 * k);
+      game.grow('jaw', 0.005 * k);
+      game.grow('fang', 0.007 * k);
       game.grow('digM', 0.02 * k);
       game.shiftDiet(0.05 * k);
-      game.grow('growth', 0.016 * k * dig);
+      game.grow('growth', 0.006 * k * dig);
       this.checkShare(m.kill);
       return;
     }
@@ -1219,7 +1251,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         else game.grow('digP', 0.012);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
-        game.grow('growth', 0.007 * st.digestPlant);
+        game.grow('growth', 0.003 * st.digestPlant);
         this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
       return;
@@ -1308,10 +1340,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const back = Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, k * 0.6);
-    game.grow('skull', 0.02 * sf);
+    game.grow('skull', 0.007 * sf);
     // Ein viel benutzter Kopf wird zum Panzer – erst recht, wenn damit Tiere erlegt werden
     game.armorHead(a.dead ? 0.09 : 0.03);
-    if (a.dead) game.grow('skull', 0.02);
+    if (a.dead) game.grow('skull', 0.008);
     this.train.ram += a.dead ? 3 : 1;
     if (a.role !== 'hazard') game.addAggression(0.035);
     if (!a.dead) this.callHunt(a);
@@ -1372,6 +1404,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended) {
       this.flowStep(dt);
       this.dreadStep(dt);
+      this.deepStep(time, dt);
     }
 
     if (!p.dead && !this.ended) {
@@ -1745,6 +1778,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const depth = (cy - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY);
       if (depth < 0.32) game.shiftLight(0.004 * dt);
       else if (depth > 0.72) game.shiftLight(-0.004 * dt);
+      // Wer die meiste Zeit tief unten überlebt, wird selbst größer, massiger und gefährlicher
+      const deep = clamp((cy - L.surfaceY - 750) / 900, 0, 1) * (this.place.kind === 'abyss' ? 1.4 : 1);
+      if (deep > 0.05) {
+        game.grow('growth', 0.0014 * dt * deep);
+        game.shiftBody('girth', 0.0011 * dt * deep);
+        game.grow('jaw', 0.0005 * dt * deep);
+        game.grow('nerve', 0.0008 * dt * deep);
+      }
     } else if (p.inCover || p.inCave) game.shiftLight(-0.003 * dt);
     else game.shiftLight(0.0015 * dt);
     // Wer viel und schnell schwimmt bzw. läuft, wird länglicher und flinker
@@ -1874,6 +1915,31 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
+    }
+  }
+
+  // ---------------------------------------------------------------- Tiefe
+
+  /**
+   * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft, die Musik verklingt, das Meer
+   * rauscht, das Herz schlägt, und manchmal grollt es in der Ferne.
+   */
+  private deepStep(time: number, dt: number) {
+    if (!this.deepDark) return;
+    const p = this.player;
+    const from = this.place.kind === 'abyss' ? 600 : 800;
+    const target = clamp((p.y - this.L.surfaceY - from) / (this.place.kind === 'abyss' ? 1500 : 1400), 0, 1);
+    this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
+    const k = this.deepK;
+    this.deepDark.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
+    if (time > this.deepBeatAt) {
+      this.deepBeatAt = time + 600;
+      audio.musicLevel(1 - 0.8 * k, 0.8);
+      audio.sea(0.08 + 0.14 * k, 0.8);
+    }
+    if (k > 0.72 && time > this.deepRumbleAt) {
+      this.deepRumbleAt = time + 14000 + Math.random() * 16000;
+      audio.sfx('rumble');
     }
   }
 
