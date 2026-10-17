@@ -4,7 +4,7 @@ import { speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { clamp, overlaps, type Rect } from '../util/math';
-import { Carcass, type Plant } from './Food';
+import { Meat, type Plant } from './Food';
 
 type Body = Phaser.Physics.Arcade.Body;
 
@@ -27,7 +27,7 @@ export interface World extends Phaser.Scene {
   water: boolean;
   animals: Animal[];
   plants: Plant[];
-  carcasses: Carcass[];
+  meats: Meat[];
   /** Dickicht zum Verstecken */
   cover: Rect[];
   solidAt(x: number, y: number): boolean;
@@ -105,6 +105,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   boss = false;
   /** Größe dieses Tieres: nicht jedes Exemplar ist gleich groß */
   sz = 1;
+  /** Artgenossen des Spielers, die mitgekämpft haben (wollen später mitfressen) */
+  helpers = new Set<Animal>();
+  protected snackAt = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -112,7 +115,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected world: World;
   protected t = 0;
   protected threatObj: Target | null = null;
-  protected food: Plant | Carcass | null = null;
+  protected food: Plant | Meat | null = null;
   protected attacker: Target | null = null;
   protected attackedAt = -1e9;
   protected lastSeen = { x: 0, y: 0 };
@@ -265,6 +268,33 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.think(time, dt);
     this.setFlipX(this.dir < 0);
+    // Fleisch, an das ein Fleischfresser herankommt, wird gefressen – auch mitten in der Jagd
+    if (this.meatEater && time > this.snackAt && this.hunger > 0.12 && !this.dead) {
+      this.snackAt = time + 380;
+      const r = this.hitRect();
+      for (const m of this.world.meats) {
+        if (!m.gone && overlaps(r, m.rect)) {
+          this.snack(m, time);
+          break;
+        }
+      }
+    }
+  }
+
+  /** frisst Fleisch */
+  protected get meatEater() {
+    return this.def.diet === 'meat';
+  }
+
+  /** Ein Bissen von einem Fleischstück, an dem man gerade ist. */
+  protected snack(m: Meat, time: number) {
+    if (time < this.feedAt || !m.take(time)) return;
+    this.feedAt = time + 900;
+    this.hunger = Math.max(0, this.hunger - 0.3);
+    m.ateFrom.add(this);
+    m.kill.fed.add(this);
+    this.world.puff(m.x, m.y, 3, 0x6a1a10);
+    this.sharedMeal(m, time);
   }
 
   // ------------------------------------------------------------------ Wahrnehmen
@@ -334,15 +364,15 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.threatObj = threat;
 
     // Nahrung in der Nähe (Aas wird gern genommen – auch die Beute des Spielers)
-    let carcass: Carcass | null = null;
+    let meatNear: Meat | null = null;
     if (d.diet === 'meat') {
       let cd = 300;
-      for (const c of W.carcasses) {
+      for (const c of W.meats) {
         if (c.gone || c.units <= 0) continue;
         const dd = this.dist(c);
         if (dd < cd) {
           cd = dd;
-          carcass = c;
+          meatNear = c;
         }
       }
     }
@@ -353,7 +383,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       let bd = Infinity;
       const hungry = role === 'apex' || this.hunger > 0.35;
       // Wer Aas in der Nähe hat, frisst lieber, als zu kämpfen
-      const scavenging = !!carcass && this.hunger > 0.3 && !attackedByPlayer && !this.visitor;
+      const scavenging = !!meatNear && this.hunger > 0.3 && !attackedByPlayer && !this.visitor;
       if (this.ally) {
         best = this.playerEnemy(d.sense);
         if (best && best.def.power > d.power * 3) best = null;
@@ -397,7 +427,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           }
         }
       } else if (this.def.diet === 'meat') {
-        for (const c of W.carcasses) {
+        for (const c of W.meats) {
           if (c.gone || c.units <= 0) continue;
           const dd = this.dist(c);
           if (dd < d.sense && dd < fd) {
@@ -476,8 +506,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   protected eatFood(time: number) {
     const f = this.food!;
-    const isMeat = f instanceof Carcass;
-    const fy = isMeat ? f.y - 10 : f.y - 20;
+    const isMeat = f instanceof Meat;
+    const fy = isMeat ? f.y : f.y - 20;
     if (this.dist({ x: f.x, y: fy }) < this.width * 0.5 + 24 || (this.kin && this.dist({ x: f.x, y: fy }) < 40)) {
       this.go('graze');
       this.halt();
@@ -487,14 +517,17 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (f.take(time)) {
           this.hunger = Math.max(0, this.hunger - (isMeat ? 0.35 : 0.25));
           this.world.puff(f.x, f.y - 14, 3, isMeat ? 0x6a1a10 : 0x6a7a3a);
-          if (isMeat) this.sharedMeal(f, time);
+          if (isMeat) {
+            f.kill.fed.add(this);
+            this.sharedMeal(f, time);
+          }
         }
       }
     } else this.moveTo(f.x, fy, this.def.speed * 0.8);
   }
 
   /** Frisst ein Tier von deiner Beute, während du dabei bist, wächst Vertrauen. */
-  protected sharedMeal(c: Carcass, time: number) {
+  protected sharedMeal(c: Meat, time: number) {
     const W = this.world;
     const p = W.player;
     if (!c.byPlayer || p.dead || this.visitor || this.ally) return;
@@ -873,11 +906,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Biss in Reichweite? */
   protected tryBite(time: number, tg: Target, reach = 1) {
-    if (time < this.biteReady || tg.dead) return;
+    if (time < this.biteReady || tg.dead) return false;
     const b = this.b;
     const w = (b.width * 0.5 + 18) * reach;
     const r: Rect = this.dir > 0 ? { x: this.x, y: b.y, w, h: b.height } : { x: this.x - w, y: b.y, w, h: b.height };
-    if (!overlaps(r, tg.hitRect())) return;
+    if (!overlaps(r, tg.hitRect())) return false;
     this.biteReady = time + (this.role === 'apex' ? 1100 : 900);
     const p = this.world.player;
     if (tg === p) {
@@ -887,6 +920,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     } else {
       (tg as Animal).hurt(this.def.dmg, this, 'bite');
     }
+    return true;
   }
 
   /** Schaden nehmen. */
@@ -896,6 +930,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.hp -= dmg * this.weak;
     this.attacker = from;
     this.attackedAt = now;
+    if (from instanceof Animal && from.kin) this.helpers.add(from);
     if (from === this.world.player) this.hitByPlayerAt = now;
     // Wer von dir angegriffen wird, vertraut dir nicht mehr
     if (from === this.world.player && (this.ally || this.bond > 0)) {
@@ -930,6 +965,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.b.enable = false;
     audio.sfx('enemyDie');
     this.world.animalDied(this, byPlayer);
-    this.world.tweens.add({ targets: this, alpha: 0, duration: 200, onComplete: () => this.destroy() });
+    // kurz aufleuchten und vergehen – übrig bleibt das Fleisch
+    this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+    this.world.tweens.add({ targets: this, alpha: 0, scaleX: this.scaleX * 0.5, scaleY: this.scaleY * 0.5, duration: 260, ease: 'Sine.in', onComplete: () => this.destroy() });
   }
 }

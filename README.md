@@ -3,7 +3,7 @@
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
 
-Du beginnst als kleiner, schwacher Urfisch im Urozean – einer von wenigen deiner Art. Jedes
+Du beginnst als winziger, schwacher Urfisch im Urozean – einer von wenigen deiner Art. Jedes
 **Zeitalter** ist ein fester Zeitraum der Erdgeschichte: Oben läuft eine Uhr („vor 452.320.000 Jahren“),
 und wer bis zum Ende des Zeitraums überlebt, dessen Linie zieht ins nächste Zeitalter weiter.
 Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende jeder großen Region
@@ -25,25 +25,31 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
     nur noch die Augen.
   - **Kämpfen** – beißen und dich durchfressen. Wer in ein Tier hineinschwimmt oder -rennt, verletzt
     **beide**. Mit der Zeit wird der Kopf härter – irgendwann kannst du gezielt **rammen**.
+    Zweimal schnell hintereinander zugebissen heißt: gepackt – kleinere Tiere zappeln dann nur noch.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
-    Vertrauen. Solche Verbündeten bleiben in deiner Nähe und verteidigen dich.
+    Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
-- **Deine Art:** Jedes Zeitalter beginnt mit einer kleinen Gruppe von Artgenossen – fast wie du,
-  mit kleinen Abweichungen, Männchen (mit Kehlfleck) und Weibchen. Sie folgen dir, warnen mit Rufen,
-  fliehen und verstecken sich mit dir – und **jagen mit**, wenn du angreifst. Die Gruppe lernt dabei:
-  Lässt du ihnen von der Beute etwas übrig, bleiben sie bei dir und werden zu Verbündeten. Frisst du
-  alles allein, wenden sie sich ab und ziehen irgendwann ohne dich weiter. Wer mit dir überlebt,
-  bekommt Nachwuchs – und wie eng die Gruppe zusammenhält, erben die Nachkommen.
+- **Deine Art:** In der Gegend leben einige Artgenossen – fast wie du, mit kleinen Abweichungen,
+  Männchen (mit Kehlfleck) und Weibchen. Sie schwimmen **nicht im Schwarm** hinter dir her, sondern
+  leben in ihrem eigenen Revier, fressen, warnen mit Rufen und fliehen vor Räubern. Greifst du in
+  ihrer Nähe etwas an, **helfen sie manchmal mit**. Wer oft gemeinsam kämpft, dessen Art wird mehr und
+  mehr zum **Rudeltier**: Artgenossen helfen dann öfter – wollen aber auch **mitfressen**. Frisst du
+  gemeinsame Beute allein, beißt dich der Helfer und schwimmt verärgert davon; wer zu oft leer
+  ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
 - **Wo du lebst, entscheidest du:** Jedes Zeitalter hat links und rechts vom Start ein eigenes
   Gebiet, in das man fließend hinüberschwimmt bzw. -läuft – links flacher und trüber, voller Pflanzen
   und mit wenigen Jägern (dort sieht man dich schlechter), rechts tief und dunkel, mit mehr Räubern
   und einem der ganz Großen. Boden, Licht und Tiere sind dort anders.
 - **Hunger:** Der Magen startet etwa halb voll und leert sich mit der Zeit – schneller, wenn du viel
-  und schnell schwimmst bzw. läufst. Fressen füllt ihn wieder auf, aber nie über das Maximum. Wie
-  viel hineinpasst, hängt von der Größe ab: Große Tiere richten mehr Schaden an, verbrauchen aber
-  auch mehr. Ein Happen bringt nicht viel – Pflanzen sind überall und ungefährlich, sättigen aber
-  kaum; Fleisch sättigt dreimal so gut, muss aber erbeutet (oder einem Riesen weggeschnappt)
-  werden. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
+  und schnell schwimmst bzw. läufst (am Grund entlangzulaufen spart Kraft). Fressen füllt ihn wieder
+  auf, aber nie über das Maximum. Wie viel hineinpasst, hängt von der Größe ab: Große Tiere richten
+  mehr Schaden an, verbrauchen aber auch mehr. Jeder Happen zeigt kurz, was er gebracht hat –
+  **rot** für Fleisch, **grün** für Pflanzen (z. B. „+20“ bzw. „+4“). Manche Pflanzen sind giftig:
+  Sie brennen, machen aber kurz hellwach und schnell.
+- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einem **saftigen
+  Fleischstück**, große Tiere zu mehreren. Kleine Stücke treiben langsam nach oben, große sinken zu
+  Boden, an Land fällt alles herunter – und nach einer Weile verdirbt es. Andere Fleischfresser
+  fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus.
 - **Herrscher der Region:** Im letzten Zeitalter jeder Region erscheint kurz vor Schluss der
   Endgegner – im Devon *Dunkleosteus*, im Perm *Dimetrodon*, in der Kreide der *T. rex*, im Quartär
   der Säbelzahntiger – mit Lebensbalken unten im Bild. Überlebst du, ohne ihn zu besiegen, bleibt
@@ -70,8 +76,14 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   wurde); die anderen weichen davon ab, und zwar umso weiter, je mehr du gefressen hast – länger,
   massiger, flinker, heller oder dunkler, etwas größer oder kleiner.
 - **Werte (Taste C):** Name der Art, wie oft sie schon ausgestorben ist, Länge, Gewicht,
-  Lebenskraft, sichtbare Fähigkeiten und Nahrung – im Stil eines alten Rollenspiel-Charakterbogens.
-  Das meiste bleibt verborgen.
+  Lebenskraft, sichtbare Fähigkeiten, Nahrung, Zusammenhalt – und was du in diesem Zeitalter
+  **gelebt** hast (Beute gepackt, am Grund entlang, gerammt, geschwommen: „kaum“ bis „sehr oft“) –
+  im Stil eines alten Rollenspiel-Charakterbogens. Das meiste bleibt verborgen.
+- **Vier Verhaltensweisen formen deine Art:** Beutejagd (zubeißen, Beute packen und festhalten) →
+  kräftige Kiefer; Bodenkontakt (sich am Grund abstützen und dort entlanglaufen) → fleischige
+  Stützflossen, später kräftigere Beine; Rammen → ein gepanzerter Schädel; Schwimmen (Strecke,
+  Tempo, gegen Strömungen) → ein länglicher, flinker Körper. Das Verhalten schaltet keine Art frei –
+  es verschiebt nur nach und nach, wie deine Nachkommen aussehen und was sie können.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme trüben die Sicht, die Erde bebt,
   Futter sprießt – und am Ende der Kreidezeit fällt Feuer vom Himmel.
 - **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
@@ -109,9 +121,10 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
 | wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
 | stößt mit anderen Tieren zusammen | einen härteren Schädel – ab einem gewissen Punkt die Fähigkeit, gezielt zu **rammen** (Taste R) |
-| … und teilt dabei mehr aus, als er einsteckt | einen **Stachelkopf**: Stachelkrone und Wangenstacheln, stärkerer Rammstoß |
-| … und steckt dabei mehr ein, als er austeilt | einen **Panzerkopf**: Knochenhelm, mehr Lebenskraft, weniger eigener Schaden |
-| beißt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
+| … rammt oft und erlegt damit Tiere | einen **Panzerkopf**: Knochenplatten, stärkerer Rammstoß, mehr Lebenskraft, weniger eigener Schaden |
+| beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
+| stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen); an Land kräftigere Beine |
+| kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier**: Artgenossen helfen öfter (und wollen mitfressen) |
 | frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – nirgends angezeigt |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |

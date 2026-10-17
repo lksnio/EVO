@@ -5,7 +5,8 @@ export type Sfx =
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
-  | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub';
+  | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
+  | 'eatMeat' | 'eatPlant' | 'crunch';
 
 interface ToneOpts {
   f: number;
@@ -244,6 +245,8 @@ export class AudioEngine {
   private wanted: string | null = null;
   muted = false;
   private lastSfx: Record<string, number> = {};
+  /** Tonhöhe des gerade gespielten Effekts (leichte Variation, damit nichts gleich klingt) */
+  private vary = 1;
 
   /** Muss nach einer Nutzeraktion (Klick/Taste) aufgerufen werden. */
   unlock() {
@@ -302,9 +305,10 @@ export class AudioEngine {
     const t0 = ctx.currentTime + Math.max(0, o.t ?? 0);
     const osc = ctx.createOscillator();
     osc.type = o.type ?? 'sine';
-    osc.frequency.setValueAtTime(o.f, t0);
+    const vr = this.vary;
+    osc.frequency.setValueAtTime(o.f * vr, t0);
     if (o.detune) osc.detune.value = o.detune;
-    if (o.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f2), t0 + o.d);
+    if (o.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f2 * vr), t0 + o.d);
     const g = ctx.createGain();
     const a = o.a ?? 0.005;
     const v = o.v ?? 0.3;
@@ -334,8 +338,8 @@ export class AudioEngine {
     src.buffer = this.noiseBuf;
     const bq = ctx.createBiquadFilter();
     bq.type = o.type ?? 'lowpass';
-    bq.frequency.setValueAtTime(o.filter ?? 2000, t0);
-    if (o.f2) bq.frequency.exponentialRampToValueAtTime(o.f2, t0 + o.d);
+    bq.frequency.setValueAtTime((o.filter ?? 2000) * this.vary, t0);
+    if (o.f2) bq.frequency.exponentialRampToValueAtTime(o.f2 * this.vary, t0 + o.d);
     bq.Q.value = o.q ?? 0.7;
     const g = ctx.createGain();
     if (o.a) {
@@ -350,12 +354,23 @@ export class AudioEngine {
     src.stop(t0 + o.d + 0.05);
   }
 
-  sfx(name: Sfx) {
+  /** Ein Geräusch. k: Stärke (z. B. wie kräftig das Gebiss ist), 0..1 */
+  sfx(name: Sfx, k = 0) {
     if (!this.ctx || this.muted) return;
     // gleiche Töne nicht zu dicht hintereinander
     const now = performance.now();
     if (now - (this.lastSfx[name] ?? 0) < 35) return;
     this.lastSfx[name] = now;
+    // jedes Mal ein klein wenig anders (±6 % Tonhöhe), Bedienelemente bleiben gleich
+    this.vary = name === 'click' || name === 'select' || name === 'back' ? 1 : 1 + (Math.random() - 0.5) * 0.12;
+    try {
+      this.play(name, k);
+    } finally {
+      this.vary = 1;
+    }
+  }
+
+  private play(name: Sfx, k: number) {
     switch (name) {
       case 'click':
         this.noise({ d: 0.04, v: 0.12, filter: 1400, type: 'bandpass', q: 2 });
@@ -368,8 +383,30 @@ export class AudioEngine {
         this.tone({ f: 260, f2: 170, d: 0.14, type: 'triangle', v: 0.1, filter: 1200 });
         break;
       case 'bite':
-        this.noise({ d: 0.07, v: 0.35, filter: 1500, type: 'bandpass', q: 1.2 });
-        this.tone({ f: 200, f2: 70, d: 0.09, type: 'square', v: 0.1, filter: 700 });
+        // Luft schnappen, dann klacken die Zähne aufeinander – tiefer und lauter mit starkem Gebiss
+        this.noise({ d: 0.06, v: 0.12, filter: 700, f2: 1800, type: 'bandpass', q: 1 });
+        this.noise({ t: 0.07, d: 0.035, v: 0.32 + 0.15 * k, filter: 3600 - 1400 * k, type: 'bandpass', q: 2.2 });
+        this.tone({ t: 0.07, f: 260 - 90 * k, f2: 80 - 25 * k, d: 0.07 + 0.04 * k, type: 'square', v: 0.09 + 0.06 * k, filter: 900 });
+        break;
+      case 'crunch':
+        // Zähne treffen Fleisch: dumpfer Schlag und Knacken
+        this.tone({ f: 130 - 30 * k, f2: 55, d: 0.13, type: 'sine', v: 0.3 + 0.15 * k });
+        this.noise({ d: 0.1, v: 0.28 + 0.12 * k, filter: 900, f2: 300, type: 'bandpass', q: 1.4 });
+        this.noise({ t: 0.03, d: 0.05, v: 0.16, filter: 2600, type: 'bandpass', q: 3 });
+        break;
+      case 'eatMeat': {
+        // saftiges Schmatzen und ein heller, wohliger Klang (Quinte oder Oktave nach oben)
+        this.noise({ d: 0.09, v: 0.22, filter: 800, f2: 450, type: 'bandpass', q: 2.4 });
+        const up = [1.5, 1.335, 2][Math.floor(Math.random() * 3)];
+        this.tone({ t: 0.03, f: 784, d: 0.16, type: 'triangle', v: 0.08, a: 0.008 });
+        this.tone({ t: 0.1, f: 784 * up, d: 0.34, type: 'sine', v: 0.075, a: 0.01 });
+        this.tone({ t: 0.1, f: 784 * up * 2, d: 0.22, type: 'sine', v: 0.02, a: 0.01 });
+        break;
+      }
+      case 'eatPlant':
+        // knuspriges Abbeißen, dazu ein leiser, weicher Ton
+        for (let i = 0; i < 3; i++) this.noise({ d: 0.04, v: 0.16 - i * 0.03, filter: 2600 + i * 500, type: 'bandpass', q: 3, t: i * 0.07 });
+        this.tone({ t: 0.04, f: 523, d: 0.18, type: 'sine', v: 0.04, a: 0.01 });
         break;
       case 'hit':
         this.tone({ f: 240, f2: 90, d: 0.12, type: 'square', v: 0.12, filter: 1100 });

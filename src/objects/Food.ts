@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
-import type { SpeciesDef } from '../data/species';
-import { foodKey, TOXIC } from '../art/worldArt';
-import { speciesKey } from '../art/speciesArt';
+import { foodKey, MEAT_SIZES, TOXIC } from '../art/worldArt';
 import { DEPTH } from '../config';
 import type { Rect } from '../util/math';
 
@@ -64,81 +62,170 @@ export class Plant {
   }
 }
 
-/** Die Überreste eines Tiers. Liefert Fleisch, bis es aufgefressen oder verrottet ist. */
-export class Carcass {
+/** Wo ein Fleischstück treibt: Wasseroberfläche und fester Boden. */
+export interface MeatEnv {
+  water: boolean;
+  surfaceY: number;
+  solidAt(x: number, y: number): boolean;
+}
+
+/**
+ * Was von einem erlegten Tier übrig bleibt: ein oder mehrere Stücke. Merkt sich, wer bei der Jagd
+ * geholfen hat (Artgenossen wollen dann mitfressen) und ob der Spieler etwas abgegeben hat.
+ */
+export class Kill {
+  meats: Meat[] = [];
+  /** Artgenossen, die mitgekämpft haben */
+  helpers = new Set<object>();
+  /** wer schon etwas davon gefressen hat */
+  fed = new Set<object>();
+  playerAte = false;
+  constructor(public byPlayer: boolean) {}
+
+  get left() {
+    return this.meats.some((m) => !m.gone && m.value > 0.5);
+  }
+}
+
+/** Fressen für andere Tiere: so viel Sättigung nimmt ein Tier mit einem Bissen. */
+const ANIMAL_BITE = 8;
+
+/**
+ * Ein saftiges Stück Fleisch (wie in E.V.O.). Kleine Stücke treiben langsam nach oben, große sinken
+ * zu Boden, an Land fällt alles herunter. Nach einer Weile verdirbt es.
+ */
+export class Meat {
   img: Phaser.GameObjects.Image;
-  private blood: Phaser.GameObjects.Image;
-  units: number;
-  max: number;
+  private glow: Phaser.GameObjects.Image;
+  /** Sättigung, die noch darin steckt */
+  value: number;
+  readonly max: number;
+  /** 0 klein, 1 mittel, 2 groß */
+  readonly size: 0 | 1 | 2;
+  private vx: number;
+  private vy: number;
+  private resting = false;
   private bornAt: number;
+  private ph = Math.random() * 6;
   gone = false;
-  /** wer davon fressen wollte bzw. gefressen hat (für das Lernen der Artgenossen) */
+  /** wer davon fressen will bzw. gefressen hat (für das Lernen der Artgenossen) */
   wanted = new Set<object>();
   ateFrom = new Set<object>();
   playerBites = 0;
 
   constructor(
     private scene: Phaser.Scene,
+    private env: MeatEnv,
     public x: number,
     public y: number,
-    public def: SpeciesDef,
-    water: boolean,
+    value: number,
     now: number,
-    dir: number,
-    /** vom Spieler erlegt – wer davon mitfrisst, fasst Vertrauen */
-    public byPlayer = false,
+    public kill: Kill,
+    vx = 0,
+    vy = 0,
   ) {
-    this.units = Math.max(1, def.meat);
-    this.max = this.units;
+    this.value = value;
+    this.max = value;
+    this.size = value < 11 ? 0 : value < 23 ? 1 : 2;
+    this.vx = vx;
+    this.vy = vy;
     this.bornAt = now;
-    this.blood = scene.add.image(x, y + 2, 'blood').setDepth(DEPTH.carcass - 1).setAlpha(water ? 0.35 : 0.8);
-    this.blood.setScale(Math.min(3.6, 0.6 + def.meat * 0.2), 1.2);
-    this.img = scene.add.image(x, y, speciesKey(def.id, 0))
-      .setDepth(DEPTH.carcass)
-      .setFlipY(true)
-      .setFlipX(dir < 0)
-      .setTint(0x7a5048)
-      .setOrigin(0.5, 0.75);
-    if (water) this.img.setAlpha(0.9);
+    this.glow = scene.add.image(x, y, 'glow').setDepth(DEPTH.carcass - 1).setTint(0xff6040).setAlpha(0.18)
+      .setBlendMode(Phaser.BlendModes.ADD).setScale(0.22 + this.size * 0.12);
+    this.img = scene.add.image(x, y, `meat_${this.size}`).setDepth(DEPTH.carcass).setScale(0.5).setFlipX(Math.random() < 0.5);
+    // kurz aufploppen
+    scene.tweens.add({ targets: this.img, scale: { from: 0.2, to: 0.5 }, duration: 260, ease: 'Back.out' });
+    kill.meats.push(this);
   }
 
-  /** mehr Fleisch übrig (z. B. Reste, die ein Riese liegen ließ) */
-  bonus(n: number) {
-    this.units += n;
-    this.max += n;
-    this.img.setScale(1.15);
+  get byPlayer() {
+    return this.kill.byPlayer;
+  }
+
+  /** Bissen, die ein anderes Tier noch davon nehmen kann */
+  get units() {
+    return this.gone ? 0 : Math.ceil(this.value / ANIMAL_BITE);
   }
 
   get rect(): Rect {
-    const w = Math.max(40, this.img.displayWidth * 0.8), h = Math.max(30, this.img.displayHeight * 0.8);
-    return { x: this.x - w / 2, y: this.y - h, w, h: h + 10 };
+    const w = MEAT_SIZES[this.size][0] + 14, h = MEAT_SIZES[this.size][1] + 14;
+    return { x: this.x - w / 2, y: this.y - h / 2, w, h };
   }
 
+  /** Ein anderes Tier beißt hinein. */
   take(_now?: number) {
-    if (this.units <= 0) return false;
-    this.units--;
-    const k = 0.5 + 0.5 * (this.units / this.max);
-    this.img.setScale(k);
-    this.img.setTint(this.units > 0 ? 0x7a4840 : 0x4a2420);
-    if (this.units <= 0) this.remove();
-    return true;
+    return this.bite(ANIMAL_BITE) > 0;
   }
 
-  update(now: number) {
-    // nach einer Weile verrotten die Reste
-    if (!this.gone && now - this.bornAt > 60000) this.remove();
+  /** Nimmt höchstens so viel Sättigung heraus und gibt zurück, wie viel es war. */
+  bite(amount: number) {
+    if (this.gone || this.value <= 0) return 0;
+    const got = Math.min(this.value, amount);
+    this.value -= got;
+    if (this.value <= 0.5) this.remove(true);
+    else this.img.setScale(0.5 * (0.6 + 0.4 * this.value / this.max));
+    return got;
   }
 
-  remove() {
+  update(now: number, dt: number) {
+    if (this.gone) return;
+    const e = this.env;
+    const h = MEAT_SIZES[this.size][1] * 0.5;
+    if (e.water) {
+      // kleine Stücke steigen langsam auf, mittlere schweben, große sinken
+      const target = this.size === 0 ? -15 : this.size === 1 ? 6 : 30;
+      this.vy += (target - this.vy) * Math.min(1, dt * 1.6);
+      this.vx *= Math.max(0, 1 - dt * 1.8);
+      const sway = Math.sin(now / 900 + this.ph) * (this.size === 0 ? 9 : 4);
+      let ny = this.y + this.vy * dt;
+      const nx = this.x + (this.vx + sway) * dt;
+      if (this.vy < 0 && (ny - h < e.surfaceY + 6 || e.solidAt(nx, ny - h))) {
+        ny = this.y;
+        this.vy = 0;
+      }
+      if (this.vy > 0 && e.solidAt(nx, ny + h)) {
+        ny = this.y;
+        this.vy = 0;
+      }
+      if (!e.solidAt(nx, ny)) this.x = nx;
+      this.y = ny;
+      this.img.setAngle(Math.sin(now / 700 + this.ph) * 8);
+    } else if (!this.resting) {
+      this.vy = Math.min(900, this.vy + 1100 * dt);
+      const ny = this.y + this.vy * dt;
+      const nx = this.x + this.vx * dt;
+      if (e.solidAt(this.x, ny + h)) {
+        // aufschlagen, ein kleiner Hüpfer, dann liegen bleiben
+        if (this.vy > 260) this.vy = -this.vy * 0.3;
+        else {
+          this.vy = 0;
+          this.resting = true;
+        }
+      } else this.y = ny;
+      if (!e.solidAt(nx, this.y)) this.x = nx;
+      this.vx *= Math.max(0, 1 - dt * 2.5);
+    }
+    this.img.setPosition(this.x, this.y);
+    this.glow.setPosition(this.x, this.y).setAlpha(0.14 + 0.08 * Math.sin(now / 260 + this.ph));
+    // nach einer Weile verdirbt es: erst blinken, dann weg
+    const age = now - this.bornAt;
+    if (age > 48000) this.img.setAlpha(Math.floor(now / 120) % 2 ? 0.4 : 1);
+    if (age > 52000) this.remove();
+  }
+
+  remove(eaten = false) {
     if (this.gone) return;
     this.gone = true;
+    this.value = 0;
+    const img = this.img, glow = this.glow;
+    if (eaten) this.scene.tweens.add({ targets: img, scale: 0.1, duration: 160 });
     this.scene.tweens.add({
-      targets: [this.img, this.blood],
+      targets: [img, glow],
       alpha: 0,
-      duration: 900,
+      duration: eaten ? 160 : 700,
       onComplete: () => {
-        this.img.destroy();
-        this.blood.destroy();
+        img.destroy();
+        glow.destroy();
       },
     });
   }

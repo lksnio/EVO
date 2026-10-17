@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
 import { game, maxSatiety, type Stats } from '../state/GameState';
 import { audio } from '../audio/Audio';
-import { CreatureView } from './CreatureView';
+import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
 import { approach, clamp, type Rect } from '../util/math';
 import { DEPTH } from '../config';
@@ -58,6 +58,8 @@ export class Player {
   grounded = false;
   /** im Hinterhalt (versteckt/getarnt): leicht durchsichtig, der erste Angriff überrascht */
   ambush = false;
+  /** stützt sich am Grund ab und läuft dort entlang (im Wasser) */
+  bottomWalk = false;
   private boostUntil = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
@@ -178,9 +180,13 @@ export class Player {
 
     if (this.water) {
       const dy = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
+      // Am Grund abstützen und entlanglaufen: kostet wenig Kraft; mit kräftigen Flossen geht es flott
+      const floor = (b.blocked.down || b.touching.down) && dy >= 0;
+      this.bottomWalk = floor && dir !== 0 && !knocked;
       if (!knocked) {
         const len = Math.hypot(dir, dy) || 1;
-        b.setVelocity(approach(b.velocity.x, (dir / len) * sp, 900 * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6), 900 * dt));
+        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (this.sprinting ? 1.3 : 1) * hurtSlow * starving : (dir / len) * sp;
+        b.setVelocity(approach(b.velocity.x, vx, 900 * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6), 900 * dt));
       }
       if (dir) this.facing = dir;
       if (this.rect.y - b.height / 2 < this.host.surfaceY + 4 && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
@@ -239,7 +245,7 @@ export class Player {
     if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 320;
       this.view.bite();
-      audio.sfx('bite');
+      audio.sfx('bite', game.traits.jaw);
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect()));
     }
     this.view.headTilt = time < this.ramUntil ? 0.42 : this.sprinting ? 0.18 : 0;
@@ -252,24 +258,24 @@ export class Player {
     this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < this.maxSat * 0.1 ? 0.3 : 0) + (this.stamina < 0.2 ? 0.2 : 0), 0, 1);
 
     const speed = Math.abs(b.velocity.x);
-    let mode: 'swim' | 'walk' | 'air' | 'idle' = 'idle';
-    if (this.water) mode = 'swim';
+    let mode: AnimMode = 'idle';
+    if (this.water) mode = this.bottomWalk ? 'crawl' : 'swim';
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
     this.syncView(dt, mode, Math.min(1.3, this.speed01));
     this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : this.ambush ? 0.62 : 1);
   }
 
-  private syncView(dt: number, mode: 'swim' | 'walk' | 'air' | 'idle', s01: number) {
+  private syncView(dt: number, mode: AnimMode, s01: number) {
     this.view.setPosition(this.rect.x, this.rect.y + this.offY);
     this.view.setFacing(this.facing);
     this.view.animate(dt, mode, s01);
   }
 
   /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */
-  eat(nutrition: number) {
+  eat(nutrition: number, kind: 'meat' | 'plant' = 'plant') {
     // nie mehr als das Maximum
-    if (this.satiety >= this.maxSat - 0.5) {
+    if (this.satiety >= this.maxSat - 0.5 || nutrition <= 0) {
       this.view.refuse();
       audio.sfx('refuse');
       return false;
@@ -277,7 +283,7 @@ export class Player {
     this.satiety = Math.min(this.maxSat, this.satiety + nutrition);
     this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * 0.02);
     this.view.chew();
-    audio.sfx('chew');
+    audio.sfx(kind === 'meat' ? 'eatMeat' : 'eatPlant');
     return true;
   }
 

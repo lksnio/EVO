@@ -13,11 +13,15 @@ import { clamp, mulberry32 } from '../util/math';
 // Das verborgene Anpassungssystem (der Spieler sieht keine Werte):
 //   jaw     – wächst durch Beißen und Fleischfressen (stärkeres Gebiss)
 //   skull   – wächst durch Rammen mit hohem Tempo (dickerer Schädel)
+//   limb    – Bodenkontakt: wer sich oft am Grund abstützt und dort entlangläuft, bekommt kräftige,
+//             stützende Flossen (später kräftigere Beine)
+//   pack    – Rudel: wer oft mit Artgenossen zusammen kämpft, wird zum Rudeltier – sie helfen öfter,
+//             wollen dann aber auch mitfressen
 //   stealth – wächst durch Pflanzenfressen, Ausweichen und Verstecken
 //   growth  – wächst mit allem, was gefressen wird (Körpergröße)
 //   diet    – -1 Pflanzenfresser … +1 Fleischfresser
 //   scars   – Narben überlebter Kämpfe
-//   spike   – Richtung des Kopfpanzers: -1 harter Schädel (wer einsteckt) … +1 Stachelkopf (wer austeilt)
+//   spike   – Kopfpanzer: 0 … -1 gepanzerter Schädel (wer oft rammt und damit Tiere erlegt)
 //   green   – Tarnfarbe vom Verstecken zwischen Pflanzen
 //   sand    – Tarnfarbe vom Verstecken am Boden und in Höhlen
 // Ganz verborgen (nirgends angezeigt, nur am Verhalten zu merken):
@@ -58,9 +62,13 @@ export interface Traits {
   fang: number;
   /** Färbung: -1 dunkel … +1 hell */
   light: number;
+  /** Bodenkontakt: stützende Flossen bzw. kräftige Beine */
+  limb: number;
+  /** Rudeltier: Artgenossen helfen öfter (und wollen mitfressen) */
+  pack: number;
 }
 
-export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand' | 'digM' | 'digP' | 'nerve' | 'tox' | 'fang';
+export type TraitKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand' | 'digM' | 'digP' | 'nerve' | 'tox' | 'fang' | 'limb' | 'pack';
 
 /** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (zählt für die Vielfalt des Nachwuchses). */
 export const FOOD = {
@@ -94,6 +102,8 @@ export interface Stats {
   detect: number;
   digestMeat: number;
   digestPlant: number;
+  /** Tempo beim Laufen am Grund (Anteil am Schwimmtempo) */
+  groundSpeed: number;
 }
 
 /** 1 = männlich, 2 = weiblich */
@@ -186,17 +196,18 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0 };
+export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
 /** verborgene Anlagen – sie werden genauso weitervererbt, aber nirgends gezeigt */
-const HIDDEN = ['digM', 'digP', 'nerve', 'tox', 'fang'] as const;
+const HIDDEN = ['digM', 'digP', 'nerve', 'tox', 'fang', 'limb', 'pack'] as const;
 
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
 export function skillName(k: SkillKey, t: Partial<Traits>) {
   switch (k) {
     case 'jaw': return 'Gebiss';
-    case 'skull': return (t.spike ?? 0) > 0.25 ? 'Stachelkopf' : (t.spike ?? 0) < -0.25 ? 'Panzerkopf' : 'Dickschädel';
+    case 'skull': return (t.spike ?? 0) < -0.25 ? 'Panzerkopf' : 'Dickschädel';
     case 'stealth': return 'Tarnung';
     case 'growth': return 'Wuchs';
     case 'green': return 'Grüntarnung';
@@ -298,6 +309,8 @@ class GameState {
         const r = this.data.run;
         if (r) {
           r.traits = full(r.traits);
+          // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
+          r.traits.spike = -Math.abs(r.traits.spike);
           r.social ??= 0.55;
           r.canRam ??= false;
         }
@@ -391,21 +404,25 @@ class GameState {
 
   stats(cls: ClassId = this.r.cls, t: Traits = this.r.traits): Stats {
     const b = CLASSES[cls].base;
-    const size = clamp(0.85 + 0.5 * t.growth - 0.28 * t.stealth, 0.68, 1.45);
+    // klein anfangen: Der Urfisch ist winzig, Platz zum Wachsen gibt es reichlich
+    const size = clamp(0.7 + 0.62 * t.growth - 0.25 * t.stealth, 0.6, 1.5);
     const carn = Math.max(0, t.diet), herb = Math.max(0, -t.diet);
-    const spikes = Math.max(0, t.spike ?? 0) * t.skull, plates = Math.max(0, -(t.spike ?? 0)) * t.skull;
+    const plates = Math.max(0, -(t.spike ?? 0)) * t.skull;
+    const land = CLASSES[cls].habitat === 'land';
+    const limb = t.limb ?? 0;
     const bite = b.bite * size * (1 + 2.2 * t.jaw) * (1 + 0.25 * carn) * (1 + 0.5 * (t.fang ?? 0));
-    const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.8 * spikes) * (1 + 0.15 * (t.girth ?? 0));
+    const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * (t.girth ?? 0));
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * (t.girth ?? 0));
     return {
       maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * (t.girth ?? 0) + 0.05 * (t.len ?? 0))),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body,
-      jump: b.jump * (1 + 0.12 * t.stealth),
+      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1),
+      jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       size,
-      defense: clamp(1 - 0.28 * t.skull - 0.08 * (size - 1), 0.5, 1.1),
+      defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1), 0.45, 1.1),
+      groundSpeed: 0.7 + 0.6 * limb,
       power: bite * 0.6 + ram * 0.4,
       detect: 1 - 0.55 * t.stealth,
       digestMeat: Math.max(0.4, 1 + 0.4 * carn - 0.5 * herb + 0.5 * (t.digM ?? 0)),
@@ -434,6 +451,7 @@ class GameState {
       swift: t.swift ?? 0,
       fang: t.fang ?? 0,
       light: t.light ?? 0,
+      limb: t.limb ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -472,6 +490,8 @@ class GameState {
       tox: t.tox,
       fang: j(t.fang, 0.06),
       light: g(t.light ?? 0, 0.15),
+      limb: j(t.limb ?? 0, 0.06),
+      pack: t.pack ?? 0,
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -545,7 +565,7 @@ class GameState {
     const total = eaten.meat + eaten.plant;
     const ate = total > 0 ? (eaten.meat - eaten.plant) / total : 0;
     main.diet = clamp(end.diet + (end.diet - start.diet) * k * 0.6 + (ate - end.diet) * 0.15, -1, 1);
-    main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 1);
+    main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 0);
     // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
     for (const g of ['len', 'girth', 'swift', 'light'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
     // Vielfalt: wer gerade so satt wurde, bekommt ähnliche Nachkommen – wer viel gefressen hat, sehr verschiedene
@@ -632,10 +652,10 @@ class GameState {
     t[k] = clamp((t[k] ?? 0) + amount, -1, 1);
   }
 
-  /** Kopfpanzer: + Richtung Stachelkopf, - Richtung harter Schädel */
-  shiftSpike(amount: number) {
+  /** Kopfpanzer: wer oft rammt (und damit Tiere erlegt), dessen Schädel wird zum Panzer */
+  armorHead(amount: number) {
     const t = this.r.traits;
-    t.spike = clamp((t.spike ?? 0) + amount, -1, 1);
+    t.spike = clamp((t.spike ?? 0) - amount, -1, 0);
   }
 
   get canRam() {

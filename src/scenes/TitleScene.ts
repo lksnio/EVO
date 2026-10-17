@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEBUG, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { game } from '../state/GameState';
+import { game, ZERO_TRAITS } from '../state/GameState';
 import { SPECIES } from '../data/species';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
@@ -59,7 +59,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Das eigene Tier (oder ein frisch geschlüpfter Urfisch)
     const run = game.run;
-    const m = run ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0 }, fierce: 0, hue: 0, seed: 7, sex: 0 });
+    const m = run ? game.morph({ belly: 1 }) : game.morph({ cls: 'fish', traits: { ...ZERO_TRAITS }, fierce: 0, hue: 0, seed: 7, sex: 0 });
     this.hero = new CreatureView(this, 250, 0, m, 1.7);
     const land = this.hero.L.land;
     this.hero.setY(land ? 640 - this.hero.L.footY * 1.7 : 560);

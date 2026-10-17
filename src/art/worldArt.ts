@@ -6,6 +6,9 @@ import { mulberry32, type Rng } from '../util/math';
 import { W, H } from '../config';
 import { noiseTex, pattern } from './paint';
 
+/** Größe der Fleischstücke (Breite, Höhe in Pixeln): klein, mittel, groß */
+export const MEAT_SIZES: [number, number][] = [[24, 18], [36, 26], [52, 36]];
+
 // ---------------------------------------------------------------------------
 // Hilfen
 
@@ -1902,6 +1905,94 @@ export function commonTextures(scene: Phaser.Scene) {
       ctx.fillStyle = 'rgba(110,4,2,.9)';
       ctx.fill();
     }
+  });
+  // Saftige Fleischstücke, die erlegte Tiere hinterlassen (klein, mittel, groß) – doppelt aufgelöst
+  MEAT_SIZES.forEach(([w, h], size) => {
+    tex(scene, `meat_${size}`, w * 2, h * 2, (ctx) => {
+      ctx.scale(2, 2);
+      const r = mulberry32(57 + size * 13);
+      const cx = w * 0.5 - (size ? w * 0.06 : 0), cy = h * 0.54;
+      const rx = w * (size ? 0.36 : 0.42), ry = h * 0.36;
+      // Knochen (bei größeren Stücken) schaut seitlich heraus
+      if (size > 0) {
+        const bx = cx + rx * 0.7, by = cy - ry * 0.15, bl = w * 0.3, bt = h * 0.11;
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.rotate(-0.35);
+        ctx.beginPath();
+        ctx.moveTo(0, -bt);
+        ctx.lineTo(bl, -bt * 0.8);
+        ctx.arc(bl + bt * 0.6, -bt * 0.9, bt * 0.85, Math.PI * 0.9, Math.PI * 0.1, false);
+        ctx.arc(bl + bt * 0.6, bt * 0.9, bt * 0.85, -Math.PI * 0.1, -Math.PI * 0.9, false);
+        ctx.lineTo(0, bt);
+        ctx.closePath();
+        const bg = ctx.createLinearGradient(0, -bt * 2, 0, bt * 2);
+        bg.addColorStop(0, '#fbf3e2');
+        bg.addColorStop(1, '#bfae8e');
+        fillStroke(ctx, bg, '#3a2a1a', 0.9);
+        ctx.restore();
+      }
+      // das Fleisch: rund, prall, mit Fett-Marmorierung und feuchtem Glanz
+      blob(ctx, r, cx, cy, rx, ry, 10);
+      fillStroke(ctx, rgrad(ctx, cx - rx * 0.25, cy - ry * 0.3, 1, Math.max(rx, ry) * 1.25, [[0, '#ff8a7c'], [0.35, '#e4434a'], [0.75, '#a81a26'], [1, '#5a0a10']]), '#2e0406', 1.1);
+      ctx.save();
+      blob(ctx, mulberry32(57 + size * 13), cx, cy, rx, ry, 10);
+      ctx.clip();
+      // Fettadern
+      ctx.strokeStyle = 'rgba(255,226,214,.75)';
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 2 + size; i++) {
+        const y = cy - ry * 0.4 + i * ry * (0.75 / (1 + size * 0.5)) + r() * 2;
+        ctx.lineWidth = 0.9 + r() * 0.8 + size * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(cx - rx * 0.8, y + r() * 2);
+        ctx.bezierCurveTo(cx - rx * 0.3, y - 3 - r() * 2, cx + rx * 0.2, y + 3 + r() * 2, cx + rx * 0.85, y - 1);
+        ctx.stroke();
+      }
+      // dunkler Rand unten, Glanzlicht oben
+      const sh = ctx.createLinearGradient(0, cy, 0, cy + ry * 1.2);
+      sh.addColorStop(0, 'rgba(60,0,6,0)');
+      sh.addColorStop(1, 'rgba(60,0,6,.55)');
+      ctx.fillStyle = sh;
+      ctx.fillRect(cx - rx * 1.5, cy, rx * 3, ry * 1.5);
+      ctx.restore();
+      ell(ctx, cx - rx * 0.32, cy - ry * 0.45, rx * 0.34, ry * 0.2, -0.25);
+      ctx.fillStyle = 'rgba(255,250,244,.6)';
+      ctx.fill();
+      ell(ctx, cx - rx * 0.05, cy - ry * 0.55, rx * 0.08, ry * 0.08);
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.fill();
+    });
+  });
+  // Zuschnappende Zahnreihe beim Biss (oben; unten gespiegelt) – mit großen Reißzähnen bei starkem Gebiss
+  [0, 1].forEach((v) => {
+    tex(scene, `chomp_${v}`, 64, 28, (ctx) => {
+      const arc = (x: number) => 5 + Math.pow((x - 32) / 30, 2) * 7;
+      ctx.beginPath();
+      ctx.moveTo(2, arc(2));
+      for (let x = 4; x <= 62; x += 2) ctx.lineTo(x, arc(x));
+      ctx.strokeStyle = 'rgba(150,40,36,.85)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      const n = v ? 6 : 8;
+      for (let i = 0; i < n; i++) {
+        const x = 6 + (i + 0.5) * (52 / n);
+        const fang = v === 1 && (i === 1 || i === n - 2);
+        const len = fang ? 19 : v ? 10 : 8;
+        const w = fang ? 6 : 4.2;
+        const y = arc(x) + 1;
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2, y);
+        ctx.quadraticCurveTo(x - w * 0.2, y + len * 0.7, x + w * 0.1, y + len);
+        ctx.quadraticCurveTo(x + w * 0.35, y + len * 0.5, x + w / 2, y);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(0, y, 0, y + len);
+        g.addColorStop(0, '#fff8ea');
+        g.addColorStop(1, '#d8ccb0');
+        fillStroke(ctx, g, 'rgba(30,18,10,.85)', 1);
+      }
+    });
   });
   // Blut an der Schnauze
   tex(scene, 'muzzle_blood', 44, 26, (ctx) => {

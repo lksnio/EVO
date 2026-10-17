@@ -31,7 +31,7 @@ export interface Morph {
   seed: number;
   /** 0 = ohne Angabe, 1 = Männchen (Kehlfleck, etwas kräftiger gefärbt), 2 = Weibchen */
   sex?: number;
-  /** Kopfpanzer: -1 harter Schädel … +1 Stachelkopf */
+  /** Kopfpanzer: 0 … -1 gepanzerter Schädel */
   spike?: number;
   /** Tarnfarbe: grün (Pflanzen) bzw. sandig (Boden, Höhlen) */
   green?: number;
@@ -44,6 +44,8 @@ export interface Morph {
   fang?: number;
   /** Färbung: -1 dunkel (Tiefe, Schatten) … +1 hell (oben im Licht) */
   light?: number;
+  /** Bodenkontakt: fleischige Stützflossen (Fisch) bzw. kräftigere Beine */
+  limb?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -71,12 +73,13 @@ export function quantize(m: Morph): Morph {
     swift: q(m.swift ?? 0, 0.25),
     fang: q(m.fang ?? 0, 0.2),
     light: q(m.light ?? 0, 0.2),
+    limb: q(m.limb ?? 0, 0.2),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb].join('_');
 }
 
 interface Pal {
@@ -152,6 +155,7 @@ function geo(m: Morph): Geo {
   const slim = (1 - 0.16 * st) * (1 + 0.3 * (m.girth ?? 0)) / Math.sqrt(lk);
   const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.1 * (m.girth ?? 0);
   const s = m.size;
+  const lg = 1 + 0.22 * (m.limb ?? 0), lt = 1 + 0.35 * (m.limb ?? 0);
   switch (m.cls) {
     case 'fish': {
       const bw = 60 * (1 + 0.06 * st) * lk, bh = 28 * slim;
@@ -173,7 +177,7 @@ function geo(m: Morph): Geo {
         pts: [[bw * 0.44, -bh * 0.3], [bw * 0.16, -bh * 0.52], [-bw * 0.22, -bh * 0.48], [-bw * 0.48, -bh * 0.2], [-bw * 0.5, bh * 0.14],
           [-bw * 0.3, bb * 0.44], [0, bb * 0.55], [bw * 0.3, bb * 0.44], [bw * 0.46, bh * 0.16]],
         neck: [bw * 0.42, -bh * 0.06], tailAt: [-bw * 0.46, -bh * 0.04],
-        legF: [bw * 0.26, bh * 0.28], legB: [-bw * 0.28, bh * 0.28], legLen: 15 + 7 * st, legW: 8,
+        legF: [bw * 0.26, bh * 0.28], legB: [-bw * 0.28, bh * 0.28], legLen: (15 + 7 * st) * lg, legW: 8 * lt,
         hg: { L, H, mouthY: H * 0.2, hingeX: L * (0.3 - 0.08 * jaw), jawH: 4 + 5 * jaw, dome: 2.5 * sk, snoutH: H * 0.24, ex: L * 0.3, ey: -H * 0.5, er: 2.5 * (1 + 0.25 * st) },
       };
     }
@@ -185,7 +189,7 @@ function geo(m: Morph): Geo {
         pts: [[bw * 0.44, -bh * 0.36], [bw * 0.18, -bh * 0.55], [-bw * 0.12, -bh * 0.5], [-bw * 0.4, -bh * 0.36], [-bw * 0.5, -bh * 0.08],
           [-bw * 0.44, bb * 0.28], [-bw * 0.1, bb * 0.52], [bw * 0.26, bb * 0.46], [bw * 0.46, bh * 0.14]],
         neck: [bw * 0.42, -bh * 0.22], tailAt: [-bw * 0.46, -bh * 0.12],
-        legF: [bw * 0.28, bh * 0.3], legB: [-bw * 0.3, bh * 0.3], legLen: 22 + 9 * st, legW: 9,
+        legF: [bw * 0.28, bh * 0.3], legB: [-bw * 0.3, bh * 0.3], legLen: (22 + 9 * st) * lg, legW: 9 * lt,
         hg: { L, H, mouthY: H * 0.16, hingeX: L * (0.26 - 0.06 * jaw), jawH: 5 + 6 * jaw, dome: 3 * sk, snoutH: H * 0.27, ex: L * 0.34, ey: -H * 0.24, er: 2.7 * (1 + 0.25 * st) },
       };
     }
@@ -197,7 +201,7 @@ function geo(m: Morph): Geo {
         pts: [[bw * 0.42, -bh * 0.42], [bw * 0.22, -bh * 0.56], [-bw * 0.08, -bh * 0.48], [-bw * 0.36, -bh * 0.5], [-bw * 0.5, -bh * 0.24],
           [-bw * 0.48, bb * 0.2], [-bw * 0.18, bb * 0.47], [bw * 0.2, bb * 0.45], [bw * 0.46, bh * 0.14]],
         neck: [bw * 0.44, -bh * 0.28], tailAt: [-bw * 0.48, -bh * 0.3],
-        legF: [bw * 0.3, bh * 0.24], legB: [-bw * 0.3, bh * 0.24], legLen: 28 + 11 * st, legW: 10,
+        legF: [bw * 0.3, bh * 0.24], legB: [-bw * 0.3, bh * 0.24], legLen: (28 + 11 * st) * lg, legW: 10 * lt,
         hg: { L, H, mouthY: H * 0.22, hingeX: L * (0.36 - 0.08 * jaw), jawH: 5 + 6 * jaw, dome: 3.5 * sk, snoutH: H * 0.3, ex: L * 0.42, ey: -H * 0.2, er: 2.6 * (1 + 0.2 * st) },
       };
     }
@@ -264,6 +268,9 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     ctx.quadraticCurveTo(-bw * 0.36, bh * 0.32, -bw * 0.34, bh * 0.26);
     ctx.closePath();
     finFill(ctx, P, bh * 0.3, bh * 0.5 + 9 * k);
+    // Bauchflosse: wer sich oft am Grund abstützt, bekommt einen fleischigen Stiel
+    const lb = m.limb ?? 0;
+    if (lb > 0.1) lobe(ctx, m, P, -bw * 0.04, bh * 0.36, 7 + 9 * lb, 3 + 3 * lb, 1.1);
   }
   if (m.cls === 'reptile' || (m.cls === 'mammal' && m.skull > 0.6)) {
     // kleine Rückenhöcker
@@ -648,49 +655,7 @@ function boneFill(ctx: Ctx, y0: number, y1: number) {
   ctx.stroke();
 }
 
-/** Knochenwuchs am Kopf. Alles wächst stufenlos mit dem Merkmal "skull". */
-/** Stachelkopf: eine Krone aus Dornen auf Stirn und Nacken, dazu Wangenstacheln. */
-function drawSpikes(ctx: Ctx, m: Morph, hg: HeadGeo, k: number) {
-  const { L, H, mouthY, snoutH, dome, hingeX } = hg;
-  const top = -H / 2;
-  const n = 3 + Math.round(6 * k);
-  const r = mulberry32(m.seed + 77);
-  for (let i = 0; i < n; i++) {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    // entlang der Kopfoberkante vom Nacken zur Stirn
-    const bx = -6 + t * (L * 0.62);
-    const by = (top * 0.9 - dome) * (1 - t) + (mouthY - snoutH - 1) * t * 0.65 + top * 0.35 * t;
-    const len = (5 + 13 * k) * (0.55 + 0.45 * Math.sin(Math.PI * (0.2 + t * 0.7))) * (0.85 + r() * 0.3);
-    const w = 2.4 + 2.6 * k;
-    const tx = bx - len * 0.55, ty = by - len;
-    ctx.beginPath();
-    ctx.moveTo(bx - w / 2, by + 2);
-    ctx.quadraticCurveTo(bx - w * 0.3, by - len * 0.5, tx, ty);
-    ctx.quadraticCurveTo(bx + w * 0.2, by - len * 0.35, bx + w / 2, by + 2);
-    ctx.closePath();
-    boneFill(ctx, ty, by);
-    ctx.beginPath();
-    ctx.moveTo(tx, ty);
-    ctx.lineTo(tx + len * 0.12, ty + len * 0.22);
-    ctx.strokeStyle = 'rgba(40,20,14,.8)';
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-  }
-  // Wangenstacheln nach hinten unten
-  const cs = Math.round(1 + 2 * k);
-  for (let i = 0; i < cs; i++) {
-    const bx = hingeX - 2 - i * 4, by = H * 0.18 + i * 3;
-    const len = 4 + 7 * k;
-    ctx.beginPath();
-    ctx.moveTo(bx, by - 2);
-    ctx.lineTo(bx - len, by + len * 0.45);
-    ctx.lineTo(bx + 1, by + 2.4);
-    ctx.closePath();
-    boneFill(ctx, by - 2, by + len * 0.45);
-  }
-}
-
-/** Harter Schädel: ein dicker Knochenhelm mit Platten und Höckern. */
+/** Panzerkopf: Knochenplatten mit Nähten und Höckern über Stirn und Schnauze. */
 function drawPlates(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo, k: number) {
   const { L, H, mouthY, snoutH, dome } = hg;
   const top = -H / 2;
@@ -739,12 +704,13 @@ function drawPlates(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo, k: number) {
   ctx.stroke();
 }
 
+/** Knochenwuchs am Kopf. Alles wächst stufenlos mit dem Merkmal "skull". */
 function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   const sp = m.spike ?? 0;
+  // Wer oft rammt und damit Tiere erlegt, dessen Kopf wird zum Panzer (früher: auch Stachelköpfe)
   if (m.skull > 0.08 && Math.abs(sp) > 0.15) {
     const k = Math.min(1, m.skull * 1.2) * Math.min(1, Math.abs(sp) * 1.6);
-    if (sp > 0) drawSpikes(ctx, m, hg, k);
-    else drawPlates(ctx, m, P, hg, k);
+    drawPlates(ctx, m, P, hg, k);
     return;
   }
   const sk = m.skull;
@@ -1060,7 +1026,49 @@ function drawLeg(ctx: Ctx, m: Morph, P: Pal, len: number, w: number) {
   }
 }
 
+/**
+ * Eine fleischige Stützflosse (wie bei den Quastenflossern): ein muskulöser Stiel mit Knochen
+ * darin, an dessen Ende ein Saum aus Flossenstrahlen sitzt.
+ */
+function lobe(ctx: Ctx, m: Morph, P: Pal, x: number, y: number, len: number, w: number, ang: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  // Flossensaum am Ende
+  ctx.beginPath();
+  ctx.moveTo(len * 0.7, -w * 0.9);
+  ctx.quadraticCurveTo(len + w * 2.2, -w * 1.2, len + w * 2.4, 0);
+  ctx.quadraticCurveTo(len + w * 2.2, w * 1.3, len * 0.7, w * 0.9);
+  ctx.closePath();
+  finFill(ctx, P, -w, w);
+  ctx.strokeStyle = css(P.dark, 0.35);
+  ctx.lineWidth = 0.5;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(len * 0.8, i * w * 0.3);
+    ctx.lineTo(len + w * 2.2, i * w * 0.5);
+    ctx.stroke();
+  }
+  // muskulöser Stiel
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, -w);
+    ctx.bezierCurveTo(len * 0.4, -w * 1.25, len * 0.8, -w * 0.9, len, -w * 0.45);
+    ctx.quadraticCurveTo(len + w * 0.6, 0, len, w * 0.45);
+    ctx.bezierCurveTo(len * 0.8, w * 0.9, len * 0.4, w * 1.2, 0, w);
+    ctx.closePath();
+  };
+  skin(ctx, path, { base: P.base, top: shade(P.base, -0.25), belly: P.belly, y0: -w, y1: w, noise: 'mottle', noiseAlpha: 0.35, noiseScale: 0.4, seed: m.seed + 13, edge: P.dark, rim: 0.25, wet: true });
+  ctx.restore();
+}
+
 function drawFin(ctx: Ctx, m: Morph, P: Pal) {
+  const lb = m.limb ?? 0;
+  if (lb > 0.1) {
+    // Brustflosse mit kräftigem Stiel – damit stützt sich der Fisch am Grund ab
+    lobe(ctx, m, P, 0, 0, 8 + 10 * lb, 3 + 3.2 * lb, 2.4);
+    return;
+  }
   const k = 1 + 0.5 * m.stealth;
   ctx.beginPath();
   ctx.moveTo(1, -2.5);
@@ -1133,7 +1141,7 @@ export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
     const lw = g.legW * 2.4 + 26;
     out.leg = part(scene, id + '_l', lw, g.legLen + 16, lw / 2 - 1, 7, s, (ctx) => drawLeg(ctx, m, P, g.legLen, g.legW));
   } else {
-    out.fin = part(scene, id + '_f', 34, 30, 28, 8, s, (ctx) => drawFin(ctx, m, P));
+    out.fin = part(scene, id + '_f', 44, 40, 34, 10, s, (ctx) => drawFin(ctx, m, P));
   }
   return out;
 }

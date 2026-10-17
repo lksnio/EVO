@@ -4,7 +4,8 @@ import {
   CREATURE_RES, creatureTextures, morphKey,
 } from '../art/creatureArt';
 
-export type AnimMode = 'swim' | 'walk' | 'air' | 'idle';
+/** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
+export type AnimMode = 'swim' | 'walk' | 'air' | 'idle' | 'crawl';
 
 type Img = Phaser.GameObjects.Image;
 
@@ -228,13 +229,27 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.t += dt * slow;
     const t = this.t;
     const L = this.L;
-    let open = 0;
+    // Biss: Maul weit aufreißen (Kopf holt kurz aus), vorstoßen und zuschnappen, dann festbeißen.
+    // Je stärker das Gebiss, desto weiter das Maul und desto wuchtiger der Stoß.
+    let open = 0, lunge = 0, clench = 0;
     if (this.biteT >= 0) {
       this.biteT += dt;
       const b = this.biteT;
-      open = b < 0.07 ? b / 0.07 : Math.max(0, 1 - (b - 0.07) / 0.15);
-      if (b > 0.25) this.biteT = -1;
+      if (b < 0.08) {
+        open = b / 0.08;
+        lunge = -0.4 * open;
+      } else if (b < 0.13) {
+        const k = (b - 0.08) / 0.05;
+        open = 1 - k;
+        lunge = -0.4 + 1.4 * k;
+      } else {
+        const k = Math.min(1, (b - 0.13) / 0.2);
+        clench = 1 - k;
+        lunge = 1 - k;
+      }
+      if (b > 0.33) this.biteT = -1;
     }
+    const J = this.m.jaw;
     let dip = 0;
     if (this.chewT >= 0) {
       this.chewT += dt;
@@ -249,8 +264,10 @@ export class CreatureView extends Phaser.GameObjects.Container {
       shake = Math.sin(this.shakeT * 30) * 0.18 * (1 - this.shakeT / 0.5);
       if (this.shakeT > 0.5) this.shakeT = -1;
     }
-    this.jaw.rotation = open * 0.8 + (mode === 'idle' ? Math.max(0, Math.sin(t * 1.3)) * 0.04 : 0);
-    this.headC.x = L.neck[0] + open * 2.5 * L.s;
+    this.jaw.rotation = open * (0.95 + 0.45 * J) - clench * 0.08 + (mode === 'idle' ? Math.max(0, Math.sin(t * 1.3)) * 0.04 : 0);
+    this.headC.x = L.neck[0] + lunge * (2.5 + 3.5 * J) * L.s;
+    this.headC.setScale(1 + clench * (0.04 + 0.06 * J));
+    const biteTilt = -open * 0.14 + clench * 0.08;
     const now = this.scene.time.now;
     if (this.meat) {
       const on = now < this.meatUntil;
@@ -267,14 +284,20 @@ export class CreatureView extends Phaser.GameObjects.Container {
     }
 
     if (!L.land) {
-      const sp = (6 + speed01 * 9) * slow;
-      this.tailImg.rotation = Math.sin(t * sp) * (0.16 + speed01 * 0.24);
-      if (this.fin) this.fin.rotation = 0.15 + Math.sin(t * 5.5) * 0.35;
-      const bob = Math.sin(t * 2.2) * 0.6;
+      const crawl = mode === 'crawl';
+      const sp = (crawl ? 3 : 6 + speed01 * 9) * slow;
+      this.tailImg.rotation = Math.sin(t * sp) * (crawl ? 0.08 : 0.16 + speed01 * 0.24);
+      let bob = Math.sin(t * 2.2) * 0.6;
+      if (crawl) {
+        // auf den Flossen am Grund entlang: Schritt für Schritt
+        this.phase += dt * (6 + speed01 * 6) * slow;
+        if (this.fin) this.fin.rotation = -0.25 + Math.sin(this.phase) * 0.75;
+        bob = -Math.abs(Math.cos(this.phase)) * 1.4;
+      } else if (this.fin) this.fin.rotation = 0.15 + Math.sin(t * 5.5) * 0.35;
       this.bodyImg.y = bob;
       this.tailImg.y = L.tail[1] + bob;
       this.headC.y = L.neck[1] + bob + dip * 2 * L.s;
-      this.headC.rotation = Math.sin(t * sp + 1) * 0.03 + this.headTilt + shake + dip * 0.25;
+      this.headC.rotation = Math.sin(t * sp + 1) * 0.03 + this.headTilt + shake + dip * 0.25 + biteTilt;
       return;
     }
 
@@ -310,6 +333,6 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.headC.y = L.neck[1] + bob + dip * 4 * L.s;
     this.tailImg.y = L.tail[1] + bob;
     this.tailImg.rotation = tailR;
-    this.headC.rotation = headR + this.headTilt + shake + dip * 0.45;
+    this.headC.rotation = headR + this.headTilt + shake + dip * 0.45 + biteTilt;
   }
 }

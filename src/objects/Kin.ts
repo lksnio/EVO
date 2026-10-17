@@ -6,46 +6,54 @@ import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { clamp, type Rect } from '../util/math';
 import { Animal, type World } from './Animal';
-import { Carcass, Plant } from './Food';
+import { Meat, Plant } from './Food';
 import { CreatureView, type AnimMode } from './CreatureView';
 
 /** Was die Level-Szene den Artgenossen zusätzlich bietet. */
 export interface KinWorld extends World {
-  /** ein Artgenosse hat sich abgewandt (zu wenig Futter abbekommen) */
-  kinSnubbed(k: Kin): void;
+  /** ein Artgenosse ist verärgert – bei gemeinsamer Beute nichts abbekommen (bit: er hat zugebissen) */
+  kinSnubbed(k: Kin, bit: boolean): void;
   /** ein Artgenosse zieht allein weiter */
   kinLeaving(k: Kin): void;
-  /** ein Artgenosse hat geteilte Beute bekommen */
+  /** ein Artgenosse hat von gemeinsamer Beute gefressen */
   kinShared(k: Kin): void;
 }
 
 /**
  * Ein Artgenosse: fast wie du – kleine genetische Abweichungen, Männchen oder Weibchen.
  *
- * Die Gruppe lernt in der Situation: Wer Beute teilt, mit dem jagen sie weiter zusammen
- * und den verteidigen sie. Wer alles selbst frisst, den verlassen sie nach und nach.
- * Sie greifen an, was du angreifst, fliehen mit Warnruf vor Räubern und verstecken sich,
- * wenn du dich versteckst.
+ * Artgenossen leben ihr eigenes Leben: Sie streifen durch ihr Revier, fressen und fliehen vor
+ * Räubern – sie schwimmen nicht im Schwarm hinter dir her. Greifst du in ihrer Nähe etwas an,
+ * helfen sie manchmal mit; je mehr deine Art zum Rudeltier geworden ist, desto öfter. Wer mitgekämpft
+ * hat, will aber auch mitfressen: Frisst du die Beute allein, beißt er dich und zieht verärgert ab.
  */
 export class Kin extends Animal {
   view: CreatureView;
   /** Erbanlagen dieses Artgenossen (kann die Linie weiterführen) */
   genes?: { traits: Traits; sex: Sex; seed: number };
-  /** Treue zum Spieler: 0 = geht eigene Wege … 1 = folgt überallhin */
+  /** Vertrauen zum Spieler: 0 = misstrauisch … 1 = steht dir bei */
   loyalty: number;
   private offY: number;
-  private slot: number;
   private calledAt = -1e9;
   private dying = false;
   private leaving = false;
   private prey: Animal | null = null;
   private huntUntil = 0;
-  private want: Plant | Carcass | null = null;
+  /** zuletzt gefragt, ob er mithilft (je Beute wird nur einmal entschieden) */
+  private asked: Animal | null = null;
+  private want: Plant | Meat | null = null;
+  /** verärgert: beißt einmal zu … */
+  private angryUntil = 0;
+  /** … und hält sich dann eine Weile von dir fern */
+  private sulkUntil = 0;
 
-  constructor(world: KinWorld, def: SpeciesDef, x: number, y: number, m: Morph, slot: number, loyalty: number) {
+  constructor(world: KinWorld, def: SpeciesDef, x: number, y: number, m: Morph, loyalty: number) {
     super(world, def, x, y, { texture: 'p_dot' });
     this.kin = true;
-    this.slot = slot;
+    // Die Größe steckt in den Erbanlagen (Ansicht), nicht in einer zufälligen Streuung
+    this.sz = 1;
+    this.setScale(1);
+    this.hp = this.maxHp = def.hp;
     this.loyalty = clamp(loyalty, 0.15, 0.95);
     this.setVisible(false);
     this.view = new CreatureView(world, x, y, m);
@@ -68,13 +76,20 @@ export class Kin extends Animal {
     return this.def.diet === 'meat' || this.omni;
   }
 
+  protected get meatEater() {
+    return this.eatsMeat;
+  }
+
   omni = false;
+
+  /** gerade verärgert (hilft nicht, hält Abstand) */
+  get sulking() {
+    return this.world.time.now < this.sulkUntil;
+  }
 
   tick(time: number, dt: number) {
     if (!this.dead && !this.leaving) {
-      // Lange hungrig, ohne dass der Anführer etwas abgibt: Die Treue schwindet
-      if (this.hunger > 0.9) this.loyalty -= 0.004 * dt;
-      this.ally = this.loyalty >= 0.6;
+      this.ally = this.loyalty >= 0.6 && !this.sulking;
       if (this.loyalty < 0.12) this.startLeaving();
     }
     super.tick(time, dt);
@@ -114,27 +129,43 @@ export class Kin extends Animal {
 
   // ------------------------------------------------------------------ Gemeinsam jagen
 
-  /** Der Spieler greift an – die Gruppe hilft. */
-  joinHunt(a: Animal, until: number) {
-    if (this.leaving || this.dead || a.dead || a.kin) return;
-    this.prey = a;
-    this.huntUntil = until;
+  /**
+   * Du greifst in der Nähe etwas an. Ob dieser Artgenosse mithilft, entscheidet sich einmal je Beute
+   * (chance: je mehr Rudeltier, desto eher). Wer schon mitjagt, bleibt dabei.
+   */
+  offerHunt(a: Animal, until: number, chance: number) {
+    if (this.leaving || this.dead || a.dead || a.kin || this.sulking) return;
+    if (this.prey === a) {
+      this.huntUntil = until;
+      return;
+    }
+    if (this.asked === a) return;
+    this.asked = a;
+    if (Math.random() < chance) {
+      this.prey = a;
+      this.huntUntil = until;
+    }
   }
 
-  /** Beute geteilt: Die Bindung wächst. */
-  protected sharedMeal(c: Carcass, time: number) {
+  /** Von gemeinsamer Beute gefressen: Das Vertrauen wächst. */
+  protected sharedMeal(c: Meat, time: number) {
     void time;
     if (!c.byPlayer) return;
     this.loyalty = Math.min(1, this.loyalty + 0.14);
     this.kw.kinShared(this);
   }
 
-  /** Nichts abbekommen, weil der Anführer alles selbst gefressen hat. */
-  snub(amount: number) {
+  /** Bei gemeinsamer Beute nichts abbekommen: einmal zubeißen (bite) und verärgert davonschwimmen. */
+  grudge(bite: boolean) {
     if (this.dead || this.leaving) return;
-    this.loyalty -= amount;
-    this.dir = Math.sign(this.x - this.world.player.x) || this.dir;
-    this.kw.kinSnubbed(this);
+    const now = this.world.time.now;
+    this.loyalty -= bite ? 0.3 : 0.1;
+    this.prey = null;
+    this.ally = false;
+    if (bite) this.angryUntil = now + 2600;
+    this.sulkUntil = now + (bite ? 26000 : 9000);
+    this.dir = Math.sign(this.world.player.x - this.x) || this.dir;
+    this.kw.kinSnubbed(this, bite);
   }
 
   private startLeaving() {
@@ -164,7 +195,19 @@ export class Kin extends Animal {
       return;
     }
 
-    // Gemeinsame Jagd geht vor (außer die Beute ist längst zu stark geworden)
+    // Verärgert: einmal zubeißen, dann davon
+    if (time < this.angryUntil && !p.dead) {
+      this.target = p;
+      this.go('hunt');
+      this.chase(p, sprint);
+      if (this.tryBite(time, p)) {
+        this.angryUntil = 0;
+        audio.sfx('snarl');
+      }
+      return;
+    }
+
+    // Gemeinsame Jagd geht vor (bis die Beute tot oder die Zeit um ist)
     const hunt = this.prey;
     if (hunt && (hunt.dead || time > this.huntUntil)) this.prey = null;
     if (this.prey) {
@@ -198,19 +241,8 @@ export class Kin extends Animal {
       return;
     }
 
-    // Versteckt sich der Spieler, verstecken sie sich auch
-    if (p.hidden && !p.dead && this.loyalty > 0.3) {
-      const c = this.nearCover(360);
-      if (c) {
-        this.go('hide');
-        this.moveTo(c.x + c.w / 2 + (this.slot - 2) * 10, this.coverY(c), this.def.speed * 0.9, true);
-        this.hideIfInside(c);
-        return;
-      }
-    }
-
-    // Treue Artgenossen verteidigen dich
-    if (this.ally) {
+    // Wer dir vertraut, steht dir bei, wenn du in der Nähe angegriffen wirst
+    if (this.ally && !p.dead && this.dist(p) < 320) {
       const e = this.playerEnemy(260);
       if (e && e.def.power <= this.def.power * 4) {
         this.target = e;
@@ -222,8 +254,8 @@ export class Kin extends Animal {
     }
     this.target = null;
 
-    // Fressen
-    const food = this.hunger > 0.4 ? this.findFood() : null;
+    // Fressen – Beute, bei der man mitgekämpft hat, will man auf jeden Fall
+    const food = this.findFood();
     if (this.want && this.want !== food) this.want.wanted.delete(this);
     this.want = food;
     if (food) {
@@ -232,31 +264,43 @@ export class Kin extends Animal {
       return this.eatHere(time, food);
     }
 
-    // Nähe zur Gruppe – je treuer, desto enger
-    if (this.loyalty >= 0.3) this.followGroup(time);
-    else this.wander(time);
+    // Verärgert: Abstand halten
+    if (this.sulking && !p.dead) {
+      const away = Math.sign(this.x - p.x) || 1;
+      this.home.x = clamp(p.x + away * 700, 40, W.physics.world.bounds.width - 40);
+      this.go('wander');
+      if (Math.abs(this.x - p.x) < 600) {
+        this.moveTo(this.home.x, this.home.y, this.def.speed * 0.9, true);
+        return;
+      }
+    }
+    // sonst: im eigenen Revier umherstreifen
+    this.wander(time);
   }
 
-  private findFood(): Plant | Carcass | null {
+  private findFood(): Plant | Meat | null {
     const W = this.world;
-    const p = W.player;
-    let best: Plant | Carcass | null = null;
-    let bd = 340;
+    let best: Plant | Meat | null = null;
     if (this.eatsMeat) {
-      for (const c of W.carcasses) {
+      let bd = Infinity;
+      for (const c of W.meats) {
         if (c.gone || c.units <= 0) continue;
         const d = this.dist(c);
-        if (d < bd) {
-          bd = d;
-          best = c;
+        // eigene Beute: von weiter her und auch ohne großen Hunger
+        const mine = c.kill.helpers.has(this) && !c.kill.fed.has(this);
+        if (mine ? d < 700 && this.hunger > 0.05 : d < 340 && this.hunger > 0.4) {
+          const score = mine ? d * 0.4 : d;
+          if (score < bd) {
+            bd = score;
+            best = c;
+          }
         }
       }
     }
-    if (!best && (this.def.diet === 'plant' || this.omni)) {
-      bd = 280;
+    if (!best && (this.def.diet === 'plant' || this.omni) && this.hunger > 0.4) {
+      let bd = 280;
       for (const pl of W.plants) {
         if (pl.units <= 0 || pl.toxic) continue;
-        if (Math.hypot(pl.x - p.x, pl.y - p.y) > 460 && this.loyalty > 0.3) continue;
         const d = this.dist(pl);
         if (d < bd && (W.water || Math.abs(pl.y - this.b.bottom) < 90)) {
           bd = d;
@@ -267,50 +311,34 @@ export class Kin extends Animal {
     return best;
   }
 
-  private eatHere(time: number, f: Plant | Carcass) {
-    const isMeat = f instanceof Carcass;
-    const fy = isMeat ? f.y - 10 : f.y - 20;
+  private eatHere(time: number, f: Plant | Meat) {
+    const isMeat = f instanceof Meat;
+    const fy = isMeat ? f.y : f.y - 20;
     if (this.dist({ x: f.x, y: fy }) < 40) {
       this.go('graze');
       this.halt();
       this.dir = Math.sign(f.x - this.x) || this.dir;
       if (time > this.feedAt) {
-        this.feedAt = time + 1200;
+        this.feedAt = time + 1100;
         if (f.take(time)) {
           this.hunger = Math.max(0, this.hunger - (isMeat ? 0.4 : 0.28));
-          this.world.puff(f.x, f.y - 14, 3, isMeat ? 0x6a1a10 : 0x6a7a3a);
+          this.world.puff(f.x, f.y - 6, 3, isMeat ? 0x6a1a10 : 0x6a7a3a);
           if (isMeat) {
             f.ateFrom.add(this);
+            f.kill.fed.add(this);
             this.view.showMeat(2400);
-            this.world.bleed(f.x, f.y - 8, 3);
+            this.view.chew();
             this.sharedMeal(f, time);
-          } else if (Math.hypot(this.x - this.world.player.x, this.y - this.world.player.y) < 260) {
-            // gemeinsam grasen hält die Gruppe zusammen
-            this.loyalty = Math.min(1, this.loyalty + 0.015);
           }
         }
       }
-    } else this.moveTo(f.x, fy, this.def.speed * 0.85, true);
+    } else this.moveTo(f.x, fy, this.def.speed * 0.9, true);
   }
 
-  /** Bei der Gruppe bleiben – jeder hat seinen Platz neben dir. */
-  private followGroup(time: number) {
-    const W = this.world;
-    const p = W.player;
-    if (p.dead) return this.wander(time);
-    const side = this.slot % 2 ? 1 : -1;
-    const gap = 46 + Math.floor(this.slot / 2) * 40 + (1 - this.loyalty) * 140;
-    const tx = p.x + side * gap;
-    const ty = W.water ? p.y + ((this.slot % 3) - 1) * 34 : p.y;
-    const d = Math.hypot(tx - this.x, W.water ? ty - this.y : 0);
-    if (d > 34) {
-      this.go('follow');
-      this.moveTo(tx, ty, this.def.speed * (d > 260 ? 1.15 : d > 120 ? 0.85 : 0.5), d > 260);
-    } else {
-      this.go('idle');
-      this.halt();
-      if (Math.random() < 0.01) this.dir = Math.sign(p.x - this.x) || this.dir;
-    }
+  /** Fleisch, an das er herankommt (auch beim Vorbeischwimmen) */
+  protected snack(m: Meat, time: number) {
+    super.snack(m, time);
+    if (m.kill.fed.has(this)) this.view.showMeat(2000);
   }
 
   private nearCover(range: number): Rect | null {

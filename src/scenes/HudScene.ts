@@ -320,6 +320,14 @@ export class HudScene extends Phaser.Scene {
     row(lx, 'Länge', m.cm >= 100 ? `${(m.cm / 100).toFixed(2).replace('.', ',')} m` : `${Math.round(m.cm)} cm`);
     row(lx, 'Gewicht', m.g >= 1000 ? `${(m.g / 1000).toFixed(1).replace('.', ',')} kg` : `${Math.round(m.g)} g`);
     row(lx, 'Lebenskraft', `${Math.max(0, Math.round(p.hp))} / ${st.maxHp}`);
+    // Was du in diesem Zeitalter getan hast – es formt, was aus deiner Art wird
+    head(lx, 'Gelebt in diesem Zeitalter');
+    const often = (v: number) => (v < 1 ? 'kaum' : v < 4 ? 'ab und zu' : v < 10 ? 'oft' : 'sehr oft');
+    const tr = L.train;
+    row(lx, 'Beute gepackt', often(tr.hunt), tr.hunt >= 10);
+    row(lx, L.water ? 'Am Grund entlang' : 'Gelaufen', often(tr.ground), tr.ground >= 10);
+    row(lx, 'Gerammt', often(tr.ram), tr.ram >= 10);
+    row(lx, L.water ? 'Geschwommen' : 'Gerannt', often(tr.swim), tr.swim >= 10);
 
     // ---- rechts: was man von außen sieht – vieles andere bleibt verborgen
     const rx = 690;
@@ -337,6 +345,8 @@ export class HudScene extends Phaser.Scene {
     head(rx, 'Gruppe');
     const kin = L.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
     row(rx, 'Artgenossen', String(kin.length));
+    const pk = t.pack ?? 0;
+    row(rx, 'Zusammenhalt', pk < 0.12 ? 'Einzelgänger' : pk < 0.35 ? 'gesellig' : 'Rudeltier', pk >= 0.35);
     y += 20;
     c.add(text(this, rx + 250, y, 'Vieles an deinem Tier bleibt verborgen –\nes zeigt sich nur in dem, was es tut.', 17, UI.boneDim, { fontStyle: 'italic', align: 'center' }).setOrigin(0.5, 0));
     c.add(text(this, W / 2, 672, 'C oder Esc: zurück', 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));

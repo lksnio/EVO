@@ -12,8 +12,8 @@ import { Controls } from '../objects/Controls';
 import { Player } from '../objects/Player';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
-import { Carcass, Plant } from '../objects/Food';
-import { fadeIn, fadeTo } from '../ui/ui';
+import { Kill, Meat, Plant } from '../objects/Food';
+import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
 
@@ -65,7 +65,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   surfaceY = 0;
   animals: Animal[] = [];
   plants: Plant[] = [];
-  carcasses: Carcass[] = [];
+  meats: Meat[] = [];
   cover: Rect[] = [];
   ended = false;
   /** gelebte Sekunden in diesem Zeitalter */
@@ -150,6 +150,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private flows: { r: Rect & { dir: number }; pe: Phaser.GameObjects.Particles.ParticleEmitter; on: boolean }[] = [];
   private flowNoted = false;
   private toxNoted = false;
+  private shareNoted = false;
+  private grudgeNoted = false;
+  /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
+  train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
+  /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
+  private lastBitten: Animal | null = null;
+  private lastBiteAt = -1e9;
+  private chompImgs: Phaser.GameObjects.Image[] = [];
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
 
@@ -162,7 +170,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.ep = EPOCHS[this.epochIdx];
     this.animals = [];
     this.plants = [];
-    this.carcasses = [];
+    this.meats = [];
     this.cover = [];
     this.solidRects = [];
     this.platRects = [];
@@ -210,6 +218,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.flows = [];
     this.flowNoted = false;
     this.toxNoted = false;
+    this.shareNoted = false;
+    this.grudgeNoted = false;
+    this.train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
+    this.lastBitten = null;
+    this.chompImgs = [];
   }
 
   create() {
@@ -486,7 +499,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const pm = 1 + 1.3 * Math.max(0, t.girth) + 0.6 * t.growth + 0.8 * Math.max(0, p.stats.size - 0.85);
     const pf = !p.dead ? inFlow(p.x, p.y) : undefined;
     if (pf) {
-      p.body.position.x += (pf.r.dir * 130 * dt) / pm;
+      // wer sich mit kräftigen Flossen am Grund festhält, wird kaum mitgerissen
+      const grip = p.bottomWalk ? 1 + 2.5 * t.limb : 1;
+      p.body.position.x += (pf.r.dir * 130 * dt) / pm / grip;
+      // gegen die Strömung anschwimmen trainiert das Schwimmen besonders
+      if (p.body.velocity.x * pf.r.dir < -40 && !p.bottomWalk) {
+        game.shiftBody('swift', 0.004 * dt);
+        this.train.swim += dt * 0.5;
+      }
       if (!this.flowNoted) {
         this.flowNoted = true;
         bus.emit('story', pm > 1.6 ? 'Eine Strömung – doch du bist schwer genug, um dagegen anzuschwimmen.' : 'Eine Strömung reißt dich mit. Massigere Tiere halten besser dagegen.');
@@ -761,20 +781,38 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       hp: Math.max(8, st.maxHp * 0.6), dmg: Math.max(1, st.bite * 0.6), power: st.power * 0.75,
       speed: st.speed * 0.95, sense: 280, meat: 2, sprint: 1.35,
     };
-    const n = game.run?.kin ?? 4;
+    // Je mehr Rudeltier, desto mehr Artgenossen leben in der Gegend
+    const n = (game.run?.kin ?? 4) + (game.traits.pack > 0.5 ? 1 : 0);
     const s = this.L.start;
     for (let i = 0; i < n; i++) {
+      // Artgenossen leben verstreut in der Gegend, jeder in seinem Revier – kein Schwarm um dich herum
       const side = i % 2 ? 1 : -1;
-      const x = clamp(s.x + side * (46 + Math.floor(i / 2) * 40), 60, this.L.width - 60);
-      const y = this.water ? s.y + ((i % 3) - 1) * 34 : s.y;
+      const x = clamp(s.x + side * (170 + Math.floor(i / 2) * 260 + Math.random() * 120), 60, this.L.width - 60);
+      const at = this.kinSpot(x, s.y) ?? { x: clamp(s.x + side * 60, 60, this.L.width - 60), y: s.y };
       const social = game.run?.social ?? 0.55;
       const genes = game.kinTraits(i);
-      const k = new Kin(this, this.kinDef, x, y, game.morph({ traits: genes.traits, fierce: 0, seed: genes.seed, sex: genes.sex }), i, social + (Math.random() - 0.5) * 0.12);
+      const k = new Kin(this, this.kinDef, at.x, at.y, game.morph({ traits: genes.traits, fierce: 0, seed: genes.seed, sex: genes.sex }), social + (Math.random() - 0.5) * 0.12);
       k.genes = genes;
       k.omni = d >= -0.3 && d <= 0.3;
-      k.dir = -side;
+      k.dir = Math.random() < 0.5 ? -1 : 1;
       this.animals.push(k);
     }
+  }
+
+  /** Ein freier Platz für einen Artgenossen: im Wasser irgendwo frei, an Land auf dem Boden. */
+  private kinSpot(x: number, y: number): { x: number; y: number } | null {
+    if (this.water) {
+      for (let k = 0; k < 8; k++) {
+        const py = y + (Math.random() - 0.5) * 220;
+        if (py > this.surfaceY + 40 && !this.solidAt(x, py) && !this.solidAt(x, py + 24)) return { x, y: py };
+      }
+      return null;
+    }
+    // von oben nach unten: die erste Stelle, unter der fester Boden liegt
+    for (let py = Math.max(20, y - 420); py < y + 420; py += 8) {
+      if (!this.solidAt(x, py) && this.solidAt(x, py + 10) && !this.solidAt(x, py - 40)) return { x, y: py - 24 };
+    }
+    return null;
   }
 
   private ambient() {
@@ -925,9 +963,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.removeAnimal(a);
   }
 
-  kinSnubbed(k: Kin) {
+  kinSnubbed(k: Kin, bit: boolean) {
     audio.sfx('snub');
     this.puff(k.x, k.y - 6, 3);
+    if (bit && !this.grudgeNoted) {
+      this.grudgeNoted = true;
+      bus.emit('story', 'Dein Artgenosse hat mitgekämpft und nichts abbekommen – er beißt zu und zieht verärgert ab.');
+    }
   }
 
   kinLeaving(k: Kin) {
@@ -940,19 +982,27 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   kinShared(k: Kin) {
     this.sparkle.explode(6, k.x, k.y - 8);
+    // gemeinsam gefressen: Deine Art wird mehr und mehr zum Rudeltier
+    game.grow('pack', 0.02);
   }
 
-  /** Die Gruppe hilft bei der Jagd auf das, was du angreifst. */
+  /**
+   * Du greifst etwas an: Artgenossen in der Nähe helfen vielleicht mit – je mehr deine Art zum
+   * Rudeltier geworden ist und je mehr sie dir vertrauen, desto eher.
+   */
   private callHunt(a: Animal) {
     if (a.kin || a.ally || a.dead || a.role === 'hazard') return;
     const p = this.player;
     const now = this.time.now;
     const kin = this.animals.filter((k): k is Kin => k instanceof Kin && !k.dead);
-    const groupPower = kin.reduce((sum, k) => sum + k.def.power, p.stats.power);
-    for (const k of kin) {
-      if (Math.hypot(k.x - p.x, k.y - p.y) > 460) continue;
+    const near = kin.filter((k) => Math.hypot(k.x - p.x, k.y - p.y) < 480);
+    if (!near.length) return;
+    const groupPower = near.reduce((sum, k) => sum + k.def.power, p.stats.power);
+    const pack = game.traits.pack;
+    for (const k of near) {
       const brave = a.def.power <= groupPower * 1.2 || k.loyalty > 0.75;
-      if (k.loyalty >= 0.3 && brave) k.joinHunt(a, now + 7000);
+      if (!brave) continue;
+      k.offerHunt(a, now + 7000, clamp(0.12 + 0.75 * pack + 0.35 * (k.loyalty - 0.5), 0.05, 0.95));
     }
   }
 
@@ -976,25 +1026,34 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (byPlayer) game.addAggression(0.2);
       return;
     }
-    let y = a.y;
-    if (a.def.habitat === 'air' || this.water) {
-      // Leiche sinkt zu Boden
-      for (let k = 0; k < 80 && !this.solidAt(a.x, y + 6); k++) y += 8;
-    } else y = a.b.bottom;
-    // Beute, an der du beteiligt warst, gilt als deine – wer davon mitfrisst, teilt mit dir
+    // Beute, an der du beteiligt warst, gilt als deine
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
-    const carc = new Carcass(this, a.x, y, a.def, this.water, this.time.now, a.dir, ours);
-    this.carcasses.push(carc);
-    // Was ein Riese reißt, frisst er nie ganz: Es bleiben Reste – wer traut sich heran?
-    const killer = a.lastAttacker;
-    if (killer instanceof Animal && (killer.role === 'apex' || killer.visitor || killer.def.boss)) {
-      carc.bonus(2 + Math.floor(Math.random() * 2));
-      this.bleed(a.x, y - 10, 8);
+    const kill = new Kill(ours);
+    for (const k of a.helpers) if (k instanceof Kin && !k.dead) kill.helpers.add(k);
+    if (ours && kill.helpers.size) {
+      // gemeinsam erlegt: Deine Art wird mehr und mehr zum Rudeltier
+      game.grow('pack', 0.05);
+      if (!this.shareNoted) {
+        this.shareNoted = true;
+        bus.emit('story', 'Gemeinsam erlegt! Wer mitgekämpft hat, will jetzt auch mitfressen.');
+      }
     }
+    // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – große Tiere geben mehrere Stücke
+    const killer = a.lastAttacker;
+    const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
+    const meat = Math.max(1, a.def.meat);
+    const n = (meat <= 4 ? 1 : meat <= 8 ? 2 : 3) + (giant ? 1 : 0);
+    const each = (6.5 * meat * a.sz) / (meat <= 4 ? 1 : meat <= 8 ? 2 : 3);
+    for (let i = 0; i < n; i++) {
+      const spread = (i - (n - 1) / 2) * 70 + (Math.random() - 0.5) * 30;
+      const vy = this.water ? -40 - Math.random() * 40 : -220 - Math.random() * 120;
+      this.meats.push(new Meat(this, this, a.x, a.y, each, this.time.now, kill, spread, vy));
+    }
+    this.puff(a.x, a.y, 6, 0xffe0c0);
     if (byPlayer) {
       game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
-      this.player.view.showMeat(4500);
       audio.sfx('tear');
+      this.train.hunt += 2;
     }
     this.bleed(a.x, a.y, 10);
     if (a.visitor) {
@@ -1016,62 +1075,120 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   playerBite(rect: Rect) {
     const p = this.player;
     const st = p.stats;
+    const now = this.time.now;
     let hit = false;
+    this.chompFx(rect);
     for (const a of [...this.animals]) {
       if (a.dead || !overlaps(rect, a.hitRect())) continue;
       hit = true;
-      const sneak = this.time.now < this.ambushUntil && !a.seesPlayer && a.role !== 'hazard';
-      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1), p, 'bite');
+      const sneak = now < this.ambushUntil && !a.seesPlayer && a.role !== 'hazard';
+      // Zweimal kurz hintereinander dasselbe Tier: gepackt und festgehalten (Kleinere zappeln nur noch)
+      const held = a === this.lastBitten && now - this.lastBiteAt < 1300 && a.def.power < st.power * 1.1 && a.role !== 'hazard';
+      this.lastBitten = a;
+      this.lastBiteAt = now;
+      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1), p, 'bite');
       if (sneak) this.surprise(a);
-      game.grow('jaw', 0.004);
+      if (held && !a.dead) a.stun(550);
+      game.grow('jaw', held ? 0.008 : 0.004);
+      this.train.hunt += held ? 1.5 : 1;
       if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
     }
     if (hit) {
-      this.fightAt = this.time.now;
+      this.fightAt = now;
       this.ambushUntil = 0;
-      this.cameras.main.shake(70, 0.004);
+      audio.sfx('crunch', game.traits.jaw);
+      this.cameras.main.shake(70 + 60 * game.traits.jaw, 0.004 + 0.004 * game.traits.jaw);
       return;
     }
-    for (const c of this.carcasses) {
-      if (c.gone || c.units <= 0 || !overlaps(rect, c.rect)) continue;
-      if (p.eat(FOOD.meat.sat)) {
-        this.ate('meat', FOOD.meat.kcal * st.digestMeat);
-        c.take();
-        c.playerBites++;
-        // Fleisch macht den Kiefer stark – und vorn wachsen Reißzähne
-        game.grow('jaw', 0.022);
-        game.grow('fang', 0.03);
-        game.grow('digM', 0.02);
-        game.shiftDiet(0.05);
-        game.grow('growth', 0.016 * st.digestMeat);
-        this.puff(c.x, c.y - 10, 4, 0x6a1a10);
-        this.bleed(c.x, c.y - 8, 3);
-        p.view.showMeat(3000);
-        audio.sfx('tear');
-        // Wer warten musste und nichts bekam, wendet sich ab
-        if (c.units <= 0) {
-          for (const w of c.wanted) if (w instanceof Kin && !c.ateFrom.has(w)) w.snub(0.24);
-        }
-      }
+    for (const m of this.meats) {
+      if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
+      const dig = st.digestMeat;
+      const room = p.maxSat - p.satiety;
+      // so viel, wie in den Magen passt – der Rest bleibt liegen
+      const got = room > 0.5 ? m.bite(room / dig) : 0;
+      if (!p.eat(got * dig, 'meat')) return;
+      this.floatNum(m.x, m.y - 16, got * dig, 'meat');
+      this.ate('meat', got * (FOOD.meat.kcal / FOOD.meat.sat) * dig);
+      m.playerBites++;
+      m.kill.playerAte = true;
+      // Fleisch macht den Kiefer stark – und vorn wachsen Reißzähne
+      const k = Math.min(2, got / FOOD.meat.sat);
+      game.grow('jaw', 0.02 * k);
+      game.grow('fang', 0.028 * k);
+      game.grow('digM', 0.02 * k);
+      game.shiftDiet(0.05 * k);
+      game.grow('growth', 0.016 * k * dig);
+      this.bleed(m.x, m.y, 3);
+      p.view.showMeat(3000);
+      this.checkShare(m.kill);
       return;
     }
     for (const pl of this.plants) {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       const food = pl.toxic ? FOOD.toxic : FOOD.plant;
-      if (p.eat(food.sat)) {
+      const gain = Math.min(food.sat * st.digestPlant, p.maxSat - p.satiety);
+      if (p.eat(gain, 'plant')) {
+        this.floatNum(pl.x, pl.y - 44, gain, pl.toxic ? 'toxic' : 'plant');
         this.ate('plant', food.kcal * st.digestPlant);
-        pl.take(this.time.now);
+        pl.take(now);
         if (pl.toxic) this.poisoned();
         else game.grow('digP', 0.012);
-        if (pl.units <= 0) for (const w of pl.wanted) if (w instanceof Kin) w.snub(0.07);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
         game.grow('growth', 0.007 * st.digestPlant);
         this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
       return;
+    }
+  }
+
+  /**
+   * Hast du gemeinsame Beute allein gefressen? Wer mitgekämpft und nichts abbekommen hat, ist sauer:
+   * Ist nichts mehr übrig, beißt er zu und zieht ab; steht er gerade daneben, ärgert er sich nur.
+   */
+  private checkShare(kill: Kill) {
+    if (!kill.helpers.size) return;
+    const left = kill.left;
+    const p = this.player;
+    for (const h of kill.helpers) {
+      if (!(h instanceof Kin) || h.dead || kill.fed.has(h)) continue;
+      if (!left) h.grudge(true);
+      else if (Math.hypot(h.x - p.x, h.y - p.y) < 110) h.grudge(false);
+    }
+  }
+
+  /** Eine Zahl, die kurz aufsteigt: wie viel ein Happen gebracht hat (rot Fleisch, grün Pflanzen). */
+  floatNum(x: number, y: number, n: number, kind: 'meat' | 'plant' | 'toxic') {
+    const v = Math.round(n);
+    if (v < 1) return;
+    const col = kind === 'meat' ? '#ff4a3c' : kind === 'toxic' ? '#c486f0' : '#7fdc5a';
+    const t = text(this, x, y, `+${v}`, kind === 'meat' ? 30 : 25, col, { fontStyle: 'bold', stroke: '#160806', strokeThickness: 5 })
+      .setOrigin(0.5).setDepth(DEPTH.text).setScale(0.6);
+    this.tweens.add({ targets: t, scale: 1, duration: 180, ease: 'Back.out' });
+    this.tweens.add({ targets: t, y: y - 54, duration: 1500, ease: 'Sine.out' });
+    this.tweens.add({ targets: t, alpha: 0, delay: 1000, duration: 500, onComplete: () => t.destroy() });
+  }
+
+  /** Zähne, die zuschnappen: Das Gebiss ist beim Biss deutlich zu sehen – je stärker, desto wuchtiger. */
+  private chompFx(rect: Rect) {
+    const t = game.traits;
+    const strong = t.jaw + t.fang > 0.6;
+    if (!this.chompImgs.length) {
+      this.chompImgs = [0, 1].map((i) => this.add.image(0, 0, 'chomp_0').setDepth(DEPTH.fx).setVisible(false).setFlipY(i === 1));
+    }
+    const [top, bot] = this.chompImgs;
+    const flip = this.player.facing < 0;
+    // etwas vor die Schnauze, damit der Kopf zu sehen bleibt
+    const cx = rect.x + rect.w / 2 + (flip ? -1 : 1) * rect.w * 0.2, cy = rect.y + rect.h / 2;
+    const sc = Math.max(0.35, (rect.w / 64) * (0.85 + 0.4 * t.jaw));
+    const gap = rect.h * 0.42 + 4;
+    for (const [img, dy] of [[top, -1], [bot, 1]] as const) {
+      this.tweens.killTweensOf(img);
+      img.setTexture(strong ? 'chomp_1' : 'chomp_0').setFlipX(flip).setScale(sc).setAlpha(0.9).setVisible(true).setPosition(cx, cy + dy * gap);
+      this.tweens.add({ targets: img, y: cy + dy * 3 * sc, duration: 70, ease: 'Quad.in' });
+      this.tweens.add({ targets: img, alpha: 0, delay: 110, duration: 140, onComplete: () => img.setVisible(false) });
     }
   }
 
@@ -1105,7 +1222,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /**
    * Zusammenstoß: Wer in ein Tier hineinschwimmt oder -rennt, verletzt beide.
-   * Wer dabei mehr austeilt, dessen Kopf wird stacheliger; wer mehr einsteckt, dessen Schädel härter.
+   * Wer oft rammt, dessen Schädel wird härter und schließlich zum Panzer.
    * Ein gezielter Rammstoß (erst mit hartem Kopf) trifft viel stärker und schont den eigenen Kopf.
    */
   private collide(a: Animal, approach: number, rammed: boolean) {
@@ -1127,7 +1244,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, rammed ? k * 0.6 : k);
     game.grow('skull', (rammed ? 0.02 : 0.012) * sf);
-    game.shiftSpike(dealt > back * 1.2 ? 0.05 : -0.05);
+    // Ein viel benutzter Kopf wird zum Panzer – erst recht, wenn damit Tiere erlegt werden
+    game.armorHead(a.dead ? 0.09 : rammed ? 0.03 : 0.015);
+    if (a.dead) game.grow('skull', 0.02);
+    this.train.ram += a.dead ? 3 : 1;
     if (game.checkRamUnlock()) {
       bus.emit('ramUnlocked');
       game.save();
@@ -1168,8 +1288,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     const bloom = time < this.bloomUntil;
     for (const pl of this.plants) pl.update(time, bloom);
-    for (const c of this.carcasses) c.update(time);
-    this.carcasses = this.carcasses.filter((c) => !c.gone);
+    for (const c of this.meats) c.update(time, dt);
+    this.meats = this.meats.filter((c) => !c.gone);
 
     const cam = this.cameras.main;
     this.bgFar.tilePositionX = cam.scrollX * 0.08;
@@ -1498,9 +1618,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     } else if (p.inCover || p.inCave) game.shiftLight(-0.003 * dt);
     else game.shiftLight(0.0015 * dt);
     // Wer viel und schnell schwimmt bzw. läuft, wird länglicher und flinker
-    if (p.speed01 > 0.7) {
+    if (p.speed01 > 0.7 && !p.bottomWalk) {
       game.shiftBody('len', 0.0035 * dt * Math.min(1.5, p.speed01));
       if (p.sprinting) game.shiftBody('swift', 0.002 * dt);
+      this.train.swim += dt * 0.25 * Math.min(1.5, p.speed01);
+    }
+    // Bodenkontakt: Wer sich am Grund abstützt und dort entlangläuft, bekommt kräftige Stützflossen
+    // (an Land: Wer viel läuft, statt zu springen, bekommt kräftigere Beine)
+    if (p.bottomWalk) {
+      game.grow('limb', 0.0045 * dt);
+      this.train.ground += dt * 0.35;
+    } else if (!this.water && p.speed01 > 0.4 && (p.body.blocked.down || p.body.touching.down)) {
+      game.grow('limb', 0.0012 * dt);
+      this.train.ground += dt * 0.1;
     }
     if (p.hidden && ci >= 0) game.grow('green', 0.006 * dt);
     else if (p.hidden && p.inCave) game.grow('sand', 0.005 * dt);
@@ -1561,7 +1691,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper (Kälte zehrt mehr)
     const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
-    const rate = hungerRate(p.stats.size, p.speed01) * cold;
+    // Am Grund entlangzulaufen kostet weniger Kraft als zu schwimmen
+    const rate = hungerRate(p.stats.size, p.speed01) * cold * (p.bottomWalk ? 0.55 : 1);
     p.satiety = Math.max(0, p.satiety - rate * dt);
     if (p.satiety <= 0) {
       p.hp -= p.stats.maxHp * 0.012 * dt;
