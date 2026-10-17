@@ -121,11 +121,36 @@ Je Linie ein Sprite-Sheet mit **5 Bildern** nebeneinander – Maul **geschlossen
 Die **SVG** sind die Vorlage zum Bearbeiten (Inkscape, Illustrator, Affinity …); die `.png` sind
 transparente Auszüge in doppelter Größe (4800 × 600, je Bild 960 × 600) zum Ansehen oder Weitermalen.
 
-Aufbau im SVG – alles in benannten Ebenen, je Bild (`bild1-…` bis `bild5-…`):
-`tail`, `fin-dorsal`, `fin-pelvic`, `mouth-interior`, `jaw-lower` (mit `teeth-lower`), `body`,
-`head` (mit `teeth-upper` und `eye`) und `fin-pectoral`. Der Unterkiefer dreht sich um das
-**Kiefergelenk** (steht im `transform` der Ebene `jaw-lower`: bei Panzer und Jäger bei x = 340, y = 168,
-beim Fleischflosser bei x = 352, y = 170). Die Ebene `hilfslinien` (ausgeblendet) zeigt das Bildraster.
+Aufbau im SVG – alles in benannten Ebenen, je Bild (`bild1-…` bis `bild5-…`), von hinten nach vorn:
+`tail`, `fin-dorsal`, `fin-pelvic`, `fin-pectoral-far` (Flosse der abgewandten Seite), `mouth-interior`,
+`jaw-lower` (mit `teeth-lower`), `body`, `head` (mit `teeth-upper` und `eye`), `fin-pectoral`, dazu zwei
+**ausgeblendete** Ebenen: `hilfslinien` (Bildraster) und `gelenke` (Drehpunkte, siehe unten).
+Der Unterkiefer dreht sich um das **Kiefergelenk** (steht im `transform` der Ebene `jaw-lower`: bei Panzer
+und Jäger bei x = 340, y = 168, beim Fleischflosser bei x = 352, y = 170).
+
+### Bewegung: kommt aus den Ebenen, nicht aus weiteren Bildern
+
+Schwimmen, Flossenschlag usw. zeichnest du **nicht** Bild für Bild – das baue ich im Spiel aus den
+Ebenen zusammen (so macht es der Code heute schon mit dem gemalten Fisch):
+
+| Bewegung | kommt aus |
+|---|---|
+| Schwanzschlag, Körperwelle beim Schwimmen | `tail` dreht sich um `gelenk-schwanz`; der Körper wird leicht gebogen |
+| Flossenschlag, Schweben | `fin-pectoral`, `fin-pectoral-far`, `fin-pelvic`, `fin-dorsal` drehen sich um ihre Gelenke |
+| Biss, Maulaufreißen | `jaw-lower` um `gelenk-kiefer` (wie in den 5 Bildern) |
+| Kopfstoß, Ausholen, Zusammenzucken | der Fisch als Ganzes, Kopf neigt sich |
+| Atmen, Treiben, Treffer, Tod | leichte Bewegungen, Blinken, Auf-den-Rücken-Drehen |
+
+Damit das sauber aussieht, bitte beim Überarbeiten:
+
+1. **Teile an Gelenken überlappen lassen.** Schwanz und Flossen reichen mit der Wurzel ein Stück *unter*
+   den Körper (liegen in der Ebene dahinter) – sonst klafft beim Bewegen eine Lücke. Der Körper sollte
+   die Ansätze verdecken.
+2. **Gelenke markieren.** Die ausgeblendete Ebene `gelenke` hat je Drehpunkt ein Fadenkreuz
+   (`gelenk-schwanz`, `-kiefer`, `-brustflosse`, `-bauchflosse`, `-rueckenflosse`, …). Wenn du Teile
+   verschiebst oder neu zeichnest: Ebene einblenden, Fadenkreuz an die neue Stelle setzen, wieder ausblenden.
+3. **Jedes bewegliche Teil in eine eigene Ebene** (nicht mit dem Körper verschmelzen).
+4. Flossen **ohne den Rumpf-Umriss** zeichnen (sie werden einzeln gedreht).
 
 **Damit sich die Linien später mischen lassen** (z. B. Kopf und Kiefer der Hauptlinie, Schwanz und
 Flossen der zweiten), bitte beim Überarbeiten beibehalten: Blickrichtung rechts, Bildgröße 480 × 300,
@@ -140,3 +165,17 @@ dann als Original stehen. Mehr als 5 Bilder oder andere Größen sind kein Probl
 
 Die Vorlagen stammen aus `tools/bite_sheets.py` (`python3 tools/bite_sheets.py` schreibt sie neu).
 **Nicht neu erzeugen, wenn du die SVG-Dateien von Hand bearbeitet hast** – das überschreibt sie.
+
+## Die anderen Tiere
+
+Auch die übrigen 18 Arten (`art/alt/tiere/`) sind bisher im Code gemalt und würden neben den neuen
+Fischen auffallen. Sie lassen sich **einzeln** ersetzen – was nicht ersetzt ist, bleibt wie bisher.
+Vorschlag für das Format: **eine Vorlage je Art wie die Biss-Blätter** (Ebenen für Körper, Schwanz, Flossen
+und – bei Räubern – Kiefer), damit die Bewegung wieder aus den Ebenen kommt; bei Räubern zusätzlich
+„Maul zu“ und „Maul offen“, weil sie vor dem Biss sichtbar ausholen.
+
+| Gruppe | Arten | Hinweis |
+|---|---|---|
+| Linien-Verwandte | Dunkleosteus, Bothriolepis (Panzer) · Cladoselache, Cheiracanthus (Jäger) · Eusthenopteron, Hyneria (Fleischflosser) | lassen sich zum großen Teil aus den drei Linien-Vorlagen ableiten (Größe, Farbe, Proportion) – wenig Extra-Arbeit |
+| Kleine Beute | Kieferloser Fisch, Sacabambaspis, Birkenia, Cephalaspis, Rolfosteus | einfach: Körper, Schwanz, eine Flosse |
+| Wirbellose | Trilobit, Qualle, Orthoceras, Riesenkopffüßer, Seeskorpion, Megalograptus, Pterygotus | eigene Körperform: Fangarme, Scheren, Beine, Ruderplatten als eigene Ebenen |

@@ -219,6 +219,19 @@ def scales(clip_id, x0, x1, y0, y1, dx, dy, r, stroke='#0c1112', op=0.22):
     return f'<g clip-path="url(#{clip_id})"><path d="{"".join(s)}" fill="none" stroke="{stroke}" stroke-width="1.1" opacity="{op}"/></g>'
 
 
+def pivots(items):
+    """Ausgeblendete Ebene mit den Drehpunkten (Kiefer, Schwanz, Flossen) – beim Überarbeiten mitziehen!"""
+    g = ''.join(f'<g id="gelenk-{n}"><circle cx="{x}" cy="{y}" r="5" fill="none" stroke="#ff00aa" stroke-width="1.5"/>'
+                f'<path d="M{x - 8} {y}H{x + 8}M{x} {y - 8}V{y + 8}" stroke="#ff00aa" stroke-width="1.2"/></g>' for n, (x, y) in items.items())
+    return f'<g id="gelenke" display="none">{g}</g>'
+
+
+def far_fin(pref, d):
+    """Brustflosse der abgewandten Körperseite: dunkler, etwas versetzt, hinter dem Körper."""
+    return (f'<g id="fin-pectoral-far" transform="translate(16 -12)" opacity="0.8"><path d="{d}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
+            f'<path d="{d}" fill="#000" opacity="0.28"/></g>')
+
+
 # ----------------------------------------------------------------------------- Linie 1: Panzer
 
 def panzer(theta):
@@ -238,8 +251,8 @@ def panzer(theta):
     upper_line = sample(mline[::-1], 6)   # vom Gelenk zur Spitze
     interior = mouth_interior(sample(mline[::-1], 6), sample(jaw_top, 6), jaw_back, (330, 196), theta, H)
     # Interior zusammen mit dem Kopf anheben
-    tail = [(70, 146, 's'), (62, 124), (46, 94), (28, 62), (12, 30, 's'), (14, 76), (30, 118), (44, 148), (36, 176), (30, 208), (28, 240, 's'),
-            (46, 206), (62, 178), (70, 156, 's')]
+    tail = [(112, 141, 's'), (70, 146), (62, 124), (46, 94), (28, 62), (12, 30, 's'), (14, 76), (30, 118), (44, 148), (36, 176), (30, 208), (28, 240, 's'),
+            (46, 206), (62, 178), (70, 156), (112, 159, 's')]
     dorsal = [(190, 118, 's'), (216, 84), (250, 72, 's'), (262, 108)]
     pelvic = [(150, 190, 's'), (128, 222), (104, 238, 's'), (126, 190), (148, 196)]
     pect = [(286, 190, 's'), (270, 226), (236, 258, 's'), (252, 214), (270, 188)]
@@ -251,6 +264,7 @@ def panzer(theta):
              f'<path d="M62 150 Q36 112 12 60 M62 152 Q36 190 28 240" fill="none" stroke="{INK}" stroke-width="1" opacity="0.35"/></g>')
     s.append(f'<g id="fin-dorsal"><path d="{path(dorsal, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/></g>')
     s.append(f'<g id="fin-pelvic"><path d="{path(pelvic, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/></g>')
+    s.append(far_fin(pref, path(pect, True, 0.2)))
     s.append(f'<g id="body"><clipPath id="{pref}-clip-body"><path d="{path(body, True, 0.16)}"/></clipPath>'
              f'<path d="{path(body, True, 0.16)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.6" stroke-linejoin="round"/>'
              f'<path d="{path(body, True, 0.16)}" fill="url(#{pref}-sheen)" opacity="0.55"/>'
@@ -274,6 +288,7 @@ def panzer(theta):
     s.append('</g>')
     s.append(f'<g id="fin-pectoral"><path d="{path(pect, True, 0.2)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
              f'<path d="{path(spine, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="1.8" stroke-linejoin="round"/></g>')
+    s.append(pivots({'kiefer': H, 'nacken': P, 'schwanz': (70, 148), 'brustflosse': (286, 192), 'bauchflosse': (140, 190), 'rueckenflosse': (232, 112)}))
     return ''.join(s)
 
 
@@ -287,8 +302,8 @@ def jaeger(theta):
     mline = [(466, 152, 's'), (440, 158), (404, 163), (366, 166), (340, 168)]
     jaw_top = [(340, 168), (366, 166), (404, 163), (440, 158), (466, 152)]
     jaw = [(340, 168), (366, 166), (404, 163), (440, 158), (468, 154, 's'), (446, 175), (410, 188), (374, 196), (346, 198), (333, 184)]
-    tail = [(74, 148, 's'), (66, 128), (50, 98), (30, 66), (12, 34, 's'), (10, 78), (22, 120), (40, 150), (22, 184), (10, 224), (14, 262, 's'),
-            (32, 228), (50, 198), (66, 170), (74, 152, 's')]
+    tail = [(114, 142, 's'), (74, 148), (66, 128), (50, 98), (30, 66), (12, 34, 's'), (10, 78), (22, 120), (40, 150), (22, 184), (10, 224), (14, 262, 's'),
+            (32, 228), (50, 198), (66, 170), (74, 152), (114, 160, 's')]
     dorsal1 = [(214, 114, 's'), (238, 68), (292, 108, 's')]
     spine1 = [(212, 116, 's'), (234, 56, 's'), (241, 70), (222, 118)]
     dorsal2 = [(110, 134, 's'), (122, 98), (160, 124, 's')]
@@ -307,6 +322,7 @@ def jaeger(theta):
              f'<path d="{path(spine1, True, 0.2)}" fill="#c9cfc2" stroke="{INK}" stroke-width="1.6" stroke-linejoin="round"/></g>')
     s.append(f'<g id="fin-pelvic"><path d="{path(pelvic, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
              f'<path d="{path(anal, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/></g>')
+    s.append(far_fin(pref, path(pect, True, 0.2)))
     s.append(f'<g id="mouth-interior">{mouth_interior(sample(mline[::-1], 6), sample(jaw_top, 6), [(346, 198), (333, 184)], (344, 196), theta, H)}</g>')
     s.append(f'<g id="jaw-lower" transform="rotate({_fmt(theta)} {H[0]} {H[1]})">'
              f'<path d="{path(jaw, True, 0.17)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
@@ -326,6 +342,7 @@ def jaeger(theta):
              + eye(418, 138, 10) + '</g>')
     s.append(f'<g id="fin-pectoral"><path d="{path(pect, True, 0.2)}" fill="url(#{pref}-fin)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
              f'<path d="M304 182 Q290 200 272 232 M310 186 Q300 206 284 226" fill="none" stroke="{INK}" stroke-width="1" opacity="0.4"/></g>')
+    s.append(pivots({'kiefer': H, 'schwanz': (74, 150), 'brustflosse': (304, 180), 'bauchflosse': (210, 205), 'afterflosse': (140, 190), 'rueckenflosse-1': (240, 110), 'rueckenflosse-2': (140, 126)}))
     return ''.join(s)
 
 
@@ -339,7 +356,7 @@ def fleisch(theta):
     mline = [(466, 156), (440, 165), (402, 170), (372, 172), (352, 172)]
     jaw_top = [(352, 172), (372, 172), (402, 170), (440, 165), (466, 156)]
     jaw = [(352, 172), (372, 172), (402, 170), (440, 165), (468, 158), (462, 170), (440, 186), (404, 200), (370, 206), (346, 202), (338, 188)]
-    tail = [(60, 148, 's'), (36, 124), (10, 112, 's'), (28, 136), (18, 150, 's'), (28, 164), (10, 190, 's'), (36, 176), (60, 154, 's')]
+    tail = [(104, 140, 's'), (60, 148), (36, 124), (10, 112, 's'), (28, 136), (18, 150, 's'), (28, 164), (10, 190, 's'), (36, 176), (60, 154), (104, 160, 's')]
     dors1 = [(222, 109, 's'), (230, 74), (262, 66), (282, 80), (272, 108, 's')]
     dors2 = [(128, 128, 's'), (136, 96), (160, 90), (172, 104), (166, 122, 's')]
     anal = [(150, 192, 's'), (146, 224), (172, 230), (190, 214), (186, 196, 's')]
@@ -376,6 +393,7 @@ def fleisch(theta):
              f'<path d="M232 108 L242 76 M246 108 L252 70 M260 108 L262 70 M270 108 L270 82 M136 126 L142 98 M148 124 L152 94 M160 122 L162 100" stroke="{INK}" stroke-width="1" opacity="0.45"/></g>')
     s.append(f'<g id="fin-pelvic"><path d="{path(anal, True, 0.2)}" fill="url(#{pref}-fin-v)" stroke="{INK}" stroke-width="2.2" stroke-linejoin="round"/>'
              + lobed(pelv_s, 11, 8, 6, 34) + '</g>')
+    s.append(f'<g id="fin-pectoral-far" transform="translate(-22 -6)" opacity="0.85">' + lobed(pect_s, 12, 9, 7, 36) + '</g>')
     s.append(f'<g id="mouth-interior">{mouth_interior(sample(mline[::-1], 6), sample(jaw_top, 6), [(346, 202), (338, 188)], (348, 200), theta, H)}</g>')
     s.append(f'<g id="jaw-lower" transform="rotate({_fmt(theta)} {H[0]} {H[1]})">'
              f'<path d="{path(jaw, True, 0.17)}" fill="url(#{pref}-body)" stroke="{INK}" stroke-width="2.4" stroke-linejoin="round"/>'
@@ -393,6 +411,7 @@ def fleisch(theta):
              + f'<g id="teeth-upper">' + teeth(up_t, 10, 4, 8, True, w=0.55, skip=(8,)) + fang((436, 166), (440, 196), 12) + '</g>'
              + eye(414, 136, 10) + '</g>')
     s.append(f'<g id="fin-pectoral">' + lobed(pect_s, 12, 9, 7, 36) + '</g>')
+    s.append(pivots({'kiefer': H, 'schwanz': (58, 150), 'brustflosse': (322, 188), 'bauchflosse': (208, 200), 'afterflosse': (170, 194), 'rueckenflosse-1': (250, 108), 'rueckenflosse-2': (150, 126)}))
     return ''.join(s)
 
 
@@ -414,13 +433,13 @@ def sheet(name):
         body = fn(th)
         # ids je Bild eindeutig machen (clipPath), Gruppen bleiben gleich benannt
         body = body.replace(f'{pref}-clip-body', f'{pref}-clip-{i + 1}')
-        body = re.sub(r'id="(tail|fin-dorsal|fin-pelvic|fin-pectoral|body|head|head-group|jaw-lower|mouth-interior|teeth-lower|teeth-upper|eye)"',
+        body = re.sub(r'id="(tail|fin-dorsal|fin-pelvic|fin-pectoral|fin-pectoral-far|body|head|head-group|jaw-lower|mouth-interior|teeth-lower|teeth-upper|eye|gelenke|gelenk-[a-z0-9-]+)"',
                       lambda m: f'id="bild{i + 1}-{m.group(1)}"', body)
         frames.append(f'<g id="bild-{i + 1}" transform="translate({i * CELL_W} 0)">{body}</g>')
     guides = ''.join(f'<rect x="{i * CELL_W + 0.5}" y="0.5" width="{CELL_W - 1}" height="{CELL_H - 1}" fill="none" stroke="#ff00aa" stroke-width="1"/>' for i in range(FRAMES))
     note = (f'<!-- {name}: {FRAMES} Bilder à {CELL_W}x{CELL_H}, Blick nach rechts, Kiefer öffnet von {ANGLES[0]} bis {ANGLES[FRAMES - 1]} Grad '
-            f'(Drehpunkt = Kiefergelenk, siehe transform der Gruppe jaw-lower). Ebenen je Bild: tail, fin-dorsal, fin-pelvic, mouth-interior, '
-            f'jaw-lower, body, head, fin-pectoral. Ebene hilfslinien (ausgeblendet) zeigt die Bildraster. -->')
+            f'(Drehpunkt = Kiefergelenk, siehe transform der Gruppe jaw-lower). Ebenen je Bild: tail, fin-dorsal, fin-pelvic, fin-pectoral-far, mouth-interior, '
+            f'jaw-lower, body, head, fin-pectoral, gelenke (ausgeblendet). Ebene hilfslinien (ausgeblendet) zeigt die Bildraster. -->')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CELL_W * FRAMES} {CELL_H}" width="{CELL_W * FRAMES}" height="{CELL_H}">{note}'
             f'<title>{name} – Biss in {FRAMES} Bildern (Maul zu bis ganz offen)</title>'
             f'<defs>{COMMON_DEFS}{defs(pref, **pal)}</defs>'
