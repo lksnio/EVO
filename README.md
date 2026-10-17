@@ -309,6 +309,7 @@ src/
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
+art/                     Ist-Stand aller Grafiken als PNG (alt/) und Ablage für eigene Bilder (neu/) – siehe art/README.md
 ```
 
 ### Ideen für später
