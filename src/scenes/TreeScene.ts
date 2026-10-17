@@ -387,7 +387,7 @@ export class TreeScene extends Phaser.Scene {
       lines.push(`${n.runs} ${n.runs === 1 ? 'Linie zog' : 'Linien zogen'} hier durch.`);
       const deadKids = n.children.filter((k) => nodes[k]?.dead).length;
       if (deadKids) lines.push(`${deadKids} ${deadKids === 1 ? 'Zweig starb' : 'Zweige starben'} danach aus.`);
-      if (n.present) lines.push('Diese Linie lebt bis heute.');
+      if (n.present) lines.push('Diese Linie hat die Fischzeit überstanden.');
     }
     c.add(text(this, cx, 330, lines.join('\n'), 17, UI.bone, { align: 'center', lineSpacing: 4, wordWrap: { width: 290 } }).setOrigin(0.5, 0));
   }
@@ -434,8 +434,8 @@ export class TreeScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x050403, 0.94).setOrigin(0));
     const glow = this.add.image(W / 2, H / 2 - 40, 'glow').setScale(7).setTint(0xffe2a8).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD);
     c.add(glow);
-    c.add(title(this, W / 2, H / 2 - 60, 'Deine Linie lebt bis heute.', 42, '#f0e2c0').setOrigin(0.5));
-    c.add(text(this, W / 2, H / 2, 'Ein Ast, der bis in die Gegenwart reicht.', 21, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5));
+    c.add(title(this, W / 2, H / 2 - 60, 'Deine Linie hat die Fischzeit überstanden.', 36, '#f0e2c0').setOrigin(0.5));
+    c.add(text(this, W / 2, H / 2, 'Ein Ast, der bis zum Ende der Demo reicht.', 21, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
     this.input.keyboard!.once('keydown', () => this.closeOverlay());

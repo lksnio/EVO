@@ -158,8 +158,10 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     for (let i = 0; i < n; i++) heights[Math.min(cols - 1, x0 + i)] = top;
     const z = zoneAt();
     const pl = ep.plants * z.plants;
+    // bewachsene Orte: dichter und mit viel Tang
+    const lush = place.kind === 'lush';
     for (let i = 0; i < n; i += rint(r, 1, 2)) {
-      if (r() < 0.7) L.decor.push({ k: pick(r, kinds), x: (x0 + Math.min(n - 0.5, i + 0.25 + r() * 0.5)) * T, y: top * T + 6 });
+      if (r() < (lush ? 0.95 : 0.7)) L.decor.push({ k: lush && r() < 0.5 ? 'seaweed' : pick(r, kinds), x: (x0 + Math.min(n - 0.5, i + 0.25 + r() * 0.5)) * T, y: top * T + 6 });
     }
     if (n >= 3) {
       const cnt = (r() < pl * 0.9 ? 1 : 0) + (r() < pl * 0.55 ? 1 : 0) + (n >= 7 && r() < pl * 0.35 ? 1 : 0) + (n >= 5 && r() < pl - 1 ? 1 : 0);

@@ -130,6 +130,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private edgeHold = 0;
   private exitFx?: { l: Phaser.GameObjects.Image; r: Phaser.GameObjects.Image };
   private edgeNoted = false;
+  private endNoted = false;
   /** Trübung am aktuellen Ort (0..1) – macht unauffälliger */
   private murk = 0;
   private zoneLight = 1;
@@ -220,6 +221,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.shells = [];
     this.shellSparkAt = 0;
     this.edgeHold = 0;
+    this.endNoted = false;
     this.exitFx = undefined;
     this.murk = 0;
     this.zoneLight = 1;
@@ -1448,6 +1450,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         game.prog.events.push(e.i);
         this.trigger(e.def);
       }
+    }
+    // Es gibt keine sichtbare Uhr – ein leiser Hinweis, bevor die Zeit abläuft
+    if (prog > 0.93 && !this.endNoted) {
+      this.endNoted = true;
+      bus.emit('story', 'Das Zeitalter neigt sich dem Ende.');
     }
   }
 
