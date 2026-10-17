@@ -1,7 +1,7 @@
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
-import { shellId, type PlaceDef, type ZoneDef } from '../data/world';
+import { SHAPE_OF, shellId, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
 import { DECOR, TOXIC } from '../art/worldArt';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 
@@ -37,8 +37,8 @@ export interface LevelData {
   plants: { x: number; y: number; v: number }[];
   /** Dickicht: x, y (oben), Breite, Höhe – unten endet es am Boden */
   cover: Rect[];
-  /** Höhlen: der hohle Innenraum (dort sieht man nur noch die Augen) */
-  caves: Rect[];
+  /** Höhlen: durchquerbare Tunnel im Fels. Wer sie ganz durchschwimmt, kommt mit der Farbe der Höhle heraus. */
+  caves: Cave[];
   spawns: Spawn[];
   decor: Decor[];
   start: { x: number; y: number };
@@ -54,6 +54,15 @@ export interface LevelData {
   currents: (Rect & { dir: number })[];
   /** Felsspalten: niedrige Durchgänge unter einer Felsplatte – nur Schlanke passen hindurch */
   crevices: Rect[];
+  /** Felsen, die aus dem Meer ragen und über die Oberfläche hinausreichen (x, Breite) */
+  islets: { x: number; w: number }[];
+  /** Stellen an der Oberfläche, an denen Licht ins Wasser fällt – überall sonst liegt Schatten */
+  lit: { x0: number; x1: number }[];
+}
+
+/** Ein Tunnel: Innenraum und die Farbe, die man beim Durchschwimmen annimmt (1 grün, 2 schwarz). */
+export interface Cave extends Rect {
+  coat: number;
 }
 
 export interface Zone {
@@ -87,6 +96,8 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     startCol: 0,
     currents: [],
     crevices: [],
+    islets: [],
+    lit: [],
   };
 }
 
@@ -192,19 +203,46 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     L.solids.push({ x: x0 * T, y: -200, w: n * T, h: d * T + 200 });
   };
 
-  // Tiefe Orte sind ein Trichter: Der Grund fällt von beiden Seiten in Stufen zur Mitte hin ab, immer weiter nach
-  // unten – wie ein V. Wer hineinschwimmt, wird von Stufe zu Stufe dunkler und tiefer.
-  const vee = place.kind === 'deep' || place.kind === 'abyss';
-  if (vee) {
-    const rim = 21, bottom = rows - 4, mid = (cols - 1) / 2;
+  // Jeder Ort hat seine eigene Form: eine Mulde (Start), eine flache Wiese (bewachsen), Hügelketten (trüb), ein Trichter
+  // in V-Form (tief) oder ein Schacht zwischen zwei Rändern (Abgrund). Wer hineinschwimmt, wird von Stufe zu Stufe
+  // tiefer und dunkler.
+  const shape = place.shape ?? SHAPE_OF[place.kind];
+  const vee = shape === 'vee' || shape === 'well';
+  const mid = (cols - 1) / 2;
+  const lowest = rows - 4;
+  const floor0 = 27 + extra;
+  const TAU = Math.PI * 2;
+  let prof: ((col: number) => number) | null = null;
+  if (shape === 'vee') {
+    const rim = 21;
     const steep = place.kind === 'abyss' ? 0.8 : 0.95;
-    const prof = (col: number) => Math.round(rim + (bottom - rim) * Math.pow(Math.max(0, 1 - Math.abs(col - mid) / (mid * 0.93)), steep));
+    prof = (col) => Math.round(rim + (lowest - rim) * Math.pow(Math.max(0, 1 - Math.abs(col - mid) / (mid * 0.93)), steep));
+  } else if (shape === 'well') {
+    // breite Ränder, dazwischen ein Schacht, der steil nach unten führt
+    const rim = 21;
+    prof = (col) => {
+      const t = Math.max(0, 1 - Math.abs(col - mid) / (mid * 0.5));
+      return Math.round(rim + (lowest - rim) * Math.pow(t, 0.6));
+    };
+  } else if (shape === 'bowl') {
+    // eine Mulde, deren tiefste Stelle nicht genau in der Mitte liegt – ein Ufer fällt sanfter ab als das andere
+    const rim = floor0 - 8, bot = lowest;
+    const c0 = mid + (r() - 0.5) * cols * 0.3;
+    prof = (col) => {
+      const u = Math.min(1, Math.abs(col - c0) / (col < c0 ? c0 : cols - c0));
+      return Math.round(rim + (bot - rim) * (1 - Math.pow(u, 1.6)));
+    };
+  } else if (shape === 'ridges') {
+    const ph = r() * TAU, ph2 = r() * TAU;
+    prof = (col) => clampN(Math.round(floor0 - 2 + 4.6 * Math.sin((col * TAU) / 31 + ph) + 2.2 * Math.sin((col * TAU) / 12 + ph2)), floor0 - 8, lowest);
+  }
+  if (prof) {
     let vx = 0;
     while (vx < cols) {
       const seg = Math.min(cols - vx, rint(r, 5, 9));
       const fl = prof(vx + Math.floor(seg / 2));
       floorSeg(vx, seg, fl);
-      if (r() < 0.3 && seg >= 4 && Math.abs(vx - startCol) > 6) {
+      if (r() < (vee ? 0.3 : 0.26) && seg >= 4 && Math.abs(vx - startCol) > 6) {
         const px = vx + rint(r, 1, seg - 2);
         const top = fl - rint(r, 3, 9 + Math.floor(extra / 2));
         L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (fl - top) * T + 2 });
@@ -214,38 +252,44 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
     }
     floor = heights[Math.floor(cols / 2)];
   }
-  if (!vee) floorSeg(0, 10, floor);
+  if (!prof) floorSeg(0, 10, floor);
   if (covered) ceilSeg(0, 10);
-  let x = vee ? cols : 10;
+  let x = prof ? cols : 10;
+  // flache Wiese: der Boden steigt und fällt kaum
+  const lo = floor - 1, hi = floor + 1;
   while (x < cols - 10) {
-    const seg = rint(r, 5, 10);
+    const seg = rint(r, 6, 12);
     const nearStart = x >= startCol - 5 && x < startCol + 5;
-    if (!nearStart && r() < 0.5) floor = Math.max(24 + extra, Math.min(29 + extra, floor + pick(r, [-1, 1, 2, -2])));
+    if (!nearStart && r() < 0.5) floor = Math.max(lo, Math.min(hi, floor + pick(r, [-1, 1])));
     floorSeg(x, seg, floor);
     if (covered) ceilSeg(x, seg);
     if (!nearStart && r() < 0.28) {
       const px = x + rint(r, 1, seg - 2);
-      const top = floor - rint(r, 3, 9 + Math.floor(extra / 2));
+      const top = floor - rint(r, 3, 7);
       L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (floor - top) * T + 2 });
       if (r() < ep.plants * zoneAt().plants * 0.6) L.plants.push({ x: (px + 0.5) * T, y: top * T + 4, v: plantVariant(r) });
     }
-    if (!nearStart && r() < 0.18 + (extra ? 0.12 : 0)) {
+    if (!nearStart && r() < 0.18) {
       const rw = rint(r, 2, 4);
       const ry = rint(r, 8, floor - 6);
       L.solids.push({ x: (x + 1) * T, y: ry * T, w: rw * T, h: T });
     }
     x += seg;
   }
-  if (!vee) floorSeg(x, cols - x, floor);
+  if (!prof) floorSeg(x, cols - x, floor);
   if (covered) ceilSeg(x, cols - x);
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
   L.start = { x: (startCol + 0.5) * T, y: 12 * T };
-  if (ep.caves && !covered) addCaves(L, ep.caves + 2, r, cols, heights, startCol);
-  addCrevices(L, 3, r, cols, heights, startCol);
+  if (!covered) {
+    addIslets(L, place.rocks, r, cols, heights, startCol);
+    addTunnels(L, place.caves, r, cols, heights, startCol);
+  }
+  addCrevices(L, 2, r, cols, heights, startCol);
   addCurrents(L, r, cols, heights, startCol);
   placeShells(L, ep, place, r, heights, startCol);
   placeFauna(L, ep, place, r, heights, startCol);
+  if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T);
   // keine Tiere im Fels (Felsplatten, Säulen)
@@ -254,47 +298,100 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef): LevelData {
       if (s.y > 0 && s.h < 200 && sp.x > s.x - 20 && sp.x < s.x + s.w + 20 && sp.y > s.y - 40 && sp.y < s.y + s.h + 40) sp.y = Math.max(L.surfaceY + 60, s.y - 60);
     }
   }
-  // keine Tiere im Fels der Höhlen
+  // keine Tiere im Fels der Tunnel (das Dach reicht vier Kacheln über den Gang) und der aus dem Meer ragenden Felsen
   for (const sp of L.spawns) {
-    for (const c of L.caves) if (sp.x > c.x - T && sp.x < c.x + c.w + T && sp.y > c.y - 2 * T) sp.y = c.y - 3 * T;
+    for (const c of L.caves) if (sp.x > c.x - 2 * T && sp.x < c.x + c.w + 2 * T && sp.y > c.y - 5 * T) sp.y = c.y - 5 * T - 30;
+    for (const k of L.islets) if (sp.x > k.x - 20 && sp.x < k.x + k.w + 20) sp.x = sp.x < k.x + k.w / 2 ? k.x - 40 : k.x + k.w + 40;
   }
   L.ground = heights.map((v) => v * T);
   return L;
 }
 
+const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
 /**
- * Höhlen im Meeresgrund: Felsdach, Wände, ein niedriger Eingang. Wer drinnen still ist,
- * ist kaum zu sehen – nur die Augen leuchten.
+ * Felsen, die im Meer beginnen und über die Oberfläche hinausragen: ein gestufter Turm aus Fels. Sie werfen Schatten –
+ * unter ihnen fällt kaum Licht ins Wasser.
  */
-function addCaves(L: LevelData, n: number, r: Rng, cols: number, heights: Heights, startCol: number) {
-  const W = 8;
-  const tried = new Set<number>();
-  for (let k = 0; k < 60 && L.caves.length < n; k++) {
-    // die erste Höhle nicht weit vom Start, damit man sie findet
-    const c0 = L.caves.length === 0 ? startCol + rint(r, 7, 16) * (r() < 0.5 ? 1 : -1) : rint(r, 4, cols - W - 4);
-    if (c0 < 3 || c0 + W > cols - 3 || tried.has(c0)) continue;
-    tried.add(c0);
-    const f = heights[c0];
-    let flat = true;
-    for (let i = 0; i < W; i++) if (heights[c0 + i] !== f) flat = false;
-    if (!flat) continue;
-    const x0 = c0 * T, x1 = (c0 + W) * T;
-    if (L.caves.some((c) => x0 < c.x + c.w + 4 * T && x1 > c.x - 4 * T)) continue;
-    if (L.solids.some((s) => s.x < x1 && s.x + s.w > x0 && s.y < f * T && s.y + s.h > (f - 7) * T && s.y > 0)) continue;
-    // Dach (zweilagig, oben schmaler), rechte Wand, linke Wand mit Eingang darunter
-    L.solids.push({ x: x0, y: (f - 5) * T, w: W * T, h: T });
-    L.solids.push({ x: x0 + T, y: (f - 6) * T, w: (W - 2) * T, h: T });
-    L.solids.push({ x: x1 - T, y: (f - 4) * T, w: T, h: 4 * T });
-    L.solids.push({ x: x0, y: (f - 4) * T, w: T, h: 2 * T });
-    L.caves.push({ x: x0 + T, y: (f - 4) * T, w: (W - 2) * T, h: 4 * T });
-    // Bewuchs auf dem Dach – genau auf der jeweiligen Felskante
-    for (let i = 0; i < W; i++) if (r() < 0.5) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: x0 + (i + 0.5) * T, y: (i === 0 || i === W - 1 ? f - 5 : f - 6) * T + 4 });
+function addIslets(L: LevelData, n: number, r: Rng, cols: number, heights: Heights, startCol: number) {
+  for (let k = 0; k < 40 && L.islets.length < n; k++) {
+    const w = rint(r, 3, 5);
+    const c0 = rint(r, 8, cols - w - 8);
+    if (Math.abs(c0 + w / 2 - startCol) < 10) continue;
+    if (L.islets.some((i) => c0 * T < i.x + i.w + 10 * T && (c0 + w) * T > i.x - 10 * T)) continue;
+    let low = 0;
+    for (let i = c0; i < c0 + w; i++) low = Math.max(low, heights[i]);
+    if (low > 29) continue;
+    const top = -rint(r, 3, 6) * T;
+    // Sockel bis unter die Oberfläche, darüber zwei schmalere Stufen
+    L.solids.push({ x: c0 * T, y: 3 * T, w: w * T, h: low * T - 3 * T + 4 });
+    L.solids.push({ x: (c0 + 1) * T, y: -T, w: (w - 1) * T, h: 4 * T });
+    L.solids.push({ x: (c0 + (w > 3 ? 1 : 0)) * T, y: top, w: Math.max(1, w - 2) * T, h: -top });
+    L.islets.push({ x: c0 * T, w: w * T });
+    for (let i = 0; i < w; i++) if (r() < 0.6) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge']), x: (c0 + i + 0.5) * T, y: 3 * T + 4 });
   }
-  // Pflanzen, Dickicht und Deko im Innern entfernen
-  const inside = (x: number, y: number) => L.caves.some((c) => x > c.x - T && x < c.x + c.w + T && y > c.y - 2 * T && y <= c.y + c.h + 8);
-  L.plants = L.plants.filter((p) => !inside(p.x, p.y - 10));
-  L.cover = L.cover.filter((c) => !L.caves.some((cv) => c.x < cv.x + cv.w + T && c.x + c.w > cv.x - T));
-  L.decor = L.decor.filter((d) => !inside(d.x, d.y - 4) || d.y < L.caves[0]?.y);
+}
+
+/** Stellen an der Oberfläche, an denen Licht ins Wasser fällt (eine davon beim Ankunftsplatz). */
+function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: number) {
+  const free = (c0: number, w: number) => !L.islets.some((i) => c0 * T < i.x + i.w + 2 * T && (c0 + w) * T > i.x - 2 * T) && !L.lit.some((l) => c0 * T < l.x1 + 6 * T && (c0 + w) * T > l.x0 - 6 * T);
+  for (let k = 0; k < 80 && L.lit.length < n; k++) {
+    const w = rint(r, 9, 18);
+    const c0 = L.lit.length === 0 ? clampN(startCol - rint(r, 2, w - 2), 2, cols - w - 2) : rint(r, 2, cols - w - 2);
+    if (free(c0, w)) L.lit.push({ x0: c0 * T, x1: (c0 + w) * T });
+  }
+}
+
+/**
+ * Höhlen: durchquerbare Tunnel im Fels – drei Kacheln hoch, an beiden Enden offen. Wer einen Tunnel ganz durchschwimmt,
+ * kommt auf der anderen Seite mit der Farbe der Höhle heraus (grün bzw. schwarz). Der Boden wird dort eingeebnet.
+ */
+function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, heights: Heights, startCol: number) {
+  const used: { c0: number; c1: number }[] = [];
+  kinds.forEach((kind, idx) => {
+    for (let k = 0; k < 500; k++) {
+      const W = rint(r, 11, 15);
+      // die erste Höhle nicht weit vom Ankunftsplatz, damit man sie findet
+      const off = rint(r, 9, 26);
+      const c0 = idx === 0 && k < 150 ? (r() < 0.5 ? startCol + off : startCol - off - W) : rint(r, 6, cols - W - 6);
+      if (c0 < 6 || c0 + W > cols - 6) continue;
+      if ((idx > 0 || k >= 150) && Math.abs(c0 + W / 2 - startCol) < 12) continue;
+      if (used.some((u) => c0 < u.c1 + 8 && c0 + W > u.c0 - 8)) continue;
+      let lo = Infinity, hi = -Infinity;
+      for (let i = c0 - 2; i < c0 + W + 2; i++) {
+        lo = Math.min(lo, heights[i]);
+        hi = Math.max(hi, heights[i]);
+      }
+      if (hi - lo > (k < 200 ? 3 : 5) || lo < 14) continue;
+      const f = lo;
+      const rx0 = (c0 - 2) * T, rx1 = (c0 + W + 2) * T, ry0 = (f - 9) * T, ry1 = f * T;
+      // aus dem Meer ragende Felsen bleiben stehen (anderer Platz suchen) – Säulen und Platten über dem Gang werden abgetragen
+      if (L.islets.some((i) => i.x < rx1 && i.x + i.w > rx0)) continue;
+      L.solids = L.solids.filter((s) => !(s.x > -T && s.x < cols * T && s.x < rx1 && s.x + s.w > rx0 && s.y < ry1 - 2 && s.y + s.h > ry0));
+      // einebnen: tiefer liegende Spalten bis zur Höhe des höchsten Punkts auffüllen
+      for (let i = c0 - 2; i < c0 + W + 2; i++) {
+        if (heights[i] > f) L.solids.push({ x: i * T, y: f * T, w: T, h: (heights[i] - f) * T + 2 });
+        heights[i] = f;
+      }
+      const x0 = c0 * T, x1 = (c0 + W) * T;
+      // Dach (vier Kacheln dick) und zwei Stufen an jedem Ende – wie ein Fels, der über den Gang ragt
+      L.solids.push({ x: x0, y: (f - 7) * T, w: W * T, h: 4 * T });
+      L.solids.push({ x: x0 - T, y: (f - 6) * T, w: T, h: 3 * T });
+      L.solids.push({ x: x0 - 2 * T, y: (f - 5) * T, w: T, h: 2 * T });
+      L.solids.push({ x: x1, y: (f - 6) * T, w: T, h: 3 * T });
+      L.solids.push({ x: x1 + T, y: (f - 5) * T, w: T, h: 2 * T });
+      L.caves.push({ x: x0, y: (f - 3) * T, w: W * T, h: 3 * T, coat: kind === 'g' ? 1 : 2 });
+      used.push({ c0, c1: c0 + W });
+      // Bewuchs auf dem Dach
+      for (let i = 0; i < W; i++) if (r() < 0.45) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge', 'seagrass']), x: x0 + (i + 0.5) * T, y: (f - 7) * T + 4 });
+      // nichts im Fels und im Gang
+      const inside = (px: number) => px > rx0 && px < rx1;
+      L.plants = L.plants.filter((p) => !inside(p.x));
+      L.cover = L.cover.filter((c) => !(c.x < rx1 && c.x + c.w > rx0));
+      L.decor = L.decor.filter((d) => !inside(d.x) || d.y < (f - 8) * T);
+      break;
+    }
+  });
 }
 
 /**

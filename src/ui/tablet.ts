@@ -45,6 +45,9 @@ function glyph(g: Phaser.GameObjects.Graphics, id: string, x: number, y: number,
         g.moveTo(X, Y - s); g.lineTo(X, Y + s * 0.3); g.moveTo(X + s * 0.55, Y + s * 0.55);
         g.arc(X, Y + s * 0.55, s * 0.55, 0, Math.PI * 2);
         break;
+      case 'coat': // Tropfen mit Querstrichen (Färbung)
+        g.moveTo(X, Y - s); g.lineTo(X + s * 0.8, Y + s * 0.4); g.lineTo(X, Y + s); g.lineTo(X - s * 0.8, Y + s * 0.4); g.closePath(); g.moveTo(X - s * 0.5, Y + s * 0.3); g.lineTo(X + s * 0.5, Y + s * 0.3);
+        break;
       case 'jaw': // Zähne
         g.moveTo(X - s, Y - s * 0.4); g.lineTo(X - s * 0.5, Y + s * 0.6); g.lineTo(X, Y - s * 0.4); g.lineTo(X + s * 0.5, Y + s * 0.6); g.lineTo(X + s, Y - s * 0.4);
         break;

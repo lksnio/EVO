@@ -31,6 +31,12 @@ const zone = (name: string, veil: number, veilA: number, fog: number, light: num
 /** Art des Ortes – bestimmt auch, wie er auf der Karte aussieht. */
 export type PlaceKind = 'start' | 'lush' | 'murky' | 'deep' | 'abyss';
 
+/** Form des Geländes: Mulde, flache Wiese, Hügelketten, Trichter (V) und Schacht mit Rändern. */
+export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well';
+
+/** Höhlen eines Ortes: g = grüne Höhle (färbt grün), b = schwarze Höhle. Die erste liegt nahe beim Ankunftsplatz. */
+export type CaveKind = 'g' | 'b';
+
 export interface PlaceDef {
   id: string;
   name: string;
@@ -51,7 +57,18 @@ export interface PlaceDef {
   shells: number;
   /** hier lebt einer der ganz Großen */
   apex?: boolean;
+  /** Form des Geländes (sonst nach Art des Ortes) */
+  shape?: PlaceShape;
+  /** die durchquerbaren Höhlen dieses Ortes (2–3) */
+  caves: CaveKind[];
+  /** wie viele Felsen aus dem Wasser ragen */
+  rocks: number;
+  /** wie viele Stellen an der Oberfläche Licht hereinlassen */
+  sun: number;
 }
+
+/** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
+export const SHAPE_OF: Record<PlaceKind, PlaceShape> = { start: 'bowl', lush: 'meadow', murky: 'ridges', deep: 'vee', abyss: 'well' };
 
 const START_BLURB = 'Hier beginnt alles.';
 const LUSH = 'Dichtes Grün. Hier gibt es viel zu fressen.';
@@ -62,25 +79,25 @@ const ABYSS = 'Kein Licht erreicht diesen Grund.';
 /** Orte je Zeitalter. Der erste ist immer der Start. */
 export const PLACES: Record<string, PlaceDef[]> = {
   ordovizium: [
-    { id: 'lagune', name: 'Seichte Lagune', kind: 'start', x: 0.46, y: 0.52, links: ['tang', 'bucht', 'kante'], blurb: START_BLURB, def: zone('Seichte Lagune', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 1 },
-    { id: 'tang', name: 'Tangwiese', kind: 'lush', x: 0.2, y: 0.3, links: ['lagune', 'bucht'], blurb: LUSH, def: zone('Tangwiese', 0x1a4a2c, 0.18, 1.1, 1.15, 2.3, 1.8, 1.5, 0.4, 1), deep: -5, wide: 1.7, shells: 1 },
-    { id: 'bucht', name: 'Trübe Bucht', kind: 'murky', x: 0.22, y: 0.74, links: ['lagune', 'tang'], blurb: MURKY, def: zone('Trübe Bucht', 0x2e3a1c, 0.36, 1.9, 0.55, 1.2, 1.5, 1.2, 0.5, 1), deep: 0, wide: 1.5, shells: 1 },
-    { id: 'kante', name: 'Tiefe Kante', kind: 'deep', x: 0.72, y: 0.6, links: ['lagune', 'abgrund'], blurb: DEEP, def: zone('Tiefe Kante', 0x061424, 0.26, 0.6, 0.65, 0.5, 0.6, 0.9, 1.8, 2), deep: 22, wide: 1.6, shells: 2 },
-    { id: 'abgrund', name: 'Der Abgrund', kind: 'abyss', x: 0.88, y: 0.27, links: ['kante'], blurb: ABYSS, def: zone('Der Abgrund', 0x020a14, 0.3, 0.5, 0.45, 0.3, 0.4, 0.6, 2.4, 2), deep: 34, wide: 1.5, shells: 2, apex: true },
+    { id: 'lagune', name: 'Seichte Lagune', kind: 'start', x: 0.46, y: 0.52, links: ['tang', 'bucht', 'kante'], blurb: START_BLURB, def: zone('Seichte Lagune', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 1, caves: ['g', 'b'], rocks: 2, sun: 3 },
+    { id: 'tang', name: 'Tangwiese', kind: 'lush', x: 0.2, y: 0.3, links: ['lagune', 'bucht'], blurb: LUSH, def: zone('Tangwiese', 0x1a4a2c, 0.18, 1.1, 1.15, 2.3, 1.8, 1.5, 0.4, 1), deep: -5, wide: 1.7, shells: 1, caves: ['g', 'g'], rocks: 3, sun: 4 },
+    { id: 'bucht', name: 'Trübe Bucht', kind: 'murky', x: 0.22, y: 0.74, links: ['lagune', 'tang'], blurb: MURKY, def: zone('Trübe Bucht', 0x2e3a1c, 0.36, 1.9, 0.55, 1.2, 1.5, 1.2, 0.5, 1), deep: 0, wide: 1.5, shells: 1, caves: ['b', 'g', 'b'], rocks: 1, sun: 2 },
+    { id: 'kante', name: 'Tiefe Kante', kind: 'deep', x: 0.72, y: 0.6, links: ['lagune', 'abgrund'], blurb: DEEP, def: zone('Tiefe Kante', 0x061424, 0.26, 0.6, 0.65, 0.5, 0.6, 0.9, 1.8, 2), deep: 22, wide: 1.6, shells: 2, caves: ['b', 'b'], rocks: 2, sun: 2 },
+    { id: 'abgrund', name: 'Der Abgrund', kind: 'abyss', x: 0.88, y: 0.27, links: ['kante'], blurb: ABYSS, def: zone('Der Abgrund', 0x020a14, 0.3, 0.5, 0.45, 0.3, 0.4, 0.6, 2.4, 2), deep: 34, wide: 1.5, shells: 2, caves: ['b', 'g'], rocks: 1, sun: 1, apex: true },
   ],
   silur: [
-    { id: 'kelp', name: 'Kelpwald', kind: 'start', x: 0.5, y: 0.5, links: ['dickicht', 'schlick', 'graben'], blurb: START_BLURB, def: zone('Kelpwald', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 0 },
-    { id: 'dickicht', name: 'Tangdickicht', kind: 'lush', x: 0.24, y: 0.28, links: ['kelp', 'schlick'], blurb: LUSH, def: zone('Tangdickicht', 0x1a4a2a, 0.2, 1.1, 1.1, 2.3, 1.9, 1.5, 0.4, 1), deep: -5, wide: 1.7, shells: 1 },
-    { id: 'schlick', name: 'Schlickebene', kind: 'murky', x: 0.26, y: 0.76, links: ['kelp', 'dickicht'], blurb: MURKY, def: zone('Schlickebene', 0x2a2e1c, 0.38, 2, 0.5, 1.1, 1.4, 1.2, 0.5, 1), deep: 0, wide: 1.5, shells: 1 },
-    { id: 'graben', name: 'Dunkler Graben', kind: 'deep', x: 0.74, y: 0.64, links: ['kelp', 'tiefe'], blurb: DEEP, def: zone('Dunkler Graben', 0x061424, 0.26, 0.6, 0.6, 0.5, 0.6, 0.9, 1.8, 2), deep: 22, wide: 1.6, shells: 2 },
-    { id: 'tiefe', name: 'Die Tiefe', kind: 'abyss', x: 0.9, y: 0.3, links: ['graben'], blurb: ABYSS, def: zone('Die Tiefe', 0x020a14, 0.3, 0.5, 0.4, 0.3, 0.4, 0.6, 2.4, 2), deep: 34, wide: 1.5, shells: 2, apex: true },
+    { id: 'kelp', name: 'Kelpwald', kind: 'start', x: 0.5, y: 0.5, links: ['dickicht', 'schlick', 'graben'], blurb: START_BLURB, def: zone('Kelpwald', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 0, caves: ['g', 'b'], rocks: 2, sun: 3 },
+    { id: 'dickicht', name: 'Tangdickicht', kind: 'lush', x: 0.24, y: 0.28, links: ['kelp', 'schlick'], blurb: LUSH, def: zone('Tangdickicht', 0x1a4a2a, 0.2, 1.1, 1.1, 2.3, 1.9, 1.5, 0.4, 1), deep: -5, wide: 1.7, shells: 1, caves: ['g', 'g', 'b'], rocks: 3, sun: 4 },
+    { id: 'schlick', name: 'Schlickebene', kind: 'murky', x: 0.26, y: 0.76, links: ['kelp', 'dickicht'], blurb: MURKY, def: zone('Schlickebene', 0x2a2e1c, 0.38, 2, 0.5, 1.1, 1.4, 1.2, 0.5, 1), deep: 0, wide: 1.5, shells: 1, caves: ['b', 'g'], rocks: 1, sun: 2 },
+    { id: 'graben', name: 'Dunkler Graben', kind: 'deep', x: 0.74, y: 0.64, links: ['kelp', 'tiefe'], blurb: DEEP, def: zone('Dunkler Graben', 0x061424, 0.26, 0.6, 0.6, 0.5, 0.6, 0.9, 1.8, 2), deep: 22, wide: 1.6, shells: 2, caves: ['b', 'b'], rocks: 2, sun: 2 },
+    { id: 'tiefe', name: 'Die Tiefe', kind: 'abyss', x: 0.9, y: 0.3, links: ['graben'], blurb: ABYSS, def: zone('Die Tiefe', 0x020a14, 0.3, 0.5, 0.4, 0.3, 0.4, 0.6, 2.4, 2), deep: 34, wide: 1.5, shells: 2, caves: ['b', 'g'], rocks: 1, sun: 1, apex: true },
   ],
   devon: [
-    { id: 'riff', name: 'Panzerfischriff', kind: 'start', x: 0.48, y: 0.46, links: ['garten', 'delta', 'wand'], blurb: START_BLURB, def: zone('Panzerfischriff', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 0 },
-    { id: 'garten', name: 'Korallengarten', kind: 'lush', x: 0.22, y: 0.26, links: ['riff', 'delta'], blurb: LUSH, def: zone('Korallengarten', 0x1a4a3a, 0.16, 1.1, 1.2, 2.2, 1.7, 1.5, 0.5, 1), deep: -5, wide: 1.7, shells: 1 },
-    { id: 'delta', name: 'Trübes Delta', kind: 'murky', x: 0.24, y: 0.72, links: ['riff', 'garten'], blurb: MURKY, def: zone('Trübes Delta', 0x302e18, 0.36, 1.9, 0.55, 1.2, 1.4, 1.2, 0.6, 1), deep: 0, wide: 1.5, shells: 1 },
-    { id: 'wand', name: 'Steilwand', kind: 'deep', x: 0.72, y: 0.56, links: ['riff', 'maul'], blurb: DEEP, def: zone('Steilwand', 0x061424, 0.26, 0.6, 0.6, 0.5, 0.6, 0.9, 1.9, 2), deep: 22, wide: 1.6, shells: 2 },
-    { id: 'maul', name: 'Das Maul der Tiefe', kind: 'abyss', x: 0.9, y: 0.24, links: ['wand'], blurb: ABYSS, def: zone('Das Maul der Tiefe', 0x020a14, 0.3, 0.5, 0.4, 0.3, 0.4, 0.6, 2.6, 2), deep: 34, wide: 1.5, shells: 2, apex: true },
+    { id: 'riff', name: 'Panzerfischriff', kind: 'start', x: 0.48, y: 0.46, links: ['garten', 'delta', 'wand'], blurb: START_BLURB, def: zone('Panzerfischriff', 0, 0, 1, 1, 1, 1, 1, 1, 0), deep: 0, wide: 2, shells: 0, caves: ['g', 'b'], rocks: 2, sun: 3 },
+    { id: 'garten', name: 'Korallengarten', kind: 'lush', x: 0.22, y: 0.26, links: ['riff', 'delta'], blurb: LUSH, def: zone('Korallengarten', 0x1a4a3a, 0.16, 1.1, 1.2, 2.2, 1.7, 1.5, 0.5, 1), deep: -5, wide: 1.7, shells: 1, caves: ['g', 'b', 'g'], rocks: 3, sun: 4 },
+    { id: 'delta', name: 'Trübes Delta', kind: 'murky', x: 0.24, y: 0.72, links: ['riff', 'garten'], blurb: MURKY, def: zone('Trübes Delta', 0x302e18, 0.36, 1.9, 0.55, 1.2, 1.4, 1.2, 0.6, 1), deep: 0, wide: 1.5, shells: 1, caves: ['b', 'g'], rocks: 1, sun: 2 },
+    { id: 'wand', name: 'Steilwand', kind: 'deep', x: 0.72, y: 0.56, links: ['riff', 'maul'], blurb: DEEP, def: zone('Steilwand', 0x061424, 0.26, 0.6, 0.6, 0.5, 0.6, 0.9, 1.9, 2), deep: 22, wide: 1.6, shells: 2, caves: ['b', 'b'], rocks: 2, sun: 2 },
+    { id: 'maul', name: 'Das Maul der Tiefe', kind: 'abyss', x: 0.9, y: 0.24, links: ['wand'], blurb: ABYSS, def: zone('Das Maul der Tiefe', 0x020a14, 0.3, 0.5, 0.4, 0.3, 0.4, 0.6, 2.6, 2), deep: 34, wide: 1.5, shells: 2, caves: ['b', 'g'], rocks: 1, sun: 1, apex: true },
   ],
 };
 

@@ -108,6 +108,9 @@ Kombination bekommt ihre eigenen, fertig gezeichneten Animationen** – es wird 
 verschiedener Linien zusammengesetzt und im Spiel nichts gedreht. Der Zeichenstil ist mit den Vorlagen
 unten festgelegt.
 
+> Stand im Spiel: Die Linien sind eingebaut (ein Punkt je Zeitalter nach Spielstil, keine Auswahl). Bis deine Bilder da
+> sind, wird jede der zehn Kombinationen aus dem Code gezeichnet (Körperform, Farbe, Flossen).
+
 ## Biss-Vorlagen (`art/vorlagen/`)
 
 Je Linie ein Sprite-Sheet mit **5 Bildern** nebeneinander – Maul **geschlossen → ganz offen**

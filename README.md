@@ -24,9 +24,13 @@ zuerst wird das Fischreich ausgebaut.
 ## So spielt sich EVO
 
 - **Überleben, wie du willst:**
-  - **Verstecken** – still im Dickicht übersehen dich die meisten Jäger; große Räuber, die nur
-    durchziehen, schwimmen fast immer einfach vorbei. In den Höhlen des Urmeers sieht man von dir
-    nur noch die Augen.
+  - **Verstecken** – nur mit der **passenden Farbe**: Wer **grün** ist, verschwindet im Gras (Dickicht);
+    wer **schwarz** ist, in der Dunkelheit (tief unten, in Tunneln). Ohne Farbe sieht man dich überall – auch im
+    Gras. Die Farbe bekommst du in den **Höhlen** (siehe unten). Große Räuber, die nur durchziehen,
+    schwimmen fast immer einfach vorbei.
+  - **Hinterhalt wie bei Teemo** – wer in seinem Versteck (Gras bei Grün, Dunkelheit bei Schwarz) **1,5 Sekunden
+    ganz still** hält, ist bereit: Der nächste Angriff trifft aus dem Hinterhalt deutlich härter – auch noch gleich
+    nach dem Hervorbrechen. Ohne passende Farbe gibt es keine Überraschungsangriffe.
   - **Kämpfen** – angreifen tun nur der **Biss** (E) und der **Stoß** (R); bloßes Berühren tut
     niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
     Anfang an: Er macht kaum Schaden, **betäubt** kleine und mittelgroße Tiere aber kurz – Zeit für ein,
@@ -55,17 +59,21 @@ zuerst wird das Fischreich ausgebaut.
   mehr zum **Rudeltier**: Artgenossen helfen dann öfter – wollen aber auch **mitfressen**. Frisst du
   gemeinsame Beute allein, beißt dich der Helfer und schwimmt verärgert davon; wer zu oft leer
   ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
-- **Orte und Weltkarte:** Jedes Zeitalter hat mehrere **Orte**, und die sehen nicht nur anders aus –
-  sie leben anders:
-  - **Der Startort** wimmelt von **kleinen Fischen**, große Jäger sind selten – hier lernt man.
+- **Orte und Weltkarte:** Jedes Zeitalter hat mehrere **Orte**, und die unterscheiden sich in **Form**, Leben und Licht:
+  - **Der Startort** ist eine **Mulde** (ein Ufer fällt sanfter ab als das andere) und wimmelt von **kleinen Fischen**.
   - **Bewachsene Orte** (Tangwiese, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
-  - **Trübe Orte** sind eng und dunstig – man sieht kaum etwas, und auch du wirst schlechter gesehen.
-  - **Tiefe Orte** (Tiefe Kante, Dunkler Graben, Steilwand) und die **Abgründe** dahinter fallen in einem
-    **V-förmigen Trichter** immer weiter ab: Terrasse um Terrasse nach unten, in der Mitte am tiefsten.
-    Dort gibt es **kaum Fische, aber sehr starke, große Tiere**. Je tiefer du schwimmst, desto
-    **trüber und dunkler** wird es: Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das
-    Meer rauscht, dein Herz schlägt, und manchmal grollt es in der Ferne.
+  - **Trübe Orte** sind **Hügelketten** – man sieht kaum etwas, und auch du wirst schlechter gesehen.
+  - **Tiefe Orte** (Tiefe Kante, Dunkler Graben, Steilwand) fallen in einem **V-förmigen Trichter** immer weiter ab,
+    die **Abgründe** als **Schacht zwischen zwei Rändern**. Dort gibt es **kaum Fische, aber sehr starke, große Tiere**.
+    Je tiefer du schwimmst, desto **trüber und dunkler** wird es: Um dich bleibt nur ein kleiner Lichtkreis, die
+    Musik verklingt, das Meer rauscht, dein Herz schlägt, und manchmal grollt es in der Ferne.
+  - **Felsen ragen aus dem Meer** und über die Oberfläche hinaus; **Licht fällt nur stellenweise** ins Wasser –
+    dazwischen liegt Schatten, oben sieht man den Himmel.
+  - **Höhlen:** Pro Ort gibt es nur **zwei bis drei**, und jede ist ein **Tunnel, den man durchschwimmen kann**. Wer auf
+    der anderen Seite herauskommt, hat eine **andere Farbe**: die **grüne** Höhle färbt grün (mit Querbinden wie bei einem
+    Barsch), die **schwarze** schwarz. Wer umkehrt, ändert nichts. Die erste Höhle liegt nicht weit vom Ankunftsplatz.
+    Die **Färbung** steht auf der Steintafel. Daneben gibt es einige niedrige **Felsspalten** zum Verstecken für Schlanke.
   Schwimmst du am **rechten (oder linken) Rand** eines Ortes hinaus – das
   können andere Tiere auch, manche ziehen so in andere Gewässer weiter –, landest du auf der
   **Karte** und suchst dir den nächsten Ort aus (Pfeiltasten wählen, Enter schwimmt hin). Orte, die
@@ -76,7 +84,8 @@ zuerst wird das Fischreich ausgebaut.
   Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du
   wächst, hängt davon ab, was du tust: Wer sich mit **Starken anlegt** und Fleisch frisst, bekommt
   ein stärkeres Gebiss; wer **kleine Fische jagt**, wird eher **flink und wendig**; wer die meiste Zeit
-  **in der Tiefe überlebt**, wird selbst größer, massiger und gefährlicher.
+  **in der Tiefe überlebt**, wird selbst größer, massiger und gefährlicher. Die **Größe** hängt also am Verhalten – und
+  mit ihr Hunger, Tempo und Kraft.
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
   mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
   spannen sich vor dem Angriff an und glühen auf, schnellen mit einer Spur vor, und wer sie anbeißt,
@@ -134,22 +143,21 @@ zuerst wird das Fischreich ausgebaut.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
-- **Nachwuchs wählen:** Am Ende eines Zeitalters stehen fünf Nachkommen zur Wahl – die Art ist
-  größer als deine Gruppe. Jeder steht im selben Maßstab in einem Stück Lebensraum, sodass Größe,
-  Körperbau und Färbung direkt vergleichbar sind, und trägt **seine eigene Steintafel** – genau so
-  weit freigelegt, wie deine Muscheln es erlauben. Ein Klick wählt aus. Der erste ist die
-  **Hauptlinie** (deine bisherige Wahl mit allem, was dazugelernt wurde). Die anderen vier sind
-  **verschiedene Richtungen** – zufällig vier aus sechs Typen: ein wuchtiger **Brocken**, ein schlanker
-  **Flitzer**, ein **Panzerkopf** mit hohem Kamm, ein farbenprächtiger **Gaukler** mit riesigen Flossen,
-  ein **Schnapper** mit langer Schnauze und schwerem Kiefer oder ein dunkler, gedrungener **Grundler** –,
-  jeweils mit eigener Körperform, Flossen, Schwanz, Rückenflosse,
-  Schnauze, Größe und Färbung. Je mehr du gefressen hast, desto weiter weichen sie ab, und was du
-  trainiert hast, wird in der passenden Richtung noch betont.
+- **Drei Entwicklungslinien – ohne Wahl:** Man wählt nicht mehr, was man wird. Jedes Zeitalter zählt **einen Punkt**
+  für die Linie, die zum **Spielstil** dieses Zeitalters passte:
+  - **Panzer** – wer viel rammt, einsteckt und sich einen harten Schädel holt: wuchtig, gepanzert, stumpfer Kopf, hoher Kamm,
+    stahlgrau, mehr Lebenskraft, dafür etwas langsamer.
+  - **Jäger** – wer schnell schwimmt und viel jagt: lang, schlank, großer Schwanz, spitze Schnauze, blaugrau, schneller.
+  - **Fleischflosser** – wer sich am Grund bewegt und viel versteckt: kräftige Stielflossen, olivfarben mit rostigen
+    Flossen, zäh und gut am Boden.
+  Nach drei Zeitaltern ergeben sich **zehn Grundformen**: 3-0-0 (rein), 2-1-0 (Hauptlinie mit etwas von einer zweiten)
+  oder 1-1-1 (von allem etwas). Größe, Gebiss, Farbe und Werte kommen zusätzlich aus dem, was du tust. Nach dem Zeitalter
+  siehst du dein Tier „einst“ und „heute“; was sich verändert, zeigt der Sprung über die Jahrmillionen.
 - **Die Steintafel (Taste C):** Eine **gebrochene, vermooste Steinplatte** mit Rissen und eingemeißelten
   Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste
-  Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, Gebiss, Länge,
-  Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, Bodenkontakt, Zusammenhalt und Nerven.
+  Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, **Färbung** (aus den Höhlen), Gebiss,
+  Länge, Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, Bodenkontakt, Zusammenhalt und Nerven.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
@@ -193,8 +201,10 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
-| liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
-| wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
+| liegt oft still am Boden | sandig braun-graue Farben |
+| rammt viel, steckt ein, holt sich einen harten Schädel (im Zeitalter) | die **Panzer**-Linie: wuchtiger Körper, hoher Kamm, kleinere Flossen, mehr Lebenskraft |
+| schwimmt viel und schnell, jagt viel | die **Jäger**-Linie: länger, schlanker, großer Schwanz, spitze Schnauze, mehr Tempo |
+| bewegt sich viel am Grund, versteckt sich lange | die **Fleischflosser**-Linie: Stielflossen, kräftig, olivfarben mit rostigen Flossen |
 | stößt oft (Taste R) | einen härteren Schädel und einen kräftigeren Stoß |
 | … und erlegt damit Tiere | einen **Panzerkopf**: Der Kopf selbst wird größer und fester (es wächst nichts dazu), stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
 | beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |

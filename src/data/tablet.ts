@@ -67,6 +67,12 @@ export const STATS: StatDef[] = [
     // Fische sind so warm wie ihr Wasser: helle leben oben im warmen, dunkle unten im kalten
     value: (c) => ({ t: 'text', v: `${Math.round(15 + 7 * (c.traits.light ?? 0))} °C` }),
   },
+  {
+    id: 'coat',
+    label: () => 'Färbung',
+    // die Farbe kommt aus den Höhlen: durchschwimmen färbt um
+    value: (c) => ({ t: 'text', v: c.traits.coat === 1 ? 'Grün' : c.traits.coat === 2 ? 'Schwarz' : 'Natürlich' }),
+  },
   skill('jaw', () => 'Gebiss', (t) => t.jaw),
   {
     id: 'length',

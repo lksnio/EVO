@@ -75,6 +75,12 @@ export interface Traits {
   tint: number;
   /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
   snout: number;
+  /** Färbung durch eine Höhle: 0 natürlich, 1 grün (Gras), 2 schwarz (Dunkelheit) */
+  coat: number;
+  /** Entwicklungslinien: wie viele Zeitalter lang dein Spielstil zur Panzer-, Jäger- bzw. Fleischflosser-Linie passte (0 … 3) */
+  pz: number;
+  jg: number;
+  ff: number;
 }
 
 /** Wie weit ein Merkmal in einem Zeitalter höchstens durch Spielen wächst (ohne die Wahl des Nachwuchses). */
@@ -147,7 +153,7 @@ export interface EpochProg {
   sat?: number;
   kin?: number;
   /** was getan wurde (Beutejagd, Bodenkontakt, Rammen, Schwimmen) */
-  train: { hunt: number; ground: number; ram: number; swim: number };
+  train: { hunt: number; ground: number; ram: number; swim: number; hide?: number; hurt?: number };
 }
 
 export const newProg = (epoch: number): EpochProg => ({
@@ -194,21 +200,16 @@ export interface Run {
   history: Ancestor[];
 }
 
-/** Ein Tier, das ein Zeitalter überlebt hat und die Linie weiterführen könnte. */
+/** Das Tier, das die Linie ins nächste Zeitalter führt (es entsteht aus dem Spielstil – man wählt es nicht). */
 export interface Offspring {
   traits: Traits;
   sex: Sex;
   seed: number;
-  /** die Hauptvariante: die bisherige Linie (die anderen weichen davon ab) */
-  main: boolean;
-  /** Kartentitel: wofür dieses Tier steht */
-  label: string;
-  /** besonders ausgeprägt: eine erspielte Fähigkeit und/oder ein Körpermerkmal */
-  focus: { skill?: SkillKey; body?: BodyKey };
+  /** zu welcher Linie dieses Zeitalter gezählt wurde */
+  line?: LineId;
 }
 
 export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
-export type BodyKey = 'len' | 'girth' | 'swift' | 'snout';
 
 export interface TreeNode {
   id: string;
@@ -246,7 +247,7 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, pz: 0, jg: 0, ff: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
@@ -266,32 +267,51 @@ export function skillName(k: SkillKey, t: Partial<Traits>) {
   }
 }
 
-/**
- * Die Typen, in die sich eine Linie verzweigen kann. Jeder verschiebt mehrere Merkmale deutlich
- * (Körperbau, Flossen, Kopfform, Farbe, Größe) – daran erkennt man sofort, wohin er führt.
- */
-interface Arche {
-  d: Partial<Record<keyof Traits, number>>;
-  skill: SkillKey;
-  body: BodyKey;
-}
-const ARCHES: Arche[] = [
-  // wuchtig, groß, stumpfer Kopf, kurze Flossen
-  { d: { growth: 0.2, girth: 0.9, len: 0.2, fin: -0.5, tail: 0.3, snout: -0.6, light: -0.2, jaw: 0.04 }, skill: 'growth', body: 'girth' },
-  // lang, schlank, flink: großer Schwanz, große Flossen
-  { d: { len: 0.9, girth: -0.8, swift: 0.7, tail: 0.9, fin: 0.5, growth: -0.1, snout: 0.4, light: 0.4 }, skill: 'stealth', body: 'swift' },
-  // Panzerkopf: hoher Kamm, kleine Flossen, dunkel
-  { d: { skull: 0.07, crest: 0.9, fin: -0.7, girth: 0.3, tint: -0.5, light: -0.6, snout: -0.3, jaw: 0.04 }, skill: 'skull', body: 'girth' },
-  // Gaukler: auffällige Farbe, riesige Flossen, spitze Schnauze
-  { d: { tint: 0.9, fin: 0.9, crest: 0.5, len: 0.3, girth: -0.3, snout: 0.7 }, skill: 'stealth', body: 'len' },
-  // Schnapper: lange Schnauze, kräftiges Gebiss
-  { d: { jaw: 0.08, snout: 0.9, girth: -0.2, len: 0.4, crest: 0.3, tint: 0.4, tail: 0.3 }, skill: 'jaw', body: 'snout' },
-  // Grundler: gedrungen, breite Flossen, dunkel, stumpf
-  { d: { limb: 0.06, fin: 0.4, girth: 0.5, len: -0.7, snout: -0.6, light: -0.4, tint: -0.4 }, skill: 'stealth', body: 'girth' },
-];
+// ---------------------------------------------------------------------------
+// Die drei Entwicklungslinien. Jedes Zeitalter zählt einen Punkt für die Linie, die zum Spielstil dieses
+// Zeitalters passte – man entscheidet das nicht. Drei Punkte ergeben zehn Grundformen: 3-0-0, 2-1-0, 1-1-1.
+//   Panzer         – Rammen, Einstecken, Schädel und Kamm: wuchtig, gepanzert, stumpfer Kopf
+//   Jäger          – schnelles Schwimmen und Jagen: lang, schlank, großer Schwanz, spitze Schnauze
+//   Fleischflosser – am Grund bewegen, sich verstecken: Stielflossen, kräftig, olivfarben
+// ---------------------------------------------------------------------------
 
-const SKILL_LABEL: Record<SkillKey, string> = { jaw: 'Scharfzahn', skull: 'Dickschädel', stealth: 'Schleicher', growth: 'Brocken', green: 'Grünling', sand: 'Sandling' };
-export const BODY_NAME: Record<BodyKey, string> = { len: 'länger gestreckt', girth: 'massiger', swift: 'flinker', snout: 'spitzere Schnauze' };
+export type LineId = 'pz' | 'jg' | 'ff';
+export const LINE_IDS: LineId[] = ['pz', 'jg', 'ff'];
+export const LINE_NAME: Record<LineId, string> = { pz: 'Panzer', jg: 'Jäger', ff: 'Fleischflosser' };
+
+/** Wie ausgeprägt eine Linie nach n Punkten ist (1 Punkt = die Hälfte, 3 = voll). */
+export const lineLevel = (n: number) => [0, 0.5, 0.8, 1][Math.max(0, Math.min(3, Math.round(n)))];
+
+/** Die volle Ausprägung einer Linie (Verschiebung der Merkmale gegenüber dem Urfisch). */
+const LINE_D: Record<LineId, Partial<Record<keyof Traits, number>>> = {
+  pz: { skull: 0.16, crest: 0.8, girth: 0.6, fin: -0.7, snout: -0.55, len: -0.25, light: -0.25, jaw: 0.08, growth: 0.08 },
+  jg: { len: 0.7, girth: -0.55, swift: 0.7, tail: 0.85, fin: 0.5, snout: 0.6, light: 0.12, crest: 0.2 },
+  ff: { limb: 0.7, girth: 0.3, fin: 0.5, crest: 0.6, snout: 0.05, len: 0.3, tint: 0.5, light: -0.15, growth: 0.04 },
+};
+
+/** Dazugewonnene Anteile der drei Linien (0 … 1, jeder Punkt zählt gleich viel). */
+export function lineMix(t: Partial<Traits>) {
+  const f = full(t);
+  return { pz: lineLevel(f.pz), jg: lineLevel(f.jg), ff: lineLevel(f.ff) };
+}
+
+/** Die vorherrschende Linie (oder undefined beim Urfisch) – bei Gleichstand die zuletzt gezählte Reihenfolge Panzer, Jäger, Fleischflosser. */
+export function dominantLine(t: Partial<Traits>): LineId | undefined {
+  const f = full(t);
+  let best: LineId | undefined;
+  let top = 0;
+  for (const id of LINE_IDS) if (f[id] > top) {
+    top = f[id];
+    best = id;
+  }
+  return best;
+}
+
+/** Die Mischung als Kürzel, z. B. "pz2jg1". */
+export const lineSig = (t: Partial<Traits>) => {
+  const f = full(t);
+  return LINE_IDS.filter((id) => f[id] > 0).sort((a, b) => f[b] - f[a]).map((id) => id + f[id]).join('') || 'basal';
+};
 
 /** Kalorien je Sättigungs-Einheit (größere Tiere brauchen und liefern mehr). */
 const KCAL: Record<ClassId, number> = { fish: 4, amphibian: 12, reptile: 30, mammal: 60 };
@@ -328,30 +348,37 @@ function fresh(): SaveData {
 /** Grobe Einordnung einer Linie – gleiche Signatur im selben Zeitalter = derselbe Ast. */
 export function sigOf(cls: ClassId, tIn: Partial<Traits>) {
   const t = full(tIn);
-  const top = Math.max(t.jaw, t.skull, t.stealth);
-  let dom = top < 0.15 ? 'basal' : t.jaw === top ? 'jaw' : t.skull === top ? 'skull' : 'stealth';
-  if (dom === 'skull') dom = t.spike > 0.25 ? 'spike' : t.spike < -0.25 ? 'plate' : 'skull';
   const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
-  return `${cls}:${dom}:${diet}`;
+  return `${cls}:${lineSig(t)}:${diet}:${t.coat}`;
 }
 
 const GENUS_ROOT: Record<ClassId, string> = { fish: 'ichthys', amphibian: 'batrachus', reptile: 'saurus', mammal: 'therium' };
-const GENUS_PRE: Record<string, string> = { basal: 'Prot', jaw: 'Odont', skull: 'Cerat', spike: 'Acanth', plate: 'Petr', stealth: 'Crypt' };
+const GENUS_PRE: Record<string, string> = { basal: 'Prot', pz: 'Placo', jg: 'Acantho', ff: 'Sarco' };
 const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris', carn: 'carnivorus' };
 
 /** Ein wissenschaftlich klingender Name für eine Linie (nur im Stammbaum zu sehen). */
 export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'>) {
   if (n.epoch < 0) return 'Der Urahn';
-  const [, dom, diet] = sigOf(n.cls, n.traits).split(':');
-  const root = GENUS_ROOT[n.cls];
-  const genus = GENUS_PRE[dom] + (/^[aeiou]/.test(root) ? '' : 'o') + root;
   const t = full(n.traits);
-  const color = t.green > 0.3 && t.green >= t.sand ? 'viridis' : t.sand > 0.3 ? 'arenarius' : '';
+  const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
+  const root = GENUS_ROOT[n.cls];
+  const genus = GENUS_PRE[dominantLine(t) ?? 'basal'] + (/^[aeiou]/.test(root) ? '' : 'o') + root;
+  const color = t.coat === 1 ? 'viridis' : t.coat === 2 ? 'niger' : '';
   return `${genus} ${color || EPITHET[diet]}`;
 }
 
 /** Ereignisse zwischen den Szenen (HUD, Level …). */
 export const bus = new Phaser.Events.EventEmitter();
+
+/** Was im Zeitalter getan wurde – daraus ergibt sich die Linie. */
+export interface LineStyle {
+  ram: number;
+  hunt: number;
+  swim: number;
+  ground: number;
+  hide: number;
+  hurt: number;
+}
 
 export interface SurviveResult {
   epoch: EpochDef;
@@ -513,19 +540,21 @@ class GameState {
     const bite = b.bite * size * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
     const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * (t.girth ?? 0));
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * (t.girth ?? 0));
+    // Die Linie hinter dem Aussehen: Panzer hält mehr aus, Jäger ist schneller, Fleischflosser zäh und gut am Grund
+    const lv = lineMix(t);
     return {
-      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * (t.girth ?? 0) + 0.05 * (t.len ?? 0))),
+      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * (t.girth ?? 0) + 0.05 * (t.len ?? 0)) * (1 + 0.16 * lv.pz + 0.1 * lv.ff - 0.06 * lv.jg)),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1),
+      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * (1 + 0.12 * lv.jg - 0.07 * lv.pz),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       size,
-      defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1), 0.45, 1.1),
-      groundSpeed: 0.7 + 0.6 * limb,
+      defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.1 * lv.pz, 0.4, 1.1),
+      groundSpeed: 0.7 + 0.6 * limb + 0.3 * lv.ff,
       power: bite * 0.6 + ram * 0.4,
       detect: 1 - 0.55 * t.stealth,
-      digestMeat: Math.max(0.4, 1 + 0.4 * carn - 0.5 * herb + 0.5 * (t.digM ?? 0)),
+      digestMeat: Math.max(0.4, 1 + 0.4 * carn - 0.5 * herb + 0.5 * (t.digM ?? 0) + 0.1 * lv.ff),
       digestPlant: Math.max(0.4, 1 + 0.4 * herb - 0.5 * carn + 0.5 * (t.digP ?? 0)),
     };
   }
@@ -557,6 +586,10 @@ class GameState {
       crest: t.crest ?? 0,
       tint: t.tint ?? 0,
       snout: t.snout ?? 0,
+      coat: t.coat ?? 0,
+      pz: t.pz ?? 0,
+      jg: t.jg ?? 0,
+      ff: t.ff ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -602,6 +635,10 @@ class GameState {
       crest: g(t.crest ?? 0, 0.25),
       tint: g(t.tint ?? 0, 0.15),
       snout: g(t.snout ?? 0, 0.2),
+      coat: t.coat ?? 0,
+      pz: t.pz ?? 0,
+      jg: t.jg ?? 0,
+      ff: t.ff ?? 0,
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -657,13 +694,12 @@ class GameState {
   }
 
   /**
-   * Fünf Nachkommen zur Wahl – egal wie viele Artgenossen überlebt haben (die Art ist größer als
-   * die eigene Gruppe). Die erste ist die Hauptvariante: die bisherige Linie mit allem, was sie im
-   * Zeitalter dazugelernt hat (über die Jahrmillionen verstärkt). Die anderen weichen davon ab –
-   * umso weiter, je mehr gefressen wurde (fed = gefressen / nötig). Jede betont eine Fähigkeit und
-   * ein Körpermerkmal; was gefressen wurde, schiebt die Kost in diese Richtung.
+   * Das Zeitalter ist überstanden: Die Linie zieht weiter. Was sich bewährt hat, setzt sich über die Jahrmillionen
+   * fort (verstärkt). Außerdem zählt das Zeitalter einen Punkt für die Linie, die zum Spielstil passte – Panzer
+   * (Rammen, Einstecken), Jäger (schnell schwimmen, jagen) oder Fleischflosser (am Grund, versteckt) –, und
+   * der Körper verschiebt sich entsprechend. Eine Wahl gibt es nicht: Es passiert einfach.
    */
-  offspring(fed: number, eaten: { meat: number; plant: number }, n = 5): Offspring[] {
+  evolve(eaten: { meat: number; plant: number }, style: LineStyle, advance = true): Offspring {
     const run = this.r;
     const start = full(this.snap?.traits ?? run.traits);
     const end = full(run.traits);
@@ -678,43 +714,41 @@ class GameState {
     main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 0);
     // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
     for (const g of ['len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
-    // Vielfalt: Jeder Nachkomme ist ein anderer Typ – nicht bloß ein bisschen anders. Wer viel gefressen
-    // hat, bekommt noch größere Unterschiede. Welche vier Typen zur Wahl stehen, wechselt von Zeitalter zu Zeitalter.
-    const spread = clamp(0.5 + 0.55 * fed, 0.9, 2);
-    const amt = 0.85 + 0.45 * spread;
-    const earned = SKILLS.filter((key) => end[key] - start[key] > 0.012).sort((a, b) => end[b] - start[b] - (end[a] - start[a]));
-    const order = [...ARCHES.keys()].sort(() => rnd() - 0.5);
-    const out: Offspring[] = [{ traits: main, sex: run.sex, seed: run.seed, main: true, label: 'Hauptlinie', focus: {} }];
-    for (let i = 1; i < n; i++) {
-      const ar = ARCHES[order[(i - 1) % ARCHES.length]];
-      const t = full({ ...main });
-      for (const [key, d] of Object.entries(ar.d) as [keyof Traits, number][]) {
-        const noise = (rnd() - 0.5) * 0.25;
-        if (SKILLS.includes(key as SkillKey) || key === 'limb') {
-          // Fähigkeiten verschieben sich nur wenig – und eher dort, wo man schon etwas gelernt hat
-          const boost = earned.includes(key as SkillKey) ? 1.25 : 1;
-          t[key] = clamp(t[key] + d * boost * Math.min(1.3, spread) * (1 - 0.4 * t[key]), 0, 1);
-        } else t[key] = clamp(t[key] + (d + noise) * amt, -1, 1);
+    let line: LineId | undefined;
+    if (advance) {
+      line = this.pickLine(style, start, end, rnd);
+      const n0 = main[line];
+      const n1 = Math.min(3, n0 + 1);
+      if (n1 > n0) {
+        const f = lineLevel(n1) - lineLevel(n0);
+        for (const [key, d] of Object.entries(LINE_D[line]) as [keyof Traits, number][]) {
+          const lo = key === 'jaw' || key === 'skull' || key === 'growth' || key === 'limb' ? 0 : -1;
+          main[key] = clamp(main[key] + d * f, lo, 1);
+        }
+        main[line] = n1;
       }
-      for (const h of HIDDEN) t[h] = clamp(t[h] + (rnd() - 0.4) * 0.08 * spread, 0, 1);
-      t.diet = clamp(t.diet + (rnd() - 0.5) * 0.25 * spread + ate * 0.12, -1, 1);
-      const sex: Sex = (run.sex + i) % 2 ? 1 : 2;
-      // Männchen etwas größer, dazu etwas Streuung
-      if (!('growth' in ar.d)) t.growth = clamp(t.growth + (rnd() - 0.45) * 0.14 * spread + (sex === 1 ? 0.04 : -0.04), 0, 1);
-      const label = ar.skill === 'skull' ? skillName('skull', t) : SKILL_LABEL[ar.skill];
-      out.push({ traits: t, sex, seed: run.seed + 1000 + run.epoch * 53 + i * 17, main: false, label, focus: { skill: ar.skill, body: ar.body } });
     }
-    return out;
+    return { traits: main, sex: run.sex, seed: run.seed, line };
   }
 
-  /** Dieses Tier führt die Linie weiter. */
-  chooseOffspring(o: Offspring) {
-    const run = this.r;
-    run.traits = full({ ...o.traits });
-    run.sex = o.sex;
-    run.seed = o.seed;
-    if (this.checkRamUnlock()) run.ramNew = true;
-    this.save();
+  /** Zu welcher Linie zählt dieses Zeitalter? Die Werte sind auf einen "üblichen" Spielverlauf bezogen. */
+  private pickLine(s: LineStyle, start: Traits, end: Traits, rnd: () => number): LineId {
+    const dSkull = Math.max(0, end.skull - start.skull);
+    const score: Record<LineId, number> = {
+      pz: (s.ram * 1.4 + dSkull * 90 + s.hurt * 0.8) / 25,
+      jg: (s.swim * 0.45 + s.hunt * 0.6) / 70,
+      ff: (s.ground * 1.5 + s.hide * 0.5) / 35,
+    };
+    let best: LineId = 'jg';
+    let top = -1;
+    for (const id of LINE_IDS) {
+      const v = score[id] * (0.94 + rnd() * 0.12);
+      if (v > top) {
+        top = v;
+        best = id;
+      }
+    }
+    return best;
   }
 
   /** Gefressenes für den ganzen Lauf mitzählen (Werte-Bildschirm). */

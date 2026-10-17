@@ -54,6 +54,12 @@ export interface Morph {
   tint?: number;
   /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
   snout?: number;
+  /** Färbung durch eine Höhle: 0 natürlich, 1 grün (wie ein Barsch: Querbinden), 2 schwarz */
+  coat?: number;
+  /** Entwicklungslinien (0 … 3 Punkte): Panzer, Jäger, Fleischflosser – sie färben und formen das Tier */
+  pz?: number;
+  jg?: number;
+  ff?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -87,12 +93,16 @@ export function quantize(m: Morph): Morph {
     crest: q(m.crest ?? 0, 0.25),
     tint: q(m.tint ?? 0, 0.2),
     snout: q(m.snout ?? 0, 0.25),
+    coat: Math.round(m.coat ?? 0),
+    pz: Math.round(m.pz ?? 0),
+    jg: Math.round(m.jg ?? 0),
+    ff: Math.round(m.ff ?? 0),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.pz, k.jg, k.ff].join('_');
 }
 
 interface Pal {
@@ -124,7 +134,7 @@ function palette(m: Morph): Pal {
   const li = m.light ?? 0;
   const lit = (c: number) => shade(c, li * 0.42);
   const camoBase = (c: number) => lit(mix(mix(c, 0x4e6a34, Math.min(0.7, g * 0.75)), 0x8a7a5c, Math.min(0.7, sd * 0.75)));
-  return {
+  const out: Pal = {
     base: mix(mix(camoBase(p.base), shade(p.camo, 0.2), st * 0.35), shade(p.base, -0.12), male ? 0.5 : 0),
     belly: mix(mix(p.belly, 0xa89a78, Math.min(0.6, sd * 0.6)), p.base, st * 0.25),
     dark: shade(p.dark, li * 0.26),
@@ -132,6 +142,34 @@ function palette(m: Morph): Pal {
     eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
     fin: mix(camoBase(p.fin), p.camo, st * 0.3),
   };
+  // Die Linie färbt mit: Panzer stahlgrau, Jäger blaugrau mit hellem Bauch, Fleischflosser oliv mit rostigen Flossen
+  const lvl = (n: number) => [0, 0.5, 0.8, 1][Math.max(0, Math.min(3, Math.round(n)))];
+  const wp = lvl(m.pz ?? 0), wj = lvl(m.jg ?? 0), wf = lvl(m.ff ?? 0);
+  const wt = wp + wj + wf;
+  if (wt > 0) {
+    const avg = (a: number, b: number, c: number) => mix(mix(a, b, wj / (wp + wj || 1)), c, wf / wt);
+    const k = Math.min(1, wt) * 0.6;
+    out.base = mix(out.base, avg(0x5d666b, 0x4e6f7e, 0x6c6a38), k);
+    out.fin = mix(out.fin, avg(0x474f54, 0x3f5b68, 0x8a5a34), k);
+    out.belly = mix(out.belly, avg(0xa9aca6, 0xcfd6cc, 0xc4b888), k * 0.7);
+  }
+  // Höhlenfarbe: grün wie ein Barsch (grüner Rücken, helle Flanke, dunkle Querbinden) bzw. tiefschwarz
+  const coat = m.coat ?? 0;
+  if (coat === 1) {
+    out.base = mix(out.base, 0x4f7d3c, 0.92);
+    out.belly = mix(out.belly, 0xc4cc9c, 0.8);
+    out.camo = 0x1d3a1b;
+    out.fin = mix(out.fin, 0x93a043, 0.85);
+    out.dark = shade(out.dark, -0.1);
+  } else if (coat === 2) {
+    out.base = mix(out.base, 0x15181b, 0.94);
+    out.belly = mix(out.belly, 0x2c3236, 0.9);
+    out.camo = 0x0a0c0e;
+    out.fin = mix(out.fin, 0x101316, 0.9);
+    out.dark = 0x040506;
+    out.eye = mix(0xf0b840, out.eye, m.fierce * 0.5);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -338,11 +376,13 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     edge: P.dark,
     inner: (c) => {
       // Tarnmuster: wird mit "stealth" kräftiger
-      const camoA = 0.08 + 0.62 * st;
+      const coat = m.coat ?? 0;
+      const camoA = coat === 1 ? 0.78 : coat === 2 ? 0.1 : 0.08 + 0.62 * st;
       if (m.cls === 'fish' || m.cls === 'reptile') {
-        // senkrechte, unregelmäßige Bänder
-        for (let i = 0; i < 6; i++) {
-          const x = bw * 0.32 - i * bw * 0.15 + (r() - 0.5) * 6;
+        // senkrechte, unregelmäßige Bänder (grün: sieben kräftige Querbinden wie beim Barsch)
+        const nb = coat === 1 ? 7 : 6;
+        for (let i = 0; i < nb; i++) {
+          const x = bw * 0.32 - i * (coat === 1 ? 0.13 : 0.15) * bw + (r() - 0.5) * 6;
           c.beginPath();
           c.moveTo(x - 3, -bh);
           c.bezierCurveTo(x + 4 + r() * 4, -bh * 0.2, x - 5, bh * 0.1, x + 2, bh * 0.35);

@@ -1,9 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { game, type Offspring } from '../state/GameState';
-import { STAT_COUNT } from '../data/tablet';
-import { Tablet } from '../ui/tablet';
+import { game, type LineId } from '../state/GameState';
 import { CLASSES } from '../data/classes';
 import { EPOCHS, spanWords, yearsAgo } from '../data/epochs';
 import { levelBackgrounds } from '../art/worldArt';
@@ -11,9 +9,15 @@ import { morphKey, type Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import type { SurvivedData } from './LevelScene';
 import { Button, MenuNav, fadeIn, fadeTo, text, title } from '../ui/ui';
-import { mulberry32 } from '../util/math';
 
 type GO = Phaser.GameObjects.GameObject & { alpha: number; setAlpha(a: number): unknown };
+
+/** Was die Linie über den Körper erzählt – ohne Zahlen. */
+const LINE_TEXT: Record<LineId, string> = {
+  pz: 'Dein Körper wird wuchtiger und härter – ein Panzer wächst heran.',
+  jg: 'Schlanker, schneller, ein langer Schwanz – du wirst zum Jäger.',
+  ff: 'Kräftige Stielflossen tragen dich am Grund – du wirst zäh und geduldig.',
+};
 
 /** Sätze zwischen den Zeitaltern – sie verraten nichts über das System dahinter. */
 const LINES = [
@@ -23,15 +27,6 @@ const LINES = [
   'Nur wer überlebt, gibt etwas weiter.',
   'Langsam, kaum merklich, verändert sich deine Art.',
 ];
-
-/** Farben der Karten im Auswahlbildschirm, je Lebensraum. */
-const CARD_PAL: Record<string, { top: string; mid: string; bot: string; floor: string; floor2: string; hill: string; hill2: string; weed: string }> = {
-  ozean: { top: '#3d7f7a', mid: '#163f45', bot: '#091c20', floor: '#5e5642', floor2: '#26221a', hill: '#000', hill2: '#000', weed: 'rgba(40,90,60,0.7)' },
-  sumpf: { top: '#66643e', mid: '#2e2e1c', bot: '#14140c', floor: '#3e3622', floor2: '#1a160c', hill: 'rgba(30,34,20,0.75)', hill2: 'rgba(22,24,14,0.9)', weed: 'rgba(70,84,40,0.85)' },
-  reptil: { top: '#86603a', mid: '#3e2a1a', bot: '#1a120c', floor: '#4e3a26', floor2: '#20160e', hill: 'rgba(52,34,22,0.75)', hill2: 'rgba(36,24,16,0.9)', weed: 'rgba(84,90,44,0.8)' },
-  eden: { top: '#677a4e', mid: '#2c3822', bot: '#121810', floor: '#444226', floor2: '#1c1c10', hill: 'rgba(34,46,28,0.75)', hill2: 'rgba(24,32,20,0.9)', weed: 'rgba(96,110,52,0.85)' },
-  eis: { top: '#93a9b2', mid: '#4b606a', bot: '#1e2a30', floor: '#cfd8db', floor2: '#76868c', hill: 'rgba(120,140,150,0.6)', hill2: 'rgba(90,108,118,0.8)', weed: 'rgba(120,120,96,0.7)' },
-};
 
 /**
  * Ein Zeitalter ist überstanden. Man sieht sein Tier "einst" und "heute", dazu die
@@ -43,22 +38,6 @@ export class GenerationScene extends Phaser.Scene {
   private views: { v: CreatureView; mode: 'swim' | 'idle' }[] = [];
   private group: GO[] = [];
   private nav?: MenuNav;
-  /** gewählter Nachwuchs (Index in d.offspring) */
-  private sel = 0;
-  private cards: {
-    g: Phaser.GameObjects.Graphics;
-    glow: Phaser.GameObjects.Image;
-    beam: Phaser.GameObjects.Image;
-    v: CreatureView;
-    sc: number;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    hover: boolean;
-  }[] = [];
-  private choosing = false;
-  private zones: Phaser.GameObjects.Zone[] = [];
 
   constructor() {
     super('Generation');
@@ -69,10 +48,6 @@ export class GenerationScene extends Phaser.Scene {
     this.views = [];
     this.group = [];
     this.nav = undefined;
-    this.sel = 0;
-    this.cards = [];
-    this.choosing = false;
-    this.zones = [];
   }
 
   create() {
@@ -88,8 +63,7 @@ export class GenerationScene extends Phaser.Scene {
       speedY: { min: -12, max: -3 }, speedX: { min: -6, max: 6 },
       scale: { start: 0.35, end: 0 }, alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, tint: 0xd8c8a0,
     });
-    if (this.d.offspring?.length) this.choose();
-    else this.survived();
+    this.survived();
   }
 
   update(_t: number, dms: number) {
@@ -99,239 +73,6 @@ export class GenerationScene extends Phaser.Scene {
   private look(o: { cls?: Morph['cls']; traits?: SurvivedData['traits']; seed?: number; sex?: number } = {}): Morph {
     const d = this.d;
     return game.morph({ cls: o.cls ?? d.cls, traits: o.traits ?? d.traits, hue: d.look.hue, seed: o.seed ?? d.look.seed, sex: o.sex ?? d.look.sex, fierce: 0 });
-  }
-
-  // ---------------------------------------------------------------- Nachwuchs wählen
-
-  /**
-   * Wer soll die Linie weiterführen? Man sieht nur die Tiere selbst – keine Werte. Alle stehen im
-   * selben Maßstab, damit man Größe, Körperbau und Färbung direkt vergleichen kann.
-   */
-  private choose() {
-    const d = this.d;
-    const ep = EPOCHS[d.epoch];
-    const offs = d.offspring!;
-    this.choosing = true;
-    const where = ep.habitat === 'water' ? 'die Meere' : 'das Land';
-    const [h1, h2] = d.bossBeaten
-      ? [`${d.boss} ist besiegt.`, `Ein letztes Mal im ${ep.name}: Wer führt deine Linie in eine neue Zeit?`]
-      : d.repeat
-        ? [`Eine Generation vergeht.`, `${d.boss ?? 'Der Herrscher'} beherrscht noch ${where}. Wer führt deine Linie weiter?`]
-        : [`Das ${ep.name} endet.`, `Du hast überlebt. Wer führt deine Linie weiter?`];
-    const head = title(this, W / 2, 38, h1, 38).setOrigin(0.5);
-    const sub = text(this, W / 2, 82, h2, 20, UI.boneDim).setOrigin(0.5);
-    this.fadeInAll([head, sub], 0);
-    this.group.push(head, sub);
-
-    const n = offs.length;
-    const gap = 16;
-    const cw = Math.min(226, Math.floor((W - 56 - (n - 1) * gap) / n)), ch = 524;
-    const x0 = W / 2 - (n * cw + (n - 1) * gap) / 2, y0 = 108;
-    const bg = this.cardTex(ep, cw, ch);
-    // erst alle Tiere bauen, dann einen gemeinsamen Maßstab finden
-    const views = offs.map((o) => new CreatureView(this, 0, 0, this.look({ traits: o.traits, seed: o.seed, sex: o.sex }), 1));
-    // L.halfW ist nur der Rumpf – mit Kopf und Schwanz ist ein Tier gut viermal so lang
-    const SPAN: Record<string, number> = { fish: 3.9, amphibian: 4.4, reptile: 4.6, mammal: 3.6 };
-    const maxW = Math.max(...views.map((v) => v.L.halfW * (SPAN[v.m.cls] ?? 4.4)));
-    const maxH = Math.max(...views.map((v) => v.L.footY - v.L.topY));
-    const sc = Math.min(2.6, (cw - 30) / maxW, (ch * 0.3) / maxH);
-    offs.forEach((o, i) => {
-      const parts = this.card(o, views[i], sc, bg, x0 + i * (cw + gap), y0, cw, ch, i);
-      this.fadeInAll(parts.filter((p) => !(p instanceof Phaser.GameObjects.Image && p.texture.key === 'glow')), 250 + i * 140, 1, 650);
-      this.group.push(...parts);
-    });
-    this.select(0, true);
-    const hint = text(this, W / 2, y0 + ch + 18, '← →  oder Klick  ·  Enter bestätigt', 15, UI.boneDim).setOrigin(0.5);
-    this.fadeInAll([hint], 1100, 0.8);
-    this.group.push(hint);
-    const kb = this.input.keyboard!;
-    const mv = (dx: number) => () => this.choosing && this.select((this.sel + dx + n) % n);
-    kb.on('keydown-LEFT', mv(-1));
-    kb.on('keydown-RIGHT', mv(1));
-    kb.on('keydown-A', mv(-1));
-    kb.on('keydown-D', mv(1));
-    kb.on('keydown-ENTER', () => this.choosing && this.confirm());
-    kb.on('keydown-SPACE', () => this.choosing && this.confirm());
-    this.time.delayedCall(1200, () => {
-      const b = new Button(this, W / 2, H - 34, 'Weiter', { w: 240, h: 48, icon: 'ic_play', color: UI.ochreN, onClick: () => this.choosing && this.confirm() });
-      this.fadeInAll([b], 0, 1, 500);
-      this.group.push(b);
-    });
-  }
-
-  /** Eine Karte: ein kleines Stück Lebensraum mit dem Tier darin – sonst nichts. */
-  private card(o: Offspring, v: CreatureView, sc: number, bg: string, x: number, y: number, w: number, h: number, i: number): GO[] {
-    const glow = this.add.image(x + w / 2, y + h / 2, 'glow').setDisplaySize(w * 1.9, h * 1.5).setTint(0xe0a848).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-    const img = this.add.image(x, y, bg).setOrigin(0);
-    const land = v.L.land;
-    const cx = x + w / 2;
-    v.setPosition(cx, y + h * 0.25);
-    v.setBaseScale(sc);
-    this.views.push({ v, mode: land ? 'idle' : 'swim' });
-    // Licht von oben auf das gewählte Tier
-    const beam = this.add.image(cx, v.y + ((v.L.topY + v.L.footY) / 2) * sc, 'glow').setDisplaySize(w * 0.9, h * 0.55).setTint(0xffe8c0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-    this.children.bringToTop(v);
-    const frame = this.add.graphics();
-    // Die Steintafel dieses Tieres: genau so viel, wie die Muscheln schon freigelegt haben
-    const tab = new Tablet(this, x + 9, y + Math.round(h * 0.47), w - 18, Math.round(h * 0.53) - 10, { cls: this.d.cls, traits: o.traits }, Math.min(STAT_COUNT, game.shells.length), { mini: true });
-    const out: GO[] = [glow, img, beam, v, tab, frame];
-    this.cards.push({ g: frame, glow, beam, v, sc, x, y, w, h, hover: false });
-    if (o.main) {
-      const mark = text(this, cx, y + 16, 'Hauptlinie', 15, UI.ochre, { fontStyle: 'italic' }).setOrigin(0.5);
-      out.push(mark);
-    }
-    const zone = this.add.zone(x, y, w, h).setOrigin(0).setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', () => {
-      if (!this.choosing) return;
-      if (this.sel === i) this.confirm();
-      else this.select(i);
-    });
-    zone.on('pointerover', () => {
-      this.cards[i].hover = true;
-      this.select(this.sel, true);
-    });
-    zone.on('pointerout', () => {
-      this.cards[i].hover = false;
-      this.select(this.sel, true);
-    });
-    this.zones.push(zone);
-    return out;
-  }
-
-  /** Hintergrund einer Karte: Wasser mit Lichtstrahlen und Grund bzw. Himmel, Hügel und Boden. */
-  private cardTex(ep: (typeof EPOCHS)[number], w: number, h: number) {
-    const key = `gcard_${ep.theme}_${ep.habitat}_${w}x${h}`;
-    if (this.textures.exists(key)) return key;
-    const P = CARD_PAL[ep.theme] ?? CARD_PAL.ozean;
-    const water = ep.habitat === 'water';
-    const ct = this.textures.createCanvas(key, w, h)!;
-    const ctx = ct.getContext();
-    const rnd = mulberry32(w * 7 + h + ep.theme.length * 31);
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(0, 0, w, h, 14);
-    ctx.clip();
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, P.top);
-    g.addColorStop(0.55, P.mid);
-    g.addColorStop(1, P.bot);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
-    const fy = h * (water ? 0.78 : 0.72);
-    if (!water) {
-      // ferne Hügel im Dunst
-      for (let k = 0; k < 2; k++) {
-        ctx.beginPath();
-        ctx.moveTo(0, h);
-        const base = fy - 40 + k * 22;
-        for (let xx = 0; xx <= w; xx += 8) ctx.lineTo(xx, base - Math.sin(xx * 0.02 + k * 2 + rnd()) * 14 - Math.sin(xx * 0.055 + k) * 6);
-        ctx.lineTo(w, h);
-        ctx.closePath();
-        ctx.fillStyle = k ? P.hill2 : P.hill;
-        ctx.fill();
-      }
-    }
-    // Licht von oben
-    ctx.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 4; k++) {
-      const x = w * (0.12 + 0.26 * k) + (rnd() - 0.5) * 20;
-      const sw = 10 + rnd() * 22;
-      const lg = ctx.createLinearGradient(0, 0, 0, fy);
-      lg.addColorStop(0, `rgba(255,238,205,${water ? 0.15 : 0.08})`);
-      lg.addColorStop(1, 'rgba(255,238,205,0)');
-      ctx.fillStyle = lg;
-      ctx.beginPath();
-      ctx.moveTo(x - sw / 2, 0);
-      ctx.lineTo(x + sw / 2, 0);
-      ctx.lineTo(x + sw * 1.6 - w * 0.16, fy);
-      ctx.lineTo(x - sw * 1.2 - w * 0.16, fy);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    // Boden
-    ctx.beginPath();
-    ctx.moveTo(0, fy + 8);
-    ctx.bezierCurveTo(w * 0.3, fy - 8, w * 0.65, fy + 6, w, fy - 4);
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    const fg = ctx.createLinearGradient(0, fy - 8, 0, h);
-    fg.addColorStop(0, P.floor);
-    fg.addColorStop(1, P.floor2);
-    ctx.fillStyle = fg;
-    ctx.fill();
-    for (let k = 0; k < 26; k++) {
-      const px = rnd() * w, py = fy + 6 + rnd() * (h - fy - 6);
-      ctx.fillStyle = `rgba(${rnd() < 0.5 ? '0,0,0' : '255,240,210'},${0.08 + rnd() * 0.12})`;
-      ctx.beginPath();
-      ctx.ellipse(px, py, 1.5 + rnd() * 4, 1 + rnd() * 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Halme bzw. Tang am Rand
-    ctx.lineCap = 'round';
-    for (let k = 0; k < 9; k++) {
-      const px = k < 5 ? rnd() * w * 0.22 : w - rnd() * w * 0.22;
-      const len = 14 + rnd() * (water ? 46 : 26);
-      ctx.strokeStyle = P.weed;
-      ctx.lineWidth = 1.5 + rnd() * 2;
-      ctx.beginPath();
-      ctx.moveTo(px, fy + 6);
-      ctx.quadraticCurveTo(px + (rnd() - 0.5) * 16, fy - len * 0.5, px + (rnd() - 0.5) * 12, fy - len);
-      ctx.stroke();
-    }
-    // weicher Lichtfleck in der Mitte, dunkle Ränder
-    const rg = ctx.createRadialGradient(w / 2, h * 0.5, 4, w / 2, h * 0.5, w * 0.6);
-    rg.addColorStop(0, 'rgba(255,236,200,0.12)');
-    rg.addColorStop(1, 'rgba(255,236,200,0)');
-    ctx.fillStyle = rg;
-    ctx.fillRect(0, 0, w, h);
-    const vg = ctx.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * 0.3, w / 2, h * 0.45, Math.max(w, h) * 0.72);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.62)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-    ct.refresh();
-    return key;
-  }
-
-  private select(i: number, quiet = false) {
-    const changed = this.sel !== i;
-    this.sel = i;
-    this.cards.forEach((c, k) => {
-      const on = k === i;
-      c.g.clear();
-      c.g.lineStyle(on ? 3 : c.hover ? 2 : 1.5, on ? 0xe0a848 : c.hover ? 0xb08a58 : 0x5a4a34, on ? 1 : 0.7);
-      c.g.strokeRoundedRect(c.x, c.y, c.w, c.h, 14);
-      if (!on) {
-        c.g.fillStyle(0x050403, c.hover ? 0.05 : 0.12);
-        c.g.fillRoundedRect(c.x, c.y, c.w, c.h, 14);
-      }
-      c.v.setShade(on || c.hover ? null : 0xcacaca);
-      this.tweens.killTweensOf([c.glow, c.beam]);
-      this.tweens.add({ targets: c.glow, alpha: on ? 0.22 : 0, duration: 260 });
-      this.tweens.add({ targets: c.beam, alpha: on ? 0.16 : 0, duration: 260 });
-      const s = { k: c.v.scaleY / c.sc };
-      this.tweens.add({ targets: s, k: on ? 1.07 : 1, duration: 260, ease: 'Sine.out', onUpdate: () => c.v.setBaseScale(c.sc * s.k) });
-    });
-    if (changed && !quiet) audio.sfx('click');
-  }
-
-  /** Die Wahl steht: Dieses Tier führt die Linie weiter. */
-  private confirm() {
-    const d = this.d;
-    const o = d.offspring![this.sel];
-    this.choosing = false;
-    audio.sfx('select');
-    this.zones.forEach((z) => z.destroy());
-    this.zones = [];
-    game.chooseOffspring(o);
-    d.drifted = o.traits;
-    d.look = { ...d.look, seed: o.seed, sex: o.sex };
-    const c = this.cards[this.sel];
-    this.tweens.add({ targets: c.glow, alpha: 0.5, duration: 200, yoyo: true });
-    this.time.delayedCall(350, () => this.next());
   }
 
   /** Ein Tier auf einem Felssockel (an Land) bzw. schwebend mit Schatten (im Wasser). */
@@ -359,8 +100,14 @@ export class GenerationScene extends Phaser.Scene {
   private survived() {
     const d = this.d;
     const ep = EPOCHS[d.epoch];
-    const head = title(this, W / 2, 70, `Das ${ep.name} endet.`, 42).setOrigin(0.5);
-    const sub = text(this, W / 2, 120, `Du hast überlebt – ${yearsAgo(d.years ?? ep.to, 1e4)}.`, 21, UI.boneDim).setOrigin(0.5);
+    const where = ep.habitat === 'water' ? 'die Meere' : 'das Land';
+    const [h1, h2] = d.bossBeaten
+      ? [`${d.boss} ist besiegt.`, `Ein letztes Mal im ${ep.name} – dann beginnt eine neue Zeit.`]
+      : d.repeat
+        ? ['Eine Generation vergeht.', `${d.boss ?? 'Der Herrscher'} beherrscht noch ${where}.`]
+        : [`Das ${ep.name} endet.`, `Du hast überlebt – ${yearsAgo(d.years ?? ep.to, 1e4)}.`];
+    const head = title(this, W / 2, 70, h1, 42).setOrigin(0.5);
+    const sub = text(this, W / 2, 120, h2, 21, UI.boneDim).setOrigin(0.5);
     this.fadeInAll([head, sub], 0);
 
     const mBefore = this.look({ traits: d.before });
@@ -390,7 +137,7 @@ export class GenerationScene extends Phaser.Scene {
 
     const k = d.kinAlive;
     const kinLine = k === 0 ? 'Von deiner Art hat niemand außer dir überlebt.' : k === 1 ? 'Einer deiner Art hat mit dir überlebt.' : `${k} deiner Art haben mit dir überlebt.`;
-    const line = changed ? LINES[(d.epoch * 3 + k) % LINES.length] : 'Das Leben geht weiter.';
+    const line = d.line ? LINE_TEXT[d.line] : changed ? LINES[(d.epoch * 3 + k) % LINES.length] : 'Das Leben geht weiter.';
     const l1 = text(this, W / 2, 520, kinLine, 21, UI.bone).setOrigin(0.5);
     const l2 = text(this, W / 2, 552, line, 21, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5);
     this.fadeInAll([l1], 2100);

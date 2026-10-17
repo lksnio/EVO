@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type Offspring, type Traits } from '../state/GameState';
+import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type LineId, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { placeOf, type PlaceDef } from '../data/world';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
-import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
@@ -41,8 +41,8 @@ export interface SurvivedData {
   transition?: { from: Morph['cls']; to: Morph['cls'] };
   /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter */
   drifted?: Traits;
-  /** wer die Linie weiterführen kann (das eigene Tier zuerst) */
-  offspring?: Offspring[];
+  /** zu welcher Linie dieses Zeitalter gezählt wurde (der Spielstil entscheidet, nicht der Spieler) */
+  line?: LineId;
   /** in diesem Zeitalter gefressen (kcal) */
   eaten?: { meat: number; plant: number; need: number };
   /** Endgegner noch nicht besiegt: das Zeitalter wird wiederholt */
@@ -154,6 +154,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private span = { from: 0, to: 0 };
   /** bis dahin gilt ein Angriff als Überraschungsangriff (aus dem Versteck heraus) */
   private ambushUntil = 0;
+  /** Teemo-Prinzip: Wer in seinem Versteck (Gras bei grüner, Dunkelheit bei schwarzer Farbe) 1,5 s still hält, ist bereit */
+  private primedUntil = 0;
+  /** Zeitpunkt, seit dem man still im Versteck ist (0 = nicht still) */
+  private stillT = 0;
+  private primeNoted = false;
+  /** Tunnel, in dem man gerade schwimmt (-1 = keiner) und von welcher Seite man hineingekommen ist */
+  private curCave = -1;
+  private caveSide = 0;
+  private caveFx: { c: LevelData['caves'][number]; pe: Phaser.GameObjects.Particles.ParticleEmitter; on: boolean }[] = [];
   /** dunkle Vorahnung: ein Riese ist in der Nähe */
   private dread!: Phaser.GameObjects.Rectangle;
   private dreadK = 0;
@@ -172,7 +181,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private hurtSeen = -1e9;
   private grudgeNoted = false;
   /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
-  train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
+  train = { hunt: 0, ground: 0, ram: 0, swim: 0, hide: 0, hurt: 0 };
   /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
   private lastBitten: Animal | null = null;
   private lastBiteAt = -1e9;
@@ -240,6 +249,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bossA = undefined;
     this.bossBeaten = prog.boss === 2;
     this.ambushUntil = 0;
+    this.primedUntil = 0;
+    this.stillT = 0;
+    this.curCave = -1;
+    this.caveSide = 0;
+    this.caveFx = [];
     this.dreadK = 0;
     this.dreadAt = -1e9;
     this.flows = [];
@@ -252,7 +266,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.slow = 1;
     this.hurtSeen = -1e9;
     this.grudgeNoted = false;
-    this.train = { ...prog.train };
+    this.train = { hide: 0, hurt: 0, ...prog.train };
     this.lastBitten = null;
 
   }
@@ -290,8 +304,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     this.buildDecor();
     if (this.water && L.surfaceY > 0) {
-      const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
-      this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
+      this.buildSky();
+      // die Wasseroberfläche läuft nicht durch die Felsen hindurch, die aus dem Meer ragen
+      let sx = 0;
+      for (const k of [...L.islets].sort((a, b) => a.x - b.x).concat([{ x: L.width, w: 0 }])) {
+        if (k.x - sx > 20) {
+          const s = this.add.tileSprite(sx, L.surfaceY - 14, k.x - sx, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
+          this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
+        }
+        sx = k.x + k.w;
+      }
     }
     plantTextures(this, L.theme);
     // Alle Tierarten dieses Zeitalters schon jetzt malen (auch die großen Durchzügler) –
@@ -376,7 +398,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.setZoom(Z);
     const bottom = this.water ? L.height : L.height - 70;
     const camH = Math.max(bottom, VH + 40);
-    cam.setBounds(0, bottom - camH, L.width, camH);
+    // ragen Felsen über das Wasser, darf die Kamera ein Stück über die Oberfläche hinaus
+    const camTop = this.water && L.islets.length ? -300 : bottom - camH;
+    cam.setBounds(0, camTop, L.width, bottom - camTop);
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
@@ -507,16 +531,48 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
-  /** Höhlen: dunkle Rückwand, davor ein Schatten – drinnen sieht man nur noch die Augen. */
+  /**
+   * Höhlen sind Tunnel durch den Fels: dunkle Rückwand, drinnen sieht man nur noch die Augen. An den Enden treibt etwas
+   * von der Farbe der Höhle ins Wasser – grünliche Schlieren bei der grünen, schwarze Schwaden bei der schwarzen.
+   */
   private buildCaves() {
-    this.L.caves.forEach((c, i) => {
+    this.L.caves.forEach((c) => {
       const back = this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
-      const gv = this.zoneAt(c.x + c.w / 2).def.ground;
-      const sh = caveShade(this, c.w, c.h, TILE, i % 3, groundTextures(this, this.L.theme, gv).gnd);
-      const shade = this.add.image(c.x + sh.ox, c.y + sh.oy, sh.key).setOrigin(0).setDepth(DEPTH.cover);
       this.cullAdd(back, c.x - 60, c.x + c.w + 60);
-      this.cullAdd(shade, c.x - 80, c.x + c.w + 60);
+      // Innenraum: in der Mitte ganz dunkel, zu den offenen Enden hin heller
+      const g = this.add.graphics().setDepth(DEPTH.cover);
+      const n = Math.max(2, Math.round(c.w / 20));
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n;
+        const edge = Math.min(u, 1 - u) * 2;
+        g.fillStyle(0x020404, 0.18 + 0.5 * Math.min(1, edge * 1.6));
+        g.fillRect(c.x + (c.w * i) / n, c.y, c.w / n + 1, c.h);
+      }
+      this.cullAdd(g, c.x - 20, c.x + c.w + 20);
+      const green = c.coat === 1;
+      const pe = this.add.particles(0, 0, 'p_dot', {
+        x: { min: c.x - 60, max: c.x + c.w + 60 }, y: { min: c.y - 20, max: c.y + c.h + 20 },
+        speedX: { min: -12, max: 12 }, speedY: { min: -14, max: 6 }, lifespan: { min: 2400, max: 4200 }, frequency: green ? 160 : 120,
+        scale: { start: green ? 1.1 : 1.8, end: 0.2 }, alpha: { start: green ? 0.5 : 0.55, end: 0 }, tint: green ? [0x7fd06a, 0x4fa04a, 0xa6e08a] : [0x07080a, 0x14181c],
+        blendMode: green ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
+      }).setDepth(DEPTH.cover + 1);
+      this.caveFx.push({ c, pe, on: true });
     });
+  }
+
+  /** Aus einem Tunnel herausgeschwommen: Der Körper nimmt die Farbe der Höhle an. */
+  private paintCoat(coat: number) {
+    const p = this.player;
+    if (game.traits.coat === coat) return;
+    game.traits.coat = coat;
+    p.refresh(false, true);
+    this.puff(p.x, p.y, 14, coat === 1 ? 0x7fbf5a : 0x07080a);
+    this.sparkle.explode(8, p.x, p.y);
+    audio.sfx('evolve');
+    this.cameras.main.flash(260, coat === 1 ? 120 : 10, coat === 1 ? 180 : 10, coat === 1 ? 90 : 12);
+    bus.emit('story', coat === 1
+      ? 'Du kommst grün aus der Höhle. Im Gras sieht dich nun kaum noch jemand.'
+      : 'Du kommst schwarz aus der Höhle. In der Dunkelheit bist du kaum zu sehen.');
   }
 
   /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
@@ -548,6 +604,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Strömung: schiebt alles mit – je massiger, desto weniger. Riesen bleiben unbeeindruckt. */
   private flowStep(dt: number) {
+    const cv = this.cameras.main.worldView;
+    for (const f of this.caveFx) {
+      const on = f.c.x + f.c.w > cv.x - 200 && f.c.x < cv.right + 200;
+      if (on !== f.on) {
+        f.on = on;
+        if (on) f.pe.start();
+        else f.pe.stop();
+      }
+    }
     if (!this.flows.length) return;
     const v = this.cameras.main.worldView;
     for (const f of this.flows) {
@@ -648,32 +713,97 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc);
       this.caustics.push({ s, v, a });
     }
-    let x = 60 + Math.random() * 120;
-    while (x < L.width) {
-      const light = this.zoneAt(x).def.light;
-      const base = (0.12 + Math.random() * 0.26) * light;
-      // das Licht reicht nur ein Stück ins Wasser – darunter wird es dämmrig
-      const ray = this.add.image(x, L.surfaceY - 30, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack)
-        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.45 + Math.random() * 1.25, 0.48 + Math.random() * 0.3);
-      ray.setAngle(-16 + Math.random() * 12);
-      this.tweens.add({ targets: ray, angle: ray.angle + 3 + Math.random() * 5, alpha: base * (0.35 + Math.random() * 0.3), yoyo: true, repeat: -1, duration: 3000 + Math.random() * 4500, ease: 'Sine.inOut', delay: Math.random() * 2000 });
-      this.cullAdd(ray, x - 260, x + 160);
-      // ein Lichtfleck am Grund unter der Bahn
-      const reach = 560 * ray.scaleY;
-      if (Math.random() < 0.6) {
-        const gx = x - Math.tan((ray.angle * Math.PI) / 180) * reach * 0.8;
-        const col = clamp(Math.floor(gx / TILE), 0, L.ground.length - 1);
-        const gy = L.ground[col];
-        // Lichtflecken nur dort, wo das Licht noch bis zum Grund reicht (auf hohen Felsen)
-        if (gy < L.height && gy - L.surfaceY < reach) {
-          const spot = this.add.image(gx, gy - 6, 'glow').setDepth(DEPTH.decoBack + 1).setBlendMode(Phaser.BlendModes.ADD)
-            .setTint(0xbfe8e0).setScale(1 + Math.random() * 1.4, 0.3 + Math.random() * 0.12).setAlpha((0.07 + Math.random() * 0.1) * light);
-          this.tweens.add({ targets: spot, alpha: spot.alpha * 0.4, yoyo: true, repeat: -1, duration: 2500 + Math.random() * 3000, ease: 'Sine.inOut' });
-          this.cullAdd(spot, gx - 150, gx + 150);
+    // Licht fällt nur an einigen Stellen ins Wasser; dazwischen liegt Schatten (Felsen, dichte Pflanzendecke)
+    for (const lit of L.lit) {
+      let x = lit.x0 + 40 + Math.random() * 90;
+      while (x < lit.x1 - 30) {
+        const light = this.zoneAt(x).def.light;
+        const base = (0.12 + Math.random() * 0.26) * light;
+        // das Licht reicht nur ein Stück ins Wasser – darunter wird es dämmrig
+        const ray = this.add.image(x, L.surfaceY - 30, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack)
+          .setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.45 + Math.random() * 1.25, 0.48 + Math.random() * 0.3);
+        ray.setAngle(-16 + Math.random() * 12);
+        this.tweens.add({ targets: ray, angle: ray.angle + 3 + Math.random() * 5, alpha: base * (0.35 + Math.random() * 0.3), yoyo: true, repeat: -1, duration: 3000 + Math.random() * 4500, ease: 'Sine.inOut', delay: Math.random() * 2000 });
+        this.cullAdd(ray, x - 260, x + 160);
+        // ein Lichtfleck am Grund unter der Bahn
+        const reach = 560 * ray.scaleY;
+        if (Math.random() < 0.6) {
+          const gx = x - Math.tan((ray.angle * Math.PI) / 180) * reach * 0.8;
+          const col = clamp(Math.floor(gx / TILE), 0, L.ground.length - 1);
+          const gy = L.ground[col];
+          // Lichtflecken nur dort, wo das Licht noch bis zum Grund reicht (auf hohen Felsen)
+          if (gy < L.height && gy - L.surfaceY < reach) {
+            const spot = this.add.image(gx, gy - 6, 'glow').setDepth(DEPTH.decoBack + 1).setBlendMode(Phaser.BlendModes.ADD)
+              .setTint(0xbfe8e0).setScale(1 + Math.random() * 1.4, 0.3 + Math.random() * 0.12).setAlpha((0.07 + Math.random() * 0.1) * light);
+            this.tweens.add({ targets: spot, alpha: spot.alpha * 0.4, yoyo: true, repeat: -1, duration: 2500 + Math.random() * 3000, ease: 'Sine.inOut' });
+            this.cullAdd(spot, gx - 150, gx + 150);
+          }
         }
+        x += 110 + Math.random() * 380;
       }
-      x += 110 + Math.random() * 380;
+      // ein warmer Schein dort, wo die Sonne durchkommt
+      const pool = this.add.image((lit.x0 + lit.x1) / 2, L.surfaceY + 70, 'glow').setDisplaySize((lit.x1 - lit.x0) * 1.15, 340)
+        .setTint(0xcfeee0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.2).setDepth(DEPTH.fx + 1);
+      this.tweens.add({ targets: pool, alpha: 0.12, yoyo: true, repeat: -1, duration: 3800 + Math.random() * 2400, ease: 'Sine.inOut' });
+      this.cullAdd(pool, lit.x0 - 200, lit.x1 + 200);
+      // und ein Lichtschein darüber am Himmel
+      const sun = this.add.image((lit.x0 + lit.x1) / 2, L.surfaceY - 110, 'glow').setDisplaySize((lit.x1 - lit.x0) * 0.9, 260)
+        .setTint(0xd8f4e4).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setDepth(DEPTH.bg + 4);
+      this.cullAdd(sun, lit.x0 - 200, lit.x1 + 200);
     }
+    // Schatten dazwischen: oben dunkel, nach unten hin auslaufend, an den Rändern weich
+    const gaps: [number, number][] = [];
+    let gx0 = 0;
+    for (const lit of [...L.lit].sort((a, b) => a.x0 - b.x0)) {
+      if (lit.x0 - gx0 > 3 * TILE) gaps.push([gx0, lit.x0]);
+      gx0 = lit.x1;
+    }
+    if (L.width - gx0 > 3 * TILE) gaps.push([gx0, L.width]);
+    for (const [g0, g1] of gaps) {
+      const fade = 200;
+      const w = Math.round(g1 - g0 + 2 * fade);
+      const key = `shade_gap_${w}`;
+      if (!this.textures.exists(key)) {
+        const cw = Math.ceil(w / 2), ch = 260;
+        const ct = this.textures.createCanvas(key, cw, ch)!;
+        const ctx = ct.getContext();
+        const vg = ctx.createLinearGradient(0, 0, 0, ch);
+        vg.addColorStop(0, 'rgba(1,6,8,0.86)');
+        vg.addColorStop(0.5, 'rgba(1,6,8,0.46)');
+        vg.addColorStop(1, 'rgba(1,6,8,0)');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.globalCompositeOperation = 'destination-in';
+        const hg = ctx.createLinearGradient(0, 0, cw, 0);
+        const f = fade / w;
+        hg.addColorStop(0, 'rgba(0,0,0,0)');
+        hg.addColorStop(f, 'rgba(0,0,0,1)');
+        hg.addColorStop(1 - f, 'rgba(0,0,0,1)');
+        hg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = hg;
+        ctx.fillRect(0, 0, cw, ch);
+        ct.refresh();
+      }
+      const sh = this.add.image(g0 - fade, L.surfaceY - 2, key).setOrigin(0).setDisplaySize(w, 640).setDepth(DEPTH.decoFront + 0.2);
+      this.cullAdd(sh, g0 - fade, g1 + fade);
+    }
+  }
+
+  /** Der Himmel über dem Wasser (sichtbar, wo Felsen aus dem Meer ragen). */
+  private buildSky() {
+    const L = this.L;
+    if (!this.textures.exists('sky')) {
+      const ct = this.textures.createCanvas('sky', 8, 512)!;
+      const ctx = ct.getContext();
+      const g = ctx.createLinearGradient(0, 0, 0, 512);
+      g.addColorStop(0, '#091114');
+      g.addColorStop(0.55, '#1b3a3b');
+      g.addColorStop(1, '#4c7f78');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 8, 512);
+      ct.refresh();
+    }
+    this.add.image(0, L.surfaceY, 'sky').setOrigin(0, 1).setDisplaySize(L.width, 640).setDepth(DEPTH.bg + 3);
   }
 
   /** Je tiefer, desto dunkler: Unten am Meeresgrund kommt kaum noch Licht an. */
@@ -993,13 +1123,27 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.tweens.add({ targets: s, alpha: 0, delay: 30000, duration: 4000 });
   }
 
+  /** Der gestärkte erste Angriff ist verbraucht. */
+  private consumeAmbush() {
+    this.ambushUntil = 0;
+    this.primedUntil = 0;
+    this.stillT = 0;
+  }
+
+  /** In der Dunkelheit: tief unten, in einem Tunnel oder einer Spalte. */
+  private inDark() {
+    return this.player.inCave || this.deepK > 0.3 || this.L.variant !== 'normal';
+  }
+
   detectFactor(a: Animal) {
     const p = this.player;
     const t = game.traits;
+    const coat = t.coat | 0;
     let k = p.stats.detect;
     if (p.hidden && p.inCave) k *= 0.08;
-    else if (p.hidden) k *= 0.2 * (1 - 0.5 * t.green);
-    else if (p.inCover) k *= 0.5;
+    else if (p.hidden) k *= 0.16;
+    else if (coat === 2 && this.inDark()) k *= 0.5;
+    else if (coat === 2 && p.y < this.surfaceY + 420) k *= 1.2;
     else if (p.grounded) k *= 0.75 - 0.4 * t.sand;
     k *= 0.55 + 0.6 * Math.min(1, p.speed01);
     if (this.L.variant !== 'normal') k *= 0.7;
@@ -1213,7 +1357,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (hit) {
       this.fightAt = now;
-      this.ambushUntil = 0;
+      this.consumeAmbush();
       audio.sfx('crunch', game.traits.jaw);
       this.cameras.main.shake(70 + 60 * game.traits.jaw, 0.004 + 0.004 * game.traits.jaw);
       return;
@@ -1334,7 +1478,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
     if (sneak) {
       this.surprise(a);
-      this.ambushUntil = 0;
+      this.consumeAmbush();
     }
     // gegen etwas viel Größeres zu stoßen, tut weh (ein harter Schädel schützt)
     const back = Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
@@ -1759,18 +1903,48 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const pr = p.hitRect();
     const cx = p.x, cy = p.y;
 
-    // Dickicht: verstecken
+    // Verstecken: nur mit der passenden Farbe. Grün verschwindet im Gras (Dickicht), Schwarz in der Dunkelheit;
+    // Tunnel und Felsspalten sind für alle dunkel genug. Ohne Farbe sieht man dich im Gras.
+    const coat = game.traits.coat | 0;
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
-    p.inCave = L.caves.some((c) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h)
+    const tunnel = L.caves.findIndex((c) => cx > c.x && cx < c.x + c.w && cy > c.y && cy < c.y + c.h);
+    p.inCave = tunnel >= 0
       || L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10);
-    p.inCover = ci >= 0 || p.inCave;
-    p.hidden = p.inCover && p.speed01 < 0.55 && !p.sprinting;
+    const camo = (coat === 1 && ci >= 0) || (coat === 2 && this.inDark());
+    p.inCover = p.inCave || (coat === 1 && ci >= 0);
+    p.hidden = (p.inCave || camo) && p.speed01 < 0.55 && !p.sprinting;
     const b = p.body;
     p.grounded = !p.inCover && p.speed01 < 0.15 && (this.water ? this.solidAt(cx, b.bottom + 8) : b.blocked.down);
-    p.view.setShade(p.inCave ? 0x2a2a2a : p.hidden ? 0x4e4e4e : p.inCover ? 0x8a8a8a : null);
-    // Hinterhalt: versteckt oder gut getarnt am Boden – der erste Angriff von hier aus überrascht
-    p.ambush = p.hidden || (p.grounded && game.traits.sand > 0.15);
-    if (p.ambush) this.ambushUntil = time + 900;
+    p.view.setShade(p.inCave ? 0x2a2a2a : p.hidden ? 0x4e4e4e : null);
+    // Hinterhalt wie bei Teemo: Wer in seinem Versteck 1,5 Sekunden still hält, ist bereit – der nächste Angriff
+    // (auch gleich nach dem Hervorbrechen) trifft viel härter. Ohne passende Farbe gibt es keinen Überraschungsangriff.
+    const still = p.speed01 < 0.12 && !p.sprinting && !p.isRamming;
+    if (!(camo && still)) this.stillT = 0;
+    else if (!this.stillT) this.stillT = time;
+    if (this.stillT && time - this.stillT >= 1500) {
+      if (time > this.primedUntil) {
+        this.sparkle.explode(3, p.x, p.y - 6);
+        if (!this.primeNoted) {
+          this.primeNoted = true;
+          bus.emit('story', 'Niemand sieht dich. Dein nächster Angriff trifft aus dem Hinterhalt.');
+        }
+      }
+      this.primedUntil = time + 1500;
+    }
+    p.ambush = time < this.primedUntil;
+    if (p.ambush) this.ambushUntil = this.primedUntil;
+    if (p.hidden && p.speed01 < 0.2) this.train.hide += dt;
+    // Durch einen Tunnel schwimmen: Wer auf der anderen Seite herauskommt, trägt die Farbe der Höhle
+    if (tunnel !== this.curCave) {
+      if (tunnel >= 0) {
+        this.curCave = tunnel;
+        this.caveSide = cx < L.caves[tunnel].x + L.caves[tunnel].w / 2 ? -1 : 1;
+      } else {
+        const c = L.caves[this.curCave];
+        this.curCave = -1;
+        if (c && (cx < c.x + c.w / 2 ? -1 : 1) !== this.caveSide) this.paintCoat(c.coat);
+      }
+    }
     // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
     // Oben im Licht wird man heller, unten in der Tiefe (bzw. im Schatten) dunkler
     if (this.water) {
@@ -1801,6 +1975,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Wer oft verletzt wird, bekommt eine wehrhaftere Rückenflosse bzw. einen höheren Kamm
     if (p.lastHurt !== this.hurtSeen) {
       this.hurtSeen = p.lastHurt;
+      this.train.hurt += 1;
       game.shiftBody('crest', 0.025);
     }
     // Bodenkontakt: Wer sich am Grund abstützt und dort entlangläuft, bekommt kräftige Stützflossen
@@ -1813,8 +1988,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.train.ground += dt * 0.1;
     }
     if (p.hidden && ci >= 0) {
-      // zwischen den Pflanzen: grüner, mit wendigen Flossen und einer flachen Rückenflosse
-      game.grow('green', 0.009 * dt);
+      // zwischen den Pflanzen: wendige Flossen und eine flache Rückenflosse
       game.shiftBody('fin', 0.002 * dt);
       game.shiftBody('crest', -0.0015 * dt);
     }
@@ -2031,9 +2205,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const repeat = !!bossEv && !this.bossBeaten;
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
-    // Fünf Nachkommen zur Wahl – je mehr gefressen wurde, desto verschiedener
-    const fed = (this.eatenMeat + this.eatenPlant) / Math.max(1, this.needUnits);
-    const offspring = game.offspring(fed, { meat: this.eatenMeat, plant: this.eatenPlant });
+    // Der Spielstil dieses Zeitalters entscheidet, wohin sich die Linie entwickelt – eine Wahl gibt es nicht
+    const next = game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, {
+      ram: this.train.ram, hunt: this.train.hunt, swim: this.train.swim, ground: this.train.ground, hide: this.train.hide ?? 0, hurt: this.train.hurt ?? 0,
+    }, !repeat);
     const data: SurvivedData = {
       epoch: this.epochIdx,
       before: game.startTraits(),
@@ -2046,8 +2221,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     };
     const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
     const eaten = { meat: this.kcal(this.eatenMeat), plant: this.kcal(this.eatenPlant), need: this.kcal(this.needUnits) };
-    const res = game.surviveEpoch(kin.length, social, offspring[0], repeat);
-    data.offspring = res.finished ? undefined : offspring;
+    const res = game.surviveEpoch(kin.length, social, next, repeat);
+    data.line = next.line;
     data.eaten = eaten;
     data.repeat = repeat;
     data.boss = bossEv ? SPECIES[bossEv.species!]?.name : undefined;

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { type Ctx, ell, tex, vgrad } from '../util/canvas';
 import { mulberry32, type Rng } from '../util/math';
+import { STAT_COUNT } from '../data/tablet';
 
 // Grafiken der Steintafel: eine gebrochene Steinplatte mit Rissen und Runen, Moos in flachen,
 // weichen Formen, die Fische der Wertung und die Muschel. Alles bewusst schlicht – wenige Farben,
@@ -15,7 +16,7 @@ export function tabletLayout(w: number, h: number, mini: boolean) {
   const top = mini ? h * 0.15 : h * 0.275;
   const bottom = mini ? h * 0.93 : h * 0.915;
   const padX = mini ? w * 0.07 : w * 0.105;
-  return { top, bottom, padX, rowH: (bottom - top) / 14 };
+  return { top, bottom, padX, rowH: (bottom - top) / STAT_COUNT };
 }
 
 // ---------------------------------------------------------------- Farben
