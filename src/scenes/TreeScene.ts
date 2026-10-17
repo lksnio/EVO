@@ -117,6 +117,25 @@ export class TreeScene extends Phaser.Scene {
     const b1 = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 608, 'Neues Leben', { w: 290, h: 54, icon: 'ic_play', color: UI.ochreN, onClick: () => this.newLife() });
     const b2 = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 670, 'Titelbild', { w: 290, h: 46, size: 19, icon: 'ic_home', onClick: () => fadeTo(this, 'Title') });
     this.nav = new MenuNav(this, [b1, b2], 1, () => fadeTo(this, 'Title'));
+    // Stammbaum zurücksetzen – mit Rückfrage (zweiter Klick innerhalb weniger Sekunden)
+    let armed = 0;
+    const reset: Button = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 48, 'Stammbaum zurücksetzen', {
+      w: 290, h: 40, size: 16, onClick: () => {
+        if (this.time.now - armed < 4000) {
+          game.resetAll();
+          this.scene.restart({ mode: 'view' });
+          return;
+        }
+        armed = this.time.now;
+        reset.setLabel('Wirklich alles löschen?');
+        reset.setColor(UI.bloodN);
+        this.time.delayedCall(4000, () => {
+          if (!reset.active || this.time.now - armed < 3900) return;
+          reset.setLabel('Stammbaum zurücksetzen');
+          reset.setColor(UI.stone);
+        });
+      },
+    });
 
     // Auswahl per Maus/Finger
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {

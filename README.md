@@ -82,8 +82,7 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   reißt, von dem bleibt meist etwas übrig …
 - **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
   Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
-  riesiger Fisch vorbeizieht – so nah und groß, dass man nie ganz sieht, wer es ist. Dann geht es
-  weiter, als wäre nichts gewesen.
+  riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
 - **Tiere ihrer Zeit:** Im Urmeer leben u. a. *Sacabambaspis*, *Birkenia*, *Cephalaspis* und der
   Panzerfisch *Bothriolepis*; kein Tier gleicht dem anderen ganz – manche sind etwas größer,
   andere etwas kleiner.
@@ -131,6 +130,8 @@ Linien, die sich gleichen, teilen sich einen Ast; wo sie sich unterscheiden, ver
 Ausgestorbene Zweige enden mit einem Schädel (mit Zeitpunkt und Ursache), gut angepasste Linien
 reichen weiter – vielleicht bis heute. Der Baum ist vorher nicht festgelegt, er entsteht nur
 durch das Spielen.
+Oben rechts im Stammbaum lässt er sich zurücksetzen (zweimal klicken – das löscht alle Äste und das
+laufende Spiel).
 
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>

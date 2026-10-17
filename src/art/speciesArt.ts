@@ -1270,27 +1270,6 @@ function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes) {
 export const speciesKey = (id: string, f: number) => `sp_${id}_${f}`;
 
 /** Erzeugt beide Bewegungsphasen einer Art und die Animation dazu. */
-/**
- * Ein Tier in hoher Auflösung (für Großaufnahmen wie den Schatten in der Tiefe): beide Bewegungsbilder,
- * scale-fach so fein gezeichnet. Gibt die Schlüssel der beiden Texturen zurück.
- */
-export function speciesPortrait(scene: Phaser.Scene, def: SpeciesDef, scale: number): [string, string] {
-  const keys: [string, string] = [`portrait_${def.id}_0`, `portrait_${def.id}_1`];
-  if (scene.textures.exists(keys[0])) return keys;
-  const W = 900 * scale, H = 760 * scale;
-  const E = eyesFor(def.role);
-  const cs = [0, 1].map((f) => {
-    const [c, ctx] = newCanvas(W, H, true);
-    ctx.translate(W / 2, H / 2);
-    ctx.scale(scale, scale);
-    drawArt(ctx, def.art, f, E);
-    return c;
-  });
-  const t = trimCanvases(cs);
-  t.canvases.forEach((c, f) => scene.textures.addCanvas(keys[f], c));
-  return keys;
-}
-
 export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   if (scene.textures.exists(speciesKey(def.id, 0))) return;
   const big = !!def.boss;

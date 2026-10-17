@@ -41,5 +41,6 @@ export const UI = {
   panelEdge: 0x6a5638,
   stone: 0x2a2622,
   ochreN: 0x8a5a24,
+  bloodN: 0x7a2420,
   moss: 0x3e4a2a,
 };
