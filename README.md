@@ -82,7 +82,8 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   reißt, von dem bleibt meist etwas übrig …
 - **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
   Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
-  riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
+  riesiger Fisch vorbeizieht – so nah und groß, dass man nie ganz sieht, wer es ist. Dann geht es
+  weiter, als wäre nichts gewesen.
 - **Tiere ihrer Zeit:** Im Urmeer leben u. a. *Sacabambaspis*, *Birkenia*, *Cephalaspis* und der
   Panzerfisch *Bothriolepis*; kein Tier gleicht dem anderen ganz – manche sind etwas größer,
   andere etwas kleiner.
@@ -142,7 +143,7 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | liegt oft still am Boden oder in Höhlen | sandig braun-graue Farben |
 | wählt als Nachwuchs den Längeren, Massigeren oder Flinkeren | längeren Körper (schneller), mehr Masse (mehr Lebenskraft, stärkerer Stoß, langsamer) bzw. größere Flossen und mehr Tempo |
 | stößt oft (Taste R) | einen härteren Schädel und einen kräftigeren Stoß |
-| … und erlegt damit Tiere | einen **Panzerkopf**: Knochenplatten, stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
+| … und erlegt damit Tiere | einen **Panzerkopf**: Der Kopf selbst wird größer und fester (es wächst nichts dazu), stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
 | beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen); an Land kräftigere Beine |
 | kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier**: Artgenossen helfen öfter (und wollen mitfressen) |

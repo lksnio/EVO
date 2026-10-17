@@ -6,7 +6,7 @@ import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
-import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
+import { makeSpeciesTextures, speciesPortrait } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
 import { Player } from '../objects/Player';
@@ -157,7 +157,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private shareNoted = false;
   private tiredNoted = false;
   /** Kino-Moment (läuft in echter Zeit, das Spiel derweil in Zeitlupe) */
-  private cine?: { t: number; img: Phaser.GameObjects.Image; dir: number; y: number; rumbled: boolean; released: boolean };
+  private cine?: { t: number; img: Phaser.GameObjects.Image; keys: [string, string]; dir: number; y: number; rumbled: boolean; released: boolean };
   private cineWanted = false;
   /** Zeitlupe: 1 = normal */
   private slow = 1;
@@ -1498,12 +1498,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (this.animals.some((a) => !a.dead && a.target === p && Math.hypot(a.x - p.x, a.y - p.y) < 800)) return;
     this.cineWanted = false;
+    // der Herrscher des Urmeers – so nah und groß, dass man ihn nie ganz sieht: Wer mag das sein?
     const big = SPECIES.dunkleosteus;
-    makeSpeciesTextures(this, big);
+    const keys = speciesPortrait(this, big, 2.4);
     const dir = Math.random() < 0.5 ? 1 : -1;
-    const img = this.add.image(0, 0, speciesKey(big.id, 0)).setScrollFactor(0).setDepth(DEPTH.bg + 1.5)
-      .setTint(0x08161a).setAlpha(0).setScale(3.4).setFlipX(dir < 0);
-    this.cine = { t: 0, img, dir, y: H * (0.34 + Math.random() * 0.12), rumbled: false, released: false };
+    const img = this.add.image(0, 0, keys[0]).setScrollFactor(0).setDepth(DEPTH.bg + 1.5)
+      .setTint(0x7a96a0).setAlpha(0).setFlipX(dir < 0);
+    // etwa doppelt so lang wie das Bild breit ist, der Rücken ragt oben aus dem Bild
+    img.setScale((W * 1.4) / img.width);
+    this.cine = { t: 0, img, keys, dir, y: H * (0.12 + Math.random() * 0.1), rumbled: false, released: false };
     p.shielded = true;
     bus.emit('cine', true);
     audio.musicLevel(0.25, 1.8);
@@ -1524,13 +1527,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.physics.world.timeScale = 1 / this.slow;
     this.tweens.timeScale = this.slow;
     this.anims.globalTimeScale = this.slow;
-    this.cameras.main.setZoom(Z * (1 + 0.32 * k));
+    this.cameras.main.setZoom(Z * (1 + 0.8 * k));
     // der Riese zieht weit hinten durchs Bild (vor dem fernen Hintergrund, hinter allem anderen)
     const u = clamp((c.t - IN * 0.5) / PASS, 0, 1);
-    const x0 = c.dir > 0 ? VX - 800 : VX + VW + 800, x1 = c.dir > 0 ? VX + VW + 800 : VX - 800;
-    c.img.setPosition(x0 + (x1 - x0) * ease(u * 0.9 + 0.05), c.y + Math.sin(u * Math.PI * 2) * 24);
-    c.img.setAlpha(0.72 * Math.min(1, u * 6, (1 - u) * 6));
-    c.img.setScale(3.4, 3.4 * (1 + 0.025 * Math.sin(c.t / 320)));
+    const half = c.img.displayWidth / 2;
+    const x0 = c.dir > 0 ? -half - 60 : W + half + 60, x1 = c.dir > 0 ? W + half + 60 : -half - 60;
+    c.img.setPosition(x0 + (x1 - x0) * u, c.y + Math.sin(u * Math.PI * 2) * 20);
+    c.img.setAlpha(0.88 * Math.min(1, u * 8, (1 - u) * 8));
+    // Schwanzschlag: zwischen den beiden Bewegungsbildern wechseln
+    c.img.setTexture(c.keys[Math.floor(c.t / 520) % 2]);
     c.img.setAngle(Math.sin(c.t / 1100) * 2.5);
     if (!c.rumbled && u > 0.12) {
       c.rumbled = true;
@@ -1548,7 +1553,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   private endCine() {
-    this.cine?.img.destroy();
+    if (this.cine) {
+      this.cine.img.destroy();
+      for (const k of this.cine.keys) if (this.textures.exists(k)) this.textures.remove(k);
+    }
     this.cine = undefined;
     this.slow = 1;
     this.physics.world.timeScale = 1;

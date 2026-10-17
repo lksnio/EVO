@@ -169,11 +169,13 @@ function geo(m: Morph): Geo {
   const bellyK = [0.9, 1, 1.08][m.belly] + (m.diet < 0 ? -m.diet * 0.05 : 0) + 0.1 * (m.girth ?? 0);
   const s = m.size;
   const lg = 1 + 0.22 * (m.limb ?? 0), lt = 1 + 0.35 * (m.limb ?? 0);
+  // ein harter (gepanzerter) Kopf wird im Verhältnis zum Körper größer
+  const hk = 1 + 0.28 * sk + 0.14 * Math.max(0, -(m.spike ?? 0)) * sk;
   switch (m.cls) {
     case 'fish': {
       const bw = 60 * (1 + 0.06 * st) * lk, bh = 28 * slim;
       const bb = bh * bellyK;
-      const H = bh * 0.95 + 1, L = 20 + 9 * jaw;
+      const H = (bh * 0.95 + 1) * hk, L = (20 + 9 * jaw) * hk;
       return {
         s, bw, bh,
         pts: [[bw * 0.38, -bh * 0.42], [bw * 0.12, -bh * 0.56], [-bw * 0.2, -bh * 0.45], [-bw * 0.44, -bh * 0.17], [-bw * 0.52, -bh * 0.1],
@@ -184,7 +186,7 @@ function geo(m: Morph): Geo {
     }
     case 'amphibian': {
       const bw = 70 * lk, bh = 22 * slim, bb = bh * bellyK;
-      const H = 17 + 1.5 * sk, L = 26 + 10 * jaw;
+      const H = (17 + 1.5 * sk) * hk, L = (26 + 10 * jaw) * hk;
       return {
         s, bw, bh,
         pts: [[bw * 0.44, -bh * 0.3], [bw * 0.16, -bh * 0.52], [-bw * 0.22, -bh * 0.48], [-bw * 0.48, -bh * 0.2], [-bw * 0.5, bh * 0.14],
@@ -196,7 +198,7 @@ function geo(m: Morph): Geo {
     }
     case 'reptile': {
       const bw = 74 * lk, bh = 27 * slim, bb = bh * bellyK;
-      const H = 18 + 2.5 * sk, L = 30 + 14 * jaw;
+      const H = (18 + 2.5 * sk) * hk, L = (30 + 14 * jaw) * hk;
       return {
         s, bw, bh,
         pts: [[bw * 0.44, -bh * 0.36], [bw * 0.18, -bh * 0.55], [-bw * 0.12, -bh * 0.5], [-bw * 0.4, -bh * 0.36], [-bw * 0.5, -bh * 0.08],
@@ -208,7 +210,7 @@ function geo(m: Morph): Geo {
     }
     case 'mammal': {
       const bw = 74 * lk, bh = 33 * slim, bb = bh * bellyK;
-      const H = 22 + 2.5 * sk, L = 26 + 12 * jaw;
+      const H = (22 + 2.5 * sk) * hk, L = (26 + 12 * jaw) * hk;
       return {
         s, bw, bh,
         pts: [[bw * 0.42, -bh * 0.42], [bw * 0.22, -bh * 0.56], [-bw * 0.08, -bh * 0.48], [-bw * 0.36, -bh * 0.5], [-bw * 0.5, -bh * 0.24],
@@ -567,33 +569,8 @@ function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
       // Knochige Struktur, wächst mit "skull"
       if (sk > 0.05) {
         const a = Math.min(1, sk * 1.3);
-        if (m.cls === 'fish') {
-          // Panzerplatten wie bei Panzerfischen
-          const bone = mix(P.base, 0xa49a82, 0.6);
-          c.beginPath();
-          c.moveTo(-10, top - hg.dome - 2);
-          c.lineTo(L * 0.78, mouthY - hg.snoutH - 2);
-          c.lineTo(L * 0.62, mouthY - 1);
-          c.lineTo(L * 0.2, H * 0.1);
-          c.lineTo(-10, H * 0.2);
-          c.closePath();
-          c.fillStyle = css(bone, 0.15 + 0.7 * a);
-          c.fill();
-          c.strokeStyle = css(P.dark, 0.5 * a);
-          c.lineWidth = 0.9;
-          for (const [x0, y0, x1, y1] of [[L * 0.25, top, L * 0.2, H * 0.1], [-2, top * 0.2, L * 0.6, top * 0.1], [L * 0.5, top * 0.8, L * 0.45, mouthY - 1]]) {
-            c.beginPath();
-            c.moveTo(x0, y0);
-            c.lineTo(x1, y1);
-            c.stroke();
-          }
-          for (let i = 0; i < 10; i++) {
-            ell(c, r() * L * 0.7, top * 0.8 + r() * H * 0.5, 0.7, 0.7);
-            c.fillStyle = css(P.dark, 0.4 * a);
-            c.fill();
-          }
-        } else {
-          // Grübchen und Leisten auf dem Schädeldach
+        {
+          // Grübchen und Leisten: Der Schädel wird fester – ohne dass etwas dazuwächst
           for (let i = 0; i < 26; i++) {
             const x = -4 + r() * L * 0.75, y = top - hg.dome * 0.5 + r() * H * 0.45;
             ell(c, x, y, 0.7 + r() * 0.8, 0.6 + r() * 0.7);
@@ -685,64 +662,12 @@ function boneFill(ctx: Ctx, y0: number, y1: number) {
   ctx.stroke();
 }
 
-/** Panzerkopf: Knochenplatten mit Nähten und Höckern über Stirn und Schnauze. */
-function drawPlates(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo, k: number) {
-  const { L, H, mouthY, snoutH, dome } = hg;
-  const top = -H / 2;
-  const r = mulberry32(m.seed + 91);
-  const x0 = -7, x1 = L * (0.62 + 0.1 * k);
-  const yTop = top - dome - 2 - 4 * k;
-  ctx.beginPath();
-  ctx.moveTo(x0, top * 0.35);
-  ctx.quadraticCurveTo(x0 - 2, yTop + 2, L * 0.22, yTop);
-  ctx.quadraticCurveTo(L * 0.5, yTop + 1, x1, mouthY - snoutH - 1);
-  ctx.quadraticCurveTo(L * 0.45, top * 0.25, x0, top * 0.35);
-  ctx.closePath();
-  const g = ctx.createLinearGradient(0, yTop, 0, top * 0.35);
-  g.addColorStop(0, css(mix(P.base, 0xc8bca0, 0.55)));
-  g.addColorStop(1, css(mix(P.base, 0x5a5040, 0.5)));
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.strokeStyle = css(P.dark, 0.9);
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
-  // Nähte zwischen den Platten
-  ctx.save();
-  ctx.clip();
-  ctx.strokeStyle = css(P.dark, 0.55);
-  ctx.lineWidth = 1;
-  for (const t of [0.3, 0.58]) {
-    ctx.beginPath();
-    ctx.moveTo(x0 + (x1 - x0) * t, yTop - 4);
-    ctx.quadraticCurveTo(x0 + (x1 - x0) * (t + 0.05), top * 0.1, x0 + (x1 - x0) * (t - 0.04), top * 0.45);
-    ctx.stroke();
-  }
-  // Höcker
-  for (let i = 0; i < 6 + Math.round(10 * k); i++) {
-    const x = x0 + r() * (x1 - x0) * 0.9, y = yTop + 2 + r() * (top * 0.3 - yTop);
-    ell(ctx, x, y, 0.9 + r() * 1.3 * (0.6 + k), 0.8 + r() * 1.1 * (0.6 + k));
-    ctx.fillStyle = r() > 0.5 ? 'rgba(230,220,196,.35)' : css(P.dark, 0.35);
-    ctx.fill();
-  }
-  ctx.restore();
-  // Glanzlicht oben
-  ctx.beginPath();
-  ctx.moveTo(L * 0.05, yTop + 2.5);
-  ctx.quadraticCurveTo(L * 0.25, yTop + 0.5, L * 0.42, yTop + 3);
-  ctx.strokeStyle = 'rgba(255,245,220,.35)';
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-}
-
 /** Knochenwuchs am Kopf. Alles wächst stufenlos mit dem Merkmal "skull". */
 function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   const sp = m.spike ?? 0;
-  // Wer oft rammt und damit Tiere erlegt, dessen Kopf wird zum Panzer (früher: auch Stachelköpfe)
-  if (m.skull > 0.08 && Math.abs(sp) > 0.15) {
-    const k = Math.min(1, m.skull * 1.2) * Math.min(1, Math.abs(sp) * 1.6);
-    drawPlates(ctx, m, P, hg, k);
-    return;
-  }
+  // Ein harter Kopf wird größer und fester (siehe Kopfmaße) – Fische bekommen keinen Aufsatz
+  if (m.cls === 'fish') return;
+  void sp;
   const sk = m.skull;
   const { L, H, mouthY, snoutH, dome } = hg;
   const top = -H / 2;
@@ -758,19 +683,6 @@ function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
     boneFill(ctx, ty, by);
   };
   switch (m.cls) {
-    case 'fish': {
-      // dicker Knochenkamm auf der Stirn
-      const a = grow(0.45);
-      if (a > 0) {
-        ctx.beginPath();
-        ctx.moveTo(-4, top * 0.9 - dome);
-        ctx.quadraticCurveTo(L * 0.3, top - dome - 3 * a, L * 0.7, mouthY - snoutH - 1);
-        ctx.lineWidth = 2 + 3 * a;
-        ctx.strokeStyle = css(mix(P.base, 0xb8ac90, 0.7), 0.9);
-        ctx.stroke();
-      }
-      break;
-    }
     case 'amphibian': {
       const k = grow(0.3);
       if (k > 0) {
