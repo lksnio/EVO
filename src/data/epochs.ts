@@ -103,7 +103,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
-    from: 470 * M, to: 458 * M, seconds: 100, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5, caves: 2,
+    from: 470 * M, to: 458 * M, seconds: 200, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5, caves: 2,
     fauna: [['kieferlos', 3], ['sacabambaspis', 2], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1], ['megalograptus', 0.6]],
     events: [
       { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
@@ -114,7 +114,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
-    from: 438 * M, to: 427 * M, seconds: 110, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95, caves: 1,
+    from: 438 * M, to: 427 * M, seconds: 220, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95, caves: 1,
     fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
@@ -126,7 +126,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
-    from: 382 * M, to: 372 * M, seconds: 120, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55, caves: 2,
+    from: 382 * M, to: 372 * M, seconds: 240, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55, caves: 2,
     fauna: [['kieferlos', 2], ['bothriolepis', 2], ['cephalaspis', 1], ['trilobit', 2], ['orthoceras', 2], ['seeskorpion', 1], ['cladoselache', 1], ['hyneria', 0.5]],
     events: [
       { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
@@ -137,7 +137,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'karbon', name: 'Karbon', place: 'Kohlesumpf', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
     desc: 'Riesige Farne und schwarzes Wasser. Die Luft ist schwer und feucht.',
-    from: 318 * M, to: 304 * M, seconds: 120, music: 'sumpf', hazardDmg: 7, len: 90, plants: 0.85, cover: 0.6,
+    from: 318 * M, to: 304 * M, seconds: 240, music: 'sumpf', hazardDmg: 7, len: 90, plants: 0.85, cover: 0.6,
     fauna: [['kleinlurch', 3], ['tausendfuessler', 2], ['libelle', 2], ['skorpion', 1]],
     events: [
       { at: 0.4, kind: 'predator', species: 'meganeura', line: 'Ein tiefes Summen erfüllt die Luft.' },
@@ -147,7 +147,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'perm', name: 'Perm', place: 'Trockene Senke', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
     desc: 'Die Sümpfe trocknen aus. Wasser und Futter werden knapp.',
-    from: 280 * M, to: 262 * M, seconds: 120, music: 'sumpf', hazardDmg: 8, len: 95, plants: 0.45, cover: 0.45,
+    from: 280 * M, to: 262 * M, seconds: 240, music: 'sumpf', hazardDmg: 8, len: 95, plants: 0.45, cover: 0.45,
     fauna: [['kleinlurch', 2], ['tausendfuessler', 2], ['skorpion', 2], ['eryops', 1]],
     events: [
       { at: 0.28, kind: 'storm', dur: 20, line: 'Heiße Winde treiben Staub über das Land.' },
@@ -159,7 +159,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'trias', name: 'Trias', place: 'Farnsteppe', theme: 'reptil', cls: 'reptile', habitat: 'land',
     desc: 'Nach dem großen Sterben erobern die Echsen das Land.',
-    from: 228 * M, to: 214 * M, seconds: 120, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.8, cover: 0.55,
+    from: 228 * M, to: 214 * M, seconds: 240, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.8, cover: 0.55,
     fauna: [['kleinechse', 3], ['ornithopode', 2], ['raptor', 1]],
     events: [
       { at: 0.35, kind: 'predator', species: 'flugsaurier', count: 3, line: 'Schatten kreisen über der Steppe.' },
@@ -169,7 +169,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'jura', name: 'Jura', place: 'Urwald', theme: 'reptil', cls: 'reptile', habitat: 'land',
     desc: 'Dichtes Grün, dumpfe Schritte in der Ferne.',
-    from: 158 * M, to: 147 * M, seconds: 125, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.75, cover: 0.9,
+    from: 158 * M, to: 147 * M, seconds: 250, music: 'reptil', hazardDmg: 10, len: 95, plants: 0.75, cover: 0.9,
     fauna: [['ornithopode', 2], ['kleinechse', 2], ['ankylosaurus', 1], ['raptor', 1]],
     events: [
       { at: 0.4, kind: 'predator', species: 'raptor', count: 3, line: 'Ein Rudel bricht durch das Unterholz.' },
@@ -179,7 +179,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'kreide', name: 'Kreide', place: 'Vulkanhänge', theme: 'reptil', cls: 'reptile', habitat: 'land',
     desc: 'Die Erde ist heiß. Asche fällt wie Schnee.',
-    from: 69 * M, to: 66 * M, seconds: 130, music: 'reptil', hazardDmg: 12, len: 100, plants: 0.5, cover: 0.55,
+    from: 69 * M, to: 66 * M, seconds: 260, music: 'reptil', hazardDmg: 12, len: 100, plants: 0.5, cover: 0.55,
     fauna: [['ornithopode', 2], ['kleinechse', 2], ['ankylosaurus', 1], ['flugsaurier', 1]],
     events: [
       { at: 0.28, kind: 'quake', dur: 5, line: 'Der Boden zittert in regelmäßigen Abständen.' },
@@ -191,7 +191,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'palaeogen', name: 'Paläogen', place: 'Dämmerwald', theme: 'eden', cls: 'mammal', habitat: 'land',
     desc: 'Die großen Echsen sind fort. Im Dämmerlicht wagen sich neue Tiere hervor.',
-    from: 52 * M, to: 42 * M, seconds: 125, music: 'eden', hazardDmg: 14, len: 95, plants: 0.85, cover: 0.7,
+    from: 52 * M, to: 42 * M, seconds: 250, music: 'eden', hazardDmg: 14, len: 95, plants: 0.85, cover: 0.7,
     fauna: [['urpferd', 3], ['riesenfaultier', 1], ['hyaenodon', 1]],
     events: [
       { at: 0.45, kind: 'predator', species: 'andrewsarchus', line: 'Etwas Uraltes wandert durch den Wald.' },
@@ -200,7 +200,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'neogen', name: 'Neogen', place: 'Grasland', theme: 'eden', cls: 'mammal', habitat: 'land',
     desc: 'Weites, hohes Gras. Wer rennen kann, ist im Vorteil.',
-    from: 12 * M, to: 5 * M, seconds: 125, music: 'eden', hazardDmg: 14, len: 100, plants: 0.75, cover: 0.5,
+    from: 12 * M, to: 5 * M, seconds: 250, music: 'eden', hazardDmg: 14, len: 100, plants: 0.75, cover: 0.5,
     fauna: [['urpferd', 3], ['terrorvogel', 1], ['hyaenodon', 1], ['riesenfaultier', 1]],
     events: [
       { at: 0.35, kind: 'predator', species: 'terrorvogel', count: 2, line: 'Terrorvögel jagen durch das hohe Gras.' },
@@ -210,7 +210,7 @@ export const EPOCHS: EpochDef[] = [
   {
     id: 'quartaer', name: 'Quartär', place: 'Gefrorene Tundra', theme: 'eis', cls: 'mammal', habitat: 'land',
     desc: 'Die Eiszeit. Wer nicht frisst, erfriert.',
-    from: 400e3, to: 12e3, seconds: 140, music: 'eis', hazardDmg: 16, len: 100, plants: 0.5, cover: 0.55,
+    from: 400e3, to: 12e3, seconds: 280, music: 'eis', hazardDmg: 16, len: 100, plants: 0.5, cover: 0.55,
     fauna: [['schneehase', 3], ['riesenhirsch', 2], ['mammut', 1], ['eiswolf', 1], ['hoehlenbaer', 1]],
     events: [
       { at: 0.22, kind: 'storm', dur: 22, line: 'Ein Schneesturm zieht auf.' },

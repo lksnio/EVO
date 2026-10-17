@@ -60,7 +60,10 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   Meeresgrund (bzw. am Boden) und dösen. Kleine Tiere fliehen früh und verstecken sich im Dickicht,
   in Höhlen und Felsspalten, bis die Gefahr vorbei ist.
 - **Hunger:** Der Magen startet etwa halb voll und leert sich ständig – auch in Ruhe spürbar, beim
-  Schwimmen bzw. Laufen deutlich schneller (am Grund entlangzulaufen spart Kraft). Fressen füllt ihn
+  Schwimmen bzw. Laufen deutlich schneller (am Grund entlangzulaufen spart Kraft). Je leerer er ist,
+  desto langsamer sinkt er – ganz leer wird er nie, verhungern kann man also nicht. Aber wer sehr
+  hungrig ist, wird schwächer (Biss und Stoß), langsamer und hält bei Angriffen viel weniger aus:
+  Verstecken hilft zu überleben, satt wird man davon nicht. Fressen füllt ihn
   wieder auf, aber nie über das Maximum. Wie viel hineinpasst, hängt von der Größe ab: Große Tiere
   richten mehr Schaden an, verbrauchen aber auch mehr. Ein Happen bringt wenig – jeder zeigt kurz,
   was er gebracht hat: **rot** für Fleisch, **grün** für Pflanzen (eine Pflanze „+1“, ein kleiner

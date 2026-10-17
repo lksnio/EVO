@@ -1164,7 +1164,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const held = a === this.lastBitten && now - this.lastBiteAt < 1300 && a.def.power < st.power * 1.1 && a.role !== 'hazard';
       this.lastBitten = a;
       this.lastBiteAt = now;
-      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1), p, 'bite');
+      // ausgehungert beißt man schwächer
+      a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
       game.grow('jaw', held ? 0.008 : 0.004);
@@ -1290,7 +1291,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = this.time.now;
     const plates = Math.max(0, -t.spike) * t.skull;
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
-    const dealt = st.ram * 0.5 * sf;
+    const dealt = st.ram * 0.5 * sf * (0.5 + 0.5 * p.hungerK);
     const small = a.def.power <= st.power * 3;
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
     if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
@@ -1837,15 +1838,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Hunger: ohne Nahrung geht es bergab, satt heilt der Körper (Kälte zehrt mehr)
     const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
     // Am Grund entlangzulaufen kostet weniger Kraft als zu schwimmen
-    const rate = hungerRate(p.stats.size, p.speed01) * cold * (p.bottomWalk ? 0.55 : 1);
-    p.satiety = Math.max(0, p.satiety - rate * dt);
-    if (p.satiety <= 0) {
-      p.hp -= p.stats.maxHp * 0.012 * dt;
-      if (p.hp <= 0) {
-        p.hp = 0;
-        p.hurt(999, p.x, this.L.theme === 'eis' ? 'Verhungert und erfroren' : 'Verhungert');
-      }
-    } else if (p.satiety > p.maxSat * 0.4 && time - p.lastHurt > 3000) {
+    // Je leerer der Magen, desto langsamer sinkt er (der Körper spart) – ganz leer wird er nie.
+    // Wer sich versteckt und still hält, kann so lange durchhalten; geschwächt ist man trotzdem.
+    const fill = p.satiety / Math.max(1, p.maxSat);
+    const rate = hungerRate(p.stats.size, p.speed01) * cold * (p.bottomWalk ? 0.55 : 1) * Math.min(1, fill / 0.5);
+    p.satiety = Math.max(0.01, p.satiety - rate * dt);
+    if (p.satiety > p.maxSat * 0.4 && time - p.lastHurt > 3000) {
       p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.01 * dt);
     }
     if (p.satiety < p.maxSat * 0.18 && time > this.growlAt) {

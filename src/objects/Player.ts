@@ -84,6 +84,11 @@ export class Player {
     return this.rect.body as Body;
   }
 
+  /** 1 = bei Kräften … 0 = ausgehungert (unter einem Drittel des Magens wird man schwächer) */
+  get hungerK() {
+    return clamp(this.satiety / Math.max(1, this.maxSat) / 0.33, 0, 1);
+  }
+
   get x() {
     return this.rect.x;
   }
@@ -177,7 +182,8 @@ export class Player {
     this.stamina = clamp(this.stamina + (this.sprinting ? -dt / 2.2 : dt / 4.5), 0, 1);
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
-    const starving = this.satiety <= 0 ? 0.85 : 1;
+    // ausgehungert: langsamer
+    const starving = 0.65 + 0.35 * this.hungerK;
     const boosted = time < this.boostUntil;
     if (boosted) this.stamina = Math.min(1, this.stamina + dt * 0.6);
     const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving * (boosted ? 1.25 : 1);
@@ -300,7 +306,8 @@ export class Player {
   hurt(dmg: number, fromX: number, by?: string) {
     if (this.dead || this.invulnerable || this.shielded) return;
     if (by) this.lastCause = by;
-    const d = Math.max(1, dmg * this.stats.defense);
+    // ausgehungert hält man weniger aus
+    const d = Math.max(1, dmg * this.stats.defense * (1 + 0.7 * (1 - this.hungerK)));
     this.hp = Math.max(0, this.hp - d);
     const now = this.host.time.now;
     this.lastHurt = now;

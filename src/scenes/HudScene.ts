@@ -24,7 +24,7 @@ const HINTS: Record<string, [string, string]> = {
 };
 
 const TIPS: Record<string, string> = {
-  ordovizium: 'Überlebe, bis das Zeitalter endet – und verhungere nicht. Links und rechts warten andere Gewässer.',
+  ordovizium: 'Überlebe, bis das Zeitalter endet – und bleib bei Kräften. Links und rechts warten andere Gewässer.',
   karbon: 'Das Land ist fremd. Bleib wachsam.',
 };
 
