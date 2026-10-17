@@ -60,6 +60,8 @@ export class Player {
   ambush = false;
   /** stützt sich am Grund ab und läuft dort entlang (im Wasser) */
   bottomWalk = false;
+  /** während eines Kino-Moments: nichts kann einem etwas tun */
+  shielded = false;
   private boostUntil = 0;
   /** kurzer Vorstoß beim Beißen */
   private lungeUntil = 0;
@@ -296,7 +298,7 @@ export class Player {
   }
 
   hurt(dmg: number, fromX: number, by?: string) {
-    if (this.dead || this.invulnerable) return;
+    if (this.dead || this.invulnerable || this.shielded) return;
     if (by) this.lastCause = by;
     const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);

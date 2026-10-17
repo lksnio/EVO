@@ -186,7 +186,16 @@ export class HudScene extends Phaser.Scene {
     bus.on('story', onStory);
     bus.on('apex', onApex);
     bus.on('ramUnlocked', onRam);
+    // Kino-Moment: schwarze Balken oben und unten
+    const barH = 64;
+    const bars = [this.add.rectangle(0, -barH, W, barH, 0x000000, 1).setOrigin(0).setDepth(50), this.add.rectangle(0, H, W, barH, 0x000000, 1).setOrigin(0).setDepth(50)];
+    const onCine = (on: boolean) => {
+      this.tweens.add({ targets: bars[0], y: on ? 0 : -barH, duration: 900, ease: 'Sine.inOut' });
+      this.tweens.add({ targets: bars[1], y: on ? H - barH : H, duration: 900, ease: 'Sine.inOut' });
+    };
+    bus.on('cine', onCine);
     this.events.once('shutdown', () => {
+      bus.off('cine', onCine);
       bus.off('vitals', onVitals);
       bus.off('clock', onClock);
       bus.off('story', onStory);

@@ -6,7 +6,7 @@ import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { caveShade, coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
-import { makeSpeciesTextures } from '../art/speciesArt';
+import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
 import { Player } from '../objects/Player';
@@ -156,6 +156,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private toxNoted = false;
   private shareNoted = false;
   private tiredNoted = false;
+  /** Kino-Moment (läuft in echter Zeit, das Spiel derweil in Zeitlupe) */
+  private cine?: { t: number; img: Phaser.GameObjects.Image; dir: number; y: number; rumbled: boolean; released: boolean };
+  private cineWanted = false;
+  /** Zeitlupe: 1 = normal */
+  private slow = 1;
   private hurtSeen = -1e9;
   private grudgeNoted = false;
   /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
@@ -226,6 +231,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.toxNoted = false;
     this.shareNoted = false;
     this.tiredNoted = false;
+    this.cine = undefined;
+    this.cineWanted = false;
+    this.slow = 1;
     this.hurtSeen = -1e9;
     this.grudgeNoted = false;
     this.train = { hunt: 0, ground: 0, ram: 0, swim: 0 };
@@ -348,6 +356,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     this.scene.launch('Hud', { epoch: this.epochIdx });
     audio.music(ep.music);
+    // im Wasser rauscht leise das Meer; Zeitlupe aus einem abgebrochenen Kino-Moment zurücksetzen
+    audio.musicLevel(1, 0.3);
+    audio.sea(this.water ? 0.08 : 0, 2);
+    this.physics.world.timeScale = 1;
+    this.tweens.timeScale = 1;
+    this.anims.globalTimeScale = 1;
+    this.events.once('shutdown', () => {
+      audio.sea(0, 0.8);
+      audio.musicLevel(1, 0.5);
+      this.anims.globalTimeScale = 1;
+    });
 
     if (DEBUG) {
       this.dbg = this.add.text(VX + 12, VY + VH - 160, '', { fontFamily: 'monospace', fontSize: '13px', color: '#9f9', backgroundColor: 'rgba(0,0,0,.6)' })
@@ -1299,11 +1318,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- Ablauf
 
   update(time: number, delta: number) {
-    const dt = Math.min(0.05, delta / 1000);
+    const p = this.player;
+    // Kino-Moment: läuft in echter Zeit, alles andere in Zeitlupe
+    if (this.cineWanted && !this.cine && !this.ended && !p.dead) this.tryCine();
+    if (this.cine) this.cineStep(delta);
+    const dt = Math.min(0.05, delta / 1000) * this.slow;
     this.t += dt;
     const L = this.L;
-    const p = this.player;
-    if (!this.ended) this.controls.update();
+    if (!this.ended && !(this.cine && !this.cine.released)) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
     for (const a of [...this.animals]) {
@@ -1449,6 +1471,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.cameras.main.shake((ev.dur ?? 6) * 1000, 0.004);
         audio.sfx('rumble');
         break;
+      case 'leviathan':
+        this.cineWanted = true;
+        break;
       case 'meteor':
         this.meteorUntil = now + (ev.dur ?? 20) * 1000;
         this.cameras.main.flash(900, 255, 160, 80);
@@ -1458,6 +1483,79 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.tweens.add({ targets: this.skyFire, fillAlpha: 0.22, duration: 6000 });
         break;
     }
+  }
+
+  /**
+   * Kino-Moment: Das Spiel wird langsamer, die Kamera rückt an dein Tier heran, die Musik wird leise und
+   * das Meer laut – du hältst inne. Im Hintergrund zieht ein riesiger Schatten vorbei. Dann geht es weiter.
+   * Er beginnt erst, wenn dich gerade niemand jagt (sonst etwas später – oder gar nicht).
+   */
+  private tryCine() {
+    const p = this.player;
+    if (this.elapsed / this.ep.seconds > 0.55) {
+      this.cineWanted = false;
+      return;
+    }
+    if (this.animals.some((a) => !a.dead && a.target === p && Math.hypot(a.x - p.x, a.y - p.y) < 800)) return;
+    this.cineWanted = false;
+    const big = SPECIES.dunkleosteus;
+    makeSpeciesTextures(this, big);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const img = this.add.image(0, 0, speciesKey(big.id, 0)).setScrollFactor(0).setDepth(DEPTH.bg + 1.5)
+      .setTint(0x08161a).setAlpha(0).setScale(3.4).setFlipX(dir < 0);
+    this.cine = { t: 0, img, dir, y: H * (0.34 + Math.random() * 0.12), rumbled: false, released: false };
+    p.shielded = true;
+    bus.emit('cine', true);
+    audio.musicLevel(0.25, 1.8);
+    audio.sea(0.6, 2);
+    // die kleinen Fische ringsum suchen das Weite
+    for (const a of this.animals) {
+      if (!a.dead && !a.kin && a.role === 'prey' && Math.hypot(a.x - p.x, a.y - p.y) < 900) a.panic({ x: p.x - dir * 900, y: p.y });
+    }
+  }
+
+  private cineStep(delta: number) {
+    const c = this.cine!;
+    c.t += delta;
+    const IN = 1700, PASS = 7600, OUT = 1700;
+    const ease = (x: number) => 0.5 - 0.5 * Math.cos(Math.PI * clamp(x, 0, 1));
+    const k = c.t < IN ? ease(c.t / IN) : c.t < IN + PASS ? 1 : 1 - ease((c.t - IN - PASS) / OUT);
+    this.slow = 1 - 0.68 * k;
+    this.physics.world.timeScale = 1 / this.slow;
+    this.tweens.timeScale = this.slow;
+    this.anims.globalTimeScale = this.slow;
+    this.cameras.main.setZoom(Z * (1 + 0.32 * k));
+    // der Riese zieht weit hinten durchs Bild (vor dem fernen Hintergrund, hinter allem anderen)
+    const u = clamp((c.t - IN * 0.5) / PASS, 0, 1);
+    const x0 = c.dir > 0 ? VX - 800 : VX + VW + 800, x1 = c.dir > 0 ? VX + VW + 800 : VX - 800;
+    c.img.setPosition(x0 + (x1 - x0) * ease(u * 0.9 + 0.05), c.y + Math.sin(u * Math.PI * 2) * 24);
+    c.img.setAlpha(0.72 * Math.min(1, u * 6, (1 - u) * 6));
+    c.img.setScale(3.4, 3.4 * (1 + 0.025 * Math.sin(c.t / 320)));
+    c.img.setAngle(Math.sin(c.t / 1100) * 2.5);
+    if (!c.rumbled && u > 0.12) {
+      c.rumbled = true;
+      audio.sfx('rumble');
+    }
+    if (!c.released && c.t >= IN + PASS) {
+      c.released = true;
+      this.player.shielded = false;
+      bus.emit('cine', false);
+      audio.musicLevel(1, 2);
+      audio.sea(this.water ? 0.08 : 0, 2.5);
+      bus.emit('story', 'Ein gewaltiger Schatten in der Tiefe … Was dort unten lebt, wird größer werden.');
+    }
+    if (c.t >= IN + PASS + OUT) this.endCine();
+  }
+
+  private endCine() {
+    this.cine?.img.destroy();
+    this.cine = undefined;
+    this.slow = 1;
+    this.physics.world.timeScale = 1;
+    this.tweens.timeScale = 1;
+    this.anims.globalTimeScale = 1;
+    this.cameras.main.setZoom(Z);
+    this.player.shielded = false;
   }
 
   /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */

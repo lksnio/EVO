@@ -9,7 +9,8 @@ import type { ClassId } from './classes';
 
 export type Theme = 'ozean' | 'sumpf' | 'reptil' | 'eis' | 'eden';
 
-export type EventKind = 'predator' | 'bloom' | 'storm' | 'quake' | 'meteor' | 'boss';
+/** leviathan: Kino-Moment – Zeitlupe, die Kamera rückt heran, ein riesiger Schatten zieht durch die Tiefe */
+export type EventKind = 'predator' | 'bloom' | 'storm' | 'quake' | 'meteor' | 'boss' | 'leviathan';
 
 export interface EventDef {
   /** Zeitpunkt im Zeitalter: 0 = Beginn, 1 = Ende */
@@ -117,6 +118,7 @@ export const EPOCHS: EpochDef[] = [
     fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
+      { at: 0.22, kind: 'leviathan' },
       { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3, line: 'Seeskorpione jagen im Rudel durch den Tang.' },
       { at: 0.68, kind: 'storm', dur: 18, line: 'Ein Sturm wühlt den Grund auf. Das Wasser wird trüb.' },
     ],

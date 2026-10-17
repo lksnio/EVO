@@ -237,6 +237,7 @@ class Sequencer {
 export class AudioEngine {
   ctx: AudioContext | null = null;
   musicBus: GainNode | null = null;
+  private seaGain: GainNode | null = null;
   private sfxBus: GainNode | null = null;
   private master: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
@@ -352,6 +353,62 @@ export class AudioEngine {
     g.connect(o.dest ?? this.sfxBus!);
     src.start(t0, Math.random() * 0.5);
     src.stop(t0 + o.d + 0.05);
+  }
+
+  /** Musik leiser bzw. wieder lauter drehen (1 = normal), weich über sec Sekunden. */
+  musicLevel(v: number, sec = 1) {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicBus) return;
+    this.musicBus.gain.setTargetAtTime(0.75 * v, ctx.currentTime, Math.max(0.05, sec / 3));
+  }
+
+  /**
+   * Meeresrauschen: tiefes Rauschen, das langsam an- und abschwillt, dazu leise Wellenkämme.
+   * level 0 = aus; weich über sec Sekunden.
+   */
+  sea(level: number, sec = 1) {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    if (!this.seaGain) {
+      if (level <= 0) return;
+      const g = (this.seaGain = ctx.createGain());
+      g.gain.value = 0.0001;
+      g.connect(this.master);
+      // eigenes, längeres Rauschen – damit man keine Wiederholung hört
+      const len = ctx.sampleRate * 4;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        last = last * 0.6 + (Math.random() * 2 - 1) * 0.4;
+        d[i] = last;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const wave = (type: BiquadFilterType, f: number, q: number, base: number, rate: number, depth: number) => {
+        const flt = ctx.createBiquadFilter();
+        flt.type = type;
+        flt.frequency.value = f;
+        flt.Q.value = q;
+        const amp = ctx.createGain();
+        amp.gain.value = base;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = rate;
+        const lg = ctx.createGain();
+        lg.gain.value = depth;
+        lfo.connect(lg);
+        lg.connect(amp.gain);
+        src.connect(flt);
+        flt.connect(amp);
+        amp.connect(g);
+        lfo.start();
+      };
+      wave('lowpass', 380, 0.7, 0.9, 0.11, 0.55);
+      wave('bandpass', 1300, 0.6, 0.16, 0.07, 0.14);
+      src.start();
+    }
+    this.seaGain.gain.setTargetAtTime(Math.max(0.0001, level), ctx.currentTime, Math.max(0.05, sec / 3));
   }
 
   /** Ein Geräusch. k: Stärke (z. B. wie kräftig das Gebiss ist), 0..1 */

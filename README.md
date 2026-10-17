@@ -80,6 +80,9 @@ Es gibt keine Punkte. Es geht **nur ums Überleben – egal wie**. Nur am Ende j
   es grollt, das Herz klopft, und die kleinen Fische fliehen: Zeit, sich zu verstecken. Selten
   streifen auch große Jäger wie *Megalograptus*, *Cladoselache* oder *Hyneria* umher. Wen ein Riese
   reißt, von dem bleibt meist etwas übrig …
+- **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
+  Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
+  riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
 - **Tiere ihrer Zeit:** Im Urmeer leben u. a. *Sacabambaspis*, *Birkenia*, *Cephalaspis* und der
   Panzerfisch *Bothriolepis*; kein Tier gleicht dem anderen ganz – manche sind etwas größer,
   andere etwas kleiner.
