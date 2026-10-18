@@ -31,11 +31,13 @@ interface Layer {
   schools: number;
 }
 
-// Die Tiefe liegt zwischen den Hintergrundbildern: hinter den fernen Hügeln, zwischen Hügeln und Nebel, vor dem Nebel.
+// Zwei Tiefenstufen zwischen den Hintergrundbildern: hinter den fernen Hügeln (die wandern mit 0,08 und 0,28 mit der Kamera)
+// und zwischen Hügeln und Nebel. Die Schichten wandern daher etwas stärker mit als die Hügel hinter ihnen (nie so stark wie das
+// Spielfeld): Wer nach links schwimmt, sieht sie nach rechts davonziehen – und ein Fisch, der selbst nach rechts schwimmt, ist
+// entsprechend schneller weg. Die Eigengeschwindigkeit ist der Bruchteil f der echten Schwimmgeschwindigkeit (Perspektive).
 const LAYERS: Layer[] = [
-  { f: 0.08, depth: DEPTH.bg + 0.5, tint: 0x4a7488, alpha: 0.7, scale: [0.72, 0.92], speed: [9, 20], schools: 11 },
-  { f: 0.2, depth: DEPTH.bg + 1.3, tint: 0x5e8aa0, alpha: 0.72, scale: [0.88, 1.08], speed: [14, 28], schools: 8 },
-  { f: 0.4, depth: DEPTH.bg + 1.8, tint: 0x7aa4b4, alpha: 0.72, scale: [1.0, 1.2], speed: [20, 40], schools: 5 },
+  { f: 0.2, depth: DEPTH.bg + 0.5, tint: 0x243f4e, alpha: 0.6, scale: [0.7, 0.9], speed: [9, 20], schools: 12 },
+  { f: 0.42, depth: DEPTH.bg + 1.3, tint: 0x2f5266, alpha: 0.62, scale: [0.86, 1.06], speed: [19, 42], schools: 9 },
 ];
 
 /** wie dicht es in den Orten wimmelt */
@@ -71,6 +73,8 @@ export class BackSea {
   private lastY = 0;
   private t = 0;
   private bigAt = 0;
+  /** wie schnell sich die Kamera gerade bewegt (geglättet, Pixel pro Sekunde) – bestimmt, von wo neue Gruppen hereinschwimmen */
+  private camV = 0;
   private enabled = true;
 
   constructor(
@@ -167,16 +171,18 @@ export class BackSea {
     const speed = layer.speed[0] + Math.random() * (layer.speed[1] - layer.speed[0]);
     const b = this.band();
     // Beim Aufbau überall im Bild, später von einer Seite außerhalb hereinschwimmend
-    const side = Math.random() < 0.5 ? -1 : 1;
+    // Bewegt sich die Kamera, rutscht der Hintergrund zur Gegenseite: Von dort her kommen die neuen Gruppen ins Bild
+    const side = Math.abs(this.camV) > 40 ? (this.camV > 0 ? 1 : -1) : Math.random() < 0.5 ? -1 : 1;
     const x = anywhere ? v.x + Math.random() * v.w : side < 0 ? v.x - half - 60 - Math.random() * 260 : v.x + v.w + half + 60 + Math.random() * 260;
-    const dir = anywhere ? (Math.random() < 0.5 ? 1 : -1) : -side;
+    // jede Gruppe schwimmt für sich: bei ruhiger Kamera ins Bild hinein, sonst in eine beliebige Richtung
+    const dir = anywhere || Math.abs(this.camV) > 40 ? (Math.random() < 0.5 ? 1 : -1) : -side;
     const y = b.top + (b.bottom - b.top) * (big ? 0.12 + Math.random() * 0.6 : Math.random() * 0.92);
     const members: Member[] = [];
     const old2 = old?.members ?? [];
     for (let i = 0; i < n; i++) {
       let img = old2[i]?.img;
       if (!img) img = this.scene.add.image(0, 0, speciesKey(def.id, 0)).setScrollFactor(0);
-      img.setTexture(speciesKey(def.id, 0)).setDepth(layer.depth).setTint(layer.tint).setAlpha(layer.alpha).setScale(sc * bigK * (0.86 + Math.random() * 0.28));
+      img.setTexture(speciesKey(def.id, 0)).setDepth(layer.depth).setTint(big ? 0x4a7a90 : layer.tint).setAlpha(layer.alpha).setScale(sc * bigK * (0.86 + Math.random() * 0.28));
       members.push({ img, ox: (Math.random() - 0.5) * 2 * spread, oy: (Math.random() - 0.5) * (spread * 0.6 + 10), ph: Math.random() * 6, fr: 0 });
     }
     // überzählige Bilder einer Gruppe, die vorher größer war
@@ -194,6 +200,7 @@ export class BackSea {
     const dx = clamp(cam.scrollX - this.lastX, -300, 300), dy = clamp(cam.scrollY - this.lastY, -300, 300);
     this.lastX = cam.scrollX;
     this.lastY = cam.scrollY;
+    this.camV += (dx / Math.max(0.001, dt) - this.camV) * Math.min(1, dt * 4);
     this.t += dt;
     const v = this.view;
     const b = this.band();
@@ -204,7 +211,7 @@ export class BackSea {
     this.bigAt -= dt * 1000;
     if (this.bigAt <= 0 && this.bigPool.length) {
       this.bigAt = 22000 + Math.random() * 30000;
-      if (!this.schools.some((s) => s.big)) this.spawn(Math.random() < 0.65 ? 0 : 1, false, true);
+      if (!this.schools.some((s) => s.big)) this.spawn(Math.random() < 0.6 ? 0 : 1, false, true);
     }
 
     for (const s of [...this.schools]) {

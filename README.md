@@ -84,11 +84,13 @@ zuerst wird das Fischreich ausgebaut.
     **erscheint dort zum ersten Mal**. Du kommst am Gegenstück des Durchgangs im neuen Ort heraus. Die Karte
     zeigt **nur, was du schon entdeckt hast**; der Rest bleibt im Dunkeln. Jeder Weg kostet etwas Zeit. Das Meer
     ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
-- **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **drei Tiefenstufen** Schwärme und gelegentlich ein **ganz
-  großer Fisch** durchs Wasser. Je weiter hinten, desto kleiner, dunkler, durchsichtiger und langsamer – und sie wandern mit
-  der Kamera nur wenig mit (Parallaxe). Sie liegen hinter Gelände, Pflanzen und allen echten Tieren und sind **nur
-  Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten ziehen, hängt vom
-  Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
+- **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
+  großer Fisch** durchs Wasser – als **dunkle Schattenrisse**, deutlich anders als die hellen, echten Tiere. Jede Gruppe
+  schwimmt in ihre **eigene Richtung**, und die Schichten wandern mit der Kamera mit (Parallaxe: weiter hinten weniger),
+  **rechnerisch stimmig**: Wer nach links schwimmt, sieht den Hintergrund nach rechts davonziehen – ein Fisch, der selbst
+  nach rechts schwimmt, ist entsprechend schneller aus dem Bild. Sie liegen hinter Gelände, Pflanzen und allen echten
+  Tieren und sind **nur Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten
+  ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
 - **Wachsen in Stufen – und nach deinem Spielstil:** Gebiss, Schädel, Wuchs und Reißzähne wachsen in
   einem Zeitalter nur **bis zu einem Deckel**, dann ist Schluss – ein Zeitalter bringt eine Stufe.
   Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du
