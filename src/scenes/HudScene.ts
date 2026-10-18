@@ -111,7 +111,7 @@ export class HudScene extends Phaser.Scene {
     this.zoneText = text(this, 22, 18, this.placeName, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
 
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.togglePause() }).setAlpha(0.75);
-    // Die Steintafel: Hunger und Zeit stehen nur dort. Leuchtet, wenn sie etwas Neues zeigt.
+    // Die Steintafel: Dort steht der Hunger. Leuchtet, wenn sie etwas Neues zeigt.
     this.tabletGlow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0);
     new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleTablet() }).setAlpha(0.75);
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
@@ -147,9 +147,12 @@ export class HudScene extends Phaser.Scene {
       this.hidden = hidden;
     };
     const onClock = (years: number, prog: number, step: number) => {
-      this.clockText.setText(yearsAgo(years, step));
-      this.fuseProg = prog;
-      this.drawFuse();
+      const t = yearsAgo(years, step);
+      if (t !== this.clockText.text) this.clockText.setText(t);
+      if (Math.abs(prog - this.fuseProg) > 0.0015) {
+        this.fuseProg = prog;
+        this.drawFuse();
+      }
     };
     const onStory = (line: string) => this.story(line);
     const onApex = (name: string) => this.announce(name);

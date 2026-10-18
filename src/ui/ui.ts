@@ -56,7 +56,7 @@ export const CONTROL_ROWS: [string, string][] = [
   ['R', 'Stoß – betäubt kurz, kostet Kraft'],
   ['Leertaste', 'Auftauchen'],
   ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
-  ['C', 'Steintafel mit Hunger und Zeit'],
+  ['C', 'Steintafel mit Werten und Hunger'],
   ['Esc  oder  P', 'Rast (Pause)'],
   ['M', 'Ton an/aus'],
 ];

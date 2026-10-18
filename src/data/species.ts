@@ -33,6 +33,10 @@ export type Art =
       snout?: number;
       /** Fleischflosser: fleischige Flossenstiele, zwei Rückenflossen, spitz auslaufender Schwanz (Eusthenopteron) */
       lobed?: boolean;
+      /** aalartig: lang, dünn, durchgehender Flossensaum (Jamoytius, Conodont) */
+      eel?: boolean;
+      /** Hai mit "Amboss" auf dem Rücken (Stethacanthus) */
+      anvil?: boolean;
     }
   | { t: 'jelly'; r: number; c: number }
   | { t: 'trilo'; len: number; c: number }
@@ -116,6 +120,76 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     // Eusthenopteron (Devon): kräftiger Fleischflosser – ein großer Räuber und ein Vorgriff auf die späteren Landwirbeltiere
     S({ id: 'eusthenopteron', name: 'Eusthenopteron', art: { t: 'fish', len: 150, h: 36, c: 0x56603c, belly: 0xb9b27c, fin: 0x6a5230, teeth: true, lobed: true, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 90, dmg: 14, power: 19, speed: 112, sense: 330, meat: 7, roam: true, hit: [0.8, 0.6],
       where: { start: 0.7, lush: 0.3, murky: 0.6, deep: 1.3, abyss: 1.5 } }),
+    // ---------------------------------------------------------------- Ordovizium: erste Wirbeltiere und ihre Nachbarn
+    // Arandaspis: schlanker, gepanzerter Kieferloser aus dem Mittelwasser
+    S({ id: 'arandaspis', name: 'Arandaspis', art: { t: 'fish', len: 42, h: 12, c: 0x5c6a62, belly: 0xb4bca8, fin: 0x3e4a44, jawless: true, armor: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.7, speed: 84, sense: 220, meat: 2, herd: [2, 4], sprint: 1.55,
+      layer: 'mid', where: { start: 1.1, lush: 1.2, murky: 1, deep: 0.3, abyss: 0 } }),
+    // Astraspis: gedrungen, mit gehöckertem Panzer – grast dicht am Grund
+    S({ id: 'astraspis', name: 'Astraspis', art: { t: 'fish', len: 30, h: 17, c: 0x54606e, belly: 0xa6aeb0, fin: 0x38424e, jawless: true, armor: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 7, dmg: 0, power: 1.5, speed: 70, sense: 200, meat: 2, herd: [2, 5], sprint: 1.5,
+      layer: 'floor', where: { start: 1, lush: 1.4, murky: 1.3, deep: 0.25, abyss: 0 } }),
+    // Eriptychius: größer, rostbrauner Panzer
+    S({ id: 'eriptychius', name: 'Eriptychius', art: { t: 'fish', len: 48, h: 15, c: 0x8a5e46, belly: 0xc8aa88, fin: 0x5e3e2e, jawless: true, armor: true, spots: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 10, dmg: 0, power: 2, speed: 60, sense: 190, meat: 2, herd: [1, 3], sprint: 1.4,
+      layer: 'floor', where: { start: 0.9, lush: 1.1, murky: 1.5, deep: 0.3, abyss: 0 } }),
+    // Conodont: aalartiges Räubertier mit großen Augen und Zahnreihen – jagt die kleinsten Fische
+    S({ id: 'conodont', name: 'Conodont', art: { t: 'fish', len: 56, h: 7, c: 0x7a7060, belly: 0xc0b6a0, fin: 0x4e463a, eel: true, teeth: true, stripes: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 12, dmg: 2, power: 3, speed: 135, sense: 280, meat: 2, herd: [1, 2], sprint: 1.4, hit: [0.8, 0.6],
+      layer: 'open', where: { start: 1, lush: 0.7, murky: 1.3, deep: 1.2, abyss: 0.4 } }),
+    S({ id: 'isotelus', name: 'Isotelus', art: { t: 'trilo', len: 58, c: 0x6a5a46 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 14, dmg: 0, power: 2.4, speed: 30, sense: 120, meat: 3, herd: [1, 2], crawl: true, sprint: 1.3,
+      where: { start: 1, lush: 1, murky: 1.4, deep: 0.5, abyss: 0.1 } }),
+    // ---------------------------------------------------------------- Silur: Panzer, Stacheln und die ersten Kiefer
+    // Pteraspis: Panzerkopf mit langem Schnabel
+    S({ id: 'pteraspis', name: 'Pteraspis', art: { t: 'fish', len: 40, h: 14, c: 0x62705a, belly: 0xb4bc98, fin: 0x424e3c, jawless: true, armor: true, snout: 0.3 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.9, speed: 88, sense: 220, meat: 2, herd: [2, 4], sprint: 1.55,
+      layer: 'open', where: { start: 1.1, lush: 1.3, murky: 1, deep: 0.35, abyss: 0 } }),
+    // Thelodus: winziger, beschuppter Schwarmfisch
+    S({ id: 'thelodus', name: 'Thelodus', art: { t: 'fish', len: 26, h: 9, c: 0x8c5e48, belly: 0xd0b498, fin: 0x5e3c2e, jawless: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.1, speed: 120, sense: 240, meat: 1, herd: [4, 7], sprint: 1.85,
+      layer: 'mid', where: { start: 1.3, lush: 1.2, murky: 1, deep: 0.2, abyss: 0 } }),
+    // Jamoytius: ein langer, aalartiger Kieferloser, der sich durch das Mittelwasser schlängelt
+    S({ id: 'jamoytius', name: 'Jamoytius', art: { t: 'fish', len: 64, h: 8, c: 0x6a7456, belly: 0xb8c0a0, fin: 0x484e3a, jawless: true, eel: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.3, speed: 100, sense: 230, meat: 2, herd: [2, 3], sprint: 1.6,
+      layer: 'mid', where: { start: 1, lush: 1, murky: 1.4, deep: 0.5, abyss: 0.1 } }),
+    // Lasanius: hochrückig, rötlich, ein flinker Schwarmfisch
+    S({ id: 'lasanius', name: 'Lasanius', art: { t: 'fish', len: 30, h: 14, c: 0x9a6a50, belly: 0xe0c8a4, fin: 0x6a4434, jawless: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.2, speed: 115, sense: 240, meat: 1, herd: [3, 6], sprint: 1.85,
+      layer: 'open', where: { start: 1.2, lush: 1.3, murky: 0.9, deep: 0.2, abyss: 0 } }),
+    // Climatius: kleiner Stachelhai mit Stachelreihen an Bauch und Rücken – friedlich, aber wehrhaft
+    S({ id: 'climatius', name: 'Climatius', art: { t: 'fish', len: 36, h: 12, c: 0x5a7a6e, belly: 0xc0d0b8, fin: 0x3e5a50, spiny: true, stripes: true }, role: 'defender', diet: 'plant', habitat: 'water', hp: 18, dmg: 3, power: 4, speed: 100, sense: 230, meat: 3, herd: [1, 3],
+      layer: 'mid', where: { start: 0.8, lush: 1.4, murky: 1.2, deep: 0.5, abyss: 0 } }),
+    // Entelognathus: einer der ersten Kieferfische – ein gepanzerter Jäger mit Knochenklingen
+    S({ id: 'entelognathus', name: 'Entelognathus', art: { t: 'fish', len: 66, h: 19, c: 0x6a6a50, belly: 0xb0aa86, fin: 0x484834, armor: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 28, dmg: 5, power: 7, speed: 118, sense: 280, meat: 3, hit: [0.8, 0.6],
+      layer: 'floor', where: { start: 0.5, lush: 0.4, murky: 1.4, deep: 1.3, abyss: 0.8 } }),
+    S({ id: 'dalmanites', name: 'Dalmanites', art: { t: 'trilo', len: 42, c: 0x4e5e58 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.4, speed: 34, sense: 120, meat: 2, herd: [1, 3], crawl: true, sprint: 1.4,
+      where: { start: 1, lush: 1.2, murky: 1.2, deep: 0.5, abyss: 0.1 } }),
+    // ---------------------------------------------------------------- Devon: das Zeitalter der Fische
+    // Coccosteus: mittelgroßer Panzerfisch mit scherenartigem Maul
+    S({ id: 'coccosteus', name: 'Coccosteus', art: { t: 'fish', len: 58, h: 20, c: 0x5c6a4c, belly: 0xb4b490, fin: 0x3e4a34, armor: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 32, dmg: 6, power: 8.5, speed: 125, sense: 280, meat: 4, hit: [0.8, 0.6],
+      layer: 'mid', where: { start: 0.7, lush: 0.6, murky: 1.2, deep: 1.3, abyss: 0.6 } }),
+    // Pterichthyodes: ein "Flügelfisch" mit Ruderarmen – gepanzert und wehrhaft
+    S({ id: 'pterichthyodes', name: 'Pterichthyodes', art: { t: 'fish', len: 34, h: 17, c: 0x7a6a50, belly: 0xc4b48e, fin: 0x54482f, armor: true, arms: true }, role: 'defender', diet: 'plant', habitat: 'water', hp: 18, dmg: 3, power: 4, speed: 58, sense: 200, meat: 3, herd: [1, 3],
+      layer: 'floor', where: { start: 1, lush: 1.4, murky: 1.3, deep: 0.3, abyss: 0 } }),
+    // Dipterus: ein Lungenfisch mit fleischigen Flossen – wühlt am Boden
+    S({ id: 'dipterus', name: 'Dipterus', art: { t: 'fish', len: 46, h: 13, c: 0x7c7a4c, belly: 0xc6c294, fin: 0x504e30, lobed: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 2, speed: 72, sense: 220, meat: 3, herd: [2, 3], sprint: 1.5,
+      layer: 'floor', where: { start: 1, lush: 1.5, murky: 1.4, deep: 0.3, abyss: 0 } }),
+    // Osteolepis: ein kleiner Fleischflosser und flinker Räuber der mittleren Schichten
+    S({ id: 'osteolepis', name: 'Osteolepis', art: { t: 'fish', len: 56, h: 15, c: 0x5a7052, belly: 0xb8c49a, fin: 0x3e5238, lobed: true, spots: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 20, dmg: 4, power: 5, speed: 122, sense: 270, meat: 3, hit: [0.8, 0.6],
+      layer: 'mid', where: { start: 0.8, lush: 0.9, murky: 1.2, deep: 0.8, abyss: 0.3 } }),
+    // Cheirolepis: schlanker, schneller Strahlenflosser – jagt im offenen Wasser
+    S({ id: 'cheirolepis', name: 'Cheirolepis', art: { t: 'fish', len: 64, h: 14, c: 0x8c7a3c, belly: 0xe0d09a, fin: 0x5e4e22, teeth: true, stripes: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 24, dmg: 5, power: 6.5, speed: 160, sense: 300, meat: 3, roam: true, sprint: 1.5, hit: [0.8, 0.6],
+      layer: 'open', where: { start: 1, lush: 0.5, murky: 0.8, deep: 1.3, abyss: 0.6 } }),
+    // Moythomasia: kleiner, glänzender Schwarmfisch
+    S({ id: 'moythomasia', name: 'Moythomasia', art: { t: 'fish', len: 26, h: 8, c: 0x9c8a52, belly: 0xe8dcaa, fin: 0x6a5c30, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 1, speed: 135, sense: 250, meat: 1, herd: [5, 9], sprint: 1.9,
+      layer: 'open', where: { start: 1.3, lush: 1.2, murky: 1, deep: 0.2, abyss: 0 } }),
+    // Stethacanthus: ein Hai mit einem "Amboss" auf dem Rücken
+    S({ id: 'stethacanthus', name: 'Stethacanthus', art: { t: 'fish', len: 88, h: 20, c: 0x3e4a54, belly: 0xb4bcc0, fin: 0x2a343c, shark: true, anvil: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 40, dmg: 7, power: 10, speed: 150, sense: 340, meat: 5, roam: true, sprint: 1.45, hit: [0.8, 0.6],
+      layer: 'open', where: { start: 0.7, lush: 0.3, murky: 0.6, deep: 1.4, abyss: 1 } }),
+    // Tiktaalik: ein Flachwasserjäger mit Gliedmaßen – ein Schritt Richtung Land
+    S({ id: 'tiktaalik', name: 'Tiktaalik', art: { t: 'fish', len: 172, h: 34, c: 0x6a6a3c, belly: 0xbab27a, fin: 0x4e4a2a, lobed: true, spots: true, teeth: true, snout: 0.12 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 100, dmg: 12, power: 17, speed: 96, sense: 320, meat: 7, hit: [0.8, 0.6],
+      layer: 'floor', where: { start: 0.6, lush: 1.4, murky: 1.6, deep: 0.2, abyss: 0 } }),
+    // Drepanaspis: ein flacher Kieferloser mit Maul nach vorn – siebt den Boden
+    S({ id: 'drepanaspis', name: 'Drepanaspis', art: { t: 'fish', len: 40, h: 13, c: 0x7a7860, belly: 0xbebaa0, fin: 0x54523f, jawless: true, armor: true, eyesFront: true, spots: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.8, speed: 60, sense: 190, meat: 2, herd: [2, 4], sprint: 1.45,
+      layer: 'floor', where: { start: 1, lush: 1.3, murky: 1.5, deep: 0.3, abyss: 0 } }),
+    // Holoptychius: ein mächtiger Fleischflosser der Tiefe
+    S({ id: 'holoptychius', name: 'Holoptychius', art: { t: 'fish', len: 124, h: 32, c: 0x6a4e34, belly: 0xc0a478, fin: 0x483422, lobed: true, spots: true, stripes: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 70, dmg: 10, power: 15, speed: 108, sense: 320, meat: 6, roam: true, hit: [0.8, 0.6],
+      where: { start: 0.5, lush: 0.3, murky: 1.1, deep: 1.4, abyss: 1.4 } }),
+    // Acanthodes: zahnloser Stachelhai – zieht in silbrigen Schwärmen durch das offene Wasser
+    S({ id: 'acanthodes', name: 'Acanthodes', art: { t: 'fish', len: 38, h: 9, c: 0x8a9a94, belly: 0xdce6e0, fin: 0x5a6a66, spines: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.4, speed: 122, sense: 250, meat: 2, herd: [4, 6], sprint: 1.85,
+      layer: 'open', where: { start: 1.2, lush: 1.2, murky: 0.9, deep: 0.3, abyss: 0 } }),
     S({ id: 'trilobit', name: 'Trilobit', art: { t: 'trilo', len: 34, c: 0x5e4c38 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.2, speed: 34, sense: 120, meat: 2, herd: [1, 3], crawl: true, sprint: 1.4 }),
     S({ id: 'qualle', name: 'Qualle', art: { t: 'jelly', r: 16, c: 0x7a5a96 }, role: 'hazard', diet: 'none', habitat: 'water', hp: 5, dmg: 4, power: 2, speed: 24, sense: 0, meat: 1, hit: [0.7, 0.7] }),
     S({ id: 'orthoceras', name: 'Orthoceras', art: { t: 'cone', len: 74, c: 0x7a6248 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 22, dmg: 5, power: 6, speed: 118, sense: 300, meat: 3, hit: [0.75, 0.6] }),

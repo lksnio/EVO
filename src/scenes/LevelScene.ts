@@ -164,6 +164,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Zeitpunkt, seit dem man still im Versteck ist (0 = nicht still) */
   private stillT = 0;
   private winded = false;
+  /** entkommene Beute, die später (außerhalb des Bildes) wieder auftaucht */
+  private returning: { id: string; x: number; y: number; at: number }[] = [];
+  private restockAt = 0;
   /** kleine Kraftanzeige am Fisch – nur zu sehen, solange er nicht frisch ist */
   private stamG!: Phaser.GameObjects.Graphics;
   private stamA = 0;
@@ -262,6 +265,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.primedUntil = 0;
     this.stillT = 0;
     this.winded = false;
+    this.returning = [];
+    this.restockAt = 0;
     this.healNoted = false;
     this.curCave = -1;
     this.caveSide = 0;
@@ -1242,6 +1247,35 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
+  /** Liegt der Punkt außerhalb des Bildes (mit Rand)? */
+  private offScreen(x: number, y: number, m: number) {
+    const v = this.cameras.main.worldView;
+    return x < v.x - m || x > v.right + m || y < v.y - m || y > v.bottom + m;
+  }
+
+  /** Beute, die schon eine Weile flieht, entkommt: aus dem Bild – oder am Rand des Ortes, wo es nicht mehr weitergeht. */
+  private escaped(a: Animal, time: number) {
+    if (a.runningFor(time) < 1500) return false;
+    const b = a.body as Phaser.Physics.Arcade.Body;
+    return this.offScreen(a.x, a.y, 140) || b.left <= 40 || b.right >= this.L.width - 40;
+  }
+
+  /** Entkommene Tiere kommen nach einer Weile wieder – andere Fische ziehen an ihrer Stelle ein, außerhalb des Bildes. */
+  private restock(time: number) {
+    if (time < this.restockAt || !this.returning.length) return;
+    this.restockAt = time + 1500;
+    for (let i = this.returning.length - 1; i >= 0; i--) {
+      const r = this.returning[i];
+      if (time < r.at) continue;
+      if (!this.offScreen(r.x, r.y, 300)) {
+        r.at = time + 6000;
+        continue;
+      }
+      this.returning.splice(i, 1);
+      this.spawnAnimal(r.id, r.x, r.y);
+    }
+  }
+
   private removeAnimal(a: Animal) {
     const i = this.animals.indexOf(a);
     if (i >= 0) this.animals.splice(i, 1);
@@ -1556,6 +1590,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         // aus der Welt gefallen: als fort markieren, damit niemand mehr danach greift
         this.removeAnimal(a);
         a.vanish();
+      } else if (!a.dead && this.escaped(a, time)) {
+        // Wer lange davonrennt und aus dem Bild ist (oder am Rand nicht weiterkommt), ist entkommen – und weg
+        const off = this.offScreen(a.x, a.y, 140);
+        this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, at: time + 30000 + Math.random() * 30000 });
+        this.removeAnimal(a);
+        if (off) a.vanish();
+        else this.tweens.add({ targets: a, alpha: 0, duration: 450, onComplete: () => a.vanish() });
       } else if (a.leaveDir && !a.dead && (a.leaveDir > 0 ? a.body!.right >= L.width - 6 : a.body!.left <= 6)) {
         // am Rand angekommen: zieht in andere Gewässer weiter
         this.removeAnimal(a);
@@ -1591,6 +1632,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.gateStep(time, dt);
       this.weather(time, dt);
       this.migrate(time);
+      this.restock(time);
       this.huntMood(time);
       if (this.elapsed >= this.ep.seconds) this.complete();
     }
@@ -1648,7 +1690,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     g.setVisible(true).setPosition(e.x, e.y).setScale(sc, blink ? 0.08 : sc).setAlpha(0.9);
   }
 
-  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. Sichtbar ist sie nur auf der Steintafel (C). */
+  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. Sichtbar ist sie oben im Bild (HUD). */
   private clock(_time: number) {
     const prog = clamp(this.elapsed / this.ep.seconds, 0, 1);
     for (const e of this.timeline) {
@@ -2125,6 +2167,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
+      // die Uhr oben: die Jahre laufen mit der Zeit des Zeitalters rückwärts
+      const frac = clamp(this.elapsed / this.ep.seconds, 0, 1);
+      const spanY = this.span.from - this.span.to;
+      bus.emit('clock', this.span.from - spanY * frac, frac, spanY / this.ep.seconds / 10);
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }

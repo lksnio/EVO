@@ -141,6 +141,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected puffAt = 0;
   /** zieht weiter zum Rand des Gewässers und verlässt es (-1 links, 1 rechts) */
   leaveDir = 0;
+  /** wann dieses Tier zuletzt vor etwas davonlief – und seit wann ununterbrochen */
+  private runLast = -1e9;
+  private runSince = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
@@ -611,7 +614,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (th) {
         this.runFrom(th.x, th.y, this.fleeSpeed());
       } else if (this.stT > 1.4) this.go('wander');
-      else this.moveTo(this.x + this.dir * 200, this.y, this.fleeSpeed(), true);
+      else {
+        this.markRun();
+        this.moveTo(this.x + this.dir * 200, this.y, this.fleeSpeed(), true);
+      }
       if (this.stT > 7) this.go('wander');
       return;
     }
@@ -1070,7 +1076,20 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     return this.def.power > 20 ? 600 : 520;
   }
 
+  /** Wie lange (ms) dieses Beutetier schon ununterbrochen davonrennt – 0, wenn es das gerade nicht tut. */
+  runningFor(time: number) {
+    if (this.role !== 'prey' || this.kin || this.ally || this.boss || this.visitor) return 0;
+    return time - this.runLast < 350 ? time - this.runSince : 0;
+  }
+
+  private markRun() {
+    const now = this.world.time.now;
+    if (now - this.runLast > 350) this.runSince = now;
+    this.runLast = now;
+  }
+
   protected runFrom(x: number, y: number, speed: number) {
+    this.markRun();
     const away = this.x >= x ? 1 : -1;
     const ty = this.swims || this.flies ? this.y + (this.y >= y ? 120 : -120) : this.y;
     this.moveTo(this.x + away * 240, ty, speed, true);

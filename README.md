@@ -141,22 +141,22 @@ zuerst wird das Fischreich ausgebaut.
 - **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
   Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
   riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
-- **Tiere ihrer Zeit:** Jede Art lebt in ihrer Wasserschicht und an den Orten, die zu ihr passen –
-  mit eigenem Verhalten:
-  - *Cephalaspis* – kieferlos, mit Kopfschild; klein, bodennah, am liebsten in flachen, bewachsenen
-    Gewässern.
-  - *Cheiracanthus* – ein kleiner „Stachelhai“ der mittleren Wasserschichten; häufige Beute und
-    Futterkonkurrent.
-  - *Bothriolepis* – schwer gepanzert, langsam, am Boden; setzt auf Schutz statt Tempo und rammt zurück,
-    wenn man ihm zu nahe kommt.
-  - *Cladoselache* – früher Hai, schnell und stromlinienförmig; jagt andere Fische durchs offene Wasser,
-    vor allem in der Tiefe.
-  - *Rolfosteus* – Panzerfisch mit langem, spitzem Schnauzenfortsatz; ein Jäger des Bodens, der aus
-    trübem oder tiefem Wasser vorschnellt.
-  - *Eusthenopteron* – kräftiger Fleischflosser mit Stielflossen; ein großer Räuber der tieferen Orte.
-
-  Dazu *Sacabambaspis*, *Birkenia* und andere. Kein Tier gleicht dem anderen ganz – manche sind etwas
-  größer, andere etwas kleiner.
+- **Tiere ihrer Zeit:** Jedes Zeitalter hat **seine eigenen Fische** (und ihre Nachbarn), jede Art lebt in ihrer
+  Wasserschicht und an den Orten, die zu ihr passen – mit eigenem Verhalten. **Jeder Ort hat außerdem seine eigene
+  Mischung**: Manche Arten fehlen dort fast ganz, andere sind besonders häufig. Es gibt gut zwei Dutzend Arten:
+  - **Ordovizium** – die ersten Wirbeltiere: *Arandaspis*, *Astraspis*, *Eriptychius*, *Sacabambaspis* und andere gepanzerte
+    Kieferlose, der aalartige *Conodont* (ein kleiner Jäger), Trilobiten (*Isotelus*), Quallen und Orthoceras. Seeskorpione
+    sind hier selten.
+  - **Silur** – *Pteraspis* (Panzerkopf mit Schnabel), *Thelodus* und *Lasanius* (Schwarmfische), der aalartige
+    *Jamoytius*, *Birkenia*, *Cephalaspis*, der wehrhafte Stachelhai *Climatius* und *Entelognathus*, einer der ersten
+    Kieferfische (ein gepanzerter Jäger).
+  - **Devon** – das Zeitalter der Fische: *Moythomasia*, *Acanthodes* (Schwärme), *Cheiracanthus*, die Lungenfische
+    *Dipterus*, *Drepanaspis*, *Bothriolepis* und *Pterichthyodes* (Panzerfische mit Ruderarmen), die Jäger *Coccosteus*,
+    *Osteolepis*, *Cheirolepis*, *Cladoselache*, der Hai *Stethacanthus* mit seinem „Amboss“, *Rolfosteus*, die
+    Fleischflosser *Eusthenopteron*, *Holoptychius* und *Tiktaalik* – dazu der Herrscher *Dunkleosteus*.
+  - **Wer flieht, ist weg:** Kleine Fische rennen wirklich davon – wer lange flüchtet und aus dem Bild ist (oder am Rand
+    des Ortes nicht weiterkommt), ist **entkommen und verschwunden**. Nach einer Weile ziehen andere Fische dort wieder ein.
+  Kein Tier gleicht dem anderen ganz – manche sind etwas größer, andere etwas kleiner.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
@@ -178,9 +178,8 @@ zuerst wird das Fischreich ausgebaut.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
-  Tier, die **Zeit** („vor 452.320.000 Jahren“ mit der Zündschnur des Zeitalters) und deine Muscheln.
-  Hunger und Zeit sieht man sonst nirgends im Spiel. Das meiste andere an deinem Tier bleibt
-  verborgen – es zeigt sich nur in dem, was es tut.
+  Tier und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
+  andere an deinem Tier bleibt verborgen – es zeigt sich nur in dem, was es tut.
 - **Vier Verhaltensweisen formen deine Art:** Beutejagd (zubeißen, Beute packen und festhalten) →
   kräftige Kiefer; Bodenkontakt (sich am Grund abstützen und dort entlanglaufen) → fleischige
   Stützflossen, später kräftigere Beine; Stoßen → ein gepanzerter Schädel; Schwimmen (Strecke,
@@ -196,7 +195,7 @@ zuerst wird das Fischreich ausgebaut.
   Zeitleiste Fragezeichen.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Zeit** (Name des
-Zeitalters, „vor 470.000.000 Jahren“ und die Zündschnur), oben links der Ort und (wenn er kommt) der
+Zeitalters, „vor 470.000.000 Jahren“ – die Jahre zählen mit der Zeit rückwärts – und die Zündschnur), oben links der Ort und (wenn er kommt) der
 Lebensbalken des Herrschers. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
@@ -267,7 +266,7 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß (betäubt kleine und mittelgroße Tiere kurz) |
-| C | Steintafel: Werte, Hunger, Zeit, Muscheln |
+| C | Steintafel: Werte, Hunger, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung |
 | M | Ton an/aus |
 

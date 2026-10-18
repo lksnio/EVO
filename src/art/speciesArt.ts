@@ -123,8 +123,11 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
   ctx.save();
   ctx.translate(-hw * 0.95, 0);
   ctx.rotate(sw);
-  const T = len * 0.24;
-  if (p.lobed) {
+  const T = len * (p.eel ? 0.13 : 0.24);
+  if (p.eel) {
+    // spitz auslaufender Schwanz, kaum abgesetzt
+    finMembrane(ctx, [0, -hh * 0.3], [[-T * 0.6, -hh * 0.5], [-T * 1.25, -hh * 0.05], [-T * 0.6, hh * 0.5]], [0, hh * 0.3], fc, lw);
+  } else if (p.lobed) {
     // spitz auslaufender Schwanz mit drei Lappen
     finMembrane(ctx, [0, -hh * 0.3], [[-T * 0.5, -hh * 0.62], [-T * 1.05, -hh * 0.22], [-T * 1.3, 0], [-T * 1.05, hh * 0.22], [-T * 0.5, hh * 0.62]], [0, hh * 0.3], fc, lw);
   } else if (p.shark || placo || (p.jawless && !p.armor)) {
@@ -136,7 +139,36 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
   ctx.restore();
 
   // ---- Rücken- und Afterflossen (hinter dem Körper)
-  if (p.shark) {
+  if (p.eel) {
+    // langer Flossensaum über den ganzen Rücken
+    finMembrane(ctx, [hw * 0.2, -hh * 0.95], [[hw * 0.0, -hh * 1.5], [-hw * 0.3, -hh * 1.55], [-hw * 0.6, -hh * 1.4], [-hw * 0.85, -hh * 0.95]], [-hw * 0.88, -hh * 0.5], fc, lw);
+  } else if (p.shark && p.anvil) {
+    // Amboss: eine flache, bezahnte Platte auf einem kurzen Stiel
+    ctx.beginPath();
+    ctx.moveTo(hw * 0.16, -hh * 0.9);
+    ctx.lineTo(hw * 0.14, -hh * 1.45);
+    ctx.lineTo(hw * 0.3, -hh * 1.7);
+    ctx.lineTo(-hw * 0.3, -hh * 1.78);
+    ctx.lineTo(-hw * 0.2, -hh * 1.4);
+    ctx.lineTo(-hw * 0.14, -hh * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = css(shade(c, -0.15));
+    ctx.fill();
+    ctx.strokeStyle = css(D, 0.8);
+    ctx.lineWidth = lw;
+    ctx.stroke();
+    ctx.fillStyle = css(shade(bone, 0.1), 0.9);
+    for (let i = 0; i < 6; i++) {
+      const x = hw * 0.28 - i * hw * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(x, -hh * 1.74);
+      ctx.lineTo(x - hw * 0.03, -hh * 1.96);
+      ctx.lineTo(x - hw * 0.06, -hh * 1.76);
+      ctx.closePath();
+      ctx.fill();
+    }
+    finMembrane(ctx, [-hw * 0.45, -hh * 0.62], [[-hw * 0.55, -hh * 1.05], [-hw * 0.62, -hh * 1.25], [-hw * 0.64, -hh * 0.8]], [-hw * 0.62, -hh * 0.52], fc, lw);
+  } else if (p.shark) {
     finMembrane(ctx, [hw * 0.2, -hh * 0.92], [[hw * 0.02, -hh * 1.55], [-hw * 0.12, -hh * 1.85], [-hw * 0.14, -hh * 1.2]], [-hw * 0.12, -hh * 0.9], fc, lw, false);
     finMembrane(ctx, [-hw * 0.45, -hh * 0.62], [[-hw * 0.55, -hh * 1.05], [-hw * 0.62, -hh * 1.25], [-hw * 0.64, -hh * 0.8]], [-hw * 0.62, -hh * 0.52], fc, lw);
   } else if (!p.eyesFront && !p.shield && !p.spines) {

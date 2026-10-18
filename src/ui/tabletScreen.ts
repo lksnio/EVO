@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { CLASSES } from '../data/classes';
-import { yearsAgo } from '../data/epochs';
 import { STAT_COUNT, type StatCtx } from '../data/tablet';
 import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
@@ -21,8 +20,8 @@ export interface TabletScreenData {
 
 /**
  * Die Übersicht (Taste C), angelehnt an die Menüs alter Abenteuerspiele: links die vermooste Steintafel
- * mit allem, was man über sein Tier schon weiß, rechts das Tier selbst, die Zeit und die Muscheln.
- * Hunger und Zeit sieht man nirgends sonst im Spiel.
+ * mit allem, was man über sein Tier schon weiß, rechts das Tier selbst und die Muscheln.
+ * Der Hunger steht nur hier; die Zeit läuft oben im Bild.
  */
 export class TabletScreen {
   readonly c: Phaser.GameObjects.Container;
@@ -72,34 +71,16 @@ export class TabletScreen {
     };
     const label = (y: number, str: string) => c.add(title(scene, rx + 44, y, str, 17, UI.ochre).setOrigin(0, 0.5));
 
-    // Zeit
-    line(356);
-    label(384, 'Zeit');
-    const span = game.epochSpan();
-    const frac = Math.max(0, Math.min(1, d.elapsed / ep.seconds));
-    const years = span.from - (span.from - span.to) * frac;
-    c.add(text(scene, rx + rw - 44, 384, yearsAgo(years, (span.from - span.to) / ep.seconds / 10), 22, UI.bone).setOrigin(1, 0.5));
-    const g = scene.add.graphics();
-    const bx = rx + 44, bw = rw - 88;
-    g.fillStyle(0x2c261f, 1);
-    g.fillRoundedRect(bx - 2, 410, bw + 4, 12, 4);
-    g.fillStyle(0xc8913c, 1);
-    g.fillRoundedRect(bx, 412, bw * frac, 8, 3);
-    g.fillStyle(0xffe0a0, 1);
-    g.fillCircle(bx + bw * frac, 416, 5);
-    c.add(g);
-    c.add(text(scene, cx, 440, frac >= 1 ? 'Das Zeitalter ist um.' : 'Wenn die Schnur verbrannt ist, endet das Zeitalter.', 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
-
-    // Muscheln
-    line(472);
-    label(500, 'Muscheln');
-    c.add(text(scene, rx + rw - 44, 500, `${unlocked} von ${STAT_COUNT}`, 22, unlocked >= STAT_COUNT ? UI.ochre : UI.bone).setOrigin(1, 0.5));
+    // Muscheln (die Zeit steht oben im Bild, nicht hier)
+    line(372);
+    label(402, 'Muscheln');
+    c.add(text(scene, rx + rw - 44, 402, `${unlocked} von ${STAT_COUNT}`, 22, unlocked >= STAT_COUNT ? UI.ochre : UI.bone).setOrigin(1, 0.5));
     // zwei Reihen, egal wie viele Zeilen die Tafel hat
     const per = Math.ceil(STAT_COUNT / 2);
     for (let i = 0; i < STAT_COUNT; i++) {
       const col = i % per, row = Math.floor(i / per);
       const x = rx + 74 + col * ((rw - 148) / (per - 1));
-      const y = 568 + row * 54;
+      const y = 476 + row * 58;
       const has = i < unlocked;
       const sh = scene.add.image(x, y + 20, 'shell').setOrigin(0.5, 1).setDisplaySize(44, 48);
       if (!has) sh.setTint(0x000000).setAlpha(0.32);
@@ -107,9 +88,9 @@ export class TabletScreen {
     }
 
     // Gruppe
-    line(646);
-    c.add(text(scene, rx + 44, 666, 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
-    c.add(text(scene, rx + rw - 44, 666, String(d.kin), 20, UI.bone).setOrigin(1, 0.5));
+    line(600);
+    c.add(text(scene, rx + 44, 630, 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
+    c.add(text(scene, rx + rw - 44, 630, String(d.kin), 20, UI.bone).setOrigin(1, 0.5));
   }
 
   update(dt: number) {

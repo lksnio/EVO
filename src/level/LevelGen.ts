@@ -145,16 +145,28 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
       L.spawns.push({ id, x, y });
     }
   };
+  // Jeder Ort hat seine eigene Mischung: Manche Arten fehlen fast ganz, andere sind besonders häufig (je Ort fest)
+  const hash01 = (s: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return ((h >>> 0) % 10000) / 10000;
+  };
+  const taste = (id: string) => {
+    const key = ep.id + '/' + place.id + '/' + id;
+    if (place.kind === 'start') return 0.85 + 0.3 * hash01('b' + key);
+    return hash01('a' + key) < 0.25 ? 0.12 : 0.55 + 1.3 * hash01('b' + key);
+  };
   for (const [id, groups] of ep.fauna) {
     const d = SPECIES[id];
     const danger = d.role === 'predator' || d.role === 'defender' || d.role === 'hazard';
     const hunter = d.role === 'predator' || d.role === 'apex';
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
-    const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1);
+    const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1) * taste(id);
     const sizeK = (d.role === 'predator' || d.role === 'apex' || d.role === 'defender') && d.power >= 8 ? bigK : d.role === 'prey' && d.power <= 3 ? smallK : 1;
     // die Orte sind groß: Auf die Strecke gerechnet leben hier etwas weniger Tiere als früher
     const want = groups * mul * sizeK * place.wide * 0.6 * (1 + Math.max(0, place.deep) * 0.008);
-    const count = Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0);
+    // keine Art überschwemmt einen Ort: Räuber und Verteidiger höchstens ein halbes Dutzend Gruppen
+    const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : 6, Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
     const c0 = 4, c1 = cols - 5;
     for (let g = 0; g < count; g++) {
       // Räuber nicht direkt neben dem Ankunftsplatz

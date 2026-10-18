@@ -76,6 +76,29 @@ Kacheln, die der Code über- und nebeneinanderlegt. Die wichtigsten für bessere
 | `sacabambaspis_0.png`, `sacabambaspis_1.png` | Sacabambaspis | 54×25 |
 | `seeskorpion_0.png`, `seeskorpion_1.png` | Seeskorpion | 116×40 |
 | `trilobit_0.png`, `trilobit_1.png` | Trilobit | 47×23 |
+| `acanthodes_0.png`, `acanthodes_1.png` | Acanthodes | 51×18 |
+| `arandaspis_0.png`, `arandaspis_1.png` | Arandaspis | 57×22 |
+| `astraspis_0.png`, `astraspis_1.png` | Astraspis | 44×29 |
+| `cheirolepis_0.png`, `cheirolepis_1.png` | Cheirolepis | 82×26 |
+| `climatius_0.png`, `climatius_1.png` | Climatius | 49×28 |
+| `coccosteus_0.png`, `coccosteus_1.png` | Coccosteus | 78×32 |
+| `conodont_0.png`, `conodont_1.png` | Conodont | 68×15 |
+| `dalmanites_0.png`, `dalmanites_1.png` | Dalmanites | 55×26 |
+| `dipterus_0.png`, `dipterus_1.png` | Dipterus | 64×28 |
+| `drepanaspis_0.png`, `drepanaspis_1.png` | Drepanaspis | 54×22 |
+| `entelognathus_0.png`, `entelognathus_1.png` | Entelognathus | 87×32 |
+| `eriptychius_0.png`, `eriptychius_1.png` | Eriptychius | 65×26 |
+| `holoptychius_0.png`, `holoptychius_1.png` | Holoptychius | 163×65 |
+| `isotelus_0.png`, `isotelus_1.png` | Isotelus | 71×30 |
+| `jamoytius_0.png`, `jamoytius_1.png` | Jamoytius | 77×17 |
+| `lasanius_0.png`, `lasanius_1.png` | Lasanius | 43×26 |
+| `moythomasia_0.png`, `moythomasia_1.png` | Moythomasia | 37×17 |
+| `osteolepis_0.png`, `osteolepis_1.png` | Osteolepis | 77×33 |
+| `pteraspis_0.png`, `pteraspis_1.png` | Pteraspis | 59×25 |
+| `pterichthyodes_0.png`, `pterichthyodes_1.png` | Pterichthyodes | 47×28 |
+| `stethacanthus_0.png`, `stethacanthus_1.png` | Stethacanthus | 113×38 |
+| `thelodus_0.png`, `thelodus_1.png` | Thelodus | 37×18 |
+| `tiktaalik_0.png`, `tiktaalik_1.png` | Tiktaalik | 234×76 |
 
 Die beiden Phasen `_0` / `_1` wechseln beim Schwimmen (ca. 6× pro Sekunde); sie dürfen fast gleich
 sein – z. B. Schwanz und Flossen leicht verschoben. Fürs Spiegeln nach links ist gesorgt.

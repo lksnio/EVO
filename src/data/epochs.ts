@@ -65,7 +65,10 @@ export const EPOCHS: EpochDef[] = [
     id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
-    fauna: [['kieferlos', 3], ['sacabambaspis', 2], ['trilobit', 3], ['qualle', 1], ['orthoceras', 1], ['megalograptus', 0.6]],
+    fauna: [
+      ['kieferlos', 2], ['sacabambaspis', 1.5], ['arandaspis', 1.5], ['astraspis', 1.4], ['eriptychius', 1.2], ['trilobit', 1.8], ['isotelus', 1.2],
+      ['conodont', 0.7], ['qualle', 1], ['orthoceras', 0.7], ['megalograptus', 0.22],
+    ],
     events: [
       { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
       { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
@@ -76,7 +79,10 @@ export const EPOCHS: EpochDef[] = [
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
-    fauna: [['kieferlos', 2], ['birkenia', 2], ['cephalaspis', 1.5], ['cheiracanthus', 0.6], ['trilobit', 2], ['qualle', 2], ['orthoceras', 2], ['megalograptus', 0.5], ['pterygotus', 0.4]],
+    fauna: [
+      ['kieferlos', 1], ['birkenia', 1.6], ['cephalaspis', 1.3], ['pteraspis', 1.5], ['thelodus', 1.5], ['jamoytius', 1], ['lasanius', 1.3], ['climatius', 0.8],
+      ['trilobit', 1], ['dalmanites', 1.2], ['conodont', 0.6], ['entelognathus', 0.7], ['qualle', 1.5], ['orthoceras', 1.1], ['megalograptus', 0.2], ['pterygotus', 0.25],
+    ],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
       { at: 0.22, kind: 'leviathan' },
@@ -88,7 +94,12 @@ export const EPOCHS: EpochDef[] = [
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
     from: 382 * M, to: 372 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55,
-    fauna: [['kieferlos', 1.5], ['cheiracanthus', 1], ['bothriolepis', 1], ['cephalaspis', 1], ['trilobit', 2], ['orthoceras', 1.5], ['seeskorpion', 1], ['cladoselache', 1.2], ['rolfosteus', 0.9], ['eusthenopteron', 0.8], ['hyneria', 0.4]],
+    fauna: [
+      ['kieferlos', 0.5], ['cheiracanthus', 1.1], ['moythomasia', 1.5], ['acanthodes', 1.3], ['bothriolepis', 0.8], ['pterichthyodes', 0.9], ['cephalaspis', 0.7],
+      ['drepanaspis', 1], ['dipterus', 1.2], ['trilobit', 1], ['dalmanites', 0.8], ['coccosteus', 0.7], ['osteolepis', 0.6], ['cheirolepis', 0.6],
+      ['cladoselache', 0.9], ['stethacanthus', 0.5], ['rolfosteus', 0.7], ['eusthenopteron', 0.6], ['tiktaalik', 0.4], ['holoptychius', 0.4], ['hyneria', 0.3],
+      ['orthoceras', 0.6], ['seeskorpion', 0.3],
+    ],
     events: [
       { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
       { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Der Panzerfisch zieht durch das Riff.' },
