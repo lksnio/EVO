@@ -11,6 +11,7 @@ import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
 import { Player } from '../objects/Player';
+import { BackSea } from '../objects/BackSea';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
 import { Kill, Meat, Plant, Shell } from '../objects/Food';
@@ -90,6 +91,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private shots: PImg[] = [];
   private bgFar!: Phaser.GameObjects.TileSprite;
   private bgMid!: Phaser.GameObjects.TileSprite;
+  /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
+  private backSea?: BackSea;
   private fog!: Phaser.GameObjects.TileSprite;
   private darkness?: Phaser.GameObjects.Image;
   private puffer!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -332,6 +335,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // sonst stockt das Spiel, wenn eines zum ersten Mal auftaucht.
     for (const [id] of ep.fauna) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     for (const e of ep.events) if (e.species && SPECIES[e.species]) makeSpeciesTextures(this, SPECIES[e.species]);
+    // Fische in der Ferne (in mehreren Tiefenstufen) – kein Teil des Spiels, nur das Bild eines Meeres
+    this.backSea = this.water && L.surfaceY > 0 ? new BackSea(this, { x: VX, y: VY, w: VW, h: VH }, ep, this.place.id, this.place.kind, L.surfaceY, L.variant !== 'normal') : undefined;
     for (const p of L.plants) {
       // fest auf den Boden setzen (nicht über eine Kante ragen lassen)
       const hw = (this.textures.get(foodKey(L.theme, 0, p.v)).getSourceImage().width as number) / 2;
@@ -1631,6 +1636,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bgFar.tilePositionX = cam.scrollX * 0.08;
     this.bgMid.tilePositionX = cam.scrollX * 0.28;
     this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
+    this.backSea?.update(time, dt, this.deepK);
     for (const t of this.lava) t.tilePositionX += dt * 25;
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
     this.darkness?.setPosition(p.x, p.y);
