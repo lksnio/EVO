@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
-import { foodKey, HEAL, MEAT_SIZES, TOXIC } from '../art/worldArt';
+import { foodKey, HEAL, MEAT_SIZES, roeKey, TOXIC } from '../art/worldArt';
+import type { Animal } from './Animal';
 import { DEPTH } from '../config';
 import type { Rect } from '../util/math';
 
@@ -62,6 +63,54 @@ export class Plant {
     this.units = this.max;
     this.img.setTexture(this.key);
     this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.6, to: 1 }, duration: 600, ease: 'Back.out' });
+  }
+}
+
+/**
+ * Ein Gelege am Meeresboden. Die Eltern (Wächter) bleiben in der Nähe und werden zornig, wenn jemand daran frisst und
+ * sie es mitbekommen. Unberührt schlüpft es nach einer Weile.
+ */
+export class Roe {
+  img: Phaser.GameObjects.Image;
+  units: number;
+  readonly max: number;
+  /** Eltern, die über dem Gelege wachen */
+  guards: Animal[] = [];
+  /** wann es schlüpft (Spielzeit in ms), unendlich = nie */
+  hatchAt = Infinity;
+  hatched = false;
+
+  constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly species: string, readonly tone: number, units = 4, readonly own = false) {
+    this.max = units;
+    this.units = units;
+    this.img = scene.add.image(x, y, roeKey(tone, 0)).setOrigin(0.5, 1).setDepth(DEPTH.plants + 1);
+    if (x % 2 > 1) this.img.setFlipX(true);
+  }
+
+  get stage() {
+    return this.units >= this.max ? 0 : this.units > 1 ? 1 : 2;
+  }
+
+  get rect(): Rect {
+    return { x: this.x - 32, y: this.y - 38, w: 64, h: 42 };
+  }
+
+  /** Ein Bissen. Gibt false zurück, wenn nichts mehr da ist. */
+  take() {
+    if (this.units <= 0) return false;
+    this.units--;
+    if (this.units <= 0) {
+      this.scene.tweens.add({ targets: this.img, alpha: 0, duration: 400, onComplete: () => this.img.destroy() });
+    } else this.img.setTexture(roeKey(this.tone, this.stage));
+    this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.8, to: 1 }, duration: 180 });
+    return true;
+  }
+
+  /** Die Jungen sind geschlüpft: das Gelege verschwindet. */
+  vanish() {
+    this.hatched = true;
+    this.units = 0;
+    this.scene.tweens.add({ targets: this.img, alpha: 0, scaleY: 0.4, duration: 600, onComplete: () => this.img.destroy() });
   }
 }
 

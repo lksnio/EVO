@@ -1,4 +1,5 @@
 import { EPOCHS, type EpochDef } from './epochs';
+import { PALEO } from './paleo';
 
 // ---------------------------------------------------------------------------
 // Die Weltkarte. Jedes Zeitalter hat zehn Orte; wer durch einen Durchgang hinausschwimmt,
@@ -32,7 +33,7 @@ const zone = (name: string, veil: number, veilA: number, fog: number, light: num
 export type PlaceKind = 'start' | 'lush' | 'murky' | 'deep' | 'abyss';
 
 /** Form des Geländes: Mulde, flache Wiese, Hügelketten, Trichter (V) und Schacht mit Rändern. */
-export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well';
+export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well' | 'river';
 
 /** Höhlen eines Ortes: g = grüne Höhle (färbt grün), b = schwarze Höhle. Die erste liegt nahe beim Ankunftsplatz. */
 export type CaveKind = 'g' | 'b';
@@ -41,7 +42,7 @@ export interface PlaceDef {
   id: string;
   name: string;
   kind: PlaceKind;
-  /** Lage auf der Karte (0..1) */
+  /** Lage auf der Karte (0..1) – aus der Urzeit-Karte des Zeitalters (paleo.json) */
   x: number;
   y: number;
   /** Wege zu anderen Orten */
@@ -66,7 +67,7 @@ export interface PlaceDef {
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
-export const SHAPE_OF: Record<PlaceKind, PlaceShape> = { start: 'bowl', lush: 'meadow', murky: 'ridges', deep: 'vee', abyss: 'well' };
+export const SHAPE_OF: Record<PlaceKind, PlaceShape> = { start: 'river', lush: 'meadow', murky: 'ridges', deep: 'vee', abyss: 'well' };
 
 /** Rolle eines Ortes in einem Zeitalter: Alle Zeitalter haben dieselbe Gestalt, aber andere Namen und Farben. */
 type Role = 'start' | 'lush1' | 'lush2' | 'murky1' | 'murky2' | 'deep1' | 'deep2' | 'deep3' | 'abyss1' | 'abyss2';
@@ -74,9 +75,6 @@ type Role = 'start' | 'lush1' | 'lush2' | 'murky1' | 'murky2' | 'deep1' | 'deep2
 interface RoleDef {
   kind: PlaceKind;
   shape: PlaceShape;
-  /** Lage auf der Karte (0..1) */
-  x: number;
-  y: number;
   /** Nachbarn: Zu jedem führt im Ort ein Durchgang (Tor) */
   links: Role[];
   blurb: string;
@@ -96,16 +94,16 @@ interface RoleDef {
  * Ort frei und sieht ihn danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
  */
 const ROLES: Record<Role, RoleDef> = {
-  start: { kind: 'start', shape: 'bowl', x: 0.44, y: 0.52, links: ['lush1', 'lush2', 'murky1', 'deep1'], blurb: 'Hier beginnt alles.', deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
-  lush1: { kind: 'lush', shape: 'meadow', x: 0.2, y: 0.26, links: ['start', 'lush2', 'murky2'], blurb: 'Dichtes Grün. Hier gibt es viel zu fressen.', deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
-  lush2: { kind: 'lush', shape: 'bowl', x: 0.43, y: 0.17, links: ['start', 'lush1', 'deep2'], blurb: 'Weiche Wiesen im Licht, dazwischen stille Mulden.', deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
-  murky1: { kind: 'murky', shape: 'ridges', x: 0.24, y: 0.8, links: ['start', 'murky2'], blurb: 'Trübes Wasser. Man sieht kaum die eigene Flosse.', deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
-  murky2: { kind: 'murky', shape: 'meadow', x: 0.1, y: 0.56, links: ['lush1', 'murky1'], blurb: 'Flach und trüb, der Grund voller Sand. Hier verliert sich vieles.', deep: 6, wide: 3.2, shells: 1, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
-  deep1: { kind: 'deep', shape: 'vee', x: 0.62, y: 0.7, links: ['start', 'deep2', 'deep3'], blurb: 'Das Wasser fällt steil ab. Tief unten wartet etwas.', deep: 60, wide: 2.8, shells: 2, caves: [], sun: 3 },
-  deep2: { kind: 'deep', shape: 'ridges', x: 0.66, y: 0.34, links: ['lush2', 'deep1', 'deep3'], blurb: 'Zerklüftete Hänge, Schatten zwischen den Felsen.', deep: 42, wide: 3, shells: 1, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
-  deep3: { kind: 'deep', shape: 'well', x: 0.8, y: 0.54, links: ['deep1', 'deep2', 'abyss1', 'abyss2'], blurb: 'Ein enger Schacht, der immer weiter hinabführt.', deep: 70, wide: 2.6, shells: 2, caves: ['b'], sun: 2 },
-  abyss1: { kind: 'abyss', shape: 'vee', x: 0.92, y: 0.26, links: ['deep3', 'abyss2'], blurb: 'Kein Licht erreicht diesen Grund.', deep: 80, wide: 2.6, shells: 2, caves: [], sun: 2, apex: true },
-  abyss2: { kind: 'abyss', shape: 'well', x: 0.9, y: 0.8, links: ['deep3', 'abyss1'], blurb: 'Stille. Und etwas, das atmet.', deep: 90, wide: 2.4, shells: 2, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
+  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], blurb: 'Hier schlüpfst du. Der Fluss trägt dich ins Meer.', deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
+  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], blurb: 'Dichtes Grün. Hier gibt es viel zu fressen.', deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
+  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], blurb: 'Weiche Wiesen im Licht, dazwischen stille Mulden.', deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
+  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], blurb: 'Trübes Wasser. Man sieht kaum die eigene Flosse.', deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
+  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], blurb: 'Flach und trüb, der Grund voller Sand. Hier verliert sich vieles.', deep: 6, wide: 3.2, shells: 1, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
+  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], blurb: 'Das Wasser fällt steil ab. Tief unten wartet etwas.', deep: 60, wide: 2.8, shells: 2, caves: [], sun: 3 },
+  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], blurb: 'Zerklüftete Hänge, Schatten zwischen den Felsen.', deep: 42, wide: 3, shells: 1, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
+  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], blurb: 'Ein enger Schacht, der immer weiter hinabführt.', deep: 70, wide: 2.6, shells: 2, caves: ['b'], sun: 2 },
+  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], blurb: 'Kein Licht erreicht diesen Grund.', deep: 80, wide: 2.6, shells: 2, caves: [], sun: 2, apex: true },
+  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], blurb: 'Stille. Und etwas, das atmet.', deep: 90, wide: 2.4, shells: 2, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
 };
 
 /** Zone nach Art des Ortes. veils = Farbe des Schleiers für bewachsene und trübe Orte. */
@@ -124,21 +122,21 @@ function zoneFor(kind: PlaceKind, name: string, veils: { lush: number; murky: nu
 const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number; startShells: number }> = {
   ordovizium: {
     names: {
-      start: ['lagune', 'Seichte Lagune'], lush1: ['tang', 'Tangwiese'], lush2: ['schwamm', 'Schwammgarten'], murky1: ['bucht', 'Trübe Bucht'], murky2: ['sandfeld', 'Sandfeld'],
+      start: ['lagune', 'Der Laichfluss'], lush1: ['tang', 'Tangwiese'], lush2: ['schwamm', 'Schwammgarten'], murky1: ['bucht', 'Trübe Bucht'], murky2: ['sandfeld', 'Sandfeld'],
       deep1: ['kante', 'Tiefe Kante'], deep2: ['klippe', 'Klippenhang'], deep3: ['spalt', 'Der Spalt'], abyss1: ['abgrund', 'Der Abgrund'], abyss2: ['tiefsee', 'Schwarze Tiefe'],
     },
     veils: { lush: 0x1a4a2c, murky: 0x2e3a1c }, light: 1, hunters: 1, startShells: 1,
   },
   silur: {
     names: {
-      start: ['kelp', 'Kelpwald'], lush1: ['dickicht', 'Tangdickicht'], lush2: ['teppich', 'Algenteppich'], murky1: ['schlick', 'Schlickebene'], murky2: ['nebel', 'Nebelbank'],
+      start: ['kelp', 'Kelpmündung'], lush1: ['dickicht', 'Tangdickicht'], lush2: ['teppich', 'Algenteppich'], murky1: ['schlick', 'Schlickebene'], murky2: ['nebel', 'Nebelbank'],
       deep1: ['graben', 'Dunkler Graben'], deep2: ['hang', 'Schroffer Hang'], deep3: ['schlund', 'Der Schlund'], abyss1: ['tiefe', 'Die Tiefe'], abyss2: ['nacht', 'Ewige Nacht'],
     },
     veils: { lush: 0x1a4a2a, murky: 0x2a2e1c }, light: 0.95, hunters: 1.05, startShells: 0,
   },
   devon: {
     names: {
-      start: ['riff', 'Panzerfischriff'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
+      start: ['riff', 'Riffmündung'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
       deep1: ['wand', 'Steilwand'], deep2: ['terrasse', 'Terrassenhang'], deep3: ['kluft', 'Die Kluft'], abyss1: ['maul', 'Das Maul der Tiefe'], abyss2: ['grund', 'Der Letzte Grund'],
     },
     veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1.1, startShells: 0,
@@ -154,8 +152,9 @@ function buildPlaces(epId: string): PlaceDef[] {
     const [id, name] = spec.names[r];
     const def = zoneFor(d.kind, name, spec.veils, d.mul, spec.light);
     def.hunters *= spec.hunters;
+    const [x, y] = PALEO[epId].nodes[r];
     return {
-      id, name, kind: d.kind, x: d.x, y: d.y, links: d.links.map(idOf), blurb: d.blurb, def,
+      id, name, kind: d.kind, x, y, links: d.links.map(idOf), blurb: d.blurb, def,
       deep: d.deep, wide: d.wide, shells: r === 'start' ? spec.startShells : d.shells, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun,
     };
   });

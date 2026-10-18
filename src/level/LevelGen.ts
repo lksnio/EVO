@@ -16,6 +16,18 @@ export interface Spawn {
   y: number;
   /** Schwarm bzw. Rudel, zu dem das Tier gehört */
   herd?: number;
+  /** Elternteil, das über das Gelege mit dieser Nummer wacht */
+  guard?: number;
+}
+
+/** Ein Gelege (Fischlaich) am Boden. */
+export interface RoeSpot {
+  x: number;
+  y: number;
+  /** welche Art dort laicht ('own' = deine eigene Brut am Start) */
+  species: string;
+  tone: number;
+  own: boolean;
 }
 
 export interface Decor {
@@ -60,6 +72,10 @@ export interface LevelData {
   lit: { x0: number; x1: number }[];
   /** Durchgänge zu den Nachbarorten */
   gates: Gate[];
+  /** Fischlaich am Boden */
+  roe: RoeSpot[];
+  /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
+  riverEnd?: number;
 }
 
 /** Ein Durchgang: Wer hindurchschwimmt, kommt im Nachbarort an (und schaltet ihn frei). */
@@ -108,6 +124,7 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     crevices: [],
     lit: [],
     gates: [],
+    roe: [],
   };
 }
 
@@ -120,7 +137,7 @@ const plantVariant = (r: Rng) => {
 /** Bodenhöhe (in Kacheln) für jede Spalte – damit Tiere passend platziert werden. */
 type Heights = number[];
 
-function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights: Heights, startCol: number) {
+function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights: Heights, startCol: number, minCol = 4) {
   const def = place.def;
   const cols = heights.length;
   // im tiefen Wasser leben die Jäger weiter unten
@@ -176,7 +193,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
     const want = (groups * mul * sizeK * place.wide * dens * (1 + Math.max(0, place.deep) * 0.008)) / avgHerd;
     // keine Art überschwemmt einen Ort: Räuber und Verteidiger höchstens etwa neun Tiere je Art
     const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : Math.max(1, Math.round(9 / avgHerd)), Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
-    const c0 = 4, c1 = cols - 5;
+    const c0 = Math.max(4, minCol), c1 = cols - 5;
     for (let g = 0; g < count; g++) {
       // Räuber nicht direkt neben dem Ankunftsplatz
       const keep = danger ? 20 : 8;
@@ -190,6 +207,56 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
   // Im tiefsten Wasser lebt einer der ganz Großen
   const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
   if (apex && place.apex) put(apex, Math.floor(cols * 0.62), true);
+}
+
+/**
+ * Fischlaich: Am Start liegt deine eigene Brut im Fluss. Überall im Meer kleben außerdem Gelege der Bewohner am Boden,
+ * und die Eltern wachen in der Nähe. Wer daran frisst, wird von ihnen (wenn sie es mitbekommen) angegriffen.
+ */
+function placeRoe(L: LevelData, place: PlaceDef, r: Rng, heights: Heights, startCol: number, arrCol: number, riverEndCol: number) {
+  const cols = heights.length;
+  const flat = (c: number) => c >= 3 && c < cols - 4 && heights[c - 1] === heights[c] && heights[c] === heights[c + 1];
+  const spot = (c: number, tone: number, species: string, own: boolean) => ({ x: (c + 0.5) * T, y: heights[c] * T + 3, species, tone, own });
+  const nearFlat = (c: number, spread: number) => {
+    for (let d = 0; d <= spread; d++) {
+      if (flat(c + d)) return c + d;
+      if (flat(c - d)) return c - d;
+    }
+    return -1;
+  };
+  if (riverEndCol) {
+    // die eigene Brut: ein paar Gelege rund um den Schlüpfplatz
+    for (const off of [-9, -5, -1, 4, 8, 12]) {
+      const c = nearFlat(startCol + off, 3);
+      if (c >= 0 && !L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 3 * T)) L.roe.push(spot(c, 1, 'own', true));
+    }
+  }
+  // Gelege der Bewohner (Hazards wie Quallen laichen nicht, die Herrscher ziehen nur durch)
+  const pool = L.spawns.filter((s) => {
+    const d = SPECIES[s.id];
+    return d && d.role !== 'hazard' && d.role !== 'apex' && !d.boss && d.power < 16 && s.guard === undefined;
+  });
+  if (!pool.length) return;
+  const k = place.kind === 'abyss' ? 0.3 : place.kind === 'deep' ? 0.6 : 1;
+  const want = Math.round((cols / 26) * k * (0.8 + r() * 0.4));
+  const toneOf = (id: string) => [0, 2, 3][hashStr(id) % 3];
+  for (let n = 0, tries = 0; n < want && tries < want * 12; tries++) {
+    const sp = pool[Math.floor(r() * pool.length)];
+    const d = SPECIES[sp.id];
+    // gefährliche Eltern kommen seltener vor
+    if (d.role === 'predator' && r() > 0.45) continue;
+    const c = nearFlat(Math.round(sp.x / T) + rint(r, -6, 6), 8);
+    if (c < 0 || c < riverEndCol + 10 || Math.abs(c - arrCol) < 16 || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
+    // nicht in den Durchgängen
+    if (L.gates.some((g) => g.kind === 'floor' && (c + 0.5) * T > g.x - 3 * T && (c + 0.5) * T < g.x + g.w + 3 * T)) continue;
+    const idx = L.roe.length;
+    const roe = spot(c, toneOf(sp.id), sp.id, false);
+    L.roe.push(roe);
+    // die Eltern: ein, zwei Tiere in der Nähe
+    const parents = d.role === 'predator' ? 1 : 1 + (r() < 0.5 ? 1 : 0);
+    for (let i = 0; i < parents; i++) L.spawns.push({ id: sp.id, x: roe.x + (i ? 70 : -60), y: roe.y - 60 - r() * 40, guard: idx });
+    n++;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -209,12 +276,16 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelDa
   // Man kommt links an, aber nicht am Rand – zurück zur Karte geht es bewusst am Ende
   const startCol = Math.round(cols * 0.16);
   L.startCol = startCol;
+  // Der Fluss am Start reicht gut ein Drittel des Ortes weit
+  const riverEndCol = place.shape === 'river' || (!place.shape && SHAPE_OF[place.kind] === 'river') ? Math.round(cols * 0.36) : 0;
+  if (riverEndCol) L.riverEnd = riverEndCol * T;
 
   const floorSeg = (x0: number, n: number, top: number) => {
     L.solids.push({ x: x0 * T, y: top * T, w: n * T, h: (rows - top) * T + 200 });
     for (let i = 0; i < n; i++) heights[Math.min(cols - 1, x0 + i)] = top;
     const z = zoneAt();
-    const pl = ep.plants * z.plants;
+    // im Fluss wächst nur wenig: ein paar Pflanzen, bevor es ins Meer hinausgeht
+    const pl = ep.plants * z.plants * (x0 < riverEndCol ? 0.3 : 1);
     // bewachsene Orte: dichter und mit viel Tang
     const lush = place.kind === 'lush';
     for (let i = 0; i < n; i += rint(r, 1, 2)) {
@@ -246,7 +317,21 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelDa
   const floor0 = 27 + extra;
   const TAU = Math.PI * 2;
   let prof: ((col: number) => number) | null = null;
-  if (shape === 'vee') {
+  if (shape === 'river') {
+    // Der Start: ein flacher Fluss, der in der Mündung ins Meer abfällt. Links ein tieferer Tümpel, in dem man schlüpft.
+    const seaFloor = Math.min(lowest, floor0 - 4);
+    const slope = Math.round(cols * 0.2);
+    prof = (col) => {
+      if (col < 14) return 17;
+      if (col < 34) return Math.round(17 - (5 * (col - 14)) / 20);
+      if (col < riverEndCol) return 12 + Math.round(Math.sin(col * 0.21) * 0.9);
+      if (col < riverEndCol + slope) {
+        const u = (col - riverEndCol) / slope;
+        return Math.round(12 + (seaFloor - 12) * (u * u * (3 - 2 * u)));
+      }
+      return clampN(seaFloor + Math.round(Math.sin(col * 0.13) * 1.5 + Math.sin(col * 0.05 + 2) * 2), floor0 - 8, lowest);
+    };
+  } else if (shape === 'vee') {
     const rim = 21;
     const steep = place.kind === 'abyss' ? 0.8 : 0.95;
     prof = (col) => Math.round(rim + (lowest - rim) * Math.pow(Math.max(0, 1 - Math.abs(col - mid) / (mid * 0.93)), steep));
@@ -275,13 +360,13 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelDa
       const seg = Math.min(cols - vx, rint(r, 5, 9));
       const fl = prof(vx + Math.floor(seg / 2));
       floorSeg(vx, seg, fl);
-      if (r() < (vee ? 0.3 : 0.26) && seg >= 4 && Math.abs(vx - startCol) > 6) {
+      if (r() < (vee ? 0.3 : 0.26) && seg >= 4 && Math.abs(vx - startCol) > 6 && vx >= riverEndCol) {
         const px = vx + rint(r, 1, seg - 2);
         // nur niedrige Felsbuckel – nichts, was das Wasser versperrt
         const top = fl - rint(r, 1, 3);
         L.solids.push({ x: px * T, y: top * T, w: T * rint(r, 1, 2), h: (fl - top) * T + 2 });
       }
-      if (r() < 0.14 && Math.abs(vx - startCol) > 6) L.solids.push({ x: (vx + 1) * T, y: rint(r, 8, Math.max(9, fl - 6)) * T, w: rint(r, 2, 4) * T, h: T });
+      if (r() < 0.14 && Math.abs(vx - startCol) > 6 && vx >= riverEndCol) L.solids.push({ x: (vx + 1) * T, y: rint(r, 8, Math.max(9, fl - 6)) * T, w: rint(r, 2, 4) * T, h: T });
       vx += seg;
     }
     floor = heights[Math.floor(cols / 2)];
@@ -314,7 +399,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelDa
   if (covered) ceilSeg(x, cols - x);
   L.solids.push({ x: -T, y: -400, w: T, h: rows * T + 800 });
   L.solids.push({ x: cols * T, y: -400, w: T, h: rows * T + 800 });
-  L.start = { x: (startCol + 0.5) * T, y: 12 * T };
+  L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? heights[startCol] * T - 130 : 12 * T };
   if (!covered) {
     addTunnels(L, place.caves, r, cols, heights, startCol);
   }
@@ -326,7 +411,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string): LevelDa
   // Wer durch einen Durchgang kommt, taucht dort auf – Räuber halten Abstand zu dieser Stelle
   const arrive = from ? L.gates.find((g) => g.to === from)?.arrive : undefined;
   const arrCol = arrive ? Math.floor(arrive.x / T) : startCol;
-  placeFauna(L, ep, place, r, heights, arrCol);
+  // am Start (im Fluss) ist es still: Tiere gibt es erst weiter draußen im Meer
+  placeFauna(L, ep, place, r, heights, arrCol, riverEndCol ? riverEndCol + 12 : 4);
+  placeRoe(L, place, r, heights, startCol, arrCol, riverEndCol);
   if (arrive) L.start = { x: arrive.x, y: arrive.y };
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T);

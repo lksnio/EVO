@@ -30,10 +30,15 @@ export class HudScene extends Phaser.Scene {
   private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
   private storyText!: Phaser.GameObjects.Text;
+  /** Neuer Aquapendium-Eintrag: Karte mit einer Hand, die den Namen schreibt (wie bei einem Auftrag in Gothic) */
   private dexC!: Phaser.GameObjects.Container;
   private dexName!: Phaser.GameObjects.Text;
-  private dexCount = 0;
-  private dexAt = -1e9;
+  private dexInk!: Phaser.GameObjects.Graphics;
+  private dexHand!: Phaser.GameObjects.Graphics;
+  private dexQueue: string[] = [];
+  private dexBusy = false;
+  /** Fortschritt des Schreibens (0..1) und der Name, der geschrieben wird */
+  private dexWrite = { u: 0, name: '', on: false };
   private hp = 1;
   private food = 1;
   private hidden = false;
@@ -112,25 +117,24 @@ export class HudScene extends Phaser.Scene {
     this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.drawFuse();
-    // Ein neues Tier im Aquapendium: kleine Karte unter dem Ortsnamen
-    this.dexCount = 0;
-    this.dexAt = -1e9;
-    this.dexC = this.add.container(22, 46).setAlpha(0).setDepth(7);
+    // Ein neues Tier im Aquapendium: Karte unter dem Ortsnamen, eine Hand schreibt den Namen
+    this.dexQueue = [];
+    this.dexBusy = false;
+    this.dexWrite = { u: 0, name: '', on: false };
+    this.dexC = this.add.container(22, 48).setAlpha(0).setDepth(7);
     const dexBg = this.add.graphics();
-    dexBg.fillStyle(0x050403, 0.6);
-    dexBg.fillRoundedRect(0, 0, 330, 54, 10);
-    dexBg.lineStyle(1.5, 0xc8913c, 0.55);
-    dexBg.strokeRoundedRect(0.5, 0.5, 329, 53, 10);
-    // ein kleines Buch
-    dexBg.fillStyle(0x6a4424, 1);
-    dexBg.fillRoundedRect(14, 12, 24, 30, 3);
-    dexBg.fillStyle(0xe2d2a8, 1);
-    dexBg.fillRect(18, 15, 17, 24);
-    dexBg.lineStyle(1.2, 0x3a2412, 0.8);
-    dexBg.lineBetween(26.5, 15, 26.5, 39);
-    this.dexName = text(this, 50, 31, '', 19, UI.bone).setOrigin(0, 0);
-    const dexHead = text(this, 50, 9, 'AQUAPENDIUM', 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(2);
-    this.dexC.add([dexBg, dexHead, this.dexName]);
+    dexBg.fillStyle(0x050403, 0.66);
+    dexBg.fillRoundedRect(0, 0, 360, 66, 10);
+    dexBg.lineStyle(1.5, 0xc8913c, 0.6);
+    dexBg.strokeRoundedRect(0.5, 0.5, 359, 65, 10);
+    dexBg.lineStyle(1, 0xc8913c, 0.3);
+    dexBg.lineBetween(16, 24, 344, 24);
+    this.dexName = text(this, 18, 31, '', 24, UI.bone, { fontStyle: '700' }).setOrigin(0, 0);
+    const dexHead = text(this, 18, 6, 'NEUER AQUAPENDIUM-EINTRAG', 13, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(2);
+    this.dexInk = this.add.graphics();
+    this.dexHand = this.add.graphics();
+    this.drawHand(this.dexHand);
+    this.dexC.add([dexBg, dexHead, this.dexName, this.dexInk, this.dexHand]);
     // Ort, an dem man gerade ist
     this.zoneText = text(this, 22, 18, this.placeName, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
 
@@ -188,13 +192,8 @@ export class HudScene extends Phaser.Scene {
       this.story(n === 1 ? 'Eine Muschel! Auf der Steintafel wird etwas sichtbar. (C)' : n >= STAT_COUNT ? 'Die letzte Muschel – die Steintafel ist ganz frei.' : 'Die Steintafel zeigt dir etwas Neues. (C)');
     };
     const onDex = (ids: string[]) => {
-      this.dexCount = this.time.now - this.dexAt < 3800 ? this.dexCount + ids.length : ids.length;
-      this.dexAt = this.time.now;
-      this.dexName.setText(this.dexCount > 1 ? `${this.dexCount} neue Einträge` : SPECIES[ids[0]]?.name ?? '');
-      this.tweens.killTweensOf(this.dexC);
-      this.dexC.setAlpha(0);
-      this.tweens.add({ targets: this.dexC, alpha: 1, duration: 500 });
-      this.tweens.add({ targets: this.dexC, alpha: 0, delay: 3600, duration: 900 });
+      for (const id of ids) if (SPECIES[id]) this.dexQueue.push(id);
+      this.nextDex();
     };
     bus.on('dex', onDex);
     bus.on('clock', onClock);
@@ -316,8 +315,87 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: t, alpha: 0, delay: 5200, duration: 1200 });
   }
 
+  /** Eine kleine Hand mit Feder; der Federspitze liegt im Nullpunkt. */
+  private drawHand(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    // Feder (Schaft und Fahne)
+    g.lineStyle(2.4, 0xe6dcc4, 1);
+    g.lineBetween(0, 0, 22, -34);
+    g.fillStyle(0xcdbfa0, 0.95);
+    g.fillTriangle(10, -16, 30, -44, 18, -22);
+    g.fillTriangle(14, -23, 36, -40, 22, -30);
+    g.lineStyle(1, 0x8a7a58, 0.9);
+    g.lineBetween(12, -18, 34, -42);
+    // Hand: Handrücken und drei Finger, die den Schaft halten
+    g.fillStyle(0xb98a62, 1);
+    g.fillEllipse(32, -22, 24, 15);
+    g.fillEllipse(16, -17, 11, 7);
+    g.fillEllipse(19, -22, 11, 7);
+    g.fillEllipse(22, -27, 10, 7);
+    g.lineStyle(1.2, 0x4a2c14, 0.85);
+    g.strokeEllipse(32, -22, 24, 15);
+    g.strokeEllipse(16, -17, 11, 7);
+    g.strokeEllipse(19, -22, 11, 7);
+    g.strokeEllipse(22, -27, 10, 7);
+    // Ärmel
+    g.fillStyle(0x2a2420, 1);
+    g.fillRoundedRect(38, -30, 22, 16, 4);
+  }
+
+  /** Der nächste Eintrag aus der Warteschlange: Karte blendet ein, die Hand schreibt den Namen, dann blendet sie aus. */
+  private nextDex() {
+    if (this.dexBusy || !this.dexQueue.length) return;
+    const id = this.dexQueue.shift()!;
+    const name = SPECIES[id]?.name ?? '';
+    this.dexBusy = true;
+    this.dexName.setText('');
+    this.dexInk.clear();
+    this.dexWrite = { u: 0, name, on: false };
+    this.tweens.killTweensOf(this.dexC);
+    this.dexC.setAlpha(0);
+    this.tweens.add({ targets: this.dexC, alpha: 1, duration: 350 });
+    const dur = Math.max(900, name.length * 85);
+    const crowded = this.dexQueue.length > 1;
+    this.time.delayedCall(380, () => {
+      this.dexWrite.on = true;
+      audio.sfx('write');
+      this.tweens.add({ targets: this.dexWrite, u: 1, duration: dur, ease: 'Sine.inOut', onComplete: () => (this.dexWrite.on = false) });
+    });
+    this.time.delayedCall(380 + dur + (crowded ? 700 : 2100), () => {
+      this.tweens.add({
+        targets: this.dexC,
+        alpha: 0,
+        duration: 450,
+        onComplete: () => {
+          this.dexBusy = false;
+          this.nextDex();
+        },
+      });
+    });
+  }
+
+  /** Während des Schreibens: Namen Buchstabe für Buchstabe zeigen, die Hand läuft mit und zieht eine Tintenlinie. */
+  private writeStep() {
+    const w = this.dexWrite;
+    if (!w.name) return;
+    const n = Math.ceil(w.u * w.name.length);
+    const shown = w.name.slice(0, n);
+    if (this.dexName.text !== shown) this.dexName.setText(shown);
+    const t = this.dexName;
+    const tipX = t.x + (shown ? t.width : 0) + 4;
+    const tipY = t.y + 27 + Math.sin(this.time.now / 55) * 1.6;
+    if (w.on || w.u < 1) {
+      this.dexHand.setVisible(true).setPosition(tipX, tipY + (w.u >= 1 ? 4 : 0)).setRotation(Math.sin(this.time.now / 90) * 0.05);
+      // eine dünne Tintenlinie unter dem Geschriebenen
+      this.dexInk.clear();
+      this.dexInk.lineStyle(1.6, 0xe6dcc4, 0.55);
+      this.dexInk.lineBetween(18, t.y + 31, tipX, t.y + 31);
+    } else this.dexHand.setVisible(false);
+  }
+
   update(time: number, dms: number) {
     const dt = Math.min(0.05, dms / 1000);
+    if (this.dexBusy) this.writeStep();
     const ease = (cur: number, to: number, k: number) => cur + (to - cur) * Math.min(1, dt * k);
 
     // Verletzung: alle vier Bildränder färben sich rot, ab einem gewissen Punkt schlägt das Herz hörbar

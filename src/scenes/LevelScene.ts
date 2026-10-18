@@ -6,7 +6,7 @@ import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { placeOf, type PlaceDef } from '../data/world';
 import { generateLevel, type Gate, type LevelData, type Zone } from '../level/LevelGen';
-import { coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
@@ -14,7 +14,7 @@ import { Player } from '../objects/Player';
 import { BackSea } from '../objects/BackSea';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
-import { Kill, Meat, Plant, Shell } from '../objects/Food';
+import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -77,6 +77,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Schwärme und Rudel: Gruppen-Nr. → Mitglieder */
   private herds = new Map<number, Animal[]>();
   plants: Plant[] = [];
+  /** Fischlaich am Boden (Eltern wachen darüber) */
+  roes: Roe[] = [];
+  private rageNoted = false;
+  private hatchAt = 0;
   meats: Meat[] = [];
   cover: Rect[] = [];
   ended = false;
@@ -220,6 +224,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.animals = [];
     this.herds = new Map();
     this.plants = [];
+    this.roes = [];
+    this.rageNoted = false;
+    this.hatchAt = 0;
     this.meats = [];
     this.cover = [];
     this.solidRects = [];
@@ -347,6 +354,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.plants.push(pl);
       this.cullAdd(pl.img, at.x - hw, at.x + hw);
     }
+    // Fischlaich: am Start deine eigene Brut, im Meer die Gelege der Bewohner
+    roeTextures(this);
+    for (const s of L.roe) {
+      const roe = new Roe(this, s.x, s.y, s.species, s.tone, 4, s.own);
+      // nur Pflanzen- und Allesfresser-Gelege schlüpfen (die Jungen der Jäger bleiben Eier); eigene Brut schlüpft nicht
+      const hatches = !s.own && SPECIES[s.species]?.role !== 'predator';
+      roe.hatchAt = hatches ? this.time.now + 90000 + Math.random() * 70000 : Infinity;
+      this.roes.push(roe);
+      this.cullAdd(roe.img, s.x - 40, s.x + 40);
+    }
     this.buildCover();
     this.buildCaves();
     this.buildCrevices();
@@ -369,7 +386,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
     if (pr.sat !== undefined) this.player.satiety = clamp(pr.sat, 0.01, this.player.maxSat);
     this.spawnKin();
-    for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y, s.herd);
+    for (const s of L.spawns) {
+      const a = this.spawnAnimal(s.id, s.x, s.y, s.herd);
+      // Eltern wachen über ihr Gelege
+      const roe = s.guard !== undefined ? this.roes[s.guard] : undefined;
+      if (roe) {
+        roe.guards.push(a);
+        a.guardPost = { x: roe.x, y: roe.y - 60 };
+        a.home = { x: roe.x, y: roe.y - 60 };
+      }
+    }
     this.faunaCount = L.spawns.length;
     this.needUnits = fedRef(ep, this.player.stats.size);
     this.span = game.epochSpan(this.epochIdx);
@@ -999,7 +1025,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (let i = 0; i < n; i++) {
       // Artgenossen leben verstreut in der Gegend, jeder in seinem Revier – kein Schwarm um dich herum
       const side = i % 2 ? 1 : -1;
-      const x = clamp(s.x + side * (170 + Math.floor(i / 2) * 260 + Math.random() * 120), 60, this.L.width - 60);
+      let x = clamp(s.x + side * (170 + Math.floor(i / 2) * 260 + Math.random() * 120), 60, this.L.width - 60);
+      // im stillen Fluss am Start ist man allein – die anderen schwimmen weiter draußen in der Mündung
+      if (this.L.riverEnd) x = Math.max(x, this.L.riverEnd + 300 + i * 120);
       const at = this.kinSpot(x, s.y) ?? { x: clamp(s.x + side * 60, 60, this.L.width - 60), y: s.y };
       const social = game.run?.social ?? 0.55;
       const genes = game.kinTraits(i);
@@ -1273,17 +1301,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
-  /** Tiere, die ins Bild kommen, bekommen ihre Seite im Aquapendium. */
+  /** Tiere, denen man nahe kommt, bekommen ihre Seite im Aquapendium. */
   private spotStep(time: number) {
     if (time < this.spotAt) return;
     this.spotAt = time + 500;
-    const v = this.cameras.main.worldView;
+    const p = this.player;
     const fresh: string[] = [];
     for (const a of this.animals) {
       if (a.dead || a.kin) continue;
       const id = a.def.id;
       if (game.hasSeen(id)) continue;
-      if (a.x < v.x - 40 || a.x > v.right + 40 || a.y < v.y - 40 || a.y > v.bottom + 40) continue;
+      // erst wer nahe genug herangeschwommen ist, bekommt einen Eintrag – große Tiere bemerkt man schon etwas früher
+      const len = (a.def.art as { len?: number }).len ?? 40;
+      if (Math.hypot(a.x - p.x, a.y - p.y) > Math.min(460, 240 + len * 0.9)) continue;
       if (game.markSeen(id)) fresh.push(id);
     }
     if (fresh.length) bus.emit('dex', fresh);
@@ -1452,6 +1482,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.checkShare(m.kill);
       return;
     }
+    for (const rr of this.roes) {
+      if (rr.units <= 0 || rr.hatched || !overlaps(rect, rr.rect)) continue;
+      const gain = Math.min(FOOD.roe.sat * st.digestMeat, p.maxSat - p.satiety);
+      if (p.eat(gain, 'meat')) {
+        this.floatNum(rr.x, rr.y - 48, gain, 'roe');
+        this.ate('meat', FOOD.roe.kcal * st.digestMeat);
+        rr.take();
+        game.grow('digM', 0.006);
+        game.shiftDiet(0.02);
+        game.grow('growth', 0.002 * st.digestMeat);
+        this.puff(rr.x, rr.y - 22, 4, 0xf0d890);
+        this.roeBitten(rr);
+      }
+      return;
+    }
     for (const pl of this.plants) {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       const food = pl.toxic ? FOOD.toxic : FOOD.plant;
@@ -1494,10 +1539,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Eine Zahl, die kurz aufsteigt: wie viel ein Happen gebracht hat (rot Fleisch, grün Pflanzen). */
-  floatNum(x: number, y: number, n: number, kind: 'meat' | 'plant' | 'toxic') {
+  floatNum(x: number, y: number, n: number, kind: 'meat' | 'plant' | 'toxic' | 'roe') {
     const v = Math.round(n);
     if (v < 1) return;
-    const col = kind === 'meat' ? '#ff4a3c' : kind === 'toxic' ? '#c486f0' : '#7fdc5a';
+    const col = kind === 'meat' ? '#ff4a3c' : kind === 'toxic' ? '#c486f0' : kind === 'roe' ? '#ffc870' : '#7fdc5a';
     const t = text(this, x, y, `+${v}`, Math.round((kind === 'meat' ? 30 : 25) / Z), col, { fontStyle: 'bold', stroke: '#160806', strokeThickness: 6 })
       .setOrigin(0.5).setDepth(DEPTH.text).setScale(0.6);
     this.tweens.add({ targets: t, scale: 1, duration: 180, ease: 'Back.out' });
@@ -1520,6 +1565,40 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const col = p.exhausted ? 0xd8803c : p.resting ? 0x8fe0c0 : 0x9ad0e8;
     g.fillStyle(col, 0.9 * this.stamA);
     g.fillRoundedRect(x, y, Math.max(2, w * f), h, 3);
+  }
+
+  /** Jemand frisst am Gelege: Eltern, die es mitbekommen, greifen an. */
+  private roeBitten(rr: Roe) {
+    if (rr.own) return;
+    const p = this.player;
+    const now = this.time.now;
+    let raised = false;
+    for (const g of rr.guards) {
+      if (g.dead) continue;
+      const d = Math.hypot(g.x - p.x, g.y - p.y);
+      // sie müssen es mitbekommen: in Sichtweite – und wer sich versteckt, fällt nur aus nächster Nähe auf
+      if (d < g.def.sense * 0.95 && (!p.hidden || d < 120)) {
+        g.rage(p, now);
+        raised = true;
+      }
+    }
+    if (raised && !this.rageNoted) {
+      this.rageNoted = true;
+      bus.emit('story', 'Die Eltern haben bemerkt, dass du ihr Gelege frisst!');
+    }
+  }
+
+  /** Das Gelege schlüpft: ein paar kleine Junge, die sich bald auf den Weg machen. */
+  private hatch(rr: Roe) {
+    const n = Math.max(2, Math.ceil(rr.units * 0.8));
+    for (let i = 0; i < n; i++) {
+      const a = this.spawnAnimal(rr.species, rr.x + (Math.random() - 0.5) * 50, rr.y - 26 - Math.random() * 20);
+      a.sz *= 0.55;
+      a.setScale(a.sz);
+      a.hp = a.maxHp = Math.max(2, Math.round(a.maxHp * 0.5));
+    }
+    this.puff(rr.x, rr.y - 20, 8, 0xf0e0b0);
+    rr.vanish();
   }
 
   /** Heilkraut: die Wunden schließen sich, die Kraft kehrt zurück. */
@@ -1647,6 +1726,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     const bloom = time < this.bloomUntil;
     for (const pl of this.plants) pl.update(time, bloom);
+    if (time > this.hatchAt) {
+      this.hatchAt = time + 1000;
+      for (const roe of this.roes) if (!roe.hatched && roe.units > 0 && time > roe.hatchAt) this.hatch(roe);
+    }
     for (const c of this.meats) c.update(time, dt);
     this.meats = this.meats.filter((c) => !c.gone);
 
@@ -1654,7 +1737,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bgFar.tilePositionX = cam.scrollX * 0.08;
     this.bgMid.tilePositionX = cam.scrollX * 0.28;
     this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
-    this.backSea?.update(time, dt, this.deepK);
+    // im Fluss am Start ist es still: die Fische in der Ferne tauchen erst zur Mündung hin auf
+    const re = this.L.riverEnd ?? 0;
+    const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
+    this.backSea?.update(time, dt, this.deepK, quiet);
     for (const t of this.lava) t.tilePositionX += dt * 25;
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
     this.darkness?.setPosition(p.x, p.y);
@@ -1739,6 +1825,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const prog = clamp(this.elapsed / this.ep.seconds, 0, 1);
     for (const e of this.timeline) {
       if (!e.done && prog >= e.def.at) {
+        // im stillen Fluss am Start tauchen noch keine Durchzügler auf
+        if (e.def.kind === 'predator' && this.L.riverEnd && this.player.x < this.L.riverEnd + 800) continue;
         e.done = true;
         game.prog.events.push(e.i);
         this.trigger(e.def);

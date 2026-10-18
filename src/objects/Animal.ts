@@ -149,6 +149,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   leaveDir = 0;
   /** Schwarm bzw. Rudel, zu dem das Tier gehört (-1 = allein) */
   herdId = -1;
+  /** Elternteil: wacht über ein Gelege und bleibt in dessen Nähe */
+  guardPost: { x: number; y: number } | null = null;
+  /** zornig über das gefressene Gelege bis dahin */
+  rageUntil = 0;
   /** Beute auf der Flucht: wovor, und wie weit sie mindestens weg will */
   protected fleeFrom: Target | null = null;
   protected fleeSafe = 0;
@@ -246,6 +250,26 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** betäubt (z. B. nach einem Überraschungsangriff) */
   stun(ms: number) {
     this.stunUntil = Math.max(this.stunUntil, this.world.time.now + ms);
+  }
+
+  /** Jemand frisst am Gelege und das Tier hat es mitbekommen: Es greift an – auch wenn es klein ist. */
+  rage(from: Target, now: number) {
+    if (this.dead || this.kin || this.ally || this.visitor) return;
+    this.rageUntil = now + 14000;
+    this.attacker = from;
+    this.attackedAt = now;
+    this.threatObj = null;
+    this.fleeFrom = null;
+    this.hideUntil = 0;
+    if (this.role === 'prey') {
+      this.defendUntil = now + 14000;
+      this.target = from;
+    } else if (this.role === 'predator' || this.role === 'apex') this.aggroUntil = Math.max(this.aggroUntil, now + 14000);
+    this.crReady = Math.min(this.crReady, now + 300);
+    this.world.puff(this.x, this.y - this.displayHeight * 0.4, 5, 0xff9a80);
+    audio.sfx('warn');
+    this.setTint(0xff9a82);
+    this.world.time.delayedCall(500, () => this.active && !this.atk && !this.cr && this.clearTint());
   }
 
   /** Panik: vor etwas Großem fliehen – ein paar Sekunden lang, ohne sich umzusehen. */
@@ -605,6 +629,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     // Beute, die sich wehrt: etwas größere Fische kontern mit einem Stoß (wie dein Stoß mit R), danach fliehen sie weiter
     if (role === 'prey' && time < this.defendUntil && this.target && !this.target.dead) {
       if (this.counterRam(time, dt, this.target)) return;
+      // zornige Eltern lassen nicht locker
+      if (time < this.rageUntil) {
+        this.go('hunt');
+        this.chase(this.target, this.def.speed * 1.2);
+        return;
+      }
     } else if (this.cr) this.endCounter();
     const pl = this.world.player;
     // Schwimmende Beute: nie im Gras verstecken und stillhalten – nach oben ins freie Wasser, weit weg
@@ -842,7 +872,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (Math.random() < 0.4) W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 1);
       if (!tg.dead && overlaps(this.hitRect(), tg.hitRect())) {
         // kein Todesstoß: etwas Schaden, der nach der Stärke des Tieres geht (ein junger Fisch überlebt etliche davon)
-        const dmg = clamp(this.def.power * this.sz * 0.5, 0.8, 3.5);
+        const dmg = clamp(this.def.power * this.sz * 0.5, 0.8, 3.5) * (time < this.rageUntil ? 1.5 : 1);
         if (tg === W.player) {
           (tg as PlayerLike).hurt(dmg, this.x, this.def.name);
           this.hitPlayerAt = time;
@@ -1347,11 +1377,14 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.wanderY = this.y;
       } else {
         // Herumtreiber ziehen weit durch den Lebensraum, die anderen bleiben in ihrem Revier
-        const range = this.def.roam ? 2600 : 440;
+        // Eltern bleiben bei ihrem Gelege
+        const post = this.guardPost;
+        const range = post ? 280 : this.def.roam ? 2600 : 440;
         const wb = this.world.physics.world.bounds;
-        this.wanderX = clamp(this.home.x + (Math.random() - 0.5) * range, wb.x + 60, wb.right - 60);
-        this.wanderY = this.home.y + (Math.random() - 0.5) * (this.swims || this.flies ? 160 : 0);
-        if (this.def.roam) this.home.x = this.wanderX;
+        const hx = post ? post.x : this.home.x, hy = post ? post.y : this.home.y;
+        this.wanderX = clamp(hx + (Math.random() - 0.5) * range, wb.x + 60, wb.right - 60);
+        this.wanderY = hy + (Math.random() - 0.5) * (this.swims || this.flies ? (post ? 110 : 160) : 0);
+        if (this.def.roam && !post) this.home.x = this.wanderX;
       }
     }
     if (Math.abs(this.wanderX - this.x) < 10 && (!this.swims || Math.abs(this.wanderY - this.y) < 10)) {

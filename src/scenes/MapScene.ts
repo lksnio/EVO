@@ -2,21 +2,21 @@ import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { EPOCHS, type EpochDef } from '../data/epochs';
+import { PALEO } from '../data/paleo';
 import { placesOf, type PlaceDef } from '../data/world';
 import { STAT_COUNT } from '../data/tablet';
 import { game } from '../state/GameState';
-import { mapBase, mapPos, placeField } from '../art/mapArt';
+import { MAP_BOX, mapPos } from '../art/mapArt';
+import { FogMap, mapFrame, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
 import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
 import { TabletScreen } from '../ui/tabletScreen';
-import { hashStr } from '../util/math';
 
 interface NodeVis {
   def: PlaceDef;
   x: number;
   y: number;
   c: Phaser.GameObjects.Container;
-  field: Phaser.GameObjects.Image;
   ring: Phaser.GameObjects.Graphics;
   known: boolean;
 }
@@ -44,6 +44,8 @@ export class MapScene extends Phaser.Scene {
   private fromId?: string;
   private toId?: string;
   private isNew = false;
+  private fog!: FogMap;
+  private trails = new Map<string, Phaser.GameObjects.Graphics>();
 
   constructor() {
     super('Map');
@@ -55,6 +57,7 @@ export class MapScene extends Phaser.Scene {
     this.toId = d?.to;
     this.places = placesOf(this.ep);
     this.nodes = new Map();
+    this.trails = new Map();
     this.moving = false;
     this.tablet = undefined;
     this.rest = undefined;
@@ -76,58 +79,57 @@ export class MapScene extends Phaser.Scene {
       const f = this.places.find((p) => p.id === this.fromId);
       if (f) this.cur = f;
     }
+    known.add(this.cur.id);
     this.isNew = !!this.toId && !known.has(this.toId);
     const target = this.places.find((p) => p.id === this.toId);
     this.focus = target ?? this.cur;
 
     const pos = (p: PlaceDef) => mapPos(p.x, p.y);
-    const seed = hashStr(this.ep.id) + (game.run?.id ?? 0);
-    this.add.image(0, 0, mapBase(this, `mapbase_${this.ep.id}_${seed % 97}`, seed, this.places.map(pos))).setOrigin(0);
+    // Die Urzeit-Erde: dunkel, nur um bekannte Orte und geschwommene Wege hell
+    const mine = this.places.map((p) => ({ id: p.id, kind: p.kind, ...pos(p) }));
+    this.fog = new FogMap(this, this.ep.id, mine, [...known]);
+    this.add.image(0, 0, this.fog.key).setOrigin(0);
+    const mid = Math.round((this.ep.from + this.ep.to) / 2e6);
+    this.add.image(0, 0, mapFrame(this, this.ep.id, `ERDE VOR ${mid} MIO. JAHREN`)).setOrigin(0).setDepth(1);
 
-    // Wege: Blasenspuren zwischen bekannten Orten
-    const paths = this.add.graphics().setDepth(2);
+    // Wege: Blasenspuren zwischen bekannten Orten, um das Land herum
     const drawn = new Set<string>();
     for (const p of this.places) {
       for (const lid of p.links) {
         const q = this.places.find((o) => o.id === lid);
-        const k = [p.id, lid].sort().join('|');
+        const k = this.linkKey(p.id, lid);
         if (!q || drawn.has(k) || !known.has(p.id) || !known.has(lid)) continue;
         drawn.add(k);
-        const [a, b] = [pos(p), pos(q)];
-        const c = this.ctrl(a, b);
-        const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 14);
-        for (let i = 1; i < n; i++) {
-          const t = i / n;
-          const pt = this.bez(a, c, b, t);
-          paths.fillStyle(0xbfeee4, 0.1 + 0.28 * Math.sin(t * Math.PI));
-          paths.fillCircle(pt.x, pt.y, 2.2 + 0.9 * Math.sin(t * 9));
-        }
+        const pts = this.route(p.id, lid);
+        this.trailTo(k, pts, 1);
+        this.fog.showRoute(k, pts, 1);
       }
     }
+    this.fog.refresh();
 
     // Orte
+    const spots = this.labelSpots(pos);
     this.places.forEach((p, i) => {
       const { x, y } = pos(p);
       const isKnown = known.has(p.id);
       const isTarget = p.id === this.toId;
       if (!isKnown && !isTarget) return;
-      const field = this.add.image(x, y, placeField(this, p.kind, seed + i)).setDepth(1).setScale(1.15).setAlpha(isKnown ? 0.95 : 0);
       const c = this.add.container(x, y).setDepth(5);
       const ring = this.add.graphics();
       c.add(ring);
       c.add(this.add.image(0, 0, `mapicon_${p.kind}`).setDisplaySize(32, 32).setAlpha(0.95));
       const visited = prog.seen.includes(p.id);
-      const label = text(this, 0, 42, p.name, 17, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 4 }).setOrigin(0.5);
+      const sp = spots.get(p.id)!;
+      const label = text(this, sp.x, sp.y, p.name, 17, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 4 }).setOrigin(sp.ox, 0.5);
       c.add(label);
       c.setVisible(isKnown);
-      if (!isKnown) field.setAlpha(0);
       // Wer noch nie dort war: ein Funkeln über dem Ort
       if (isKnown && !visited) {
         const star = this.add.image(0, -34, 'glow').setTint(0xffe8b0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(46, 46).setAlpha(0.5);
         c.add(star);
         this.tweens.add({ targets: star, alpha: 0.12, yoyo: true, repeat: -1, duration: 900 + i * 130, ease: 'Sine.inOut' });
       }
-      const vis: NodeVis = { def: p, x, y, c, field, ring, known: isKnown };
+      const vis: NodeVis = { def: p, x, y, c, ring, known: isKnown };
       this.nodes.set(p.id, vis);
       this.drawRing(vis);
     });
@@ -213,18 +215,73 @@ export class MapScene extends Phaser.Scene {
     this.infoState.setText(p.id === this.cur.id && !this.toId ? 'Hier bist du' : this.isNew ? 'Neu entdeckt' : seen ? 'Schon besucht' : '');
   }
 
-  private ctrl(a: { x: number; y: number }, b: { x: number; y: number }) {
-    // leicht gebogen
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const k = 0.12 * len * (((a.x * 7 + b.y * 3) | 0) % 2 ? 1 : -1);
-    return { x: mx - (dy / len) * k, y: my + (dx / len) * k };
+  /** Wohin die Namen kommen: meist unter das Zeichen, sonst daneben, wenn dort ein anderer Ort im Weg wäre. */
+  private labelSpots(pos: (p: PlaceDef) => { x: number; y: number }) {
+    type Box = [number, number, number, number];
+    const hit = (a: Box, b: Box) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+    const rings = new Map(this.places.map((p) => [p.id, pos(p)]));
+    // Die Namen von Kontinenten und Meeren bleiben nach Möglichkeit frei (sind aber nur Hintergrund)
+    const geoBoxes: Box[] = [];
+    const geo = PALEO[this.ep.id];
+    for (const c of geo.continents) {
+      if (!c.name) continue;
+      const q = mapPos(c.label[0], c.label[1]), w = c.name.length * 16;
+      geoBoxes.push([q.x - w / 2, q.y - 10, q.x + w / 2, q.y + 10]);
+    }
+    for (const o of geo.oceans) {
+      const q = mapPos(o.x, o.y), w = o.name.length * 9.8;
+      geoBoxes.push([q.x - w / 2, q.y - 10, q.x + w / 2, q.y + 10]);
+    }
+    const placed: Box[] = [];
+    const out = new Map<string, { x: number; y: number; ox: number }>();
+    for (const p of this.places) {
+      const { x, y } = rings.get(p.id)!;
+      const w = p.name.length * 8.6 + 10;
+      const cands = [
+        { x: 0, y: 42, ox: 0.5, box: [x - w / 2, y + 31, x + w / 2, y + 54] as Box },
+        { x: 38, y: 0, ox: 0, box: [x + 33, y - 12, x + 41 + w, y + 12] as Box },
+        { x: -38, y: 0, ox: 1, box: [x - 41 - w, y - 12, x - 33, y + 12] as Box },
+        { x: 0, y: 68, ox: 0.5, box: [x - w / 2, y + 57, x + w / 2, y + 80] as Box },
+      ];
+      const free = (c: (typeof cands)[number]) =>
+        !placed.some((b) => hit(b, c.box)) &&
+        ![...rings].some(([id, r]) => id !== p.id && hit([r.x - 31, r.y - 31, r.x + 31, r.y + 31], c.box)) &&
+        c.box[0] > MAP_BOX.x && c.box[2] < MAP_BOX.x + MAP_BOX.w && c.box[3] < MAP_BOX.y + MAP_BOX.h;
+      const c = cands.find((k) => free(k) && !geoBoxes.some((b) => hit(b, k.box))) ?? cands.find(free) ?? cands[0];
+      placed.push(c.box);
+      out.set(p.id, c);
+    }
+    return out;
   }
 
-  private bez(a: { x: number; y: number }, c: { x: number; y: number }, b: { x: number; y: number }, t: number) {
-    const u = 1 - t;
-    return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
+  private linkKey(a: string, b: string) {
+    return [a, b].sort().join('|');
+  }
+
+  /** Der Schwimmweg von Ort a nach Ort b in Bildpunkten (immer im Wasser). */
+  private route(a: string, b: string) {
+    const [lo, hi] = [a, b].sort();
+    const pa = this.places.find((p) => p.id === lo)!, pb = this.places.find((p) => p.id === hi)!;
+    const pts = routePoints(this.ep.id, [pa.x, pa.y], [pb.x, pb.y]);
+    return a === lo ? pts : pts.slice().reverse();
+  }
+
+  /** Eine Spur aus Blasen entlang des Weges (bis zum Anteil upto). */
+  private trailTo(key: string, pts: { x: number; y: number }[], upto: number) {
+    let g = this.trails.get(key);
+    if (!g) {
+      g = this.add.graphics().setDepth(2);
+      this.trails.set(key, g);
+    }
+    g.clear();
+    const n = Math.ceil(pts.length / 2);
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      if (t > upto) break;
+      const pt = pts[Math.min(pts.length - 1, i * 2)];
+      g.fillStyle(0xbfeee4, 0.12 + 0.3 * Math.sin(t * Math.PI));
+      g.fillCircle(pt.x, pt.y, 2.2 + 0.9 * Math.sin(t * 9));
+    }
   }
 
   // ---------------------------------------------------------------- Bewegen und betreten
@@ -241,45 +298,68 @@ export class MapScene extends Phaser.Scene {
     };
     if (this.isNew && !n.known) {
       n.known = true;
-      audio.sfx('shell');
-      n.c.setVisible(true).setAlpha(0);
-      this.tweens.add({ targets: [n.c, n.field], alpha: { from: 0, to: 1 }, duration: 900 });
-      const sp = this.add.particles(n.x, n.y, 'p_dot', {
-        emitting: false, lifespan: 1200, speed: { min: 30, max: 120 }, scale: { start: 0.8, end: 0 }, alpha: { start: 0.9, end: 0 },
-        tint: [0xffe8b0, 0xe0a848, 0xfff4dc], blendMode: 'ADD',
-      }).setDepth(7);
-      sp.explode(30);
-      // der Weg dorthin: eine Spur aus Blasen
-      const a = this.nodes.get(this.cur.id)!;
-      const c = this.ctrl(a, n);
-      const paths = this.add.graphics().setDepth(2);
-      const steps = Math.ceil(Math.hypot(n.x - a.x, n.y - a.y) / 14);
-      for (let i = 1; i < steps; i++) {
-        const t = i / steps;
-        const pt = this.bez(a, c, n, t);
-        paths.fillStyle(0xbfeee4, 0.1 + 0.28 * Math.sin(t * Math.PI));
-        paths.fillCircle(pt.x, pt.y, 2.2 + 0.9 * Math.sin(t * 9));
-      }
-      this.time.delayedCall(1300, go);
+      // erst der Weg dorthin (die Karte hellt sich entlang der Strecke auf) …
+      const key = this.linkKey(this.cur.id, to.id);
+      const pts = this.route(this.cur.id, to.id);
+      const k = { p: 0, d: 0 };
+      this.tweens.add({
+        targets: k, p: 1, duration: Math.min(1500, 500 + pts.length * 9), ease: 'Sine.inOut',
+        onUpdate: () => {
+          this.trailTo(key, pts, k.p);
+          this.fog.showRoute(key, pts, k.p);
+          this.fog.refresh();
+        },
+        onComplete: () => {
+          // … dann zeigt sich der neue Ort
+          n.c.setVisible(true).setAlpha(0);
+          this.tweens.add({ targets: n.c, alpha: { from: 0, to: 1 }, duration: 900 });
+          this.tweens.add({
+            targets: k, d: 1, duration: 1100, ease: 'Sine.out',
+            onUpdate: () => {
+              this.fog.reveal(to.id, k.d);
+              this.fog.refresh();
+            },
+            onComplete: () => go(),
+          });
+          audio.sfx('shell');
+          const sp = this.add.particles(n.x, n.y, 'p_dot', {
+            emitting: false, lifespan: 1200, speed: { min: 30, max: 120 }, scale: { start: 0.8, end: 0 }, alpha: { start: 0.9, end: 0 },
+            tint: [0xffe8b0, 0xe0a848, 0xfff4dc], blendMode: 'ADD',
+          }).setDepth(7);
+          sp.explode(30);
+        },
+      });
     } else go();
   }
 
   private swimTo(p: PlaceDef) {
     const a = this.nodes.get(this.cur.id)!, b = this.nodes.get(p.id)!;
-    const c = this.ctrl(a, b);
+    const pts = this.route(this.cur.id, p.id);
     this.moving = true;
     this.fish.setFacing(b.x >= a.x ? 1 : -1);
     audio.sfx('travel');
     const k = { t: 0 };
-    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    let facing = b.x >= a.x ? 1 : -1;
     this.tweens.add({
       targets: k,
       t: 1,
-      duration: Math.max(900, dist * 3),
+      duration: Math.max(1100, len * 3.2),
       ease: 'Sine.inOut',
       onUpdate: () => {
-        const pt = this.bez({ x: a.x, y: a.y - 56 }, { x: c.x, y: c.y - 56 }, { x: b.x, y: b.y - 56 }, k.t);
-        this.fish.setPosition(pt.x, pt.y);
+        const f = k.t * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), u = f - i;
+        const x = pts[i].x + (pts[i + 1].x - pts[i].x) * u, y = pts[i].y + (pts[i + 1].y - pts[i].y) * u;
+        // in Schwimmrichtung blicken (mit Trägheit, damit das Tier nicht flackert)
+        const ahead = pts[Math.min(pts.length - 1, i + 6)], back = pts[Math.max(0, i - 6)];
+        const dx = ahead.x - back.x;
+        if (Math.abs(dx) > 14 && Math.sign(dx) !== facing) {
+          facing = Math.sign(dx);
+          this.fish.setFacing(facing);
+        }
+        // über dem Weg schwimmen, nur an den Orten über dem Zeichen schweben
+        const e = Math.min(1, Math.min(k.t, 1 - k.t) * 8);
+        this.fish.setPosition(x, y - (14 + 42 * (1 - e)));
       },
       onComplete: () => {
         this.cur = p;

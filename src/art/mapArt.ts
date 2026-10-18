@@ -1,17 +1,17 @@
 import Phaser from 'phaser';
 import { W, H } from '../config';
-import { type Ctx, rgrad, tex, vgrad } from '../util/canvas';
+import { type Ctx, rgrad, tex } from '../util/canvas';
 import { mulberry32, type Rng } from '../util/math';
 import type { PlaceKind } from '../data/world';
 
-// Die Weltkarte, von oben gesehen: dunkles Meer mit Untiefen, Inseln und einem steinernen Rahmen.
-// Jeder Ort bekommt sein eigenes Stück Meer, das sich erst zeigt, wenn man ihn kennt.
+// Die Weltkarte: Maße, Lage der Punkte, das Gebiet um jeden Ort und die Zeichen der Ortsarten.
+// Die Urzeit-Erde selbst (Land und Meer) zeichnet paleoArt.ts.
 
 /** Kartenfläche (ohne Rahmen). */
 export const MAP_BOX = { x: 70, y: 96, w: W - 140, h: H - 218 };
 
-/** Lage eines Ortes (0..1) in Bildschirmkoordinaten. */
-export const mapPos = (x: number, y: number) => ({ x: MAP_BOX.x + 60 + x * (MAP_BOX.w - 120), y: MAP_BOX.y + 50 + y * (MAP_BOX.h - 100) });
+/** Lage eines Punktes der Urzeit-Karte (0..1) in Bildschirmkoordinaten – mit etwas Rand zum Rahmen. */
+export const mapPos = (x: number, y: number) => ({ x: MAP_BOX.x + 30 + x * (MAP_BOX.w - 60), y: MAP_BOX.y + 24 + y * (MAP_BOX.h - 48) });
 
 function blobs(ctx: Ctx, rnd: Rng, n: number, rMin: number, rMax: number, col: (a: number) => string, aMax: number, box = { x: 0, y: 0, w: W, h: H }) {
   for (let i = 0; i < n; i++) {
@@ -21,77 +21,6 @@ function blobs(ctx: Ctx, rnd: Rng, n: number, rMin: number, rMax: number, col: (
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   }
-}
-
-/** Eine Insel: flache Sandfläche mit hellem Rand im seichten Wasser – sonst nichts. */
-function island(ctx: Ctx, x: number, y: number, r: number, rnd: Rng) {
-  const pts: [number, number][] = [];
-  const n = 16;
-  const ph = rnd() * 6, ph2 = rnd() * 6;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const k = 1 + 0.26 * Math.sin(a * 3 + ph) + 0.14 * Math.sin(a * 5 + ph2);
-    pts.push([x + Math.cos(a) * r * k * 1.25, y + Math.sin(a) * r * k * 0.8]);
-  }
-  const path = (grow: number) => {
-    ctx.beginPath();
-    pts.forEach(([px, py], i) => {
-      const gx = x + (px - x) * grow, gy = y + (py - y) * grow;
-      if (i) ctx.lineTo(gx, gy);
-      else ctx.moveTo(gx, gy);
-    });
-    ctx.closePath();
-  };
-  path(1.5);
-  ctx.fillStyle = 'rgba(110,180,168,0.16)';
-  ctx.fill();
-  path(1.2);
-  ctx.fillStyle = 'rgba(150,200,176,0.22)';
-  ctx.fill();
-  path(1);
-  ctx.fillStyle = '#7d7658';
-  ctx.fill();
-}
-
-/** Das Meer mit Inseln, Strömungslinien und dem Rahmen – ohne Orte. */
-export function mapBase(scene: Phaser.Scene, key: string, seed: number, avoid: { x: number; y: number }[]) {
-  return tex(scene, key, W, H, (ctx) => {
-    const rnd = mulberry32(seed * 7919 + 3);
-    ctx.fillStyle = vgrad(ctx, 0, H, [[0, '#103a40'], [0.55, '#0b2830'], [1, '#061820']]);
-    ctx.fillRect(0, 0, W, H);
-    blobs(ctx, rnd, 18, 120, 280, (a) => `rgba(110,190,180,${a})`, 0.05);
-    blobs(ctx, rnd, 14, 110, 260, (a) => `rgba(0,6,10,${a})`, 0.14);
-    // Strömungslinien
-    ctx.lineCap = 'round';
-    for (let i = 0; i < 14; i++) {
-      const x = MAP_BOX.x + rnd() * MAP_BOX.w, y = MAP_BOX.y + rnd() * MAP_BOX.h, len = 40 + rnd() * 90;
-      ctx.strokeStyle = `rgba(150,220,210,${0.05 + rnd() * 0.07})`;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.bezierCurveTo(x + len * 0.3, y - 10 - rnd() * 8, x + len * 0.7, y + 10 + rnd() * 8, x + len, y);
-      ctx.stroke();
-    }
-    // Inseln – nicht auf den Orten
-    let placed = 0;
-    for (let k = 0; k < 80 && placed < 3; k++) {
-      const x = MAP_BOX.x + 80 + rnd() * (MAP_BOX.w - 160), y = MAP_BOX.y + 60 + rnd() * (MAP_BOX.h - 120), r = 22 + rnd() * 26;
-      if (avoid.some((p) => Math.hypot(p.x - x, p.y - y) < 175 + r)) continue;
-      island(ctx, x, y, r, rnd);
-      placed++;
-    }
-    // Rand: dunkel zum Rahmen hin
-    ctx.fillStyle = rgrad(ctx, W / 2, H / 2, H * 0.3, H * 0.95, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.75)']]);
-    ctx.fillRect(0, 0, W, H);
-    // schlichter Rahmen: eine dunkle Fläche, eine dünne ockerfarbene Linie
-    const b = MAP_BOX;
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = '#2a2723';
-    ctx.strokeRect(b.x - 5, b.y - 5, b.w + 10, b.h + 10);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(200,145,60,0.55)';
-    ctx.strokeRect(b.x - 10, b.y - 10, b.w + 20, b.h + 20);
-  });
 }
 
 /** Das Stück Meer um einen Ort: Tangwald, Trübung, steil abfallende Tiefe … */

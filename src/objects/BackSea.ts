@@ -193,7 +193,8 @@ export class BackSea {
     return s;
   }
 
-  update(time: number, dt: number, deepK: number) {
+  /** quiet: 0..1 – im stillen Fluss am Start gibt es (noch) keine Fische in der Ferne */
+  update(time: number, dt: number, deepK: number, quiet = 0) {
     if (!this.enabled) return;
     void time;
     const cam = this.scene.cameras.main;
@@ -205,7 +206,7 @@ export class BackSea {
     const v = this.view;
     const b = this.band();
     const surfaceScreen = this.surfaceY - cam.scrollY;
-    const fade = 1 - 0.82 * deepK;
+    const fade = (1 - 0.82 * deepK) * (1 - quiet);
 
     // ab und zu zieht ein ganz großer Fisch durch die Ferne (nie mehr als einer zugleich)
     this.bigAt -= dt * 1000;

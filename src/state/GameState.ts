@@ -93,6 +93,8 @@ export const FOOD = {
   meat: { sat: 3, kcal: 3.5 },
   plant: { sat: 1, kcal: 1 },
   toxic: { sat: 0.75, kcal: 1.5 },
+  /** Fischlaich: nahrhaft und leicht zu fressen – aber die Eltern passen auf */
+  roe: { sat: 2.4, kcal: 2.6 },
 };
 
 /** Wie viel in den Magen passt – größere Tiere fassen mehr (verbrauchen aber auch mehr). */

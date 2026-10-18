@@ -61,7 +61,9 @@ zuerst wird das Fischreich ausgebaut.
   ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
-  - **Der Startort** ist eine **Mulde** (ein Ufer fällt sanfter ab als das andere) und wimmelt von **kleinen Fischen**.
+  - **Der Startort** ist ein **Fluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden – **keine
+    anderen Tiere**, nur ein paar Pflanzen. Der Fluss fällt zum Meer hin ab, erst hinter der Mündung (im offenen Meer)
+    wartet das Leben. Auch die ersten Räuber lassen dich im Fluss in Ruhe.
   - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
   - **Trübe Orte** (Trübe Bucht, Sandfeld, Schlickebene …) sind **Hügelketten** oder flache Sandebenen – man sieht
@@ -81,9 +83,17 @@ zuerst wird das Fischreich ausgebaut.
   - **Neue Orte schaltest du frei, indem du hinausschwimmst:** An den Rändern (links/rechts in der Wand),
     **im Boden** (ein Schacht nach unten) und **oben im Licht** liegen **Durchgänge** – man muss sie erst
     finden. Schwimmst du durch einen hinaus, landest du auf der **Karte**, und der Ort, zu dem du schwimmst,
-    **erscheint dort zum ersten Mal**. Du kommst am Gegenstück des Durchgangs im neuen Ort heraus. Die Karte
-    zeigt **nur, was du schon entdeckt hast**; der Rest bleibt im Dunkeln. Jeder Weg kostet etwas Zeit. Das Meer
+    **erscheint dort zum ersten Mal**. Du kommst am Gegenstück des Durchgangs im neuen Ort heraus. Jeder Weg kostet etwas Zeit. Das Meer
     ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
+  - **Die Karte ist die Urzeit-Erde:** Jedes Zeitalter hat seine eigene Weltkarte nach der **echten Lage der Kontinente** –
+    Ordovizium: Gondwana im Süden, Laurentia, Baltica und Sibiria; Silur und Devon: Laurussia (Laurentia + Baltica),
+    Gondwana, Sibiria, dazu Iapetus-, Rheischer Ozean, Paläotethys und Panthalassa ringsum (**Pangäa** gibt es erst viel
+    später – im Perm). Die **Orte sind Punkte im Wasser**. Da du ein Fisch bist, bleibt das **meiste unbesucht**: Die Karte
+    ist dunkel, nur um bekannte Orte und entlang der geschwommenen Wege (Blasenspuren) wird sie hell – das Land bleibt Nebel.
+    Das Tier **schwimmt auf der Karte um das Land herum** (Wegsuche im Wasser, nie über Land), neue Orte decken sich mit
+    einem Aufhellen entlang des Weges auf. Die Umrisse sind **gezeichnet, nicht vermessen** – vereinfachte Näherungen.
+    Die Daten stehen in `src/data/paleo.json` (Umrisse, Meeresnamen, Lage der Orte); weitere Zeitalter (z. B. Pangäa)
+    lassen sich dort ergänzen.
 - **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
   großer Fisch** durchs Wasser – als **dunkle Schattenrisse**, deutlich anders als die hellen, echten Tiere. Jede Gruppe
   schwimmt in ihre **eigene Richtung**, und die Schichten wandern mit der Kamera mit (Parallaxe: weiter hinten weniger),
@@ -91,12 +101,18 @@ zuerst wird das Fischreich ausgebaut.
   nach rechts schwimmt, ist entsprechend schneller aus dem Bild. Sie liegen hinter Gelände, Pflanzen und allen echten
   Tieren und sind **nur Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten
   ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
+- **Fischlaich:** Überall im Meer liegen **Gelege** am Boden – das eigene im Startfluss, dazu die der Bewohner. Jedes
+  Gelege hat **Eltern in der Nähe**, die darüber wachen. Laich ist eine **gute Nahrungsquelle** (sättigt und gibt Kalorien),
+  aber: **Bekommen die Eltern mit, dass du ihre Brut frisst** (sie müssen in Sichtweite sein – wer sich versteckt, fällt nur
+  aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in Ruhe, **schlüpft** der der
+  Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben seltener bei ihrem Gelege.
 - **Das Aquapendium** (Knopf im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere
   (41 Stück). Links das Bild, rechts der Steckbrief mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
   Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
   (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
-  Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald ein Tier im Spiel ins
-  Bild kommt, wird seine Seite gefüllt (kurzer Hinweis oben links) – das bleibt über alle Leben erhalten. Blättern mit
+  Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald du einem neuen Tier **nah genug** kommst, wird seine Seite gefüllt – oben erscheint **„Neuer Aquapendium-Eintrag“**
+  mit einer kleinen **schreibenden Hand** und leisem Federkratzen (wie bei einer neuen Aufgabe im Tagebuch). Das bleibt über
+  alle Leben erhalten. Blättern mit
   ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen), **I** oder „Inhalt“ springt zum Verzeichnis, Esc zurück.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
@@ -349,7 +365,8 @@ src/
 │   ├── classes.ts       Körperformen mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
 │   ├── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Tiere, Ereignisse
-│   ├── world.ts         Orte je Zeitalter (Lage auf der Karte, Bewuchs, Tiefe, Muscheln)
+│   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
+│   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
 │   └── tablet.ts        die Zeilen der Steintafel und wie sie berechnet werden
 ├── state/GameState.ts   Leben (Lauf), verborgene Merkmale, Ruf, Stammbaum, Speichern
 ├── level/LevelGen.ts    erzeugt jeden Ort (bei jedem Leben etwas anders, aber immer derselbe Ort)
@@ -359,7 +376,9 @@ src/
 │   ├── speciesArt.ts    alle anderen Tiere
 │   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Dickicht, Effekte
 │   ├── tabletArt.ts     Steinplatte, Moos, Fische für die Wertung, Muschel
-│   ├── mapArt.ts        die Weltkarte
+│   ├── mapArt.ts        Kartenmaße, Gebiete um die Orte, Zeichen der Ortsarten
+│   ├── paleoArt.ts      die Urzeit-Erde: Land, Küstenschelf, Nebel und Aufdecken
+│   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung

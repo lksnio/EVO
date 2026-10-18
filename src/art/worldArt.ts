@@ -794,6 +794,54 @@ export const TOXIC = 3;
 /** Variante des Heilkrauts (leuchtet leise rosa-golden und schließt Wunden) */
 export const HEAL = 4;
 
+// ---------------------------------------------------------------------------
+// Fischlaich: ein Klumpen glasiger Eier mit dunklem Keim, am Boden festgeklebt (3 Stufen: voll, angefressen, Reste)
+
+export const ROE_TONES = [
+  { egg: 0xe8b458, shell: 0xf6dc98, yolk: 0xc4701c },
+  { egg: 0xe8c4c0, shell: 0xfae6e2, yolk: 0xd8786c },
+  { egg: 0x9ccad4, shell: 0xd8f0f4, yolk: 0x3c7a8c },
+  { egg: 0xb8c890, shell: 0xe2eec4, yolk: 0x5c7a3c },
+];
+
+export const roeKey = (tone: number, stage: number) => `roe_${tone}_${stage}`;
+
+const ROE_SPOTS: [number, number][] = [[15, 41], [29, 43], [43, 42], [57, 41], [22, 32], [36, 34], [50, 32], [29, 23], [43, 24], [36, 14]];
+
+export function roeTextures(scene: Phaser.Scene) {
+  ROE_TONES.forEach((t, tone) => {
+    for (let stage = 0; stage < 3; stage++) {
+      tex(scene, roeKey(tone, stage), 72, 52, (ctx) => {
+        const r = mulberry32(tone * 31 + 7);
+        const keep = stage === 0 ? ROE_SPOTS : stage === 1 ? [ROE_SPOTS[0], ROE_SPOTS[2], ROE_SPOTS[4], ROE_SPOTS[6], ROE_SPOTS[8]] : [ROE_SPOTS[1]];
+        // eine glibberige Unterlage
+        ell(ctx, 36, 46, stage === 0 ? 34 : 26, 5);
+        ctx.fillStyle = css(t.shell, 0.22);
+        ctx.fill();
+        for (const [x, y] of keep) {
+          const px = x + (r() - 0.5) * 2, py = y + (r() - 0.5) * 2;
+          ell(ctx, px, py, 7.4, 7.4);
+          ctx.fillStyle = rgrad(ctx, px - 2.4, py - 2.6, 0.5, 8, [[0, css(t.shell, 0.95)], [0.7, css(t.egg, 0.78)], [1, css(shade(t.egg, -0.35), 0.8)]]);
+          ctx.fill();
+          ctx.strokeStyle = css(shade(t.egg, -0.5), 0.55);
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+          // Dotter und winziger Keim
+          ell(ctx, px + 0.4, py + 0.6, 3.6, 3.6);
+          ctx.fillStyle = css(t.yolk, 0.85);
+          ctx.fill();
+          ell(ctx, px + 1, py + 1, 1.5, 1.2);
+          ctx.fillStyle = 'rgba(20,8,4,0.8)';
+          ctx.fill();
+          ell(ctx, px - 2.6, py - 2.8, 1.8, 1.1, -0.6);
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.fill();
+        }
+      });
+    }
+  });
+}
+
 export function plantTextures(scene: Phaser.Scene, theme: Theme) {
   for (let stage = 0; stage < 3; stage++) {
     tex(scene, foodKey(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));

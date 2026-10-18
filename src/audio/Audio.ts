@@ -6,7 +6,7 @@ export type Sfx =
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
-  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet';
+  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'write';
 
 interface ToneOpts {
   f: number;
@@ -623,6 +623,17 @@ export class AudioEngine {
         this.noise({ d: 0.25, v: 0.07, filter: 300, f2: 120, t: 0.05 });
         this.tone({ f: 98, f2: 70, d: 0.3, type: 'triangle', v: 0.06, filter: 400, t: 0.04 });
         break;
+      case 'write': {
+        // Eine Feder kratzt über Papier: kurze, leise Striche im Schreibrhythmus, am Ende ein Tintenpunkt
+        this.noise({ d: 0.14, v: 0.035, a: 0.04, filter: 900, type: 'bandpass', q: 0.8 });
+        let t = 0.08;
+        [0.1, 0.06, 0.12, 0.05, 0.09, 0.11, 0.06, 0.1, 0.13, 0.05].forEach((d, i) => {
+          this.noise({ t, d, v: 0.04 + 0.014 * ((i * 7) % 3), a: 0.012, filter: 3000 + (i % 4) * 520, f2: 2300 + (i % 3) * 380, type: 'bandpass', q: 3.4 });
+          t += d + 0.04 + (i % 3) * 0.02;
+        });
+        this.tone({ t: t + 0.02, f: 190, f2: 150, d: 0.09, type: 'sine', v: 0.025 });
+        break;
+      }
       case 'tablet':
         // Stein schiebt sich über Stein
         this.noise({ d: 0.35, v: 0.12, a: 0.05, filter: 420, f2: 160, q: 0.9 });
