@@ -472,7 +472,7 @@ export class MapScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
     c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 180, 22, 38);
+    controlsList(this, c, W / 2 + 30, 180, 22, 35);
     const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
     c.add(back);
     if (this.restNav) this.restNav.enabled = false;

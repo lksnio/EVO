@@ -16,6 +16,8 @@ export interface TabletScreenData {
   elapsed: number;
   placeName: string;
   kin: number;
+  /** so viele zählt deine Gruppe (game.swarm) – sie steht dann statt der Artgenossen hier */
+  group?: number;
 }
 
 /**
@@ -88,10 +90,11 @@ export class TabletScreen {
     }
 
     // Gruppe (Artgenossen sind selten – ohne sie bleibt die Zeile weg)
-    if (d.kin > 0) {
+    const group = d.group ?? 0;
+    if (group > 0 || d.kin > 0) {
       line(600);
-      c.add(text(scene, rx + 44, 630, 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
-      c.add(text(scene, rx + rw - 44, 630, String(d.kin), 20, UI.bone).setOrigin(1, 0.5));
+      c.add(text(scene, rx + 44, 630, group > 0 ? 'Deine Gruppe' : 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
+      c.add(text(scene, rx + rw - 44, 630, String(group > 0 ? group : d.kin), 20, UI.bone).setOrigin(1, 0.5));
     }
   }
 

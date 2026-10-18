@@ -4,6 +4,7 @@ import { audio } from '../audio/Audio';
 import { bus, game } from '../state/GameState';
 import type { LevelScene } from './LevelScene';
 import type { Kin } from '../objects/Kin';
+import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
@@ -56,6 +57,8 @@ export class HudScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.Text;
   private fuse!: Phaser.GameObjects.Graphics;
   private fuseProg = 0;
+  /** Antwort im Gespräch (ja oder nein) */
+  private choiceC?: Phaser.GameObjects.Container;
 
   constructor() {
     super('Hud');
@@ -116,6 +119,9 @@ export class HudScene extends Phaser.Scene {
     new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleTablet() }).setAlpha(0.75);
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
     this.updateGlow();
+    this.swarmUi();
+    this.questUi();
+    this.choiceUi();
 
     // Beim Betreten eines Ortes: nur sein Name, sanft ein- und wieder ausgeblendet
     const head = title(this, W / 2, H / 2 - 90, this.placeName, 46).setOrigin(0.5).setAlpha(0);
@@ -211,6 +217,122 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({ targets: g, alpha: 0.32, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
   }
 
+  /**
+   * Der Knopf für deine Gruppe (links neben der Steintafel, Taste S): erst sichtbar, wenn sie auf deinen Ruf kommt.
+   * Die Zahl zeigt, wie viele leben; solange sie bei dir sind, leuchtet er. Gleich nach dem Fortschicken ist er kurz matt.
+   */
+  private swarmUi() {
+    const x = W - 214, y = 38;
+    const glow = this.add.image(x, y, 'glow').setTint(0xbfe6ff).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0);
+    const btn = new Button(this, x, y, '', {
+      w: 50,
+      h: 50,
+      icon: 'ic_swarm',
+      iconOnly: true,
+      sound: null,
+      onClick: () => {
+        // wie ein kurzer Tastendruck: Das Level liest ihn im nächsten Bild (Controls)
+        touch.call = true;
+        audio.unlock();
+        this.time.delayedCall(200, () => (touch.call = false));
+      },
+    });
+    const badge = text(this, x + 17, y + 15, '', 15, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5);
+    let out = false;
+    const show = (i: SwarmInfo) => {
+      const vis = i.callable;
+      btn.setVisible(vis);
+      badge.setVisible(vis).setText(String(i.size));
+      if (!vis) {
+        this.tweens.killTweensOf(glow);
+        glow.setAlpha(0);
+        return;
+      }
+      btn.setAlpha(i.out || (i.ready && i.size > 0) ? 0.75 : 0.35);
+      badge.setColor(i.size > 0 ? UI.bone : '#c8473a');
+      if (i.out === out) return;
+      out = i.out;
+      this.tweens.killTweensOf(glow);
+      glow.setAlpha(0);
+      if (out) {
+        glow.setAlpha(0.12);
+        this.tweens.add({ targets: glow, alpha: 0.38, yoyo: true, repeat: -1, duration: 1100, ease: 'Sine.inOut' });
+      }
+    };
+    const s = game.swarm;
+    show({ callable: !!s?.callable, size: s?.members.length ?? 0, out: false, ready: true });
+    bus.on('swarm', show);
+    this.events.once('shutdown', () => bus.off('swarm', show));
+  }
+
+  /** Der laufende Auftrag: Titel, Ziel und Fortschritt in einem Schild oben links (wie die Aquapendium-Einträge). */
+  private questUi() {
+    const c = this.add.container(22, 100).setAlpha(0).setDepth(7);
+    let shown = false;
+    const show = (q: { title: string; lines: string[] } | null) => {
+      this.tweens.killTweensOf(c);
+      if (!q) {
+        shown = false;
+        this.tweens.add({ targets: c, alpha: 0, duration: 500, onComplete: () => c.removeAll(true) });
+        return;
+      }
+      c.removeAll(true);
+      const head = text(this, 18, 12, q.title.toUpperCase(), 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(3);
+      const rows = q.lines.map((l, i) => text(this, 18, 34 + i * 25, l, i === 0 ? 19 : 16, i === 0 ? UI.bone : UI.boneDim).setOrigin(0, 0));
+      const w = Math.round(Math.max(280, 36 + Math.max(head.width, ...rows.map((r) => r.width)))), h = 44 + q.lines.length * 25;
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.3);
+      g.fillRoundedRect(3, 5, w, h, 12);
+      g.fillStyle(0x0d0c0b, 0.78);
+      g.fillRoundedRect(0, 0, w, h, 12);
+      g.lineStyle(1.5, 0xc8913c, 0.45);
+      g.strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 12);
+      c.add([g, head, ...rows]);
+      if (!shown) {
+        shown = true;
+        c.setAlpha(0).setX(16);
+        if (!this.cineOn) this.tweens.add({ targets: c, alpha: 1, x: 22, duration: 600, ease: 'Sine.out' });
+      } else c.setAlpha(this.cineOn ? 0 : 1).setX(22);
+    };
+    // im Gespräch (Kino-Balken) tritt das Schild zurück
+    const onCine = (on: boolean) => {
+      if (!shown) return;
+      this.tweens.killTweensOf(c);
+      this.tweens.add({ targets: c, alpha: on ? 0 : 1, x: 22, duration: 500, delay: on ? 0 : 700 });
+    };
+    bus.on('questHud', show);
+    bus.on('cine', onCine);
+    this.events.once('shutdown', () => {
+      bus.off('questHud', show);
+      bus.off('cine', onCine);
+    });
+  }
+
+  /** Eine Frage im Gespräch: zwei Antworten unten im Kino-Balken (Pfeiltasten wählen, F bestätigt – oder antippen). */
+  private choiceUi() {
+    const show = (opts: string[] | null, sel: number) => {
+      if (!opts) {
+        this.choiceC?.destroy();
+        this.choiceC = undefined;
+        return;
+      }
+      if (!this.choiceC) {
+        const c = (this.choiceC = this.add.container(W / 2, H - 32).setDepth(55).setAlpha(0));
+        opts.forEach((o, i) => {
+          const b = new Button(this, (i - (opts.length - 1) / 2) * 300, 0, o, { w: 270, h: 44, size: 20, sound: null, onClick: () => bus.emit('choicePick', i) });
+          c.add(b);
+        });
+        this.tweens.add({ targets: c, alpha: 1, duration: 300 });
+      }
+      this.choiceC.list.forEach((b, i) => (b as Button).setFocus(i === sel));
+    };
+    bus.on('choice', show);
+    this.events.once('shutdown', () => {
+      bus.off('choice', show);
+      this.choiceC = undefined;
+    });
+  }
+
   /** Lebensbalken des Endgegners. */
   private drawBoss(name: string, f: number) {
     if (!this.bossShown && f > 0) {
@@ -258,6 +380,7 @@ export class HudScene extends Phaser.Scene {
         elapsed: lvl.elapsed,
         placeName: this.placeName,
         kin: kin.length,
+        group: game.swarm?.members.length ?? 0,
       },
       () => this.toggleTablet(),
     );
@@ -419,7 +542,7 @@ export class HudScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
     c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 180, 22, 38);
+    controlsList(this, c, W / 2 + 30, 180, 22, 35);
     c.add(text(this, W / 2, 548, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
     c.add(back);

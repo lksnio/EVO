@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, fedRef, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Offspring, type PlateId, type PlayStyle, type Traits } from '../state/GameState';
+import { bus, FOOD, fedRef, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Member, type Offspring, type PlateId, type PlayStyle, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -19,6 +19,8 @@ import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
 import { Quest } from '../objects/Quest';
+import { HuntQuest } from '../objects/HuntQuest';
+import { SwarmCtl } from '../objects/Swarm';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -203,7 +205,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private cine?: { t: number; img: Phaser.GameObjects.Image; dir: number; y: number; rumbled: boolean; released: boolean };
   private cineWanted = false;
   /** Aufträge der Artgenossen: Gespräche und ihre Szenen */
-  private quest?: Quest;
+  quest?: Quest;
+  /** der Auftrag „Die gemeinsame Jagd“ */
+  hunt?: HuntQuest;
+  /** deine Gruppe: rufen, begleiten, fortschicken */
+  swarm?: SwarmCtl;
   /** Zeitlupe: 1 = normal */
   private slow = 1;
   /** Was du in diesem Zeitalter getan hast – daraus wird beim Generationswechsel die nächste Generation */
@@ -385,6 +391,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawnKin();
     // Artgenossen sind selten und geben Aufträge: Wer einen hat, wartet an seiner Stelle (siehe objects/Quest.ts)
     this.quest = new Quest(this);
+    // deine Gruppe (wer gerufen war, kommt mit) und die gemeinsame Jagd
+    this.swarm = new SwarmCtl(this);
+    this.hunt = new HuntQuest(this);
     for (const s of L.spawns) {
       const a = this.spawnAnimal(s.id, s.x, s.y, s.herd);
       // Eltern wachen über ihr Gelege
@@ -1013,7 +1022,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.kinDef = {
       id: 'kin', name: 'Artgenosse', art: { t: 'jelly', r: 1, c: 0 }, role: 'prey', diet,
       habitat: this.water ? 'water' : 'land',
-      hp: Math.max(8, st.maxHp * 0.6), dmg: Math.max(1, st.bite * 0.6), power: st.power * 0.75,
+      // so viel Lebenskraft wie du – aber schwächer im Angriff (siehe SWARM)
+      hp: Math.max(8, st.maxHp), dmg: Math.max(1, st.bite * game.swarmStrength()), power: st.power * game.swarmStrength(),
       speed: st.speed * 0.95, sense: 280, meat: 2, sprint: 1.35,
     };
     // Je mehr Rudeltier, desto mehr Artgenossen leben in der Gegend
@@ -1037,8 +1047,36 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
+  /** Ein Artgenosse deiner Gruppe erscheint – mit dem Aussehen, das zu seiner Nummer gehört, und der Lebenskraft, die er noch hat. */
+  spawnMember(m: Member, x: number, y: number): Kin {
+    const genes = game.kinTraits(m.id);
+    const d = game.traits.diet;
+    const k = new Kin(this, this.kinDef, x, y, game.morph({ traits: genes.traits, fierce: 0, seed: genes.seed, sex: genes.sex }), (game.run?.social ?? 0.55) + (Math.random() - 0.5) * 0.12);
+    k.genes = genes;
+    k.memberId = m.id;
+    k.omni = d >= -0.3 && d <= 0.3;
+    k.hp = Math.max(1, Math.round(k.maxHp * m.hp));
+    this.animals.push(k);
+    return k;
+  }
+
+  /** Ein Tier schließt sich einer Gruppe an (Schwarm, Rudel) bzw. verlässt sie. */
+  joinHerd(a: Animal, id: number) {
+    this.leaveHerd(a);
+    a.herdId = id;
+    const list = this.herds.get(id);
+    if (list) list.push(a);
+    else this.herds.set(id, [a]);
+  }
+
+  leaveHerd(a: Animal) {
+    const list = this.herds.get(a.herdId);
+    if (list) this.herds.set(a.herdId, list.filter((m) => m !== a));
+    a.herdId = -1;
+  }
+
   /** Ein freier Platz für einen Artgenossen: im Wasser irgendwo frei, an Land auf dem Boden. */
-  private kinSpot(x: number, y: number): { x: number; y: number } | null {
+  kinSpot(x: number, y: number): { x: number; y: number } | null {
     if (this.water) {
       for (let k = 0; k < 8; k++) {
         const py = y + (Math.random() - 0.5) * 220;
@@ -1287,6 +1325,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   left(a: Animal) {
+    // ein Artgenosse deiner Gruppe ist lebend fortgeschwommen (fortgeschickt): Er bleibt in der Gruppe
+    if (a instanceof Kin) this.swarm?.gone(a);
     this.removeAnimal(a);
   }
 
@@ -1295,17 +1335,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.puff(k.x, k.y - 6, 3);
   }
 
-  kinLeaving(_k: Kin) {}
+  /** Verärgert davongezogen: Wer zu deiner Gruppe gehörte, hat sie verlassen. */
+  kinLeaving(k: Kin) {
+    this.swarm?.quit(k);
+  }
 
-  kinShared(k: Kin) {
+  kinShared(k: Kin, c: Meat) {
     this.sparkle.explode(6, k.x, k.y - 8);
-    // gemeinsam gefressen: Deine Art wird mehr und mehr zum Rudeltier
-    game.grow('pack', 0.02);
+    // gemeinsam gefressen: Das zählt für den Schwarmfisch – und lockt mit der Zeit weitere Artgenossen an
+    this.swarm?.shared(k, c);
   }
 
   /**
-   * Du greifst etwas an: Artgenossen in der Nähe helfen vielleicht mit – je mehr deine Art zum
-   * Rudeltier geworden ist und je mehr sie dir vertrauen, desto eher.
+   * Du greifst etwas an: Artgenossen in der Nähe helfen vielleicht mit – je mehr Zusammenhalt deine Art hat und je mehr
+   * sie dir vertrauen, desto eher. Wer dich begleitet (gerufen), hilft immer.
    */
   private callHunt(a: Animal) {
     if (a.kin || a.ally || a.dead || a.role === 'hazard') return;
@@ -1317,9 +1360,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const groupPower = near.reduce((sum, k) => sum + k.def.power, p.stats.power);
     const pack = game.traits.pack;
     for (const k of near) {
-      const brave = a.def.power <= groupPower * 1.2 || k.loyalty > 0.75;
+      const brave = a.def.power <= groupPower * 1.2 || k.loyalty > 0.75 || k.escort;
       if (!brave) continue;
-      k.offerHunt(a, now + 7000, clamp(0.12 + 0.75 * pack + 0.35 * (k.loyalty - 0.5), 0.05, 0.95));
+      k.offerHunt(a, now + 7000, k.escort ? 1 : clamp(0.12 + 0.75 * pack + 0.35 * (k.loyalty - 0.5), 0.05, 0.95));
     }
   }
 
@@ -1398,16 +1441,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (a.kin) {
       audio.sfx('squeal');
       if (byPlayer) game.addAggression(0.2);
+      // ein Artgenosse deiner Gruppe ist gestorben: Er fehlt fortan
+      if (a instanceof Kin) this.swarm?.died(a);
       return;
     }
+    this.hunt?.died(a, byPlayer);
     // Beute, an der du beteiligt warst, gilt als deine
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
     const kill = new Kill(ours);
     for (const k of a.helpers) if (k instanceof Kin && !k.dead) kill.helpers.add(k);
-    if (ours && kill.helpers.size) {
-      // gemeinsam erlegt: Deine Art wird mehr und mehr zum Rudeltier
-      game.grow('pack', 0.05);
-    }
+    // gemeinsam erlegt: zählt für den Schwarmfisch (gegen Starke mehr)
+    if (ours && kill.helpers.size) this.train.pack += 0.5 + this.challenge(a);
     // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – große Tiere geben mehrere Stücke
     const killer = a.lastAttacker;
     const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
@@ -1482,6 +1526,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.train[kind] += this.challenge(a) * kill * k;
     this.train.chase += this.pursuit(a, ranMs) * kill;
     this.useHere(0.6);
+    this.hunt?.hit(a);
   }
 
   playerBite(rect: Rect, momentum = 0) {
@@ -1713,15 +1758,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   update(time: number, delta: number) {
     const p = this.player;
     // Kino-Moment: läuft in echter Zeit, alles andere in Zeitlupe
-    if (this.cineWanted && !this.cine && !this.ended && !p.dead && !this.quest?.busy) this.tryCine();
+    if (this.cineWanted && !this.cine && !this.ended && !p.dead && !this.quest?.busy && !this.hunt?.busy) this.tryCine();
     if (this.cine) this.cineStep(delta);
     const dt = Math.min(0.05, delta / 1000) * this.slow;
     this.t += dt;
     const L = this.L;
-    if (!this.ended && !(this.cine && !this.cine.released) && !this.quest?.busy) this.controls.update();
+    if (!this.ended && !(this.cine && !this.cine.released) && !this.quest?.busy && !this.hunt?.busy) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
     this.quest?.update(time, delta);
+    this.hunt?.update(time, delta);
+    this.swarm?.update(time);
+    if (this.controls.pressed.call) this.swarm?.toggle();
     this.drawStamina(p, dt);
     for (const a of [...this.animals]) {
       try {
@@ -1737,7 +1785,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         // aus der Welt gefallen: als fort markieren, damit niemand mehr danach greift
         this.removeAnimal(a);
         a.vanish();
-      } else if (!a.dead && this.escaped(a, time)) {
+      } else if (!a.dead && !a.bound && this.escaped(a, time)) {
         // Wer lange davonrennt und aus dem Bild ist (oder am Rand nicht weiterkommt), ist entkommen – und weg
         const off = this.offScreen(a.x, a.y, 140);
         this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, herd: a.herdId >= 0 ? a.herdId : undefined, at: time + 30000 + Math.random() * 30000 });
@@ -2068,7 +2116,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (Math.random() < 0.55) {
       const p = this.player;
       const goers = this.animals.filter((a) => !a.dead && !a.kin && !a.ally && !a.visitor && !a.boss && !a.leaveDir && a.role !== 'hazard' && a.role !== 'apex'
-        && Math.abs(a.x - p.x) > 700 && !a.target);
+        && !a.bound && Math.abs(a.x - p.x) > 700 && !a.target);
       const a = goers[Math.floor(Math.random() * goers.length)];
       if (a) a.leaveDir = a.x < this.L.width / 2 ? -1 : 1;
     }
@@ -2448,6 +2496,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Zustand für den nächsten Ort bzw. die Karte festhalten. */
   private saveProgress() {
     const p = this.player;
+    // wer von deiner Gruppe bei dir ist, kommt mit – mit der Lebenskraft, die er gerade hat
+    this.swarm?.storeAll();
     game.leavePlace({
       elapsed: this.elapsed,
       hp: p.hp,
@@ -2487,7 +2537,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
     this.train.hurt += this.player.takeEndured();
-    // Geht die Linie weiter, gibt es drei mögliche Nachkommen – je einer für jede Evolutionsplatte; gewählt wird im
+    this.swarm?.storeAll();
+    // die Überlebenden deiner Art: deine Gruppe (game.swarm), wo immer sie gerade ist
+    const pop = game.swarm?.members ?? [];
+    // Geht die Linie weiter, gibt es mögliche Nachkommen – je einer für jede Evolutionsplatte; gewählt wird im
     // Generationen-Bildschirm. Bis dahin führt der die Linie weiter, der am besten zur Spielweise passte.
     const last = !repeat && !EPOCHS[this.epochIdx + 1];
     const offspring = last ? [] : game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train);
@@ -2498,8 +2551,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       traits: { ...game.traits },
       cls: game.cls,
       look: { hue: run.hue, seed: run.seed, sex: run.sex },
-      kinAlive: kin.length,
-      kinLooks: kin.slice(0, 3).map((k) => k.view.m),
+      kinAlive: pop.length,
+      kinLooks: pop.slice(0, 3).map((m) => game.kinMorph(m.id)),
       node: '',
     };
     const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;

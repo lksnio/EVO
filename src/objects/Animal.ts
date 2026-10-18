@@ -21,6 +21,8 @@ export interface PlayerLike {
   bodyLen: number;
   /** still im Dickicht versteckt */
   hidden: boolean;
+  /** Blickrichtung (1 rechts, -1 links) – wer dir folgt, schwimmt dahinter */
+  facing?: number;
   hitRect(): Rect;
   hurt(dmg: number, fromX: number, by?: string): void;
 }
@@ -119,6 +121,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   kin = false;
   /** spielt in einer Szene mit (Auftrag): Die Szene steuert das Tier, es denkt nicht selbst und ist unverwundbar */
   scripted = false;
+  /** gehört zu einem Auftrag (z. B. der Schwarm der gemeinsamen Jagd): flieht wie jedes Tier, verlässt den Ort aber nicht */
+  bound = false;
   /** gerade im Dickicht versteckt */
   hiddenNow = false;
   /** zieht nur durch (Ereignis) */
@@ -379,7 +383,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.world.water) {
       const wb = this.world.physics.world.bounds;
       if (this.x < wb.x - 200 || this.x > wb.right + 200) {
-        if (this.kin || this.ally || this.boss) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
+        if (this.kin || this.ally || this.boss || this.bound) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
         else return this.leave();
       }
     }
@@ -558,6 +562,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         threat = p;
         threatD = dp;
       }
+    }
+    // Beute, die deine Artgenossen angreifen, flieht vor ihnen genauso wie vor dir
+    const kinFoe = this.attacker && this.attacker !== p && (this.attacker as Animal).kin && !this.attacker.dead && time - this.attackedAt < 8000 ? this.attacker : null;
+    if (role === 'prey' && !friend && kinFoe && this.dist(kinFoe) < threatD) {
+      threat = kinFoe;
+      threatD = this.dist(kinFoe);
     }
     for (const a of W.animals) {
       if (a === this || a.dead || a.def.id === d.id) continue;
@@ -1013,6 +1023,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** Etwas größere Beute kann sich wehren: genug Kraft, um dem Spieler einen Stoß zu verpassen? */
   get canCounter() {
     return this.role === 'prey' && !this.kin && this.def.power * this.sz >= this.world.playerPower() * 0.62;
+  }
+
+  /** … bzw. dem Angreifer: dir oder einem deiner Artgenossen. */
+  protected counters(from: Target) {
+    if (from === this.world.player) return this.canCounter;
+    return this.role === 'prey' && !this.kin && this.def.power * this.sz >= (from as Animal).def.power * 0.62;
   }
 
   protected endCounter() {
@@ -1874,9 +1890,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.fightBack(now);
     }
     if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && from === this.world.player)) this.target = from;
-    // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen
+    // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen (gegen dich wie gegen deine Artgenossen)
     const W = this.world;
-    if (this.role === 'prey' && from === W.player && this.hp > this.maxHp * 0.35 && this.canCounter) {
+    const foe = from === W.player || (from instanceof Animal && from.kin);
+    if (this.role === 'prey' && foe && this.hp > this.maxHp * 0.35 && this.counters(from)) {
       this.defendUntil = now + 3500;
       this.target = from;
     }

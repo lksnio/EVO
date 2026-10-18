@@ -60,10 +60,14 @@ export interface Morph {
   coat?: number;
   /** Körperrobustheit (0 … 1): robustere Schuppen bis zum Schuppenpanzer */
   armor?: number;
-  /** Evolutionsplatten (Punkte): Stoß-, Beiß- und Verfolgungsfisch – sie färben das Tier (die Form kommt aus den übrigen Merkmalen) */
+  /**
+   * Evolutionsplatten (Punkte): Stoß-, Beiß-, Verfolgungs- und Schwarmfisch – sie färben das Tier (die Form kommt aus den übrigen
+   * Merkmalen; der Schwarmfisch trägt dazu ein dunkles Längsband)
+   */
   st?: number;
   bs?: number;
   vf?: number;
+  sw?: number;
   /** Flossen aus der Bewegung (0 … 1): Rückenflosse (nach oben geschwommen), Bauchflossen (nach unten), Seitenflossen (oft gewendet), Schwanzflosse (viel und schnell nach vorn) */
   fUp?: number;
   fDown?: number;
@@ -107,6 +111,7 @@ export function quantize(m: Morph): Morph {
     st: q(m.st ?? 0, 0.25),
     bs: q(m.bs ?? 0, 0.25),
     vf: q(m.vf ?? 0, 0.25),
+    sw: q(m.sw ?? 0, 0.25),
     fUp: q(m.fUp ?? 0, 0.1),
     fDown: q(m.fDown ?? 0, 0.1),
     fSide: q(m.fSide ?? 0, 0.1),
@@ -116,7 +121,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
 }
 
 interface Pal {
@@ -157,15 +162,15 @@ function palette(m: Morph): Pal {
     fin: mix(camoBase(p.fin), p.camo, st * 0.3),
   };
   // Die Evolutionsplatten färben mit: Stoßfisch stahlgrau, Beißfisch dunkel bronzefarben mit rostigen Flossen,
-  // Verfolgungsfisch blaugrau mit hellem Bauch
-  const ws = plateLevel(m.st ?? 0), wb = plateLevel(m.bs ?? 0), wv = plateLevel(m.vf ?? 0);
-  const wt = ws + wb + wv;
+  // Verfolgungsfisch blaugrau mit hellem Bauch, Schwarmfisch silbrig
+  const ws = plateLevel(m.st ?? 0), wb = plateLevel(m.bs ?? 0), wv = plateLevel(m.vf ?? 0), wsw = plateLevel(m.sw ?? 0);
+  const wt = ws + wb + wv + wsw;
   if (wt > 0) {
-    const avg = (a: number, b: number, c: number) => mix(mix(a, b, wb / (ws + wb || 1)), c, wv / wt);
+    const avg = (a: number, b: number, c: number, d: number) => mix(mix(mix(a, b, wb / (ws + wb || 1)), c, wv / (ws + wb + wv || 1)), d, wsw / wt);
     const k = Math.min(1, wt) * 0.6;
-    out.base = mix(out.base, avg(0x5d666b, 0x6a4c3a, 0x4e6f7e), k);
-    out.fin = mix(out.fin, avg(0x474f54, 0x7a4630, 0x3f5b68), k);
-    out.belly = mix(out.belly, avg(0xa9aca6, 0xc2aa8c, 0xcfd6cc), k * 0.7);
+    out.base = mix(out.base, avg(0x5d666b, 0x6a4c3a, 0x4e6f7e, 0x8c9a9e), k);
+    out.fin = mix(out.fin, avg(0x474f54, 0x7a4630, 0x3f5b68, 0x627680), k);
+    out.belly = mix(out.belly, avg(0xa9aca6, 0xc2aa8c, 0xcfd6cc, 0xe2e8e4), k * 0.7);
   }
   // Höhlenfarbe: grün wie ein Barsch (grüner Rücken, helle Flanke, dunkle Querbinden) bzw. tiefschwarz
   const coat = m.coat ?? 0;
@@ -479,6 +484,21 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
         c.strokeStyle = css(P.belly, 0.25);
         c.lineWidth = 1;
         c.stroke();
+        // Schwarmfisch: ein dunkles Längsband an der Flanke mit hellem, silbrigem Saum – daran erkennt sich der Schwarm
+        const school = plateLevel(m.sw ?? 0);
+        if (school > 0.08) {
+          const band = (dy: number, w: number, col: string) => {
+            c.beginPath();
+            c.moveTo(bw * 0.36, -bh * 0.08 + dy);
+            c.quadraticCurveTo(-bw * 0.04, -bh * 0.02 + dy, -bw * 0.54, bh * 0.02 + dy);
+            c.strokeStyle = col;
+            c.lineWidth = w;
+            c.lineCap = 'round';
+            c.stroke();
+          };
+          band(-bh * (0.08 + 0.05 * school), 1.2 + 1.2 * school, css(shade(P.belly, 0.35), 0.25 + 0.45 * school));
+          band(0, 1.5 + bh * 0.14 * school, css(P.dark, 0.3 + 0.45 * school));
+        }
       } else if (m.cls === 'reptile') {
         c.strokeStyle = css(P.dark, 0.22);
         c.lineWidth = 0.7;

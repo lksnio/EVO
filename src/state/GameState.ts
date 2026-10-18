@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, type EpochDef } from '../data/epochs';
 import { placeOf, placesOf, startPlace, TRAVEL_SECONDS, type PlaceKind } from '../data/world';
+import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 
@@ -63,7 +64,7 @@ export interface Traits {
   light: number;
   /** Bodenkontakt: stützende Flossen bzw. kräftige Beine */
   limb: number;
-  /** Rudeltier: Artgenossen helfen öfter (und wollen mitfressen) */
+  /** Zusammenhalt (Schwarmfisch): Artgenossen helfen öfter, deine Gruppe wird größer und stärker (und will mitfressen) */
   pack: number;
   /** Flossengröße, Schwanzbreite, Rückenflosse/Kamm (-1 … +1) – ändern sich vor allem durch die Evolutionsplatten */
   fin: number;
@@ -77,10 +78,14 @@ export interface Traits {
   coat: number;
   /** Körperrobustheit (0 … 1): robustere Schuppen bis zum Schuppenpanzer – aus überstandenen Angriffen */
   armor: number;
-  /** Evolutionsplatten: Punkte als Stoß-, Beiß- bzw. Verfolgungsfisch (0 … PLATE_MAX) – sie bauen über die Zeitalter aufeinander auf */
+  /**
+   * Evolutionsplatten: Punkte als Stoß-, Beiß-, Verfolgungs- bzw. Schwarmfisch (0 … PLATE_MAX) – sie bauen über die Zeitalter
+   * aufeinander auf. Den Schwarmfisch gibt es erst, wenn deine Gruppe gelernt hat, auf deinen Ruf zu kommen.
+   */
   st: number;
   bs: number;
   vf: number;
+  sw: number;
   /**
    * Flossen, die aus der Bewegung wachsen – und zwar erst bei der Verwandlung nach einem Zeitalter (0 … 1):
    * wer am meisten nach oben schwamm → größere Rückenflosse und schneller nach oben; nach unten → größere Bauchflossen
@@ -94,7 +99,7 @@ export interface Traits {
 }
 
 /** Merkmale, die schon im Zeitalter Stück für Stück wachsen (alles Übrige ändert sich erst beim Generationswechsel). */
-export type TraitKey = 'stealth' | 'green' | 'sand' | 'nerve' | 'tox' | 'limb' | 'pack';
+export type TraitKey = 'stealth' | 'green' | 'sand' | 'nerve' | 'tox' | 'limb';
 
 /** Kleinster Wuchs: Wer in flachen, bewachsenen Gewässern lebt, kann noch kleiner werden als der Urfisch. */
 const GROWTH_MIN = -0.2;
@@ -239,6 +244,37 @@ export interface Run {
   /** so viele Zeilen der Tafel hat man schon freigelegt gesehen */
   seenRows: number;
   history: Ancestor[];
+  /** die Gruppe deiner Art (entsteht beim Treffen in „Die gemeinsame Jagd“) – sie überdauert Orte und Zeitalter */
+  swarm?: Swarm;
+  /** Stand der gemeinsamen Jagd (Auftrag „jagd“) */
+  hunt?: { kills: number; took: boolean; size: number };
+}
+
+/** Ein Artgenosse deiner Gruppe: eine feste Nummer (sie bestimmt sein Aussehen) und seine Lebenskraft (Anteil, 0 … 1). */
+export interface Member {
+  id: number;
+  hp: number;
+}
+
+/**
+ * Deine Gruppe: wer von deiner Art mit dir lebt, und ihre Überlebensbilanz. Rufen kann man sie erst, wenn sie es gelernt hat
+ * (nach der gemeinsamen Jagd); wer gerufen ist, kommt beim Ortswechsel mit.
+ */
+export interface Swarm {
+  /** die Lebenden */
+  members: Member[];
+  /** nächste freie Nummer */
+  next: number;
+  /** gerade bei dir (gerufen bzw. bei der Jagd) */
+  out: number[];
+  /** kommt auf deinen Ruf (Taste S) */
+  callable: boolean;
+  /** gemeinsam erlegte und geteilte Beute seit dem letzten Zuwachs */
+  fed: number;
+  /** Bilanz: so viele kamen dazu, starben bzw. haben die Gruppe verlassen */
+  grown: number;
+  lost: number;
+  left: number;
 }
 
 /** Ein möglicher Nachkomme, der die Linie ins nächste Zeitalter führt – je einer für jede Evolutionsplatte. */
@@ -292,13 +328,13 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 /** Was im Zeitalter Stück für Stück wächst, setzt sich über die Jahrmillionen fort (verstärkt). */
-const AMP: TraitKey[] = ['stealth', 'green', 'sand', 'nerve', 'tox', 'limb', 'pack'];
+const AMP: TraitKey[] = ['stealth', 'green', 'sand', 'nerve', 'tox', 'limb'];
 /** Merkmale, die man dem Tier ansieht und die sich nur bei der Verwandlung nach einem Zeitalter ändern. */
-const LOOK_KEYS: (keyof Traits)[] = ['jaw', 'skull', 'stealth', 'diet', 'spike', 'green', 'sand', 'len', 'girth', 'swift', 'fang', 'light', 'limb', 'fin', 'tail', 'crest', 'tint', 'snout', 'armor', 'st', 'bs', 'vf', 'fUp', 'fDown', 'fSide', 'fTail'];
+const LOOK_KEYS: (keyof Traits)[] = ['jaw', 'skull', 'stealth', 'diet', 'spike', 'green', 'sand', 'len', 'girth', 'swift', 'fang', 'light', 'limb', 'pack', 'fin', 'tail', 'crest', 'tint', 'snout', 'armor', 'st', 'bs', 'vf', 'sw', 'fUp', 'fDown', 'fSide', 'fTail'];
 /** Merkmale zwischen 0 und 1 (die übrigen reichen von -1 bis 1; Kopfplatte und Wuchs haben eigene Grenzen) */
 const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
 const range = (k: keyof Traits): [number, number] => (k === 'spike' ? [-1, 0] : k === 'growth' ? [GROWTH_MIN, 1] : UNIT_KEYS.has(k) ? [0, 1] : [-1, 1]);
@@ -317,7 +353,7 @@ export function skillName(k: SkillKey, t: Partial<Traits>) {
 }
 
 // ---------------------------------------------------------------------------
-// Die drei Evolutionsplatten. Am Ende jedes Zeitalters (und jeder Generation) wählt man eine – sie bestimmt, wohin sich
+// Die Evolutionsplatten. Am Ende jedes Zeitalters (und jeder Generation) wählt man eine – sie bestimmt, wohin sich
 // die nächste Generation entwickelt. Wie stark, entscheidet die Spielweise: Erfolge in dieser Richtung prägen sie
 // deutlicher aus, Erfolge gegen deutlich stärkere Gegner viel mehr als gegen kleine Beute. Die Punkte bauen über die
 // Zeitalter aufeinander auf; jede Platte hat ihren Preis, keine ist überall die beste.
@@ -327,11 +363,13 @@ export function skillName(k: SkillKey, t: Partial<Traits>) {
 //                dafür langsamer, schneller müde und hungriger
 //   Verfolgung – schneller und ausdauernder: lang, schlank, große Schwanzflosse, spitze Schnauze;
 //                dafür weniger Lebenskraft, ein schwacher Stoß und ein schwerfälligeres Wenden
+//   Schwarm    – (erst, wenn deine Gruppe auf deinen Ruf kommt) Zusammenhalt: Die Gruppe wird größer, stärker und wächst
+//                schneller; silbrig, schlank, ein dunkles Längsband. Dafür allein verletzlicher – und die Beute wird geteilt
 // ---------------------------------------------------------------------------
 
-export type PlateId = 'st' | 'bs' | 'vf';
-export const PLATE_IDS: PlateId[] = ['st', 'bs', 'vf'];
-export const PLATE_NAME: Record<PlateId, string> = { st: 'Stoßfisch', bs: 'Beißfisch', vf: 'Verfolgungsfisch' };
+export type PlateId = 'st' | 'bs' | 'vf' | 'sw';
+export const PLATE_IDS: PlateId[] = ['st', 'bs', 'vf', 'sw'];
+export const PLATE_NAME: Record<PlateId, string> = { st: 'Stoßfisch', bs: 'Beißfisch', vf: 'Verfolgungsfisch', sw: 'Schwarmfisch' };
 
 /** So viele Punkte sammelt eine Platte höchstens. */
 const PLATE_MAX = 4;
@@ -344,9 +382,10 @@ const PLATE_D: Record<PlateId, Partial<Record<keyof Traits, number>>> = {
   st: { skull: 0.5, spike: -1, fSide: 0.5, len: -0.3, snout: -0.55, crest: 0.35, girth: 0.2, light: -0.15 },
   bs: { jaw: 0.62, fang: 0.6, girth: 0.3, snout: -0.2, len: -0.1 },
   vf: { len: 0.7, girth: -0.55, swift: 0.75, tail: 0.85, fTail: 0.5, fin: 0.45, crest: 0.2, snout: 0.6, light: 0.12 },
+  sw: { pack: 1, girth: -0.3, len: 0.15, fin: 0.25, snout: 0.15, light: 0.3 },
 };
 
-/** Die vorherrschende Platte (oder undefined beim Urfisch) – bei Gleichstand in der Reihenfolge Stoßen, Beißen, Verfolgung. */
+/** Die vorherrschende Platte (oder undefined beim Urfisch) – bei Gleichstand in der Reihenfolge Stoßen, Beißen, Verfolgung, Schwarm. */
 export function dominantPlate(t: Partial<Traits>): PlateId | undefined {
   const f = full(t);
   let best: PlateId | undefined;
@@ -368,9 +407,9 @@ export const plateSig = (t: Partial<Traits>) => {
  * Wie gut die Spielweise eines Zeitalters zu jeder Platte passt (0 … 1). Die Zählwerte sind schon nach der Stärke der Gegner
  * gewichtet (siehe LevelScene.challenge); die Bezugswerte entsprechen einem Zeitalter, in dem man das oft und erfolgreich tut.
  */
-export function plateFit(s: Pick<PlayStyle, 'ram' | 'hunt' | 'chase' | 'swim'>): Record<PlateId, number> {
+export function plateFit(s: Pick<PlayStyle, 'ram' | 'hunt' | 'chase' | 'swim' | 'pack'>): Record<PlateId, number> {
   const fit = (v: number, ref: number) => 1 - Math.exp(-Math.max(0, v) / ref);
-  return { st: fit(s.ram, 22), bs: fit(s.hunt, 30), vf: fit(s.chase + 0.35 * s.swim, 40) };
+  return { st: fit(s.ram, 22), bs: fit(s.hunt, 30), vf: fit(s.chase + 0.35 * s.swim, 40), sw: fit(s.pack, 8) };
 }
 
 /** Lebensraum → Körpergröße: Zu diesem Wuchs zieht es eine Linie, die vor allem hier lebt (flach und bewachsen → klein, tief → groß). */
@@ -457,7 +496,7 @@ export function sigOf(cls: ClassId, tIn: Partial<Traits>) {
 }
 
 const GENUS_ROOT: Record<ClassId, string> = { fish: 'ichthys', amphibian: 'batrachus', reptile: 'saurus', mammal: 'therium' };
-const GENUS_PRE: Record<string, string> = { basal: 'Prot', st: 'Placo', bs: 'Odont', vf: 'Drom' };
+const GENUS_PRE: Record<string, string> = { basal: 'Prot', st: 'Placo', bs: 'Odont', vf: 'Drom', sw: 'Agel' };
 const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris', carn: 'carnivorus' };
 
 /** Ein wissenschaftlich klingender Name für eine Linie (nur im Stammbaum zu sehen). */
@@ -486,6 +525,8 @@ export interface PlayStyle {
   chase: number;
   /** zurückgelegte Strecke mit Tempo (gegen Strömungen doppelt) */
   swim: number;
+  /** gemeinsam gejagt: Beute, die mit deiner Gruppe erlegt (nach Stärke gewichtet) und mit ihr geteilt wurde */
+  pack: number;
   /** überstandene Treffer, gewichtet nach ihrer Schwere */
   hurt: number;
   /** Sekunden, in denen nach oben bzw. unten geschwommen wurde, schnell nach vorn, und wie oft die Richtung wechselte */
@@ -497,7 +538,7 @@ export interface PlayStyle {
   hab: Partial<Record<PlaceKind, number>>;
 }
 
-export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {} });
+export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {} });
 
 export interface SurviveResult {
   epoch: EpochDef;
@@ -674,8 +715,10 @@ class GameState {
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
     // Verfolgungsfische halten lange durch – das zeigt ihr Körperbau allein nicht
     const chase = plateLevel(t.vf ?? 0);
+    // Schwarmfische sind allein verletzlicher: Ihre Stärke ist die Gruppe
+    const school = plateLevel(t.sw ?? 0);
     return {
-      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor)),
+      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school)),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
@@ -752,6 +795,7 @@ class GameState {
       st: t.st ?? 0,
       bs: t.bs ?? 0,
       vf: t.vf ?? 0,
+      sw: t.sw ?? 0,
       fUp: t.fUp ?? 0,
       fDown: t.fDown ?? 0,
       fSide: t.fSide ?? 0,
@@ -804,6 +848,7 @@ class GameState {
       st: t.st ?? 0,
       bs: t.bs ?? 0,
       vf: t.vf ?? 0,
+      sw: t.sw ?? 0,
       fUp: j(t.fUp ?? 0, 0.05),
       fDown: j(t.fDown ?? 0, 0.05),
       fSide: j(t.fSide ?? 0, 0.05),
@@ -863,8 +908,9 @@ class GameState {
   }
 
   /**
-   * Das Zeitalter ist überstanden: drei mögliche Nachkommen, je einer für jede Evolutionsplatte – welcher die Linie
-   * weiterführt, wählt man gleich danach. Was unabhängig von der Platte geschieht, ist bei allen dreien gleich:
+   * Das Zeitalter ist überstanden: mögliche Nachkommen, je einer für jede Evolutionsplatte (der Schwarmfisch nur, wenn deine
+   * Gruppe auf deinen Ruf kommt) – welcher die Linie weiterführt, wählt man gleich danach. Was unabhängig von der Platte
+   * geschieht, ist bei allen gleich:
    *   – Was im Zeitalter Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich über die Jahrmillionen fort.
    *   – Die Bewegung formt die Flossen (moveGrowth).
    *   – Körpergröße: Der Lebensraum, in dem man am aktivsten war, zieht den Wuchs nach oben (Tiefe) bzw. unten (flach,
@@ -908,7 +954,7 @@ class GameState {
       base.diet = clamp(end.diet + clamp(target - end.diet, -0.4, 0.4) * sure, -DIET_MAX, DIET_MAX);
     }
     const fit = plateFit(style);
-    return PLATE_IDS.map((id) => {
+    return this.platesOffered().map((id) => {
       const t = full({ ...base });
       // Auch ohne passende Erfolge entwickelt sich die gewählte Richtung – mit ihnen deutlich stärker
       const n0 = t[id], n1 = Math.min(PLATE_MAX, n0 + 0.45 + 0.85 * fit[id]);
@@ -922,6 +968,12 @@ class GameState {
     });
   }
 
+  /** Die Platten, zwischen denen man wählt: den Schwarmfisch erst, wenn eine Gruppe da ist, die auf deinen Ruf kommt. */
+  platesOffered(): PlateId[] {
+    const s = this.swarm;
+    return s?.callable && s.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
+  }
+
   /** Die Wahl steht: Dieser Nachkomme führt die Linie weiter (er ersetzt den vorläufigen, nichts kommt doppelt dazu). */
   chooseOffspring(o: Offspring) {
     const run = this.r;
@@ -930,6 +982,62 @@ class GameState {
     run.seed = o.seed;
     if (this.checkRamUnlock()) run.ramNew = true;
     this.save();
+  }
+
+  // ---------------------------------------------------------------- die eigene Gruppe (Schwarm)
+
+  get swarm(): Swarm | undefined {
+    return this.data.run?.swarm;
+  }
+
+  /** Die Gruppe deiner Art entsteht (beim ersten Treffen): so viele Artgenossen, alle bei voller Kraft. */
+  foundSwarm(n: number): Swarm {
+    const r = this.r;
+    r.swarm ??= {
+      members: Array.from({ length: n }, (_, i) => ({ id: i + 1, hp: 1 })),
+      next: n + 1, out: [], callable: false, fed: 0, grown: 0, lost: 0, left: 0,
+    };
+    this.save();
+    return r.swarm;
+  }
+
+  /** So viele kommen höchstens auf deinen Ruf – je mehr Zusammenhalt (Schwarmfisch), desto mehr. */
+  swarmCap() {
+    return SWARM.cap + Math.round(SWARM.capPlus * (this.traits.pack ?? 0));
+  }
+
+  /** Angriffskraft eines Artgenossen im Verhältnis zu deiner (immer darunter). */
+  swarmStrength() {
+    return SWARM.dmg + SWARM.dmgPlus * (this.traits.pack ?? 0);
+  }
+
+  /** Ein Artgenosse ist gestorben (died) bzw. hat die Gruppe verlassen: Er fehlt fortan – die Bilanz merkt es sich. */
+  swarmLose(id: number, died: boolean) {
+    const s = this.swarm;
+    if (!s || !s.members.some((m) => m.id === id)) return;
+    s.members = s.members.filter((m) => m.id !== id);
+    s.out = s.out.filter((o) => o !== id);
+    if (died) s.lost++;
+    else s.left++;
+    this.save();
+  }
+
+  /**
+   * Die Gruppe hat von gemeinsam erlegter Beute mitgefressen: Nach einigen solchen Mahlzeiten schließt sich ein weiterer
+   * Artgenosse an (mit Zusammenhalt schneller). Gibt den Neuen zurück.
+   */
+  swarmShared(): Member | undefined {
+    const s = this.swarm;
+    if (!s?.callable) return undefined;
+    s.fed++;
+    const every = Math.max(2, Math.round(SWARM.growEvery * (1 - 0.5 * (this.traits.pack ?? 0))));
+    if (s.fed < every || s.members.length >= this.swarmCap()) return undefined;
+    s.fed = 0;
+    const m: Member = { id: s.next++, hp: 1 };
+    s.members.push(m);
+    s.grown++;
+    this.save();
+    return m;
   }
 
   /** Gefressenes für den ganzen Lauf mitzählen (Werte-Bildschirm). */
@@ -1116,6 +1224,13 @@ class GameState {
     return n;
   }
 
+  /** Auch deine Gruppe ist eine neue Generation: wieder bei voller Kraft – und gerufen wird sie im neuen Zeitalter neu. */
+  private newGeneration(run: Run) {
+    if (!run.swarm) return;
+    for (const m of run.swarm.members) m.hp = 1;
+    run.swarm.out = [];
+  }
+
   /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
   surviveEpoch(_kinAlive: number, social?: number, pick?: Offspring, repeat = false): SurviveResult {
     const run = this.r;
@@ -1128,6 +1243,7 @@ class GameState {
       run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
       if (run.history.length > 24) run.history.splice(1, 1);
       run.kin = 0;
+      this.newGeneration(run);
       run.aggression *= 0.5;
       run.infamy *= 0.8;
       run.prog = newProg(i);
@@ -1151,6 +1267,7 @@ class GameState {
     if (run.history.length > 24) run.history.splice(1, 1);
     this.data.deepest = Math.max(this.data.deepest, i);
     run.kin = 0;
+    this.newGeneration(run);
     run.aggression *= 0.5;
     run.infamy *= 0.8;
     const next = EPOCHS[i + 1];

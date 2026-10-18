@@ -140,6 +140,19 @@ export function uiTextures(scene: Phaser.Scene) {
     for (const x of [19, 24, 29]) ctx.fillRect(x - 1, 33, 2, 7);
     ctx.restore();
   });
+  // drei kleine Fische: deine Gruppe (Schwarm rufen)
+  icon(scene, 'ic_swarm', (ctx) => {
+    for (const [x, y, s] of [[29, 13, 0.85], [17, 25, 1], [31, 35, 0.9]]) {
+      ell(ctx, x, y, 8 * s, 4.6 * s);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x - 6 * s, y);
+      ctx.lineTo(x - 13 * s, y - 5 * s);
+      ctx.lineTo(x - 13 * s, y + 5 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
   icon(scene, 'ic_footprint', (ctx) => {
     ell(ctx, 24, 30, 9, 11);
     ctx.fill();

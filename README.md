@@ -87,8 +87,28 @@ zuerst wird das Fischreich ausgebaut.
     passt** (im Ordovizium ein Riesenkopffüßer), kommt heran, **frisst ihn** und schwimmt davon. Das Tier lässt sich in
     `quests.ts` je Zeitalter einstellen (Silur z. B. Pterygotus, Devon Dunkleosteus); der Auftrag ist bisher nur für das
     Ordovizium eingetragen. Der Stand des Auftrags (0 offen, 1 vorausgeschwommen, 2 erledigt) wird im Spielstand gespeichert.
-  - Die früheren Mechaniken der Artgenossen (Mithelfen im Kampf, Mitfressen, Treue, Rudeltier) liegen im Code bereit, sind
-    aber **vorerst ruhend**: Es gibt keine Artgenossen mehr, die frei umherschwimmen.
+  - **Auftrag „Die gemeinsame Jagd“ (Ordovizium, nach dem Gefährten):** Im Ort, in dem der Gefährte gefressen wurde, wartet
+    danach eine kleine Gruppe von **vier bis fünf Überlebenden deiner Art** – echte Artgenossen mit ihrem gewohnten Verhalten.
+    Einen von ihnen kann man ansprechen: Er erzählt von einem **Schwarm Sacabambaspis** ganz in der Nähe und fragt, ob du
+    mitjagst (**Ja/Nein** mit ← →, bestätigen mit F/Eingabe – oder antippen). Wer ablehnt, spielt ganz normal weiter; die
+    Gruppe wartet, man kann es sich später anders überlegen. Wer zusagt, wird von der Gruppe begleitet; der Schwarm (etwa fünf
+    kräftige Sacabambaspis, die sich mit einem Gegenstoß wehren und fliehen) zieht ein Stück entfernt. Gejagt wird mit den
+    üblichen Mitteln – keine Vorgaben, kein Locken: Greifst du an, helfen die Artgenossen mit ihrer gewohnten KI mit. **Ziel:
+    drei Sacabambaspis erlegen** (deine und die Risse der Gruppe zählen), du musst aber **selbst mitgejagt** haben. Ziel und
+    Fortschritt stehen oben links in einem Schild („Sacabambaspis erlegt: 1 von 3“, wie viele deiner Gruppe noch leben, wohin der
+    Schwarm zieht). Erlegte Tiere werden ganz normal zu Fleisch. Fehlen Tiere, sammelt sich der Schwarm nach ein paar Sekunden neu.
+    Der Stand (0 offen, 1 abgelehnt, 2 Jagd läuft, 3 geschafft), die Zahl der Risse und deine Gruppe werden gespeichert – ein
+    Ortswechsel setzt nichts zurück, und wer dich begleitet, kommt mit. Alle Texte und Zielzahlen stehen zentral in
+    `src/data/quests.ts` (`JAGD`), der Ablauf in `src/objects/HuntQuest.ts`.
+  - **Deine Gruppe – der Schwarm (Taste S, am Handy der Knopf mit den drei Fischen oben rechts):** Nach der Jagd erklärt dir
+    einer der Überlebenden, dass du sie **rufen** kannst. Wer überlebt hat, gehört fortan zu deiner Gruppe (die Zahl am Knopf).
+    Auf deinen Ruf schwimmen sie von außerhalb des Bildes herbei, **folgen dir locker** und **helfen, sobald du angreifst**.
+    Noch einmal S schickt sie fort (sie leben weiter; danach kann man ein paar Sekunden nicht rufen). Jeder von ihnen hat **so
+    viel Lebenskraft wie du, aber einen schwächeren Biss** (anfangs halb so stark). Die Kehrseiten: **Wer mitjagt, will
+    mitfressen** – wer leer ausgeht, beißt dich und verlässt die Gruppe für immer; **wer stirbt, kommt nicht wieder**, beim
+    nächsten Ruf fehlt er. Lässt du sie aber öfter von gemeinsamer Beute fressen, **schließen sich weitere an** und die Gruppe
+    kommt größer. Verletzte bleiben bis zur nächsten Generation angeschlagen. Zahlen in `src/data/quests.ts` (`SWARM`),
+    Verhalten in `src/objects/Swarm.ts`. Sonst gibt es weiterhin keine Artgenossen, die frei umherschwimmen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
   - **Der Startort** ist ein **Fluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden – **keine
@@ -287,9 +307,14 @@ zuerst wird das Fischreich ausgebaut.
     an der Wange; dafür langsamer und schneller müde.
   - **Verfolgungsfisch** – schneller und ausdauernder: **länglicher**, schlanker Körper, große Schwanzflosse, spitze Schnauze;
     dafür weniger Lebenskraft, ein schwacher Stoß und schwerfälligeres Wenden.
+  - **Schwarmfisch** (als vierte Platte, sobald deine Gruppe auf deinen Ruf kommt) – silbrig, schlanker, mit hellem und
+    dunklem Band an der Flanke: Deine Gruppe wird **stärker** (ihr Biss bis zu drei Viertel von deinem), **größer** (mehr kommen
+    auf deinen Ruf) und wächst schneller durch geteilte Beute; dafür hast du selbst weniger Lebenskraft – allein bist du
+    verletzlicher, und die Beute wird geteilt.
   **Wie stark** sich die Platte ausprägt, bestimmt die Spielweise des Zeitalters (auf der Platte bei „Ausprägung“ in ein bis
   drei Fischen): erfolgreiche **Stöße** und mit dem Stoß erlegte Gegner für den Stoßfisch, erfolgreiche **Bisse** und erlegte
-  Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit Tempo für den Verfolgungsfisch.
+  Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit Tempo für den Verfolgungsfisch,
+  **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
   Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Vorgewählt ist die Platte, die am
   besten passte – wählen darfst du jede. Die Platten sammeln Punkte und bauen über die Zeitalter aufeinander auf; wer
   wechselt, bekommt Mischformen. Keine ist überall die beste.
@@ -370,7 +395,8 @@ Generationswechsel – als Wert sieht man nichts davon:
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, einen schlankeren Körper, mehr Tempo, größere Augen |
 | liegt oft still am Boden | sandig braun-graue Farben |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
-| kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier** (vorerst ohne Wirkung: Artgenossen sind selten) |
+| wählt den **Schwarmfisch** (erst, wenn deine Gruppe auf deinen Ruf kommt) | silbrig, schlank, mit Band an der Flanke: mehr **Zusammenhalt** – die Gruppe kommt größer, beißt kräftiger und wächst schneller – weniger eigene Lebenskraft |
+| … und jagt oft mit der Gruppe und lässt sie mitfressen | eine deutlichere Ausprägung – gegen Starke mehr |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | hält sich oft oben im Licht bzw. unten in der Tiefe | hellere bzw. dunklere Färbung |
@@ -383,15 +409,15 @@ Generationswechsel – als Wert sieht man nichts davon:
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.
 
-(Vorerst ruhend, siehe „Deine Art“:) Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
+Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
 mit dir grast, und sinkt, wenn er hungrig zusehen muss, wie du alles allein frisst (oder wenn du
 ihn beißt). Treue Artgenossen jagen mit, verteidigen dich und verstecken sich mit dir; untreue
 bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Überlebenden bestimmt,
-wie zutraulich die Gruppe im nächsten Zeitalter beginnt.
+wie zutraulich die Gruppe im nächsten Zeitalter beginnt. Wer aus deiner Gruppe verärgert abzieht, verlässt sie für immer.
 
 Zwischen den Zeitaltern wird verstärkt, was im Hintergrund dazugekommen ist (Tarnung, Bodenkontakt …) – umso stärker,
 je mehr Jahrmillionen vergehen (Faktor etwa 0,9 bis 1,8). Die Artgenossen tragen dasselbe weiter,
-jeder mit eigener Abweichung. Die drei Nachkommen auf den Platten unterscheiden sich nur in der Platte; Größe,
+jeder mit eigener Abweichung. Die Nachkommen auf den Platten (drei, mit deiner Gruppe vier) unterscheiden sich nur in der Platte; Größe,
 Robustheit und Kost sind bei allen gleich – gewählt wird einer, nichts kommt doppelt dazu.
 Im Stammbaum werden Linien nach Körperform, vorherrschender Platte und Kost zusammengefasst –
 daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch).
@@ -410,7 +436,8 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
-| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter |
+| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt) |
+| S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Steintafel: Werte, Hunger, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung |
 | M | Ton an/aus |
@@ -465,7 +492,7 @@ src/
 │   ├── classes.ts       Körperformen mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
 │   ├── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Tiere, Ereignisse
-│   ├── quests.ts        die Aufträge der Artgenossen: Texte, Schritte, das Tier, das den Gefährten frisst
+│   ├── quests.ts        die Aufträge der Artgenossen: Texte, Schritte, das Tier, das den Gefährten frisst; die gemeinsame Jagd (JAGD) und der Schwarm (SWARM) mit allen Zielzahlen
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
@@ -487,7 +514,7 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md

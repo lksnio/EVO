@@ -19,6 +19,7 @@ const PLATE_TEXT: Record<PlateId, string> = {
   st: 'Ein harter Schädel mit Kopfplatte, große Seitenflossen – deine Nachkommen stoßen zu und wenden blitzschnell.',
   bs: 'Ein tiefer Kiefer voller Zähne – deine Nachkommen beißen kräftig zu, sind aber schwerfälliger.',
   vf: 'Lang, schlank, mit kräftiger Schwanzflosse – deine Nachkommen holen fast jede Beute ein.',
+  sw: 'Silbrig, schlank, ein dunkles Band an der Flanke – deine Nachkommen leben und jagen im Schwarm.',
 };
 
 /** Was auf den Evolutionsplatten unter dem Tier steht: was sie bringen und was sie kosten. */
@@ -26,10 +27,11 @@ const PLATE_INFO: Record<PlateId, { pro: string; con: string }> = {
   st: { pro: '+ wendiger, Kopfplatte, kräftiger Stoß', con: '– etwas langsamer, ermüdet schneller' },
   bs: { pro: '+ mehr Kraft, starkes Gebiss, Reißzähne', con: '– langsamer, ermüdet schneller' },
   vf: { pro: '+ schneller, große Flossen, ausdauernd', con: '– weniger Lebenskraft, schwacher Stoß' },
+  sw: { pro: '+ größerer, stärkerer Schwarm', con: '– allein verletzlicher, Beute wird geteilt' },
 };
 
-/** Maße der Evolutionsplatten und wo auf ihnen die Zeilen beginnen. */
-const PLATE = { w: 392, h: 580, gap: 22, y: 92, rowsTop: 0.41 };
+/** Maße der Evolutionsplatten (drei bzw. – mit dem Schwarmfisch – vier nebeneinander) und wo auf ihnen die Zeilen beginnen. */
+const plateSize = (n: number) => (n > 3 ? { w: 300, h: 580, gap: 12, y: 92, rowsTop: 0.41, title: 20 } : { w: 392, h: 580, gap: 22, y: 92, rowsTop: 0.41, title: 24 });
 
 /** Sätze zwischen den Zeitaltern – sie verraten nichts über das System dahinter. */
 const LINES = [
@@ -151,6 +153,7 @@ export class GenerationScene extends Phaser.Scene {
     this.group.push(head, sub);
 
     const n = offs.length;
+    const PLATE = plateSize(n);
     const x0 = W / 2 - (n * PLATE.w + (n - 1) * PLATE.gap) / 2;
     const cls = d.transition?.to ?? d.cls;
     const unlocked = Math.min(STAT_COUNT, game.shells.length);
@@ -160,7 +163,7 @@ export class GenerationScene extends Phaser.Scene {
     const maxH = Math.max(...views.map((v) => v.L.footY - v.L.topY));
     const sc = Math.min(2.4, (PLATE.w - 90) / maxW, 96 / maxH);
     offs.forEach((o, i) => {
-      const card = this.plate(o, views[i], sc, x0 + i * (PLATE.w + PLATE.gap), PLATE.y, i, unlocked);
+      const card = this.plate(o, views[i], sc, x0 + i * (PLATE.w + PLATE.gap), PLATE.y, i, unlocked, PLATE);
       this.fadeInAll([card], 250 + i * 160, 1, 650);
       this.group.push(card, this.plates[i].glow);
     });
@@ -183,7 +186,7 @@ export class GenerationScene extends Phaser.Scene {
   }
 
   /** Eine Evolutionsplatte: Name, Vor- und Nachteile, der Nachkomme, seine Ausprägung und darunter die Werte. */
-  private plate(o: Offspring, v: CreatureView, sc: number, x: number, y: number, i: number, unlocked: number) {
+  private plate(o: Offspring, v: CreatureView, sc: number, x: number, y: number, i: number, unlocked: number, PLATE: ReturnType<typeof plateSize>) {
     const d = this.d;
     const { w, h } = PLATE;
     const info = PLATE_INFO[o.plate];
@@ -193,7 +196,7 @@ export class GenerationScene extends Phaser.Scene {
       mini: true, rowsTop: PLATE.rowsTop, base: { cls: d.cls, traits: d.traits }, seed: 11 + i * 4,
     });
     c.add(tab);
-    c.add(this.add.text(w / 2, 50, PLATE_NAME[o.plate], { fontFamily: TITLE_FONT, fontSize: '24px', color: INK, fontStyle: '700', shadow: { offsetX: 1, offsetY: 1, color: 'rgba(255,246,225,0.34)', blur: 0, fill: true }, resolution: 2 }).setOrigin(0.5));
+    c.add(this.add.text(w / 2, 50, PLATE_NAME[o.plate], { fontFamily: TITLE_FONT, fontSize: `${PLATE.title}px`, color: INK, fontStyle: '700', shadow: { offsetX: 1, offsetY: 1, color: 'rgba(255,246,225,0.34)', blur: 0, fill: true }, resolution: 2 }).setOrigin(0.5));
     // der Nachkomme – schwebend über einem Schatten im Stein
     c.add(this.add.image(w / 2, 178, 'shadow').setDisplaySize(w * 0.5, 14).setAlpha(0.35));
     v.setPosition(w / 2, 130);

@@ -16,7 +16,7 @@ export interface KinWorld extends World {
   /** ein Artgenosse zieht allein weiter */
   kinLeaving(k: Kin): void;
   /** ein Artgenosse hat von gemeinsamer Beute gefressen */
-  kinShared(k: Kin): void;
+  kinShared(k: Kin, c: Meat): void;
 }
 
 /**
@@ -26,6 +26,9 @@ export interface KinWorld extends World {
  * Räubern – sie schwimmen nicht im Schwarm hinter dir her. Greifst du in ihrer Nähe etwas an,
  * helfen sie manchmal mit; je mehr deine Art zum Rudeltier geworden ist, desto öfter. Wer mitgekämpft
  * hat, will aber auch mitfressen: Frisst du die Beute allein, beißt er dich und zieht verärgert ab.
+ *
+ * Wer zu deiner Gruppe gehört (memberId) und gerufen ist (escort), folgt dir locker und hilft bei jedem Angriff. Fortgeschickt
+ * (dismiss) schwimmt er davon – er lebt weiter und kommt auf den nächsten Ruf wieder.
  */
 export class Kin extends Animal {
   view: CreatureView;
@@ -33,6 +36,14 @@ export class Kin extends Animal {
   genes?: { traits: Traits; sex: Sex; seed: number };
   /** Vertrauen zum Spieler: 0 = misstrauisch … 1 = steht dir bei */
   loyalty: number;
+  /** Nummer in deiner Gruppe (game.swarm) – fehlt bei Artgenossen, die nicht dazugehören */
+  memberId?: number;
+  /** begleitet dich: folgt locker und hilft bei jedem Angriff */
+  escort = false;
+  /** Platz in der Begleitung (damit nicht alle an derselben Stelle schwimmen) */
+  slot = 0;
+  /** fortgeschickt: schwimmt davon und verlässt den Ort (lebend) */
+  homeward = false;
   private offY: number;
   private calledAt = -1e9;
   private dying = false;
@@ -152,7 +163,23 @@ export class Kin extends Animal {
     void time;
     if (!c.byPlayer) return;
     this.loyalty = Math.min(1, this.loyalty + 0.14);
-    this.kw.kinShared(this);
+    this.kw.kinShared(this, c);
+  }
+
+  /** Fortgeschickt: nicht mehr folgen, sondern davonschwimmen (er lebt weiter und kommt auf den nächsten Ruf wieder). */
+  dismiss() {
+    if (this.dead || this.leaving) return;
+    this.escort = false;
+    this.homeward = true;
+    this.prey = null;
+  }
+
+  /** Erneut gerufen, bevor er fort war: Er kehrt um und begleitet dich wieder. */
+  recall(slot: number) {
+    if (this.dead || this.leaving) return;
+    this.homeward = false;
+    this.escort = true;
+    this.slot = slot;
   }
 
   /** Bei gemeinsamer Beute nichts abbekommen: einmal zubeißen (bite) und verärgert davonschwimmen. */
@@ -186,8 +213,8 @@ export class Kin extends Animal {
     this.hiddenNow = false;
     const sprint = this.def.speed * (this.def.sprint ?? 1.3);
 
-    // Geht eigene Wege: zum fernen Rand und fort
-    if (this.leaving) {
+    // Geht eigene Wege (oder ist fortgeschickt): zum fernen Rand und fort
+    if (this.leaving || this.homeward) {
       const edge = this.x < (W.physics.world.bounds.width / 2) ? 10 : W.physics.world.bounds.width - 10;
       this.go('wander');
       this.moveTo(edge, this.y, this.def.speed * 0.9, true);
@@ -271,8 +298,30 @@ export class Kin extends Animal {
         return;
       }
     }
+    // gerufen: dir locker hinterherschwimmen
+    if (this.escort && !p.dead) return this.escortStep();
     // sonst: im eigenen Revier umherstreifen
     this.wander(time);
+  }
+
+  /** Locker hinterher: jeder an seinem Platz hinter dir, mal etwas höher, mal tiefer – wer zurückfällt, schließt zügig auf. */
+  private escortStep() {
+    const W = this.world;
+    const p = W.player;
+    const back = -(p.facing ?? (this.x < p.x ? 1 : -1));
+    const row = this.slot % 3, lane = Math.floor(this.slot / 3);
+    const tx = clamp(p.x + back * (95 + 55 * row + 35 * lane), 40, W.physics.world.bounds.width - 40);
+    let ty = p.y + [-46, 38, -6][row] + (lane % 2 ? 1 : -1) * 28 * lane;
+    if (W.water) ty = Math.max(ty, W.surfaceY + 40);
+    if (W.solidAt(tx, ty)) ty = p.y;
+    const d = this.dist({ x: tx, y: ty });
+    if (d < 36) {
+      this.go('idle');
+      this.halt();
+      return;
+    }
+    this.go('follow');
+    this.moveTo(tx, ty, this.def.speed * (d > 420 ? 1.35 : d > 160 ? 0.95 : 0.5));
   }
 
   private findFood(): Plant | Meat | null {

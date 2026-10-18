@@ -130,7 +130,7 @@ export class TitleScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.7).setOrigin(0).setInteractive().on('pointerdown', () => this.closeOverlay()));
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.95));
     c.add(title(this, W / 2, 124, 'Steuerung', 38).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 176, 22, 36);
+    controlsList(this, c, W / 2 + 30, 176, 22, 35);
     c.add(text(this, W / 2, 604, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;

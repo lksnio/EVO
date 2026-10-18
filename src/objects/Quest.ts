@@ -93,7 +93,7 @@ class Gefaehrte {
 }
 
 /** Eine Sprechblase über einem Tier: Der Text erscheint Buchstabe für Buchstabe. */
-class Bubble {
+export class Bubble {
   private c: Phaser.GameObjects.Container;
   private g: Phaser.GameObjects.Graphics;
   private t: Phaser.GameObjects.Text;
@@ -104,6 +104,7 @@ class Bubble {
   private h = 0;
   private anchor: () => { x: number; y: number } = () => ({ x: 0, y: 0 });
   private age = 0;
+  private question = false;
 
   constructor(private scene: Phaser.Scene) {
     this.g = scene.add.graphics();
@@ -120,9 +121,10 @@ class Bubble {
     return this.c.visible;
   }
 
-  /** Eine Zeile anzeigen. */
-  show(anchor: () => { x: number; y: number }, str: string) {
+  /** Eine Zeile anzeigen (bei einer Frage ohne „weiter“-Zeichen – geantwortet wird darunter). */
+  show(anchor: () => { x: number; y: number }, str: string, question = false) {
     this.anchor = anchor;
+    this.question = question;
     // erst mit Umbrüchen messen, dann Buchstabe für Buchstabe zeigen (damit nichts im Text hin- und herspringt)
     const m = this.scene.add.text(0, 0, '', { fontFamily: FONT, fontSize: '25px', fontStyle: '500', wordWrap: { width: 430 }, lineSpacing: 4 }).setVisible(false);
     const lines = m.getWrappedText(str);
@@ -183,7 +185,7 @@ class Bubble {
     this.mark.lineBetween(tx - 10, this.h - 0.5, tx, this.h + 16);
     this.mark.lineBetween(tx + 10, this.h - 0.5, tx, this.h + 16);
     // wenn die Zeile fertig ist, deutet ein kleines Dreieck rechts unten auf „weiter“
-    if (!this.typing) {
+    if (!this.typing && !this.question) {
       const k = 0.5 + 0.5 * Math.sin(this.age * 5);
       this.mark.fillStyle(0xe0a848, 0.35 + 0.5 * k);
       this.mark.fillTriangle(this.w - 30, this.h - 20 + k * 2, this.w - 18, this.h - 20 + k * 2, this.w - 24, this.h - 12 + k * 2);
@@ -197,7 +199,7 @@ class Bubble {
 }
 
 /** Das kleine Zeichen über einem Artgenossen, den man ansprechen kann. */
-class Prompt {
+export class Prompt {
   private c: Phaser.GameObjects.Container;
   private a = 0;
   private t = 0;
