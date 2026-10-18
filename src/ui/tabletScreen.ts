@@ -87,10 +87,12 @@ export class TabletScreen {
       c.add(sh);
     }
 
-    // Gruppe
-    line(600);
-    c.add(text(scene, rx + 44, 630, 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
-    c.add(text(scene, rx + rw - 44, 630, String(d.kin), 20, UI.bone).setOrigin(1, 0.5));
+    // Gruppe (Artgenossen sind selten – ohne sie bleibt die Zeile weg)
+    if (d.kin > 0) {
+      line(600);
+      c.add(text(scene, rx + 44, 630, 'Artgenossen', 18, UI.boneDim).setOrigin(0, 0.5));
+      c.add(text(scene, rx + rw - 44, 630, String(d.kin), 20, UI.bone).setOrigin(1, 0.5));
+    }
   }
 
   update(dt: number) {

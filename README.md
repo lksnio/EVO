@@ -72,13 +72,23 @@ zuerst wird das Fischreich ausgebaut.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
-- **Deine Art:** In der Gegend leben einige Artgenossen – fast wie du, mit kleinen Abweichungen,
-  Männchen (mit Kehlfleck) und Weibchen. Sie schwimmen **nicht im Schwarm** hinter dir her, sondern
-  leben in ihrem eigenen Revier, fressen, warnen mit Rufen und fliehen vor Räubern. Greifst du in
-  ihrer Nähe etwas an, **helfen sie manchmal mit**. Wer oft gemeinsam kämpft, dessen Art wird mehr und
-  mehr zum **Rudeltier**: Artgenossen helfen dann öfter – wollen aber auch **mitfressen**. Frisst du
-  gemeinsame Beute allein, beißt dich der Helfer und schwimmt verärgert davon; wer zu oft leer
-  ausgeht, zieht ganz weg. Lässt du etwas übrig, wächst das Vertrauen.
+- **Deine Art – selten, und sie geben Aufträge:** Artgenossen (fast wie du, mit kleinen Abweichungen) sind **sehr selten**.
+  Meist ist man allein; wer einem begegnet, trifft ihn bei einem **Auftrag** (`src/data/quests.ts`, `src/objects/Quest.ts`).
+  Über einem Artgenossen, der etwas zu erzählen hat, erscheint in der Nähe ein kleines Zeichen **F**: Mit **F** (oder Eingabe;
+  am Handy mit dem Knopf „Reden“) **spricht man ihn an**. Dann rückt die Kamera an beide Tiere heran (schwarze Balken wie beim
+  Riesen im Hintergrund), er spricht in **Sprechblasen** (Text erscheint Buchstabe für Buchstabe, **F**/Eingabe/Antippen geht
+  weiter), Räuber ringsum ziehen ab, und das eigene Tier bleibt an seinem Platz.
+  - **Auftrag „Der Gefährte“ (Ordovizium):** Nach dem Start kann man ein wenig erkunden – **nach links geht es nicht hinaus**
+    (dort entspringt der Fluss, das Ufer steigt bis zur Wasseroberfläche), nur nach rechts. Weiter rechts, im offenen Meer hinter
+    der Mündung, wartet ein Artgenosse. Er erzählt von einem **Ort ohne Räuber, dafür mit Pflanzen überall** – ein sicherer Ort,
+    an dem man es sich gut gehen lassen kann –, will dorthin aufbrechen, bittet, ihn zu begleiten, und **schwimmt voraus**
+    (er wartet im nächsten Ort, der Tangwiese). Schwimmt man rechts hinaus, **trifft man ihn dort sofort**; ein kurzes zweites
+    Gespräch, dann sagt er: „Warte … hörst du das?“ – beide schauen sich um, es grollt, und **ein großes Tier, das in diese Zeit
+    passt** (im Ordovizium ein Riesenkopffüßer), kommt heran, **frisst ihn** und schwimmt davon. Das Tier lässt sich in
+    `quests.ts` je Zeitalter einstellen (Silur z. B. Pterygotus, Devon Dunkleosteus); der Auftrag ist bisher nur für das
+    Ordovizium eingetragen. Der Stand des Auftrags (0 offen, 1 vorausgeschwommen, 2 erledigt) wird im Spielstand gespeichert.
+  - Die früheren Mechaniken der Artgenossen (Mithelfen im Kampf, Mitfressen, Treue, Rudeltier) liegen im Code bereit, sind
+    aber **vorerst ruhend**: Es gibt keine Artgenossen mehr, die frei umherschwimmen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
   - **Der Startort** ist ein **Fluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden – **keine
@@ -124,8 +134,11 @@ zuerst wird das Fischreich ausgebaut.
     ist dunkel, nur um bekannte Orte und entlang der geschwommenen Wege (Blasenspuren) wird sie hell – das Land bleibt Nebel.
     Das Tier **schwimmt auf der Karte um das Land herum** (Wegsuche im Wasser, nie über Land), neue Orte decken sich mit
     einem Aufhellen entlang des Weges auf. Die Umrisse sind **gezeichnet, nicht vermessen** – vereinfachte Näherungen.
-    Die Daten stehen in `src/data/paleo.json` (Umrisse, Meeresnamen, Lage der Orte); weitere Zeitalter (z. B. Pangäa)
-    lassen sich dort ergänzen.
+    Die Karte ist **weit herausgezoomt**: Die zehn Orte liegen nur in der Mitte, ringsum liegt noch viel Welt (Gondwana bis zum Südpol,
+    dazu ferne Landmassen wie Nordchina, Südchina, Kasachstania – später braucht man das Land für die Schritte an Land). Die
+    **Punkte der Orte sind klein**, das Tier darauf ebenso. `MAP_ZOOM` in `src/art/mapArt.ts` stellt ein, wie weit.
+    Die Daten stehen in `src/data/paleo.json` (Umrisse, Meeresnamen, Lage der Orte, ferne Landmassen unter `far`); weitere
+    Zeitalter (z. B. Pangäa) lassen sich dort ergänzen.
 - **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
   großer Fisch** durchs Wasser – als **dunkle Schattenrisse**, deutlich anders als die hellen, echten Tiere. Jede Gruppe
   schwimmt in ihre **eigene Richtung**, und die Schichten wandern mit der Kamera mit (Parallaxe: weiter hinten weniger),
@@ -329,7 +342,7 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | … und erlegt damit Tiere | einen **Panzerkopf**: Der Kopf selbst wird größer und fester (es wächst nichts dazu), stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
 | beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende **Reißzähne** (wer viel Pflanzen frisst, baut kein solches Gebiss auf – es bildet sich zurück) |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
-| kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier**: Artgenossen helfen öfter (und wollen mitfressen) |
+| kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier** (vorerst ohne Wirkung: Artgenossen sind selten) |
 | frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – und die **andere Kost schlechter**: Fleischfresser holen aus Fleisch mehr heraus und aus Pflanzen weniger, Pflanzenfresser umgekehrt; Allesfresser liegen dazwischen – nirgends angezeigt |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
@@ -347,7 +360,7 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.
 
-Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
+(Vorerst ruhend, siehe „Deine Art“:) Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
 mit dir grast, und sinkt, wenn er hungrig zusehen muss, wie du alles allein frisst (oder wenn du
 ihn beißt). Treue Artgenossen jagen mit, verteidigen dich und verstecken sich mit dir; untreue
 bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Überlebenden bestimmt,
@@ -373,6 +386,7 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
+| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter |
 | C | Steintafel: Werte, Hunger, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung |
 | M | Ton an/aus |
@@ -427,6 +441,7 @@ src/
 │   ├── classes.ts       Körperformen mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
 │   ├── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Tiere, Ereignisse
+│   ├── quests.ts        die Aufträge der Artgenossen: Texte, Schritte, das Tier, das den Gefährten frisst
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
@@ -448,7 +463,7 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md

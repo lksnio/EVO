@@ -353,7 +353,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
     const seaFloor = Math.min(lowest, floor0 - 4);
     const slope = Math.round(cols * 0.2);
     prof = (c) => {
-      if (c < 14) return 17;
+      // ganz links entspringt der Fluss: Das Ufer steigt bis zur Wasseroberfläche an – dort geht es nicht weiter
+      if (c < 14) return 17 - 15.4 * ease((11 - c) / 11);
       const bed = 17 - 5 * ease((c - 14) / 20) + Math.sin(c * 0.21) * 0.9 * ease((c - 30) / 14) * (1 - ease((c - (riverEndCol - 10)) / 10));
       if (c < riverEndCol) return bed;
       if (c < riverEndCol + slope) return 12 + (seaFloor - 12) * ease((c - riverEndCol) / slope);
@@ -384,7 +385,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   }
   // Der Boden: eine glatte Höhenlinie; Sand, Fels und Schlamm wechseln sich ab
   const zones = makeZones(r, cols * T, place.kind, riverEndCol * T);
-  const hp = buildHeightfield(r, cols, rows, zones, prof, undulate);
+  // (nur der Startfluss darf links bis zur Wasseroberfläche ansteigen: dort ist die Quelle)
+  const hp = buildHeightfield(r, cols, rows, zones, prof, undulate, riverEndCol ? 2.2 : 9);
   L.terrain = { hp, zones };
   const G = makeGround(hp, cols);
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };

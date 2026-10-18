@@ -208,8 +208,10 @@ export interface Run {
   epoch: number;
   /** Knoten im Stammbaum: zuletzt überlebtes Zeitalter (oder die Wurzel) */
   node: string;
-  /** Artgenossen zu Beginn des Zeitalters */
+  /** Artgenossen zu Beginn des Zeitalters (sie sind selten und geben Aufträge – sonst ist man allein) */
   kin: number;
+  /** Stand der Aufträge, die Artgenossen geben: Kennung → Schritt (siehe data/quests.ts) */
+  quests?: Record<string, number>;
   /** Was die Gruppe über dich gelernt hat: Treue der Artgenossen zu Beginn (0..1) */
   social: number;
   /** Der Kopf ist hart genug: Rammen ist freigeschaltet */
@@ -572,7 +574,8 @@ class GameState {
       sex: Math.random() < 0.5 ? 1 : 2,
       epoch: 0,
       node: 'root',
-      kin: 4,
+      kin: 0,
+      quests: {},
       social: 0.55,
       // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
       canRam: true,
@@ -962,6 +965,17 @@ class GameState {
     return this.r.prog;
   }
 
+  /** Wie weit ein Auftrag gediehen ist (0 = noch nicht begonnen). */
+  questStep(id: string): number {
+    return this.run?.quests?.[id] ?? 0;
+  }
+
+  setQuestStep(id: string, step: number) {
+    const run = this.r;
+    run.quests = { ...(run.quests ?? {}), [id]: step };
+    this.save();
+  }
+
   /** Den Ort verlassen: Zustand merken (Lebenskraft, Magen, Artgenossen, Gefressenes …). */
   leavePlace(s: Partial<EpochProg>) {
     Object.assign(this.r.prog, s);
@@ -1054,7 +1068,7 @@ class GameState {
   }
 
   /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
-  surviveEpoch(kinAlive: number, social?: number, pick?: Offspring, repeat = false): SurviveResult {
+  surviveEpoch(_kinAlive: number, social?: number, pick?: Offspring, repeat = false): SurviveResult {
     const run = this.r;
     const i = run.epoch;
     const ep = EPOCHS[i];
@@ -1064,7 +1078,7 @@ class GameState {
       run.round = (run.round ?? 0) + 1;
       run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
       if (run.history.length > 24) run.history.splice(1, 1);
-      run.kin = clamp(kinAlive + 1, 2, 6);
+      run.kin = 0;
       run.aggression *= 0.5;
       run.infamy *= 0.8;
       run.prog = newProg(i);
@@ -1087,7 +1101,7 @@ class GameState {
     run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
     if (run.history.length > 24) run.history.splice(1, 1);
     this.data.deepest = Math.max(this.data.deepest, i);
-    run.kin = clamp(kinAlive + 1, 2, 6);
+    run.kin = 0;
     run.aggression *= 0.5;
     run.infamy *= 0.8;
     const next = EPOCHS[i + 1];

@@ -29,6 +29,8 @@ export class HudScene extends Phaser.Scene {
   private dexC!: Phaser.GameObjects.Container;
   private dexGlow!: Phaser.GameObjects.Image;
   private dexQueue: string[] = [];
+  /** gerade läuft ein Kino-Moment (schwarze Balken) */
+  private cineOn = false;
   private dexBusy = false;
   private hp = 1;
   private food = 1;
@@ -103,6 +105,7 @@ export class HudScene extends Phaser.Scene {
     this.drawFuse();
     // Ein neues Tier im Aquapendium: ein kleines Schild oben links
     this.dexQueue = [];
+    this.cineOn = false;
     this.dexBusy = false;
     this.dexC = this.add.container(22, 22).setAlpha(0).setDepth(7);
     this.dexGlow = this.add.image(0, 0, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0).setDepth(6);
@@ -162,8 +165,11 @@ export class HudScene extends Phaser.Scene {
     const barH = 64;
     const bars = [this.add.rectangle(0, -barH, W, barH, 0x000000, 1).setOrigin(0).setDepth(50), this.add.rectangle(0, H, W, barH, 0x000000, 1).setOrigin(0).setDepth(50)];
     const onCine = (on: boolean) => {
+      this.cineOn = on;
       this.tweens.add({ targets: bars[0], y: on ? 0 : -barH, duration: 900, ease: 'Sine.inOut' });
       this.tweens.add({ targets: bars[1], y: on ? H - barH : H, duration: 900, ease: 'Sine.inOut' });
+      // neue Aquapendium-Einträge warten, bis die Balken wieder weg sind
+      if (!on) this.time.delayedCall(900, () => this.nextDex());
     };
     bus.on('cine', onCine);
     this.events.once('shutdown', () => {
@@ -263,7 +269,7 @@ export class HudScene extends Phaser.Scene {
    * Mehrere Einträge kommen nacheinander.
    */
   private nextDex() {
-    if (this.dexBusy || !this.dexQueue.length) return;
+    if (this.dexBusy || this.cineOn || !this.dexQueue.length) return;
     const id = this.dexQueue.shift()!;
     const name = SPECIES[id]?.name ?? '';
     this.dexBusy = true;
@@ -463,6 +469,35 @@ export class HudScene extends Phaser.Scene {
     this.touchBtn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);
     this.touchBtn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
     if (game.canRam) this.ramButton();
+    this.talkButton();
+  }
+
+  /** Der Knopf zum Ansprechen: erscheint nur, wenn ein Artgenosse in der Nähe ist, der etwas zu erzählen hat. */
+  private talkButton() {
+    const x = 1066, y = 400, r = 42;
+    const g = this.add.graphics().setDepth(5);
+    g.fillStyle(0x0b0a09, 0.4);
+    g.fillCircle(x, y, r);
+    g.lineStyle(2.5, 0xe0a848, 0.6);
+    g.strokeCircle(x, y, r);
+    const t = text(this, x, y, 'Reden', 19, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
+    const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
+    const all = [g, t];
+    for (const o of all) o.setAlpha(0);
+    z.input!.enabled = false;
+    // ein kurzes Antippen soll sicher ankommen: Der Knopf bleibt einen Augenblick „gedrückt“
+    z.on('pointerdown', () => {
+      touch.talk = true;
+      audio.unlock();
+      this.time.delayedCall(200, () => (touch.talk = false));
+    });
+    const onTalk = (on: boolean) => {
+      this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
+      z.input!.enabled = on;
+      if (!on) touch.talk = false;
+    };
+    bus.on('talk', onTalk);
+    this.events.once('shutdown', () => bus.off('talk', onTalk));
   }
 
   /** Der Stoß-Knopf. */

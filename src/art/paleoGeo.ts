@@ -101,6 +101,33 @@ export function gridOf(epId: string): Grid {
   return g;
 }
 
+const drawnCache = new Map<string, Pt[][]>();
+
+/** Land, das über das Gebiet der Orte hinausragt (Gondwana bis zum Südpol), soll auf der weit herausgezoomten Karte bis über den Rand reichen. */
+const stretch = (v: number) => (v < 0.04 ? 0.04 + (v - 0.04) * 14 : v > 0.96 ? 0.96 + (v - 0.96) * 14 : v);
+
+/** Küstenlinien zum Zeichnen (für Wege zählt dagegen nur das Raster in gridOf). */
+export function drawnOutlines(epId: string): Pt[][] {
+  let d = drawnCache.get(epId);
+  if (!d) {
+    d = PALEO[epId].continents.map((c) => outline(epId, { ...c, pts: c.pts.map(([x, y]) => [stretch(x), stretch(y)] as Pt) }));
+    drawnCache.set(epId, d);
+  }
+  return d;
+}
+
+const farCache = new Map<string, Pt[][]>();
+
+/** Land weit außerhalb des Gebiets der Orte (nur zum Zeichnen, nicht für Wege). */
+export function farOutlines(epId: string): Pt[][] {
+  let f = farCache.get(epId);
+  if (!f) {
+    f = (PALEO[epId].far ?? []).map((c) => outline(epId, c));
+    farCache.set(epId, f);
+  }
+  return f;
+}
+
 const cellOf = (x: number, y: number): [number, number] => [Math.min(GW - 1, Math.max(0, Math.floor(x * GW))), Math.min(GH - 1, Math.max(0, Math.floor(y * GH)))];
 
 export function isLand(epId: string, x: number, y: number) {

@@ -12,6 +12,12 @@ import { CreatureView } from '../objects/CreatureView';
 import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
 import { TabletScreen } from '../ui/tabletScreen';
 
+/** Halbmesser des Punktes eines Ortes (die Karte ist weit herausgezoomt: alles ist klein) */
+const DOT = 6;
+/** Das eigene Tier auf der Karte: klein, knapp über dem Punkt */
+const FISH_SCALE = 0.32;
+const FISH_LIFT = 17;
+
 interface NodeVis {
   def: PlaceDef;
   x: number;
@@ -118,15 +124,15 @@ export class MapScene extends Phaser.Scene {
       const c = this.add.container(x, y).setDepth(5);
       const ring = this.add.graphics();
       c.add(ring);
-      c.add(this.add.image(0, 0, `mapicon_${p.kind}`).setDisplaySize(32, 32).setAlpha(0.95));
+      c.add(this.add.image(0, 0, `mapicon_${p.kind}`).setDisplaySize(DOT * 1.7, DOT * 1.7).setAlpha(0.95));
       const visited = prog.seen.includes(p.id);
       const sp = spots.get(p.id)!;
-      const label = text(this, sp.x, sp.y, p.name, 17, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 4 }).setOrigin(sp.ox, 0.5);
+      const label = text(this, sp.x, sp.y, p.name, 13, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 3 }).setOrigin(sp.ox, 0.5);
       c.add(label);
       c.setVisible(isKnown);
       // Wer noch nie dort war: ein Funkeln über dem Ort
       if (isKnown && !visited) {
-        const star = this.add.image(0, -34, 'glow').setTint(0xffe8b0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(46, 46).setAlpha(0.5);
+        const star = this.add.image(0, 0, 'glow').setTint(0xffe8b0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(30, 30).setAlpha(0.5);
         c.add(star);
         this.tweens.add({ targets: star, alpha: 0.12, yoyo: true, repeat: -1, duration: 900 + i * 130, ease: 'Sine.inOut' });
       }
@@ -138,7 +144,7 @@ export class MapScene extends Phaser.Scene {
     // Das eigene Tier
     const here = this.nodes.get(this.cur.id)!;
     const m = { ...game.morph(), belly: 1 };
-    this.fish = new CreatureView(this, here.x, here.y - 56, m, 0.6).setDepth(10);
+    this.fish = new CreatureView(this, here.x, here.y - FISH_LIFT, m, FISH_SCALE).setDepth(10);
     this.fish.setFacing(here.x > W / 2 ? -1 : 1);
 
     // Blasen, die aufsteigen
@@ -174,7 +180,7 @@ export class MapScene extends Phaser.Scene {
     this.tablet?.update(dt);
     if (!this.moving) {
       const n = this.nodes.get(this.cur.id)!;
-      this.fish.setPosition(n.x, n.y - 56 + Math.sin(this.time.now / 700) * 3);
+      this.fish.setPosition(n.x, n.y - FISH_LIFT + Math.sin(this.time.now / 700) * 1.5);
     }
     // der Ring des gewählten Ortes pulsiert
     for (const n of this.nodes.values()) if (n.known) this.drawRing(n);
@@ -188,13 +194,13 @@ export class MapScene extends Phaser.Scene {
     const focus = n.def.id === this.focus.id;
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 380);
     g.clear();
-    g.fillStyle(0x0b100f, 0.88);
-    g.fillCircle(0, 0, 29);
-    g.lineStyle(here ? 3 : 2, here ? 0xe0a848 : focus ? 0xcdb88a : 0x7a6a4a, here ? 0.95 : 0.8);
-    g.strokeCircle(0, 0, 29);
+    g.fillStyle(0x0b100f, 0.9);
+    g.fillCircle(0, 0, DOT);
+    g.lineStyle(here ? 1.8 : 1.3, here ? 0xe0a848 : focus ? 0xcdb88a : 0x7a6a4a, here ? 0.95 : 0.8);
+    g.strokeCircle(0, 0, DOT);
     if (focus || here) {
-      g.lineStyle(2, 0xe0a848, 0.25 + 0.35 * pulse);
-      g.strokeCircle(0, 0, 33 + 3 * pulse);
+      g.lineStyle(1.2, 0xe0a848, 0.25 + 0.35 * pulse);
+      g.strokeCircle(0, 0, DOT + 3 + 1.5 * pulse);
     }
   }
 
@@ -221,29 +227,31 @@ export class MapScene extends Phaser.Scene {
     // Die Namen von Kontinenten und Meeren bleiben nach Möglichkeit frei (sind aber nur Hintergrund)
     const geoBoxes: Box[] = [];
     const geo = PALEO[this.ep.id];
-    for (const c of geo.continents) {
+    for (const c of [...geo.continents, ...(geo.far ?? [])]) {
       if (!c.name) continue;
-      const q = mapPos(c.label[0], c.label[1]), w = c.name.length * 16;
-      geoBoxes.push([q.x - w / 2, q.y - 10, q.x + w / 2, q.y + 10]);
+      const q = mapPos(c.label[0], c.label[1]), w = c.name.length * 12;
+      geoBoxes.push([q.x - w / 2, q.y - 8, q.x + w / 2, q.y + 8]);
     }
     for (const o of geo.oceans) {
-      const q = mapPos(o.x, o.y), w = o.name.length * 9.8;
-      geoBoxes.push([q.x - w / 2, q.y - 10, q.x + w / 2, q.y + 10]);
+      const q = mapPos(o.x, o.y), w = o.name.length * 7.4;
+      geoBoxes.push([q.x - w / 2, q.y - 8, q.x + w / 2, q.y + 8]);
     }
     const placed: Box[] = [];
     const out = new Map<string, { x: number; y: number; ox: number }>();
     for (const p of this.places) {
       const { x, y } = rings.get(p.id)!;
-      const w = p.name.length * 8.6 + 10;
+      const w = p.name.length * 6.8 + 8, r = DOT;
       const cands = [
-        { x: 0, y: 42, ox: 0.5, box: [x - w / 2, y + 31, x + w / 2, y + 54] as Box },
-        { x: 38, y: 0, ox: 0, box: [x + 33, y - 12, x + 41 + w, y + 12] as Box },
-        { x: -38, y: 0, ox: 1, box: [x - 41 - w, y - 12, x - 33, y + 12] as Box },
-        { x: 0, y: 68, ox: 0.5, box: [x - w / 2, y + 57, x + w / 2, y + 80] as Box },
+        { x: 0, y: r + 9, ox: 0.5, box: [x - w / 2, y + r + 2, x + w / 2, y + r + 17] as Box },
+        { x: r + 6, y: 0, ox: 0, box: [x + r + 3, y - 8, x + r + 9 + w, y + 8] as Box },
+        { x: -r - 6, y: 0, ox: 1, box: [x - r - 9 - w, y - 8, x - r - 3, y + 8] as Box },
+        { x: 0, y: -r - 9, ox: 0.5, box: [x - w / 2, y - r - 17, x + w / 2, y - r - 2] as Box },
       ];
+      // über dem eigenen Ort schwimmt das Tier: dort kommt kein Name hin
+      if (p.id === this.cur?.id) cands.pop();
       const free = (c: (typeof cands)[number]) =>
         !placed.some((b) => hit(b, c.box)) &&
-        ![...rings].some(([id, r]) => id !== p.id && hit([r.x - 31, r.y - 31, r.x + 31, r.y + 31], c.box)) &&
+        ![...rings].some(([id, q]) => id !== p.id && hit([q.x - DOT - 2, q.y - DOT - 2, q.x + DOT + 2, q.y + DOT + 2], c.box)) &&
         c.box[0] > MAP_BOX.x && c.box[2] < MAP_BOX.x + MAP_BOX.w && c.box[3] < MAP_BOX.y + MAP_BOX.h;
       const c = cands.find((k) => free(k) && !geoBoxes.some((b) => hit(b, k.box))) ?? cands.find(free) ?? cands[0];
       placed.push(c.box);
@@ -343,7 +351,7 @@ export class MapScene extends Phaser.Scene {
     this.tweens.add({
       targets: k,
       t: 1,
-      duration: Math.max(1100, len * 3.2),
+      duration: Math.max(1100, len * 6.5),
       ease: 'Sine.inOut',
       onUpdate: () => {
         const f = k.t * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), u = f - i;
@@ -357,7 +365,7 @@ export class MapScene extends Phaser.Scene {
         }
         // über dem Weg schwimmen, nur an den Orten über dem Zeichen schweben
         const e = Math.min(1, Math.min(k.t, 1 - k.t) * 8);
-        this.fish.setPosition(x, y - (14 + 42 * (1 - e)));
+        this.fish.setPosition(x, y - (FISH_LIFT * 0.4 + FISH_LIFT * 0.6 * (1 - e)));
       },
       onComplete: () => {
         this.cur = p;

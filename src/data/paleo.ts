@@ -23,6 +23,8 @@ export interface PaleoOcean {
 
 export interface PaleoMap {
   continents: PaleoContinent[];
+  /** Land außerhalb des Gebiets der Orte (Koordinaten auch unter 0 und über 1): nur Kulisse der weit herausgezoomten Karte */
+  far: PaleoContinent[];
   oceans: PaleoOcean[];
   /** Lage der Orte (nach ihrer Rolle: start, lush1 …) */
   nodes: Record<string, Pt>;

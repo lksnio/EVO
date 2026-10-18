@@ -10,8 +10,17 @@ import type { PlaceKind } from '../data/world';
 /** Kartenfläche (ohne Rahmen). */
 export const MAP_BOX = { x: 70, y: 96, w: W - 140, h: H - 218 };
 
-/** Lage eines Punktes der Urzeit-Karte (0..1) in Bildschirmkoordinaten – mit etwas Rand zum Rahmen. */
-export const mapPos = (x: number, y: number) => ({ x: MAP_BOX.x + 30 + x * (MAP_BOX.w - 60), y: MAP_BOX.y + 24 + y * (MAP_BOX.h - 48) });
+/**
+ * Wie weit die Karte herausgezoomt ist: Die Orte der Fischzeit (Koordinaten 0..1) liegen nur in der Mitte der Kartenfläche,
+ * ringsum liegt noch viel Welt – später sind hier auch Wege an Land nötig. Das Tier und die Punkte sind entsprechend klein.
+ */
+export const MAP_ZOOM = 0.46;
+
+/** Lage eines Punktes der Urzeit-Karte (0..1 = das Gebiet der Orte) in Bildschirmkoordinaten. */
+export const mapPos = (x: number, y: number) => ({
+  x: MAP_BOX.x + MAP_BOX.w / 2 + (x - 0.5) * (MAP_BOX.w - 60) * MAP_ZOOM,
+  y: MAP_BOX.y + MAP_BOX.h / 2 + (y - 0.5) * (MAP_BOX.h - 48) * MAP_ZOOM,
+});
 
 function blobs(ctx: Ctx, rnd: Rng, n: number, rMin: number, rMax: number, col: (a: number) => string, aMax: number, box = { x: 0, y: 0, w: W, h: H }) {
   for (let i = 0; i < n; i++) {

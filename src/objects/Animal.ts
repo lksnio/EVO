@@ -115,6 +115,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   ally = false;
   /** ein Artgenosse des Spielers */
   kin = false;
+  /** spielt in einer Szene mit (Auftrag): Die Szene steuert das Tier, es denkt nicht selbst und ist unverwundbar */
+  scripted = false;
   /** gerade im Dickicht versteckt */
   hiddenNow = false;
   /** zieht nur durch (Ereignis) */
@@ -349,7 +351,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   // ------------------------------------------------------------------ Ablauf
 
   tick(time: number, dt: number) {
-    if (this.dead) return;
+    if (this.dead || this.scripted) return;
     // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
     if (this.world.water) {
       const wb = this.world.physics.world.bounds;
@@ -1715,7 +1717,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Schaden nehmen. */
   hurt(dmg: number, from: Target, kind: 'bite' | 'ram' | 'other') {
-    if (this.dead) return;
+    if (this.dead || this.scripted) return;
     const now = this.world.time.now;
     // erschöpft kann es sich kaum wehren
     this.hp -= dmg * this.weak * (now < this.tiredUntil ? 1.5 : 1);

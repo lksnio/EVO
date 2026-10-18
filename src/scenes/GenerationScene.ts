@@ -150,7 +150,7 @@ export class GenerationScene extends Phaser.Scene {
     this.tweens.add({ targets: arrow, x: W / 2 + 10, yoyo: true, repeat: -1, duration: 900, delay: 1800, ease: 'Sine.inOut' });
 
     const k = d.kinAlive;
-    const kinLine = k === 0 ? 'Von deiner Art hat niemand außer dir überlebt.' : k === 1 ? 'Einer deiner Art hat mit dir überlebt.' : `${k} deiner Art haben mit dir überlebt.`;
+    const kinLine = k === 0 ? '' : k === 1 ? 'Einer deiner Art hat mit dir überlebt.' : `${k} deiner Art haben mit dir überlebt.`;
     const line = d.line ? LINE_TEXT[d.line] : changed ? LINES[(d.epoch * 3 + k) % LINES.length] : 'Das Leben geht weiter.';
     const l1 = text(this, W / 2, 520, kinLine, 21, UI.bone).setOrigin(0.5);
     const l2 = text(this, W / 2, 552, line, 21, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5);

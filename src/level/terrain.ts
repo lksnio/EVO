@@ -114,7 +114,7 @@ export const zoneAt = (zones: TerrainZone[], x: number): Material => zones.find(
  * Buckel und Kanten (Fels) oder fast nichts (Schlamm). Zum Schluss geglättet und in der Steigung begrenzt.
  * base(c): Höhe in Kacheln bei der (gebrochenen) Spalte c.
  */
-export function buildHeightfield(r: Rng, cols: number, rows: number, zones: TerrainZone[], base: (c: number) => number, undulate = 1): number[] {
+export function buildHeightfield(r: Rng, cols: number, rows: number, zones: TerrainZone[], base: (c: number) => number, undulate = 1, minRow = 9): number[] {
   const T = 40;
   const n = cols * 2;
   const hp = new Array<number>(n);
@@ -138,7 +138,7 @@ export function buildHeightfield(r: Rng, cols: number, rows: number, zones: Terr
     const rock = 10 * Math.sin((x * TAU) / 150 + ph[2]) + 7 * Math.sin((x * TAU) / 57 + ph[3]) + 4 * Math.sin((x * TAU) / 23 + ph[0]);
     const mud = 3 * Math.sin((x * TAU) / 210 + ph[2]);
     y += w(i, 'sand') * sand + w(i, 'rock') * rock + w(i, 'mud') * mud;
-    hp[i] = Math.max(9 * T, Math.min((rows - 2) * T, y));
+    hp[i] = Math.max(minRow * T, Math.min((rows - 2) * T, y));
   }
   // weich machen und die Steigung begrenzen (nichts steiler als etwa 60°)
   for (let pass = 0; pass < 2; pass++) {

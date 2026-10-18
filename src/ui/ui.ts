@@ -54,6 +54,7 @@ export const CONTROL_ROWS: [string, string][] = [
   ['E  (auch Q oder J)', 'Beißen und Fressen'],
   ['W  (auch Shift)', 'Sprinten – kostet Kraft'],
   ['R', 'Stoß – Anlauf nehmen, dann den Schwung nutzen'],
+  ['F  (auch Eingabe)', 'Ansprechen – und im Gespräch weiter'],
   ['Leertaste', 'Auftauchen'],
   ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
   ['C', 'Steintafel mit Werten und Hunger'],

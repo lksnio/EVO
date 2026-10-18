@@ -18,6 +18,7 @@ import { BackSea } from '../objects/BackSea';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
+import { Quest } from '../objects/Quest';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -88,7 +89,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   ended = false;
   /** gelebte Sekunden in diesem Zeitalter */
   elapsed = 0;
-  private controls!: Controls;
+  controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   /** alle festen Körper, nach 40-Pixel-Streifen geordnet (für solidAt) */
   private solidIndex = new Map<number, Rect[]>();
@@ -199,6 +200,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Kino-Moment (läuft in echter Zeit, das Spiel derweil in Zeitlupe) */
   private cine?: { t: number; img: Phaser.GameObjects.Image; dir: number; y: number; rumbled: boolean; released: boolean };
   private cineWanted = false;
+  /** Aufträge der Artgenossen: Gespräche und ihre Szenen */
+  private quest?: Quest;
   /** Zeitlupe: 1 = normal */
   private slow = 1;
   private hurtSeen = -1e9;
@@ -306,7 +309,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
-    world.setBoundsCollision(!this.water, !this.water, true, this.water);
+    // (nur der Startfluss ist links zu: Dort liegt die Quelle, es gibt keinen Weg hinaus)
+    world.setBoundsCollision(!this.water || this.place.kind === 'start', !this.water, true, this.water);
     // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
@@ -379,6 +383,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
     if (pr.sat !== undefined) this.player.satiety = clamp(pr.sat, 0.01, this.player.maxSat);
     this.spawnKin();
+    // Artgenossen sind selten und geben Aufträge: Wer einen hat, wartet an seiner Stelle (siehe objects/Quest.ts)
+    this.quest = new Quest(this);
     for (const s of L.spawns) {
       const a = this.spawnAnimal(s.id, s.x, s.y, s.herd);
       // Eltern wachen über ihr Gelege
@@ -1015,7 +1021,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       speed: st.speed * 0.95, sense: 280, meat: 2, sprint: 1.35,
     };
     // Je mehr Rudeltier, desto mehr Artgenossen leben in der Gegend
-    const n = game.prog.kin ?? ((game.run?.kin ?? 4) + (game.traits.pack > 0.5 ? 1 : 0));
+    // Artgenossen sind jetzt sehr selten: Man ist meist allein. Wer einem begegnet, trifft ihn bei einem Auftrag (objects/Quest.ts).
+    const n = 0;
     const s = this.L.start;
     for (let i = 0; i < n; i++) {
       // Artgenossen leben verstreut in der Gegend, jeder in seinem Revier – kein Schwarm um dich herum
@@ -1368,6 +1375,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
+  /** Läuft gerade der Kino-Moment mit dem Riesen im Hintergrund? */
+  get cineActive() {
+    return !!this.cine;
+  }
+
+  /** Ein Tier aus der Liste der Tiere nehmen (es wird nicht mehr bedacht). */
+  dropAnimal(a: Animal) {
+    this.removeAnimal(a);
+  }
+
   private removeAnimal(a: Animal) {
     const i = this.animals.indexOf(a);
     if (i >= 0) this.animals.splice(i, 1);
@@ -1695,14 +1712,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   update(time: number, delta: number) {
     const p = this.player;
     // Kino-Moment: läuft in echter Zeit, alles andere in Zeitlupe
-    if (this.cineWanted && !this.cine && !this.ended && !p.dead) this.tryCine();
+    if (this.cineWanted && !this.cine && !this.ended && !p.dead && !this.quest?.busy) this.tryCine();
     if (this.cine) this.cineStep(delta);
     const dt = Math.min(0.05, delta / 1000) * this.slow;
     this.t += dt;
     const L = this.L;
-    if (!this.ended && !(this.cine && !this.cine.released)) this.controls.update();
+    if (!this.ended && !(this.cine && !this.cine.released) && !this.quest?.busy) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
+    this.quest?.update(time, delta);
     this.drawStamina(p, dt);
     for (const a of [...this.animals]) {
       try {

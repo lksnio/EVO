@@ -183,11 +183,14 @@ export function gateKind(from: PlaceDef, to: PlaceDef): GateKind {
  * Wer links oder rechts über den Rand hinausschwimmt (es gibt dort keine Wand), kommt in einen Nachbarort: Links liegen die
  * Nachbarn westlich, rechts die östlich gelegenen. Gibt es mehrere, entscheidet die Höhe (oben im Wasser → der nördlichere,
  * unten → der südlichere). Liegt auf dieser Seite keiner, nimmt man den, der am ehesten in diese Richtung liegt.
+ * Am Startort gibt es links keinen Ausgang; rechts geht es immer zum ersten Nachbarn.
  * frac: 0 an der Oberfläche … 1 am Grund.
  */
 export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left' | 'right', frac: number): PlaceDef | undefined {
   const nb = from.links.map((id) => placeOf(ep, id));
   if (!nb.length) return undefined;
+  // Der Startfluss entspringt links (dort geht es nicht hinaus); rechts führt er ins Meer und zum ersten bewachsenen Ort
+  if (from.kind === 'start') return side === 'left' ? undefined : nb[0];
   const dir = side === 'left' ? -1 : 1;
   let cand = nb.filter((q) => (q.x - from.x) * dir > 0);
   if (!cand.length) cand = [nb.slice().sort((a, b) => (b.x - from.x) * dir - (a.x - from.x) * dir)[0]];

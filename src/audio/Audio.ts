@@ -6,7 +6,7 @@ export type Sfx =
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
-  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry';
+  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk';
 
 interface ToneOpts {
   f: number;
@@ -628,6 +628,14 @@ export class AudioEngine {
         this.noise({ d: 0.3, v: 0.045, a: 0.08, filter: 2400, f2: 800, type: 'bandpass', q: 0.7 });
         [[392, 0.07], [587, 0.22]].forEach(([f, t]) => this.tone({ f, d: 1.3, type: 'sine', v: 0.055, a: 0.02, t }));
         break;
+      case 'talk': {
+        // ein Artgenosse spricht: zwei weiche, leicht schwankende Blubber-Töne (jedes Mal etwas anders)
+        const f = 300 + Math.random() * 90;
+        this.tone({ f, f2: f * 1.22, d: 0.14, type: 'triangle', v: 0.06, a: 0.01, filter: 1500 });
+        this.tone({ f: f * 1.5, f2: f * 1.3, d: 0.16, type: 'sine', v: 0.04, a: 0.01, t: 0.12 });
+        this.noise({ d: 0.14, v: 0.02, a: 0.02, filter: 900, f2: 1500, type: 'bandpass' });
+        break;
+      }
       case 'tablet':
         // Stein schiebt sich über Stein
         this.noise({ d: 0.35, v: 0.12, a: 0.05, filter: 420, f2: 160, q: 0.9 });
