@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type LineId, type Traits } from '../state/GameState';
+import { bus, FOOD, fedRef, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Offspring, type PlateId, type PlayStyle, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -48,10 +48,12 @@ export interface SurvivedData {
   kinAlive: number;
   kinLooks: Morph[];
   transition?: { from: Morph['cls']; to: Morph['cls'] };
-  /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter */
+  /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter (der gewählte Nachkomme) */
   drifted?: Traits;
-  /** zu welcher Linie dieses Zeitalter gezählt wurde (der Spielstil entscheidet, nicht der Spieler) */
-  line?: LineId;
+  /** die drei möglichen Nachkommen – je einer für jede Evolutionsplatte (leer, wenn die Linie hier endet) */
+  offspring?: Offspring[];
+  /** die gewählte Evolutionsplatte (vorläufig die, die am besten zur Spielweise passte) */
+  line?: PlateId;
   /** in diesem Zeitalter gefressen (kcal) */
   eaten?: { meat: number; plant: number; need: number };
   /** Endgegner noch nicht besiegt: das Zeitalter wird wiederholt */
@@ -204,9 +206,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private quest?: Quest;
   /** Zeitlupe: 1 = normal */
   private slow = 1;
-  private hurtSeen = -1e9;
-  /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
-  train = { hunt: 0, ground: 0, ram: 0, swim: 0, hide: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0 };
+  /** Was du in diesem Zeitalter getan hast – daraus wird beim Generationswechsel die nächste Generation */
+  train: PlayStyle = newStyle();
   /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
   private lastBitten: Animal | null = null;
   private lastBiteAt = -1e9;
@@ -290,8 +291,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cine = undefined;
     this.cineWanted = false;
     this.slow = 1;
-    this.hurtSeen = -1e9;
-    this.train = { hide: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, ...prog.train };
+    this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab } };
     this.lastBitten = null;
 
   }
@@ -692,12 +692,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       // wer sich mit kräftigen Flossen am Grund festhält, wird kaum mitgerissen
       const grip = p.bottomWalk ? 1 + 2.5 * t.limb : 1;
       p.body.position.x += (pf.r.dir * 130 * dt) / pm / grip;
-      // gegen die Strömung anschwimmen trainiert das Schwimmen besonders
-      if (p.body.velocity.x * pf.r.dir < -40 && !p.bottomWalk) {
-        game.shiftBody('swift', 0.004 * dt);
-        game.shiftBody('len', 0.005 * dt);
-        this.train.swim += dt * 0.5;
-      }
+      // gegen die Strömung anschwimmen zählt als Strecke doppelt
+      if (p.body.velocity.x * pf.r.dir < -40 && !p.bottomWalk) this.train.swim += dt * 0.5;
     }
     for (const a of this.animals) {
       if (a.dead || !a.body || a.role === 'apex' || a.visitor || a.def.boss) continue;
@@ -1432,7 +1428,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (byPlayer) {
       game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
       audio.sfx('tear');
-      this.train.hunt += 2;
     }
     this.bleed(a.x, a.y, 10);
     if (a.visitor) {
@@ -1451,18 +1446,42 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Spieler-Aktionen
 
-  /** Wie viel ein Kampf gegen dieses Tier das Gebiss stärkt: Kleine bringen kaum etwas, Starke viel. */
-  private foeWeight(a: Animal) {
-    const r = a.def.power / Math.max(1, this.player.stats.power);
-    return clamp(0.12 + r * 0.9, 0.15, 1.6);
+  /**
+   * Wie viel ein Erfolg gegen dieses Tier für die Evolutionsplatten zählt: kleine Beute kaum, ebenbürtige Gegner voll,
+   * deutlich stärkere mehrfach. Artgenossen und Nesseltiere zählen nicht.
+   */
+  private challenge(a: Animal) {
+    if (a.kin || a.role === 'hazard') return 0;
+    const r = (a.def.power * a.sz) / Math.max(1, this.player.stats.power);
+    return clamp(0.1 + 0.9 * r, 0.1, 2.6);
   }
 
-  /** Kleine, flinke Beute zu jagen macht selbst schneller und wendiger: länger gestreckt, schlanker, flinker. */
-  private agile(k: number) {
-    game.shiftBody('swift', 0.022 * k);
-    game.shiftBody('len', 0.014 * k);
-    game.shiftBody('girth', -0.012 * k);
-    game.grow('stealth', 0.003 * k);
+  /**
+   * Eine geglückte Verfolgung: Getroffen wurde Beute, die schon eine Weile davonrannte – je länger sie floh und je schneller
+   * sie (im Vergleich zu dir) ist, desto mehr zählt es. ranMs: so lange rannte sie vor dem Treffer schon.
+   */
+  private pursuit(a: Animal, ranMs: number) {
+    if (ranMs < 600) return 0;
+    const fast = clamp(a.fleeSpeed() / Math.max(1, this.player.stats.speed), 0.5, 2);
+    return (0.5 + 0.5 * Math.min(4, ranMs / 1000)) * fast;
+  }
+
+  /**
+   * Die Nutzung dieses Ortes mitzählen (aktive Sekunden, dazu Fressen und Kämpfen) – daraus wird die Körpergröße der
+   * Nachkommen. In tiefen Orten zählt nur, wer auch hinabschwimmt: Oben im noch hellen Wasser gilt es eine Stufe flacher.
+   */
+  private useHere(w: number) {
+    let kind = this.place.kind;
+    if (this.deepK < 0.15) kind = kind === 'abyss' ? 'deep' : kind === 'deep' ? 'murky' : kind;
+    this.train.hab[kind] = (this.train.hab[kind] ?? 0) + w;
+  }
+
+  /** Ein Erfolg (Stoß bzw. Biss) für die Platten: erlegte Gegner zählen dreifach, eingeholte Flüchtende zusätzlich als Verfolgung. */
+  private scoreHit(kind: 'ram' | 'hunt', a: Animal, ranMs: number, k = 1) {
+    const kill = a.dead ? 3 : 1;
+    this.train[kind] += this.challenge(a) * kill * k;
+    this.train.chase += this.pursuit(a, ranMs) * kill;
+    this.useHere(0.6);
   }
 
   playerBite(rect: Rect, momentum = 0) {
@@ -1478,15 +1497,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const held = a === this.lastBitten && now - this.lastBiteAt < 1300 && a.def.power < st.power * 1.1 && a.role !== 'hazard';
       this.lastBitten = a;
       this.lastBiteAt = now;
+      const ran = a.runningFor(now);
       // ausgehungert beißt man schwächer
       a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
-      // Wer sich mit Starken anlegt, bekommt ein stärkeres Gebiss; kleine Fische jagen macht eher flink und wendig
-      const mult = this.foeWeight(a);
-      game.grow('jaw', (held ? 0.0024 : 0.0012) * mult);
-      if (mult < 0.5 && a.role !== 'hazard') this.agile(held ? 0.5 : 0.35);
-      this.train.hunt += held ? 1.5 : 1;
+      // Bisse zählen für die Platte „Beißen“ – gegen Starke viel, gegen kleine Beute kaum
+      this.scoreHit('hunt', a, ran, held ? 1.5 : 1);
       if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
@@ -1509,13 +1526,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.ate('meat', got * (FOOD.meat.kcal / FOOD.meat.sat) * dig);
       m.playerBites++;
       m.kill.playerAte = true;
-      // Fleisch macht den Kiefer stark – und vorn wachsen Reißzähne
-      const k = Math.min(2, got / FOOD.meat.sat);
-      game.grow('jaw', 0.005 * k);
-      game.grow('fang', 0.007 * k);
-      game.grow('digM', 0.02 * k);
-      game.shiftDiet(0.05 * k);
-      game.grow('growth', 0.006 * k * dig);
       this.checkShare(m.kill);
       return;
     }
@@ -1526,9 +1536,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.floatNum(rr.x, rr.y - 48, gain, 'roe');
         this.ate('meat', FOOD.roe.kcal * st.digestMeat);
         rr.take();
-        game.grow('digM', 0.006);
-        game.shiftDiet(0.02);
-        game.grow('growth', 0.002 * st.digestMeat);
         this.puff(rr.x, rr.y - 22, 4, 0xf0d890);
         this.roeBitten(rr);
       }
@@ -1550,12 +1557,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         pl.take(now);
         if (pl.toxic) this.poisoned();
         else if (pl.heals) this.healed(pl);
-        else game.grow('digP', 0.012);
         game.grow('stealth', 0.012);
-        game.shiftDiet(-0.05);
-        // Pflanzen bauen kein Raubtiergebiss auf
-        game.fade('fang', 0.004);
-        game.grow('growth', 0.003 * st.digestPlant);
         this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
       return;
@@ -1654,11 +1656,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.grow('tox', 0.08);
   }
 
-  /** Mitzählen, was gefressen wurde (für die Statistik und die Vielfalt des Nachwuchses). */
+  /** Mitzählen, was gefressen wurde (aufgenommene Energie – sie bestimmt die Ernährung der nächsten Generation). */
   private ate(kind: 'meat' | 'plant', units: number) {
     if (kind === 'meat') this.eatenMeat += units;
     else this.eatenPlant += units;
     game.addEaten(kind, units);
+    this.useHere(0.4);
   }
 
   /** Kalorien (für die Anzeige) */
@@ -1669,8 +1672,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /**
    * Stoß: Wer mit Schwung in ein Tier stößt, betäubt kleine und mittelgroße Tiere einen Moment lang –
    * Zeit für ein, zwei Bisse, bevor sie fliehen oder zurückbeißen. Schaden macht er anfangs kaum; wer oft
-   * stößt, bekommt einen harten, später gepanzerten Kopf und stößt kräftiger. Große Tiere taumeln nur kurz,
-   * und wer gegen etwas viel Größeres stößt, tut sich selbst weh.
+   * (und erfolgreich) stößt, dessen Stoßfisch-Platte prägt sich stärker aus: ein harter Kopf mit Kopfplatte. Große
+   * Tiere taumeln nur kurz, und wer gegen etwas viel Größeres stößt, tut sich selbst weh.
    */
   private collide(a: Animal, approach: number) {
     const p = this.player;
@@ -1683,6 +1686,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
     const dealt = st.ram * 0.5 * sf * (0.5 + 0.5 * p.hungerK);
     const small = a.def.power <= st.power * 3;
+    const ran = a.runningFor(this.time.now);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
     if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
     if (sneak) {
@@ -1694,11 +1698,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const back = bump + Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, k * 0.6);
-    game.grow('skull', 0.007 * sf);
-    // Ein viel benutzter Kopf wird zum Panzer – erst recht, wenn damit Tiere erlegt werden
-    game.armorHead(a.dead ? 0.09 : 0.03);
-    if (a.dead) game.grow('skull', 0.008);
-    this.train.ram += a.dead ? 3 : 1;
+    // Stöße zählen für die Platte „Stoßen“ – erst recht, wenn damit (starke) Gegner erlegt werden
+    this.scoreHit('ram', a, ran, sf);
     if (a.role !== 'hazard') game.addAggression(0.035);
     if (!a.dead) this.callHunt(a);
     audio.sfx('ram');
@@ -2178,7 +2179,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     p.ambush = time < this.primedUntil;
     if (p.ambush) this.ambushUntil = this.primedUntil;
-    if (p.hidden && p.speed01 < 0.2) this.train.hide += dt;
+    // Lebensraum (bestimmt die Körpergröße der Nachkommen): Es zählt, wer sich hier bewegt – bloßes Treiben kaum
+    if (!p.dead) this.useHere(dt * (p.resting || p.drifting ? 0.05 : clamp(0.2 + p.speed01, 0.2, 1.2)));
     // Durch einen Tunnel schwimmen: Wer auf der anderen Seite herauskommt, trägt die Farbe der Höhle
     if (tunnel !== this.curCave) {
       if (tunnel >= 0) {
@@ -2197,26 +2199,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const depth = (cy - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY);
       if (depth < 0.32) game.shiftLight(0.004 * dt);
       else if (depth > 0.72) game.shiftLight(-0.004 * dt);
-      // Wer die meiste Zeit tief unten überlebt, wird selbst größer, massiger und gefährlicher
+      // Wer tief unten überlebt, bekommt starke Nerven (größer wird erst die nächste Generation – siehe useHere)
       const deep = this.deepK * (this.place.kind === 'abyss' ? 1.4 : 1);
-      if (deep > 0.05) {
-        game.grow('growth', 0.0014 * dt * deep);
-        game.shiftBody('girth', 0.0011 * dt * deep);
-        game.grow('jaw', 0.0005 * dt * deep);
-        game.grow('nerve', 0.0008 * dt * deep);
-      }
+      if (deep > 0.05) game.grow('nerve', 0.0008 * dt * deep);
     } else if (p.inCover || p.inCave) game.shiftLight(-0.003 * dt);
     else game.shiftLight(0.0015 * dt);
-    // Wer viel und schnell schwimmt bzw. läuft, wird länglicher und flinker
-    if (p.speed01 > 0.7 && !p.bottomWalk) {
-      game.shiftBody('len', 0.0035 * dt * Math.min(1.5, p.speed01));
-      // kräftiges Sprinten: ein breiterer, stärkerer Schwanz
-      if (p.sprinting) {
-        game.shiftBody('swift', 0.002 * dt);
-        game.shiftBody('tail', 0.0025 * dt);
-      }
-      this.train.swim += dt * 0.25 * Math.min(1.5, p.speed01);
-    }
+    // Strecke mit Tempo: zählt für die Platte „Verfolgung“
+    if (p.speed01 > 0.7 && !p.bottomWalk) this.train.swim += dt * 0.25 * Math.min(1.5, p.speed01);
     // Bewegung merken: Was in diesem Zeitalter am meisten getan wird, formt bei der Verwandlung die Flossen
     if (this.water && !p.dead && !p.bottomWalk) {
       const v = p.body.velocity, sp = Math.max(1, p.stats.speed);
@@ -2226,21 +2215,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (ax > 0.45) this.train.fwd += dt * (ax > 1.05 ? 1.6 : 1);
       this.train.turns += p.takeTurns();
     }
-    // Wer oft verletzt wird, bekommt eine wehrhaftere Rückenflosse bzw. einen höheren Kamm
-    if (p.lastHurt !== this.hurtSeen) {
-      this.hurtSeen = p.lastHurt;
-      this.train.hurt += 1;
-      game.shiftBody('crest', 0.025);
-    }
+    // Überstandene Treffer (schwere zählen mehr): Die Nachkommen bekommen robustere Schuppen
+    this.train.hurt += p.takeEndured();
     // Bodenkontakt: Wer sich am Grund abstützt und dort entlangläuft, bekommt kräftige Stützflossen
     // (an Land: Wer viel läuft, statt zu springen, bekommt kräftigere Beine)
-    if (p.bottomWalk) {
-      game.grow('limb', 0.0045 * dt);
-      this.train.ground += dt * 0.35;
-    } else if (!this.water && p.speed01 > 0.4 && (p.body.blocked.down || p.body.touching.down)) {
-      game.grow('limb', 0.0012 * dt);
-      this.train.ground += dt * 0.1;
-    }
+    if (p.bottomWalk) game.grow('limb', 0.0045 * dt);
+    else if (!this.water && p.speed01 > 0.4 && (p.body.blocked.down || p.body.touching.down)) game.grow('limb', 0.0012 * dt);
     if (p.hidden && ci >= 0) {
       // zwischen den Pflanzen: wendige Flossen und eine flache Rückenflosse
       game.shiftBody('fin', 0.002 * dt);
@@ -2305,7 +2285,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Je leerer der Magen, desto langsamer sinkt er (der Körper spart) – ganz leer wird er nie.
     // Wer sich versteckt und still hält, kann so lange durchhalten; geschwächt ist man trotzdem.
     const fill = p.satiety / Math.max(1, p.maxSat);
-    const rate = hungerRate(p.stats.size, p.speed01) * cold * (p.bottomWalk ? 0.55 : 1) * Math.min(1, fill / 0.5);
+    const rate = hungerRate(p.stats.size, p.speed01, p.stats.upkeep) * cold * (p.bottomWalk ? 0.55 : 1) * Math.min(1, fill / 0.5);
     p.satiety = Math.max(0.01, p.satiety - rate * dt);
     // Wer sich treiben lässt, kommt wieder zu Kräften – die Lebenskraft aber nur bis etwa drei Viertel
     // (ausgehungert geht das nicht). Mehr braucht ein Heilkraut.
@@ -2474,7 +2454,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       sat: p.satiety,
       kin: this.animals.filter((a) => a instanceof Kin && !a.dead).length,
       eaten: { meat: this.eatenMeat, plant: this.eatenPlant },
-      train: { ...this.train },
+      train: { ...this.train, hab: { ...this.train.hab } },
     });
   }
 
@@ -2506,11 +2486,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const repeat = !!bossEv && !this.bossBeaten;
     const run = game.run!;
     const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
-    // Der Spielstil dieses Zeitalters entscheidet, wohin sich die Linie entwickelt – eine Wahl gibt es nicht
-    const next = game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, {
-      ram: this.train.ram, hunt: this.train.hunt, swim: this.train.swim, ground: this.train.ground, hide: this.train.hide ?? 0, hurt: this.train.hurt ?? 0,
-      up: this.train.up ?? 0, down: this.train.down ?? 0, fwd: this.train.fwd ?? 0, turns: this.train.turns ?? 0,
-    }, !repeat);
+    this.train.hurt += this.player.takeEndured();
+    // Geht die Linie weiter, gibt es drei mögliche Nachkommen – je einer für jede Evolutionsplatte; gewählt wird im
+    // Generationen-Bildschirm. Bis dahin führt der die Linie weiter, der am besten zur Spielweise passte.
+    const last = !repeat && !EPOCHS[this.epochIdx + 1];
+    const offspring = last ? [] : game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train);
+    const next = offspring.reduce<Offspring | undefined>((best, o) => (!best || o.fit > best.fit ? o : best), undefined);
     const data: SurvivedData = {
       epoch: this.epochIdx,
       before: game.startTraits(),
@@ -2524,7 +2505,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
     const eaten = { meat: this.kcal(this.eatenMeat), plant: this.kcal(this.eatenPlant), need: this.kcal(this.needUnits) };
     const res = game.surviveEpoch(kin.length, social, next, repeat);
-    data.line = next.line;
+    data.offspring = offspring;
+    data.line = next?.plate;
     data.eaten = eaten;
     data.repeat = repeat;
     data.boss = bossEv ? SPECIES[bossEv.species!]?.name : undefined;

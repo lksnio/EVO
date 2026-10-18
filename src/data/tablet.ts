@@ -1,10 +1,11 @@
+import { CLASSES, type ClassId } from './classes';
 import { game, hungerRate, kcalOf, maxSatiety, skillName, type Traits } from '../state/GameState';
-import type { ClassId } from './classes';
 
 // ---------------------------------------------------------------------------
 // Die Steintafel. Anfangs ist sie ganz von Moos bedeckt. Jede gefundene Muschel legt eine weitere
 // Zeile frei – immer in dieser Reihenfolge. Was "gelernt" ist, zeigt sich in bis zu drei Fischen:
-// einer für ein bisschen, zwei für mehr, drei für stark.
+// einer für ein bisschen, zwei für mehr, drei für stark. Dieselben Zeilen stehen auf den Evolutionsplatten
+// zwischen den Zeitaltern – dort mit einem Pfeil, wohin sich der Wert verändern würde.
 // ---------------------------------------------------------------------------
 
 export type StatVal =
@@ -26,6 +27,10 @@ export interface StatDef {
   id: string;
   label: (c: StatCtx) => string;
   value: (c: StatCtx) => StatVal;
+  /** Vergleichswert für die Evolutionsplatten (mehr bzw. weniger als jetzt) */
+  num?: (c: StatCtx) => number;
+  /** 1: mehr ist besser, -1: weniger ist besser, sonst weder noch */
+  better?: 1 | -1;
 }
 
 /** Ein bisschen = 1, mehr = 2, stark = 3 Fische. */
@@ -33,13 +38,25 @@ export function fishRating(v: number, at: [number, number, number] = [0.04, 0.22
   return v >= at[2] ? 3 : v >= at[1] ? 2 : v >= at[0] ? 1 : 0;
 }
 
-const skill = (id: string, label: (c: StatCtx) => string, get: (t: Traits) => number, at?: [number, number, number]): StatDef => ({
+const skill = (id: string, label: (c: StatCtx) => string, get: (t: Traits) => number, at?: [number, number, number], num?: StatDef['num']): StatDef => ({
   id,
   label,
   value: (c) => ({ t: 'fish', n: fishRating(get(c.traits), at) }),
+  num: num ?? ((c) => get(c.traits)),
+  better: 1,
 });
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+const stats = (c: StatCtx) => game.stats(c.cls, c.traits);
+const needPerMin = (c: StatCtx) => {
+  const st = stats(c);
+  return kcalOf(hungerRate(st.size, 0.55, st.upkeep) * 60, c.cls, st.size);
+};
+/** Tempo (mit der Kraft der Schwanzflosse) im Verhältnis zum Grundtempo der Körperform */
+const pace = (c: StatCtx) => {
+  const st = stats(c);
+  return (st.speed * st.cruise) / CLASSES[c.cls].base.speed;
+};
 
 /** Reihenfolge = Reihenfolge, in der die Muscheln die Tafel freilegen. */
 export const STATS: StatDef[] = [
@@ -47,11 +64,12 @@ export const STATS: StatDef[] = [
     id: 'need',
     label: () => 'Nahrungsbedarf',
     value: (c) => {
-      const size = game.stats(c.cls, c.traits).size;
-      const perMin = kcalOf(hungerRate(size, 0.55) * 60, c.cls, size);
-      const f = c.sat === undefined ? undefined : c.sat / maxSatiety(size);
+      const perMin = needPerMin(c);
+      const f = c.sat === undefined ? undefined : c.sat / maxSatiety(stats(c).size);
       return { t: 'bar', f, v: `${nf(perMin)} kcal/Min`, low: f !== undefined && f < 0.25 };
     },
+    num: needPerMin,
+    better: -1,
   },
   {
     id: 'weight',
@@ -60,6 +78,7 @@ export const STATS: StatDef[] = [
       const g = game.measure(c.cls, c.traits).g;
       return { t: 'text', v: g >= 1000 ? `${nf(g / 1000, 1)} kg` : `${nf(g)} g` };
     },
+    num: (c) => game.measure(c.cls, c.traits).g,
   },
   {
     id: 'temp',
@@ -73,7 +92,8 @@ export const STATS: StatDef[] = [
     // die Farbe kommt aus den Höhlen: durchschwimmen färbt um
     value: (c) => ({ t: 'text', v: c.traits.coat === 1 ? 'Grün' : c.traits.coat === 2 ? 'Schwarz' : 'Natürlich' }),
   },
-  skill('jaw', () => 'Gebiss', (t) => t.jaw),
+  // Gebiss: die Fische zeigen den Kiefer, der Pfeil die Beißkraft
+  skill('jaw', () => 'Gebiss', (t) => t.jaw, undefined, (c) => stats(c).bite),
   {
     id: 'length',
     label: () => 'Länge',
@@ -81,29 +101,62 @@ export const STATS: StatDef[] = [
       const cm = game.measure(c.cls, c.traits).cm;
       return { t: 'text', v: cm >= 100 ? `${nf(cm / 100, 2)} m` : `${nf(cm)} cm` };
     },
+    num: (c) => game.measure(c.cls, c.traits).cm,
   },
   {
     id: 'hp',
     label: () => 'Lebenskraft',
     value: (c) => {
-      const max = game.stats(c.cls, c.traits).maxHp;
+      const max = stats(c).maxHp;
       return { t: 'text', v: c.hp === undefined ? `${max}` : `${Math.max(0, Math.round(c.hp))} / ${max}` };
     },
+    num: (c) => stats(c).maxHp,
+    better: 1,
   },
-  skill('skull', (c) => skillName('skull', c.traits), (t) => t.skull),
+  // Schädel bzw. Kopfplatte: die Fische zeigen den Kopf, der Pfeil die Stoßkraft
+  skill('skull', (c) => skillName('skull', c.traits), (t) => t.skull, undefined, (c) => stats(c).ram),
+  // Robustheit: Schuppen bzw. Schuppenpanzer aus überstandenen Angriffen
+  skill('armor', (c) => ((c.traits.armor ?? 0) >= 0.3 ? 'Schuppenpanzer' : 'Schuppen'), (t) => t.armor ?? 0, [0.06, 0.25, 0.5]),
   {
     id: 'diet',
     label: () => 'Kost',
-    value: (c) => ({ t: 'text', v: c.traits.diet < -0.3 ? 'Pflanzen' : c.traits.diet > 0.3 ? 'Fleisch' : 'Alles' }),
+    // dazu, wie viel die andere Kost noch nährt: Wer fast nur Fleisch frisst, holt aus Pflanzen wenig heraus (und umgekehrt)
+    value: (c) => {
+      const st = stats(c);
+      const kind = c.traits.diet < -0.3 ? 'Pflanzen' : c.traits.diet > 0.3 ? 'Fleisch' : 'Alles';
+      const [other, dig] = st.digestPlant < st.digestMeat ? ['Pflanzen', st.digestPlant] : ['Fleisch', st.digestMeat];
+      return { t: 'text', v: dig < 0.95 ? `${kind} · ${other} ${Math.round(dig * 100)} %` : kind };
+    },
+    num: (c) => stats(c).digestPlant,
   },
   skill('stealth', () => 'Tarnung', (t) => t.stealth),
-  skill('growth', () => 'Wuchs', (t) => t.growth),
-  skill('swift', () => 'Flinkheit', (t) => Math.max(0, t.swift ?? 0), [0.1, 0.4, 0.7]),
+  {
+    id: 'growth',
+    label: () => 'Wuchs',
+    value: (c) => ({ t: 'fish', n: fishRating(c.traits.growth) }),
+    num: (c) => stats(c).size,
+  },
+  {
+    id: 'swift',
+    label: () => 'Tempo',
+    value: (c) => ({ t: 'fish', n: fishRating(pace(c) - 0.95, [0.04, 0.18, 0.34]) }),
+    num: pace,
+    better: 1,
+  },
+  {
+    id: 'agility',
+    label: () => 'Wendigkeit',
+    value: (c) => ({ t: 'fish', n: fishRating(stats(c).agility - 1, [0.08, 0.3, 0.55]) }),
+    num: (c) => stats(c).agility,
+    better: 1,
+  },
   {
     id: 'stamina',
     label: () => 'Ausdauer',
     // schwere Waffen ermüden: wer kräftig zubeißt, hält nicht lange durch
-    value: (c) => ({ t: 'fish', n: fishRating(game.stats(c.cls, c.traits).endurance - 0.7, [0.12, 0.45, 0.85]) }),
+    value: (c) => ({ t: 'fish', n: fishRating(stats(c).endurance - 0.7, [0.12, 0.45, 0.85]) }),
+    num: (c) => stats(c).endurance,
+    better: 1,
   },
   skill('limb', () => 'Bodenkontakt', (t) => t.limb ?? 0),
   skill('pack', () => 'Zusammenhalt', (t) => t.pack ?? 0),

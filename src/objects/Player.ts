@@ -89,6 +89,8 @@ export class Player {
   private boostUntil = 0;
   /** wann zuletzt etwas getan wurde (schwimmen, beißen, rammen …) – danach beginnt das Ausruhen */
   private lastAct = 0;
+  /** überstandene Treffer seit dem letzten Abruf, nach Schwere gewichtet (daraus werden robustere Schuppen der Nachkommen) */
+  private endured = 0;
   private driftPh = Math.random() * 6.28;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
@@ -425,6 +427,13 @@ export class Player {
     return n;
   }
 
+  /** Was seit dem letzten Aufruf an Treffern überstanden wurde (ein schwerer Treffer zählt ein Vielfaches eines Kratzers). */
+  takeEndured() {
+    const n = this.endured;
+    this.endured = 0;
+    return n;
+  }
+
   /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */
   eat(nutrition: number, kind: 'meat' | 'plant' = 'plant') {
     // nie mehr als das Maximum
@@ -460,8 +469,9 @@ export class Player {
     audio.sfx('hurt');
     this.host.cameras.main.shake(130 + 320 * ratio, 0.007 + 0.022 * ratio);
     if (ratio > 0.25) this.host.cameras.main.flash(140 + 200 * ratio, 140, 10, 0);
-    // Schwere Treffer, die man überlebt, hinterlassen Narben
+    // Schwere Treffer, die man überlebt, hinterlassen Narben – und machen die Nachkommen robuster
     if (d > this.stats.maxHp * 0.22 && this.hp > 0) game.addScar();
+    if (this.hp > 0) this.endured += 0.25 + 3 * ratio;
     if (this.hp <= 0) this.die();
   }
 
@@ -473,7 +483,10 @@ export class Player {
       this.knockUntil = this.host.time.now + 200 * k;
     } else this.body.setVelocityX(this.body.velocity.x * 0.6);
     if (selfDmg > 0.1) {
-      this.hp = Math.max(0, this.hp - selfDmg * this.stats.defense);
+      const d = selfDmg * this.stats.defense;
+      this.hp = Math.max(0, this.hp - d);
+      // ein Zusammenprall mit etwas Größerem ist auch ein überstandener Kampf
+      if (this.hp > 0) this.endured += 0.1 + 2 * clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
       this.lastHurt = this.host.time.now;
       this.lastCause = 'Beim Zusammenstoß verletzt';
       this.view.flash(0xffa080);

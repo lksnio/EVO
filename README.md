@@ -190,17 +190,15 @@ zuerst wird das Fischreich ausgebaut.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
-- **Wachsen in Stufen – und nach deinem Spielstil:** Gebiss, Schädel, Wuchs und Reißzähne wachsen in
-  einem Zeitalter nur **bis zu einem Deckel**, dann ist Schluss – ein Zeitalter bringt eine Stufe.
-  Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du
-  wächst, hängt davon ab, was du tust: Wer sich mit **Starken anlegt** und Fleisch frisst, bekommt
-  ein stärkeres Gebiss; wer **kleine Fische jagt**, wird eher **flink und wendig**; wer die meiste Zeit
-  **in der Tiefe überlebt**, wird selbst größer, massiger und gefährlicher. Die **Größe** hängt also am Verhalten – und
-  mit ihr Hunger, Tempo und Kraft.
-- **Kompromisse:** Alles hat seinen Preis. Wer durch viel Beißen ein **starkes Gebiss** bekommt und damit größere
-  Tiere erledigt, schwimmt dafür **langsamer** und wird **schneller müde**; ein harter Schädel macht ebenso träge.
-  Schlanke Jäger sind flink und halten länger durch, hauen aber weniger weg. Das steht (verdeckt) hinter dem
-  Aussehen – die Tafel zeigt es als **Ausdauer**.
+- **Wachsen von Generation zu Generation:** Körper und Kampfwerte verändern sich **nicht mitten im Zeitalter**,
+  sondern erst beim **Generationswechsel** danach – dann aber deutlich, und die Merkmale bauen über mehrere Zeitalter
+  aufeinander auf. Was sich ändert, bestimmen die gewählte **Evolutionsplatte** (siehe unten) und drei Anpassungen, die
+  unabhängig davon geschehen: **Körpergröße** (Lebensraum), **Körperrobustheit** (überstandene Angriffe) und
+  **Ernährung** (gefressene Energie).
+- **Kompromisse:** Alles hat seinen Preis. Ein **starkes Gebiss** macht **langsamer** und **schneller müde**; ein harter
+  Schädel ebenso. Masse und Schuppenpanzer kosten **Tempo** und machen **hungriger**. Schlanke Verfolger sind schnell und
+  halten länger durch, halten aber weniger aus und stoßen schwächer. Das steht (verdeckt) hinter dem Aussehen – die Tafel
+  zeigt es als **Tempo**, **Wendigkeit**, **Ausdauer** und **Nahrungsbedarf**.
 - **Kraft, Ermüdung und Ruhe:** Spurt (W), Stoß (R) und kräftiges Beißen kosten **Kraft**. Wer ständig stößt
   und sprintet, ist irgendwann **erschöpft** – dann geht es nur noch lahm voran, ohne Spurt und Stoß. Verschiedene
   Fische ermüden **verschieden schnell** (siehe Kompromisse). Beim normalen Schwimmen kehrt die Kraft nur langsam
@@ -280,36 +278,55 @@ zuerst wird das Fischreich ausgebaut.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
-- **Drei Entwicklungslinien – ohne Wahl:** Man wählt nicht mehr, was man wird. Jedes Zeitalter zählt **einen Punkt**
-  für die Linie, die zum **Spielstil** dieses Zeitalters passte:
-  - **Panzer** – wer viel rammt, einsteckt und sich einen harten Schädel holt: wuchtig, gepanzert, stumpfer Kopf, hoher Kamm,
-    stahlgrau, mehr Lebenskraft, dafür etwas langsamer.
-  - **Jäger** – wer schnell schwimmt und viel jagt: lang, schlank, großer Schwanz, spitze Schnauze, blaugrau, schneller.
-  - **Fleischflosser** – wer sich am Grund bewegt und viel versteckt: kräftige Stielflossen, olivfarben mit rostigen
-    Flossen, zäh und gut am Boden.
-  Nach drei Zeitaltern ergeben sich **zehn Grundformen**: 3-0-0 (rein), 2-1-0 (Hauptlinie mit etwas von einer zweiten)
-  oder 1-1-1 (von allem etwas). Größe, Gebiss, Farbe und Werte kommen zusätzlich aus dem, was du tust. Nach dem Zeitalter
-  siehst du dein Tier „einst“ und „heute“; was sich verändert, zeigt der Sprung über die Jahrmillionen.
+- **Drei Evolutionsplatten – nach jedem Zeitalter wählst du:** Am Ende jedes Zeitalters (und jeder weiteren Generation im
+  Devon) stehen drei Steinplatten wie die Tafel (Taste C) zur Wahl. Jede zeigt oben den Nachkommen, wie er aussähe, darunter
+  seine Werte. Die Wahl bestimmt, wohin sich die nächste Generation entwickelt:
+  - **Stoßfisch** – wendiger (große Seitenflossen, kürzerer Körper) und eine ausgeprägte **Kopfplatte** (ein Knochenschild
+    über Stirn und Schnauze), kräftiger Stoß; dafür etwas langsamer und schneller müde, das Gebiss bleibt, wie es ist.
+  - **Beißfisch** – mehr Kraft und ein **starkes Gebiss**: tieferer Kiefer, mehr und längere Zähne, Reißzähne, ein Kaumuskel
+    an der Wange; dafür langsamer und schneller müde.
+  - **Verfolgungsfisch** – schneller und ausdauernder: **länglicher**, schlanker Körper, große Schwanzflosse, spitze Schnauze;
+    dafür weniger Lebenskraft, ein schwacher Stoß und schwerfälligeres Wenden.
+  **Wie stark** sich die Platte ausprägt, bestimmt die Spielweise des Zeitalters (auf der Platte bei „Ausprägung“ in ein bis
+  drei Fischen): erfolgreiche **Stöße** und mit dem Stoß erlegte Gegner für den Stoßfisch, erfolgreiche **Bisse** und erlegte
+  Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit Tempo für den Verfolgungsfisch.
+  Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Vorgewählt ist die Platte, die am
+  besten passte – wählen darfst du jede. Die Platten sammeln Punkte und bauen über die Zeitalter aufeinander auf; wer
+  wechselt, bekommt Mischformen. Keine ist überall die beste.
+- **Drei Anpassungen, unabhängig von der Platte:**
+  - **Körpergröße** aus dem **Lebensraum**: Es zählt, wo du im Zeitalter am **aktivsten** warst (schwimmen, fressen, kämpfen –
+    bloßes Treiben kaum). Flache, bewachsene Orte machen kleiner, trübe etwas größer, die Tiefe und erst recht der Abgrund
+    deutlich größer (in tiefen Orten zählt nur, wer auch hinabschwimmt). Größere Fische sind massiger, brauchen mehr Nahrung,
+    werden langsamer und schwerfälliger – und fallen früher auf, kleine Beute entkommt ihnen leichter.
+  - **Körperrobustheit** aus **überstandenen Angriffen**: Jeder Treffer, den du überlebst, zählt – schwere ein Vielfaches.
+    Die Nachkommen bekommen deutlichere, glänzende **Schuppen**, später einen **Schuppenpanzer** mit Knochenschilden auf dem
+    Rücken und an der Seite (unabhängig von der Kopfplatte): weniger Schaden, mehr Lebenskraft, aber langsamer und hungriger.
+  - **Ernährung** aus der **gefressenen Energie**: Der Anteil von Fleisch und Pflanzen verschiebt die Kost Schritt für
+    Schritt (höchstens ein gutes Stück je Generation, nie ganz bis zum Äußersten). Wer zu 90 % Fleisch frisst, dem liefern
+    Pflanzen schon in der nächsten Generation spürbar, in der übernächsten **deutlich weniger Energie** – und umgekehrt.
+  Nach der Wahl siehst du dein Tier „einst“ und „heute“; was sich verändert, zeigt der Sprung über die Jahrmillionen.
 - **Die Steintafel (Taste C):** Eine **gebrochene, vermooste Steinplatte** mit Rissen und eingemeißelten
   Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste
   Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, **Färbung** (aus den Höhlen), Gebiss,
-  Länge, Lebenskraft, Schädel, Kost, Tarnung, Wuchs, Flinkheit, **Ausdauer**, Bodenkontakt, Zusammenhalt und Nerven.
+  Länge, Lebenskraft, Schädel bzw. Panzerkopf, **Schuppen** (Robustheit), Kost (mit dem, was die andere Kost noch nährt),
+  Tarnung, Wuchs, **Tempo**, **Wendigkeit**, **Ausdauer**, Bodenkontakt, Zusammenhalt und Nerven. Auf den
+  **Evolutionsplatten** gilt dasselbe: Freigelegte Werte stehen da, mit einem Pfeil, ob sie mehr oder weniger würden (grün
+  besser, rot schlechter); was noch unter Moos liegt, bleibt verborgen – nur der Pfeil schimmert durch.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
   Tier und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
   andere an deinem Tier bleibt verborgen – es zeigt sich nur in dem, was es tut.
-- **Vier Verhaltensweisen formen deine Art:** Beutejagd (zubeißen, Beute packen und festhalten) →
-  kräftige Kiefer; Bodenkontakt (sich am Grund abstützen und dort entlanglaufen) → fleischige
-  Stützflossen, später kräftigere Beine; Stoßen → ein gepanzerter Schädel; Schwimmen (Strecke,
-  Tempo, gegen Strömungen) → ein länglicher, flinker Körper. Das Verhalten schaltet keine Art frei –
-  es verschiebt nur nach und nach, wie deine Nachkommen aussehen und was sie können.
+- **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen prägen die gewählte Platte aus; Bodenkontakt (sich am
+  Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
+  am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
+  aussehen und was sie können.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme wühlen das Wasser auf, Futter
   sprießt.
-- **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
-  und was sich bewährt hat, setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher. Das **Aussehen** verwandelt sich
-  dabei **nur einmal pro Zeitalter** – nicht mitten im Spiel und nicht doppelt; im Zeitalter selbst wächst nur die Größe mit.
+- **Zwischen den Zeitaltern** wählst du die Platte, siehst dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
+  und was sich bewährt hat (Tarnung, Bodenkontakt …), setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher. Das
+  **Aussehen** und die Werte verwandeln sich dabei **nur einmal pro Zeitalter** – nicht mitten im Spiel und nicht doppelt.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
@@ -336,33 +353,32 @@ laufende Spiel).
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
 
-Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man nie als Wert sieht:
+Einige Merkmale wachsen im Hintergrund langsam mit (mit abnehmendem Ertrag), Körper und Kampfwerte entstehen erst beim
+Generationswechsel – als Wert sieht man nichts davon:
 
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
-| frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, schlankeren und kleineren Körper, mehr Tempo, größere Augen |
+| wählt den **Stoßfisch** | eine **Kopfplatte** (Knochenschild über Stirn und Schnauze), einen härteren Schädel, große Seitenflossen, einen kurzen, stumpfen Kopf, stahlgraue Farben: kräftiger Stoß, wendiger, weniger eigener Schaden – etwas langsamer, schneller müde |
+| … und stößt dabei oft und erfolgreich (Taste R), erlegt damit Tiere | eine deutlichere Ausprägung – Erfolge gegen Stärkere zählen ein Vielfaches |
+| wählt den **Beißfisch** | einen tieferen Kiefer, mehr und längere Zähne, **Reißzähne**, einen Kaumuskel, bronzene Farben: viel mehr Beißkraft – langsamer, schneller müde (wer Pflanzen frisst, hat stumpfe Zähne und keine Reißzähne) |
+| … und beißt oft und erfolgreich, erlegt Beute | eine deutlichere Ausprägung |
+| wählt den **Verfolgungsfisch** | einen längeren, schlankeren, flinken Körper, eine große Schwanzflosse, eine spitze Schnauze, blaugraue Farben: schneller, ausdauernder – weniger Lebenskraft, schwächerer Stoß, wendet träger |
+| … und holt Flüchtende ein, jagt, schwimmt viel und schnell (gegen Strömungen doppelt) | eine deutlichere Ausprägung – je länger und schneller die Beute floh, desto mehr |
+| ist am **aktivsten** in flachen, bewachsenen Orten · in trüben · in der Tiefe · im Abgrund | kleiner · etwas größer · deutlich größer · noch größer – mit der Größe massiger, hungriger, langsamer und schwerfälliger |
+| übersteht viele Treffer (schwere zählen mehr) | robustere **Schuppen**, später einen **Schuppenpanzer** mit Knochenschilden: weniger Schaden, mehr Lebenskraft – langsamer, hungriger |
+| frisst (nach Energie) überwiegend Fleisch bzw. Pflanzen | die Kost verschiebt sich Schritt für Schritt: Fleischfresser holen aus Fleisch mehr und aus Pflanzen weniger heraus (bei 90 % Fleisch nach zwei Generationen nur noch gut die Hälfte), Pflanzenfresser umgekehrt |
+| frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, einen schlankeren Körper, mehr Tempo, größere Augen |
 | liegt oft still am Boden | sandig braun-graue Farben |
-| rammt viel, steckt ein, holt sich einen harten Schädel (im Zeitalter) | die **Panzer**-Linie: wuchtiger Körper, hoher Kamm, kleinere Flossen, mehr Lebenskraft |
-| schwimmt viel und schnell, jagt viel | die **Jäger**-Linie: länger, schlanker, großer Schwanz, spitze Schnauze, mehr Tempo |
-| bewegt sich viel am Grund, versteckt sich lange | die **Fleischflosser**-Linie: Stielflossen, kräftig, olivfarben mit rostigen Flossen |
-| stößt oft (Taste R) | einen härteren Schädel und einen kräftigeren Stoß |
-| … und erlegt damit Tiere | einen **Panzerkopf**: Der Kopf selbst wird größer und fester (es wächst nichts dazu), stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
-| beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende **Reißzähne** (wer viel Pflanzen frisst, baut kein solches Gebiss auf – es bildet sich zurück) |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
 | kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier** (vorerst ohne Wirkung: Artgenossen sind selten) |
-| frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – und die **andere Kost schlechter**: Fleischfresser holen aus Fleisch mehr heraus und aus Pflanzen weniger, Pflanzenfresser umgekehrt; Allesfresser liegen dazwischen – nirgends angezeigt |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
-| frisst viel | wächst |
 | hält sich oft oben im Licht bzw. unten in der Tiefe | hellere bzw. dunklere Färbung |
-| schwimmt viel und schnell – besonders gegen Strömungen | deutlich länglicheren, schlankeren Körper und größere Flossen |
-| sprintet oft | einen breiteren, kräftigeren Schwanz |
 | schwimmt am häufigsten **nach oben** | eine ausgeprägtere **Rückenflosse** oben am Körper, schnelleres Steigen |
 | schwimmt am häufigsten **nach unten** | etwas größere **Flossen unten am Körper**, schnelleres Tauchen |
 | schwimmt oft und schnell **nach vorn** | eine stärkere **Schwanz-/Hinterflosse**, höheres Reisetempo |
 | **wechselt oft die Richtung** | größere **Seitenflossen**: das Tier wendet schneller (gebremst von Länge und Masse) |
 | versteckt sich zwischen Pflanzen | grünere Farben, größere (wendigere) Flossen, eine flachere Rückenflosse |
-| wird oft verletzt | eine höhere, wehrhaftere Rückenflosse bzw. einen Rückenkamm |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
 werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wirkt gefährlicher.
@@ -373,11 +389,12 @@ ihn beißt). Treue Artgenossen jagen mit, verteidigen dich und verstecken sich m
 bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Überlebenden bestimmt,
 wie zutraulich die Gruppe im nächsten Zeitalter beginnt.
 
-Zwischen den Zeitaltern wird verstärkt, was im letzten Zeitalter dazugekommen ist – umso stärker,
+Zwischen den Zeitaltern wird verstärkt, was im Hintergrund dazugekommen ist (Tarnung, Bodenkontakt …) – umso stärker,
 je mehr Jahrmillionen vergehen (Faktor etwa 0,9 bis 1,8). Die Artgenossen tragen dasselbe weiter,
-jeder mit eigener Abweichung; der Gewählte bringt zusätzlich seine besondere Stärke mit.
-Im Stammbaum werden Linien nach Körperform, vorherrschender Anpassung und Kost zusammengefasst –
-daher auch die lateinisch klingenden Namen (z. B. *Cryptichthys phytophagus*).
+jeder mit eigener Abweichung. Die drei Nachkommen auf den Platten unterscheiden sich nur in der Platte; Größe,
+Robustheit und Kost sind bei allen gleich – gewählt wird einer, nichts kommt doppelt dazu.
+Im Stammbaum werden Linien nach Körperform, vorherrschender Platte und Kost zusammengefasst –
+daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch).
 </details>
 
 ## Steuerung

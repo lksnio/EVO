@@ -1096,7 +1096,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Tempo auf der Flucht: kleine Fische sind pfeilschnell – hinterherschwimmen allein reicht nicht. */
-  protected fleeSpeed() {
+  fleeSpeed() {
     const s = this.def.speed * (this.def.sprint ?? 1.3);
     return this.role === 'prey' && this.def.power <= 2.2 && this.swims ? Math.max(s, 255) : s;
   }

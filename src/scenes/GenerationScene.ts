@@ -1,23 +1,35 @@
 import Phaser from 'phaser';
-import { W, H, UI } from '../config';
+import { W, H, UI, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
-import { game, type LineId } from '../state/GameState';
+import { game, PLATE_NAME, type Offspring, type PlateId } from '../state/GameState';
 import { CLASSES } from '../data/classes';
 import { EPOCHS, spanWords, yearsAgo } from '../data/epochs';
+import { STAT_COUNT } from '../data/tablet';
 import { levelBackgrounds } from '../art/worldArt';
 import { morphKey, type Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import type { SurvivedData } from './LevelScene';
+import { Tablet, carved, INK } from '../ui/tablet';
 import { Button, MenuNav, fadeIn, fadeTo, text, title } from '../ui/ui';
 
 type GO = Phaser.GameObjects.GameObject & { alpha: number; setAlpha(a: number): unknown };
 
-/** Was die Linie über den Körper erzählt – ohne Zahlen. */
-const LINE_TEXT: Record<LineId, string> = {
-  pz: 'Dein Körper wird wuchtiger und härter – ein Panzer wächst heran.',
-  jg: 'Schlanker, schneller, ein langer Schwanz – du wirst zum Jäger.',
-  ff: 'Kräftige Stielflossen tragen dich am Grund – du wirst zäh und geduldig.',
+/** Was die gewählte Platte über den Körper erzählt – ohne Zahlen. */
+const PLATE_TEXT: Record<PlateId, string> = {
+  st: 'Ein harter Schädel mit Kopfplatte, große Seitenflossen – deine Nachkommen stoßen zu und wenden blitzschnell.',
+  bs: 'Ein tiefer Kiefer voller Zähne – deine Nachkommen beißen kräftig zu, sind aber schwerfälliger.',
+  vf: 'Lang, schlank, mit kräftiger Schwanzflosse – deine Nachkommen holen fast jede Beute ein.',
 };
+
+/** Was auf den Evolutionsplatten unter dem Tier steht: was sie bringen und was sie kosten. */
+const PLATE_INFO: Record<PlateId, { pro: string; con: string }> = {
+  st: { pro: '+ wendiger, Kopfplatte, kräftiger Stoß', con: '– etwas langsamer, ermüdet schneller' },
+  bs: { pro: '+ mehr Kraft, starkes Gebiss, Reißzähne', con: '– langsamer, ermüdet schneller' },
+  vf: { pro: '+ schneller, große Flossen, ausdauernd', con: '– weniger Lebenskraft, schwacher Stoß' },
+};
+
+/** Maße der Evolutionsplatten und wo auf ihnen die Zeilen beginnen. */
+const PLATE = { w: 392, h: 580, gap: 22, y: 92, rowsTop: 0.41 };
 
 /** Sätze zwischen den Zeitaltern – sie verraten nichts über das System dahinter. */
 const LINES = [
@@ -29,15 +41,20 @@ const LINES = [
 ];
 
 /**
- * Ein Zeitalter ist überstanden. Man sieht sein Tier "einst" und "heute", dazu die
- * Artgenossen, die mit überlebt haben. Dann vergehen Jahrmillionen – und manchmal nehmen
- * die Nachfahren eine neue Form an (Fisch → Lurch → …).
+ * Ein Zeitalter ist überstanden. Zuerst wählt man eine der drei Evolutionsplatten – sie bestimmt, wohin sich die
+ * nächste Generation entwickelt. Dann sieht man sein Tier "einst" und "heute", dazu die Artgenossen, die mit überlebt
+ * haben. Dann vergehen Jahrmillionen – und manchmal nehmen die Nachfahren eine neue Form an (Fisch → Lurch → …).
  */
 export class GenerationScene extends Phaser.Scene {
   private d!: SurvivedData;
   private views: { v: CreatureView; mode: 'swim' | 'idle' }[] = [];
   private group: GO[] = [];
   private nav?: MenuNav;
+  /** die drei Evolutionsplatten (gewählt ist sel); dim: Schatten über den nicht gewählten */
+  private plates: { c: Phaser.GameObjects.Container; glow: Phaser.GameObjects.Image; dim: Phaser.GameObjects.Rectangle; v: CreatureView; y: number; hover: boolean; lift?: Phaser.Tweens.Tween }[] = [];
+  private sel = 0;
+  private choosing = false;
+  private zones: Phaser.GameObjects.Zone[] = [];
 
   constructor() {
     super('Generation');
@@ -48,6 +65,10 @@ export class GenerationScene extends Phaser.Scene {
     this.views = [];
     this.group = [];
     this.nav = undefined;
+    this.plates = [];
+    this.sel = 0;
+    this.choosing = false;
+    this.zones = [];
   }
 
   create() {
@@ -63,7 +84,8 @@ export class GenerationScene extends Phaser.Scene {
       speedY: { min: -12, max: -3 }, speedX: { min: -6, max: 6 },
       scale: { start: 0.35, end: 0 }, alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, tint: 0xd8c8a0,
     });
-    this.survived();
+    if (this.d.offspring?.length) this.choose();
+    else this.survived();
   }
 
   update(_t: number, dms: number) {
@@ -105,6 +127,157 @@ export class GenerationScene extends Phaser.Scene {
     }
   }
 
+  // ---------------------------------------------------------------- Evolutionsplatten
+
+  /**
+   * Drei Steinplatten wie die Tafel (Taste C): oben der Nachkomme, wie er aussehen würde, darunter seine Werte. Was die
+   * Muscheln schon freigelegt haben, steht da – mit einem Pfeil, ob es mehr oder weniger würde; der Rest liegt unter Moos,
+   * nur die Pfeile schimmern durch. Wie stark sich die Platte ausprägt, zeigen die Fische bei „Ausprägung“ (die Spielweise).
+   */
+  private choose() {
+    const d = this.d;
+    const ep = EPOCHS[d.epoch];
+    const offs = d.offspring!;
+    this.choosing = true;
+    const where = ep.habitat === 'water' ? 'die Meere' : 'das Land';
+    const [h1, h2] = d.bossBeaten
+      ? [`${d.boss} ist besiegt.`, 'Wohin entwickelt sich deine Linie in der neuen Zeit?']
+      : d.repeat
+        ? ['Eine Generation vergeht.', `${d.boss ?? 'Der Herrscher'} beherrscht noch ${where}. Wohin entwickelt sich deine Linie?`]
+        : [`Das ${ep.name} endet.`, 'Du hast überlebt. Wohin entwickelt sich deine Linie?'];
+    const head = title(this, W / 2, 36, h1, 36).setOrigin(0.5);
+    const sub = text(this, W / 2, 72, h2, 19, UI.boneDim).setOrigin(0.5);
+    this.fadeInAll([head, sub], 0);
+    this.group.push(head, sub);
+
+    const n = offs.length;
+    const x0 = W / 2 - (n * PLATE.w + (n - 1) * PLATE.gap) / 2;
+    const cls = d.transition?.to ?? d.cls;
+    const unlocked = Math.min(STAT_COUNT, game.shells.length);
+    // erst alle Tiere bauen, dann ein gemeinsamer Maßstab – so lassen sich Größe und Körperbau direkt vergleichen
+    const views = offs.map((o) => new CreatureView(this, 0, 0, this.look({ cls, traits: o.traits, seed: o.seed, sex: o.sex }), 1));
+    const maxW = Math.max(...views.map((v) => v.L.halfW * 3.9));
+    const maxH = Math.max(...views.map((v) => v.L.footY - v.L.topY));
+    const sc = Math.min(2.4, (PLATE.w - 90) / maxW, 96 / maxH);
+    offs.forEach((o, i) => {
+      const card = this.plate(o, views[i], sc, x0 + i * (PLATE.w + PLATE.gap), PLATE.y, i, unlocked);
+      this.fadeInAll([card], 250 + i * 160, 1, 650);
+      this.group.push(card, this.plates[i].glow);
+    });
+    // vorgewählt ist die Platte, die am besten zur Spielweise passte
+    this.select(Math.max(0, offs.findIndex((o) => o.plate === d.line)), true);
+    const kb = this.input.keyboard!;
+    const mv = (dx: number) => () => this.choosing && this.select((this.sel + dx + n) % n);
+    kb.on('keydown-LEFT', mv(-1));
+    kb.on('keydown-RIGHT', mv(1));
+    kb.on('keydown-A', mv(-1));
+    kb.on('keydown-D', mv(1));
+    kb.on('keydown-ENTER', () => this.choosing && this.confirm());
+    kb.on('keydown-SPACE', () => this.choosing && this.confirm());
+    this.time.delayedCall(1100, () => {
+      if (!this.choosing) return;
+      const b = new Button(this, W / 2, H - 27, 'Wählen', { w: 240, h: 40, icon: 'ic_play', color: UI.ochreN, onClick: () => this.choosing && this.confirm() });
+      this.fadeInAll([b], 0, 1, 500);
+      this.group.push(b);
+    });
+  }
+
+  /** Eine Evolutionsplatte: Name, Vor- und Nachteile, der Nachkomme, seine Ausprägung und darunter die Werte. */
+  private plate(o: Offspring, v: CreatureView, sc: number, x: number, y: number, i: number, unlocked: number) {
+    const d = this.d;
+    const { w, h } = PLATE;
+    const info = PLATE_INFO[o.plate];
+    const glow = this.add.image(x + w / 2, y + h / 2, 'glow').setDisplaySize(w * 1.7, h * 1.35).setTint(0xe0a848).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+    const c = this.add.container(x, y);
+    const tab = new Tablet(this, 0, 0, w, h, { cls: v.m.cls, traits: o.traits }, unlocked, {
+      mini: true, rowsTop: PLATE.rowsTop, base: { cls: d.cls, traits: d.traits }, seed: 11 + i * 4,
+    });
+    c.add(tab);
+    c.add(this.add.text(w / 2, 50, PLATE_NAME[o.plate], { fontFamily: TITLE_FONT, fontSize: '24px', color: INK, fontStyle: '700', shadow: { offsetX: 1, offsetY: 1, color: 'rgba(255,246,225,0.34)', blur: 0, fill: true }, resolution: 2 }).setOrigin(0.5));
+    // der Nachkomme – schwebend über einem Schatten im Stein
+    c.add(this.add.image(w / 2, 178, 'shadow').setDisplaySize(w * 0.5, 14).setAlpha(0.35));
+    v.setPosition(w / 2, 130);
+    v.setBaseScale(sc);
+    v.setFacing(1);
+    c.add(v);
+    this.views.push({ v, mode: v.L.land ? 'idle' : 'swim' });
+    const lx = w * 0.07 + 2;
+    c.add(this.add.text(lx, 192, info.pro, carved(11.5)).setOrigin(0, 0.5));
+    c.add(this.add.text(lx, 208, info.con, carved(11.5)).setOrigin(0, 0.5));
+    // Ausprägung: Mit passender Spielweise wird die Platte deutlicher (ein Fisch: schwach … drei: stark)
+    c.add(this.add.text(lx, 225, 'Ausprägung', carved(11.5)).setOrigin(0, 0.5));
+    const strong = 1 + (o.fit >= 0.3 ? 1 : 0) + (o.fit >= 0.65 ? 1 : 0);
+    const fw = 15, fh = fw * (24 / 36);
+    for (let k = 0; k < 3; k++) c.add(this.add.image(w - lx - (2 - k) * (fw + 3) - fw / 2, 225, k < strong ? 'fish_on' : 'fish_off').setDisplaySize(fw, fh));
+    // nicht gewählte Platten treten in den Schatten zurück
+    const dim = this.add.rectangle(0, 0, w, h, 0x050403, 0).setOrigin(0);
+    c.add(dim);
+    const zone = this.add.zone(x, y, w, h).setOrigin(0).setInteractive({ useHandCursor: true });
+    zone.on('pointerdown', () => {
+      if (!this.choosing) return;
+      if (this.sel === i) this.confirm();
+      else this.select(i);
+    });
+    zone.on('pointerover', () => {
+      this.plates[i].hover = true;
+      this.select(this.sel, true);
+    });
+    zone.on('pointerout', () => {
+      this.plates[i].hover = false;
+      this.select(this.sel, true);
+    });
+    this.zones.push(zone);
+    this.plates.push({ c, glow, dim, v, y, hover: false });
+    return c;
+  }
+
+  /** Die gewählte Platte leuchtet warm und hebt sich etwas; die anderen treten in den Schatten zurück. */
+  private select(i: number, quiet = false) {
+    const changed = this.sel !== i;
+    this.sel = i;
+    this.plates.forEach((p, k) => {
+      const on = k === i;
+      this.tweens.killTweensOf([p.glow, p.dim]);
+      this.tweens.add({ targets: p.glow, alpha: on ? 0.3 : p.hover ? 0.1 : 0, duration: 260 });
+      this.tweens.add({ targets: p.dim, alpha: on ? 0 : p.hover ? 0.12 : 0.3, duration: 260 });
+      // nur das Anheben neu starten – das Einblenden der Platte läuft weiter
+      p.lift?.stop();
+      p.lift = this.tweens.add({ targets: p.c, y: p.y - (on ? 8 : 0), duration: 260, ease: 'Sine.out' });
+    });
+    if (changed && !quiet) audio.sfx('click');
+  }
+
+  /** Die Wahl steht: Dieser Nachkomme führt die Linie weiter. Dann zeigt sich, wie er sich vom Tier „einst“ unterscheidet. */
+  private confirm() {
+    const d = this.d;
+    const o = d.offspring![this.sel];
+    this.choosing = false;
+    audio.sfx('select');
+    this.zones.forEach((z) => z.destroy());
+    this.zones = [];
+    game.chooseOffspring(o);
+    d.drifted = o.traits;
+    d.line = o.plate;
+    d.look = { ...d.look, seed: o.seed, sex: o.sex };
+    const p = this.plates[this.sel];
+    this.tweens.add({ targets: p.glow, alpha: 0.55, duration: 200, yoyo: true });
+    const old = this.group;
+    this.group = [];
+    this.time.delayedCall(450, () => {
+      this.tweens.add({
+        targets: old,
+        alpha: 0,
+        duration: 600,
+        onComplete: () => {
+          old.forEach((g) => g.destroy());
+          this.plates = [];
+          this.views = [];
+          this.survived();
+        },
+      });
+    });
+  }
+
   // ---------------------------------------------------------------- Überlebt
 
   private survived() {
@@ -137,7 +310,7 @@ export class GenerationScene extends Phaser.Scene {
     });
     const [right, rb] = this.creature(mNow, W * 0.73, gy, scale);
     const lt = text(this, W * 0.27, gy + 42, 'Einst', 22, UI.boneDim).setOrigin(0.5);
-    const rt = text(this, W * 0.73, gy + 42, 'Heute', 22, UI.bone).setOrigin(0.5);
+    const rt = text(this, W * 0.73, gy + 42, d.line ? `Heute · ${PLATE_NAME[d.line]}` : 'Heute', 22, UI.bone).setOrigin(0.5);
     const arrow = title(this, W / 2, gy - 60, '›', 64, UI.ochre).setOrigin(0.5);
     this.fadeInAll([left, lb, lt], 600, 0.75);
     this.fadeInAll(kinViews, 1300, 0.55);
@@ -151,7 +324,7 @@ export class GenerationScene extends Phaser.Scene {
 
     const k = d.kinAlive;
     const kinLine = k === 0 ? '' : k === 1 ? 'Einer deiner Art hat mit dir überlebt.' : `${k} deiner Art haben mit dir überlebt.`;
-    const line = d.line ? LINE_TEXT[d.line] : changed ? LINES[(d.epoch * 3 + k) % LINES.length] : 'Das Leben geht weiter.';
+    const line = d.line ? PLATE_TEXT[d.line] : changed ? LINES[(d.epoch * 3 + k) % LINES.length] : 'Das Leben geht weiter.';
     const l1 = text(this, W / 2, 520, kinLine, 21, UI.bone).setOrigin(0.5);
     const l2 = text(this, W / 2, 552, line, 21, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5);
     this.fadeInAll([l1], 2100);

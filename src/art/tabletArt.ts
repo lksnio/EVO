@@ -11,9 +11,9 @@ type Pt = [number, number];
 
 // ---------------------------------------------------------------- Aufteilung
 
-/** Wo die Zeilen der Tafel liegen (gemeinsam für das Bild der Platte und die Zeilen darauf). */
-export function tabletLayout(w: number, h: number, mini: boolean) {
-  const top = mini ? h * 0.15 : h * 0.275;
+/** Wo die Zeilen der Tafel liegen (gemeinsam für das Bild der Platte und die Zeilen darauf). rowsTop: eigener Beginn (Anteil der Höhe). */
+export function tabletLayout(w: number, h: number, mini: boolean, rowsTop?: number) {
+  const top = rowsTop !== undefined ? h * rowsTop : mini ? h * 0.15 : h * 0.275;
   const bottom = mini ? h * 0.93 : h * 0.915;
   const padX = mini ? w * 0.07 : w * 0.105;
   return { top, bottom, padX, rowH: (bottom - top) / STAT_COUNT };
@@ -104,24 +104,26 @@ export function mossPatch(scene: Phaser.Scene, w: number, h: number, seed: numbe
 // ---------------------------------------------------------------- Platte
 
 /** Umriss der Tafel: oben abgebrochen (Stufen), an den Seiten ausgesplittert, unten fast gerade. */
-function outline(w: number, h: number, rnd: Rng, k: number): Pt[] {
+function outline(w: number, h: number, rnd: Rng, k: number, shallow = false): Pt[] {
   const m = 12 * k;
   const L = m, R = w - m, B = h - m * 1.1;
   const pts: Pt[] = [];
-  // Oberkante von links nach rechts: unterschiedlich hohe, abgebrochene Blöcke
-  pts.push([L, h * (0.17 + rnd() * 0.04)]);
-  let y = h * (0.07 + rnd() * 0.07);
+  // Oberkante von links nach rechts: unterschiedlich hohe, abgebrochene Blöcke (bei den kleinen Platten nur flach
+  // abgebrochen – oben steht dort der Name)
+  const deep = shallow ? 0.4 : 1;
+  pts.push([L, h * (0.17 + rnd() * 0.04) * deep]);
+  let y = h * (0.07 + rnd() * 0.07) * deep;
   pts.push([L + 6 * k, y]);
   const steps = k > 0.6 ? 8 : 5;
   for (let i = 1; i <= steps; i++) {
     const x = L + 6 * k + ((R - L - 12 * k) * i) / steps + (rnd() - 0.5) * 0.35 * ((R - L) / steps);
     if (rnd() < 0.55) pts.push([x - 2 * k, y]);
     // Stufe oder Schräge
-    y = h * (0.025 + rnd() * 0.12);
+    y = h * (0.025 + rnd() * 0.12) * deep;
     if (rnd() < 0.5) pts.push([x - 1 * k, y]);
     pts.push([x + 1 * k, y]);
   }
-  pts.push([R, h * (0.15 + rnd() * 0.05)]);
+  pts.push([R, h * (0.15 + rnd() * 0.05) * deep]);
   // rechte Kante nach unten, mit ein oder zwei Ausbrüchen
   const chipR = [0.34 + rnd() * 0.2, 0.68 + rnd() * 0.15];
   let yy = pts[pts.length - 1][1];
@@ -204,15 +206,15 @@ function rune(ctx: Ctx, x: number, y: number, s: number, kind: number, k: number
 /**
  * Die Steinplatte. Der Umriss ist gebrochen und für jede Größe etwas anders; die Fläche besteht
  * aus wenigen hellen und dunklen Facetten, ein paar Rissen, Ausbrüchen und – bei der großen
- * Tafel – einem Rahmen aus gemeißelten Linien und Runen. Moos wächst unten und an den Rändern.
+ * Tafel – einem Rahmen aus gemeißelten Linien und Runen. Moos wächst unten und an den Rändern. Beginnen die Zeilen
+ * weiter unten (rowsTop, die Evolutionsplatten), trennt eine gemeißelte Linie sie vom Platz darüber.
  */
-export function slabTexture(scene: Phaser.Scene, w: number, h: number, seed = 5) {
-  const mini = w < 300;
+export function slabTexture(scene: Phaser.Scene, w: number, h: number, seed = 5, mini = w < 300, rowsTop?: number) {
   const k = w / 560;
-  const key = `slab2_${w}x${h}_${seed}`;
+  const key = `slab2_${w}x${h}_${seed}${mini ? 'm' : ''}${rowsTop ?? ''}`;
   return tex(scene, key, w, h, (ctx) => {
     const rnd = mulberry32(seed * 131 + Math.round(w));
-    const pts = outline(w, h, rnd, k);
+    const pts = outline(w, h, rnd, k, rowsTop !== undefined);
 
     // Schatten und Seitenfläche (die Dicke der Platte)
     poly(ctx, pts, 8 * k, 10 * k);
@@ -260,7 +262,7 @@ export function slabTexture(scene: Phaser.Scene, w: number, h: number, seed = 5)
       for (let t = 0; t < 8; t++) {
         cx = (0.04 + rnd() * 0.92) * w;
         cy = (0.1 + rnd() * 0.85) * h;
-        const lay = tabletLayout(w, h, mini);
+        const lay = tabletLayout(w, h, mini, rowsTop);
         if (!(cx > lay.padX * 0.8 && cx < w - lay.padX * 0.8 && cy > lay.top - 4 && cy < lay.bottom + 4)) break;
       }
       const r = (4 + rnd() * 10) * k;
@@ -326,6 +328,21 @@ export function slabTexture(scene: Phaser.Scene, w: number, h: number, seed = 5)
         for (let y = h * 0.3; y < h * 0.88; y += (22 + rnd() * 12) * k) {
           if (rnd() < 0.3) continue;
           rune(ctx, rx + (rnd() - 0.5) * 3 * k, y, (4 + rnd() * 2) * k, Math.floor(rnd() * 7), k);
+        }
+      }
+    } else if (rowsTop !== undefined) {
+      // Evolutionsplatte: eine gemeißelte Linie zwischen dem Platz oben und den Zeilen, Runen neben den Zeilen
+      const lay = tabletLayout(w, h, true, rowsTop);
+      const yl = lay.top - 5;
+      for (let x = lay.padX; x < w - lay.padX; ) {
+        const x1 = Math.min(w - lay.padX, x + (40 + rnd() * 70) * k);
+        carve(ctx, () => { ctx.beginPath(); ctx.moveTo(x, yl + (rnd() - 0.5) * 1.5); ctx.lineTo(x1, yl + (rnd() - 0.5) * 1.5); }, k);
+        x = x1 + (8 + rnd() * 18) * k;
+      }
+      for (const rx of [w * 0.032, w * 0.968]) {
+        for (let y = lay.top + 8; y < lay.bottom; y += (24 + rnd() * 14) * k) {
+          if (rnd() < 0.35) continue;
+          rune(ctx, rx + (rnd() - 0.5) * 2 * k, y, (5 + rnd() * 2) * k, Math.floor(rnd() * 7), k);
         }
       }
     }

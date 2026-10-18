@@ -2,21 +2,52 @@ import Phaser from 'phaser';
 import { audio } from '../audio/Audio';
 import { FONT, TITLE_FONT } from '../config';
 import { mossPatch, slabTexture, tabletLayout } from '../art/tabletArt';
-import { STATS, STAT_COUNT, type StatCtx } from '../data/tablet';
+import { STATS, STAT_COUNT, type StatCtx, type StatDef } from '../data/tablet';
 import { mulberry32 } from '../util/math';
 
 export interface TabletOpts {
-  /** klein: für die Karten bei der Wahl des Nachwuchses */
+  /** klein: für die Evolutionsplatten zwischen den Zeitaltern */
   mini?: boolean;
   /** Überschrift (nur groß) */
   heading?: string;
   /** so viele der zuletzt freigelegten Zeilen erscheinen neu (das Moos fällt ab) */
   fresh?: number;
+  /** die Zeilen beginnen erst bei diesem Anteil der Höhe (darüber ist Platz, z. B. für das Tier) */
+  rowsTop?: number;
+  /** Vergleich: das Tier, wie es jetzt ist – ein Pfeil zeigt, was mehr bzw. weniger würde (auch durch das Moos hindurch) */
+  base?: StatCtx;
+  /** Muster des Steins (jede Platte sieht etwas anders aus) */
+  seed?: number;
 }
 
 /** Eingemeißelte Schrift: dunkel, mit heller Kante unten rechts. */
-const INK = '#15120d';
-const carved = (size: number, extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => ({
+export const INK = '#15120d';
+/** Farben der Vergleichspfeile: besser, schlechter, weder noch */
+const ARROW = { good: 0x2c5a24, bad: 0x8a2a18, even: 0x15120d };
+
+/** Wohin sich ein Wert gegenüber dem Vergleich verändert (1 mehr, -1 weniger, 0 kaum). */
+function trend(st: StatDef, c: StatCtx, base?: StatCtx) {
+  if (!base || !st.num) return 0;
+  const a = st.num(c), b = st.num(base);
+  return Math.abs(a - b) > Math.max(0.015 * Math.abs(b), 0.01) ? Math.sign(a - b) : 0;
+}
+
+/** Ein kleiner eingemeißelter Pfeil nach oben bzw. unten; grün, wenn es besser wird, rot, wenn schlechter. */
+function arrow(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number, dir: number, better?: 1 | -1) {
+  const col = !better ? ARROW.even : dir === better ? ARROW.good : ARROW.bad;
+  const tri = (ox: number, oy: number, c: number, a: number) => {
+    g.fillStyle(c, a);
+    g.beginPath();
+    g.moveTo(x + ox, y + oy - dir * s);
+    g.lineTo(x + ox + s * 0.9, y + oy + dir * s * 0.7);
+    g.lineTo(x + ox - s * 0.9, y + oy + dir * s * 0.7);
+    g.closePath();
+    g.fillPath();
+  };
+  tri(1, 1, 0xfff6e1, 0.3);
+  tri(0, 0, col, 0.95);
+}
+export const carved = (size: number, extra: Phaser.Types.GameObjects.Text.TextStyle = {}): Phaser.Types.GameObjects.Text.TextStyle => ({
   fontFamily: FONT,
   fontSize: `${size}px`,
   color: INK,
@@ -82,6 +113,14 @@ function glyph(g: Phaser.GameObjects.Graphics, id: string, x: number, y: number,
       case 'pack': // drei verbundene Punkte
         g.moveTo(X - s * 0.7, Y + s * 0.6); g.lineTo(X, Y - s * 0.7); g.lineTo(X + s * 0.7, Y + s * 0.6); g.closePath();
         break;
+      case 'armor': // zwei Reihen Schuppen
+        g.moveTo(X - s, Y - s * 0.5); g.lineTo(X - s * 0.5, Y); g.lineTo(X, Y - s * 0.5); g.lineTo(X + s * 0.5, Y); g.lineTo(X + s, Y - s * 0.5);
+        g.moveTo(X - s, Y + s * 0.3); g.lineTo(X - s * 0.5, Y + s * 0.8); g.lineTo(X, Y + s * 0.3); g.lineTo(X + s * 0.5, Y + s * 0.8); g.lineTo(X + s, Y + s * 0.3);
+        break;
+      case 'agility': // Wende: Pfeil, der umkehrt
+        g.moveTo(X + s * 0.8, Y - s * 0.6); g.lineTo(X - s * 0.4, Y - s * 0.6); g.lineTo(X - s * 0.9, Y); g.lineTo(X - s * 0.4, Y + s * 0.6); g.lineTo(X + s * 0.8, Y + s * 0.6);
+        g.moveTo(X + s * 0.35, Y + s * 0.15); g.lineTo(X + s * 0.8, Y + s * 0.6); g.lineTo(X + s * 0.35, Y + s * 1.05);
+        break;
       default: // Blitz (Nerven)
         g.moveTo(X + s * 0.3, Y - s); g.lineTo(X - s * 0.5, Y + s * 0.1); g.lineTo(X + s * 0.3, Y + s * 0.1); g.lineTo(X - s * 0.3, Y + s);
     }
@@ -117,13 +156,14 @@ export class Tablet extends Phaser.GameObjects.Container {
     this.th = h;
     const mini = !!o.mini;
     const k = w / 560;
-    const seed = mini ? 3 : 5;
-    this.add(scene.add.image(0, 0, slabTexture(scene, w, h, seed)).setOrigin(0, 0));
+    const seed = o.seed ?? (mini ? 3 : 5);
+    this.add(scene.add.image(0, 0, slabTexture(scene, w, h, seed, mini, o.rowsTop)).setOrigin(0, 0));
 
-    const lay = tabletLayout(w, h, mini);
+    const lay = tabletLayout(w, h, mini, o.rowsTop);
     const { top, rowH, padX } = lay;
     const rnd = mulberry32(seed * 7 + 1);
-    const fs = mini ? 11.5 : 20;
+    const fs = Math.min(mini ? 11.5 : 20, rowH * (mini ? 0.7 : 0.85));
+    const as = mini ? 3.5 : 5;
 
     if (o.heading && !mini) {
       this.add(scene.add.text(w / 2, h * 0.2, o.heading, { fontFamily: TITLE_FONT, fontSize: '24px', color: INK, fontStyle: '700', shadow: { offsetX: 1, offsetY: 1, color: 'rgba(255,246,225,0.34)', blur: 0, fill: true }, resolution: 2 }).setOrigin(0.5));
@@ -185,14 +225,20 @@ export class Tablet extends Phaser.GameObjects.Container {
       this.add(label(st.label(ctx), left + (mini ? 0 : 26), cy));
       const v = st.value(ctx);
       const right = b.x1 - (mini ? 5 : 12);
+      // links vom Wert: wohin er sich gegenüber dem Vergleich verändern würde
+      let ax = right;
       if (v.t === 'fish') {
         const fw = mini ? 14 : 26, fh = fw * (24 / 36), gap = mini ? 2 : 4;
         for (let n = 0; n < 3; n++) this.add(scene.add.image(right - (2 - n) * (fw + gap) - fw / 2, cy, n < v.n ? 'fish_on' : 'fish_off').setDisplaySize(fw, fh));
+        ax = right - 2 * (fw + gap) - fw;
       } else if (v.t === 'text') {
-        this.add(label(v.v, right, cy).setOrigin(1, 0.5));
+        const t = label(v.v, right, cy).setOrigin(1, 0.5);
+        this.add(t);
+        ax = right - t.width;
       } else {
         const t = label(v.v, right, cy).setOrigin(1, 0.5);
         this.add(t);
+        ax = right - t.width;
         if (v.f !== undefined) {
           const bw = mini ? 40 : 110, bh = mini ? 5 : 9;
           const bx = right - t.width - (mini ? 8 : 16) - bw;
@@ -203,8 +249,11 @@ export class Tablet extends Phaser.GameObjects.Container {
           marks.fillRect(bx, cy - bh / 2, bw * f, bh);
           marks.lineStyle(1, 0xfff6e1, 0.2);
           marks.strokeRect(bx - 2, cy - bh / 2 - 2, bw + 4, bh + 4);
+          ax = bx - 2;
         }
       }
+      const dir = trend(st, ctx, o.base);
+      if (dir) arrow(marks, ax - as * 2, cy, as, dir, st.better);
     });
 
     // Moos über allen Zeilen, die noch nicht frei sind (die neu freigelegten fallen gleich ab)
@@ -219,6 +268,23 @@ export class Tablet extends Phaser.GameObjects.Container {
       const img = scene.add.image(b.x0 - (mini ? 2 : 4) + li - m.padX, b.yT - m.padTop, m.key).setOrigin(0, 0).setDisplaySize(m.cw, m.ch);
       this.add(img);
       this.moss.push({ img, fresh: i < unlocked });
+    }
+    // Was noch unter dem Moos liegt, bleibt verborgen – nur wohin es sich verändern würde, schimmert durch
+    if (ctx && o.base) {
+      const peek = scene.add.graphics();
+      this.add(peek);
+      STATS.forEach((st, i) => {
+        if (i < unlocked) return;
+        const dir = trend(st, ctx, o.base);
+        if (!dir) return;
+        const b = boxes[i];
+        const cx = b.x1 - (mini ? 10 : 18), cy = (b.yT + b.yB) / 2 + (b.tilt[0] + b.tilt[1]) / 4;
+        peek.fillStyle(0x8d8878, 0.95);
+        peek.fillCircle(cx, cy, as * 1.7);
+        peek.lineStyle(1, 0x15120d, 0.5);
+        peek.strokeCircle(cx, cy, as * 1.7);
+        arrow(peek, cx, cy, as, dir, st.better);
+      });
     }
     void k;
     scene.add.existing(this);

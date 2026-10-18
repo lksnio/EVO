@@ -3,12 +3,14 @@ import type { ClassId } from '../data/classes';
 import { css, hueShift, mix, shade } from '../util/color';
 import { type Ctx, ell, newCanvas, smooth } from '../util/canvas';
 import { mulberry32 } from '../util/math';
+import { plateLevel } from '../state/GameState';
 import { eye, ivory, skin, tooth } from './paint';
 
 // ---------------------------------------------------------------------------
 // Die Spielfigur. Sie wird aus stufenlosen Merkmalen gezeichnet:
-//   jaw     → längere Schnauze, tieferer Kiefer, mehr und längere Zähne
-//   skull   → gewölbte Stirn, Knochenplatten, Höcker und Hörner
+//   jaw     → längere Schnauze, tieferer Kiefer, mehr und längere Zähne, ein Kaumuskel an der Wange
+//   skull   → gewölbte Stirn, Knochenplatten, Höcker und Hörner; mit spike die Kopfplatte des Stoßfischs
+//   armor   → deutlichere, glänzende Schuppen bis zum Schuppenpanzer mit Knochenschilden
 //   stealth → schlanker, längere Flossen/Beine, Tarnmuster, größere Augen
 //   diet    → Pflanzenfresser: stumpfe Zähne, runder Bauch; Fleischfresser: spitze Zähne
 //   belly   → hungrig (Rippen sichtbar) … satt (runder Bauch)
@@ -56,10 +58,12 @@ export interface Morph {
   snout?: number;
   /** Färbung durch eine Höhle: 0 natürlich, 1 grün (wie ein Barsch: Querbinden), 2 schwarz */
   coat?: number;
-  /** Entwicklungslinien (0 … 3 Punkte): Panzer, Jäger, Fleischflosser – sie färben und formen das Tier */
-  pz?: number;
-  jg?: number;
-  ff?: number;
+  /** Körperrobustheit (0 … 1): robustere Schuppen bis zum Schuppenpanzer */
+  armor?: number;
+  /** Evolutionsplatten (Punkte): Stoß-, Beiß- und Verfolgungsfisch – sie färben das Tier (die Form kommt aus den übrigen Merkmalen) */
+  st?: number;
+  bs?: number;
+  vf?: number;
   /** Flossen aus der Bewegung (0 … 1): Rückenflosse (nach oben geschwommen), Bauchflossen (nach unten), Seitenflossen (oft gewendet), Schwanzflosse (viel und schnell nach vorn) */
   fUp?: number;
   fDown?: number;
@@ -99,9 +103,10 @@ export function quantize(m: Morph): Morph {
     tint: q(m.tint ?? 0, 0.2),
     snout: q(m.snout ?? 0, 0.25),
     coat: Math.round(m.coat ?? 0),
-    pz: Math.round(m.pz ?? 0),
-    jg: Math.round(m.jg ?? 0),
-    ff: Math.round(m.ff ?? 0),
+    armor: q(m.armor ?? 0, 0.1),
+    st: q(m.st ?? 0, 0.25),
+    bs: q(m.bs ?? 0, 0.25),
+    vf: q(m.vf ?? 0, 0.25),
     fUp: q(m.fUp ?? 0, 0.1),
     fDown: q(m.fDown ?? 0, 0.1),
     fSide: q(m.fSide ?? 0, 0.1),
@@ -111,7 +116,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.pz, k.jg, k.ff, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
 }
 
 interface Pal {
@@ -151,16 +156,16 @@ function palette(m: Morph): Pal {
     eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
     fin: mix(camoBase(p.fin), p.camo, st * 0.3),
   };
-  // Die Linie färbt mit: Panzer stahlgrau, Jäger blaugrau mit hellem Bauch, Fleischflosser oliv mit rostigen Flossen
-  const lvl = (n: number) => [0, 0.5, 0.8, 1][Math.max(0, Math.min(3, Math.round(n)))];
-  const wp = lvl(m.pz ?? 0), wj = lvl(m.jg ?? 0), wf = lvl(m.ff ?? 0);
-  const wt = wp + wj + wf;
+  // Die Evolutionsplatten färben mit: Stoßfisch stahlgrau, Beißfisch dunkel bronzefarben mit rostigen Flossen,
+  // Verfolgungsfisch blaugrau mit hellem Bauch
+  const ws = plateLevel(m.st ?? 0), wb = plateLevel(m.bs ?? 0), wv = plateLevel(m.vf ?? 0);
+  const wt = ws + wb + wv;
   if (wt > 0) {
-    const avg = (a: number, b: number, c: number) => mix(mix(a, b, wj / (wp + wj || 1)), c, wf / wt);
+    const avg = (a: number, b: number, c: number) => mix(mix(a, b, wb / (ws + wb || 1)), c, wv / wt);
     const k = Math.min(1, wt) * 0.6;
-    out.base = mix(out.base, avg(0x5d666b, 0x4e6f7e, 0x6c6a38), k);
-    out.fin = mix(out.fin, avg(0x474f54, 0x3f5b68, 0x8a5a34), k);
-    out.belly = mix(out.belly, avg(0xa9aca6, 0xcfd6cc, 0xc4b888), k * 0.7);
+    out.base = mix(out.base, avg(0x5d666b, 0x6a4c3a, 0x4e6f7e), k);
+    out.fin = mix(out.fin, avg(0x474f54, 0x7a4630, 0x3f5b68), k);
+    out.belly = mix(out.belly, avg(0xa9aca6, 0xc2aa8c, 0xcfd6cc), k * 0.7);
   }
   // Höhlenfarbe: grün wie ein Barsch (grüner Rücken, helle Flanke, dunkle Querbinden) bzw. tiefschwarz
   const coat = m.coat ?? 0;
@@ -425,13 +430,46 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
       }
       // Schuppen / Fell / Warzen
       if (m.cls === 'fish') {
-        c.strokeStyle = css(P.dark, 0.16);
-        c.lineWidth = 0.8;
-        for (let row = 0, y = -bh * 0.6; y < bh * 0.6; y += 4.6, row++) {
-          for (let x = -bw * 0.55; x < bw * 0.5; x += 5.6) {
+        // Robustheit: größere, deutlich umrandete Schuppen mit hellem Glanz – bis zum Schuppenpanzer
+        const ar = m.armor ?? 0;
+        const sc = 1 + 0.5 * ar;
+        for (let row = 0, y = -bh * 0.6; y < bh * 0.6; y += 4.6 * sc, row++) {
+          for (let x = -bw * 0.55; x < bw * 0.5; x += 5.6 * sc) {
+            const sx = x + (row % 2) * 2.8 * sc;
             c.beginPath();
-            c.arc(x + (row % 2) * 2.8, y, 3, 0.2 * Math.PI, 0.8 * Math.PI);
+            c.arc(sx, y, 3 * sc, 0.2 * Math.PI, 0.8 * Math.PI);
+            c.strokeStyle = css(P.dark, 0.16 + 0.42 * ar);
+            c.lineWidth = 0.8 + 0.9 * ar;
             c.stroke();
+            if (ar > 0.15) {
+              c.beginPath();
+              c.arc(sx, y - 0.9 * sc, 2.2 * sc, 0.3 * Math.PI, 0.7 * Math.PI);
+              c.strokeStyle = css(shade(P.belly, 0.3), 0.32 * ar);
+              c.lineWidth = 0.7;
+              c.stroke();
+            }
+          }
+        }
+        // ab einem gewissen Grad: eine Reihe Knochenschilde auf dem Rücken und entlang der Seite
+        if (ar > 0.3) {
+          const k = Math.min(1, (ar - 0.3) / 0.5);
+          for (const [y0, n, s] of [[-bh * 0.43, 7, 1], [bh * 0.02, 6, 0.75]] as [number, number, number][]) {
+            for (let i = 0; i < n; i++) {
+              const x = bw * 0.28 - (i / (n - 1)) * bw * 0.72;
+              const w = (2.6 + 2.2 * k) * s, h = (1.8 + 1.6 * k) * s;
+              const y = y0 + Math.abs(i / (n - 1) - 0.35) * bh * (y0 < 0 ? 0.2 : 0);
+              c.beginPath();
+              c.moveTo(x - w, y);
+              c.lineTo(x, y - h);
+              c.lineTo(x + w, y);
+              c.lineTo(x, y + h);
+              c.closePath();
+              c.fillStyle = css(mix(P.base, 0xc4baa2, 0.5), 0.35 + 0.5 * k);
+              c.fill();
+              c.strokeStyle = css(P.dark, 0.6 * k + 0.2);
+              c.lineWidth = 0.8;
+              c.stroke();
+            }
           }
         }
         // Seitenlinie
@@ -678,6 +716,57 @@ function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
         c.strokeStyle = css(P.dark, 0.55);
         c.lineWidth = 1.3;
         c.stroke();
+        // Beißfisch: ein kräftiger Kaumuskel wölbt die Wange hinter dem Maulwinkel
+        if (m.jaw > 0.2) {
+          const a = Math.min(1, (m.jaw - 0.2) / 0.5);
+          ell(c, hingeX - 1, mouthY - 1.5 - 1.5 * a, 3 + 4 * a, 2 + 2.6 * a, -0.25);
+          c.fillStyle = css(shade(P.base, -0.3), 0.25 + 0.3 * a);
+          c.fill();
+          ell(c, hingeX - 2, mouthY - 3 - 2 * a, 1.6 + 2 * a, 0.8 + 0.8 * a, -0.25);
+          c.fillStyle = `rgba(255,236,200,${0.1 + 0.12 * a})`;
+          c.fill();
+        }
+        // Stoßfisch: die Kopfplatte – ein Knochenschild über Stirn, Schnauze und Wange, mit Nähten und Höckern
+        // (schon die erste Stufe soll man sehen – die Kopfplatte wächst vor allem mit spike, der Schädel macht sie fester)
+        const pl = Math.max(0, -(m.spike ?? 0)) * (0.4 + sk);
+        if (pl > 0.04) {
+          const a = Math.min(1, Math.sqrt(pl / 0.6));
+          const crown = top - hg.dome;
+          c.beginPath();
+          c.moveTo(-10, top * 0.92);
+          c.bezierCurveTo(L * 0.1, crown * 1.06, L * 0.55, crown * 0.96, L * 0.9, mouthY - hg.snoutH * 0.95);
+          c.lineTo(L + 2, mouthY - 0.5);
+          c.quadraticCurveTo(L * 0.62, hg.ey + hg.er * (1.4 + a), L * 0.18, hg.ey + hg.er * (1.9 + 1.4 * a));
+          c.quadraticCurveTo(-4, H * 0.08, -10, top * 0.15);
+          c.closePath();
+          c.fillStyle = css(mix(P.base, 0xbab09a, 0.35 + 0.35 * a), 0.45 + 0.45 * a);
+          c.fill();
+          c.strokeStyle = css(P.dark, 0.45 + 0.35 * a);
+          c.lineWidth = 0.9 + 0.9 * a;
+          c.stroke();
+          // Nähte zwischen den einzelnen Platten
+          c.beginPath();
+          c.moveTo(L * 0.16, crown * 0.98);
+          c.quadraticCurveTo(L * 0.2, hg.ey, L * 0.24, hg.ey + hg.er * 1.7);
+          c.moveTo(L * 0.56, crown * 0.86);
+          c.quadraticCurveTo(L * 0.6, hg.ey - hg.er, L * 0.52, hg.ey - hg.er * 1.3);
+          c.strokeStyle = css(P.dark, 0.25 + 0.3 * a);
+          c.lineWidth = 0.8;
+          c.stroke();
+          // Höcker und ein heller Grat oben auf der Platte
+          for (let i = 0; i < Math.round(4 + 6 * a); i++) {
+            const x = L * (0.05 + 0.75 * r()), y = crown * (0.75 + 0.15 * r());
+            ell(c, x, y, 0.7 + 0.5 * a, 0.6 + 0.4 * a);
+            c.fillStyle = `rgba(255,244,220,${0.25 + 0.25 * a})`;
+            c.fill();
+          }
+          c.beginPath();
+          c.moveTo(-6, top * 0.95);
+          c.bezierCurveTo(L * 0.12, crown * 1.02, L * 0.5, crown * 0.93, L * 0.82, mouthY - hg.snoutH * 1.05);
+          c.strokeStyle = `rgba(255,244,220,${0.18 + 0.2 * a})`;
+          c.lineWidth = 1.1;
+          c.stroke();
+        }
       }
       scars(c, m, L * 0.8, H * 0.6, r);
     },
