@@ -66,8 +66,8 @@ export const EPOCHS: EpochDef[] = [
     desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
     fauna: [
-      ['kieferlos', 2], ['sacabambaspis', 1.5], ['arandaspis', 1.5], ['astraspis', 1.4], ['eriptychius', 1.2], ['trilobit', 1.8], ['isotelus', 1.2],
-      ['conodont', 0.7], ['qualle', 1], ['orthoceras', 0.7], ['megalograptus', 0.22],
+      ['kieferlos', 8], ['sacabambaspis', 4.5], ['arandaspis', 4.5], ['astraspis', 4.9], ['eriptychius', 2.4], ['trilobit', 3.6], ['isotelus', 1.8],
+      ['conodont', 1], ['qualle', 1], ['orthoceras', 0.7], ['megalograptus', 0.2],
     ],
     events: [
       { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
@@ -80,8 +80,8 @@ export const EPOCHS: EpochDef[] = [
     desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
     fauna: [
-      ['kieferlos', 1], ['birkenia', 1.6], ['cephalaspis', 1.3], ['pteraspis', 1.5], ['thelodus', 1.5], ['jamoytius', 1], ['lasanius', 1.3], ['climatius', 0.8],
-      ['trilobit', 1], ['dalmanites', 1.2], ['conodont', 0.6], ['entelognathus', 0.7], ['qualle', 1.5], ['orthoceras', 1.1], ['megalograptus', 0.2], ['pterygotus', 0.25],
+      ['kieferlos', 4], ['birkenia', 10.4], ['cephalaspis', 2.6], ['pteraspis', 4.5], ['thelodus', 8.2], ['jamoytius', 2.5], ['lasanius', 5.9], ['climatius', 1.6],
+      ['trilobit', 2], ['dalmanites', 2.4], ['conodont', 0.9], ['entelognathus', 0.7], ['qualle', 1.5], ['orthoceras', 1.1], ['megalograptus', 0.2], ['pterygotus', 0.2],
     ],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
@@ -95,8 +95,8 @@ export const EPOCHS: EpochDef[] = [
     desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
     from: 382 * M, to: 372 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55,
     fauna: [
-      ['kieferlos', 0.5], ['cheiracanthus', 1.1], ['moythomasia', 1.5], ['acanthodes', 1.3], ['bothriolepis', 0.8], ['pterichthyodes', 0.9], ['cephalaspis', 0.7],
-      ['drepanaspis', 1], ['dipterus', 1.2], ['trilobit', 1], ['dalmanites', 0.8], ['coccosteus', 0.7], ['osteolepis', 0.6], ['cheirolepis', 0.6],
+      ['kieferlos', 2], ['cheiracanthus', 4.4], ['moythomasia', 10.5], ['acanthodes', 6.5], ['bothriolepis', 2], ['pterichthyodes', 1.8], ['cephalaspis', 1.4],
+      ['drepanaspis', 3], ['dipterus', 3], ['trilobit', 2], ['dalmanites', 1.6], ['coccosteus', 0.7], ['osteolepis', 0.6], ['cheirolepis', 0.6],
       ['cladoselache', 0.9], ['stethacanthus', 0.5], ['rolfosteus', 0.7], ['eusthenopteron', 0.6], ['tiktaalik', 0.4], ['holoptychius', 0.4], ['hyneria', 0.3],
       ['orthoceras', 0.6], ['seeskorpion', 0.3],
     ],

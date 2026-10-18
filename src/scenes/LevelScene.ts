@@ -73,6 +73,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   water = false;
   surfaceY = 0;
   animals: Animal[] = [];
+  /** Schwärme und Rudel: Gruppen-Nr. → Mitglieder */
+  private herds = new Map<number, Animal[]>();
   plants: Plant[] = [];
   meats: Meat[] = [];
   cover: Rect[] = [];
@@ -165,7 +167,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private stillT = 0;
   private winded = false;
   /** entkommene Beute, die später (außerhalb des Bildes) wieder auftaucht */
-  private returning: { id: string; x: number; y: number; at: number }[] = [];
+  private returning: { id: string; x: number; y: number; herd?: number; at: number }[] = [];
   private restockAt = 0;
   /** kleine Kraftanzeige am Fisch – nur zu sehen, solange er nicht frisch ist */
   private stamG!: Phaser.GameObjects.Graphics;
@@ -212,6 +214,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const prog = game.prog;
     this.place = placeOf(this.ep, d?.place ?? prog.place);
     this.animals = [];
+    this.herds = new Map();
     this.plants = [];
     this.meats = [];
     this.cover = [];
@@ -359,7 +362,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
     if (pr.sat !== undefined) this.player.satiety = clamp(pr.sat, 0.01, this.player.maxSat);
     this.spawnKin();
-    for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y);
+    for (const s of L.spawns) this.spawnAnimal(s.id, s.x, s.y, s.herd);
     this.faunaCount = L.spawns.length;
     this.needUnits = fedRef(ep, this.player.stats.size);
     this.span = game.epochSpan(this.epochIdx);
@@ -1045,10 +1048,26 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return false;
   }
 
-  spawnAnimal(id: string, x: number, y: number) {
+  openY(x: number) {
+    const col = clamp(Math.floor(x / TILE), 0, this.L.ground.length - 1);
+    const floor = this.L.ground[col] ?? this.L.height;
+    return this.surfaceY + Math.max(90, (floor - this.surfaceY) * 0.38);
+  }
+
+  herdOf(id: number) {
+    return this.herds.get(id) ?? [];
+  }
+
+  spawnAnimal(id: string, x: number, y: number, herd?: number) {
     const def = SPECIES[id];
     makeSpeciesTextures(this, def);
     const a = new Animal(this, def, x, y);
+    if (herd !== undefined) {
+      a.herdId = herd;
+      const list = this.herds.get(herd);
+      if (list) list.push(a);
+      else this.herds.set(herd, [a]);
+    }
     // Kleine Beutetiere sind zerbrechlich: Schon ein frisch geschlüpftes Tier braucht nur zwei Bisse
     if (def.role === 'prey' && def.power <= 2.2) {
       const fresh = game.stats(game.cls, { ...ZERO_TRAITS }).bite;
@@ -1272,7 +1291,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         continue;
       }
       this.returning.splice(i, 1);
-      this.spawnAnimal(r.id, r.x, r.y);
+      this.spawnAnimal(r.id, r.x, r.y, r.herd);
     }
   }
 
@@ -1593,7 +1612,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       } else if (!a.dead && this.escaped(a, time)) {
         // Wer lange davonrennt und aus dem Bild ist (oder am Rand nicht weiterkommt), ist entkommen – und weg
         const off = this.offScreen(a.x, a.y, 140);
-        this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, at: time + 30000 + Math.random() * 30000 });
+        this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, herd: a.herdId >= 0 ? a.herdId : undefined, at: time + 30000 + Math.random() * 30000 });
         this.removeAnimal(a);
         if (off) a.vanish();
         else this.tweens.add({ targets: a, alpha: 0, duration: 450, onComplete: () => a.vanish() });

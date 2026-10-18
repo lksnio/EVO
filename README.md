@@ -109,8 +109,9 @@ zuerst wird das Fischreich ausgebaut.
   muss mit **Gegenwehr** rechnen. Treffer schleudern dich zurück, betäuben kurz und lassen dich bluten.
   Zu fliehen ist oft die beste Idee.
 - **Wer frisst wen:** Große Jäger jagen nur, wenn sie Hunger haben – satt liegen sie oft lange am
-  Meeresgrund (bzw. am Boden) und dösen. Kleine Tiere fliehen früh und verstecken sich im Dickicht,
-  in Höhlen und Felsspalten, bis die Gefahr vorbei ist.
+  Meeresgrund (bzw. am Boden) und dösen. Kleine Fische fliehen früh – nicht ins Gras (dort würden sie
+  nur stillhalten und sich fressen lassen), sondern **nach oben ins freie, mittlere Wasser**, wo nichts im Weg ist, und
+  dann **auf eine sichere Entfernung**. Nur Bodentiere wie Trilobiten verkriechen sich im Dickicht.
 - **Hunger:** Der Magen startet etwa halb voll und leert sich ständig – auch in Ruhe spürbar, beim
   Schwimmen deutlich schneller (am Grund entlangzulaufen spart Kraft). Je leerer er ist,
   desto langsamer sinkt er – ganz leer wird er nie, verhungern kann man also nicht. Aber wer sehr
@@ -156,6 +157,17 @@ zuerst wird das Fischreich ausgebaut.
     Fleischflosser *Eusthenopteron*, *Holoptychius* und *Tiktaalik* – dazu der Herrscher *Dunkleosteus*.
   - **Wer flieht, ist weg:** Kleine Fische rennen wirklich davon – wer lange flüchtet und aus dem Bild ist (oder am Rand
     des Ortes nicht weiterkommt), ist **entkommen und verschwunden**. Nach einer Weile ziehen andere Fische dort wieder ein.
+    Wer einen Fisch **immer wieder aufscheucht**, vertreibt ihn irgendwann ganz: Er (und sein Schwarm) gibt den Ort auf –
+    wird dabei aber **müde** und ist dann leichte Beute, wenn man dranbleibt.
+  - **Schwärme und Rudel:** Fast alle kleinen Fische leben in **großen Schwärmen** (bis zu 16 Tiere), die zusammen
+    schwimmen und **gemeinsam fliehen**; viele Räuber, Verteidiger und Wirbellose (Haie, Conodonten, Cheirolepis,
+    Seeskorpione, Quallen …) leben in **kleinen Rudeln** – und **jagen gemeinsam**: Wer ein Ziel anspringt, setzt das Rudel
+    darauf an.
+  - **Gegenstoß:** **Etwas größere Fische** (im Vergleich zu deiner Kampfkraft) wehren sich, wenn du sie anbeißt: Sie
+    holen kurz aus (rot aufglühen) und **schnellen mit einem Stoß auf dich zu** – wie dein Stoß mit R. Das tut weh, ist
+    aber so bemessen, dass du es auch als kleiner Fisch überlebst; danach fliehen sie weiter. Je größer du wirst, desto
+    weniger wagen es.
+  - **Mehr los im Wasser:** Die Orte sind etwas dichter besiedelt (vor allem mit Beute).
   Kein Tier gleicht dem anderen ganz – manche sind etwas größer, andere etwas kleiner.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und

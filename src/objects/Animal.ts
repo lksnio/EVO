@@ -53,6 +53,12 @@ export interface World extends Phaser.Scene {
   playerPower(): number;
   /** Ein Tier ist erschöpft. */
   tired(a: Animal): void;
+  /** Höhe der Wasseroberfläche */
+  surfaceY: number;
+  /** Eine Höhe im freien, mittleren Wasser an dieser Stelle (dort, wo kein Boden und kein Dickicht im Weg ist). */
+  openY(x: number): number;
+  /** Alle Tiere einer Gruppe (Schwarm, Rudel). */
+  herdOf(id: number): Animal[];
 }
 
 export type St = 'wander' | 'idle' | 'graze' | 'flee' | 'hunt' | 'search' | 'warn' | 'charge' | 'rest' | 'cruise' | 'follow' | 'hide';
@@ -141,6 +147,26 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected puffAt = 0;
   /** zieht weiter zum Rand des Gewässers und verlässt es (-1 links, 1 rechts) */
   leaveDir = 0;
+  /** Schwarm bzw. Rudel, zu dem das Tier gehört (-1 = allein) */
+  herdId = -1;
+  /** Beute auf der Flucht: wovor, und wie weit sie mindestens weg will */
+  protected fleeFrom: Target | null = null;
+  protected fleeSafe = 0;
+  /** wie oft der Spieler dieses Tier schon aufgescheucht hat – ab einer Schwelle gibt es den Ort ganz auf */
+  protected fright = 0;
+  protected frightAt = -1e9;
+  protected boltAt = 2 + Math.floor(Math.random() * 2);
+  protected bolting = false;
+  protected fleeVec = { x: 1, y: -0.5 };
+  protected fleeVecAt = 0;
+  /** Gegenstoß (wie dein Stoß mit R): ausholen → vorschnellen → erholen */
+  protected cr: '' | 'wind' | 'dash' | 'rest' = '';
+  protected crT = 0;
+  protected crReady = 0;
+  protected crDir = { x: 1, y: 0 };
+  /** Rudeljäger: das Ziel, auf das ein Rudelmitglied das Rudel angesetzt hat */
+  protected packTarget: Target | null = null;
+  protected packUntil = 0;
   /** wann dieses Tier zuletzt vor etwas davonlief – und seit wann ununterbrochen */
   private runLast = -1e9;
   private runSince = 0;
@@ -322,7 +348,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       const fast = Math.hypot(this.b.velocity.x, this.swims || this.flies ? this.b.velocity.y : 0) > this.def.speed * 0.75;
       const exert = fast && (this.st === 'hunt' || this.st === 'flee' || this.st === 'charge' || !!this.mv || !!this.atk);
       if (exert) {
-        const drain = this.role === 'apex' || this.def.boss ? 0.065 : this.role === 'prey' ? 0.11 : 0.085;
+        const drain = this.role === 'apex' || this.def.boss ? 0.065 : this.role === 'prey' ? (this.bolting ? 0.17 : 0.11) : 0.085;
         this.stam -= dt * drain;
         if (this.stam <= 0) {
           this.stam = 0;
@@ -525,6 +551,17 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (seen) this.aggroUntil = Math.max(this.aggroUntil, time + 2500);
         if (seen || (dp < 220 && !p.hidden)) best = p;
       }
+      // Rudeljäger: Wer im Rudel jagt, setzt die anderen aufs gleiche Ziel an – und schließt sich ihnen an
+      if (this.herdId >= 0 && !this.ally) {
+        if (best && best !== this.packTarget) {
+          for (const m of W.herdOf(this.herdId)) {
+            if (m !== this && !m.dead && m.def.diet === 'meat' && this.dist(m) < 700 && (best !== p || T < m.def.power * 2.2)) {
+              m.packTarget = best;
+              m.packUntil = time + 7000;
+            }
+          }
+        } else if (!best && this.packTarget && time < this.packUntil && !this.packTarget.dead) best = this.packTarget;
+      }
       this.target = best;
     }
 
@@ -565,17 +602,17 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (role === 'apex') return this.thinkApex(time, dt);
 
     this.hiddenNow = false;
-    // Beute, die sich wehrt (mittlere Tiere beißen zurück)
+    // Beute, die sich wehrt: etwas größere Fische kontern mit einem Stoß (wie dein Stoß mit R), danach fliehen sie weiter
     if (role === 'prey' && time < this.defendUntil && this.target && !this.target.dead) {
-      if (this.st !== 'hunt') this.go('hunt');
-      this.chase(this.target, this.def.speed * 1.15);
-      this.tryBite(time, this.target);
-      return;
+      if (this.counterRam(time, dt, this.target)) return;
+    } else if (this.cr) this.endCounter();
+    const pl = this.world.player;
+    // Schwimmende Beute: nie im Gras verstecken und stillhalten – nach oben ins freie Wasser, weit weg
+    if (role === 'prey' && this.swims && !this.kin && !this.ally) {
+      if (this.fleeThink(time, dt)) return;
     }
     // Neben einem fremden Tier ausweichen – je ruhiger sie dir gegenüber ist, desto näher darfst du heran
-    // Kleine Fische halten deutlich Abstand und schwimmen davon, sobald man näher kommt – nicht stehen bleiben
-    const pl = this.world.player;
-    if (role === 'prey' && !this.threatObj && this.st !== 'hide' && this.st !== 'flee' && !pl.dead && !pl.hidden) {
+    if (role === 'prey' && !this.swims && !this.threatObj && this.st !== 'hide' && this.st !== 'flee' && !pl.dead && !pl.hidden) {
       const dp = this.dist(pl);
       const keep = 90 + 190 * (1 - this.calm);
       if (dp < keep) {
@@ -594,8 +631,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (this.st !== 'flee' && this.st !== 'hide' && role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');
       if (this.st !== 'hide') this.go('flee');
     }
-    // Beute: ins Dickicht, in eine Höhle oder Felsspalte – und dort still bleiben, bis die Gefahr vorbei ist
-    if (role === 'prey' && (this.st === 'flee' || this.st === 'hide')) {
+    // Bodentiere (Trilobiten): ins Dickicht oder in eine Spalte – und dort still bleiben, bis die Gefahr vorbei ist
+    if (role === 'prey' && !this.swims && (this.st === 'flee' || this.st === 'hide')) {
       if (this.threatObj) this.hideUntil = time + 2500;
       const c = time < this.hideUntil ? this.nearCover(300) : null;
       if (c) {
@@ -644,6 +681,194 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.ally) return this.followPlayer(time, 160, 300);
     if (this.wantsRest(time)) return this.restOnGround(time);
     this.wander(time);
+  }
+
+  // ------------------------------------------------------------------ Flucht im freien Wasser
+
+  /**
+   * Beute im Wasser flieht nicht ins Gras, sondern weg vom Verfolger und nach oben, wo das Wasser frei ist – und zwar
+   * auf eine sichere Entfernung. Wer immer wieder gejagt wird, gibt den Ort irgendwann ganz auf (und wird dabei müde).
+   * Gibt true zurück, solange das Tier flieht.
+   */
+  protected fleeThink(time: number, dt: number) {
+    const W = this.world;
+    const pl = W.player;
+    let from: Target | null = this.threatObj;
+    // Dem Spieler weicht Beute aus – je ruhiger sie ihm gegenüber ist, desto näher darf er heran
+    if (!from && !pl.dead && !pl.hidden) {
+      const keep = 90 + 190 * (1 - this.calm);
+      if (this.dist(pl) < keep) from = pl;
+    }
+    if (from) this.startFlee(from, time);
+    else if (this.fright > 0 && !this.fleeFrom) this.fright = Math.max(0, this.fright - dt * 0.012);
+    const f = this.fleeFrom;
+    if (!f) return false;
+    const d = this.dist(f);
+    // in Sicherheit (oder die Gefahr ist weg): wieder ruhig weiterschwimmen
+    if (f.dead || this.stT > 25 || (!this.bolting && (d > this.fleeSafe || this.stT > 14))) {
+      this.fleeFrom = null;
+      if (this.fright < 0.5) this.bolting = false;
+      this.go('wander');
+      return false;
+    }
+    this.go('flee');
+    this.fleeSwim(time, f);
+    return true;
+  }
+
+  /** Eine neue Flucht beginnt (oder die laufende wird verlängert). */
+  protected startFlee(from: Target, time: number, scared = false) {
+    const W = this.world;
+    const player = from === W.player;
+    const fresh = !this.fleeFrom;
+    this.fleeFrom = from;
+    if (fresh) {
+      if (this.role === 'prey' && Math.random() < 0.3) audio.sfx('scurry');
+      this.stT = 0;
+      if (player && !scared && time - this.frightAt > 800) {
+        this.fright += 1;
+        if (this.fright >= this.boltAt) this.bolting = true;
+      }
+      // der ganze Schwarm hat es gesehen
+      if (this.herdId >= 0) {
+        for (const m of W.herdOf(this.herdId)) {
+          if (m !== this && !m.dead && !m.fleeFrom && m.dist(this) < 900) m.startFlee(from, time, true);
+        }
+      }
+    }
+    if (player) this.frightAt = time;
+    const calm = player ? this.calm : 0;
+    this.fleeSafe = this.bolting ? Infinity : (320 + 130 * Math.min(3, this.fright)) * (1 - 0.35 * calm);
+  }
+
+  /** Davonschwimmen: schräg nach oben, weg vom Verfolger, ohne gegen Felsen oder Boden zu stoßen. */
+  protected fleeSwim(time: number, from: Target) {
+    this.markRun();
+    if (time > this.fleeVecAt) {
+      this.fleeVecAt = time + 260;
+      this.fleeVec = this.pickFlee(from);
+    }
+    const v = this.fleeVec;
+    this.moveTo(this.x + v.x * 300, this.y + v.y * 300, this.fleeSpeed() * (this.bolting ? 1.1 : 1), true);
+  }
+
+  protected pickFlee(from: Target) {
+    const W = this.world;
+    const wb = W.physics.world.bounds;
+    const away = this.x > from.x ? 1 : this.x < from.x ? -1 : this.x > wb.centerX ? 1 : -1;
+    const wantUp = this.y > W.openY(this.x) + 40;
+    const cands: [number, number][] = wantUp
+      ? [[away, -0.9], [away, -0.5], [away, -0.15], [0, -1], [away, 0.25]]
+      : [[away, -0.25], [away, 0], [away, 0.3], [away, -0.6], [0, -1]];
+    let best = cands[0], bd = -1;
+    for (const c of cands) {
+      const l = Math.hypot(c[0], c[1]);
+      const nx = c[0] / l, ny = c[1] / l;
+      const clear = this.clearAhead(nx, ny, 320);
+      if (clear >= 300) return { x: nx, y: ny };
+      if (clear > bd) {
+        bd = clear;
+        best = [nx, ny];
+      }
+    }
+    return { x: best[0], y: best[1] };
+  }
+
+  /** Wie weit (bis len) es in dieser Richtung frei ist: kein Fels, nicht über die Wasseroberfläche hinaus. */
+  protected clearAhead(nx: number, ny: number, len: number) {
+    const W = this.world;
+    for (let s = 40; s <= len; s += 40) {
+      const x = this.x + nx * s, y = this.y + ny * s;
+      if (y < W.surfaceY + 60 || W.solidAt(x, y) || W.solidAt(x, y + 16) || W.solidAt(x, y - 16)) return s - 40;
+    }
+    return len;
+  }
+
+  // ------------------------------------------------------------------ Gegenstoß
+
+  /** Etwas größere Beute kann sich wehren: genug Kraft, um dem Spieler einen Stoß zu verpassen? */
+  get canCounter() {
+    return this.role === 'prey' && !this.kin && this.def.power * this.sz >= this.world.playerPower() * 0.62;
+  }
+
+  protected endCounter() {
+    this.cr = '';
+    this.crT = 0;
+    this.attacking = false;
+    this.clearTint();
+    this.setScale(this.sz);
+    this.setAngle(0);
+  }
+
+  /**
+   * Der Gegenstoß: kurz ausholen (rot aufglühen), dann mit Schwung auf den Angreifer schnellen – wie dein Stoß mit R.
+   * Der Schaden ist klein genug, dass man ihn überlebt. Gibt true zurück, solange das Tier mit dem Gegenstoß beschäftigt ist.
+   */
+  protected counterRam(time: number, dt: number, tg: Target) {
+    const W = this.world;
+    const free = this.swims || this.flies;
+    if (this.cr === '') {
+      // zu weit weg oder noch nicht wieder bereit: weiter fliehen
+      if (time < this.crReady || this.dist(tg) > 300) return false;
+      this.cr = 'wind';
+      this.crT = 0;
+    }
+    this.crT += dt;
+    this.go('charge');
+    if (this.cr === 'wind') {
+      this.dir = Math.sign(tg.x - this.x) || this.dir;
+      const k = Math.min(1, this.crT / 0.3);
+      if (free) this.b.setVelocity(-this.dir * 45 * k, this.b.velocity.y * 0.8);
+      else this.b.setVelocityX(-this.dir * 30 * k);
+      this.setScale(this.sz * (1 - 0.14 * k), this.sz * (1 + 0.1 * k));
+      this.setTint(k > 0.5 ? 0xff9a82 : 0xffb8a8);
+      if (this.crT >= 0.3) {
+        const dx = tg.x - this.x, dy = free ? tg.y - this.y : 0;
+        const l = Math.hypot(dx, dy) || 1;
+        this.crDir = { x: dx / l, y: dy / l };
+        this.cr = 'dash';
+        this.crT = 0;
+        this.setScale(this.sz);
+        audio.sfx('charge');
+        W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 4, 0xffffff);
+      }
+      return true;
+    }
+    if (this.cr === 'dash') {
+      this.attacking = true;
+      const v = this.def.speed * 2.6 + 60;
+      if (free) this.b.setVelocity(this.crDir.x * v, this.crDir.y * v);
+      else this.b.setVelocityX(this.crDir.x * v);
+      if (Math.random() < 0.4) W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 1);
+      if (!tg.dead && overlaps(this.hitRect(), tg.hitRect())) {
+        // kein Todesstoß: etwas Schaden, der nach der Stärke des Tieres geht (ein junger Fisch überlebt etliche davon)
+        const dmg = clamp(this.def.power * this.sz * 0.5, 0.8, 3.5);
+        if (tg === W.player) {
+          (tg as PlayerLike).hurt(dmg, this.x, this.def.name);
+          this.hitPlayerAt = time;
+        } else (tg as Animal).hurt(dmg, this, 'ram');
+        audio.sfx('ram');
+        this.crReady = time + 2200;
+        this.cr = 'rest';
+        this.crT = 0;
+      } else if (this.crT > 0.4) {
+        this.crReady = time + 1600;
+        this.cr = 'rest';
+        this.crT = 0;
+      }
+      return true;
+    }
+    // erholen: kurz benommen, dann geht es weiter
+    this.attacking = false;
+    this.clearTint();
+    this.setScale(this.sz);
+    this.halt();
+    if (this.crT > 0.6) {
+      this.cr = '';
+      this.crT = 0;
+      return false;
+    }
+    return true;
   }
 
   /** Tempo auf der Flucht: kleine Fische sind pfeilschnell – hinterherschwimmen allein reicht nicht. */
@@ -1100,10 +1325,24 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.moveTo(tg.x, aboveY, speed, false);
   }
 
+  /** Der Anführer eines Schwarms bzw. Rudels: das erste lebende Mitglied. */
+  protected herdLead(): Animal | null {
+    if (this.herdId < 0) return null;
+    for (const m of this.world.herdOf(this.herdId)) if (!m.dead && m.active) return m;
+    return null;
+  }
+
   protected wander(time: number) {
+    const lead = this.herdLead();
+    const follower = !!lead && lead !== this && !lead.fleeFrom && !this.ally;
     if (time > this.wanderAt) {
-      this.wanderAt = time + 2500 + Math.random() * 3500;
-      if (Math.random() < 0.3) {
+      this.wanderAt = time + (follower ? 1200 + Math.random() * 1500 : 2500 + Math.random() * 3500);
+      if (follower) {
+        // dem Schwarm folgen: in der Nähe des Anführers bleiben
+        const wb = this.world.physics.world.bounds;
+        this.wanderX = clamp(lead!.x + (Math.random() - 0.5) * 260, wb.x + 60, wb.right - 60);
+        this.wanderY = lead!.y + (Math.random() - 0.5) * (this.swims || this.flies ? 150 : 0);
+      } else if (Math.random() < 0.3) {
         this.wanderX = this.x;
         this.wanderY = this.y;
       } else {
@@ -1121,7 +1360,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     this.go('wander');
-    this.moveTo(this.wanderX, this.wanderY, this.def.speed * 0.55);
+    // wer den Anschluss verliert, schließt auf
+    const lag = follower && this.dist(lead!) > 340 ? 1.7 : 1;
+    this.moveTo(this.wanderX, this.wanderY, this.def.speed * 0.55 * lag);
   }
 
   protected drift() {
@@ -1310,7 +1551,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && from === this.world.player)) this.target = from;
     // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen
     const W = this.world;
-    if (this.role === 'prey' && from === W.player && !this.kin && this.hp > this.maxHp * 0.35 && this.def.power >= W.playerPower() * 0.6) {
+    if (this.role === 'prey' && from === W.player && this.hp > this.maxHp * 0.35 && this.canCounter) {
       this.defendUntil = now + 3500;
       this.target = from;
     }

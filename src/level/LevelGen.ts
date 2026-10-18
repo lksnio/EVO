@@ -14,6 +14,8 @@ export interface Spawn {
   id: string;
   x: number;
   y: number;
+  /** Schwarm bzw. Rudel, zu dem das Tier gehört */
+  herd?: number;
 }
 
 export interface Decor {
@@ -128,9 +130,12 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
   const SIZE_K: Record<string, [number, number]> = { start: [0.6, 1.25], lush: [0.3, 0.85], murky: [1, 1], deep: [2.4, 0.2], abyss: [3.2, 0.05] };
   const [bigK, smallK] = SIZE_K[place.kind] ?? [1, 1];
   const vee = place.kind === 'deep' || place.kind === 'abyss';
+  let herdNo = 0;
   const put = (id: string, cx: number, deepDweller: boolean) => {
     const d = SPECIES[id];
     const n = d.herd ? rint(r, d.herd[0], d.herd[1]) : 1;
+    // wer in einer Gruppe lebt, bleibt zusammen (Schwarm bzw. Rudel)
+    const herd = n > 1 ? herdNo++ : undefined;
     for (let i = 0; i < n; i++) {
       const col = Math.max(0, Math.min(cols - 1, Math.floor(cx + (i - n / 2) * 1.6 + r())));
       const x = (col + 0.5) * T;
@@ -142,7 +147,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
       else if (d.layer === 'mid') y = (3 + span * (0.3 + r() * 0.35)) * T;
       else if (d.layer === 'open') y = (3 + span * (0.12 + r() * 0.5)) * T;
       else y = (3 + span * (deepDweller ? low + r() * (1 - low) : r())) * T;
-      L.spawns.push({ id, x, y });
+      L.spawns.push({ id, x, y, herd });
     }
   };
   // Jeder Ort hat seine eigene Mischung: Manche Arten fehlen fast ganz, andere sind besonders häufig (je Ort fest)
@@ -163,10 +168,14 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, heights
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
     const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1) * taste(id);
     const sizeK = (d.role === 'predator' || d.role === 'apex' || d.role === 'defender') && d.power >= 8 ? bigK : d.role === 'prey' && d.power <= 3 ? smallK : 1;
-    // die Orte sind groß: Auf die Strecke gerechnet leben hier etwas weniger Tiere als früher
-    const want = groups * mul * sizeK * place.wide * 0.6 * (1 + Math.max(0, place.deep) * 0.008);
-    // keine Art überschwemmt einen Ort: Räuber und Verteidiger höchstens ein halbes Dutzend Gruppen
-    const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : 6, Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
+    // Die Zahl in der Fauna-Liste ist ein Richtwert für Tiere; je Gruppengröße ergibt das die Zahl der Schwärme bzw. Rudel.
+    // Die Orte sind groß – und es soll in ihnen ordentlich wimmeln.
+    const avgHerd = d.herd ? (d.herd[0] + d.herd[1]) / 2 : 1;
+    // Beute etwas dichter als früher; Räuber bleiben, wie sie waren (sie wirken im Rudel ohnehin mehr)
+    const dens = d.role === 'prey' || d.role === 'hazard' ? 0.75 : 0.6;
+    const want = (groups * mul * sizeK * place.wide * dens * (1 + Math.max(0, place.deep) * 0.008)) / avgHerd;
+    // keine Art überschwemmt einen Ort: Räuber und Verteidiger höchstens etwa neun Tiere je Art
+    const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : Math.max(1, Math.round(9 / avgHerd)), Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
     const c0 = 4, c1 = cols - 5;
     for (let g = 0; g < count; g++) {
       // Räuber nicht direkt neben dem Ankunftsplatz
