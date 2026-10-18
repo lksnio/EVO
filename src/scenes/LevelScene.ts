@@ -1428,7 +1428,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.grow('stealth', 0.003 * k);
   }
 
-  playerBite(rect: Rect) {
+  playerBite(rect: Rect, momentum = 0) {
     const p = this.player;
     const st = p.stats;
     const now = this.time.now;
@@ -1442,7 +1442,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.lastBitten = a;
       this.lastBiteAt = now;
       // ausgehungert beißt man schwächer
-      a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1), p, 'bite');
+      a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
       // Wer sich mit Starken anlegt, bekommt ein stärkeres Gebiss; kleine Fische jagen macht eher flink und wendig

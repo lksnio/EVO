@@ -34,9 +34,16 @@ zuerst wird das Fischreich ausgebaut.
   - **Kämpfen** – angreifen tun nur der **Biss** (E) und der **Stoß** (R); bloßes Berühren tut
     niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
     Anfang an: Er macht kaum Schaden, **betäubt** kleine und mittelgroße Tiere aber kurz – Zeit für ein,
-    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf. Beim Biss schnellt das Tier nach vorn, reißt das Maul auf, schnappt zu und knirscht mit den
+    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf. Der Biss geht **aus dem Stand**: Der Körper
+    bleibt, wo er ist – nur der Kopf reißt das Maul auf, schnappt zu und knirscht mit den
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
+  - **Anlauf und Schwung:** Weder Spurt noch Stoß sind ein Blitzstart. Beim **Spurt (W)** schlägt das Tier kräftiger und wird
+    über etwa eine Sekunde **langsam schneller**, nach dem Loslassen klingt das Tempo ebenso langsam ab. Beim **Stoß (R)**
+    baut es mit immer kräftigeren Flossenschlägen Tempo auf (R halten = längerer Anlauf, kurzes Antippen = kleiner Stoß), lässt
+    dann die Flossen ruhen und **gleitet mit dem aufgebauten Schwung** ein Stück weiter – nach oben und unten lässt sich das
+    noch lenken. Auf diesen Moment kommt es an: Wer **im Schwung beißt**, erreicht weiter nach vorn und beißt härter; auch
+    der Zusammenstoß zählt erst bei hohem Tempo.
   - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell und schwimmen davon, sobald
     man näher kommt. Wer lange ruhig in der Nähe bleibt (nicht sprinten, nicht kämpfen), kommt etwas
     näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
@@ -310,7 +317,7 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | E (auch Q oder J) | beißen und fressen |
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
-| R | Stoß (betäubt kleine und mittelgroße Tiere kurz) |
+| R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | C | Steintafel: Werte, Hunger, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung |
 | M | Ton an/aus |

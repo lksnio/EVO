@@ -8,7 +8,7 @@ import { approach, clamp, type Rect } from '../util/math';
 import { DEPTH } from '../config';
 
 export interface PlayerHost extends Phaser.Scene {
-  playerBite(rect: Rect): void;
+  playerBite(rect: Rect, momentum?: number): void;
   puff(x: number, y: number, n: number, tint?: number): void;
   bleed(x: number, y: number, n: number): void;
   solidAt(x: number, y: number): boolean;
@@ -19,6 +19,9 @@ type Body = Phaser.Physics.Arcade.Body;
 
 /** Sättigung: 0 = verhungert … maxSat = randvoll (je nach Größe). */
 export const FULL = 100;
+
+/** So lange (ms) schlägt das Tier beim Stoß höchstens kräftiger, bevor es gleitet. */
+const CHARGE_MS = 650;
 
 export class Player {
   rect: Phaser.GameObjects.Rectangle;
@@ -53,9 +56,17 @@ export class Player {
   private breath = 0;
   lastSafe = { x: 0, y: 0 };
   private offY = 0;
-  private ramUntil = 0;
+  /** Stoß (R): erst baut das Tier mit kräftigen Flossenschlägen langsam Tempo auf, dann gleitet es mit dem Schwung */
+  private dash: 'none' | 'charge' | 'glide' = 'none';
+  /** wie lange (ms Spielzeit) die aktuelle Phase des Stoßes schon läuft */
+  private dashAge = 0;
+  private dashV = 0;
+  private dashV0 = 0;
+  private dashPeak = 0;
   private ramReady = 0;
   private ramDir = { x: 1, y: 0 };
+  /** Spurt: je länger man kräftig schlägt, desto schneller wird man (0..1) */
+  private surge = 0;
   /** in einer Höhle (nur die Augen sind zu sehen) */
   inCave = false;
   /** liegt still am Boden (Sandtarnung) */
@@ -72,8 +83,6 @@ export class Player {
   /** wann zuletzt etwas getan wurde (schwimmen, beißen, rammen …) – danach beginnt das Ausruhen */
   private lastAct = 0;
   private driftPh = Math.random() * 6.28;
-  /** kurzer Vorstoß beim Beißen */
-  private lungeUntil = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
@@ -121,9 +130,14 @@ export class Player {
     this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * frac);
   }
 
-  /** gerade mitten im gezielten Rammstoß */
+  /** gerade mitten im Stoß: erst mit viel Tempo ist es ein Stoß, vorher nur das Anschwimmen */
   get isRamming() {
-    return this.host.time.now < this.ramUntil;
+    return this.dash !== 'none' && this.speed01 > 1.45;
+  }
+
+  /** Schwung (0..1): so viel Tempo hat der Stoß aufgebaut – im Schwung beißt man weiter und härter */
+  get momentum() {
+    return this.dash === 'none' ? 0 : clamp((this.speed01 - 1.2) / 1.1, 0, 1);
   }
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
@@ -174,9 +188,11 @@ export class Player {
     const L = this.view.L;
     const bx = this.rect.x, by = this.rect.y + this.offY;
     const r = L.bite;
+    // im Schwung reicht der Biss weiter nach vorn (ohne Sprung nach vorn bekommt er ein klein wenig Grundreichweite)
+    const reach = 8 + 46 * this.momentum;
     return this.facing > 0
-      ? { x: bx + r.x, y: by + r.y, w: r.w, h: r.h }
-      : { x: bx - r.x - r.w, y: by + r.y, w: r.w, h: r.h };
+      ? { x: bx + r.x, y: by + r.y, w: r.w + reach, h: r.h }
+      : { x: bx - r.x - r.w - reach, y: by + r.y, w: r.w + reach, h: r.h };
   }
 
   get invulnerable() {
@@ -189,7 +205,7 @@ export class Player {
       this.syncView(dt, 'idle', 0);
       return;
     }
-    const knocked = time < this.knockUntil || time < this.lungeUntil;
+    const knocked = time < this.knockUntil;
     const dir = (c.held.right ? 1 : 0) - (c.held.left ? 1 : 0);
     const dyIn = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
     // Ausruhen: eine Weile nichts tun (nicht schwimmen, beißen, rammen) – im Wasser lässt man sich treiben
@@ -199,6 +215,8 @@ export class Player {
     // Sprint: hält je nach Körperbau kürzer oder länger
     const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
     this.sprinting = wantSprint && !this.exhausted && this.stamina > 0.05;
+    // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
+    this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : 0.9));
     // Kraft: der Spurt zehrt sie auf, beim Schwimmen kehrt sie nur langsam zurück, beim Treiben rasch
     const refill = this.stats.recover * (0.5 + 0.5 * this.hungerK);
     this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (3 * en) : this.resting ? dt * refill / 5 : dt * refill / 14), 0, 1);
@@ -215,7 +233,7 @@ export class Player {
       this.stamina = Math.min(1, this.stamina + dt * 0.6);
       this.exhausted = false;
     }
-    const sp = this.stats.speed * (this.sprinting ? 1.45 : 1) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
+    const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
 
     if (this.water) {
       const dy = dyIn;
@@ -224,7 +242,7 @@ export class Player {
       this.bottomWalk = floor && dir !== 0 && !knocked;
       if (!knocked) {
         const len = Math.hypot(dir, dy) || 1;
-        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (this.sprinting ? 1.3 : 1) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp;
+        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (1 + 0.3 * this.surge) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp;
         // Ohne Steuerung steht man nie ganz still: das Wasser trägt einen leicht nach links oder rechts
         const drift = dir === 0 && dy === 0 && !floor;
         this.driftPh += dt;
@@ -269,41 +287,66 @@ export class Player {
       this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
-    // Rammstoß (erst mit hartem Kopf möglich)
-    if (c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
-      this.ramReady = time + 1100;
-      this.ramUntil = time + 380;
-      this.stamina = Math.max(0, this.stamina - 0.27 / en);
+    // Stoß (R, erst mit hartem Kopf möglich): kein Blitzstart. Das Tier schlägt kräftiger und wird langsam
+    // schneller (so lange R gehalten wird, höchstens eine gute halbe Sekunde) – danach gleitet es und nutzt den
+    // aufgebauten Schwung. Genau dann stößt und beißt man am besten.
+    if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
+      this.dash = 'charge';
+      this.dashAge = 0;
+      this.dashV0 = Math.max(this.stats.speed * 0.6, Math.hypot(b.velocity.x, this.water ? b.velocity.y : 0));
+      this.dashV = this.dashV0;
+      this.dashPeak = this.stats.speed * 2.3 * (0.8 + 0.2 * this.hungerK);
       const dy = this.water ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
       const len = Math.hypot(this.facing, dy * 0.7) || 1;
       this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
       audio.sfx('charge');
-      this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 5);
     }
-    if (time < this.ramUntil) {
-      const v = this.stats.speed * 2.4;
-      if (this.water) b.setVelocity(this.ramDir.x * v, this.ramDir.y * v);
-      else b.setVelocityX(this.ramDir.x * v);
-      this.speed01 = 2.4;
-      if (Math.random() < 0.4) this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 1);
+    if (this.dash !== 'none') {
+      if (knocked) {
+        this.dash = 'none';
+        this.ramReady = time + 450;
+      } else if (this.dash === 'charge') {
+        this.dashAge += dt * 1000;
+        const k = clamp(this.dashAge / CHARGE_MS, 0, 1);
+        this.dashV = this.dashV0 + (this.dashPeak - this.dashV0) * Math.pow(k, 1.5);
+        this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / CHARGE_MS);
+        // wer R loslässt (oder keine Kraft mehr hat), nutzt den Schwung, den er bis dahin hat
+        if (k >= 1 || (!c.held.ram && this.dashAge > 220) || this.exhausted) this.dash = 'glide';
+        // nach oben/unten lässt sich der Stoß noch lenken
+        if (this.water) {
+          const want = ((c.held.down ? 1 : 0) - (c.held.up ? 1 : 0)) * 0.7;
+          const ny = approach(this.ramDir.y, want / Math.hypot(this.facing, want), 1.6 * dt);
+          this.ramDir = { x: this.facing * Math.sqrt(Math.max(0.01, 1 - ny * ny)), y: ny };
+        }
+        if (this.dash === 'glide') this.dashAge = 0;
+      } else {
+        this.dashAge += dt * 1000;
+        this.dashV *= Math.exp(-dt / 0.55);
+        if (this.dashV < this.stats.speed * 1.1 || this.dashAge > 900) {
+          this.dash = 'none';
+          this.ramReady = time + 450;
+        }
+      }
+    }
+    if (this.dash !== 'none') {
+      if (this.water) b.setVelocity(this.ramDir.x * this.dashV, this.ramDir.y * this.dashV);
+      else b.setVelocityX(this.ramDir.x * this.dashV);
+      this.speed01 = this.dashV / this.stats.speed;
+      if (Math.random() < (this.dash === 'glide' ? 0.35 : 0.2)) this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 1);
     }
 
-    // Beißen (und Fressen)
+    // Beißen (und Fressen): aus dem Stand, der Körper bleibt, wo er ist – nur der Kopf schnappt zu.
+    // Nach vorn trägt einen allein der Schwung eines Stoßes oder Spurts.
     if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 380;
       // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
       this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.view.bite();
       audio.sfx('bite', game.traits.jaw);
-      // mit dem ganzen Körper nach vorn schnellen
-      if (!knocked) {
-        const v = this.stats.speed * (0.75 + 0.35 * game.traits.jaw);
-        this.body.setVelocityX(this.facing * Math.max(Math.abs(this.body.velocity.x), v));
-        this.lungeUntil = time + 110;
-      }
-      this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect()));
+      const m = this.momentum;
+      this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect(), m));
     }
-    this.view.headTilt = time < this.ramUntil ? 0.42 : this.sprinting ? 0.18 : 0;
+    this.view.headTilt = this.dash === 'charge' ? 0.3 : this.dash === 'glide' ? 0.42 : this.sprinting ? 0.18 : 0;
 
     // Atem und Erschöpfung sichtbar machen
     if ((this.stamina < 0.25 || this.exhausted) && time > this.breath) {
@@ -317,7 +360,9 @@ export class Player {
     if (this.water) mode = this.bottomWalk ? 'crawl' : 'swim';
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
-    this.syncView(dt, mode, Math.min(1.3, this.speed01));
+    // beim Anlauf schlägt der Schwanz immer kräftiger, im Gleiten liegt er ruhig
+    const beat = this.dash === 'charge' ? 0.8 + 1.1 * clamp(this.dashAge / CHARGE_MS, 0, 1) : this.dash === 'glide' ? 0.12 : Math.min(1.3, this.speed01) + 0.3 * this.surge;
+    this.syncView(dt, mode, beat);
     this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : this.ambush ? 0.62 : 1);
   }
 

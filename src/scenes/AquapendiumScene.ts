@@ -255,8 +255,6 @@ export class AquapendiumScene extends Phaser.Scene {
     bar.lineStyle(1.2, 0x2a1a0e, 0.6);
     bar.strokeRoundedRect(LEFT + 90, PY + 410, PW - 180, 14, 7);
     c.add(bar);
-    this.ink(c, LEFT + PW / 2, PY + 470, 'Jedes Tier, dem du im Spiel begegnest, bekommt\nhier seine Seite. Alle anderen Seiten zeigen nur\nden schwarzen Umriss.', 19, INK, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5, 0);
-    this.ink(c, LEFT + PW / 2, PY + PH - 44, '← → blättern  ·  Esc: zurück zum Titelbild', 16, INK_SOFT).setOrigin(0.5);
 
     // rechte Seite: Verzeichnis in zwei Spalten
     this.head(c, RIGHT + PW / 2, PY + 36, 'Inhalt', 28).setOrigin(0.5);
@@ -369,8 +367,7 @@ export class AquapendiumScene extends Phaser.Scene {
     c.add(bar);
 
     this.rule(c, rx, PY + 524, PW - 88);
-    const note = known ? e.note : 'Diese Seite ist noch leer. Begegne dem Tier im Spiel – dann füllen sich Bild, Name und Werte.';
-    this.ink(c, rx, PY + 540, note, 17, known ? INK : INK_SOFT, { fontStyle: 'italic', wordWrap: { width: PW - 88 }, lineSpacing: 2 });
+    if (known) this.ink(c, rx, PY + 540, e.note, 17, INK, { fontStyle: 'italic', wordWrap: { width: PW - 88 }, lineSpacing: 2 });
   }
 
   /** Das Bild des Tieres: ein eigenes Bild, wenn eines da ist, sonst der Platzhalter (das Tier aus dem Spiel). Unbekannte nur als Umriss. */
@@ -403,7 +400,6 @@ export class AquapendiumScene extends Phaser.Scene {
       } else place(makeSpeciesPortrait(this, e.def), false);
     } else {
       place(makeSpeciesPortrait(this, e.def), false);
-      if (known) this.ink(c, cx, cy + FRAME.h / 2 - 28, 'Platzhalter – das Bild folgt', 14, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     }
     if (!known) {
       // Tinte, die den Umriss verdeckt: ein kleines Fragezeichen
