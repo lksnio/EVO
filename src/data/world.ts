@@ -38,6 +38,13 @@ export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well' | 'river'
 /** Höhlen eines Ortes: g = grüne Höhle (färbt grün), b = schwarze Höhle. Die erste liegt nahe beim Ankunftsplatz. */
 export type CaveKind = 'g' | 'b';
 
+/**
+ * Das Geröll vor einer Höhle bricht bei einem Stoß, der mindestens need × der Grund-Stoßkraft der Körperform hat (der Urfisch
+ * schafft allein höchstens etwa zwei Drittel davon). Jeder Artgenosse, der dich begleitet und dabei näher als near bei dir
+ * ist, stößt mit und gibt perKin deiner Stoßkraft dazu – mit drei Begleitern und vollem Anlauf reicht es.
+ */
+export const CAVE_WALL = { need: 1.5, perKin: 0.25, near: 520 };
+
 export interface PlaceDef {
   id: string;
   name: string;

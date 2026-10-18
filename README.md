@@ -77,7 +77,9 @@ zuerst wird das Fischreich ausgebaut.
   Über einem Artgenossen, der etwas zu erzählen hat, erscheint in der Nähe ein kleines Zeichen **F**: Mit **F** (oder Eingabe;
   am Handy mit dem Knopf „Reden“) **spricht man ihn an**. Dann rückt die Kamera an beide Tiere heran (schwarze Balken wie beim
   Riesen im Hintergrund), er spricht in **Sprechblasen** (Text erscheint Buchstabe für Buchstabe, **F**/Eingabe/Antippen geht
-  weiter), Räuber ringsum ziehen ab, und das eigene Tier bleibt an seinem Platz.
+  weiter) – dabei bewegt sich sein **Maul** in Silben, aus dem Maul steigen **Bläschen** auf, und es **blubbert** leise.
+  Räuber ringsum ziehen ab, und solange gesprochen wird (und noch einen Augenblick danach), **greift in der Nähe niemand an** –
+  weder dich noch deinen Gesprächspartner. Das eigene Tier bleibt an seinem Platz.
   - **Auftrag „Der Gefährte“ (Ordovizium):** Nach dem Start kann man ein wenig erkunden – **nach links geht es nicht hinaus**
     (dort entspringt der Fluss, das Ufer steigt bis zur Wasseroberfläche), nur nach rechts. Weiter rechts, im offenen Meer hinter
     der Mündung, wartet ein Artgenosse. Er erzählt von einem **Ort ohne Räuber, dafür mit Pflanzen überall** – ein sicherer Ort,
@@ -129,8 +131,9 @@ zuerst wird das Fischreich ausgebaut.
     (hell, mit Dünen und Rippelspuren) wechseln sich mit **Felsgebieten** (dunkel, mit eingebetteten Steinen) und **Schlamm** ab –
     weich ineinander übergehend, nach unten immer dunkler. Auf dem Grund liegen **Felsbrocken** (manche lehnen aneinander,
     manche stecken halb im Hang) und **Kiesel**; man schwimmt um sie herum oder über sie hinweg. **Große, dunkle Felsen im
-    Vordergrund** haben keine Hitbox: Wer **hinter** ihnen schwimmt, verschwindet kurz aus dem Bild. Die Höhlen sind **runde
-    Felsbögen** mit Kuppel, die Felsspalten liegen unter einer Platte, die auf einem Felsbrocken ruht. Die Hitboxen bleiben
+    Vordergrund** haben keine Hitbox: Wer **hinter** ihnen schwimmt, verschwindet kurz aus dem Bild. Die Höhlen liegen unter einer
+    **Felskuppel** – mit unregelmäßiger Decke und rundem, geschlossenem Ende –, die Felsspalten unter einer Platte, die auf
+    einem Felsbrocken ruht. Die Hitboxen bleiben
     Rechtecke (Säulen von 20 Bildpunkten, bei den Felsen schmale Scheiben) – nur so fein, dass nichts mehr eckig wirkt; kleine
     Stufen (bis etwa 22 Bildpunkte) gleitet man am Grund einfach hinauf.
   - **Bodentiere (Trilobiten u. a.) laufen am Boden wirklich:** Sie **richten sich nach dem Boden aus** (am Hang schräg, an
@@ -140,9 +143,14 @@ zuerst wird das Fischreich ausgebaut.
     der Körper eine Wand meldet), **ducken** sie sich unter Überhängen hindurch, sonst weichen sie ein Stück zurück, suchen
     sich ein neues Ziel auf der anderen Seite und merken sich die Wand (Nahrung dahinter wird eine Weile nicht angesteuert);
     in einer Sackgasse bleiben sie ruhig stehen, statt zwischen links und rechts zu zappeln.
-  - **Farbtunnel sind selten und gut versteckt:** Nur **zwei Orte im ganzen Zeitalter** haben einen – ein
-    **grüner** (mit Querbinden wie bei einem Barsch) und ein **schwarzer** in der Tiefe. Wer auf der anderen Seite
-    herauskommt, hat die neue Farbe. Die Farbe lässt sich **nur einmal pro Spieldurchlauf** wählen – wer einmal
+  - **Farbhöhlen sind selten und verschüttet:** Nur **zwei Orte im ganzen Zeitalter** haben eine – eine
+    **grüne** in einem trüben Ort (im Ordovizium das Sandfeld; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
+    Ankunftsplatz und ist mit **losem Geröll** zugeschüttet (heller als der Fels, Steine mit Lücken dazwischen). Ein
+    **kräftiger Stoß** (R, mit vollem Anlauf) bricht es auf – allein schafft das erst ein harter Kopf (Stoßfisch) oder ein
+    großer, massiger Körper, sonst **im Schwarm**: Jeder Artgenosse, der dich gerade begleitet, stößt mit (mit drei
+    Begleitern reicht es). Ein zu schwacher Stoß lässt nur Risse zurück, an denen man sieht, wie viel noch fehlt. Drinnen
+    liegt **immer eine Muschel**; aufgebrochen bleibt das Geröll für den Rest des Lebens (Werte in `src/data/world.ts`,
+    `CAVE_WALL`). Wer bis ans hintere Ende schwimmt und wieder herauskommt, hat die neue Farbe. Die Farbe lässt sich **nur einmal pro Spieldurchlauf** wählen – wer einmal
     gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht auf der Steintafel. Daneben gibt es einige
     niedrige **Felsspalten** zum Verstecken für Schlanke.
   - **Neue Orte schaltest du frei, indem du hinausschwimmst:** Nach **links und rechts gibt es keine Wand** – die Grenze

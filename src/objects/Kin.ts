@@ -218,7 +218,8 @@ export class Kin extends Animal {
       const edge = this.x < (W.physics.world.bounds.width / 2) ? 10 : W.physics.world.bounds.width - 10;
       this.go('wander');
       this.moveTo(edge, this.y, this.def.speed * 0.9, true);
-      if (Math.abs(this.x - edge) < 40) this.leave();
+      // fort erst, wenn er nicht mehr zu sehen ist (nie vor deinen Augen)
+      if (Math.abs(this.x - edge) < 40 && !W.inView?.(this)) this.leave();
       return;
     }
 

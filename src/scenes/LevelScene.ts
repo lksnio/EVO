@@ -4,11 +4,12 @@ import { audio } from '../audio/Audio';
 import { bus, FOOD, fedRef, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Member, type Offspring, type PlateId, type PlayStyle, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
-import { generateLevel, type Gate, type LevelData, type Zone } from '../level/LevelGen';
+import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
+import { CLASSES } from '../data/classes';
+import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
-import { terrainArt } from '../art/terrainArt';
+import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
@@ -67,6 +68,17 @@ export interface SurvivedData {
   years?: number;
   finished?: boolean;
   node: string;
+}
+
+/** Geröll vor einer Höhle im Level: Bild, Risse, Hitbox – und wann es zuletzt getroffen wurde. */
+interface Rubble {
+  w: CaveWall;
+  id: string;
+  img: Phaser.GameObjects.Image;
+  cracks: Phaser.GameObjects.Image;
+  body: Phaser.GameObjects.Rectangle;
+  dmg: number;
+  hitAt: number;
 }
 
 /**
@@ -191,9 +203,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** kleine Kraftanzeige am Fisch – nur zu sehen, solange er nicht frisch ist */
   private stamG!: Phaser.GameObjects.Graphics;
   private stamA = 0;
-  /** Tunnel, in dem man gerade schwimmt (-1 = keiner) und von welcher Seite man hineingekommen ist */
+  /** Gespräch: bis dahin (und um diese Stelle herum) greift niemand an */
+  private truceUntil = 0;
+  private truceSpot = { x: 0, y: 0 };
+  /** Höhle, in der man gerade schwimmt (-1 = keine), von welcher Seite man hineingekommen ist und ob man bis hinten war */
   private curCave = -1;
   private caveSide = 0;
+  private caveDeep = false;
+  /** Geröll vor den Höhlen: Bild, Risse, Hitbox – und wann es zuletzt getroffen wurde */
+  private walls: Rubble[] = [];
   private caveFx: { c: LevelData['caves'][number]; pe: Phaser.GameObjects.Particles.ParticleEmitter; on: boolean }[] = [];
   /** dunkle Vorahnung: ein Riese ist in der Nähe */
   private dread!: Phaser.GameObjects.Rectangle;
@@ -290,6 +308,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.restockAt = 0;
     this.curCave = -1;
     this.caveSide = 0;
+    this.caveDeep = false;
+    this.truceUntil = 0;
+    this.walls = [];
     this.caveFx = [];
     this.dreadK = 0;
     this.dreadAt = -1e9;
@@ -543,6 +564,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (list) list.push(r);
       else this.solidIndex.set(b, [r]);
     }
+    return rect;
+  }
+
+  /** Eine Hitbox wieder entfernen (aufgebrochenes Geröll). */
+  private removeBody(rect: Phaser.GameObjects.Rectangle, r: Rect) {
+    rect.destroy();
+    for (let b = Math.floor(r.x / 40); b <= Math.floor((r.x + r.w) / 40); b++) {
+      const list = this.solidIndex.get(b);
+      if (list) this.solidIndex.set(b, list.filter((q) => q !== r));
+    }
   }
 
   private addPlatform(r: Rect, plat: string) {
@@ -598,35 +629,118 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Höhlen sind Tunnel durch den Fels: dunkle Rückwand, drinnen sieht man nur noch die Augen. An den Enden treibt etwas
-   * von der Farbe der Höhle ins Wasser – grünliche Schlieren bei der grünen, schwarze Schwaden bei der schwarzen.
+   * Höhlen: dunkle Rückwand, drinnen sieht man nur noch die Augen. Vor der Öffnung treibt etwas von der Farbe der Höhle ins
+   * Wasser – grünliche Schlieren bei der grünen, schwarze Schwaden bei der schwarzen. Die Öffnung ist mit Geröll verschüttet.
    */
   private buildCaves() {
     this.L.caves.forEach((c) => {
-      const back = this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
-      this.cullAdd(back, c.x - 60, c.x + c.w + 60);
-      // Innenraum: in der Mitte ganz dunkel, zu den offenen Enden hin heller (mit gerundeten Ecken wie der Fels)
-      const dark = tex(this, `cave_dark_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
-        const g = ctx.createLinearGradient(0, 0, w, 0);
-        for (const [o, a] of [[0, 0.2], [0.3, 0.68], [0.7, 0.68], [1, 0.2]]) g.addColorStop(o, `rgba(2,4,4,${a})`);
-        ctx.fillStyle = g;
-        rrect(ctx, 0, 0, w, h, 16);
-        ctx.fill();
-      }, 0.5);
-      const shade = this.add.image(c.x, c.y, dark).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.cover);
-      this.cullAdd(shade, c.x - 20, c.x + c.w + 20);
+      let x0 = Infinity, x1 = -Infinity;
+      for (const [x] of c.hollow) {
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+      }
+      const back = this.add.tileSprite(x0 - 4, c.y - 4, x1 - x0 + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
+      this.cullAdd(back, x0 - 60, x1 + 60);
+      // Innenraum: hinten ganz dunkel, zur Öffnung hin heller – in der Form des Hohlraums
+      const sh = caveShade(this, c, this.terrainKeys);
+      const shade = this.add.image(sh.x, sh.y, sh.key).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.cover);
+      this.cullAdd(shade, sh.x - 20, sh.x + sh.w + 20);
       const green = c.coat === 1;
+      const mx = c.side > 0 ? x1 : x0;
       const pe = this.add.particles(0, 0, 'p_dot', {
-        x: { min: c.x - 60, max: c.x + c.w + 60 }, y: { min: c.y - 20, max: c.y + c.h + 20 },
-        speedX: { min: -12, max: 12 }, speedY: { min: -14, max: 6 }, lifespan: { min: 2400, max: 4200 }, frequency: green ? 160 : 120,
+        x: { min: mx - 90, max: mx + 90 }, y: { min: c.y - 20, max: c.y + c.h + 20 },
+        speedX: { min: -12, max: 12 }, speedY: { min: -14, max: 6 }, lifespan: { min: 2400, max: 4200 }, frequency: green ? 220 : 170,
         scale: { start: green ? 1.1 : 1.8, end: 0.2 }, alpha: { start: green ? 0.5 : 0.55, end: 0 }, tint: green ? [0x7fd06a, 0x4fa04a, 0xa6e08a] : [0x07080a, 0x14181c],
         blendMode: green ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
       }).setDepth(DEPTH.cover + 1);
       this.caveFx.push({ c, pe, on: true });
     });
+    this.buildWalls();
   }
 
-  /** Aus einem Tunnel herausgeschwommen: Der Körper nimmt die Farbe der Höhle an – aber nur ein einziges Mal pro Lauf. */
+  /** Das Geröll vor den Höhlen (was in diesem Leben schon aufgebrochen wurde, bleibt offen). */
+  private buildWalls() {
+    const run = game.run;
+    this.L.walls.forEach((w, i) => {
+      const id = `${this.ep.id}:${this.place.id}:${i}`;
+      if (run?.walls?.includes(id)) return;
+      const art = rubbleArt(this, w, this.L.theme, this.zoneAt(0).def.ground, this.terrainKeys);
+      const img = this.add.image(art.wall.x, art.wall.y, art.wall.key).setOrigin(0).setDisplaySize(art.wall.w, art.wall.h).setDepth(DEPTH.terrain + 0.6);
+      const cracks = this.add.image(art.cracks.x, art.cracks.y, art.cracks.key).setOrigin(0).setDisplaySize(art.cracks.w, art.cracks.h).setDepth(DEPTH.terrain + 0.7).setAlpha(0);
+      this.cullAdd(img, art.wall.x, art.wall.x + art.wall.w);
+      this.cullAdd(cracks, art.wall.x, art.wall.x + art.wall.w);
+      this.walls.push({ w, id, img, cracks, body: this.addBody(w), dmg: 0, hitAt: -1e9 });
+    });
+  }
+
+  /**
+   * Ein Stoß gegen das Geröll: Bricht es auf? Das gelingt mit einem harten Kopf (Stoßfisch) bzw. viel Körpermasse – oder im
+   * Schwarm: Jeder Artgenosse, der dich gerade begleitet und in der Nähe ist, stößt mit (CAVE_WALL). Sonst bekommt es Risse.
+   */
+  private wallStep(time: number) {
+    const p = this.player;
+    if (!this.walls.length || !p.isRamming || p.dead) return;
+    const pr = p.hitRect();
+    const reach = { x: pr.x - 14, y: pr.y - 6, w: pr.w + 28, h: pr.h + 12 };
+    for (const wl of this.walls) {
+      if (time - wl.hitAt < 600 || !overlaps(reach, wl.w)) continue;
+      wl.hitAt = time;
+      const w = wl.w, cx = w.x + w.w / 2, cy = w.y + w.h / 2;
+      // wer dich begleitet und nah bei dir ist, stößt mit
+      const near = (this.swarm?.escorts ?? []).filter((k) => Math.hypot(k.x - p.x, k.y - p.y) < CAVE_WALL.near);
+      for (const k of near) {
+        const d = Math.hypot(cx - k.x, cy - k.y) || 1;
+        k.b.setVelocity(((cx - k.x) / d) * k.def.speed * 2.2, ((cy - k.y) / d) * k.def.speed * 2.2);
+      }
+      const sf = clamp(p.speed01 / 1.65, 0.6, 1.4);
+      const force = p.stats.ram * sf * (1 + CAVE_WALL.perKin * near.length);
+      const need = CLASSES[game.cls].base.ram * CAVE_WALL.need;
+      if (DEBUG) console.log('Geröll', { force: force.toFixed(2), need: need.toFixed(2), helpers: near.length });
+      if (force >= need) return this.breakWall(wl);
+      // zu schwach: es knirscht, Staub rieselt, du prallst ab – die Risse zeigen, wie viel noch fehlt
+      wl.dmg = Math.max(wl.dmg, force / need);
+      this.tweens.add({ targets: wl.cracks, alpha: clamp((wl.dmg - 0.35) / 0.55, 0.15, 0.85), duration: 200 });
+      this.tweens.add({ targets: wl.img, x: wl.img.x + 2, yoyo: true, repeat: 2, duration: 40 });
+      p.recoil(cx, p.stats.ramSelf * 0.25, 0.7);
+      audio.sfx('thud');
+      this.cameras.main.shake(140, 0.006);
+      this.puff(cx - w.side * 4, cy + 10, 8, 0x9a9282);
+      this.fightAt = time;
+    }
+  }
+
+  /** Das Geröll bricht auf: Steine fliegen, Staub wirbelt – die Höhle ist offen (für den Rest dieses Lebens). */
+  private breakWall(wl: Rubble) {
+    const w = wl.w, cx = w.x + w.w / 2, cy = w.y + w.h / 2;
+    this.walls = this.walls.filter((o) => o !== wl);
+    this.removeBody(wl.body, w);
+    const run = game.run;
+    if (run) {
+      run.walls = [...(run.walls ?? []), wl.id];
+      game.save();
+    }
+    // Steine fliegen in die Höhle hinein und sinken zu Boden
+    const tint = [0x8c8574, 0x6f6b60, 0xa59c86];
+    const rocks = this.add.particles(0, 0, 'p_dot', {
+      x: { min: w.x, max: w.x + w.w }, y: { min: w.y, max: w.y + w.h },
+      speedX: { min: -w.side * 40, max: -w.side * 260 }, speedY: { min: -160, max: 40 }, gravityY: this.water ? 260 : 700,
+      lifespan: { min: 700, max: 1500 }, scale: { start: 1.9, end: 1.1 }, alpha: { start: 1, end: 0 }, tint, emitting: false,
+    }).setDepth(DEPTH.terrain + 0.8);
+    rocks.explode(46);
+    this.time.delayedCall(1700, () => rocks.destroy());
+    this.puff(cx, cy, 22, 0x9a9282);
+    if (this.water) this.silt?.explode(14, cx, w.y + w.h - 6);
+    this.tweens.add({ targets: [wl.img, wl.cracks], alpha: 0, scaleY: 0.4, y: `+=${w.h * 0.5}`, duration: 380, ease: 'Quad.in', onComplete: () => {
+      wl.img.destroy();
+      wl.cracks.destroy();
+    } });
+    this.player.recoil(cx, 0, 0.35);
+    audio.sfx('crumble');
+    this.cameras.main.shake(320, 0.014);
+    this.fightAt = this.time.now;
+  }
+
+  /** Aus einer Höhle herausgeschwommen: Der Körper nimmt die Farbe der Höhle an – aber nur ein einziges Mal pro Lauf. */
   private paintCoat(coat: number) {
     const p = this.player;
     const run = game.run;
@@ -1327,6 +1441,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   left(a: Animal) {
     // ein Artgenosse deiner Gruppe ist lebend fortgeschwommen (fortgeschickt): Er bleibt in der Gruppe
     if (a instanceof Kin) this.swarm?.gone(a);
+    // Beute, die über den Rand hinaus geflohen ist, kommt später wieder
+    else if (a.runningFor(this.time.now) > 0 && !a.bound) {
+      this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, herd: a.herdId >= 0 ? a.herdId : undefined, at: this.time.now + 30000 + Math.random() * 30000 });
+    }
     this.removeAnimal(a);
   }
 
@@ -1394,8 +1512,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Beute, die schon eine Weile flieht, entkommt: aus dem Bild – oder am Rand des Ortes, wo es nicht mehr weitergeht. */
   private escaped(a: Animal, time: number) {
     if (a.runningFor(time) < 1500) return false;
-    const b = a.body as Phaser.Physics.Arcade.Body;
-    return this.offScreen(a.x, a.y, 140) || b.left <= 40 || b.right >= this.L.width - 40;
+    // entkommen ist nur, wer nicht mehr zu sehen ist – mit seiner ganzen Größe, nicht nur der Mitte (große Tiere
+    // verschwanden sonst halb im Bild). Am Rand des Ortes schwimmt es einfach weiter hinaus.
+    return !this.seen(a, 140);
+  }
+
+  /** Ist das Tier (seine ganze Gestalt) im Bild bzw. höchstens margin davon entfernt? */
+  private seen(a: Animal, margin: number) {
+    const v = this.cameras.main.worldView;
+    const hw = Math.max(a.displayWidth, a.body?.width ?? 0) / 2 + margin, hh = Math.max(a.displayHeight, a.body?.height ?? 0) / 2 + margin;
+    return a.x + hw > v.x && a.x - hw < v.right && a.y + hh > v.y && a.y - hh < v.bottom;
+  }
+
+  inView(a: Animal) {
+    return this.seen(a, 40);
   }
 
   /** Entkommene Tiere kommen nach einer Weile wieder – andere Fische ziehen an ihrer Stelle ein, außerhalb des Bildes. */
@@ -1412,6 +1542,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.returning.splice(i, 1);
       this.spawnAnimal(r.id, r.x, r.y, r.herd);
     }
+  }
+
+  /** Wird hier gerade gesprochen (oder eben noch)? Dann greift in der Nähe niemand an. */
+  truce(x: number, y: number) {
+    return this.time.now < this.truceUntil && Math.hypot(x - this.truceSpot.x, y - this.truceSpot.y) < 1700;
   }
 
   /** Läuft gerade der Kino-Moment mit dem Riesen im Hintergrund? */
@@ -1766,6 +1901,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended && !(this.cine && !this.cine.released) && !this.quest?.busy && !this.hunt?.busy) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
+    // Gespräch: Solange es läuft und noch einen Augenblick danach, lässt man dich und deinen Gesprächspartner in Ruhe
+    if (this.quest?.busy || this.hunt?.busy) {
+      this.truceUntil = time + 2500;
+      this.truceSpot = { x: p.x, y: p.y };
+    }
+    this.wallStep(time);
     this.quest?.update(time, delta);
     this.hunt?.update(time, delta);
     this.swarm?.update(time);
@@ -1786,16 +1927,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.removeAnimal(a);
         a.vanish();
       } else if (!a.dead && !a.bound && this.escaped(a, time)) {
-        // Wer lange davonrennt und aus dem Bild ist (oder am Rand nicht weiterkommt), ist entkommen – und weg
-        const off = this.offScreen(a.x, a.y, 140);
+        // Wer lange davonrennt und nicht mehr zu sehen ist, ist entkommen – und weg (er kommt später wieder)
         this.returning.push({ id: a.def.id, x: a.home.x, y: a.home.y, herd: a.herdId >= 0 ? a.herdId : undefined, at: time + 30000 + Math.random() * 30000 });
         this.removeAnimal(a);
-        if (off) a.vanish();
-        else this.tweens.add({ targets: a, alpha: 0, duration: 450, onComplete: () => a.vanish() });
-      } else if (a.leaveDir && !a.dead && (a.leaveDir > 0 ? a.body!.right >= L.width - 6 : a.body!.left <= 6)) {
-        // am Rand angekommen: zieht in andere Gewässer weiter
+        a.vanish();
+      } else if (a.leaveDir && !a.dead && (a.leaveDir > 0 ? a.body!.right >= L.width - 6 : a.body!.left <= 6) && !this.seen(a, 60)) {
+        // am Rand angekommen und aus dem Bild: zieht in andere Gewässer weiter
         this.removeAnimal(a);
-        this.tweens.add({ targets: a, alpha: 0, duration: 500, onComplete: () => a.vanish() });
+        a.vanish();
       }
     }
     const bloom = time < this.bloomUntil;
@@ -2229,16 +2368,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.ambush) this.ambushUntil = this.primedUntil;
     // Lebensraum (bestimmt die Körpergröße der Nachkommen): Es zählt, wer sich hier bewegt – bloßes Treiben kaum
     if (!p.dead) this.useHere(dt * (p.resting || p.drifting ? 0.05 : clamp(0.2 + p.speed01, 0.2, 1.2)));
-    // Durch einen Tunnel schwimmen: Wer auf der anderen Seite herauskommt, trägt die Farbe der Höhle
+    // In eine Höhle schwimmen: Wer bis ans hintere Ende kommt und wieder herausschwimmt, trägt die Farbe der Höhle
     if (tunnel !== this.curCave) {
       if (tunnel >= 0) {
         this.curCave = tunnel;
         this.caveSide = cx < L.caves[tunnel].x + L.caves[tunnel].w / 2 ? -1 : 1;
+        this.caveDeep = false;
       } else {
         const c = L.caves[this.curCave];
         this.curCave = -1;
-        if (c && (cx < c.x + c.w / 2 ? -1 : 1) !== this.caveSide) this.paintCoat(c.coat);
+        if (c && (this.caveDeep || (cx < c.x + c.w / 2 ? -1 : 1) !== this.caveSide)) this.paintCoat(c.coat);
       }
+    }
+    if (this.curCave >= 0) {
+      const c = L.caves[this.curCave];
+      const back = c.side > 0 ? c.x : c.x + c.w;
+      if (Math.abs(cx - back) < c.w * 0.3) this.caveDeep = true;
     }
     // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
     // Oben im Licht wird man heller, unten in der Tiefe (bzw. im Schatten) dunkler

@@ -7,7 +7,7 @@ import { clamp } from '../util/math';
 import { touch } from './Controls';
 import type { Animal } from './Animal';
 import { Kin } from './Kin';
-import { Bubble, Prompt } from './Quest';
+import { Bubble, Mouth, Prompt } from './Quest';
 import type { LevelScene } from '../scenes/LevelScene';
 
 // Der Auftrag „Die gemeinsame Jagd“ (Daten und Zielzahlen: data/quests.ts, JAGD). Nachdem der Gefährte gefressen wurde, wartet
@@ -44,6 +44,7 @@ export class HuntQuest {
   private speaker?: Kin;
   private school = new Set<Animal>();
   private bubble: Bubble;
+  private mouth: Mouth;
   private prompt?: Prompt;
   private steps: Step[] = [];
   private si = -1;
@@ -65,6 +66,7 @@ export class HuntQuest {
 
   constructor(private host: LevelScene) {
     this.bubble = new Bubble(host);
+    this.mouth = new Mouth(host);
     this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
     const ep = host.ep;
     if (host.water && ep.id === JAGD.epoch) {
@@ -211,6 +213,7 @@ export class HuntQuest {
     }
     this.cameraStep(dt);
     this.bubble.update(dt, h.cameras.main.worldView);
+    this.mouth.update(time, sp && !sp.dead ? sp.view : undefined, this.busy && this.bubble.typing);
     if (this.step === 2 && !this.busy && this.open) this.huntStep(time);
   }
 
@@ -303,7 +306,7 @@ export class HuntQuest {
     for (const a of [...h.animals]) {
       if (a.dead || a.scripted || a.kin || a.boss || Math.hypot(a.x - sp.x, a.y - sp.y) > 1500) continue;
       if (a.target === p) a.target = null;
-      if (a.role !== 'prey') a.leave();
+      if (a.role !== 'prey') a.backOff(sp.x);
     }
     // wer dabei ist, hält inne (und kann in diesem Moment nicht angegriffen werden)
     this.cast = (this.group.length ? this.group : h.swarm?.present ?? []).filter((k) => !k.dead);
@@ -500,6 +503,7 @@ export class HuntQuest {
     this.offs = [];
     this.prompt?.destroy();
     this.bubble.destroy();
+    this.mouth.destroy();
     bus.emit('choice', null, 0);
   }
 }

@@ -69,6 +69,10 @@ export interface World extends Phaser.Scene {
   openY(x: number): number;
   /** Alle Tiere einer Gruppe (Schwarm, Rudel). */
   herdOf(id: number): Animal[];
+  /** Hier wird gerade gesprochen (oder eben noch): Niemand greift in der Nähe an. */
+  truce?(x: number, y: number): boolean;
+  /** Ist das Tier (mit seiner ganzen Größe) gerade im Bild? Fort geht nur, wer nicht mehr zu sehen ist. */
+  inView?(a: Animal): boolean;
 }
 
 export type St = 'wander' | 'idle' | 'graze' | 'flee' | 'hunt' | 'search' | 'warn' | 'charge' | 'rest' | 'cruise' | 'follow' | 'hide';
@@ -599,8 +603,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
-    // Jagdziel
-    if (role === 'predator' || role === 'apex') {
+    // Jagdziel – nicht, wo gerade gesprochen wird: Dort lässt man dich und deinen Gesprächspartner in Ruhe
+    if ((role === 'predator' || role === 'apex') && W.truce?.(this.x, this.y)) {
+      this.target = null;
+      this.aggroUntil = 0;
+      this.packTarget = null;
+    } else if (role === 'predator' || role === 'apex') {
       let best: Target | null = null;
       let bd = Infinity;
       // gejagt wird erst mit Hunger (der Endgegner und Durchzügler sind immer hungrig)
@@ -1362,7 +1370,23 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.go('cruise');
     const ty = this.swims || this.flies ? v.cruiseY + Math.sin(this.t * 0.7 + this.phase) * 40 : this.y;
     this.moveTo(v.endX, ty, this.def.speed * (v.fast ? 2.4 : 0.8));
-    if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) this.leave();
+    if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) {
+      // nie vor deinen Augen verschwinden: Solange es zu sehen ist, zieht es weiter (im Wasser auch über den Rand hinaus)
+      if (!W.inView?.(this)) return this.leave();
+      const wb = W.physics.world.bounds, over = W.water ? 400 : 40;
+      v.endX = clamp(v.endX + v.dir * 500, wb.x - over, wb.right + over);
+    }
+  }
+
+  /** Ein Gespräch beginnt in der Nähe: nicht mehr angreifen und weiterziehen – ohne zu verschwinden (Durchzügler ziehen ohnehin weiter). */
+  backOff(fromX: number) {
+    if (this.dead) return;
+    this.target = null;
+    this.aggroUntil = 0;
+    this.packTarget = null;
+    this.attacking = false;
+    if (this.mv) this.endMove();
+    if (!this.visitor && !this.boss && !this.bound && this.role !== 'prey') this.leaveDir = this.x < fromX ? -1 : 1;
   }
 
   /** Verlässt den Lebensraum (ohne zu sterben). */

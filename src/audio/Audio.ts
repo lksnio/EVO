@@ -6,7 +6,8 @@ export type Sfx =
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
-  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk';
+  | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
+  | 'thud' | 'crumble' | 'blub';
 
 interface ToneOpts {
   f: number;
@@ -634,6 +635,25 @@ export class AudioEngine {
         this.tone({ f, f2: f * 1.22, d: 0.14, type: 'triangle', v: 0.06, a: 0.01, filter: 1500 });
         this.tone({ f: f * 1.5, f2: f * 1.3, d: 0.16, type: 'sine', v: 0.04, a: 0.01, t: 0.12 });
         this.noise({ d: 0.14, v: 0.02, a: 0.02, filter: 900, f2: 1500, type: 'bandpass' });
+        break;
+      }
+      case 'thud':
+        // Stoß gegen Geröll, das hält: dumpfer Schlag, Steine knirschen
+        this.tone({ f: 95, f2: 48, d: 0.28, type: 'sine', v: 0.45, a: 0.002 });
+        this.noise({ d: 0.3, v: 0.22, filter: 700, f2: 180 });
+        this.noise({ d: 0.22, v: 0.08, a: 0.01, filter: 2600, f2: 1400, type: 'bandpass', q: 1.5, t: 0.06 });
+        break;
+      case 'crumble':
+        // Geröll bricht auf: ein Krachen, dann rollen und prasseln Steine
+        this.tone({ f: 80, f2: 34, d: 0.6, type: 'sine', v: 0.5, a: 0.003 });
+        this.noise({ d: 0.7, v: 0.42, filter: 900, f2: 160 });
+        for (let i = 0; i < 6; i++) this.noise({ d: 0.12, v: 0.12, filter: 1400 + Math.random() * 1600, type: 'bandpass', q: 2.5, t: 0.15 + i * 0.09 + Math.random() * 0.05 });
+        break;
+      case 'blub': {
+        // ein Blubbern beim Sprechen: kurze, aufsteigende Bläschen
+        const f = 260 + Math.random() * 160;
+        this.tone({ f, f2: f * 1.9, d: 0.07, type: 'sine', v: 0.07, a: 0.004 });
+        if (Math.random() < 0.6) this.tone({ f: f * 1.3, f2: f * 2.4, d: 0.06, type: 'sine', v: 0.045, a: 0.004, t: 0.06 + Math.random() * 0.05 });
         break;
       }
       case 'tablet':

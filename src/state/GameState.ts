@@ -237,6 +237,8 @@ export interface Run {
   round?: number;
   /** Die Farbe aus einer Höhle gibt es nur einmal pro Lauf: danach bleibt sie, wie sie ist */
   coatSet?: boolean;
+  /** aufgebrochenes Geröll vor Höhlen (Zeitalter:Ort:Nummer) – bleibt offen, solange dieses Leben dauert */
+  walls?: string[];
   /** Stand im aktuellen Zeitalter */
   prog: EpochProg;
   /** gefundene Muscheln (jede legt eine Zeile der Steintafel frei) */

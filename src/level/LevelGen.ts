@@ -5,7 +5,7 @@ import { gateKind, placeOf, SHAPE_OF, shellId, type CaveKind, type GateKind, typ
 import { HEAL, TOXIC } from '../art/worldArt';
 import { pickBio } from '../data/biota';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
-import { archRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
+import { caveRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
 // beide Richtungen durchstreifen kann – an seinen Rändern geht es zurück auf die Karte. Er wird für
@@ -70,8 +70,10 @@ export interface LevelData {
   plants: { x: number; y: number; v: number }[];
   /** Dickicht: x, y (oben), Breite, Höhe – unten endet es am Boden */
   cover: Rect[];
-  /** Höhlen: durchquerbare Tunnel im Fels. Wer sie ganz durchschwimmt, kommt mit der Farbe der Höhle heraus. */
+  /** Höhlen im Fels: Wer bis ans hintere Ende schwimmt und wieder heraus, kommt mit der Farbe der Höhle heraus. */
   caves: Cave[];
+  /** Geröll, das eine Höhle verschüttet – ein kräftiger Stoß (oder der Stoß im Schwarm) bricht es auf */
+  walls: CaveWall[];
   spawns: Spawn[];
   decor: Decor[];
   start: { x: number; y: number };
@@ -105,9 +107,21 @@ export interface Gate extends Rect {
   arrive: { x: number; y: number };
 }
 
-/** Ein Tunnel: Innenraum und die Farbe, die man beim Durchschwimmen annimmt (1 grün, 2 schwarz). */
+/** Eine Höhle: Innenraum und die Farbe, die man darin annimmt (1 grün, 2 schwarz). */
 export interface Cave extends Rect {
   coat: number;
+  /** Seite der Öffnung (1 rechts, -1 links) – die andere Seite ist geschlossen */
+  side: 1 | -1;
+  /** Umriss des Hohlraums (Weltkoordinaten) */
+  hollow: [number, number][];
+}
+
+/** Geröll in der Öffnung einer Höhle (cave: Nummer der Höhle). */
+export interface CaveWall extends Rect {
+  cave: number;
+  /** Richtung, aus der man von außen kommt (1: von rechts, -1: von links) */
+  side: 1 | -1;
+  seed: number;
 }
 
 export interface Zone {
@@ -137,6 +151,7 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     plants: [],
     cover: [],
     caves: [],
+    walls: [],
     spawns: [],
     decor: [],
     start: { x: 0, y: 0 },
@@ -610,9 +625,9 @@ function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: numbe
 }
 
 /**
- * Höhlen: durchquerbare Tunnel im Fels – drei Kacheln hoch, an beiden Enden offen. Wer einen Tunnel ganz durchschwimmt,
- * kommt auf der anderen Seite mit der Farbe der Höhle heraus (grün bzw. schwarz). Der Boden wird dort eingeebnet,
- * darüber wölbt sich ein Felsmassiv (zwei Pfeiler, eine runde Kuppel).
+ * Höhlen im Fels: ein Hohlraum mit unregelmäßiger Decke, hinten rund und geschlossen. Die Öffnung zeigt zum Ankunftsplatz –
+ * sie ist mit Geröll verschüttet (L.walls), das nur ein kräftiger Stoß aufbricht. Drinnen liegt eine Muschel; wer bis ans
+ * hintere Ende schwimmt und wieder heraus, nimmt die Farbe der Höhle an (grün bzw. schwarz). Der Boden wird dort eingeebnet.
  */
 function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, G: Ground, startCol: number) {
   const used: { c0: number; c1: number }[] = [];
@@ -629,20 +644,21 @@ function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, G: Gr
       const f = Math.round(G.at((c0 + W / 2) * T) / T);
       if (f < 14) continue;
       const x0 = c0 * T, x1 = (c0 + W) * T;
-      // einebnen: der Gang hat einen ebenen Boden, davor und dahinter geht er weich ins Gelände über
+      // die Öffnung zeigt zum Ankunftsplatz
+      const side: 1 | -1 = c0 + W / 2 < startCol ? 1 : -1;
+      // einebnen: der Hohlraum hat einen ebenen Boden, davor und dahinter geht er weich ins Gelände über
       G.flatten((c0 - 4) * T, (c0 + W + 4) * T, f * T, 140);
-      const arch = archRock(x0, x1, (f - 3) * T, f * T, 3 * T, 3.7 * T, Math.floor(r() * 1e9));
-      L.rocks.push(arch.rock);
-      for (const b of arch.boxes) L.solids.push(b);
-      L.caves.push({ x: x0, y: (f - 3) * T, w: W * T, h: 3 * T, coat: kind === 'g' ? 1 : 2 });
+      const cave = caveRock(x0, x1, f * T, 3.3 * T, 3 * T, 3.9 * T, 1.5 * T, side, Math.floor(r() * 1e9));
+      L.rocks.push(cave.rock);
+      for (const b of cave.boxes) L.solids.push(b);
+      const top = Math.floor(cave.ceil);
+      L.caves.push({ x: x0, y: top, w: W * T, h: f * T - top, coat: kind === 'g' ? 1 : 2, side, hollow: cave.hollow });
+      L.walls.push({ ...cave.wall, cave: L.caves.length - 1, side, seed: Math.floor(r() * 1e9) });
       used.push({ c0, c1: c0 + W });
       // Bewuchs auf der Kuppel
-      for (let i = 0; i < W; i++) if (r() < 0.45) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge', 'seagrass']), x: x0 + (i + 0.5) * T, y: arch.top(x0 + (i + 0.5) * T) + 4 });
-      // Die Eingänge liegen hinter dichtem Bewuchs – man muss genau hinsehen
-      for (const side of [-1, 1]) {
-        const bx = side < 0 ? x0 - 4 * T : x1 + T;
-        L.cover.push({ x: bx, y: (f - 7) * T, w: 3 * T, h: 7 * T });
-      }
+      for (let i = 0; i < W; i++) if (r() < 0.45) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge', 'seagrass']), x: x0 + (i + 0.5) * T, y: cave.top(x0 + (i + 0.5) * T) + 4 });
+      // hinter dem geschlossenen Ende wächst dichter Bewuchs – vor dem Geröll bleibt es frei, damit man es sieht
+      L.cover.push({ x: side > 0 ? x0 - 4 * T : x1 + T, y: (f - 7) * T, w: 3 * T, h: 7 * T });
       break;
     }
   });
@@ -728,7 +744,8 @@ function placeShells(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
       L.start.y = Math.max(L.surfaceY + 160, G.at((startCol + 0.5) * T) - 190);
     }
     else {
-      const i = Math.floor(r() * spots.length);
+      // die erste Muschel liegt in der Höhle (hinter dem Geröll), sonst irgendwo
+      const i = k === 0 && L.caves.length ? 0 : Math.floor(r() * spots.length);
       at = spots.splice(i, 1)[0];
     }
     if (at) L.shells.push({ id: shellId(ep.id, place.id, k), x: at.x, y: at.y });

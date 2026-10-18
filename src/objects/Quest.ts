@@ -92,6 +92,46 @@ class Gefaehrte {
   }
 }
 
+/**
+ * Sprechen: Solange sich die Sprechblase füllt, bewegt sich das Maul des Sprechers, aus dem Maul steigen Bläschen auf und
+ * es blubbert leise – in Silben, mal mehr, mal weniger.
+ */
+export class Mouth {
+  private next = 0;
+  private pe: Phaser.GameObjects.Particles.ParticleEmitter;
+  private last?: CreatureView;
+
+  constructor(scene: Phaser.Scene) {
+    this.pe = scene.add.particles(0, 0, 'p_bubble', {
+      speedX: { min: -14, max: 14 }, speedY: { min: -70, max: -36 }, gravityY: -40, lifespan: { min: 900, max: 1600 },
+      scale: { start: 0.45, end: 0.95 }, alpha: { start: 0.9, end: 0 }, emitting: false,
+    }).setDepth(DEPTH.fx);
+  }
+
+  /** view: wer spricht; on: ob er gerade spricht (die Blase füllt sich). */
+  update(time: number, view: CreatureView | undefined, on: boolean) {
+    if (this.last && this.last !== view) this.last.talk = 0;
+    this.last = view;
+    if (!view || !view.active) return;
+    view.talk = on ? 1 : 0;
+    if (!on || time < this.next) return;
+    this.next = time + 110 + Math.random() * 150;
+    const m = view.mouthWorld();
+    this.pe.explode(Math.random() < 0.35 ? 2 : 1, m.x, m.y - 2);
+    if (Math.random() < 0.8) audio.sfx('blub');
+  }
+
+  stop() {
+    if (this.last) this.last.talk = 0;
+    this.last = undefined;
+  }
+
+  destroy() {
+    this.stop();
+    this.pe.destroy();
+  }
+}
+
 /** Eine Sprechblase über einem Tier: Der Text erscheint Buchstabe für Buchstabe. */
 export class Bubble {
   private c: Phaser.GameObjects.Container;
@@ -237,6 +277,7 @@ export class Quest {
   private npc?: Gefaehrte;
   private prompt?: Prompt;
   private bubble: Bubble;
+  private mouth: Mouth;
   /** Szene läuft: Steuerung gesperrt, Kamera bei den Tieren */
   busy = false;
   private steps: Step[] = [];
@@ -256,6 +297,7 @@ export class Quest {
 
   constructor(private host: LevelScene) {
     this.bubble = new Bubble(host);
+    this.mouth = new Mouth(host);
     this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
     this.def = questOf(host.ep.id);
     if (this.def && host.water) this.setup(this.def);
@@ -336,6 +378,7 @@ export class Quest {
     // die Kamera: auch nach der Szene sanft zurück
     this.cameraStep(dt);
     this.bubble.update(dt, h.cameras.main.worldView);
+    this.mouth.update(time, npc && !npc.gone ? npc.view : undefined, this.busy && this.bubble.typing);
     if (this.eater && !this.eater.dead && this.eater.active) this.eaterStep(dt);
   }
 
@@ -379,11 +422,11 @@ export class Quest {
     let hy = npc.y + 12;
     for (let k = 0; k < 10 && h.solidAt(npc.x + side * 250, hy); k++) hy -= 40;
     this.hold = { x: clamp(npc.x + side * 250, 80, h.L.width - 80), y: hy };
-    // Räuber ringsum ziehen ab (und kein Tier hat es mehr auf dich abgesehen): Dies ist ein stiller Moment
+    // Räuber ringsum ziehen ab (und kein Tier hat es mehr auf dich abgesehen – siehe LevelScene.truce): Dies ist ein stiller Moment
     for (const a of [...h.animals]) {
       if (a.dead || a.scripted || Math.hypot(a.x - npc.x, a.y - npc.y) > 1500) continue;
       if (a.target === p) a.target = null;
-      if (a.role !== 'prey') a.leave();
+      if (a.role !== 'prey') a.backOff(npc.x);
     }
     p.facing = npc.x >= p.x ? 1 : -1;
     npc.dir = p.x >= npc.x ? 1 : -1;
@@ -693,6 +736,7 @@ export class Quest {
     this.npc?.destroy();
     this.prompt?.destroy();
     this.bubble.destroy();
+    this.mouth.destroy();
     bus.emit('talk', false);
   }
 }
