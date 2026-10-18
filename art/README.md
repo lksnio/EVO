@@ -225,3 +225,10 @@ ein Sheet wie oben (mit den Reihen, die sie braucht).
 | Kleine Beute | Kieferloser Fisch, Sacabambaspis, Birkenia, Cephalaspis, Cheiracanthus | schwimmen, schnell, ruhen/fressen, zucken |
 | Gepanzert, langsam | Bothriolepis | wie Räuber, aber ohne Sprint |
 | Wirbellose | Trilobit, Qualle, Orthoceras, Riesenkopffüßer, Seeskorpion, Megalograptus, Pterygotus | eigene Reihen je Körperform (Fangarme, Scheren, Beine) |
+
+
+## Aquapendium (Tierbuch)
+
+Die Bilder für die Seiten des Aquapendiums gehören **nicht** nach `art/neu/`, sondern nach `src/assets/aquapendium/`
+(Dateiname = Kennung der Art, z. B. `pteraspis.png`). Näheres steht in der README dort. Die Spielfiguren selbst
+(`art/neu/tiere/…`) bleiben unabhängig davon – das Buch zeigt ein eigenes, größeres Bild.

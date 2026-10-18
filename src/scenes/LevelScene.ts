@@ -169,6 +169,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Zeitpunkt, seit dem man still im Versteck ist (0 = nicht still) */
   private stillT = 0;
   private winded = false;
+  private spotAt = 0;
   /** entkommene Beute, die später (außerhalb des Bildes) wieder auftaucht */
   private returning: { id: string; x: number; y: number; herd?: number; at: number }[] = [];
   private restockAt = 0;
@@ -271,6 +272,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.primedUntil = 0;
     this.stillT = 0;
     this.winded = false;
+    this.spotAt = 0;
     this.returning = [];
     this.restockAt = 0;
     this.healNoted = false;
@@ -1271,6 +1273,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
+  /** Tiere, die ins Bild kommen, bekommen ihre Seite im Aquapendium. */
+  private spotStep(time: number) {
+    if (time < this.spotAt) return;
+    this.spotAt = time + 500;
+    const v = this.cameras.main.worldView;
+    const fresh: string[] = [];
+    for (const a of this.animals) {
+      if (a.dead || a.kin) continue;
+      const id = a.def.id;
+      if (game.hasSeen(id)) continue;
+      if (a.x < v.x - 40 || a.x > v.right + 40 || a.y < v.y - 40 || a.y > v.bottom + 40) continue;
+      if (game.markSeen(id)) fresh.push(id);
+    }
+    if (fresh.length) bus.emit('dex', fresh);
+  }
+
   /** Liegt der Punkt außerhalb des Bildes (mit Rand)? */
   private offScreen(x: number, y: number, m: number) {
     const v = this.cameras.main.worldView;
@@ -1657,6 +1675,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.gateStep(time, dt);
       this.weather(time, dt);
       this.migrate(time);
+      this.spotStep(time);
       this.restock(time);
       this.huntMood(time);
       if (this.elapsed >= this.ep.seconds) this.complete();

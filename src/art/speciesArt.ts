@@ -778,3 +778,20 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
     repeat: -1,
   });
 }
+
+/** Ein Tier groß und scharf gemalt – für die Seiten des Aquapendiums. Gibt den Schlüssel der Textur zurück. */
+export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target = 430) {
+  const key = `aqp_${def.id}`;
+  if (scene.textures.exists(key)) return key;
+  const art = def.art as { len?: number; r?: number };
+  const ext = art.len ?? (art.r ?? 16) * 3;
+  const k = Math.min(14, target / ext);
+  const W = Math.min(2400, Math.ceil(ext * k * 1.9)), H = Math.min(1800, Math.ceil(ext * k * 1.3));
+  const [c, ctx] = newCanvas(W, H, true);
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(k, k);
+  drawArt(ctx, def.art, 0, eyesFor(def.role));
+  const t = trimCanvases([c], 6);
+  scene.textures.addCanvas(key, t.canvases[0]);
+  return key;
+}

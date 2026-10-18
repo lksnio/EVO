@@ -255,6 +255,8 @@ export interface SaveData {
   lastEnd: string | null;
   /** tiefstes je erreichte Zeitalter – was darunter liegt, bleibt ein Fragezeichen */
   deepest: number;
+  /** Tiere, die man schon gesehen hat (Aquapendium) */
+  seen: string[];
 }
 
 const KEY = 'evo-save-v3';
@@ -353,6 +355,7 @@ function fresh(): SaveData {
     run: null,
     lastEnd: null,
     deepest: -1,
+    seen: [],
   };
 }
 
@@ -418,6 +421,7 @@ class GameState {
         const d = JSON.parse(raw) as Partial<SaveData>;
         const f = fresh();
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
+        this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = full(n.traits);
         // Nur noch die Fischzeit: alles, was dahinter lag, wird verworfen
         this.prune();
@@ -1054,6 +1058,18 @@ class GameState {
       n = n.parent ? this.data.nodes[n.parent] : undefined;
     }
     return out;
+  }
+
+  /** Ein Tier ist dir begegnet: Es bekommt seine Seite im Aquapendium. Gibt true zurück, wenn es neu war. */
+  markSeen(id: string) {
+    if (this.data.seen.includes(id)) return false;
+    this.data.seen.push(id);
+    this.save();
+    return true;
+  }
+
+  hasSeen(id: string) {
+    return this.data.seen.includes(id);
   }
 
   /** Gibt es schon einen Stammbaum (mindestens ein beendeter oder laufender Versuch)? */

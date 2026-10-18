@@ -91,6 +91,16 @@ zuerst wird das Fischreich ausgebaut.
   nach rechts schwimmt, ist entsprechend schneller aus dem Bild. Sie liegen hinter Gelände, Pflanzen und allen echten
   Tieren und sind **nur Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten
   ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
+- **Das Aquapendium** (Knopf im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere
+  (41 Stück). Links das Bild, rechts der Steckbrief mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
+  Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
+  (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
+  Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald ein Tier im Spiel ins
+  Bild kommt, wird seine Seite gefüllt (kurzer Hinweis oben links) – das bleibt über alle Leben erhalten. Blättern mit
+  ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen), **I** oder „Inhalt“ springt zum Verzeichnis, Esc zurück.
+  Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
+  usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
+  Urtiere sind grobe Näherungen.
 - **Wachsen in Stufen – und nach deinem Spielstil:** Gebiss, Schädel, Wuchs und Reißzähne wachsen in
   einem Zeitalter nur **bis zu einem Deckel**, dann ist Schluss – ein Zeitalter bringt eine Stufe.
   Nach drei Zeitaltern mit starkem Gebiss hat man ein wahres Monstermaul, vorher nicht. **Wie** du

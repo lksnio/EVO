@@ -7,6 +7,7 @@ import type { Kin } from '../objects/Kin';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
+import { SPECIES } from '../data/species';
 import { touch } from '../objects/Controls';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
@@ -29,6 +30,10 @@ export class HudScene extends Phaser.Scene {
   private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
   private storyText!: Phaser.GameObjects.Text;
+  private dexC!: Phaser.GameObjects.Container;
+  private dexName!: Phaser.GameObjects.Text;
+  private dexCount = 0;
+  private dexAt = -1e9;
   private hp = 1;
   private food = 1;
   private hidden = false;
@@ -107,6 +112,25 @@ export class HudScene extends Phaser.Scene {
     this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.drawFuse();
+    // Ein neues Tier im Aquapendium: kleine Karte unter dem Ortsnamen
+    this.dexCount = 0;
+    this.dexAt = -1e9;
+    this.dexC = this.add.container(22, 46).setAlpha(0).setDepth(7);
+    const dexBg = this.add.graphics();
+    dexBg.fillStyle(0x050403, 0.6);
+    dexBg.fillRoundedRect(0, 0, 330, 54, 10);
+    dexBg.lineStyle(1.5, 0xc8913c, 0.55);
+    dexBg.strokeRoundedRect(0.5, 0.5, 329, 53, 10);
+    // ein kleines Buch
+    dexBg.fillStyle(0x6a4424, 1);
+    dexBg.fillRoundedRect(14, 12, 24, 30, 3);
+    dexBg.fillStyle(0xe2d2a8, 1);
+    dexBg.fillRect(18, 15, 17, 24);
+    dexBg.lineStyle(1.2, 0x3a2412, 0.8);
+    dexBg.lineBetween(26.5, 15, 26.5, 39);
+    this.dexName = text(this, 50, 31, '', 19, UI.bone).setOrigin(0, 0);
+    const dexHead = text(this, 50, 9, 'AQUAPENDIUM', 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(2);
+    this.dexC.add([dexBg, dexHead, this.dexName]);
     // Ort, an dem man gerade ist
     this.zoneText = text(this, 22, 18, this.placeName, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
 
@@ -163,6 +187,16 @@ export class HudScene extends Phaser.Scene {
       this.updateGlow();
       this.story(n === 1 ? 'Eine Muschel! Auf der Steintafel wird etwas sichtbar. (C)' : n >= STAT_COUNT ? 'Die letzte Muschel – die Steintafel ist ganz frei.' : 'Die Steintafel zeigt dir etwas Neues. (C)');
     };
+    const onDex = (ids: string[]) => {
+      this.dexCount = this.time.now - this.dexAt < 3800 ? this.dexCount + ids.length : ids.length;
+      this.dexAt = this.time.now;
+      this.dexName.setText(this.dexCount > 1 ? `${this.dexCount} neue Einträge` : SPECIES[ids[0]]?.name ?? '');
+      this.tweens.killTweensOf(this.dexC);
+      this.dexC.setAlpha(0);
+      this.tweens.add({ targets: this.dexC, alpha: 1, duration: 500 });
+      this.tweens.add({ targets: this.dexC, alpha: 0, delay: 3600, duration: 900 });
+    };
+    bus.on('dex', onDex);
     bus.on('clock', onClock);
     bus.on('boss', onBoss);
     bus.on('zone', onZone);
@@ -188,6 +222,7 @@ export class HudScene extends Phaser.Scene {
       bus.off('zone', onZone);
       bus.off('boss', onBoss);
       bus.off('clock', onClock);
+      bus.off('dex', onDex);
       bus.off('shell', onShell);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });

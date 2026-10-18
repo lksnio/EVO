@@ -82,6 +82,8 @@ export class TitleScene extends Phaser.Scene {
       items.push(new Button(this, W / 2, y, 'Stammbaum', { w: 300, onClick: () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view' }, 600) }));
       y += 68;
     }
+    items.push(new Button(this, W / 2, y, 'Aquapendium', { w: 300, onClick: () => !this.overlay && fadeTo(this, 'Aquapendium', { page: 0 }, 600) }));
+    y += 68;
     items.push(new Button(this, W / 2, y, 'Steuerung', { w: 300, onClick: () => this.showHelp() }));
     this.nav = new MenuNav(this, items);
     soundButton(this, W - 44, 40);
