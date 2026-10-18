@@ -111,6 +111,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private coverFront: Phaser.GameObjects.Image[][] = [];
   private curCover = -1;
   private timeline: { def: EventDef; done: boolean; i: number }[] = [];
+  /** wann das nächste größere Tier durchs Bild zieht */
+  private nextPasser = 0;
   private kinDef!: SpeciesDef;
   private faunaCount = 0;
   private nextMigrate = 0;
@@ -244,6 +246,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.coverFront = [];
     this.curCover = -1;
     this.timeline = this.ep.events.map((def, i) => ({ def, done: prog.events.includes(i), i }));
+    this.nextPasser = 0;
     this.bloomUntil = this.stormUntil = 0;
     this.stormK = 0;
     this.stormFx = undefined;
@@ -1233,6 +1236,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return this.player.stats.power;
   }
 
+  /**
+   * Wie sehr ein Tier den Spieler fürchtet (0 … gut 1). Es kommt auf die Körpergröße an – wer klein ist, wirkt harmlos,
+   * auch wenn er kräftig zubeißt – und etwas auf die Stärke im Vergleich zum Tier.
+   */
+  fearOf(a: Animal) {
+    const ratio = this.player.bodyLen / Math.max(20, a.displayWidth);
+    const size = clamp((ratio - 0.45) / 1.05, 0, 1.15);
+    const power = clamp(this.playerThreat() / Math.max(0.6, a.def.power * a.sz) / 1.3, 0.45, 1.2);
+    return size * (0.55 + 0.45 * power);
+  }
+
   tired(a: Animal) {
     if (a.kin) return;
     this.pop('erschöpft', a.x, a.y - a.displayHeight * 0.5 - 12, '#9fd0e0');
@@ -1832,6 +1846,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.trigger(e.def);
       }
     }
+    // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im stillen Fluss am Start)
+    const out = !this.L.riverEnd || this.player.x > this.L.riverEnd + 800;
+    if (out && !this.player.dead) {
+      if (!this.nextPasser) this.nextPasser = this.time.now + 9000 + Math.random() * 8000;
+      else if (this.time.now > this.nextPasser) {
+        this.nextPasser = this.time.now + 26000 + Math.random() * 28000;
+        if (this.animals.filter((a) => !a.dead && a.visitor).length < 2) this.spawnPasser();
+      }
+    }
     // Es gibt keine sichtbare Uhr – ein leiser Hinweis, bevor die Zeit abläuft
     if (prog > 0.93 && !this.endNoted) {
       this.endNoted = true;
@@ -1941,7 +1964,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */
-  private spawnVisitors(id: string, count: number, fast = false) {
+  /** Ein größeres Tier zieht durchs Bild – ohne Ankündigung, es sei denn, es ist ein Riese. */
+  private spawnPasser() {
+    const pool = this.ep.passers;
+    if (!pool?.length) return;
+    let x = Math.random() * pool.reduce((n, [, w]) => n + w, 0);
+    let id = pool[0][0];
+    for (const [i, w] of pool) {
+      x -= w;
+      if (x <= 0) {
+        id = i;
+        break;
+      }
+    }
+    const d = SPECIES[id];
+    const n = d?.herd ? Math.min(3, 1 + Math.floor(Math.random() * d.herd[1])) : 1;
+    this.spawnVisitors(id, n, false, true);
+  }
+
+  private spawnVisitors(id: string, count: number, fast = false, ambient = false) {
     const def = SPECIES[id];
     if (!def) return;
     makeSpeciesTextures(this, def);
@@ -1955,7 +1996,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const sx = clamp(p.x - dir * (fast ? 1150 : 1000), 50, L.width - 50);
     const endX = clamp(p.x + dir * (fast ? 2400 : 1600), 40, L.width - 40);
     if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
-    else audio.sfx('rumble');
+    else if (!ambient) audio.sfx('rumble');
     for (let i = 0; i < count; i++) {
       this.time.delayedCall(i * 900, () => {
         if (this.ended) return;

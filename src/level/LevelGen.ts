@@ -226,7 +226,7 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, heights: Heights, start
   };
   if (riverEndCol) {
     // die eigene Brut: ein paar Gelege rund um den Schlüpfplatz
-    for (const off of [-9, -5, -1, 4, 8, 12]) {
+    for (const off of [-7, 2, 10]) {
       const c = nearFlat(startCol + off, 3);
       if (c >= 0 && !L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 3 * T)) L.roe.push(spot(c, 1, 'own', true));
     }
@@ -237,8 +237,9 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, heights: Heights, start
     return d && d.role !== 'hazard' && d.role !== 'apex' && !d.boss && d.power < 16 && s.guard === undefined;
   });
   if (!pool.length) return;
-  const k = place.kind === 'abyss' ? 0.3 : place.kind === 'deep' ? 0.6 : 1;
-  const want = Math.round((cols / 26) * k * (0.8 + r() * 0.4));
+  // Kleine Fische laichen im Flachen, am Fluss und in der Tiefe kaum oder gar nicht
+  const k = place.kind === 'abyss' || place.kind === 'deep' ? 0 : place.kind === 'start' ? 0.5 : place.kind === 'murky' ? 0.6 : 1;
+  const want = Math.round((cols / 60) * k * (0.7 + r() * 0.6));
   const toneOf = (id: string) => [0, 2, 3][hashStr(id) % 3];
   for (let n = 0, tries = 0; n < want && tries < want * 12; tries++) {
     const sp = pool[Math.floor(r() * pool.length)];
@@ -246,7 +247,7 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, heights: Heights, start
     // gefährliche Eltern kommen seltener vor
     if (d.role === 'predator' && r() > 0.45) continue;
     const c = nearFlat(Math.round(sp.x / T) + rint(r, -6, 6), 8);
-    if (c < 0 || c < riverEndCol + 10 || Math.abs(c - arrCol) < 16 || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
+    if (c < 0 || c < riverEndCol + 40 || heights[c] > 32 || Math.abs(c - arrCol) < 16 || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
     // nicht in den Durchgängen
     if (L.gates.some((g) => g.kind === 'floor' && (c + 0.5) * T > g.x - 3 * T && (c + 0.5) * T < g.x + g.w + 3 * T)) continue;
     const idx = L.roe.length;

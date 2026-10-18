@@ -44,9 +44,12 @@ zuerst wird das Fischreich ausgebaut.
     dann die Flossen ruhen und **gleitet mit dem aufgebauten Schwung** ein Stück weiter – nach oben und unten lässt sich das
     noch lenken. Auf diesen Moment kommt es an: Wer **im Schwung beißt**, erreicht weiter nach vorn und beißt härter; auch
     der Zusammenstoß zählt erst bei hohem Tempo.
-  - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell und schwimmen davon, sobald
-    man näher kommt. Wer lange ruhig in der Nähe bleibt (nicht sprinten, nicht kämpfen), kommt etwas
-    näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
+  - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell, aber sie schwimmen **nicht ohne Grund aus der
+    Ferne** davon: Sie fliehen, wenn man ihnen **wirklich nah kommt** oder **auffällt** (sprinten, stoßen, gerade gekämpft).
+    Dabei zählt die **eigene Größe**: Solange man klein ist, haben die anderen weniger Angst und lassen einen näher
+    heran; je größer und stärker man wird, desto früher und weiter fliehen sie. Die Flucht geht **nie schnurgerade**,
+    sondern mit Haken – mal hoch, mal runter, mal ein Schlenker –, Hauptsache weg. Wer lange ruhig in der Nähe bleibt
+    (nicht sprinten, nicht kämpfen), kommt etwas näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
     zu Beginn sind kleine Fische mit zwei Bissen erledigt. Oder man **reizt einen großen Räuber**
     (beißen, stoßen, frech nah heran) und schwimmt davon: Er verfolgt einen und reißt unterwegs alles,
     was ihm vor das Maul kommt – bis man sich versteckt. Was er liegen lässt, kann man fressen. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
@@ -54,6 +57,12 @@ zuerst wird das Fischreich ausgebaut.
     Ausweichen**, immer wieder aus dem **Hinterhalt** – oder man lässt sich **verfolgen, bis das Tier
     erschöpft ist**, und greift dann an (erschöpfte Tiere treiben langsam, schnappen nach Luft und
     nehmen mehr Schaden). Das klappt auch bei kleineren.
+  - **Größere Fische haben Launen:** Sie schwimmen meist einfach ihres Weges, jagen kleine Fische, fressen und ziehen
+    weiter – nicht jeder Räuber will gleich alles fressen. Gereizt werden sie, wenn man sie **angreift**, ihnen **zu nah**
+    kommt, **vor ihnen herumrast** oder **länger in ihrer Nähe bleibt**; manche sind schneller reizbar als andere. Erst dann
+    verfolgen sie den Spieler. Und sie sind **öfter zu sehen**: Räuber ruhen kürzer und seltener am Grund, streifen weiter
+    umher, und alle halbe Minute etwa zieht ein größeres Tier des Zeitalters durchs Bild (Ordovizium z. B. Orthoceras,
+    Megalograptus, selten Cameroceras; Silur Entelognathus, Seeskorpione; Devon Haie, Panzerfische, Fleischflosser).
   - **Jeder Angriff ist zu sehen:** Alle Tiere holen vor dem Biss sichtbar aus (sie spannen sich und
     glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
@@ -108,8 +117,10 @@ zuerst wird das Fischreich ausgebaut.
   nach rechts schwimmt, ist entsprechend schneller aus dem Bild. Sie liegen hinter Gelände, Pflanzen und allen echten
   Tieren und sind **nur Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten
   ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
-- **Fischlaich:** Überall im Meer liegen **Gelege** am Boden – das eigene im Startfluss, dazu die der Bewohner. Jedes
-  Gelege hat **Eltern in der Nähe**, die darüber wachen. Laich ist eine **gute Nahrungsquelle** (sättigt und gibt Kalorien),
+- **Fischlaich:** Im Startfluss liegen ein paar **Gelege** der eigenen Brut; im Meer gibt es **nur vereinzelt** Gelege der
+  Bewohner – im **Flachen** und bei Pflanzen, am Fluss kaum, **in der Tiefe gar nicht** (kleine Fische laichen dort nicht).
+  Jedes Gelege hat **Eltern in der Nähe**, die darüber wachen: Sie **schwimmen nicht davon**, sondern bleiben dicht beim Laich,
+  **beobachten dich aus kleiner Entfernung** und greifen an, sobald du **auf das Gelege gehst** oder daran frisst. Laich ist eine **gute Nahrungsquelle** (sättigt und gibt Kalorien),
   aber: **Bekommen die Eltern mit, dass du ihre Brut frisst** (sie müssen in Sichtweite sein – wer sich versteckt, fällt nur
   aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in Ruhe, **schlüpft** der der
   Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben seltener bei ihrem Gelege.

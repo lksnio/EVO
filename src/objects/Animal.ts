@@ -15,6 +15,10 @@ export interface PlayerLike {
   dead: boolean;
   /** bewegt sich gerade schnell */
   fast: boolean;
+  /** fällt auf: sprintet, stößt oder ist sehr schnell */
+  loud: boolean;
+  /** Körperlänge in Bildpunkten */
+  bodyLen: number;
   /** still im Dickicht versteckt */
   hidden: boolean;
   hitRect(): Rect;
@@ -51,6 +55,8 @@ export interface World extends Phaser.Scene {
   playerCalm(): boolean;
   /** Kampfkraft des Spielers (ohne Ruf und Gruppe). */
   playerPower(): number;
+  /** Wie sehr dieses Tier den Spieler fürchtet (0 … gut 1): Wer klein ist, wirkt harmlos. */
+  fearOf(a: Animal): number;
   /** Ein Tier ist erschöpft. */
   tired(a: Animal): void;
   /** Höhe der Wasseroberfläche */
@@ -122,7 +128,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected snackAt = 0;
   /** satt: ruht bis dahin (am Meeresgrund bzw. am Boden) */
   protected restUntil = 0;
-  protected nextRestAt = Math.random() * 6000;
+  protected nextRestAt = 20000 + Math.random() * 40000;
   protected restY = 0;
   /** gereizt: verfolgt den Spieler bis dahin (und reißt unterwegs alles, was im Weg ist) */
   aggroUntil = 0;
@@ -151,6 +157,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   herdId = -1;
   /** Elternteil: wacht über ein Gelege und bleibt in dessen Nähe */
   guardPost: { x: number; y: number } | null = null;
+  /** wie lange der Spieler schon auf dem Gelege ist */
+  protected guardDwell = 0;
+  /** Räuber: wie sehr der Spieler dem Tier auf die Nerven geht (0 … 1, ab 1 wird es aggressiv) */
+  protected irritation = 0;
+  /** Räuber: wie schnell es reizbar ist */
+  protected temper = 0.45 + Math.random() * 0.85;
   /** zornig über das gefressene Gelege bis dahin */
   rageUntil = 0;
   /** Beute auf der Flucht: wovor, und wie weit sie mindestens weg will */
@@ -340,7 +352,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.t += dt;
     this.stT += dt;
     // Jäger werden nur langsam wieder hungrig – sie jagen nicht den ganzen Tag
-    const hr = this.role === 'apex' ? 0.005 : this.role === 'predator' ? 0.006 : 0.009;
+    const hr = this.role === 'apex' ? 0.006 : this.role === 'predator' ? 0.0085 : 0.009;
     this.hunger = Math.min(1, this.hunger + dt * hr);
     if (time < this.stunUntil) {
       if (this.atk) this.endAttack(time);
@@ -471,22 +483,21 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     } else if (this.alerted && dp > d.sense * 1.4) this.alerted = false;
     const T = W.playerThreat();
     const attackedByPlayer = this.attacker === p && time - this.attackedAt < 8000 && !p.dead;
-    // große Räuber lassen sich reizen: angegriffen werden oder jemand kommt ihnen frech zu nah
-    if ((role === 'apex' || (role === 'predator' && d.power > 6)) && !friend && !this.visitor) {
-      if (attackedByPlayer || (seen && dp < 140 && (p.fast || dp < 90))) this.aggroUntil = Math.max(this.aggroUntil, time + 9000);
-    }
+    // Räuber haben Launen: Meist schwimmen sie einfach ihres Weges. Gereizt werden sie, wenn man sie angreift, ihnen frech zu nah
+    // kommt, vor ihnen herumrast oder sich lange in ihrer Nähe aufhält
+    if ((role === 'apex' || role === 'predator') && !friend && !this.boss && !this.visitor?.fast) this.mood(time, seen, dp, attackedByPlayer);
     let threat: Target | null = null;
     let threatD = Infinity;
     if (role === 'prey' && !friend) {
-      // Vorsicht: Beute hält Abstand. Wer lange ruhig und friedlich in der Nähe schwimmt, dem gegenüber
-      // lässt sie die Deckung fallen – wer heranrast oder kämpft, vor dem flieht sie
+      // Vorsicht: Beute hält Abstand – aber nur, wenn jemand wirklich nah kommt oder auffällt. Wer lange ruhig und friedlich
+      // in der Nähe schwimmt, dem gegenüber lässt sie die Deckung fallen
       const calmNow = W.playerCalm();
       const fear = W.playerFear();
       const aware = !p.dead && !p.hidden && dp < Math.max(260, d.sense * 1.3);
       // Vertrauen wächst nur langsam und nie ganz – ganz nah lassen sie einen nie heran
       if (aware) this.calm = clamp(this.calm + (calmNow ? 0.014 * (1 - 0.7 * fear) : -0.25), 0, 0.75);
       else if (dp > 450) this.calm = Math.max(0, this.calm - 0.004);
-      if (seen && T > d.power * 1.15 && (!calmNow || fear > 0.6) && dp < d.sense * (0.3 + 0.55 * (1 - this.calm)) + (p.fast ? 70 : 0)) {
+      if (seen && dp < this.shyRadius()) {
         threat = p;
         threatD = dp;
       }
@@ -500,7 +511,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     }
     if ((role === 'prey' || role === 'predator') && attackedByPlayer) {
-      if (role === 'prey' || T > d.power * 1.2) {
+      // Eltern am Gelege wehren sich, statt davonzuschwimmen
+      if (this.guardPost) {
+        if (time >= this.rageUntil) this.rage(p, time);
+      } else if (role === 'prey' || T > d.power * 1.2) {
         threat = p;
         threatD = dp;
       }
@@ -548,7 +562,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (best && best.def.power > d.power * 3) best = null;
       } else if (hungry && !scavenging) {
         const bold = this.hunger > 0.75 ? 1.4 : 1.15;
-        if (seen && (role === 'apex' || T < d.power * bold)) {
+        // den Spieler jagt ein Räuber nur, wenn er gereizt ist (oder der Endgegner bzw. ein angekündigter Jäger)
+        const provoked = time < this.aggroUntil || this.boss || !!this.visitor?.fast;
+        if (seen && provoked && (role === 'apex' || T < d.power * bold)) {
           best = p;
           bd = dp * 0.9;
         }
@@ -615,6 +631,77 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /**
+   * Wie nah der Spieler kommen darf, bevor diese Beute davonschwimmt (0 = gar nicht). Aus der Ferne fliehen sie nicht ohne
+   * Grund: nur wenn jemand wirklich nah kommt oder auffällt (spurtet, stößt, gerade gekämpft hat). Je kleiner der Spieler,
+   * desto weniger Angst; wer lange ruhig in der Nähe schwimmt, dem vertraut sie mehr. Eltern am Gelege fliehen nicht.
+   */
+  protected shyRadius() {
+    if (this.guardPost || this.kin || this.ally || this.role !== 'prey') return 0;
+    const W = this.world;
+    const p = W.player;
+    const k = W.fearOf(this);
+    if (k < 0.12) return 0;
+    const loud = p.loud || !W.playerCalm();
+    return (45 + 125 * k + (loud ? 70 + 230 * k : 0)) * (1 - 0.45 * this.calm);
+  }
+
+  /** Laune eines Räubers: Er lässt sich reizen, wenn man ihn angreift, ihm zu nah kommt, vor ihm herumrast oder lange bleibt. */
+  protected mood(time: number, seen: boolean, dp: number, attacked: boolean) {
+    const p = this.world.player;
+    const apex = this.role === 'apex';
+    if (attacked) {
+      this.aggroUntil = Math.max(this.aggroUntil, time + 9000);
+      return;
+    }
+    const near = apex ? 230 : 170;
+    const range = apex ? 560 : 400;
+    let up = 0;
+    if (seen && !p.hidden && !p.dead) {
+      if (dp < 70) up = 3;
+      else if (dp < near) up = 0.55;
+      else if (dp < range) up = 0.1 + (p.loud ? 0.35 : 0);
+    }
+    // 0,28 s zwischen zwei Wahrnehmungen
+    this.irritation = clamp(this.irritation + (up * this.temper - (up ? 0 : 0.12)) * 0.28, 0, 1.2);
+    if (this.irritation >= 1) {
+      this.aggroUntil = Math.max(this.aggroUntil, time + 9000);
+      this.irritation = 0.35;
+    }
+  }
+
+  /**
+   * Eltern am Gelege: Sie schwimmen nicht davon, sondern halten sich in der Nähe und beobachten den Spieler. Geht er auf das
+   * Gelege (oder frisst daran), greifen sie an. Gibt true zurück, solange das Tier wacht.
+   */
+  protected thinkGuard(time: number, dt: number) {
+    const W = this.world;
+    const p = W.player;
+    const post = this.guardPost!;
+    // vor einem Räuber (nicht dem Spieler) weicht auch ein Elternteil aus
+    if (this.threatObj && this.threatObj !== p) return false;
+    const roeY = post.y + 60;
+    const onRoe = !p.dead && Math.hypot(p.x - post.x, p.y - roeY) < 85;
+    if (onRoe) {
+      this.guardDwell += dt;
+      if (this.guardDwell > 0.35) {
+        this.guardDwell = 0;
+        this.rage(p, time);
+        return false;
+      }
+    } else this.guardDwell = Math.max(0, this.guardDwell - dt * 2);
+    const dp = this.dist(p);
+    if (!p.dead && (this.seesPlayer || dp < 200)) {
+      // beobachten: dem Spieler zugewandt, nahe beim Gelege, mit leichtem Schwanken
+      this.dir = Math.sign(p.x - this.x) || this.dir;
+      this.go('idle');
+      if (this.dist(post) > 210) this.moveTo(post.x, post.y, this.def.speed * 0.7);
+      else this.b.setVelocity(Math.sin(this.t * 1.7 + this.phase) * 14, Math.sin(this.t * 2.3 + this.phase) * 12);
+      return true;
+    }
+    return false;
+  }
+
   // ------------------------------------------------------------------ Entscheiden
 
   protected think(time: number, dt: number) {
@@ -622,6 +709,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.attacking = false;
     if (role === 'hazard') return this.drift();
     if (this.visitor) return this.thinkVisitor(time, dt);
+    // Eltern am Gelege bleiben und beobachten – solange sie nicht gereizt sind oder jagen
+    if (this.guardPost && role !== 'apex' && !this.kin && !this.ally && !this.target && time >= this.rageUntil && time >= this.aggroUntil && this.thinkGuard(time, dt)) return;
     if (role === 'defender') return this.thinkDefender(time);
     if (role === 'apex') return this.thinkApex(time, dt);
 
@@ -644,8 +733,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     // Neben einem fremden Tier ausweichen – je ruhiger sie dir gegenüber ist, desto näher darfst du heran
     if (role === 'prey' && !this.swims && !this.threatObj && this.st !== 'hide' && this.st !== 'flee' && !pl.dead && !pl.hidden) {
       const dp = this.dist(pl);
-      const keep = 90 + 190 * (1 - this.calm);
-      if (dp < keep) {
+      const keep = this.shyRadius();
+      if (keep > 0 && dp < keep) {
         if (this.st !== 'wander') this.go('wander');
         this.runFrom(pl.x, pl.y, dp < keep * 0.6 ? this.fleeSpeed() : this.def.speed * 1.25);
         return;
@@ -724,11 +813,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const W = this.world;
     const pl = W.player;
     let from: Target | null = this.threatObj;
-    // Dem Spieler weicht Beute aus – je ruhiger sie ihm gegenüber ist, desto näher darf er heran
-    if (!from && !pl.dead && !pl.hidden) {
-      const keep = 90 + 190 * (1 - this.calm);
-      if (this.dist(pl) < keep) from = pl;
-    }
+    // Dem Spieler weicht Beute aus, wenn er nah kommt oder auffällt – je ruhiger sie ihm gegenüber ist, desto näher darf er heran
+    if (!from && !pl.dead && !pl.hidden && this.dist(pl) < this.shyRadius()) from = pl;
     if (from) this.startFlee(from, time);
     else if (this.fright > 0 && !this.fleeFrom) this.fright = Math.max(0, this.fright - dt * 0.012);
     const f = this.fleeFrom;
@@ -768,18 +854,22 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     if (player) this.frightAt = time;
     const calm = player ? this.calm : 0;
-    this.fleeSafe = this.bolting ? Infinity : (320 + 130 * Math.min(3, this.fright)) * (1 - 0.35 * calm);
+    // wie weit weg es sich sicher fühlt: vor einem kleinen Spieler genügt etwas Abstand, vor einem großen Räuber geht es weit
+    const k = player ? clamp(W.fearOf(this), 0.25, 1.2) : 1;
+    this.fleeSafe = this.bolting ? Infinity : (170 + 190 * k + 110 * Math.min(3, this.fright)) * (1 - 0.35 * calm);
   }
 
-  /** Davonschwimmen: schräg nach oben, weg vom Verfolger, ohne gegen Felsen oder Boden zu stoßen. */
+  /** Davonschwimmen: weg vom Verfolger, aber nie schnurgerade – mal hoch, mal runter, mal ein Haken –, ohne gegen Felsen oder Boden zu stoßen. */
   protected fleeSwim(time: number, from: Target) {
     this.markRun();
     if (time > this.fleeVecAt) {
-      this.fleeVecAt = time + 260;
+      this.fleeVecAt = time + 300 + Math.random() * 450;
       this.fleeVec = this.pickFlee(from);
     }
     const v = this.fleeVec;
-    this.moveTo(this.x + v.x * 300, this.y + v.y * 300, this.fleeSpeed() * (this.bolting ? 1.1 : 1), true);
+    // dazu ein Schlängeln, damit es nicht wie auf einer Schnur aussieht
+    const wig = Math.sin(this.t * 5 + this.phase) * 95;
+    this.moveTo(this.x + v.x * 300, this.y + v.y * 300 + wig, this.fleeSpeed() * (this.bolting ? 1.1 : 1), true);
   }
 
   protected pickFlee(from: Target) {
@@ -787,21 +877,31 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const wb = W.physics.world.bounds;
     const away = this.x > from.x ? 1 : this.x < from.x ? -1 : this.x > wb.centerX ? 1 : -1;
     const wantUp = this.y > W.openY(this.x) + 40;
-    const cands: [number, number][] = wantUp
-      ? [[away, -0.9], [away, -0.5], [away, -0.15], [0, -1], [away, 0.25]]
-      : [[away, -0.25], [away, 0], [away, 0.3], [away, -0.6], [0, -1]];
+    // Würfeln: viele mögliche Richtungen, alle weg vom Verfolger – nach oben, nach unten oder fast geradeaus
+    const cands: { x: number; y: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const ny = (Math.random() - 0.5) * 1.7 + (wantUp ? -0.3 : 0);
+      const nx = away * (0.45 + Math.random() * 0.55);
+      const l = Math.hypot(nx, ny);
+      cands.push({ x: nx / l, y: ny / l });
+    }
+    cands.push({ x: 0, y: wantUp ? -1 : 1 });
+    const open: { x: number; y: number }[] = [];
     let best = cands[0], bd = -1;
     for (const c of cands) {
-      const l = Math.hypot(c[0], c[1]);
-      const nx = c[0] / l, ny = c[1] / l;
-      const clear = this.clearAhead(nx, ny, 320);
-      if (clear >= 300) return { x: nx, y: ny };
+      const clear = this.clearAhead(c.x, c.y, 320);
+      // nicht wieder (fast) dieselbe Richtung wie eben – es soll Haken schlagen
+      const same = c.x * this.fleeVec.x + c.y * this.fleeVec.y > 0.9;
+      if (clear >= 260 && !same) open.push(c);
       if (clear > bd) {
         bd = clear;
-        best = [nx, ny];
+        best = c;
       }
     }
-    return { x: best[0], y: best[1] };
+    // oft der Gegenhaken: wer eben nach oben schwamm, taucht jetzt ab (und umgekehrt)
+    const flip = open.filter((c) => Math.sign(c.y) !== Math.sign(this.fleeVec.y));
+    const pool = flip.length && Math.random() < 0.6 ? flip : open;
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : best;
   }
 
   /** Wie weit (bis len) es in dieser Richtung frei ist: kein Fels, nicht über die Wasseroberfläche hinaus. */
@@ -917,7 +1017,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected restOnGround(time: number) {
     if (this.st !== 'rest') {
       this.go('rest');
-      this.restUntil = time + 14000 + Math.random() * 22000;
+      this.restUntil = time + 6000 + Math.random() * 9000;
       this.restY = this.floorBelow();
     }
     if (this.swims) {
@@ -928,7 +1028,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     } else this.halt();
     if (time > this.restUntil) {
       this.go('wander');
-      this.nextRestAt = time + 6000 + Math.random() * 9000;
+      this.nextRestAt = time + 30000 + Math.random() * 30000;
     }
   }
 
@@ -1379,12 +1479,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         // Herumtreiber ziehen weit durch den Lebensraum, die anderen bleiben in ihrem Revier
         // Eltern bleiben bei ihrem Gelege
         const post = this.guardPost;
-        const range = post ? 280 : this.def.roam ? 2600 : 440;
+        const roams = this.def.roam || (this.role === 'predator' && this.def.power >= 5);
+        const range = post ? 280 : roams ? 2600 : 440;
         const wb = this.world.physics.world.bounds;
         const hx = post ? post.x : this.home.x, hy = post ? post.y : this.home.y;
         this.wanderX = clamp(hx + (Math.random() - 0.5) * range, wb.x + 60, wb.right - 60);
         this.wanderY = hy + (Math.random() - 0.5) * (this.swims || this.flies ? (post ? 110 : 160) : 0);
-        if (this.def.roam && !post) this.home.x = this.wanderX;
+        if (roams && !post) this.home.x = this.wanderX;
       }
     }
     if (Math.abs(this.wanderX - this.x) < 10 && (!this.swims || Math.abs(this.wanderY - this.y) < 10)) {

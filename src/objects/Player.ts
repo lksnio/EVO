@@ -119,6 +119,15 @@ export class Player {
     return this.speed01 > 0.8 || this.isRamming;
   }
 
+  /** fällt auf: Wer spurtet, stößt oder gleitet mit Schwung, wird auch aus der Ferne bemerkt */
+  get loud() {
+    return this.sprinting || this.dash !== 'none' || this.speed01 > 1.25;
+  }
+
+  get bodyLen() {
+    return this.rect.width;
+  }
+
   /** kurzer Schwung (z. B. nach einer giftigen Pflanze): schneller, die Kraft kehrt rasch zurück */
   boost(ms: number) {
     this.boostUntil = Math.max(this.boostUntil, this.host.time.now + ms);

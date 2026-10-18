@@ -55,6 +55,8 @@ export interface EpochDef {
   reef?: boolean;
   /** Tiere: Art und Anzahl der Gruppen */
   fauna: [string, number][];
+  /** größere Tiere, die hin und wieder durchs Bild ziehen (Art, Gewicht): meist friedlich – sie jagen kleine Fische und ziehen weiter */
+  passers: [string, number][];
   events: EventDef[];
 }
 
@@ -69,6 +71,7 @@ export const EPOCHS: EpochDef[] = [
       ['kieferlos', 8], ['sacabambaspis', 4.5], ['arandaspis', 4.5], ['astraspis', 4.9], ['eriptychius', 2.4], ['trilobit', 3.6], ['isotelus', 1.8],
       ['conodont', 1], ['qualle', 1], ['orthoceras', 0.7], ['megalograptus', 0.2],
     ],
+    passers: [['orthoceras', 3], ['megalograptus', 2], ['cameroceras', 0.8]],
     events: [
       { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
       { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
@@ -83,6 +86,7 @@ export const EPOCHS: EpochDef[] = [
       ['kieferlos', 4], ['birkenia', 10.4], ['cephalaspis', 2.6], ['pteraspis', 4.5], ['thelodus', 8.2], ['jamoytius', 2.5], ['lasanius', 5.9], ['climatius', 1.6],
       ['trilobit', 2], ['dalmanites', 2.4], ['conodont', 0.9], ['entelognathus', 0.7], ['qualle', 1.5], ['orthoceras', 1.1], ['megalograptus', 0.2], ['pterygotus', 0.2],
     ],
+    passers: [['entelognathus', 3], ['seeskorpion', 2], ['orthoceras', 1.5], ['megalograptus', 1.5], ['pterygotus', 0.8]],
     events: [
       { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
       { at: 0.22, kind: 'leviathan' },
@@ -100,6 +104,7 @@ export const EPOCHS: EpochDef[] = [
       ['cladoselache', 0.9], ['stethacanthus', 0.5], ['rolfosteus', 0.7], ['eusthenopteron', 0.6], ['tiktaalik', 0.4], ['holoptychius', 0.4], ['hyneria', 0.3],
       ['orthoceras', 0.6], ['seeskorpion', 0.3],
     ],
+    passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 2], ['rolfosteus', 2], ['eusthenopteron', 2], ['holoptychius', 1.5], ['hyneria', 0.6], ['dunkleosteus', 0.5]],
     events: [
       { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
       { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Der Panzerfisch zieht durch das Riff.' },
