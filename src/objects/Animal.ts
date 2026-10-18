@@ -35,6 +35,8 @@ export interface World extends Phaser.Scene {
   /** Dickicht zum Verstecken */
   cover: Rect[];
   solidAt(x: number, y: number): boolean;
+  /** Oberkante des festen Bodens bei x, die der Höhe y am nächsten liegt (höchstens range darüber oder darunter; sonst Infinity) */
+  groundTop(x: number, y: number, range?: number): number;
   shoot(x: number, y: number, vx: number, vy: number, tex: string, dmg: number, gravity: boolean): void;
   animalDied(a: Animal, byPlayer: boolean): void;
   puff(x: number, y: number, n: number, tint?: number): void;
@@ -218,6 +220,25 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected nextMove = 0;
   protected weak = 1;
   protected roared = false;
+  /** Läufer am Boden: Neigung des Bodens unter dem Tier (Bogenmaß, folgt der Oberfläche weich) */
+  protected slope = 0;
+  /** Zeit des letzten Schritts (für Bewegungen, die nicht in tick selbst liegen) */
+  protected lastDt = 1 / 60;
+  /** Läufer: wie lange er schon gegen ein Hindernis läuft; danach weicht er aus (Richtung bis escapeUntil festgelegt) */
+  protected stuckT = 0;
+  protected escapeUntil = 0;
+  protected escapeDir = 1;
+  private escapedAt = -1e9;
+  private walkX = 0;
+  private stallT = 0;
+  /** Hier ging es in diese Richtung nicht weiter: Nahrung dahinter wird eine Weile nicht angesteuert */
+  private wall: { x: number; dir: number; until: number } | null = null;
+  /** frühestens dann darf er an einer Kante wieder umkehren */
+  protected turnAt = 0;
+  /** geduckt unter einem Überhang hindurch (der Körper ist dann niedriger) */
+  protected crouched = false;
+  protected crouchUntil = 0;
+  private bodyDim = { w: 0, h: 0, ox: 0, oy: 0 };
 
   constructor(world: World, def: SpeciesDef, x: number, y: number, opts: { texture?: string } = {}) {
     super(world, x, y, opts.texture ?? speciesKey(def.id, 0));
@@ -240,6 +261,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const flies = def.habitat === 'air';
     const swims = world.water && !def.crawl;
     b.setOffset((this.width - w) / 2, flies || swims ? (this.height - h) / 2 : this.height - h);
+    this.bodyDim = { w, h, ox: (this.width - w) / 2, oy: flies || swims ? (this.height - h) / 2 : this.height - h };
     if (flies || swims) b.setAllowGravity(false);
     if (world.water && def.crawl) b.setGravityY(900);
     b.setCollideWorldBounds(true);
@@ -352,6 +374,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   tick(time: number, dt: number) {
     if (this.dead || this.scripted) return;
+    this.lastDt = dt;
     // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
     if (this.world.water) {
       const wb = this.world.physics.world.bounds;
@@ -391,7 +414,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.stam = 0.45;
       this.setAngle(0);
     }
-    if (this.angle && !this.mv && !this.atk) this.setAngle(0);
+    if (this.angle && !this.mv && !this.atk && (this.swims || this.flies)) this.setAngle(0);
     if (time < this.knockUntil) return;
     // Ausdauer: Wer lange jagt oder flieht, wird müde (Durchzügler und Nesseltiere ausgenommen)
     if (!this.visitor && this.role !== 'hazard') {
@@ -419,9 +442,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.nextSense = time + 220 + Math.random() * 90;
       this.sense(time);
     }
+    this.crouchStep(time);
     this.think(time, dt);
     this.setFlipX(this.dir < 0);
     this.eatPose(time);
+    this.alignGround(dt);
     // Wer dich verfolgt, reißt unterwegs alles, was ihm vor das Maul kommt
     if (this.target === this.world.player && (this.role === 'apex' || this.role === 'predator') && time > this.pathBiteAt) {
       const b = this.b;
@@ -626,7 +651,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       let fd = Infinity;
       if (this.def.diet === 'plant') {
         for (const pl of W.plants) {
-          if (pl.units <= 0) continue;
+          if (pl.units <= 0 || this.behindWall(pl.x, time)) continue;
           const dd = this.dist(pl);
           if (dd < 380 && dd < fd && (this.swims || this.flies || Math.abs(pl.y - this.b.bottom) < 90)) {
             this.food = pl;
@@ -635,7 +660,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         }
       } else if (this.def.diet === 'meat') {
         for (const c of W.meats) {
-          if (c.gone || c.units <= 0) continue;
+          if (c.gone || c.units <= 0 || this.behindWall(c.x, time)) continue;
           const dd = this.dist(c);
           if (dd < d.sense && dd < fd) {
             this.food = c;
@@ -1141,14 +1166,22 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /** Liegt etwas hinter der Wand, an der das Tier eben nicht weiterkam? */
+  protected behindWall(x: number, time: number) {
+    const w = this.wall;
+    return !!w && time < w.until && (x - w.x) * w.dir > 0;
+  }
+
   protected eatFood(time: number) {
     const f = this.food!;
     const isMeat = f instanceof Meat;
     const fy = isMeat ? f.y : f.y - 20;
-    if (this.dist({ x: f.x, y: fy }) < this.width * 0.5 + 24 || (this.kin && this.dist({ x: f.x, y: fy }) < 40)) {
+    // Läufer fressen, was neben ihnen am Boden steht (nicht erst, wenn es auch in der Höhe passt)
+    const reach = this.swims || this.flies ? this.dist({ x: f.x, y: fy }) < this.width * 0.5 + 24 : Math.abs(f.x - this.x) < this.width * 0.5 + 24 && Math.abs(f.y - this.y) < 90;
+    if (reach || (this.kin && this.dist({ x: f.x, y: fy }) < 40)) {
       this.go('graze');
       this.halt();
-      this.dir = Math.sign(f.x - this.x) || this.dir;
+      if (Math.abs(f.x - this.x) > 12) this.dir = Math.sign(f.x - this.x) || this.dir;
       this.eatingAt = time;
       if (time > this.feedAt) {
         this.feedAt = time + 1300;
@@ -1462,7 +1495,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected moveTo(x: number, y: number, speed: number, fleeing = false) {
     const b = this.b;
     const dx = x - this.x, dy = y - this.y;
-    if (Math.abs(dx) > 4) this.dir = dx > 0 ? 1 : -1;
+    const escaping = !this.swims && !this.flies && this.world.time.now < this.escapeUntil;
+    if (escaping) this.dir = this.escapeDir;
+    else if (Math.abs(dx) > (this.swims || this.flies ? 4 : 10)) this.dir = dx > 0 ? 1 : -1;
     if (this.swims || this.flies) {
       const len = Math.hypot(dx, dy) || 1;
       const k = Math.min(1, len / 40);
@@ -1472,7 +1507,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (b.blocked.left || b.blocked.right) b.setVelocityY(b.velocity.y - 60);
       return;
     }
-    if (Math.abs(dx) < 6) {
+    if (Math.abs(dx) < 8 && !escaping) {
       b.setVelocityX(0);
       return;
     }
@@ -1480,22 +1515,107 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.walk(speed, jumpy, fleeing);
   }
 
+  /**
+   * Am Boden laufen: Kleine Stufen und steile Hänge hinaufsteigen (das Tier folgt der Oberfläche, statt vor jeder Kante
+   * umzukehren), nur an echten Abgründen umkehren und bei Hindernissen nicht zwischen links und rechts zappeln:
+   * erst ducken (unter Überhängen hindurch), sonst ein Stück zurückweichen und einen neuen Weg suchen.
+   * Am Boden ist man langsamer als im freien Wasser, bergauf noch etwas mehr.
+   */
   protected walk(speed: number, jumpy: boolean, fleeing: boolean) {
-    const b = this.b;
-    const floor = this.onFloor;
-    const blocked = (b.blocked.left && this.dir < 0) || (b.blocked.right && this.dir > 0);
-    if (blocked) {
-      if (floor && jumpy) b.setVelocityY(-this.jumpV());
-      else if (!fleeing) this.dir *= -1;
+    const b = this.b, w = this.world, now = w.time.now, dt = this.lastDt;
+    const floor = this.onFloor, hw = b.halfWidth;
+    speed *= (this.def.crawl ? 0.85 : 1) * (1 - 0.3 * Math.min(1, Math.abs(this.slope) / 0.8));
+    // kommt das Tier trotz Laufen nicht voran, zählt das wie „gegen ein Hindernis“ (der Körper meldet nicht jede Wand)
+    if (floor && Math.abs(this.x - this.walkX) < speed * dt * 0.3) this.stallT += dt;
+    else this.stallT = Math.max(0, this.stallT - dt * 3);
+    this.walkX = this.x;
+    const against = (b.blocked.left && this.dir < 0) || (b.blocked.right && this.dir > 0) || this.stallT > 0.2;
+    const ax = this.x + this.dir * (hw + 5);
+    // eine Stufe oder Wand vor einem, die niedrig genug ist: hinaufsteigen (sofern oben Platz ist)
+    let climbing = false;
+    if (floor || against) {
+      const maxStep = Math.min(96, Math.max(36, b.height * 1.15));
+      const top = w.groundTop(ax, b.bottom - 4, maxStep + 20);
+      const rise = b.bottom - top;
+      if (isFinite(top) && rise > 3 && rise <= maxStep && !w.solidAt(ax, top - b.height * 0.8) && (against || (rise > 12 && Math.abs(b.velocity.x) < speed * 0.5))) {
+        this.y -= Math.min(rise + 1, 230 * dt);
+        climbing = true;
+      }
     }
-    if (floor && !this.world.solidAt(this.x + this.dir * (b.halfWidth + 8), b.bottom + 10)) {
-      if (jumpy) b.setVelocityY(-this.jumpV());
-      else {
-        this.dir *= -1;
-        this.wanderX = this.x + this.dir * 120;
+    if (against && !climbing) {
+      this.stuckT += dt;
+      const feetFree = !w.solidAt(ax, b.bottom - 6);
+      if (floor && jumpy && this.stuckT < 0.3) b.setVelocityY(-this.jumpV());
+      else if (feetFree && w.solidAt(ax, b.top + 4) && !this.crouched) this.duck(now);
+      else if (this.stuckT > (fleeing ? 0.9 : 0.5)) {
+        // nicht weiter: ein Stück zurück und danach einen anderen Weg suchen
+        this.escapeDir = -this.dir;
+        this.escapeUntil = now + 800 + Math.random() * 800;
+        this.stuckT = 0;
+        // zum Streunen ein neues Ziel auf der anderen Seite (nicht wieder gegen dieselbe Wand)
+        this.wanderX = clamp(this.x + this.escapeDir * (140 + Math.random() * 200), 60, this.world.physics.world.bounds.right - 60);
+        this.wanderAt = now + 2500;
+        // war es auf dem Weg zu Nahrung: die liegt offenbar hinter einer Wand – eine Weile nicht mehr ansteuern
+        this.wall = { x: this.x, dir: this.dir, until: now + 15000 };
+        this.food = null;
+        // kommt er auch danach wieder an derselben Stelle nicht weiter (Spalte, Mulde): ruhig bleiben statt hin und her zu laufen
+        if (now - this.escapedAt < 6000) {
+          this.escapeUntil = now + 500;
+          this.wanderX = this.x;
+          this.wanderAt = now + 4000 + Math.random() * 3000;
+        }
+        this.escapedAt = now;
+      }
+    } else this.stuckT = Math.max(0, this.stuckT - dt * 2);
+    // nur ein echter Abgrund lässt ein Tier umkehren (kleine Stufen nach unten geht es hinab)
+    if (floor && !climbing && !against) {
+      const fx = this.x + this.dir * (hw + 8);
+      if (!w.solidAt(fx, b.bottom + 10) && !w.solidAt(fx, b.bottom + 40) && !w.solidAt(fx, b.bottom + 80)) {
+        if (jumpy) b.setVelocityY(-this.jumpV());
+        else if (now > this.turnAt) {
+          this.turnAt = now + 900;
+          this.dir *= -1;
+          this.wanderX = this.x + this.dir * 120;
+        }
       }
     }
     b.setVelocityX(this.dir * speed);
+  }
+
+  /** Ducken: Der Körper wird niedriger, damit das Tier unter einem Überhang hindurchkommt. */
+  protected duck(now: number) {
+    const d = this.bodyDim, h2 = d.h * 0.5;
+    this.b.setSize(d.w, h2);
+    this.b.setOffset(d.ox, this.height - h2);
+    this.crouched = true;
+    this.crouchUntil = now + 1300;
+  }
+
+  /** Wieder aufrichten, sobald über dem Tier Platz ist. */
+  protected crouchStep(now: number) {
+    if (!this.crouched || now < this.crouchUntil) return;
+    const b = this.b, d = this.bodyDim, w = this.world;
+    const topY = b.bottom - d.h * this.scaleY - 2, hw = b.halfWidth * 0.9;
+    if (w.solidAt(this.x, topY) || w.solidAt(this.x - hw, topY) || w.solidAt(this.x + hw, topY)) {
+      this.crouchUntil = now + 250;
+      return;
+    }
+    b.setSize(d.w, d.h);
+    b.setOffset(d.ox, d.oy);
+    this.crouched = false;
+  }
+
+  /** Läufer richten sich nach dem Boden aus: Am Hang stehen sie schräg, an einer Wand fast senkrecht. */
+  protected alignGround(dt: number) {
+    if (this.swims || this.flies || this.mv || this.atk) return;
+    let target = 0;
+    if (this.onFloor) {
+      const hw = this.b.halfWidth + 4, by = this.b.bottom - 2;
+      const yl = this.world.groundTop(this.x - hw, by, 70), yr = this.world.groundTop(this.x + hw, by, 70);
+      if (isFinite(yl) && isFinite(yr)) target = clamp(Math.atan2(yr - yl, hw * 2), -1.25, 1.25);
+    }
+    this.slope += (target - this.slope) * Math.min(1, dt * 7);
+    this.rotation = this.slope;
   }
 
   protected jumpV() {

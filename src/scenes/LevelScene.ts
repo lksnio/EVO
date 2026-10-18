@@ -887,9 +887,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Oberkante des Bodens bei x in der Nähe der Höhe y (Infinity, wenn dort keiner ist). */
-  private groundTop(x: number, y: number) {
+  groundTop(x: number, y: number, range = 50) {
     let best = Infinity;
-    let bd = 50;
+    let bd = range;
     for (const list of [this.solidIndex.get(Math.floor(x / 40)) ?? [], this.platRects]) {
       for (const r of list) {
         if (x < r.x || x > r.x + r.w) continue;

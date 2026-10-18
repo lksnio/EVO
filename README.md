@@ -113,6 +113,13 @@ zuerst wird das Fischreich ausgebaut.
     Felsbögen** mit Kuppel, die Felsspalten liegen unter einer Platte, die auf einem Felsbrocken ruht. Die Hitboxen bleiben
     Rechtecke (Säulen von 20 Bildpunkten, bei den Felsen schmale Scheiben) – nur so fein, dass nichts mehr eckig wirkt; kleine
     Stufen (bis etwa 22 Bildpunkte) gleitet man am Grund einfach hinauf.
+  - **Bodentiere (Trilobiten u. a.) laufen am Boden wirklich:** Sie **richten sich nach dem Boden aus** (am Hang schräg, an
+    steilen Flanken fast senkrecht – der Winkel kommt aus der Oberkante des Bodens links und rechts vom Tier, ohne Strahlen
+    zu schießen), **steigen Stufen und Wände hinauf**, solange sie niedrig genug sind und oben Platz ist, und kehren nur an
+    **echten Abgründen** um. Am Boden sind sie etwas langsamer, bergauf noch mehr. Kommen sie nicht weiter (auch ohne dass
+    der Körper eine Wand meldet), **ducken** sie sich unter Überhängen hindurch, sonst weichen sie ein Stück zurück, suchen
+    sich ein neues Ziel auf der anderen Seite und merken sich die Wand (Nahrung dahinter wird eine Weile nicht angesteuert);
+    in einer Sackgasse bleiben sie ruhig stehen, statt zwischen links und rechts zu zappeln.
   - **Farbtunnel sind selten und gut versteckt:** Nur **zwei Orte im ganzen Zeitalter** haben einen – ein
     **grüner** (mit Querbinden wie bei einem Barsch) und ein **schwarzer** in der Tiefe. Wer auf der anderen Seite
     herauskommt, hat die neue Farbe. Die Farbe lässt sich **nur einmal pro Spieldurchlauf** wählen – wer einmal
