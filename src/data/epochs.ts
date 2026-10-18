@@ -21,8 +21,6 @@ export interface EventDef {
   count?: number;
   /** Dauer (Sturm) in Sekunden */
   dur?: number;
-  /** kurze Erzählzeile */
-  line?: string;
   /** zieht nur schnell vorbei (verstecken!) */
   fast?: boolean;
 }
@@ -33,7 +31,6 @@ export interface EpochDef {
   name: string;
   /** Lebensraum */
   place: string;
-  desc: string;
   theme: Theme;
   /** Körperform, die in diesem Zeitalter lebt */
   cls: ClassId;
@@ -65,7 +62,6 @@ const M = 1e6;
 export const EPOCHS: EpochDef[] = [
   {
     id: 'ordovizium', name: 'Ordovizium', place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
-    desc: 'Lauwarmes, trübes Wasser. Das Leben beginnt sich zu regen.',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
     fauna: [
       ['kieferlos', 8], ['sacabambaspis', 4.5], ['arandaspis', 4.5], ['astraspis', 4.9], ['eriptychius', 2.4], ['trilobit', 3.6], ['isotelus', 1.8],
@@ -73,14 +69,13 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['orthoceras', 3], ['megalograptus', 2], ['cameroceras', 0.8]],
     events: [
-      { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true, line: 'Ein Schatten! Versteck dich – schnell!' },
-      { at: 0.42, kind: 'predator', species: 'cameroceras', line: 'Ein gewaltiger Schatten gleitet durch das Wasser …' },
-      { at: 0.72, kind: 'bloom', line: 'Das Wasser wird grün. Überall sprießt Futter.' },
+      { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true },
+      { at: 0.42, kind: 'predator', species: 'cameroceras' },
+      { at: 0.72, kind: 'bloom' },
     ],
   },
   {
     id: 'silur', name: 'Silur', place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
-    desc: 'Ein Wald aus Riesentang. Was sich darin verbirgt, sieht man kaum.',
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
     fauna: [
       ['kieferlos', 4], ['birkenia', 10.4], ['cephalaspis', 2.6], ['pteraspis', 4.5], ['thelodus', 8.2], ['jamoytius', 2.5], ['lasanius', 5.9], ['climatius', 1.6],
@@ -88,15 +83,14 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['entelognathus', 3], ['seeskorpion', 2], ['orthoceras', 1.5], ['megalograptus', 1.5], ['pterygotus', 0.8]],
     events: [
-      { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true, line: 'Pterygotus – ein Seeskorpion, groß wie ein Mensch. Versteck dich!' },
+      { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true },
       { at: 0.22, kind: 'leviathan' },
-      { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3, line: 'Seeskorpione jagen im Rudel durch den Tang.' },
-      { at: 0.68, kind: 'storm', dur: 18, line: 'Ein Sturm wühlt den Grund auf. Das Wasser wird trüb.' },
+      { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3 },
+      { at: 0.68, kind: 'storm', dur: 18 },
     ],
   },
   {
     id: 'devon', name: 'Devon', place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
-    desc: 'Das Zeitalter der Fische. Ein Riff voller Leben – und voller Jäger.',
     from: 382 * M, to: 372 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55,
     fauna: [
       ['kieferlos', 2], ['cheiracanthus', 4.4], ['moythomasia', 10.5], ['acanthodes', 6.5], ['bothriolepis', 2], ['pterichthyodes', 1.8], ['cephalaspis', 1.4],
@@ -106,9 +100,9 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 2], ['rolfosteus', 2], ['eusthenopteron', 2], ['holoptychius', 1.5], ['hyneria', 0.6], ['dunkleosteus', 0.5]],
     events: [
-      { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true, line: 'Dunkleosteus! Erstarre im Tang – oder flieh!' },
-      { at: 0.3, kind: 'predator', species: 'dunkleosteus', line: 'Der Panzerfisch zieht durch das Riff.' },
-      { at: 0.8, kind: 'boss', species: 'dunkleosteus', line: 'Dunkleosteus beherrscht dieses Meer. Besiege ihn – sonst bleibt deine Linie in seinem Schatten.' },
+      { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true },
+      { at: 0.3, kind: 'predator', species: 'dunkleosteus' },
+      { at: 0.8, kind: 'boss', species: 'dunkleosteus' },
     ],
   },
 ];

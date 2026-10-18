@@ -131,7 +131,6 @@ export class TitleScene extends Phaser.Scene {
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.95));
     c.add(title(this, W / 2, 124, 'Steuerung', 38).setOrigin(0.5));
     controlsList(this, c, W / 2 + 30, 176, 22, 36);
-    c.add(text(this, W / 2, 530, 'Überlebe das Zeitalter – egal wie. Schwimm am Rand eines Gewässers hinaus, um auf die Karte zu kommen.\nStirbst du, endet deine Linie. Was du tust, formt deine Nachkommen.', 18, UI.boneDim, { align: 'center', fontStyle: 'italic' }).setOrigin(0.5));
     c.add(text(this, W / 2, 604, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;

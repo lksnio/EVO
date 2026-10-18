@@ -133,6 +133,22 @@ zuerst wird das Fischreich ausgebaut.
   nach rechts schwimmt, ist entsprechend schneller aus dem Bild. Sie liegen hinter Gelände, Pflanzen und allen echten
   Tieren und sind **nur Kulisse**: kein Körper, keine Logik, nichts davon kann gebissen oder gefressen werden. Welche Arten
   ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
+- **Leben am Grund und im freien Wasser:** Der Meeresboden ist bewohnt – mit wenig aufwendigen, aber gut erkennbaren Formen,
+  die je nach **Ortsart**, **Zeitalter** und **Untergrund** anders gewichtet sind (`src/data/biota.ts`):
+  - **Schwämme** (Vase, Röhrenbündel, Glasschwamm in der Tiefe, Krusten, Kugeln), **Korallen und Riffbauer** (Tabulaten mit
+    Wabenmuster, Hornkorallen, Kettenkorallen, Astkorallen, Stromatoporen – im **Devon** bilden sie dichte Riffe),
+    **Moostierchen** (Netzfächer, Äste), **Armfüßer** (Spirifer, Orthiden, Gruppen, Pentamerus), **Seelilien** (hoch, niedrig, als
+    Gruppe – vor allem im **Silur**) und **Cystoideen** (gestielte Kugeln mit Plattenmuster – im **Ordovizium** häufig, im Devon
+    fast verschwunden) stehen in kleinen Gruppen auf Sand, Fels oder Schlamm; manche wiegen sich in der Strömung.
+  - **Algen und Matten:** Blätter, Büschel, Kalkalgen, Wirtelalgen und **Stromatolithen** (gewölbte Mikrobenpolster);
+    dazu **mikrobielle Matten**, die als dünner, runzliger Belag mit Gasbläschen der Bodenlinie folgen. Der Boden zeigt
+    feine **Sedimentschichten**, und wer **schnell über den Grund schwimmt**, wirbelt **Sediment** auf, das in einer hellen Wolke
+    wieder absinkt (auch große Tiere tun das).
+  - **Schwebendes:** Im Wasser treiben **Plankton** (Acritarchen, Radiolarien, Chitinozoen, Muschelkrebse, Larven, kleine
+    Quallen, Cyanobakterienketten – manche leuchten schwach, in der Tiefe mehr), **Meeresschnee** (sinkende Schwebstoffe) und
+    **graptolithenartige Kolonien** (Gabeln, Fächer, Kreuze, Doppelreihen – häufig im Ordovizium und Silur, im Devon fast
+    keine). Alles liegt in **drei Tiefenstufen** (Parallaxe: weiter hinten kleiner, blasser, langsamer), ist reine Kulisse und
+    nicht fressbar. Der klare Startfluss hat wenig davon, das trübe Wasser wimmelt, in der Tiefe rieselt vor allem Schnee.
 - **Fischlaich:** Im Startfluss liegen ein paar **Gelege** der eigenen Brut; im Meer gibt es **nur vereinzelt** Gelege der
   Bewohner – im **Flachen** und bei Pflanzen, am Fluss kaum, **in der Tiefe gar nicht** (kleine Fische laichen dort nicht).
   Jedes Gelege hat **Eltern in der Nähe**, die darüber wachen: Sie **schwimmen nicht davon**, sondern bleiben dicht beim Laich
@@ -146,9 +162,10 @@ zuerst wird das Fischreich ausgebaut.
   (41 Stück). Links das Bild, rechts der Steckbrief mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
   Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
   (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
-  Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald du einem neuen Tier **nah genug** kommst, wird seine Seite gefüllt – oben erscheint **„Neuer Aquapendium-Eintrag“**
-  mit einer kleinen **schreibenden Hand** und leisem Federkratzen (wie bei einer neuen Aufgabe im Tagebuch). Das bleibt über
-  alle Leben erhalten. Blättern mit
+  Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald du einem neuen Tier **nah genug** kommst, wird seine Seite gefüllt – oben links gleitet ein schmales
+  **Schild** herein (dunkle Fläche, feine ochrefarbene Linien, ein Ammonit im Ring, darunter in kleinen Buchstaben
+  „NEUER AQUAPENDIUM-EINTRAG“ und der Name des Tieres), das Zeichen leuchtet kurz auf, dazu ein leises Rascheln und zwei
+  zarte Töne. Kommen mehrere Einträge zusammen, erscheinen sie nacheinander. Das bleibt über alle Leben erhalten. Blättern mit
   ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen), **I** oder „Inhalt“ springt zum Verzeichnis, Esc zurück.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
@@ -279,8 +296,10 @@ zuerst wird das Fischreich ausgebaut.
   Zeitleiste Fragezeichen.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Zeit** (Name des
-Zeitalters, „vor 470.000.000 Jahren“ – die Jahre zählen mit der Zeit rückwärts – und die Zündschnur), oben links der Ort und (wenn er kommt) der
-Lebensbalken des Herrschers. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
+Zeitalters, „vor 470.000.000 Jahren“ – die Jahre zählen mit der Zeit rückwärts – und die Zündschnur), unten (nur wenn er auftaucht) der
+Lebensbalken des Herrschers. **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
+wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
+nicht – was man über ein Tier wissen will, steht im Aquapendium. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
@@ -409,6 +428,7 @@ src/
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
 │   ├── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Tiere, Ereignisse
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
+│   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
 │   └── tablet.ts        die Zeilen der Steintafel und wie sie berechnet werden
 ├── state/GameState.ts   Leben (Lauf), verborgene Merkmale, Ruf, Stammbaum, Speichern
@@ -420,6 +440,7 @@ src/
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
 │   ├── speciesArt.ts    alle anderen Tiere
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
+│   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
 │   ├── tabletArt.ts     Steinplatte, Moos, Fische für die Wertung, Muschel
 │   ├── mapArt.ts        Kartenmaße, Gebiete um die Orte, Zeichen der Ortsarten
@@ -427,7 +448,7 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md

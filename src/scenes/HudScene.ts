@@ -21,24 +21,15 @@ import { TabletScreen } from '../ui/tabletScreen';
 export class HudScene extends Phaser.Scene {
   private ep!: EpochDef;
   private placeName = '';
-  private blurb = '';
-  private tutorial = false;
-  private hungerNoted = false;
-  private weakNoted = false;
   private hurtV!: Phaser.GameObjects.Image;
   private edgeV!: Phaser.GameObjects.Image;
   private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
-  private storyText!: Phaser.GameObjects.Text;
-  /** Neuer Aquapendium-Eintrag: Karte mit einer Hand, die den Namen schreibt (wie bei einem Auftrag in Gothic) */
+  /** Neuer Aquapendium-Eintrag: ein schmales Schild oben links, das sanft einblendet */
   private dexC!: Phaser.GameObjects.Container;
-  private dexName!: Phaser.GameObjects.Text;
-  private dexInk!: Phaser.GameObjects.Graphics;
-  private dexHand!: Phaser.GameObjects.Graphics;
+  private dexGlow!: Phaser.GameObjects.Image;
   private dexQueue: string[] = [];
   private dexBusy = false;
-  /** Fortschritt des Schreibens (0..1) und der Name, der geschrieben wird */
-  private dexWrite = { u: 0, name: '', on: false };
   private hp = 1;
   private food = 1;
   private hidden = false;
@@ -54,7 +45,6 @@ export class HudScene extends Phaser.Scene {
   private giveUpArmed = false;
   private isTouch = false;
   private ramBtn = false;
-  private zoneText!: Phaser.GameObjects.Text;
   private bossC!: Phaser.GameObjects.Container;
   private bossName!: Phaser.GameObjects.Text;
   private bossBar!: Phaser.GameObjects.Graphics;
@@ -69,12 +59,9 @@ export class HudScene extends Phaser.Scene {
     super('Hud');
   }
 
-  init(d: { epoch: number; place?: string; blurb?: string; tutorial?: boolean }) {
+  init(d: { epoch: number; place?: string }) {
     this.ep = EPOCHS[d?.epoch ?? 0];
     this.placeName = d?.place ?? this.ep.place;
-    this.blurb = d?.blurb ?? '';
-    this.tutorial = !!d?.tutorial;
-    this.hungerNoted = this.weakNoted = false;
     this.pauseC = undefined;
     this.portrait = undefined;
     this.giveUp = undefined;
@@ -100,9 +87,6 @@ export class HudScene extends Phaser.Scene {
     this.hurtV = this.add.image(W / 2, H / 2, 'vignette_red').setDisplaySize(W, H).setAlpha(0);
     this.edgeV = this.add.image(W / 2, H / 2, 'edge_red').setDisplaySize(W, H).setAlpha(0);
 
-    this.storyText = text(this, W / 2, 96, '', 20, UI.bone, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 4, align: 'center' })
-      .setOrigin(0.5, 0).setAlpha(0);
-
     // Lebensbalken des Endgegners (unten)
     this.bossC = this.add.container(W / 2, H - 46).setAlpha(0).setDepth(8);
     this.bossName = title(this, 0, -18, '', 22, '#d8b070').setOrigin(0.5);
@@ -117,26 +101,11 @@ export class HudScene extends Phaser.Scene {
     this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.drawFuse();
-    // Ein neues Tier im Aquapendium: Karte unter dem Ortsnamen, eine Hand schreibt den Namen
+    // Ein neues Tier im Aquapendium: ein kleines Schild oben links
     this.dexQueue = [];
     this.dexBusy = false;
-    this.dexWrite = { u: 0, name: '', on: false };
-    this.dexC = this.add.container(22, 48).setAlpha(0).setDepth(7);
-    const dexBg = this.add.graphics();
-    dexBg.fillStyle(0x050403, 0.66);
-    dexBg.fillRoundedRect(0, 0, 360, 66, 10);
-    dexBg.lineStyle(1.5, 0xc8913c, 0.6);
-    dexBg.strokeRoundedRect(0.5, 0.5, 359, 65, 10);
-    dexBg.lineStyle(1, 0xc8913c, 0.3);
-    dexBg.lineBetween(16, 24, 344, 24);
-    this.dexName = text(this, 18, 31, '', 24, UI.bone, { fontStyle: '700' }).setOrigin(0, 0);
-    const dexHead = text(this, 18, 6, 'NEUER AQUAPENDIUM-EINTRAG', 13, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(2);
-    this.dexInk = this.add.graphics();
-    this.dexHand = this.add.graphics();
-    this.drawHand(this.dexHand);
-    this.dexC.add([dexBg, dexHead, this.dexName, this.dexInk, this.dexHand]);
-    // Ort, an dem man gerade ist
-    this.zoneText = text(this, 22, 18, this.placeName, 17, UI.boneDim, { fontStyle: 'italic', stroke: '#050403', strokeThickness: 3 });
+    this.dexC = this.add.container(22, 22).setAlpha(0).setDepth(7);
+    this.dexGlow = this.add.image(0, 0, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0).setDepth(6);
 
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.togglePause() }).setAlpha(0.75);
     // Die Steintafel: Dort steht der Hunger. Leuchtet, wenn sie etwas Neues zeigt.
@@ -145,16 +114,10 @@ export class HudScene extends Phaser.Scene {
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
     this.updateGlow();
 
-    // Ort einblenden
-    const first = !this.blurb;
+    // Beim Betreten eines Ortes: nur sein Name, sanft ein- und wieder ausgeblendet
     const head = title(this, W / 2, H / 2 - 90, this.placeName, 46).setOrigin(0.5).setAlpha(0);
-    const round = game.run?.round ?? 0;
-    const blurb = first ? (round ? `Die ${round + 1}. Generation – der Herrscher dieser Zeit lebt noch.` : ep.desc) : this.blurb;
-    const sub = text(this, W / 2, H / 2 - 44, blurb, 20, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    this.tweens.add({ targets: [head, sub], alpha: 1, duration: 900, hold: 2200, yoyo: true });
+    this.tweens.add({ targets: head, alpha: 1, duration: 900, hold: 2200, yoyo: true });
 
-    // Allererster Start: Hinweis auf das, was vor einem schimmert
-    if (this.tutorial) this.time.delayedCall(3600, () => game.shells.length === 0 && this.story('Vor dir schimmert etwas im Sand.'));
     const run = game.run;
     if (run?.ramNew) {
       run.ramNew = false;
@@ -182,15 +145,9 @@ export class HudScene extends Phaser.Scene {
         this.drawFuse();
       }
     };
-    const onStory = (line: string) => this.story(line);
-    const onApex = (name: string) => this.announce(name);
     const onRam = () => this.ramUnlocked();
-    const onZone = (name: string) => this.zoneText.setText(name);
     const onBoss = (name: string, f: number) => this.drawBoss(name, f);
-    const onShell = (n: number) => {
-      this.updateGlow();
-      this.story(n === 1 ? 'Eine Muschel! Auf der Steintafel wird etwas sichtbar. (C)' : n >= STAT_COUNT ? 'Die letzte Muschel – die Steintafel ist ganz frei.' : 'Die Steintafel zeigt dir etwas Neues. (C)');
-    };
+    const onShell = () => this.updateGlow();
     const onDex = (ids: string[]) => {
       for (const id of ids) if (SPECIES[id]) this.dexQueue.push(id);
       this.nextDex();
@@ -198,10 +155,7 @@ export class HudScene extends Phaser.Scene {
     bus.on('dex', onDex);
     bus.on('clock', onClock);
     bus.on('boss', onBoss);
-    bus.on('zone', onZone);
     bus.on('vitals', onVitals);
-    bus.on('story', onStory);
-    bus.on('apex', onApex);
     bus.on('ramUnlocked', onRam);
     bus.on('shell', onShell);
     // Kino-Moment: schwarze Balken oben und unten
@@ -215,10 +169,7 @@ export class HudScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       bus.off('cine', onCine);
       bus.off('vitals', onVitals);
-      bus.off('story', onStory);
-      bus.off('apex', onApex);
       bus.off('ramUnlocked', onRam);
-      bus.off('zone', onZone);
       bus.off('boss', onBoss);
       bus.off('clock', onClock);
       bus.off('dex', onDex);
@@ -306,67 +257,73 @@ export class HudScene extends Phaser.Scene {
     );
   }
 
-  /** Eine Erzählzeile (Ereignisse) – kurz eingeblendet. */
-  private story(line: string) {
-    const t = this.storyText;
-    this.tweens.killTweensOf(t);
-    t.setText(line).setAlpha(0);
-    this.tweens.add({ targets: t, alpha: 1, duration: 700 });
-    this.tweens.add({ targets: t, alpha: 0, delay: 5200, duration: 1200 });
-  }
-
-  /** Eine kleine Hand mit Feder; der Federspitze liegt im Nullpunkt. */
-  private drawHand(g: Phaser.GameObjects.Graphics) {
-    g.clear();
-    // Feder (Schaft und Fahne)
-    g.lineStyle(2.4, 0xe6dcc4, 1);
-    g.lineBetween(0, 0, 22, -34);
-    g.fillStyle(0xcdbfa0, 0.95);
-    g.fillTriangle(10, -16, 30, -44, 18, -22);
-    g.fillTriangle(14, -23, 36, -40, 22, -30);
-    g.lineStyle(1, 0x8a7a58, 0.9);
-    g.lineBetween(12, -18, 34, -42);
-    // Hand: Handrücken und drei Finger, die den Schaft halten
-    g.fillStyle(0xb98a62, 1);
-    g.fillEllipse(32, -22, 24, 15);
-    g.fillEllipse(16, -17, 11, 7);
-    g.fillEllipse(19, -22, 11, 7);
-    g.fillEllipse(22, -27, 10, 7);
-    g.lineStyle(1.2, 0x4a2c14, 0.85);
-    g.strokeEllipse(32, -22, 24, 15);
-    g.strokeEllipse(16, -17, 11, 7);
-    g.strokeEllipse(19, -22, 11, 7);
-    g.strokeEllipse(22, -27, 10, 7);
-    // Ärmel
-    g.fillStyle(0x2a2420, 1);
-    g.fillRoundedRect(38, -30, 22, 16, 4);
-  }
-
-  /** Der nächste Eintrag aus der Warteschlange: Karte blendet ein, die Hand schreibt den Namen, dann blendet sie aus. */
+  /**
+   * Ein neuer Eintrag im Aquapendium: Ein schmales Schild gleitet oben links herein – dunkle Fläche, feine ochrefarbene Linien,
+   * links eine kleine Ammonitenspirale, daneben in kleinen Buchstaben „Neuer Aquapendium-Eintrag“ und darunter der Name.
+   * Mehrere Einträge kommen nacheinander.
+   */
   private nextDex() {
     if (this.dexBusy || !this.dexQueue.length) return;
     const id = this.dexQueue.shift()!;
     const name = SPECIES[id]?.name ?? '';
     this.dexBusy = true;
-    this.dexName.setText('');
-    this.dexInk.clear();
-    this.dexWrite = { u: 0, name, on: false };
-    this.tweens.killTweensOf(this.dexC);
-    this.dexC.setAlpha(0);
-    this.tweens.add({ targets: this.dexC, alpha: 1, duration: 350 });
-    const dur = Math.max(900, name.length * 85);
-    const crowded = this.dexQueue.length > 1;
-    this.time.delayedCall(380, () => {
-      this.dexWrite.on = true;
-      audio.sfx('write');
-      this.tweens.add({ targets: this.dexWrite, u: 1, duration: dur, ease: 'Sine.inOut', onComplete: () => (this.dexWrite.on = false) });
-    });
-    this.time.delayedCall(380 + dur + (crowded ? 700 : 2100), () => {
+    const c = this.dexC;
+    c.removeAll(true);
+    const head = text(this, 74, 13, 'NEUER AQUAPENDIUM-EINTRAG', 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(3);
+    const nm = title(this, 74, 31, name, 22, UI.bone).setOrigin(0, 0);
+    const w = Math.round(Math.max(312, 74 + Math.max(head.width, nm.width) + 28)), h = 66;
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(3, 5, w, h, 12);
+    g.fillStyle(0x0d0c0b, 0.84);
+    g.fillRoundedRect(0, 0, w, h, 12);
+    g.lineStyle(1.5, 0xc8913c, 0.55);
+    g.strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 12);
+    g.lineStyle(1, 0xffffff, 0.06);
+    g.strokeRoundedRect(4.5, 4.5, w - 9, h - 9, 9);
+    // feine Trennlinie zwischen Zeichen und Schrift
+    g.lineStyle(1, 0xc8913c, 0.28);
+    g.lineBetween(62, 13, 62, h - 13);
+    // das Zeichen: ein Ammonit in einem Ring
+    const cx = 31, cy = h / 2;
+    g.fillStyle(0x1b1712, 0.95);
+    g.fillCircle(cx, cy, 21);
+    g.lineStyle(1.5, 0xc8913c, 0.7);
+    g.strokeCircle(cx, cy, 21);
+    g.lineStyle(2, 0xe0b46a, 0.95);
+    g.beginPath();
+    for (let a = 0.2; a < Math.PI * 4.1; a += 0.12) {
+      const rad = 1.4 + a * 1.3;
+      const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+      if (a === 0.2) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+    // Rippen auf dem Gehäuse
+    g.lineStyle(1, 0xc8913c, 0.7);
+    for (let a = 2.6; a < Math.PI * 4; a += 0.62) {
+      const r0 = 1.4 + a * 1.3, r1 = r0 + 3.4;
+      g.lineBetween(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    }
+    c.add([g, head, nm]);
+    // einblenden: leicht von links hereingleiten, am Zeichen leuchtet es kurz auf
+    this.tweens.killTweensOf(c);
+    this.tweens.killTweensOf(this.dexGlow);
+    c.setAlpha(0).setX(-6);
+    this.dexGlow.setPosition(22 + cx + 8, 22 + cy).setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, x: 22, duration: 700, ease: 'Sine.out' });
+    this.tweens.add({ targets: this.dexGlow, alpha: 0.5, duration: 600, delay: 250, yoyo: true, hold: 120, ease: 'Sine.inOut' });
+    audio.sfx('entry');
+    const crowded = this.dexQueue.length > 0;
+    this.time.delayedCall(700 + (crowded ? 1700 : 3600), () => {
       this.tweens.add({
-        targets: this.dexC,
+        targets: c,
         alpha: 0,
-        duration: 450,
+        y: 16,
+        duration: 700,
+        ease: 'Sine.in',
         onComplete: () => {
+          c.setY(22);
           this.dexBusy = false;
           this.nextDex();
         },
@@ -374,28 +331,8 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
-  /** Während des Schreibens: Namen Buchstabe für Buchstabe zeigen, die Hand läuft mit und zieht eine Tintenlinie. */
-  private writeStep() {
-    const w = this.dexWrite;
-    if (!w.name) return;
-    const n = Math.ceil(w.u * w.name.length);
-    const shown = w.name.slice(0, n);
-    if (this.dexName.text !== shown) this.dexName.setText(shown);
-    const t = this.dexName;
-    const tipX = t.x + (shown ? t.width : 0) + 4;
-    const tipY = t.y + 27 + Math.sin(this.time.now / 55) * 1.6;
-    if (w.on || w.u < 1) {
-      this.dexHand.setVisible(true).setPosition(tipX, tipY + (w.u >= 1 ? 4 : 0)).setRotation(Math.sin(this.time.now / 90) * 0.05);
-      // eine dünne Tintenlinie unter dem Geschriebenen
-      this.dexInk.clear();
-      this.dexInk.lineStyle(1.6, 0xe6dcc4, 0.55);
-      this.dexInk.lineBetween(18, t.y + 31, tipX, t.y + 31);
-    } else this.dexHand.setVisible(false);
-  }
-
   update(time: number, dms: number) {
     const dt = Math.min(0.05, dms / 1000);
-    if (this.dexBusy) this.writeStep();
     const ease = (cur: number, to: number, k: number) => cur + (to - cur) * Math.min(1, dt * k);
 
     // Verletzung: alle vier Bildränder färben sich rot, ab einem gewissen Punkt schlägt das Herz hörbar
@@ -412,14 +349,6 @@ export class HudScene extends Phaser.Scene {
     this.edgeV.setAlpha(Math.min(1, this.hurtA * 0.7 + beat * 0.25));
 
     // Hunger: Es gibt keinen Balken – der Magen knurrt, das Bild wird dunkler
-    if (this.food < 0.3 && !this.hungerNoted) {
-      this.hungerNoted = true;
-      this.story('Dein Magen knurrt.');
-    } else if (this.food > 0.5) this.hungerNoted = false;
-    if (this.food < 0.12 && !this.weakNoted) {
-      this.weakNoted = true;
-      this.story('Der Hunger macht dich schwach.');
-    } else if (this.food > 0.3) this.weakNoted = false;
     const hunger = this.food < 0.3 ? (0.3 - this.food) / 0.3 : 0;
     const starving = this.food <= 0.02 ? 0.12 + Math.sin(time / 600) * 0.08 : 0;
     this.hungerA = ease(this.hungerA, hunger * 0.65 + starving, 2);
@@ -433,27 +362,9 @@ export class HudScene extends Phaser.Scene {
     this.tabletView?.update(dt);
   }
 
-  /** Ein großer Räuber hat dich entdeckt. */
-  private announce(name: string) {
-    const c = this.add.container(W / 2, H / 2 - 110).setDepth(20);
-    const t1 = title(this, 0, 0, name, 56, '#c8473a').setOrigin(0.5);
-    const line = this.add.rectangle(0, 40, 420, 2, 0x8a2a20, 0.8);
-    c.add([t1, line]);
-    c.setAlpha(0).setScale(1.12);
-    this.tweens.add({ targets: c, alpha: 1, scale: 1, duration: 600, ease: 'Sine.out' });
-    this.tweens.add({ targets: c, alpha: 0, delay: 2600, duration: 900, onComplete: () => c.destroy() });
-  }
-
-  /** Der Schädel ist hart genug: Ab jetzt kann man gezielt rammen. */
+  /** Der Schädel ist hart genug: Ab jetzt kann man gezielt rammen (ein Ton, bei Touch erscheint der Knopf). */
   private ramUnlocked() {
     audio.sfx('evolve');
-    const c = this.add.container(W / 2, H / 2 + 150).setDepth(20);
-    const t1 = title(this, 0, 0, 'Harter Schädel', 34, UI.ochre).setOrigin(0.5);
-    const t2 = text(this, 0, 40, this.isTouch ? 'Neu: Rammen – mit dem Knopf „Stoß“' : 'Neu: Stoßen – Taste R', 22, UI.bone, { stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5);
-    c.add([t1, t2]);
-    c.setAlpha(0);
-    this.tweens.add({ targets: c, alpha: 1, duration: 700 });
-    this.tweens.add({ targets: c, alpha: 0, delay: 5200, duration: 1200, onComplete: () => c.destroy() });
     if (this.isTouch) this.ramButton();
   }
 

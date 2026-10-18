@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEBUG, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
+import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { tabletTextures } from '../art/tabletArt';
 import { mapTextures } from '../art/mapArt';
@@ -23,6 +24,7 @@ export class BootScene extends Phaser.Scene {
       tabletTextures(this);
       mapTextures(this);
       decorTextures(this);
+      lifeTextures(this);
       const q = new URLSearchParams(location.search);
       this.scene.start(DEBUG && q.has('gallery') ? 'Gallery' : 'Title');
     });

@@ -8,10 +8,8 @@ import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 
 const PAGES = [
   'Vor 470 Millionen Jahren ist die Erde fast nur Wasser.',
-  'Im Dunkel der Urmeere kämpft alles Leben ums Überleben.\nFressen – oder gefressen werden.',
+  'Im Dunkel der Urmeere regt sich das erste Leben.',
   'Du bist ein kleiner Urfisch.\nEiner von wenigen deiner Art.',
-  'Jedes Zeitalter dauert Jahrmillionen.\nÜberlebe es – egal wie.',
-  'Stirbst du, endet deine Linie.\nDoch jeder Versuch wird ein Ast im Stammbaum des Lebens.',
 ];
 
 export class IntroScene extends Phaser.Scene {

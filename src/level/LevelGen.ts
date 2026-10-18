@@ -2,7 +2,8 @@ import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
 import { gateKind, placeOf, SHAPE_OF, shellId, type CaveKind, type GateKind, type PlaceDef, type ZoneDef } from '../data/world';
-import { DECOR, HEAL, TOXIC } from '../art/worldArt';
+import { HEAL, TOXIC } from '../art/worldArt';
+import { pickBio } from '../data/biota';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 import { archRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
@@ -31,6 +32,14 @@ export interface RoeSpot {
   own: boolean;
 }
 
+/** Eine Mikrobenmatte auf dem Boden von x0 bis x1; tone: 0 olivgrün, 1 purpurbraun, 2 rosa, 3 ocker. */
+export interface MatSpec {
+  x0: number;
+  x1: number;
+  tone: number;
+  seed: number;
+}
+
 export interface Decor {
   k: string;
   x: number;
@@ -53,6 +62,8 @@ export interface LevelData {
   /** Felsen auf dem Boden (die kleinen sind nur Kiesel ohne Hitbox) und große Felsen im Vordergrund, hinter denen man schwimmen kann */
   rocks: RockSpec[];
   fore: RockSpec[];
+  /** Mikrobenmatten: dünne, farbige Beläge auf Sand und Schlamm (werden in den Boden gemalt) */
+  mats: MatSpec[];
   platforms: Rect[];
   hazards: Rect[];
   /** fressbare Pflanzen (v = Art) */
@@ -120,6 +131,7 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     terrain: { hp: [], zones: [] },
     rocks: [],
     fore: [],
+    mats: [],
     platforms: [],
     hazards: [],
     plants: [],
@@ -314,8 +326,6 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   const rows = 31 + extra;
   const L = base(ep, 'water', cols * T, rows * T);
   L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
-  // (die kleinen Deko-Steine fallen weg: Felsen und Kiesel gibt es jetzt richtig, siehe placeRocks)
-  const kinds = (ep.reef ? ['shell', 'seaweed', 'coral', 'coral', 'sponge', 'anemone'] : DECOR.ozean).filter((k) => k !== 'rock');
   // Man kommt links an, aber nicht am Rand – zurück zur Karte geht es bewusst am Ende
   const startCol = Math.round(cols * 0.16);
   L.startCol = startCol;
@@ -395,7 +405,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   const arrCol = arrive ? Math.floor(arrive.x / T) : startCol;
   // Felsen und Kiesel – nicht dort, wo man ankommt
   placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], [(arrCol - 9) * T, (arrCol + 9) * T]], riverEndCol);
-  dressGround(L, ep, place, r, G, kinds, riverEndCol);
+  placeMats(L, place, r, G, riverEndCol);
+  dressGround(L, ep, place, r, G, riverEndCol);
   placeShells(L, ep, place, r, G, startCol);
   // am Start (im Fluss) ist es still: Tiere gibt es erst weiter draußen im Meer
   placeFauna(L, ep, place, r, G, arrCol, riverEndCol ? riverEndCol + 12 : 4);
@@ -505,8 +516,32 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   }
 }
 
+/** Mikrobenmatten: dünne, farbige Beläge auf Sand und Schlamm – am meisten im trüben Flachwasser, kaum in der Tiefe. */
+function placeMats(L: LevelData, place: PlaceDef, r: Rng, G: Ground, riverEndCol: number) {
+  const cols = G.heights.length;
+  const zones = L.terrain.zones;
+  const k = place.kind === 'murky' ? 1.3 : place.kind === 'lush' ? 1 : place.kind === 'start' ? 0.8 : place.kind === 'deep' ? 0.6 : 0.25;
+  const want = Math.round((cols / 14) * k);
+  // olivgrün (Cyanobakterien) überall, purpurbraun und rosa (Schwefelbakterien) eher trüb und tief, ocker im Flachen
+  const tones = place.kind === 'murky' || place.kind === 'deep' || place.kind === 'abyss' ? [0, 1, 1, 2, 3] : [0, 0, 0, 3, 2];
+  for (let n = 0, tries = 0; n < want && tries < want * 14; tries++) {
+    const x0 = 100 + r() * (cols * T - 700);
+    const w = 150 + r() * 300;
+    const x1 = x0 + w;
+    const m = matAt(zones, x0 + w / 2);
+    if (m === 'rock' && r() < 0.85) continue;
+    if (x0 < riverEndCol * T && x1 > riverEndCol * T) continue;
+    if (L.caves.some((c) => x1 > c.x - T && x0 < c.x + c.w + T) || L.crevices.some((c) => x1 > c.x - T && x0 < c.x + c.w + T)
+      || L.gates.some((g) => g.kind === 'floor' && x1 > g.x - T && x0 < g.x + g.w + T)) continue;
+    if (L.solids.some((s) => s.x < x1 && s.x + s.w > x0 && s.y < G.at(s.x + s.w / 2) - 8)) continue;
+    if (G.flat(x0, x1) > 40 || L.mats.some((q) => x0 < q.x1 + 40 && x1 > q.x0 - 40)) continue;
+    L.mats.push({ x0, x1, tone: tones[Math.floor(r() * tones.length)], seed: Math.floor(r() * 1e9) });
+    n++;
+  }
+}
+
 /** Bewuchs auf dem Boden: Deko, fressbare Pflanzen und Dickicht – nicht in Tunneln, an Durchgängen und auf oder hinter Felsen. */
-function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, kinds: string[], riverEndCol: number) {
+function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, riverEndCol: number) {
   const cols = G.heights.length;
   const z = place.def;
   const lush = place.kind === 'lush';
@@ -517,13 +552,20 @@ function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
     && !L.gates.some((g) => g.kind === 'floor' && x + w > g.x - T && x - w < g.x + g.w + T)
     && !L.solids.some((s) => x + w > s.x && x - w < s.x + s.w && s.y < G.at(x) - 8)
     && !L.fore.some((f) => Math.abs(x - f.x) < f.rx * 0.95 + w);
-  // bewachsene Orte: dichter und mit viel Tang
+  // Wer hier lebt, hängt vom Ort, vom Zeitalter und vom Untergrund ab (data/biota.ts); manche wachsen in kleinen Gruppen
   for (let c = 0; c < cols; c += rint(r, 1, 2)) {
-    const m = matAt(zones, (c + 0.5) * T);
-    if (r() >= (lush ? 1 : 0.85) * (m === 'rock' ? 0.8 : 1)) continue;
     const x = (c + 0.25 + r() * 0.5) * T;
+    const m = matAt(zones, x);
+    if (r() >= (lush ? 1 : 0.85) * (m === 'rock' ? 0.85 : 1)) continue;
     if (!free(x, 6)) continue;
-    L.decor.push({ k: lush && r() < 0.6 ? pick(r, ['seaweed', 'kelp', 'seagrass', 'seaweed']) : pick(r, kinds), x, y: G.at(x) + 6 });
+    const b = pickBio(r, place.kind, ep.id, m, !!ep.reef);
+    if (!b) continue;
+    const n = b.group ? rint(r, b.group[0], b.group[1]) : 1;
+    for (let i = 0; i < n; i++) {
+      const gx = i ? x + (r() < 0.5 ? -1 : 1) * (9 + r() * 22) * i : x;
+      if (i && (!free(gx, 6) || G.flat(gx - 10, gx + 10) > 30)) continue;
+      L.decor.push({ k: b.key, x: gx, y: G.at(gx) + 6 });
+    }
   }
   for (let x0 = 0; x0 < cols;) {
     const n = rint(r, 5, 9);

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
-import type { LevelData } from '../level/LevelGen';
+import type { LevelData, MatSpec } from '../level/LevelGen';
 import { groundCurve, rockBottom, rockOutline, type Material, type Poly, type RockSpec, type TerrainZone } from '../level/terrain';
 import { css, mix, shade } from '../util/color';
 import { type Ctx, addTex, newCanvas, smooth, vgrad } from '../util/canvas';
@@ -11,6 +11,7 @@ import { innerShade, pattern, softShadow, type NoiseKind } from './paint';
 // (weich ineinander übergehend), nach unten dunkler werdend. Felsen sind eigene Bilder – mit Schatten, Schichten, Rissen und
 // Sand am Fuß. Die Hitboxen (Rechtecke) stehen in LevelData; hier geht es nur um das Bild.
 
+const TAU = Math.PI * 2;
 const CHUNK = 640;
 /** Wie tief das gemalte Bodenstück unter die Oberfläche reicht (darunter liegt eine einfarbige Fläche). */
 const SKIN = 190;
@@ -198,6 +199,86 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
 }
 
 // ---------------------------------------------------------------------------
+// Mikrobenmatten
+
+const MAT_TONES = [
+  { base: 0x5f6e30, light: 0x94a65a, dark: 0x2c3818 }, // olivgrün
+  { base: 0x66485a, light: 0x9c7288, dark: 0x30202c }, // purpurbraun
+  { base: 0x9a6860, light: 0xd29c90, dark: 0x4a2e2a }, // rosa
+  { base: 0xa08a40, light: 0xdac672, dark: 0x4a3e18 }, // ocker
+];
+
+/** Eine Matte: ein dünner, runzliger Belag, der der Bodenlinie folgt – an den Rändern auslaufend, mit Gasbläschen. */
+function paintMat(ctx: Ctx, hp: number[], m: MatSpec) {
+  const q = mulberry32(m.seed);
+  const t = MAT_TONES[m.tone % MAT_TONES.length];
+  const n = Math.ceil((m.x1 - m.x0) / 4);
+  const top: number[][] = [], bot: number[][] = [], thick: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const x = m.x0 + (m.x1 - m.x0) * (i / n);
+    const taper = Math.pow(Math.sin((i / n) * Math.PI), 0.55);
+    const th = Math.max(0.5, (3 + 2.2 * Math.sin(x * 0.17 + (m.seed % 97)) + 1.4 * Math.sin(x * 0.43)) * taper);
+    const y = groundCurve(hp, x);
+    top.push([x, y - th]);
+    bot.push([x, y + 4.5 * taper + 0.6]);
+    thick.push(th);
+  }
+  ctx.beginPath();
+  top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  for (let i = bot.length - 1; i >= 0; i--) ctx.lineTo(bot[i][0], bot[i][1]);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(m.x0, 0, m.x1, 0);
+  g.addColorStop(0, css(t.base, 0.2));
+  g.addColorStop(0.12, css(t.base, 0.92));
+  g.addColorStop(0.5, css(mix(t.base, t.light, 0.35), 0.95));
+  g.addColorStop(0.88, css(t.base, 0.92));
+  g.addColorStop(1, css(t.base, 0.2));
+  ctx.fillStyle = g;
+  ctx.fill();
+  // Runzeln: kurze helle Striche quer zur Matte, dazwischen dunkle Fugen
+  for (let i = 3; i < n - 2; i += 2 + Math.floor(q() * 3)) {
+    const [x, y] = top[i];
+    ctx.beginPath();
+    ctx.moveTo(x, y + 0.6);
+    ctx.lineTo(x + (q() - 0.5) * 3, y + 0.6 + thick[i] * 0.9 + 1.5);
+    ctx.strokeStyle = css(t.dark, 0.32);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 1.4, y + 0.3);
+    ctx.lineTo(x + 1.8, y + 1.3);
+    ctx.strokeStyle = css(t.light, 0.5);
+    ctx.stroke();
+  }
+  // der obere Rand: heller Saum
+  ctx.beginPath();
+  top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.strokeStyle = css(t.light, 0.7);
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  // Gasbläschen: Sauerstoff, den die Mikroben abgeben, hebt den Belag zu kleinen Blasen
+  for (let i = 6; i < n - 5; i += 8 + Math.floor(q() * 10)) {
+    if (q() < 0.35) continue;
+    const [x, y] = top[i];
+    const r = 1.8 + q() * 2.6;
+    ctx.beginPath();
+    ctx.ellipse(x, y - r * 0.2, r * 1.15, r, 0, Math.PI, TAU);
+    ctx.lineTo(x + r * 1.15, y + 0.8);
+    ctx.lineTo(x - r * 1.15, y + 0.8);
+    ctx.closePath();
+    ctx.fillStyle = css(mix(t.base, t.light, 0.6), 0.9);
+    ctx.fill();
+    ctx.strokeStyle = css(t.dark, 0.5);
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x - r * 0.35, y - r * 0.65, r * 0.28, 0, TAU);
+    ctx.fillStyle = 'rgba(255,255,240,0.55)';
+    ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bodenstücke
 
 export interface ArtPiece {
@@ -219,9 +300,10 @@ export interface TerrainArt {
 }
 
 /** Ein kleines Rauschbild, nur der Maske wegen: in Zonen eines Materials 1, sonst 0, an den Rändern weich. */
-function maskGradient(ctx: Ctx, gx0: number, gx1: number, zones: TerrainZone[], mats: Material[]) {
-  const g = ctx.createLinearGradient(gx0, 0, gx1, 0);
-  const at = (x: number) => Math.max(0, Math.min(1, (x - gx0) / (gx1 - gx0)));
+function maskGradient(ctx: Ctx, width: number, zones: TerrainZone[], mats: Material[]) {
+  // der Verlauf liegt über der ganzen Breite des Ortes, damit er an den Stückgrenzen nahtlos weiterläuft
+  const g = ctx.createLinearGradient(0, 0, width, 0);
+  const at = (x: number) => Math.max(0, Math.min(1, x / width));
   const stops: [number, number][] = [];
   for (const z of zones) {
     const a = mats.includes(z.kind) ? 1 : 0;
@@ -258,7 +340,7 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
   ctx.translate(-gx0, -oy);
   const deep = deepColor(theme, variant);
   const mats = { sand: colors(theme, variant, 'sand'), rock: colors(theme, variant, 'rock'), mud: colors(theme, variant, 'mud') };
-  const at = (x: number) => Math.max(0, Math.min(1, (x - gx0) / (gx1 - gx0)));
+  const at = (x: number) => Math.max(0, Math.min(1, x / L.width));
 
   // Grundfarbe: Streifen entlang der Höhenlinie (von oben nach unten übermalt: Jeder tiefere Streifen deckt nur noch den Rest ab),
   // je tiefer, desto dunkler; waagerecht gehen die Materialien ineinander über
@@ -271,7 +353,7 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
   };
   for (let d = 0; d <= SKIN; d += 5) {
     const u = d / SKIN;
-    const g = ctx.createLinearGradient(gx0, 0, gx1, 0);
+    const g = ctx.createLinearGradient(0, 0, L.width, 0);
     const stops: [number, number][] = [];
     for (const z of zones) {
       const c = depthColor(mats[z.kind], deep, u);
@@ -299,7 +381,7 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
     tk.fillStyle = pattern(tk, kind, scale);
     tk.fillRect(gx0, oy, w, h);
     tk.globalCompositeOperation = 'destination-in';
-    tk.fillStyle = maskGradient(tk, gx0, gx1, zones, on);
+    tk.fillStyle = maskGradient(tk, L.width, zones, on);
     tk.fillRect(gx0, oy, w, h);
     // mit der Tiefe verschwindet die Struktur
     tk.globalCompositeOperation = 'destination-out';
@@ -396,6 +478,24 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
       }
     }
   }
+  // geschichtetes Sediment: feine, leicht wellige Lagen parallel zur Oberfläche (im Sand und im Schlamm, nicht im Fels)
+  for (const [d, a, lightLine] of [[13, 0.07, true], [25, 0.1, false], [39, 0.07, true], [56, 0.09, false]] as const) {
+    ctx.beginPath();
+    let on = false;
+    for (let x = gx0; x <= gx1; x += 8) {
+      if (matAt(x) === 'rock') {
+        on = false;
+        continue;
+      }
+      const y = groundCurve(hp, x) + d + Math.sin(x * 0.045 + d) * 1.8;
+      if (on) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+      on = true;
+    }
+    ctx.strokeStyle = lightLine ? `rgba(255,244,214,${a})` : `rgba(0,0,0,${a})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
   // Licht von oben: ein heller Saum entlang der Oberfläche, darunter ein weicher Schatten – so wölbt sich der Boden
   const edge = () => {
     ctx.beginPath();
@@ -421,6 +521,8 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
   ctx.strokeStyle = 'rgba(6,10,10,0.6)';
   ctx.lineWidth = 1.6;
   ctx.stroke();
+  // Mikrobenmatten liegen obenauf
+  for (const m of L.mats) if (m.x1 > gx0 && m.x0 < gx1) paintMat(ctx, hp, m);
   // Kiesel auf dem Boden
   const look: RockLook = { theme, variant };
   for (const p of pebbles) if (p.x >= x0 - 10 && p.x < x1 + 10) paintRock(ctx, p, look);

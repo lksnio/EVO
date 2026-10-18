@@ -47,8 +47,6 @@ export interface PlaceDef {
   y: number;
   /** Wege zu anderen Orten */
   links: string[];
-  /** ein Satz zum Ort (steht auf der Karte, sagt aber nicht alles) */
-  blurb: string;
   def: ZoneDef;
   /** zusätzliche Tiefe in Kacheln (die Grundtiefe ist 31 Kacheln) */
   deep: number;
@@ -77,7 +75,6 @@ interface RoleDef {
   shape: PlaceShape;
   /** Nachbarn: Zu jedem führt im Ort ein Durchgang (Tor) */
   links: Role[];
-  blurb: string;
   deep: number;
   wide: number;
   shells: number;
@@ -94,16 +91,16 @@ interface RoleDef {
  * Ort frei und sieht ihn danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
  */
 const ROLES: Record<Role, RoleDef> = {
-  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], blurb: 'Hier schlüpfst du. Der Fluss trägt dich ins Meer.', deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
-  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], blurb: 'Dichtes Grün. Hier gibt es viel zu fressen.', deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
-  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], blurb: 'Weiche Wiesen im Licht, dazwischen stille Mulden.', deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
-  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], blurb: 'Trübes Wasser. Man sieht kaum die eigene Flosse.', deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
-  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], blurb: 'Flach und trüb, der Grund voller Sand. Hier verliert sich vieles.', deep: 6, wide: 3.2, shells: 1, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
-  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], blurb: 'Das Wasser fällt steil ab. Tief unten wartet etwas.', deep: 60, wide: 2.8, shells: 2, caves: [], sun: 3 },
-  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], blurb: 'Zerklüftete Hänge, Schatten zwischen den Felsen.', deep: 42, wide: 3, shells: 1, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
-  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], blurb: 'Ein enger Schacht, der immer weiter hinabführt.', deep: 70, wide: 2.6, shells: 2, caves: ['b'], sun: 2 },
-  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], blurb: 'Kein Licht erreicht diesen Grund.', deep: 80, wide: 2.6, shells: 2, caves: [], sun: 2, apex: true },
-  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], blurb: 'Stille. Und etwas, das atmet.', deep: 90, wide: 2.4, shells: 2, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
+  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
+  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
+  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
+  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
+  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], deep: 6, wide: 3.2, shells: 1, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
+  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], deep: 60, wide: 2.8, shells: 2, caves: [], sun: 3 },
+  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], deep: 42, wide: 3, shells: 1, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
+  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], deep: 70, wide: 2.6, shells: 2, caves: ['b'], sun: 2 },
+  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], deep: 80, wide: 2.6, shells: 2, caves: [], sun: 2, apex: true },
+  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], deep: 90, wide: 2.4, shells: 2, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
 };
 
 /** Zone nach Art des Ortes. veils = Farbe des Schleiers für bewachsene und trübe Orte. */
@@ -154,7 +151,7 @@ function buildPlaces(epId: string): PlaceDef[] {
     def.hunters *= spec.hunters;
     const [x, y] = PALEO[epId].nodes[r];
     return {
-      id, name, kind: d.kind, x, y, links: d.links.map(idOf), blurb: d.blurb, def,
+      id, name, kind: d.kind, x, y, links: d.links.map(idOf), def,
       deep: d.deep, wide: d.wide, shells: r === 'start' ? spec.startShells : d.shells, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun,
     };
   });

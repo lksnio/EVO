@@ -5,6 +5,7 @@ import { type Ctx, ell, fillStroke, newCanvas, rgrad, smooth, tex, vgrad, wrapX 
 import { mulberry32, type Rng } from '../util/math';
 import { W, H } from '../config';
 import { noiseTex, pattern } from './paint';
+import { LIFE_SWAY } from './lifeArt';
 
 /** Größe der Fleischstücke (Breite, Höhe in Pixeln): klein, mittel, groß */
 export const MEAT_SIZES: [number, number][] = [[32, 22], [42, 29], [56, 38]];
@@ -1322,7 +1323,7 @@ export const SILHOUETTE: Record<Theme, string[]> = {
 };
 
 /** Diese Pflanzen wiegen sich (in der Strömung bzw. im Wind). */
-export const SWAYS = new Set(['seaweed', 'kelp', 'seagrass', 'anemone', 'seafan', 'reed', 'horsetail', 'tallgrass', 'grass', 'flowers', 'fern']);
+export const SWAYS = new Set(['seaweed', 'kelp', 'seagrass', 'anemone', 'seafan', 'reed', 'horsetail', 'tallgrass', 'grass', 'flowers', 'fern', ...Object.keys(LIFE_SWAY)]);
 
 export function decorTextures(scene: Phaser.Scene) {
   const T = (k: string, w: number, h: number, fn: (ctx: Ctx, w: number, h: number) => void) => tex(scene, 'd2_' + k, w, h, fn);

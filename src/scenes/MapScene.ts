@@ -34,7 +34,6 @@ export class MapScene extends Phaser.Scene {
   private fish!: CreatureView;
   private moving = false;
   private infoName!: Phaser.GameObjects.Text;
-  private infoBlurb!: Phaser.GameObjects.Text;
   private infoState!: Phaser.GameObjects.Text;
   private tablet?: TabletScreen;
   private rest?: Phaser.GameObjects.Container;
@@ -151,7 +150,6 @@ export class MapScene extends Phaser.Scene {
 
     // Überschrift und Auskunft
     title(this, 86, 40, this.ep.name.toUpperCase(), 30, UI.ochre).setOrigin(0, 0.5).setLetterSpacing(3).setDepth(9);
-    text(this, 88, 72, this.isNew ? 'Du hast einen neuen Ort entdeckt.' : this.toId ? 'Du schwimmst weiter …' : 'Die Karte', 18, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0, 0.5).setDepth(9);
     this.buildInfo();
     this.setFocus(this.focus);
 
@@ -202,18 +200,16 @@ export class MapScene extends Phaser.Scene {
 
   private buildInfo() {
     const c = this.add.container(W / 2, H - 46).setDepth(12);
-    c.add(panel(this, -360, -38, 720, 76, 0.88, UI.stone));
-    this.infoName = title(this, -336, -14, '', 24, UI.bone).setOrigin(0, 0.5);
-    this.infoBlurb = text(this, -336, 16, '', 18, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0, 0.5);
-    this.infoState = text(this, 336, -14, '', 16, UI.ochre).setOrigin(1, 0.5);
-    c.add([this.infoName, this.infoBlurb, this.infoState]);
+    c.add(panel(this, -360, -26, 720, 52, 0.88, UI.stone));
+    this.infoName = title(this, -336, 0, '', 24, UI.bone).setOrigin(0, 0.5);
+    this.infoState = text(this, 336, 0, '', 16, UI.ochre).setOrigin(1, 0.5);
+    c.add([this.infoName, this.infoState]);
   }
 
   private setFocus(p: PlaceDef) {
     this.focus = p;
     const seen = game.prog.seen.includes(p.id);
     this.infoName.setText(p.name);
-    this.infoBlurb.setText(p.blurb);
     this.infoState.setText(p.id === this.cur.id && !this.toId ? 'Hier bist du' : this.isNew ? 'Neu entdeckt' : seen ? 'Schon besucht' : '');
   }
 

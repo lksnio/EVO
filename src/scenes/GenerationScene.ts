@@ -263,17 +263,14 @@ export class GenerationScene extends Phaser.Scene {
   /** Der Endgegner lebt noch: Die Linie bleibt im Zeitalter – eine Generation später geht es weiter. */
   private generationPass() {
     const d = this.d;
-    const ep = EPOCHS[d.epoch];
     const span = game.epochSpan(d.epoch);
     const head = title(this, W / 2, 150, 'Eine neue Generation …', 38).setOrigin(0.5);
     const clock = text(this, W / 2, 214, yearsAgo(span.from, 1e4), 26, UI.bone).setOrigin(0.5);
-    const line = text(this, W / 2, 252, `Noch immer ${ep.name}. ${d.boss ?? 'Der Herrscher dieser Zeit'} lebt – werde stark genug.`, 20, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5);
     this.fadeInAll([head, clock], 0, 1, 600);
-    this.fadeInAll([line], 500, 1, 700);
     audio.sfx('evolve');
     const gy = 540, scale = 1.8;
     const [v1, b1] = this.creature(this.look({ traits: this.after() }), W / 2, gy, scale);
-    const parts: GO[] = [head, clock, line, v1, b1];
+    const parts: GO[] = [head, clock, v1, b1];
     this.fadeInAll([v1, b1], 200, 1, 700);
     this.time.delayedCall(3400, () => {
       this.tweens.add({

@@ -102,7 +102,6 @@ export class TreeScene extends Phaser.Scene {
 
     // Kopfzeile
     title(this, 30, 20, 'Stammbaum des Lebens', 32);
-    text(this, 32, 62, 'Jedes Spiel ist ein Ast. Nach unten vergeht die Zeit.', 17, UI.boneDim, { fontStyle: 'italic' });
 
     // Infotafel rechts
     const pg = this.add.graphics();
@@ -414,14 +413,9 @@ export class TreeScene extends Phaser.Scene {
     const t1 = title(this, W / 2, 150, 'Deine Linie ist ausgestorben.', 42, '#c8473a').setOrigin(0.5).setAlpha(0);
     const t2 = text(this, W / 2, 460, `${ep.name} · ${yearsAgo(d.years, 1e4)}`, 22, UI.bone).setOrigin(0.5).setAlpha(0);
     const t3 = text(this, W / 2, 496, `Ursache: ${d.cause}`, 19, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    const t4 = text(this, W / 2, 590, 'Doch dein Versuch bleibt – als Ast im Stammbaum des Lebens.', 20, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    c.add([t1, t2, t3, t4]);
+    c.add([t1, t2, t3]);
     this.tweens.add({ targets: t1, alpha: 1, duration: 1200 });
     this.tweens.add({ targets: [t2, t3], alpha: 1, duration: 1000, delay: 1100 });
-    this.tweens.add({ targets: t4, alpha: 1, duration: 1000, delay: 2600 });
-    const hint = text(this, W / 2, H - 36, 'Weiter mit Klick oder Enter', 15, UI.boneDim).setOrigin(0.5).setAlpha(0);
-    c.add(hint);
-    this.tweens.add({ targets: hint, alpha: 0.7, duration: 800, delay: 3600 });
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
     this.input.keyboard!.once('keydown', () => this.closeOverlay());
@@ -435,7 +429,6 @@ export class TreeScene extends Phaser.Scene {
     const glow = this.add.image(W / 2, H / 2 - 40, 'glow').setScale(7).setTint(0xffe2a8).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD);
     c.add(glow);
     c.add(title(this, W / 2, H / 2 - 60, 'Deine Linie hat die Fischzeit überstanden.', 36, '#f0e2c0').setOrigin(0.5));
-    c.add(text(this, W / 2, H / 2, 'Ein Ast, der bis zum Ende der Demo reicht.', 21, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5));
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
     this.input.keyboard!.once('keydown', () => this.closeOverlay());
