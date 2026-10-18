@@ -75,6 +75,16 @@ export class GenerationScene extends Phaser.Scene {
     return game.morph({ cls: o.cls ?? d.cls, traits: o.traits ?? d.traits, hue: d.look.hue, seed: o.seed ?? d.look.seed, sex: o.sex ?? d.look.sex, fierce: 0 });
   }
 
+  /**
+   * So sieht das Tier nach der Verwandlung aus. Verwandelt wird nur ein einziges Mal je Zeitalter: auf dem ersten Bild
+   * ("Einst" → "Heute"). Danach bleibt die neue Gestalt, wie sie ist. Wechselt auch die Körperform (Fisch → Lurch), ist
+   * das die Verwandlung – dann zeigt der erste Bildschirm noch die alte Gestalt.
+   */
+  private after() {
+    const d = this.d;
+    return d.transition ? d.traits : d.drifted ?? d.traits;
+  }
+
   /** Ein Tier auf einem Felssockel (an Land) bzw. schwebend mit Schatten (im Wasser). */
   private creature(m: Morph, x: number, groundY: number, scale: number): [CreatureView, Phaser.GameObjects.Image] {
     const land = m.cls !== 'fish';
@@ -111,7 +121,7 @@ export class GenerationScene extends Phaser.Scene {
     this.fadeInAll([head, sub], 0);
 
     const mBefore = this.look({ traits: d.before });
-    const mNow = this.look();
+    const mNow = this.look({ traits: this.after() });
     const changed = morphKey(mBefore) !== morphKey(mNow);
     const gy = 430, scale = 2;
     const [left, lb] = this.creature(mBefore, W * 0.27, gy, scale);
@@ -133,6 +143,10 @@ export class GenerationScene extends Phaser.Scene {
     this.fadeInAll(kinViews, 1300, 0.55);
     this.fadeInAll([right, rb, rt], 1500);
     this.fadeInAll([arrow], 1200, 0.8, 600);
+    // die Verwandlung: ein warmes Aufleuchten hinter dem neuen Tier
+    const glow = this.add.image(W * 0.73, gy - 70, 'glow').setScale(3.6).setTint(0xe6d0a0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+    if (changed) this.tweens.add({ targets: glow, alpha: 0.45, duration: 700, delay: 1450, yoyo: true, hold: 300 });
+    this.group.push(glow);
     this.tweens.add({ targets: arrow, x: W / 2 + 10, yoyo: true, repeat: -1, duration: 900, delay: 1800, ease: 'Sine.inOut' });
 
     const k = d.kinAlive;
@@ -213,23 +227,11 @@ export class GenerationScene extends Phaser.Scene {
     this.fadeInAll([head, clock], 0, 1, 600);
     audio.sfx('evolve');
 
-    // dein Tier, während die Zeit vergeht
-    const mNow = this.look({ traits: d.traits });
-    const mLater = d.drifted ? this.look({ traits: d.drifted }) : mNow;
+    // dein Tier, während die Zeit vergeht – schon in der neuen Gestalt (die Verwandlung war auf dem Bild davor)
     const gy = 520, scale = 1.8;
-    const [v1, b1] = this.creature(mNow, W / 2, gy, scale);
+    const [v1, b1] = this.creature(this.look({ traits: this.after() }), W / 2, gy, scale);
     const parts: GO[] = [v1, b1];
     this.fadeInAll([v1, b1], 200, 1, 700);
-    if (morphKey(mLater) !== morphKey(mNow)) {
-      const [v2] = this.creature(mLater, W / 2, gy, scale);
-      v2.setAlpha(0);
-      parts.push(v2);
-      const glow = this.add.image(W / 2, gy - 70, 'glow').setScale(3.4).setTint(0xe6d0a0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-      parts.push(glow);
-      this.tweens.add({ targets: glow, alpha: 0.4, duration: 900, delay: 900, yoyo: true, hold: 600 });
-      this.tweens.add({ targets: v1, alpha: 0, duration: 1100, delay: 1300 });
-      this.tweens.add({ targets: v2, alpha: 1, duration: 1100, delay: 1300 });
-    }
 
     const c = { y: t0 };
     this.tweens.add({
@@ -269,19 +271,10 @@ export class GenerationScene extends Phaser.Scene {
     this.fadeInAll([head, clock], 0, 1, 600);
     this.fadeInAll([line], 500, 1, 700);
     audio.sfx('evolve');
-    const mNow = this.look({ traits: d.traits });
-    const mLater = d.drifted ? this.look({ traits: d.drifted }) : mNow;
     const gy = 540, scale = 1.8;
-    const [v1, b1] = this.creature(mNow, W / 2, gy, scale);
+    const [v1, b1] = this.creature(this.look({ traits: this.after() }), W / 2, gy, scale);
     const parts: GO[] = [head, clock, line, v1, b1];
     this.fadeInAll([v1, b1], 200, 1, 700);
-    if (morphKey(mLater) !== morphKey(mNow)) {
-      const [v2] = this.creature(mLater, W / 2, gy, scale);
-      v2.setAlpha(0);
-      parts.push(v2);
-      this.tweens.add({ targets: v1, alpha: 0, duration: 1000, delay: 1100 });
-      this.tweens.add({ targets: v2, alpha: 1, duration: 1000, delay: 1100 });
-    }
     this.time.delayedCall(3400, () => {
       this.tweens.add({
         targets: parts,
@@ -312,7 +305,7 @@ export class GenerationScene extends Phaser.Scene {
     this.children.moveUp(bgNext);
     const head = title(this, W / 2, 86, 'Die Zeit vergeht …', 44).setOrigin(0.5);
     this.fadeInAll([head], 0);
-    const [from, fb] = this.creature(this.look({ cls: tr.from, traits: d.drifted }), W / 2 - 140, gy, scale);
+    const [from, fb] = this.creature(this.look({ cls: tr.from, traits: d.traits }), W / 2 - 140, gy, scale);
     const [to, tb] = this.creature(this.look({ cls: tr.to, traits: d.drifted }), W / 2, gy, scale);
     to.setAlpha(0);
     tb.setAlpha(0);

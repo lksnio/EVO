@@ -67,6 +67,13 @@ export class Player {
   private ramDir = { x: 1, y: 0 };
   /** Spurt: je länger man kräftig schlägt, desto schneller wird man (0..1) */
   private surge = 0;
+  /** Wenden (im Wasser): in diese Richtung dreht sich das Tier gerade (0 = nicht), und wie weit es schon ist (0..1) */
+  private turnDir = 0;
+  private turnT = 0;
+  /** wie oft die Richtung gewechselt wurde (für die Seitenflossen) */
+  private turnCount = 0;
+  private lastVSign = 0;
+  private lastVTurn = 0;
   /** in einer Höhle (nur die Augen sind zu sehen) */
   inCave = false;
   /** liegt still am Boden (Sandtarnung) */
@@ -249,18 +256,44 @@ export class Player {
       // Am Grund abstützen und entlanglaufen: kostet wenig Kraft; mit kräftigen Flossen geht es flott
       const floor = (b.blocked.down || b.touching.down) && dy >= 0;
       this.bottomWalk = floor && dir !== 0 && !knocked;
+      const agi = this.stats.agility;
+      // Wenden braucht Zeit: erst abbremsen, dann dreht sich das Tier, dann nimmt es in die neue Richtung Fahrt auf.
+      // Mit großen Seitenflossen (und kurzem Körper) geht es schneller.
+      if (dir !== 0 && dir !== this.facing && this.turnDir === 0 && !knocked && !this.bottomWalk) {
+        this.turnDir = dir;
+        this.turnT = 0;
+        if (Math.abs(b.velocity.x) > 0.25 * this.stats.speed) this.turnCount += 1;
+      }
+      if (this.turnDir !== 0) {
+        this.turnT += dt / (0.42 / agi);
+        if (this.turnT >= 0.5) this.facing = this.turnDir;
+        if (this.turnT >= 1) this.turnDir = 0;
+      } else if (this.bottomWalk && dir) this.facing = dir;
+      // auch ein Wechsel zwischen oben und unten ist eine Richtungsänderung (halb so viel wert)
+      const vs = dy === 0 ? 0 : Math.sign(dy);
+      if (vs !== 0) {
+        if (this.lastVSign !== 0 && vs !== this.lastVSign && time - this.lastVTurn > 450) {
+          this.lastVTurn = time;
+          this.turnCount += 0.5;
+        }
+        this.lastVSign = vs;
+      }
       if (!knocked) {
         const len = Math.hypot(dir, dy) || 1;
-        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (1 + 0.3 * this.surge) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp;
+        // mitten im Wenden: erst steht man fast still, dann zieht es in die neue Richtung
+        const gate = this.turnDir !== 0 ? clamp((this.turnT - 0.4) / 0.6, 0, 1) : 1;
+        const cruise = this.stats.cruise;
+        const upDown = dy < 0 ? this.stats.climb : dy > 0 ? this.stats.dive : 1;
+        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (1 + 0.3 * this.surge) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp * cruise * gate;
         // Ohne Steuerung steht man nie ganz still: das Wasser trägt einen leicht nach links oder rechts
         const drift = dir === 0 && dy === 0 && !floor;
         this.driftPh += dt;
         const dvx = drift ? Math.sin(this.driftPh * 0.42) * 20 + Math.sin(this.driftPh * 1.3 + 1) * 7 : 0;
         const dvy = drift ? Math.sin(this.driftPh * 0.9) * 6 : 0;
-        b.setVelocity(approach(b.velocity.x, vx + dvx, (drift ? 260 : 900) * dt), approach(b.velocity.y, (dy / len) * sp * 0.9 + (dy ? 0 : 6) + dvy, (drift ? 260 : 900) * dt));
+        const acc = (drift ? 260 : 900 * agi) * dt;
+        b.setVelocity(approach(b.velocity.x, vx + dvx, acc), approach(b.velocity.y, (dy / len) * sp * 0.9 * upDown + (dy ? 0 : 6) + dvy, acc));
         this.drifting = drift;
       }
-      if (dir) this.facing = dir;
       if (this.rect.y - b.height / 2 < this.host.surfaceY + 4 && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
       this.view.rotation = this.facing * clamp(b.velocity.y / (sp || 1), -1, 1) * 0.35;
       this.speed01 = Math.hypot(b.velocity.x, b.velocity.y) / this.stats.speed;
@@ -377,8 +410,19 @@ export class Player {
 
   private syncView(dt: number, mode: AnimMode, s01: number) {
     this.view.setPosition(this.rect.x, this.rect.y + this.offY);
-    this.view.setFacing(this.facing);
+    // beim Wenden dreht sich das Tier sichtbar (statt auf einmal umzuspringen)
+    if (this.turnDir !== 0) {
+      const k = clamp(this.turnT, 0, 1), e = k * k * (3 - 2 * k);
+      this.view.setTurn(-this.turnDir + 2 * this.turnDir * e);
+    } else this.view.setTurn(this.facing);
     this.view.animate(dt, mode, s01);
+  }
+
+  /** Wie oft seit dem letzten Aufruf die Richtung gewechselt wurde. */
+  takeTurns() {
+    const n = this.turnCount;
+    this.turnCount = 0;
+    return n;
   }
 
   /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */

@@ -160,6 +160,16 @@ export class CreatureView extends Phaser.GameObjects.Container {
     return this;
   }
 
+  /**
+   * Beim Wenden dreht sich das Tier: f läuft stetig von +1 über 0 nach -1 (oder zurück) – es schnellt nicht auf einmal herum.
+   * Das Vorzeichen bestimmt, wohin es gerade blickt.
+   */
+  setTurn(f: number) {
+    this.facing = f < 0 ? -1 : 1;
+    this.setScale(this.baseScale * this.facing * Math.max(0.1, Math.abs(f)), this.baseScale);
+    return this;
+  }
+
   get dir() {
     return this.facing;
   }

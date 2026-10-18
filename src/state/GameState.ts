@@ -81,6 +81,16 @@ export interface Traits {
   pz: number;
   jg: number;
   ff: number;
+  /**
+   * Flossen, die aus der Bewegung wachsen – und zwar erst bei der Verwandlung nach einem Zeitalter (0 … 1):
+   * wer am meisten nach oben schwamm → größere Rückenflosse und schneller nach oben; nach unten → größere Bauchflossen
+   * und schneller nach unten; viel und schnell nach vorn → kräftigere Schwanzflosse; oft die Richtung gewechselt →
+   * größere Seitenflossen und wendiger.
+   */
+  fUp: number;
+  fDown: number;
+  fSide: number;
+  fTail: number;
 }
 
 /** Wie weit ein Merkmal in einem Zeitalter höchstens durch Spielen wächst (ohne die Wahl des Nachwuchses). */
@@ -128,6 +138,12 @@ export interface Stats {
   endurance: number;
   /** Wie schnell man sich beim Treiben und Ausruhen erholt (1 = normal) */
   recover: number;
+  /** Tempo nach oben, nach unten und nach vorn (Faktoren, 1 = normal) – sie wachsen mit den Flossen */
+  climb: number;
+  dive: number;
+  cruise: number;
+  /** Wendigkeit (1 = normal): wie schnell man die Richtung wechselt */
+  agility: number;
 }
 
 /** 1 = männlich, 2 = weiblich */
@@ -150,6 +166,8 @@ export interface EpochProg {
   known: string[];
   /** von welchem Ort man gekommen ist (dort liegt der Ankunftsplatz) */
   from?: string;
+  /** über den Rand hereingeschwommen: über welche Seite man den anderen Ort verlassen hat und wie tief man war */
+  edge?: { side: 'left' | 'right'; frac: number };
   /** gelebte Sekunden in diesem Zeitalter */
   elapsed: number;
   /** schon eingetretene Ereignisse (Nummern aus der Ereignisliste) */
@@ -163,7 +181,7 @@ export interface EpochProg {
   sat?: number;
   kin?: number;
   /** was getan wurde (Beutejagd, Bodenkontakt, Rammen, Schwimmen) */
-  train: { hunt: number; ground: number; ram: number; swim: number; hide?: number; hurt?: number };
+  train: { hunt: number; ground: number; ram: number; swim: number; hide?: number; hurt?: number; up?: number; down?: number; fwd?: number; turns?: number };
 }
 
 export const newProg = (epoch: number): EpochProg => ({
@@ -262,12 +280,14 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, pz: 0, jg: 0, ff: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, digM: 0, digP: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, pz: 0, jg: 0, ff: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 const SKILLS: SkillKey[] = ['jaw', 'skull', 'stealth', 'growth', 'green', 'sand'];
 /** verborgene Anlagen – sie werden genauso weitervererbt, aber nirgends gezeigt */
 const HIDDEN = ['digM', 'digP', 'nerve', 'tox', 'fang', 'limb', 'pack'] as const;
+/** Merkmale, die man dem Tier ansieht und die sich nur bei der Verwandlung nach einem Zeitalter ändern. */
+const LOOK_KEYS: (keyof Traits)[] = ['jaw', 'skull', 'stealth', 'diet', 'spike', 'green', 'sand', 'len', 'girth', 'swift', 'fang', 'light', 'limb', 'fin', 'tail', 'crest', 'tint', 'snout', 'pz', 'jg', 'ff', 'fUp', 'fDown', 'fSide', 'fTail'];
 
 
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
@@ -327,6 +347,23 @@ export const lineSig = (t: Partial<Traits>) => {
   const f = full(t);
   return LINE_IDS.filter((id) => f[id] > 0).sort((a, b) => f[b] - f[a]).map((id) => id + f[id]).join('') || 'basal';
 };
+
+/**
+ * Was die Bewegung eines Zeitalters aus dem Körper macht (je Zeitalter höchstens etwa 0,45 Flossen-Zuwachs): Wer am meisten
+ * nach oben schwamm, bekommt eine größere Rückenflosse; wer am meisten nach unten schwamm, größere Bauchflossen; viel und
+ * schnell nach vorn heißt eine kräftigere Schwanzflosse; oft die Richtung zu wechseln, größere Seitenflossen.
+ */
+export function moveGrowth(s: Pick<LineStyle, 'up' | 'down' | 'fwd' | 'turns'>) {
+  const vert = s.up + s.down;
+  const domUp = vert > 1 ? s.up / vert : 0.5;
+  const gain = (v: number, ref: number, dom: number) => Math.min(0.45, 0.3 * clamp(v / ref, 0, 1.4) * (0.5 + 0.8 * dom));
+  return {
+    up: gain(s.up, 60, domUp),
+    down: gain(s.down, 60, 1 - domUp),
+    tail: gain(s.fwd, 240, 0.5),
+    side: gain(s.turns, 80, 0.5),
+  };
+}
 
 /** Kalorien je Sättigungs-Einheit (größere Tiere brauchen und liefern mehr). */
 const KCAL: Record<ClassId, number> = { fish: 4, amphibian: 12, reptile: 30, mammal: 60 };
@@ -394,6 +431,11 @@ export interface LineStyle {
   ground: number;
   hide: number;
   hurt: number;
+  /** Sekunden, in denen nach oben bzw. unten geschwommen wurde, schnell nach vorn, und wie oft die Richtung wechselte */
+  up: number;
+  down: number;
+  fwd: number;
+  turns: number;
 }
 
 export interface SurviveResult {
@@ -578,27 +620,48 @@ class GameState {
       groundSpeed: 0.7 + 0.6 * limb + 0.3 * lv.ff,
       power: bite * 0.6 + ram * 0.4,
       detect: 1 - 0.55 * t.stealth,
-      digestMeat: Math.max(0.4, 1 + 0.4 * carn - 0.5 * herb + 0.5 * (t.digM ?? 0) + 0.1 * lv.ff),
-      digestPlant: Math.max(0.4, 1 + 0.4 * herb - 0.5 * carn + 0.5 * (t.digP ?? 0)),
+      // Kost: Wer Fleisch frisst, holt mehr aus Fleisch (und weniger aus Pflanzen) – und umgekehrt
+      digestMeat: Math.max(0.35, 1 + 0.6 * carn - 0.6 * herb + 0.5 * (t.digM ?? 0) + 0.1 * lv.ff),
+      digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn + 0.5 * (t.digP ?? 0)),
       // Schwere Waffen ermüden: starke Kiefer und Panzer kosten Kraft, schlanke Jäger halten länger durch
       endurance: clamp(1 + 0.36 * lv.jg + 0.18 * lv.ff - 0.3 * lv.pz - 0.32 * t.jaw - 0.22 * t.skull - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -(t.girth ?? 0)), 0.5, 1.9),
       recover: clamp(1 + 0.22 * lv.jg + 0.2 * lv.ff - 0.24 * lv.pz - 0.2 * t.jaw - 0.12 * Math.max(0, size - 1), 0.55, 1.6),
+      // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
+      climb: 1 + 0.45 * (t.fUp ?? 0),
+      dive: 1 + 0.45 * (t.fDown ?? 0),
+      cruise: 1 + 0.3 * (t.fTail ?? 0),
+      agility: clamp(1 + 1.1 * (t.fSide ?? 0) - 0.14 * (t.len ?? 0) - 0.12 * Math.max(0, size - 1), 0.6, 2.4),
     };
+  }
+
+  /**
+   * Das Aussehen ändert sich nur bei der Verwandlung nach einem Zeitalter – nicht Stück für Stück mittendrin: Körperbau, Flossen,
+   * Gebiss und Färbung bleiben, wie sie zu Beginn des Zeitalters waren (die Werte selbst wachsen weiter). Nur Wuchs, Narben
+   * und die Farbe aus einer Höhle zeigen sich sofort.
+   */
+  looks(t: Traits): Traits {
+    const s = this.snap?.traits;
+    if (!s) return t;
+    const out = { ...t };
+    for (const k of LOOK_KEYS) out[k] = s[k];
+    return out;
   }
 
   /** Das Aussehen zu einer Form und ihren Merkmalen. */
   morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number } = {}): Morph {
     const run = this.data.run;
     const cls = o.cls ?? run?.cls ?? 'fish';
-    const t = o.traits ?? run?.traits ?? ZERO;
+    const live = o.traits ?? run?.traits ?? ZERO;
+    // das eigene Tier zeigt sich in der Gestalt vom Anfang des Zeitalters; ausdrücklich übergebene Merkmale gelten, wie sie sind
+    const t = o.traits ? o.traits : this.looks(live);
     return {
       cls,
-      size: this.stats(cls, t).size,
+      size: this.stats(cls, live).size,
       jaw: t.jaw,
       skull: t.skull,
       stealth: t.stealth,
       diet: t.diet,
-      scars: t.scars,
+      scars: live.scars,
       spike: t.spike ?? 0,
       green: t.green ?? 0,
       sand: t.sand ?? 0,
@@ -613,10 +676,14 @@ class GameState {
       crest: t.crest ?? 0,
       tint: t.tint ?? 0,
       snout: t.snout ?? 0,
-      coat: t.coat ?? 0,
+      coat: live.coat ?? 0,
       pz: t.pz ?? 0,
       jg: t.jg ?? 0,
       ff: t.ff ?? 0,
+      fUp: t.fUp ?? 0,
+      fDown: t.fDown ?? 0,
+      fSide: t.fSide ?? 0,
+      fTail: t.fTail ?? 0,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? this.fear() : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -634,7 +701,7 @@ class GameState {
     const rnd = mulberry32(run.seed * 31 + run.epoch * 977 + i * 101);
     const j = (v: number, a: number) => clamp(v + (rnd() - 0.5) * 2 * a, 0, 1);
     const g = (v: number, a: number) => clamp(v + (rnd() - 0.5) * 2 * a, -1, 1);
-    const t = run.traits;
+    const t = this.looks(run.traits);
     const sex: Sex = (i + run.id) % 2 ? 1 : 2;
     const traits: Traits = {
       jaw: j(t.jaw, 0.1),
@@ -666,6 +733,10 @@ class GameState {
       pz: t.pz ?? 0,
       jg: t.jg ?? 0,
       ff: t.ff ?? 0,
+      fUp: j(t.fUp ?? 0, 0.05),
+      fDown: j(t.fDown ?? 0, 0.05),
+      fSide: j(t.fSide ?? 0, 0.05),
+      fTail: j(t.fTail ?? 0, 0.05),
     };
     return { traits, sex, seed: run.seed + 1000 + i * 17 };
   }
@@ -741,6 +812,12 @@ class GameState {
     main.spike = clamp(end.spike + (end.spike - start.spike) * k * 0.6, -1, 0);
     // Körperbau und Färbung, die sich im Zeitalter verschoben haben, setzen sich fort
     for (const g of ['len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout'] as const) main[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
+    // Die Bewegung dieses Zeitalters formt die Flossen – jetzt, bei der Verwandlung, und nur dann
+    const mv = moveGrowth(style);
+    main.fUp = clamp(end.fUp + mv.up, 0, 1);
+    main.fDown = clamp(end.fDown + mv.down, 0, 1);
+    main.fSide = clamp(end.fSide + mv.side, 0, 1);
+    main.fTail = clamp(end.fTail + mv.tail, 0, 1);
     let line: LineId | undefined;
     if (advance) {
       line = this.pickLine(style, start, end, rnd);
@@ -812,6 +889,12 @@ class GameState {
       gain *= Math.pow(1 - used, 1.6);
     }
     t[k] = Math.min(1, t[k] + gain);
+  }
+
+  /** Ein Merkmal bildet sich ein Stück zurück (wer nur Pflanzen frisst, baut kein Raubtiergebiss auf). */
+  fade(k: TraitKey, amount: number) {
+    const t = this.r.traits;
+    t[k] = Math.max(0, t[k] - amount);
   }
 
   shiftDiet(amount: number) {
@@ -886,7 +969,7 @@ class GameState {
   }
 
   /** Durch einen Durchgang in einen Nachbarort: Er wird freigeschaltet, der Weg kostet etwas Zeit und Kraft. */
-  enterPlace(id: string, from?: string) {
+  enterPlace(id: string, from?: string, edge?: { side: 'left' | 'right'; frac: number }) {
     const run = this.r;
     const p = run.prog;
     if (id !== p.place) {
@@ -896,6 +979,7 @@ class GameState {
     }
     p.place = placeOf(EPOCHS[run.epoch], id).id;
     p.from = from;
+    p.edge = from ? edge : undefined;
     if (!p.seen.includes(p.place)) p.seen.push(p.place);
     if (!p.known.includes(p.place)) p.known.push(p.place);
     this.save();

@@ -34,7 +34,8 @@ zuerst wird das Fischreich ausgebaut.
   - **Kämpfen** – angreifen tun nur der **Biss** (E) und der **Stoß** (R); bloßes Berühren tut
     niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
     Anfang an: Er macht kaum Schaden, **betäubt** kleine und mittelgroße Tiere aber kurz – Zeit für ein,
-    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf. Der Biss geht **aus dem Stand**: Der Körper
+    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf – ein Stoß tut aber auch dem **eigenen Kopf ein wenig weh**
+    (mit hartem Schädel weniger). Der Biss geht **aus dem Stand**: Der Körper
     bleibt, wo er ist – nur der Kopf reißt das Maul auf, schnappt zu und knirscht mit den
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
@@ -44,6 +45,9 @@ zuerst wird das Fischreich ausgebaut.
     dann die Flossen ruhen und **gleitet mit dem aufgebauten Schwung** ein Stück weiter – nach oben und unten lässt sich das
     noch lenken. Auf diesen Moment kommt es an: Wer **im Schwung beißt**, erreicht weiter nach vorn und beißt härter; auch
     der Zusammenstoß zählt erst bei hohem Tempo.
+  - **Wenden braucht Zeit:** Das Tier dreht nicht auf der Stelle um – es bremst, dreht sich und nimmt dann erst in die neue
+    Richtung Fahrt auf. Wer oft die Richtung wechselt, wird **wendiger** (seine Seitenflossen wachsen) und dreht schneller.
+    Wer hauptsächlich nach oben, nach unten oder geradeaus schwimmt, wird in dieser Richtung schneller.
   - **Jagen mit Plan** – kleine Fische sind auf der Flucht pfeilschnell, aber sie schwimmen **nicht ohne Grund aus der
     Ferne** davon: Sie fliehen, wenn man ihnen **wirklich nah kommt** oder **auffällt** (sprinten, stoßen, gerade gekämpft).
     Dabei zählt die **eigene Größe**: Solange man klein ist, haben die anderen weniger Angst und lassen einen näher
@@ -90,17 +94,29 @@ zuerst wird das Fischreich ausgebaut.
     Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das Meer rauscht, dein Herz schlägt, und
     manchmal grollt es in der Ferne.
   - **Licht fällt nur stellenweise** ins Wasser – dazwischen liegt Schatten. Es gibt keine Felstürme, die den Weg
-    versperren; der Grund hat nur niedrige Buckel.
+    versperren.
+  - **Der Meeresboden** ist **glatt statt stufig**: eine weiche Höhenlinie mit sanften Hügeln und Mulden. **Sandflächen**
+    (hell, mit Dünen und Rippelspuren) wechseln sich mit **Felsgebieten** (dunkel, mit eingebetteten Steinen) und **Schlamm** ab –
+    weich ineinander übergehend, nach unten immer dunkler. Auf dem Grund liegen **Felsbrocken** (manche lehnen aneinander,
+    manche stecken halb im Hang) und **Kiesel**; man schwimmt um sie herum oder über sie hinweg. **Große, dunkle Felsen im
+    Vordergrund** haben keine Hitbox: Wer **hinter** ihnen schwimmt, verschwindet kurz aus dem Bild. Die Höhlen sind **runde
+    Felsbögen** mit Kuppel, die Felsspalten liegen unter einer Platte, die auf einem Felsbrocken ruht. Die Hitboxen bleiben
+    Rechtecke (Säulen von 20 Bildpunkten, bei den Felsen schmale Scheiben) – nur so fein, dass nichts mehr eckig wirkt; kleine
+    Stufen (bis etwa 22 Bildpunkte) gleitet man am Grund einfach hinauf.
   - **Farbtunnel sind selten und gut versteckt:** Nur **zwei Orte im ganzen Zeitalter** haben einen – ein
     **grüner** (mit Querbinden wie bei einem Barsch) und ein **schwarzer** in der Tiefe. Wer auf der anderen Seite
     herauskommt, hat die neue Farbe. Die Farbe lässt sich **nur einmal pro Spieldurchlauf** wählen – wer einmal
     gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht auf der Steintafel. Daneben gibt es einige
     niedrige **Felsspalten** zum Verstecken für Schlanke.
-  - **Neue Orte schaltest du frei, indem du hinausschwimmst:** An den Rändern (links/rechts in der Wand),
-    **im Boden** (ein Schacht nach unten) und **oben im Licht** liegen **Durchgänge** – man muss sie erst
-    finden. Schwimmst du durch einen hinaus, landest du auf der **Karte**, und der Ort, zu dem du schwimmst,
-    **erscheint dort zum ersten Mal**. Du kommst am Gegenstück des Durchgangs im neuen Ort heraus. Jeder Weg kostet etwas Zeit. Das Meer
-    ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler.
+  - **Neue Orte schaltest du frei, indem du hinausschwimmst:** Nach **links und rechts gibt es keine Wand** – die Grenze
+    eines Ortes sieht man nicht, es ist ein Stück Meer wie jedes andere. Wer über den Rand hinausschwimmt, kommt im
+    **Nachbarort** an (auf der Karte erscheint er zum ersten Mal), am gegenüberliegenden Rand und **auf derselben Wassertiefe**.
+    Gibt es auf der Seite mehrere Nachbarn, entscheidet die Tiefe: oben im Wasser der nördlichere, unten der südlichere.
+    Dazu liegen **im Boden** (ein Schacht nach unten) und **oben im Licht** **Durchgänge** – man muss sie erst
+    finden. Schwimmst du hinaus, landest du auf der **Karte**, und der Ort, zu dem du schwimmst,
+    **erscheint dort zum ersten Mal**. Durch einen Durchgang kommst du am Gegenstück im neuen Ort heraus. Jeder Weg kostet etwas
+    Zeit. Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler. Auch Tiere, die den Rand
+    erreichen, schwimmen einfach weiter hinaus.
   - **Die Karte ist die Urzeit-Erde:** Jedes Zeitalter hat seine eigene Weltkarte nach der **echten Lage der Kontinente** –
     Ordovizium: Gondwana im Süden, Laurentia, Baltica und Sibiria; Silur und Devon: Laurussia (Laurentia + Baltica),
     Gondwana, Sibiria, dazu Iapetus-, Rheischer Ozean, Paläotethys und Panthalassa ringsum (**Pangäa** gibt es erst viel
@@ -119,11 +135,13 @@ zuerst wird das Fischreich ausgebaut.
   ziehen, hängt vom Zeitalter und vom Ort ab; in der Tiefe wird es dunkler und stiller.
 - **Fischlaich:** Im Startfluss liegen ein paar **Gelege** der eigenen Brut; im Meer gibt es **nur vereinzelt** Gelege der
   Bewohner – im **Flachen** und bei Pflanzen, am Fluss kaum, **in der Tiefe gar nicht** (kleine Fische laichen dort nicht).
-  Jedes Gelege hat **Eltern in der Nähe**, die darüber wachen: Sie **schwimmen nicht davon**, sondern bleiben dicht beim Laich,
-  **beobachten dich aus kleiner Entfernung** und greifen an, sobald du **auf das Gelege gehst** oder daran frisst. Laich ist eine **gute Nahrungsquelle** (sättigt und gibt Kalorien),
-  aber: **Bekommen die Eltern mit, dass du ihre Brut frisst** (sie müssen in Sichtweite sein – wer sich versteckt, fällt nur
-  aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in Ruhe, **schlüpft** der der
-  Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben seltener bei ihrem Gelege.
+  Jedes Gelege hat **Eltern in der Nähe**, die darüber wachen: Sie **schwimmen nicht davon**, sondern bleiben dicht beim Laich
+  und **beobachten dich aus kleiner Entfernung**. Auch wenn du über den Laich hinwegschwimmst oder daneben stehst, geschieht
+  nichts – **angegriffen wirst du erst, wenn du anfängst, den Laich zu fressen**. Laich ist eine **gute Nahrungsquelle**
+  (sättigt und gibt Kalorien), aber: **Bekommen die Eltern mit, dass du ihre Brut frisst** (sie müssen in Sichtweite sein –
+  wer sich versteckt, fällt nur aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in
+  Ruhe, **schlüpft** der der Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben
+  seltener bei ihrem Gelege.
 - **Das Aquapendium** (Knopf im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere
   (41 Stück). Links das Bild, rechts der Steckbrief mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
   Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
@@ -177,7 +195,9 @@ zuerst wird das Fischreich ausgebaut.
 - **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einer **saftigen
   Fleischkeule mit Knochen**, große Tiere zu mehreren. Das Fleisch sinkt zügig zu Boden
   (große Stücke schneller) – und nach einer Weile verdirbt es. Andere Fleischfresser
-  fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus.
+  fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus. Auch **große Tiere töten nicht nur**, sondern
+  **fressen ihre Beute**: Ein Räuber, der etwas erlegt hat, schwimmt zum Fleisch, senkt den Kopf und frisst Bissen für Bissen –
+  mit sichtbarem Nicken, Kauen und einem Ruck bei jedem Happen (bis er satt ist oder etwas ihn stört).
 - **Herrscher des Devons:** Kurz vor Schluss des letzten Zeitalters erscheint der Endgegner –
   *Dunkleosteus*, mit Lebensbalken unten im Bild. Er folgt dir von Ort zu Ort. Überlebst du, ohne
   ihn zu besiegen, bleibt deine Linie im Devon: eine neue Generation, etwas später, etwas stärker.
@@ -251,7 +271,8 @@ zuerst wird das Fischreich ausgebaut.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme wühlen das Wasser auf, Futter
   sprießt.
 - **Zwischen den Zeitaltern** siehst du dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
-  und was sich bewährt hat, setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher.
+  und was sich bewährt hat, setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher. Das **Aussehen** verwandelt sich
+  dabei **nur einmal pro Zeitalter** – nicht mitten im Spiel und nicht doppelt; im Zeitalter selbst wächst nur die Größe mit.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
@@ -287,16 +308,20 @@ Im Hintergrund wachsen langsam (mit abnehmendem Ertrag) einige Merkmale, die man
 | bewegt sich viel am Grund, versteckt sich lange | die **Fleischflosser**-Linie: Stielflossen, kräftig, olivfarben mit rostigen Flossen |
 | stößt oft (Taste R) | einen härteren Schädel und einen kräftigeren Stoß |
 | … und erlegt damit Tiere | einen **Panzerkopf**: Der Kopf selbst wird größer und fester (es wächst nichts dazu), stärkerer Stoß, mehr Lebenskraft, weniger eigener Schaden |
-| beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende Reißzähne |
+| beißt, packt und frisst Fleisch | längere Schnauze, tieferen Kiefer, mehr und größere Zähne – und vorn herausstehende **Reißzähne** (wer viel Pflanzen frisst, baut kein solches Gebiss auf – es bildet sich zurück) |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
 | kämpft oft gemeinsam mit Artgenossen und teilt die Beute | wird zum **Rudeltier**: Artgenossen helfen öfter (und wollen mitfressen) |
-| frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – nirgends angezeigt |
+| frisst oft Fleisch bzw. Pflanzen | verdaut es besser (mehr Kalorien je Happen) – und die **andere Kost schlechter**: Fleischfresser holen aus Fleisch mehr heraus und aus Pflanzen weniger, Pflanzenfresser umgekehrt; Allesfresser liegen dazwischen – nirgends angezeigt |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | frisst viel | wächst |
 | hält sich oft oben im Licht bzw. unten in der Tiefe | hellere bzw. dunklere Färbung |
 | schwimmt viel und schnell – besonders gegen Strömungen | deutlich länglicheren, schlankeren Körper und größere Flossen |
 | sprintet oft | einen breiteren, kräftigeren Schwanz |
+| schwimmt am häufigsten **nach oben** | eine ausgeprägtere **Rückenflosse** oben am Körper, schnelleres Steigen |
+| schwimmt am häufigsten **nach unten** | etwas größere **Flossen unten am Körper**, schnelleres Tauchen |
+| schwimmt oft und schnell **nach vorn** | eine stärkere **Schwanz-/Hinterflosse**, höheres Reisetempo |
+| **wechselt oft die Richtung** | größere **Seitenflossen**: das Tier wendet schneller (gebremst von Länge und Masse) |
 | versteckt sich zwischen Pflanzen | grünere Farben, größere (wendigere) Flossen, eine flachere Rückenflosse |
 | wird oft verletzt | eine höhere, wehrhaftere Rückenflosse bzw. einen Rückenkamm |
 
@@ -387,12 +412,15 @@ src/
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
 │   └── tablet.ts        die Zeilen der Steintafel und wie sie berechnet werden
 ├── state/GameState.ts   Leben (Lauf), verborgene Merkmale, Ruf, Stammbaum, Speichern
-├── level/LevelGen.ts    erzeugt jeden Ort (bei jedem Leben etwas anders, aber immer derselbe Ort)
+├── level/
+│   ├── LevelGen.ts      erzeugt jeden Ort (bei jedem Leben etwas anders, aber immer derselbe Ort)
+│   └── terrain.ts       der Meeresboden: glatte Höhenlinie, Zonen aus Sand/Fels/Schlamm, Felsbrocken, Bögen, Hitboxen
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
 │   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
 │   ├── speciesArt.ts    alle anderen Tiere
-│   ├── worldArt.ts      Hintergründe, Boden, Pflanzen, Dickicht, Effekte
+│   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
+│   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
 │   ├── tabletArt.ts     Steinplatte, Moos, Fische für die Wertung, Muschel
 │   ├── mapArt.ts        Kartenmaße, Gebiete um die Orte, Zeichen der Ortsarten
 │   ├── paleoArt.ts      die Urzeit-Erde: Land, Küstenschelf, Nebel und Aufdecken

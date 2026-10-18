@@ -43,6 +43,7 @@ export class MapScene extends Phaser.Scene {
   private leaving = false;
   private fromId?: string;
   private toId?: string;
+  private edge?: { side: 'left' | 'right'; frac: number };
   private isNew = false;
   private fog!: FogMap;
   private trails = new Map<string, Phaser.GameObjects.Graphics>();
@@ -51,10 +52,11 @@ export class MapScene extends Phaser.Scene {
     super('Map');
   }
 
-  init(d: { epoch?: number; from?: string; to?: string }) {
+  init(d: { epoch?: number; from?: string; to?: string; edge?: { side: 'left' | 'right'; frac: number } }) {
     this.ep = EPOCHS[d?.epoch ?? game.epochIndex];
     this.fromId = d?.from;
     this.toId = d?.to;
+    this.edge = d?.edge;
     this.places = placesOf(this.ep);
     this.nodes = new Map();
     this.trails = new Map();
@@ -382,7 +384,7 @@ export class MapScene extends Phaser.Scene {
     if (this.leaving || this.tablet || this.rest) return;
     this.leaving = true;
     const dest = this.places.find((p) => p.id === this.toId) ?? this.cur;
-    game.enterPlace(dest.id, dest.id === this.toId ? this.fromId : undefined);
+    game.enterPlace(dest.id, dest.id === this.toId ? this.fromId : undefined, dest.id === this.toId ? this.edge : undefined);
     audio.sfx('travel');
     fadeTo(this, 'Level', { epoch: game.epochIndex, place: dest.id }, 900);
   }

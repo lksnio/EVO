@@ -4,9 +4,11 @@ import { audio } from '../audio/Audio';
 import { bus, FOOD, fedRef, game, hungerRate, kcalOf, ZERO_TRAITS, type LineId, type Traits } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import { placeOf, type PlaceDef } from '../data/world';
+import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { generateLevel, type Gate, type LevelData, type Zone } from '../level/LevelGen';
-import { coverTextures, foodKey, groundDecals, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { groundAt } from '../level/terrain';
+import { coverTextures, foodKey, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { terrainArt } from '../art/terrainArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
@@ -18,6 +20,7 @@ import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
+import { rrect, tex } from '../util/canvas';
 
 type PImg = Phaser.Physics.Arcade.Image;
 
@@ -88,7 +91,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   elapsed = 0;
   private controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
-  private solidRects: Rect[] = [];
+  /** alle festen Körper, nach 40-Pixel-Streifen geordnet (für solidAt) */
+  private solidIndex = new Map<number, Rect[]>();
+  private terrainKeys: string[] = [];
   private platRects: Rect[] = [];
   private hazards: Rect[] = [];
   private lava: Phaser.GameObjects.TileSprite[] = [];
@@ -206,7 +211,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private hurtSeen = -1e9;
   private grudgeNoted = false;
   /** Was du in diesem Zeitalter getan hast (für den Werte-Bildschirm): Beutejagd, Bodenkontakt, Rammen, Schwimmen */
-  train = { hunt: 0, ground: 0, ram: 0, swim: 0, hide: 0, hurt: 0 };
+  train = { hunt: 0, ground: 0, ram: 0, swim: 0, hide: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0 };
   /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
   private lastBitten: Animal | null = null;
   private lastBiteAt = -1e9;
@@ -231,7 +236,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.hatchAt = 0;
     this.meats = [];
     this.cover = [];
-    this.solidRects = [];
+    this.solidIndex = new Map();
+    this.terrainKeys = [];
     this.platRects = [];
     this.hazards = [];
     this.lava = [];
@@ -301,7 +307,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.slow = 1;
     this.hurtSeen = -1e9;
     this.grudgeNoted = false;
-    this.train = { hide: 0, hurt: 0, ...prog.train };
+    this.train = { hide: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, ...prog.train };
     this.lastBitten = null;
 
   }
@@ -310,7 +316,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     fadeIn(this, 900);
     game.beginEpoch();
     const ep = this.ep;
-    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place, game.prog.from));
+    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place, game.prog.from, game.prog.edge));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
@@ -318,7 +324,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     world.gravity.y = this.water ? 0 : GRAVITY;
     if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
-    world.setBoundsCollision(true, true, true, this.water);
+    // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
+    world.setBoundsCollision(!this.water, !this.water, true, this.water);
+    // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
+    // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
+    if (this.water) world.OVERLAP_BIAS = 22;
     this.cameras.main.setBackgroundColor('#020304');
 
     // Hintergrund mit Nebel
@@ -327,16 +337,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
 
-    // Gelände – je Gebiet ein anderer Boden, dazu Steine, Risse und Bewuchs als Abwechslung
-    const gts = [0, 1, 2].map((v) => groundTextures(this, L.theme, v));
-    const decals = groundDecals(this, L.theme);
+    // Gelände: ein glatter Boden aus Sand, Fels und Schlamm, dazu Felsen und Kiesel
     this.solids = this.physics.add.staticGroup();
-    for (const r of L.solids) {
-      const gt = gts[this.zoneAt(r.x + r.w / 2).def.ground] ?? gts[0];
-      this.addSolid(r, gt.gnd, gt.top, decals);
+    this.buildTerrain();
+    if (L.platforms.length || L.hazards.length) {
+      const gts = [0, 1, 2].map((v) => groundTextures(this, L.theme, v));
+      for (const r of L.platforms) this.addPlatform(r, (gts[this.zoneAt(r.x + r.w / 2).def.ground] ?? gts[0]).plat);
+      for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     }
-    for (const r of L.platforms) this.addPlatform(r, (gts[this.zoneAt(r.x + r.w / 2).def.ground] ?? gts[0]).plat);
-    for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     this.buildDecor();
     if (this.water && L.surfaceY > 0) {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
@@ -464,6 +472,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       audio.sea(0, 0.8);
       audio.musicLevel(1, 0.5);
       this.anims.globalTimeScale = 1;
+      // die großen Bodenbilder und Felsen nicht im Speicher liegen lassen
+      for (const k of this.terrainKeys) if (this.textures.exists(k)) this.textures.remove(k);
+      this.terrainKeys = [];
     });
 
     if (DEBUG) {
@@ -488,44 +499,47 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Aufbau
 
-  private addSolid(r: Rect, gnd: string, top: string, decals: string[] = []) {
-    // an der Welt ausgerichtet: Nachbarstücke gehen nahtlos ineinander über
-    const t = this.add.tileSprite(r.x, r.y, r.w, r.h, gnd).setOrigin(0).setDepth(DEPTH.terrain).setTilePosition(r.x, r.y);
-    this.cullAdd(t, r.x, r.x + r.w);
-    if (r.y > 0) {
-      for (const [x0, x1] of this.exposedTop(r)) {
-        const s = this.add.tileSprite(x0 - 4, r.y - 10, x1 - x0 + 8, 30, top).setOrigin(0).setDepth(DEPTH.terrain + 1).setTilePosition(x0 - 4, 0);
-        this.cullAdd(s, x0 - 4, x1 + 4);
-      }
-      // Steine, Risse, Bewuchs, Fossilien – damit der Boden nicht überall gleich aussieht
-      const bottom = Math.min(r.y + r.h, this.L.height) - 18;
-      if (decals.length && bottom - r.y > 50) {
-        for (let x = r.x + 20 + Math.random() * 60; x < r.x + r.w - 24; x += 70 + Math.random() * 170) {
-          const y = r.y + 26 + Math.random() * Math.min(260, bottom - r.y - 40);
-          const d = this.add.image(x, y, pick(Math.random, decals)).setDepth(DEPTH.terrain + 0.5)
-            .setAlpha(0.55 + Math.random() * 0.4).setScale(0.7 + Math.random() * 0.6).setFlipX(Math.random() < 0.5).setAngle((Math.random() - 0.5) * 30);
-          this.cullAdd(d, x - 50, x + 50);
-        }
-      }
-    } else this.add.rectangle(r.x, r.y + r.h - 8, r.w, 8, 0x000000, 0.4).setOrigin(0).setDepth(DEPTH.terrain + 1);
-    const rect = this.add.rectangle(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h).setVisible(false);
-    this.solids.add(rect);
-    this.solidRects.push(r);
+  /**
+   * Der Boden: gemalte Stücke entlang der glatten Höhenlinie (darunter eine einfarbige Fläche), die Felsen als eigene Bilder –
+   * die großen dunklen im Vordergrund. Die Hitboxen sind Rechtecke (Säulen des Bodens, Scheiben der Felsen).
+   */
+  private buildTerrain() {
+    const L = this.L;
+    const art = terrainArt(this, L, L.theme, this.zoneAt(0).def.ground);
+    this.terrainKeys = art.keys;
+    for (const c of art.chunks) {
+      const img = this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);
+      const fill = this.add.rectangle(c.x, c.deepY - 1, c.w, L.height + 400 - c.deepY, art.deep).setOrigin(0).setDepth(DEPTH.terrain - 0.1);
+      this.cullAdd(img, c.x, c.x + c.w);
+      this.cullAdd(fill, c.x, c.x + c.w);
+    }
+    for (const k of art.rocks) {
+      const img = this.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(DEPTH.terrain + 0.5);
+      this.cullAdd(img, k.x, k.x + k.w);
+    }
+    for (const k of art.fore) {
+      const img = this.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(DEPTH.decoFront);
+      this.cullAdd(img, k.x, k.x + k.w);
+    }
+    // am Rand weiter als das Bild: Wer über den Rand schwimmt, soll nicht plötzlich im freien Fall unter dem Boden sein
+    const gr = L.groundRects.map((r) => ({ ...r }));
+    if (gr.length) {
+      gr[0].x -= 400;
+      gr[0].w += 400;
+      gr[gr.length - 1].w += 400;
+    }
+    for (const r of gr) this.addBody(r);
+    for (const r of L.solids) this.addBody(r);
   }
 
-  /** Die Abschnitte der Oberkante, auf denen kein anderer Fels liegt (dort wächst die Grasnarbe). */
-  private exposedTop(r: Rect): [number, number][] {
-    let segs: [number, number][] = [[r.x, r.x + r.w]];
-    for (const s of this.L.solids) {
-      if (s === r || s.y + s.h !== r.y || s.x >= r.x + r.w || s.x + s.w <= r.x) continue;
-      const out: [number, number][] = [];
-      for (const [a, b] of segs) {
-        if (s.x > a) out.push([a, Math.min(b, s.x)]);
-        if (s.x + s.w < b) out.push([Math.max(a, s.x + s.w), b]);
-      }
-      segs = out.filter(([a, b]) => b - a > 2);
+  private addBody(r: Rect) {
+    const rect = this.add.rectangle(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h).setVisible(false);
+    this.solids.add(rect);
+    for (let b = Math.floor(r.x / 40); b <= Math.floor((r.x + r.w) / 40); b++) {
+      const list = this.solidIndex.get(b);
+      if (list) list.push(r);
+      else this.solidIndex.set(b, [r]);
     }
-    return segs;
   }
 
   private addPlatform(r: Rect, plat: string) {
@@ -564,7 +578,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
           const key = bushes[(bi++ * 7 + i) % bushes.length];
           const x = c.x + ((i + 0.5) / n) * c.w + ((bi * 37) % 17) - 8;
           const hgt = (c.h + 24 + ((bi * 53) % 30)) * (layer ? 1 : 1.08);
-          const img = this.add.image(x + (layer ? 0 : 14), c.y + c.h + 4, key).setOrigin(0.5, 1);
+          const gy = Math.min(c.y + c.h, groundAt(this.L.terrain.hp, x)) + 4;
+          const img = this.add.image(x + (layer ? 0 : 14), gy, key).setOrigin(0.5, 1);
           img.setScale((((c.w / n) * 1.9) / 150) * (layer ? 1 : 1.1), hgt / 210);
           if ((bi + i) % 2) img.setFlipX(true);
           if (layer === 0) img.setDepth(DEPTH.decoBack + 1).setTint(0x5a5a5a);
@@ -587,16 +602,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.L.caves.forEach((c) => {
       const back = this.add.tileSprite(c.x - 4, c.y - 4, c.w + 8, c.h + 8, 'cave_back').setOrigin(0).setDepth(DEPTH.decoBack + 3);
       this.cullAdd(back, c.x - 60, c.x + c.w + 60);
-      // Innenraum: in der Mitte ganz dunkel, zu den offenen Enden hin heller
-      const g = this.add.graphics().setDepth(DEPTH.cover);
-      const n = Math.max(2, Math.round(c.w / 20));
-      for (let i = 0; i < n; i++) {
-        const u = (i + 0.5) / n;
-        const edge = Math.min(u, 1 - u) * 2;
-        g.fillStyle(0x020404, 0.18 + 0.5 * Math.min(1, edge * 1.6));
-        g.fillRect(c.x + (c.w * i) / n, c.y, c.w / n + 1, c.h);
-      }
-      this.cullAdd(g, c.x - 20, c.x + c.w + 20);
+      // Innenraum: in der Mitte ganz dunkel, zu den offenen Enden hin heller (mit gerundeten Ecken wie der Fels)
+      const dark = tex(this, `cave_dark_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
+        const g = ctx.createLinearGradient(0, 0, w, 0);
+        for (const [o, a] of [[0, 0.2], [0.3, 0.68], [0.7, 0.68], [1, 0.2]]) g.addColorStop(o, `rgba(2,4,4,${a})`);
+        ctx.fillStyle = g;
+        rrect(ctx, 0, 0, w, h, 16);
+        ctx.fill();
+      }, 0.5);
+      const shade = this.add.image(c.x, c.y, dark).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.cover);
+      this.cullAdd(shade, c.x - 20, c.x + c.w + 20);
       const green = c.coat === 1;
       const pe = this.add.particles(0, 0, 'p_dot', {
         x: { min: c.x - 60, max: c.x + c.w + 60 }, y: { min: c.y - 20, max: c.y + c.h + 20 },
@@ -629,13 +644,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
   private buildCrevices() {
     for (const c of this.L.crevices) {
-      const g = this.add.graphics().setDepth(DEPTH.cover);
-      g.fillStyle(0x020404, 0.62);
-      g.fillRect(c.x + 14, c.y, c.w - 28, c.h);
-      g.fillStyle(0x020404, 0.32);
-      g.fillRect(c.x, c.y, 14, c.h);
-      g.fillRect(c.x + c.w - 14, c.y, 14, c.h);
-      this.cullAdd(g, c.x - 20, c.x + c.w + 20);
+      const dark = tex(this, `crev_dark_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
+        const g = ctx.createLinearGradient(0, 0, w, 0);
+        for (const [o, a] of [[0, 0.25], [0.1, 0.62], [0.9, 0.62], [1, 0.25]]) g.addColorStop(o, `rgba(2,4,4,${a})`);
+        ctx.fillStyle = g;
+        rrect(ctx, 0, 0, w, h, 10);
+        ctx.fill();
+      }, 0.5);
+      const shade = this.add.image(c.x, c.y, dark).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.cover);
+      this.cullAdd(shade, c.x - 20, c.x + c.w + 20);
     }
   }
 
@@ -894,7 +911,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private groundTop(x: number, y: number) {
     let best = Infinity;
     let bd = 50;
-    for (const list of [this.solidRects, this.platRects]) {
+    for (const list of [this.solidIndex.get(Math.floor(x / 40)) ?? [], this.platRects]) {
       for (const r of list) {
         if (x < r.x || x > r.x + r.w) continue;
         const d = Math.abs(r.y - y);
@@ -990,7 +1007,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const low = sil.filter((k) => !k.includes('kelp') && !k.includes('deadtree') && !k.includes('reed') && !k.includes('horsetail'));
       for (let x = 200 + rnd() * 300; x < L.width && low.length; x += 380 + rnd() * 520) {
         const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
-        if (L.ground[col] >= L.height) continue;
+        if (L.ground[col] >= L.height || L.fore.some((f) => Math.abs(x - f.x) < f.rx + 50)) continue;
         put(pick(rnd, low), x, L.ground[col], 1.5 + rnd() * 0.8, DEPTH.decoFront, foreTint, 0.88, -14);
       }
     }
@@ -1081,7 +1098,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- Welt-Schnittstelle
 
   solidAt(x: number, y: number) {
-    for (const r of this.solidRects) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
+    const list = this.solidIndex.get(Math.floor(x / 40));
+    if (list) for (const r of list) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
     for (const r of this.platRects) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
     return false;
   }
@@ -1399,11 +1417,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const meat = Math.max(1, a.def.meat);
     const n = (meat <= 4 ? 1 : meat <= 8 ? 2 : 3) + (giant ? 1 : 0);
     const each = (1.7 * meat * a.sz) / (meat <= 4 ? 1 : meat <= 8 ? 2 : 3);
+    const fresh: Meat[] = [];
     for (let i = 0; i < n; i++) {
       const spread = (i - (n - 1) / 2) * 70 + (Math.random() - 0.5) * 30;
       const vy = this.water ? -40 - Math.random() * 40 : -220 - Math.random() * 120;
-      this.meats.push(new Meat(this, this, a.x, a.y, each, this.time.now, kill, spread, vy));
+      const m = new Meat(this, this, a.x, a.y, each, this.time.now, kill, spread, vy);
+      this.meats.push(m);
+      fresh.push(m);
     }
+    // Wer das Tier erlegt hat, frisst es – mit der passenden Fress-Haltung, statt gleich weiterzuziehen
+    if (killer instanceof Animal && !killer.dead && !killer.kin && killer.def.diet === 'meat' && fresh.length) killer.startFeast(fresh[Math.floor(fresh.length / 2)], this.time.now);
     this.puff(a.x, a.y, 6, 0xffe0c0);
     if (byPlayer) {
       game.addAggression(a.role === 'prey' ? 0.1 : 0.06);
@@ -1530,6 +1553,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         else game.grow('digP', 0.012);
         game.grow('stealth', 0.012);
         game.shiftDiet(-0.05);
+        // Pflanzen bauen kein Raubtiergebiss auf
+        game.fade('fang', 0.004);
         game.grow('growth', 0.003 * st.digestPlant);
         this.puff(pl.x, pl.y - 20, 4, 0x6a7a3a);
       }
@@ -1680,8 +1705,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.surprise(a);
       this.consumeAmbush();
     }
-    // gegen etwas viel Größeres zu stoßen, tut weh (ein harter Schädel schützt)
-    const back = Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
+    // Ein Stoß tut auch dem eigenen Kopf ein wenig weh (ein harter Schädel schützt); gegen etwas viel Größeres erst recht
+    const bump = st.ramSelf * 0.2 * sf;
+    const back = bump + Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, k * 0.6);
     game.grow('skull', 0.007 * sf);
@@ -2219,6 +2245,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
       this.train.swim += dt * 0.25 * Math.min(1.5, p.speed01);
     }
+    // Bewegung merken: Was in diesem Zeitalter am meisten getan wird, formt bei der Verwandlung die Flossen
+    if (this.water && !p.dead && !p.bottomWalk) {
+      const v = p.body.velocity, sp = Math.max(1, p.stats.speed);
+      if (v.y < -0.3 * sp) this.train.up += dt * Math.min(1.5, -v.y / sp);
+      else if (v.y > 0.3 * sp) this.train.down += dt * Math.min(1.5, v.y / sp);
+      const ax = Math.abs(v.x) / sp;
+      if (ax > 0.45) this.train.fwd += dt * (ax > 1.05 ? 1.6 : 1);
+      this.train.turns += p.takeTurns();
+    }
     // Wer oft verletzt wird, bekommt eine wehrhaftere Rückenflosse bzw. einen höheren Kamm
     if (p.lastHurt !== this.hurtSeen) {
       this.hurtSeen = p.lastHurt;
@@ -2384,22 +2419,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private buildGates() {
     const L = this.L;
-    const gt = groundTextures(this, L.theme, 0);
-    // Felswand an beiden Rändern, nur an den Toren offen
-    for (const side of ['left', 'right'] as const) {
-      const x0 = side === 'left' ? 0 : L.width - 64;
-      let y = L.surfaceY;
-      const seg = (ya: number, yb: number) => {
-        if (yb - ya < 4) return;
-        const t = this.add.tileSprite(x0, ya, 64, yb - ya, gt.gnd).setOrigin(0).setDepth(DEPTH.terrain + 1).setTint(0x6c7a7c);
-        this.cullAdd(t, x0 - 200, x0 + 300);
-      };
-      for (const g of L.gates.filter((q) => q.kind === side).sort((a, b) => a.y - b.y)) {
-        seg(y, g.y);
-        y = g.y + g.h;
-      }
-      seg(y, L.height);
-    }
     for (const g of L.gates) {
       const cx = g.x + g.w / 2, cy = g.y + g.h / 2;
       const items: { o: Phaser.GameObjects.Image; a: number }[] = [];
@@ -2454,11 +2473,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     });
     this.gateHold = inside >= 0 ? this.gateHold + dt : Math.max(0, this.gateHold - dt * 2);
-    if (inside >= 0 && this.gateHold > 0.25) this.leave(this.gateFx[inside].g);
+    if (inside >= 0 && this.gateHold > 0.25) this.leave(this.gateFx[inside].g.to);
+    // Links und rechts gibt es keine Wand: Wer über den Rand hinausschwimmt, kommt in den Nachbarort
+    if (this.water && !this.ended) {
+      const L = this.L;
+      const side = p.x < -34 ? 'left' : p.x > L.width + 34 ? 'right' : null;
+      if (side) {
+        const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
+        const frac = clamp((p.y - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY), 0, 1);
+        const to = edgeNeighbor(this.ep, this.place, side, frac);
+        if (to) this.leave(to.id, { side, frac });
+      }
+    }
   }
 
-  /** Durch den Durchgang: Der Stand wird gemerkt, dann geht es (über die Karte) in den Nachbarort. */
-  private leave(g: Gate) {
+  /** Durch den Durchgang (oder über den Rand): Der Stand wird gemerkt, dann geht es (über die Karte) in den Nachbarort. */
+  private leave(to: string, edge?: { side: 'left' | 'right'; frac: number }) {
     if (this.ended) return;
     this.ended = true;
     this.saveProgress();
@@ -2467,7 +2497,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cameras.main.fadeOut(900, 2, 3, 4);
     this.time.delayedCall(950, () => {
       this.scene.stop('Hud');
-      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to: g.to });
+      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to, edge });
     });
   }
 
@@ -2515,6 +2545,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Der Spielstil dieses Zeitalters entscheidet, wohin sich die Linie entwickelt – eine Wahl gibt es nicht
     const next = game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, {
       ram: this.train.ram, hunt: this.train.hunt, swim: this.train.swim, ground: this.train.ground, hide: this.train.hide ?? 0, hurt: this.train.hurt ?? 0,
+      up: this.train.up ?? 0, down: this.train.down ?? 0, fwd: this.train.fwd ?? 0, turns: this.train.turns ?? 0,
     }, !repeat);
     const data: SurvivedData = {
       epoch: this.epochIdx,

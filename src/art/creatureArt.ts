@@ -60,6 +60,11 @@ export interface Morph {
   pz?: number;
   jg?: number;
   ff?: number;
+  /** Flossen aus der Bewegung (0 … 1): Rückenflosse (nach oben geschwommen), Bauchflossen (nach unten), Seitenflossen (oft gewendet), Schwanzflosse (viel und schnell nach vorn) */
+  fUp?: number;
+  fDown?: number;
+  fSide?: number;
+  fTail?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -97,12 +102,16 @@ export function quantize(m: Morph): Morph {
     pz: Math.round(m.pz ?? 0),
     jg: Math.round(m.jg ?? 0),
     ff: Math.round(m.ff ?? 0),
+    fUp: q(m.fUp ?? 0, 0.1),
+    fDown: q(m.fDown ?? 0, 0.1),
+    fSide: q(m.fSide ?? 0, 0.1),
+    fTail: q(m.fTail ?? 0, 0.1),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.pz, k.jg, k.ff].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.pz, k.jg, k.ff, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
 }
 
 interface Pal {
@@ -313,8 +322,8 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   // Rückenflosse / Rückenkamm hinter dem Körper
   if (m.cls === 'fish') {
     // Rückenflosse (crest) und Afterflosse (fin) – bei jeder Linie etwas anders groß
-    const k = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0));
-    const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0));
+    const k = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0));
+    const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0));
     ctx.beginPath();
     ctx.moveTo(bw * 0.16, -bh * 0.5);
     ctx.bezierCurveTo(bw * 0.06, -bh * 0.5 - 12 * k, -bw * 0.06, -bh * 0.55 - 13 * k, -bw * 0.16, -bh * 0.52 - 10 * k);
@@ -327,6 +336,19 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     ctx.quadraticCurveTo(-bw * 0.36, bh * 0.32, -bw * 0.34, bh * 0.26);
     ctx.closePath();
     finFill(ctx, P, bh * 0.3, bh * 0.5 + 9 * ka);
+    // Bauchflossen: wer viel nach unten geschwommen ist, bekommt größere Flossen unter dem Körper
+    const fd = m.fDown ?? 0;
+    if (fd > 0.05) {
+      const fl = 5 + 15 * fd, fw = 5 + 7 * fd;
+      for (const [ox, sc] of [[bw * 0.08, 1], [-bw * 0.06, 0.8]] as [number, number][]) {
+        ctx.beginPath();
+        ctx.moveTo(ox + fw * 0.5, bh * 0.4);
+        ctx.quadraticCurveTo(ox - fw * 0.2, bh * 0.4 + fl * 0.9 * sc, ox - fw * 1.6, bh * 0.38 + fl * sc);
+        ctx.quadraticCurveTo(ox - fw * 0.9, bh * 0.36 + fl * 0.35 * sc, ox - fw * 0.9, bh * 0.34);
+        ctx.closePath();
+        finFill(ctx, P, bh * 0.34, bh * 0.4 + fl);
+      }
+    }
     // Bauchflosse: wer sich oft am Grund abstützt, bekommt einen fleischigen Stiel
     const lb = m.limb ?? 0;
     if (lb > 0.1) lobe(ctx, m, P, -bw * 0.04, bh * 0.36, 7 + 9 * lb, 3 + 3 * lb, 1.1);
@@ -849,8 +871,8 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
-    const sw = 1 + 0.35 * (m.swift ?? 0), tw = m.tail ?? 0;
-    const lobe = (16 + 16 * st) * sw * (1 + 0.28 * tw), fork = 3 + 11 * st, spread = (13 + 9 * st) * sw * (1 + 0.65 * tw);
+    const sw = 1 + 0.35 * (m.swift ?? 0), tw = m.tail ?? 0, ft = m.fTail ?? 0;
+    const lobe = (16 + 16 * st) * sw * (1 + 0.28 * tw) * (1 + 0.3 * ft), fork = 3 + 11 * st + 6 * ft, spread = (13 + 9 * st) * sw * (1 + 0.65 * tw) * (1 + 0.5 * ft);
     ctx.beginPath();
     ctx.moveTo(-4, -4);
     ctx.quadraticCurveTo(-lobe * 0.4, -spread * 0.6, -lobe, -spread);
@@ -1052,10 +1074,11 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
   const lb = m.limb ?? 0;
   if (lb > 0.1) {
     // Brustflosse mit kräftigem Stiel – damit stützt sich der Fisch am Grund ab
-    lobe(ctx, m, P, 0, 0, (8 + 10 * lb) * (1 + 0.2 * (m.fin ?? 0)), 3 + 3.2 * lb, 2.4);
+    lobe(ctx, m, P, 0, 0, (8 + 10 * lb) * (1 + 0.2 * (m.fin ?? 0)) * (1 + 0.6 * (m.fSide ?? 0)), 3 + 3.2 * lb, 2.4);
     return;
   }
-  const k = (1 + 0.5 * m.stealth) * (1 + 0.6 * (m.fin ?? 0));
+  // Seitenflossen: wer oft die Richtung gewechselt hat, bekommt größere
+  const k = (1 + 0.5 * m.stealth) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.95 * (m.fSide ?? 0));
   ctx.beginPath();
   ctx.moveTo(1, -2.5);
   ctx.quadraticCurveTo(-5 * k, 9 * k, -14 * k, 10 * k);
@@ -1115,7 +1138,7 @@ export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
   const id = 'cr2_' + morphKey(m);
   const s = g.s;
   const hg = g.hg;
-  const body = part(scene, id + '_b', g.bw + 90, g.bh + 80, g.bw / 2 + 45, g.bh / 2 + 44, s, (ctx) => drawBody(ctx, m, P, g));
+  const body = part(scene, id + '_b', g.bw + 90, g.bh + 120, g.bw / 2 + 45, g.bh / 2 + 70, s, (ctx) => drawBody(ctx, m, P, g));
   const hw = hg.L + 76, hh = hg.H + 90;
   const head = part(scene, id + '_h', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawHead(ctx, m, P, hg));
   const teeth = part(scene, id + '_t', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawTeeth(ctx, m, hg));
@@ -1127,7 +1150,7 @@ export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
     const lw = g.legW * 2.4 + 26;
     out.leg = part(scene, id + '_l', lw, g.legLen + 16, lw / 2 - 1, 7, s, (ctx) => drawLeg(ctx, m, P, g.legLen, g.legW));
   } else {
-    out.fin = part(scene, id + '_f', 44, 40, 34, 10, s, (ctx) => drawFin(ctx, m, P));
+    out.fin = part(scene, id + '_f', 76, 64, 62, 12, s, (ctx) => drawFin(ctx, m, P));
   }
   return out;
 }

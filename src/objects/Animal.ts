@@ -157,8 +157,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   herdId = -1;
   /** Elternteil: wacht über ein Gelege und bleibt in dessen Nähe */
   guardPost: { x: number; y: number } | null = null;
-  /** wie lange der Spieler schon auf dem Gelege ist */
-  protected guardDwell = 0;
+  /** Mahlzeit: Wer ein Tier erlegt hat, bleibt am Kadaver und frisst – bis er satt ist, es nichts mehr gibt oder etwas stört */
+  protected feast: { meat: Meat; until: number } | null = null;
+  /** wann zuletzt gefressen wurde (Haltung und Kauen) und wann zuletzt zugebissen */
+  protected eatingAt = -1e9;
+  protected chompAt = -1e9;
+  private eatPosed = false;
   /** Räuber: wie sehr der Spieler dem Tier auf die Nerven geht (0 … 1, ab 1 wird es aggressiv) */
   protected irritation = 0;
   /** Räuber: wie schnell es reizbar ist */
@@ -346,6 +350,14 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   tick(time: number, dt: number) {
     if (this.dead) return;
+    // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
+    if (this.world.water) {
+      const wb = this.world.physics.world.bounds;
+      if (this.x < wb.x - 200 || this.x > wb.right + 200) {
+        if (this.kin || this.ally || this.boss) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
+        else return this.leave();
+      }
+    }
     // Wer tot oder fort ist, ist kein Ziel mehr (sonst greift man ins Leere – das ließ das Spiel einfrieren)
     if (this.target && this.target !== this.world.player && this.target.dead) this.target = null;
     if (this.threatObj && this.threatObj !== this.world.player && this.threatObj.dead) this.threatObj = null;
@@ -407,6 +419,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.think(time, dt);
     this.setFlipX(this.dir < 0);
+    this.eatPose(time);
     // Wer dich verfolgt, reißt unterwegs alles, was ihm vor das Maul kommt
     if (this.target === this.world.player && (this.role === 'apex' || this.role === 'predator') && time > this.pathBiteAt) {
       const b = this.b;
@@ -670,26 +683,78 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /** Ein Räuber hat etwas erlegt: Er schwimmt zum Kadaver und frisst. */
+  startFeast(m: Meat, time: number) {
+    if (this.dead || this.kin || this.role === 'hazard' || this.target === this.world.player) return;
+    this.feast = { meat: m, until: time + 11000 };
+    this.hunger = Math.max(this.hunger, 0.55);
+    this.target = null;
+    this.atk = '';
+  }
+
+  /** Die Mahlzeit: hinschwimmen, Kopf nach unten, Bissen für Bissen. Gibt true zurück, solange das Tier damit beschäftigt ist. */
+  protected feastStep(time: number) {
+    const f = this.feast!;
+    const m = f.meat;
+    // vorbei: aufgefressen, satt, zu lange her – oder jemand stört (wer angegriffen wird oder gereizt ist, lässt das Fressen)
+    if (m.gone || m.value <= 0.5 || time > f.until || this.hunger < 0.08 || time - this.attackedAt < 2500 || time < this.aggroUntil) {
+      this.feast = null;
+      return false;
+    }
+    const reach = this.displayWidth * 0.45 + 22;
+    const dx = m.x - this.x, dy = m.y - 6 - this.y;
+    if (Math.hypot(dx, dy) > reach) {
+      this.go('wander');
+      this.moveTo(m.x, m.y - 10, this.def.speed * 0.9);
+      return true;
+    }
+    this.go('graze');
+    this.halt();
+    this.dir = Math.sign(dx) || this.dir;
+    this.eatingAt = time;
+    if (time > this.feedAt) {
+      this.feedAt = time + 750 + Math.random() * 350;
+      if (m.take(time)) {
+        this.chompAt = time;
+        this.hunger = Math.max(0, this.hunger - 0.2);
+        m.ateFrom.add(this);
+        m.kill.fed.add(this);
+        this.world.puff(m.x, m.y - 6, 3, 0x6a1a10);
+        this.world.bleed(m.x, m.y - 4, 2);
+        this.sharedMeal(m, time);
+      }
+    }
+    return true;
+  }
+
+  /** Beim Fressen senkt das Tier den Kopf zum Futter und kaut: leicht nickend, mit einem kleinen Ruck bei jedem Bissen. */
+  protected eatPose(time: number) {
+    const eating = time - this.eatingAt < 220;
+    if (eating && !this.atk && !this.mv) {
+      const big = this.role !== 'prey';
+      const chew = Math.sin(this.t * (big ? 13 : 16)) * (big ? 5 : 3);
+      this.setAngle(this.dir * ((big ? 24 : 13) + chew));
+      const bump = Math.max(0, 1 - (time - this.chompAt) / 200);
+      this.setScale(this.sz * (1 + 0.07 * bump), this.sz * (1 - 0.06 * bump));
+      this.eatPosed = true;
+    } else if (this.eatPosed) {
+      this.eatPosed = false;
+      this.setAngle(0);
+      this.setScale(this.sz);
+    }
+  }
+
   /**
-   * Eltern am Gelege: Sie schwimmen nicht davon, sondern halten sich in der Nähe und beobachten den Spieler. Geht er auf das
-   * Gelege (oder frisst daran), greifen sie an. Gibt true zurück, solange das Tier wacht.
+   * Eltern am Gelege: Sie schwimmen nicht davon, sondern halten sich in der Nähe und beobachten den Spieler. Angreifen tun
+   * sie erst, wenn er wirklich anfängt, den Laich zu fressen (oder sie selbst angreift) – das löst LevelScene.roeBitten aus.
+   * Gibt true zurück, solange das Tier wacht.
    */
-  protected thinkGuard(time: number, dt: number) {
+  protected thinkGuard() {
     const W = this.world;
     const p = W.player;
     const post = this.guardPost!;
     // vor einem Räuber (nicht dem Spieler) weicht auch ein Elternteil aus
     if (this.threatObj && this.threatObj !== p) return false;
-    const roeY = post.y + 60;
-    const onRoe = !p.dead && Math.hypot(p.x - post.x, p.y - roeY) < 85;
-    if (onRoe) {
-      this.guardDwell += dt;
-      if (this.guardDwell > 0.35) {
-        this.guardDwell = 0;
-        this.rage(p, time);
-        return false;
-      }
-    } else this.guardDwell = Math.max(0, this.guardDwell - dt * 2);
     const dp = this.dist(p);
     if (!p.dead && (this.seesPlayer || dp < 200)) {
       // beobachten: dem Spieler zugewandt, nahe beim Gelege, mit leichtem Schwanken
@@ -708,9 +773,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const role = this.role;
     this.attacking = false;
     if (role === 'hazard') return this.drift();
+    // Nach dem Töten wird gefressen – auch große Tiere und Durchzügler bleiben dafür beim Kadaver
+    if (this.feast && this.feastStep(time)) return;
     if (this.visitor) return this.thinkVisitor(time, dt);
     // Eltern am Gelege bleiben und beobachten – solange sie nicht gereizt sind oder jagen
-    if (this.guardPost && role !== 'apex' && !this.kin && !this.ally && !this.target && time >= this.rageUntil && time >= this.aggroUntil && this.thinkGuard(time, dt)) return;
+    if (this.guardPost && role !== 'apex' && !this.kin && !this.ally && !this.target && time >= this.rageUntil && time >= this.aggroUntil && this.thinkGuard()) return;
     if (role === 'defender') return this.thinkDefender(time);
     if (role === 'apex') return this.thinkApex(time, dt);
 
@@ -1080,9 +1147,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.go('graze');
       this.halt();
       this.dir = Math.sign(f.x - this.x) || this.dir;
+      this.eatingAt = time;
       if (time > this.feedAt) {
         this.feedAt = time + 1300;
         if (f.take(time)) {
+          this.chompAt = time;
           this.hunger = Math.max(0, this.hunger - (isMeat ? 0.35 : 0.25));
           this.world.puff(f.x, f.y - 14, 3, isMeat ? 0x6a1a10 : 0x6a7a3a);
           if (isMeat) {
