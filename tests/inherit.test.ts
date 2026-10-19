@@ -43,9 +43,9 @@ describe('Generationswechsel', () => {
   });
 
   it('die Nahrung eines Lebens wird zu Nachkommen – sie sind die übrigen Leben (Geschwister im Gelege)', () => {
-    // der erste Fisch: je 50 Gefressenem ein Nachkomme
+    // der erste Fisch: je 100 Gefressenem ein Nachkomme
     expect(game.broodBase).toBe(SPAWN.perYoung);
-    expect(SPAWN.perYoung).toBe(50);
+    expect(SPAWN.perYoung).toBe(100);
     expect(game.spawnMinFood).toBeCloseTo(SPAWN.minFood, 6);
     game.feed(SPAWN.perYoung * 4.3);
     expect(game.young).toBe(4);
@@ -103,12 +103,21 @@ describe('Generationswechsel', () => {
     }
   });
 
-  it('schwerere Tiere brauchen mehr Nahrung je Nachkomme und einen volleren Magen zum Laichen', () => {
-    const base = game.broodBase, food = game.spawnMinFood;
+  it('weiter entwickelte Nachfahren brauchen mehr Nahrung je Nachkomme – Schwere einen volleren Magen zum Laichen', () => {
+    const food = game.spawnMinFood;
+    const bite0 = game.stats(game.cls, game.traits).bite;
+    // nur das Gebiss etwa 25 % stärker: rund 200 je Nachkomme
+    game.traits.jaw = 0.089;
+    const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
+    expect(bite).toBeGreaterThan(0.2);
+    expect(bite).toBeLessThan(0.3);
+    expect(game.broodBase).toBeGreaterThan(180);
+    expect(game.broodBase).toBeLessThan(225);
+    // ein schwereres Tier: stärker in vielem – deutlich mehr je Nachkomme, und ein vollerer Magen zum Laichen
     game.traits.growth = 1;
     game.traits.girth = 0.6;
     expect(game.weight()).toBeGreaterThan(3);
-    expect(game.broodBase).toBeGreaterThan(base * 1.5);
+    expect(game.broodBase).toBeGreaterThan(300);
     expect(game.spawnMinFood).toBeGreaterThan(food);
     expect(game.spawnMinFood).toBeLessThanOrEqual(SPAWN.minFoodMax);
   });

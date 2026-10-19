@@ -44,8 +44,9 @@ export const LIFE = {
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.
  *
  * Nachkommen aus Nahrung: Was ein Tier in seinem Leben frisst (die Zahlen, die beim Fressen aufsteigen), nährt seine Brut.
- * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 50, bei schwereren Tieren mehr (mit dem Gewicht, siehe
- * sim/life.ts, broodBase): 125 gefressen → 2 Nachkommen, 245 → 4, 250 → 5. Die Nachkommen sind deine Leben: Stirbt dein
+ * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 100: 250 gefressen → 2 Nachkommen, 490 → 4, 500 → 5. Wer
+ * weiter entwickelt ist, braucht mehr (siehe sim/life.ts, broodBase): Nachkommen mit einem um 25 % stärkeren Biss etwa
+ * 200, dazu 10 % schneller etwa 250. Die Nachkommen sind deine Leben: Stirbt dein
  * Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste Generation, vorher ein Geschwister.
  */
 export const SPAWN = {
@@ -60,9 +61,9 @@ export const SPAWN = {
   /** so stark wächst die Schwelle mit dem Gewicht (Gewicht im Verhältnis zum ersten Fisch, hoch minFoodExp) */
   minFoodExp: 0.4,
   /** so viel Nahrung je Nachkomme (beim ersten Fisch) … */
-  perYoung: 50,
-  /** … und so stark wächst das mit dem Gewicht (hoch perYoungExp): Große müssen mehr fressen */
-  perYoungExp: 0.5,
+  perYoung: 100,
+  /** … und je 1 % Verbesserung gegenüber dem ersten Fisch (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit) so viel % mehr */
+  perGain: 4,
   /** höchstens so viele Nachkommen in einem Leben */
   maxYoung: 12,
   /** das kostet ein Gelege (Anteil des Magens): Weibchen bzw. Männchen */

@@ -68,10 +68,11 @@ export const SPAWN_BLOCK: Record<SpawnBlock, string> = {
 };
 
 /**
- * So viel Nahrung braucht ein Nachkomme – beim ersten Fisch SPAWN.perYoung, schwerere Tiere brauchen mehr.
- * weight: Gewicht des ausgewachsenen Tiers im Verhältnis zum ersten Fisch.
+ * So viel Nahrung braucht ein Nachkomme – beim ersten Fisch SPAWN.perYoung, weiter entwickelte Tiere mehr. gain: wie viel
+ * besser das ausgewachsene Tier ist als der erste Fisch, die Verbesserungen zusammengezählt (0,25 = Biss 25 % stärker;
+ * 0,35 = dazu 10 % schneller).
  */
-export const broodBase = (weight = 1) => Math.round(SPAWN.perYoung * Math.pow(Math.max(0.1, weight), SPAWN.perYoungExp));
+export const broodBase = (gain = 0) => Math.round(SPAWN.perYoung * (1 + SPAWN.perGain * Math.max(0, gain)));
 
 /** So voll muss der Magen zum Laichen mindestens sein (Anteil): beim ersten Fisch kaum, bei schweren Tieren mehr. */
 export const spawnMinFood = (weight = 1) => clamp(SPAWN.minFood * Math.pow(Math.max(0.1, weight), SPAWN.minFoodExp), SPAWN.minFood, SPAWN.minFoodMax);

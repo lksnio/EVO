@@ -642,8 +642,9 @@ class GameState {
   private snap: { traits: Traits; aggression: number; infamy: number } | null = null;
   /** Das gerade beendete Leben – damit Anzeigen bis zum Szenenwechsel weiterlaufen können. */
   private ghost: Run | null = null;
-  /** Gewicht des ersten Fischs (Bezug für den Grundwert der Nachkommen) */
+  /** Gewicht und Werte des ersten Fischs (Bezug für die Laich-Schwelle und den Grundwert der Nachkommen) */
   private g0?: number;
+  private s0?: Stats;
 
   load(slot?: string | null) {
     const s = (slot ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 16);
@@ -999,9 +1000,22 @@ class GameState {
     return this.measure(this.r.cls, this.r.traits, ADULT).g / this.g0;
   }
 
-  /** So viel Nahrung braucht ein Nachkomme des eigenen Tiers (der Grundwert – schwere Tiere brauchen mehr). */
+  /**
+   * Wie viel besser das ausgewachsene eigene Tier ist als der erste Fisch: die Verbesserungen bei Biss, Stoß, Schwimmtempo,
+   * Lebenskraft, Ausdauer und Zähigkeit zusammengezählt (0,25 = eines davon 25 % besser). Verschlechterungen – der Preis
+   * eines Kompromisses – ziehen nichts ab.
+   */
+  gain(): number {
+    const a = this.stats(this.r.cls, this.r.traits, ADULT);
+    const b = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const up = (x: number, y: number) => Math.max(0, x / Math.max(1e-6, y) - 1);
+    return up(a.bite, b.bite) + up(a.ram, b.ram) + up(a.speed * a.cruise, b.speed * b.cruise) + up(a.maxHp, b.maxHp)
+      + up(a.endurance, b.endurance) + up(b.defense, a.defense);
+  }
+
+  /** So viel Nahrung braucht ein Nachkomme des eigenen Tiers (der Grundwert – je weiter entwickelt, desto mehr). */
   get broodBase(): number {
-    return broodBase(this.weight());
+    return broodBase(this.gain());
   }
 
   /** So voll muss der Magen des eigenen Tiers zum Laichen mindestens sein (Anteil). */

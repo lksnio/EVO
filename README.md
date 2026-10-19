@@ -36,9 +36,11 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   Zeit, sich mit seinem Tier anzufreunden.
 - **Nachkommen aus Nahrung – sie sind deine Leben:** Alles, was dein Tier in seinem Leben frisst (die Zahlen, die beim
   Fressen aufsteigen), nährt seine Brut. Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein Nachkomme. Beim
-  ersten Fisch sind es **50** – 125 gefressen ergibt 2 Nachkommen, 245 ergibt 4, 250 ergibt 5 (höchstens 12). Schwerere
-  Tiere haben einen höheren Grundwert (er wächst mit der Wurzel des Gewichts): Sie müssen mehr fressen – und wer dafür nur
-  kleine Fische frisst, dessen Art passt sich auch daran an (Kost, Größe …). Gezählt wird bis zum Tod, auch nach dem Laichen.
+  ersten Fisch sind es **100** – 250 gefressen ergibt 2 Nachkommen, 490 ergibt 4, 500 ergibt 5 (höchstens 12). **Weiter
+  entwickelte Nachfahren brauchen mehr:** Jedes Prozent, um das dein ausgewachsenes Tier besser ist als der erste Fisch
+  (Biss, Stoß, Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 4 % größer. Ein um
+  25 % stärkerer Biss heißt also etwa 200 je Nachkomme, dazu 10 % schneller etwa 240; Verschlechterungen (der Preis eines
+  Kompromisses) ziehen nichts ab. Wer dafür nur kleine Fische frisst, dessen Art passt sich auch daran an (Kost, Größe …). Gezählt wird bis zum Tod, auch nach dem Laichen.
   Stirbt dein Tier nach dem Laichen, schlüpft die nächste Generation, und die **übrigen Nachkommen warten als Geschwister im
   Gelege**. Stirbt es **vor dem Laichen**, schlüpft eines dieser Geschwister – dieselbe Generation, so beschaffen, wie dein
   Tier geschlüpft war (was es im Leben dazugelernt hat, ist verloren). Erst wenn kein Geschwister mehr wartet, stirbt die
@@ -53,7 +55,7 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
   - Ist Laichzeit, steht es oben im Bild unter der Lebenslinie – zusammen mit dem, was noch fehlt („zurück in den
     Laichfluss“, „zum schimmernden Laich deiner Art“, „dicht an den Grund“, „der Magen ist zu leer“, „zu wenig gefressen für
-    Nachwuchs (30 von 50)“ …). Geht es gerade, schimmert die Zeile und nennt die Nachkommen („Laichzeit · E drücken: Laich
+    Nachwuchs (60 von 100)“ …). Geht es gerade, schimmert die Zeile und nennt die Nachkommen („Laichzeit · E drücken: Laich
     befruchten · 3 Nachkommen“); nach dem Laichen erscheint sie wieder, sobald es einer mehr wird.
   - **Das Zeichen „E“** (wie das „F“ zum Ansprechen) erscheint über dem Laich, sobald du nah genug bist und es geht – dann
     E drücken (ein kurzer Druck reicht). Am Handy steht dort „···“, und der Biss-Knopf heißt „Laichen“.
@@ -743,7 +745,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       auf den Server.
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne befruchtetes Gelege und ohne Geschwister im Gelege Neustart als Urfisch (wie bisher).
-- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 50, mit der Wurzel des Gewichts mehr, höchstens 12);
+- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 100, je 1 % Verbesserung 4 % mehr, höchstens 12);
       gezählt wird die ganze Lebenszeit bis zum Tod. Magen zum Laichen: erster Fisch 10 %, mit dem Gewicht bis 25 %.
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den

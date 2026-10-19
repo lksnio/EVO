@@ -59,16 +59,18 @@ describe('Lebenszyklus', () => {
     expect(spawnBlock({ ...ok, fed: 100, base: 100 })).toBeNull();
   });
 
-  it('Nachkommen aus Nahrung: je Grundwert einer – Schwere brauchen mehr', () => {
-    expect(broodBase(1)).toBe(SPAWN.perYoung);
+  it('Nachkommen aus Nahrung: je Grundwert einer – weiter Entwickelte brauchen mehr', () => {
+    expect(broodBase(0)).toBe(100);
+    expect(SPAWN.perYoung).toBe(100);
     expect(youngOf(250, 100)).toBe(2);
     expect(youngOf(490, 100)).toBe(4);
     expect(youngOf(500, 100)).toBe(5);
     expect(youngOf(99, 100)).toBe(0);
     expect(youngOf(1e6, 100)).toBe(SPAWN.maxYoung);
-    // ein zehnmal so schweres Tier braucht mehr je Nachkomme – aber nicht zehnmal so viel
-    expect(broodBase(10)).toBeGreaterThan(2 * broodBase(1));
-    expect(broodBase(10)).toBeLessThan(10 * broodBase(1));
+    // Biss 25 % stärker: etwa 200 je Nachkomme; dazu 10 % schneller: etwa 250
+    expect(broodBase(0.25)).toBe(200);
+    expect(broodBase(0.35)).toBeGreaterThanOrEqual(230);
+    expect(broodBase(0.35)).toBeLessThanOrEqual(260);
   });
 
   it('der Magen muss zum Laichen kaum voll sein – bei schweren Tieren etwas mehr, nie mehr als ein Viertel', () => {
