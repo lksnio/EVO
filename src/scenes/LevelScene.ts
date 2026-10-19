@@ -155,6 +155,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private stormK = 0;
   private stormFx?: { veil: Phaser.GameObjects.Image; p: Phaser.GameObjects.Particles.ParticleEmitter };
   private huntMusic = 0;
+  /** wann die Musik zuletzt erfuhr, wie tief du bist und wie nah die Gefahr ist */
+  private moodAt = 0;
   private huntLost = 0;
   private bloodClouds?: Phaser.GameObjects.Particles.ParticleEmitter;
   private caustics: { s: Phaser.GameObjects.TileSprite; v: number; a: number }[] = [];
@@ -283,6 +285,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.stormK = 0;
     this.stormFx = undefined;
     this.huntMusic = this.huntLost = 0;
+    this.moodAt = 0;
     this.nextMigrate = 0;
     this.glints = new Map();
     this.bloodClouds = undefined;
@@ -1654,6 +1657,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bleed(a.x, a.y, 14);
     if (a.kin) {
       audio.sfx('squeal');
+      // ein Artgenosse stirbt: Für einen Moment bricht die Klanglandschaft fast ganz zusammen
+      audio.loss();
       if (byPlayer) game.addAggression(0.2);
       // ein Artgenosse deiner Gruppe ist gestorben: Er fehlt fortan
       if (a instanceof Kin) this.swarm?.died(a);
@@ -2336,7 +2341,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.animals.push(a);
     this.bossA = a;
     this.warnGiant({ x, y });
-    audio.music('apex');
   }
 
   /** Neue Tiere wandern ein, wenn der Lebensraum leerer wird. */
@@ -2408,23 +2412,36 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.stormFx = { veil, p: pe };
   }
 
-  /** Die Musik wechselt, wenn ein großer Räuber Jagd auf dich macht. */
+  /**
+   * Die Musik hört mit (audio/OceanScore.ts): wie tief du bist und wie nah ein großer Räuber ist – erst recht einer, der
+   * dich jagt. Einen Wechsel zu Jagdmusik gibt es nicht: Die Spannung wächst in der Klanglandschaft selbst und vergeht
+   * langsam wieder, wenn die Gefahr vorüber ist.
+   */
   private huntMood(time: number) {
     const hunter = this.animals.find((a) => !a.dead && a.huntingPlayer && (a.visitor || a.role === 'apex'));
     if (hunter) {
       this.huntLost = 0;
-      if (!this.huntMusic) {
-        this.huntMusic = time;
-        audio.music('apex');
-      }
+      if (!this.huntMusic) this.huntMusic = time;
     } else if (this.huntMusic) {
       if (!this.huntLost) this.huntLost = time;
-      else if (time - this.huntLost > 5000) {
-        this.huntMusic = 0;
-        this.huntLost = 0;
-        audio.music(this.ep.music);
-      }
+      else if (time - this.huntLost > 5000) this.huntMusic = this.huntLost = 0;
     }
+    if (time < this.moodAt) return;
+    this.moodAt = time + 250;
+    const p = this.player, L = this.L;
+    const mine = Math.max(1, p.stats.power);
+    let threat = this.cine ? 0.55 : 0;
+    for (const a of this.animals) {
+      if (a.dead || a.kin || a.ally || a.role === 'prey' || a.role === 'hazard') continue;
+      const big = a.def.power * a.sz;
+      if (!(a.role === 'apex' || a.visitor || a.boss || big >= mine * 1.4)) continue;
+      const near = clamp(1 - (Math.hypot(a.x - p.x, a.y - p.y) - 280) / 1200, 0, 1);
+      if (!near) continue;
+      const chasing = a.huntingPlayer || a.target === p || a.attacking ? 1 : 0.5;
+      threat = Math.max(threat, near * clamp(big / (mine * 2), 0.45, 1) * chasing);
+    }
+    const frac = clamp((p.y - L.surfaceY) / Math.max(300, L.height - L.surfaceY), 0, 1);
+    audio.mood({ depth: Math.max(this.deepK, clamp((frac - 0.2) / 0.8, 0, 1) * 0.55), threat });
   }
 
   private interact(time: number, dt: number) {
@@ -2635,7 +2652,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.deepDark.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
-      audio.musicLevel(1 - 0.8 * k, 0.8);
+      // die Musik nimmt die Tiefe selbst (huntMood) – hier rauscht nur das Meer lauter
       audio.sea(0.08 + 0.14 * k, 0.8);
     }
     if (k > 0.72 && time > this.deepRumbleAt) {

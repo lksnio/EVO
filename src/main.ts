@@ -6,6 +6,7 @@ import '@fontsource/alegreya-sans/latin-700.css';
 import '@fontsource/alegreya-sans/latin-400-italic.css';
 import { W, H, DEBUG } from './config';
 import { audio } from './audio/Audio';
+import { OceanScore } from './audio/OceanScore';
 import { game } from './state/GameState';
 import { setMuteHandler, toggleMute } from './ui/ui';
 import { keepAlive } from './util/guard';
@@ -74,7 +75,7 @@ async function start() {
   keepAlive(g);
 
   // Für Tests und Entwickler-Konsole
-  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, debug: DEBUG };
+  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, OceanScore, debug: DEBUG };
 }
 
 start();

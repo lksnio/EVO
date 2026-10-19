@@ -466,6 +466,29 @@ Im Stammbaum werden Linien nach Körperform, vorherrschender Platte und Kost zus
 daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch).
 </details>
 
+## Die Musik des Ozeans
+
+Im Spiel gibt es keine Musikstücke, die sich wiederholen: Der Ozean klingt live (`src/audio/OceanScore.ts`) – tiefe,
+langsam wandernde Klangflächen ohne klares Dur oder Moll, ein Grundton, den man mehr spürt als hört, der Atem des Wassers,
+ferne Rufe unbekannter Tiere, aufsteigende Blasen, körnige Spuren unsichtbaren Lebens, ein dunkler Hall wie ein Raum ohne
+Wände. Die Welt nimmt keinen Anteil – sie läuft einfach weiter.
+
+- **Das Motiv:** vier Töne – D, F, E, As (eine kleine Terz hinauf, einen Halbton zurück, einen Tritonus hinab, ohne
+  Auflösung). Es taucht selten und leise aus den Flächen auf (eine Fläche gleitet vorher zu seinem Grundton), oft nur als
+  Bruchstück, gläsern, mit einem Schatten eine Oktave tiefer. In der Tiefe klingt es stumpf und eine Oktave tiefer, unter
+  Gefahr zusammengezogen und metallisch.
+- **Erkunden:** spärlich, viel Raum für die Geräusche des Spiels; nahe der Oberfläche ein kaum hörbarer, heller Schimmer.
+- **Tiefe:** Höhen und Melodisches treten zurück; Druck, dumpfe Resonanzen, ein Ächzen wie von nachgebender Welt – und lange
+  Momente fast völliger Stille.
+- **Ein großer Räuber kommt näher:** unregelmäßige tiefe Pulse (manchmal doppelt, nie im Takt), ein reibender, dunkler Klang
+  aus kleiner Sekunde und Tritonus, Dissonanzen, die anschwellen und abbrechen. Je näher und je mehr er dich jagt, desto
+  dichter. Kein Wechsel zu Jagdmusik.
+- **Ein Artgenosse stirbt:** Die Klanglandschaft bricht für einen Moment fast ganz zusammen; nur eine tiefe Resonanz und die
+  ersten beiden Töne des Motivs hallen nach, brüchig, etwas zu tief. Dann kehrt die Welt zurück.
+- **Danach:** Die Spannung klingt langsam aus (sie kommt schneller, als sie geht).
+
+Titelbild und Generationswechsel nutzen dieselbe Klanglandschaft, ruhiger und mit dem Motiv etwas öfter.
+
 ## Steuerung
 
 Die rechte Hand liegt auf den Pfeiltasten, die linke auf **Q W E R**. Im Spiel wird die Steuerung
@@ -646,6 +669,7 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
+├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)

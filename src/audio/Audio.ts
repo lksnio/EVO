@@ -1,5 +1,7 @@
 // Alle Töne werden live mit der Web Audio API erzeugt – es gibt keine Audiodateien.
 
+import { OceanScore, type ScoreMode, type ScoreMood } from './OceanScore';
+
 export type Sfx =
   | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
@@ -59,15 +61,9 @@ const PHRYG = [0, 1, 3, 5, 7, 8, 10];
 const HARM = [0, 2, 3, 5, 7, 8, 11];
 const _ = null;
 
+// Im Spiel, im Titelbild und zwischen den Generationen spielt der Ozean selbst (OceanScore) – diese Stücke sind für die
+// übrigen Bildschirme.
 const TRACKS: Record<string, TrackDef> = {
-  // Titel: tiefe Dröhnung, einzelne Töne wie aus der Tiefe
-  title: {
-    bpm: 62, root: 45, scale: PHRYG, prog: [0, 0, 1, 0],
-    pad: { type: 'sawtooth', v: 0.03, filter: 520 },
-    bass: { type: 'sine', v: 0.2, filter: 300, pat: 'x...............' },
-    arp: { type: 'sine', v: 0.05, pat: [0, -1, -1, -1, -1, -1, 2, -1, -1, -1, 1, -1, -1, -1, -1, -1], oct: 2, rel: 2.2 },
-    air: { v: 0.05, filter: 380, f2: 180, q: 1.2 },
-  },
   // Karte: ruhig, gedämpft, wie ein Lagerfeuer in der Nacht
   map: {
     bpm: 70, root: 50, scale: DORIAN, prog: [0, 6, 5, 0],
@@ -75,13 +71,6 @@ const TRACKS: Record<string, TrackDef> = {
     bass: { type: 'sine', v: 0.18, filter: 420, pat: 'x.......x.....o.' },
     arp: { type: 'triangle', v: 0.035, pat: [0, -1, -1, 2, -1, -1, 1, -1, 0, -1, -1, 3, -1, -1, 2, -1], oct: 1, rel: 0.9, filter: 1600 },
     drums: { k: 'x...............', s: '................', h: '................', t: '........x.......', v: 0.35 },
-  },
-  ozean: {
-    bpm: 58, root: 43, scale: DORIAN, prog: [0, 3, 6, 0],
-    pad: { type: 'sine', v: 0.06, filter: 650 },
-    bass: { type: 'sine', v: 0.18, filter: 380, pat: 'x...........o...' },
-    arp: { type: 'sine', v: 0.045, pat: [4, -1, -1, -1, 2, -1, -1, -1, -1, -1, 3, -1, -1, -1, -1, -1], oct: 2, rel: 1.8 },
-    air: { v: 0.06, filter: 300, f2: 140, q: 0.9 },
   },
   sumpf: {
     bpm: 78, root: 47, scale: PHRYG, prog: [0, 1, 0, 6],
@@ -120,14 +109,6 @@ const TRACKS: Record<string, TrackDef> = {
     bass: { type: 'sawtooth', v: 0.15, filter: 520, pat: 'x.x.x.xxx.x.x.xo' },
     arp: { type: 'square', v: 0.02, pat: [0, -1, 1, -1, 0, -1, 1, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.08, filter: 1500 },
     drums: { k: 'x..x..x.x..x..x.', s: '....x.......x...', h: '..x...x...x...x.', t: '.............xxx', v: 0.6 },
-  },
-  // Zwischen den Generationen
-  generation: {
-    bpm: 60, root: 48, scale: DORIAN, prog: [0, 6, 3, 0],
-    pad: { type: 'sine', v: 0.06, filter: 1000 },
-    bass: { type: 'sine', v: 0.13, filter: 380, pat: 'x...............' },
-    arp: { type: 'sine', v: 0.045, pat: [0, -1, 2, -1, 4, -1, 2, -1, 3, -1, 2, -1, 1, -1, -1, -1], oct: 2, rel: 1.2 },
-    air: { v: 0.03, filter: 600, f2: 300, q: 1 },
   },
   ending: {
     bpm: 66, root: 50, scale: MAJOR, prog: [0, 3, 4, 0, 5, 3, 4, 4],
@@ -235,6 +216,9 @@ class Sequencer {
   }
 }
 
+/** Welche Musik der Ozean spielt (statt eines Stücks): im Spiel, im Titelbild, zwischen den Generationen. */
+const SCORE: Record<string, ScoreMode> = { ozean: 'level', title: 'title', generation: 'still' };
+
 export class AudioEngine {
   ctx: AudioContext | null = null;
   musicBus: GainNode | null = null;
@@ -243,6 +227,8 @@ export class AudioEngine {
   private master: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   private seq: Sequencer | null = null;
+  private score: OceanScore | null = null;
+  private scoreTimer = 0;
   private track: string | null = null;
   private wanted: string | null = null;
   muted = false;
@@ -682,6 +668,34 @@ export class AudioEngine {
     }
   }
 
+  /** Der Ozean spielt (oder spielt weiter, in einer anderen Stimmung). */
+  private startScore(m: ScoreMode) {
+    const ctx = this.ctx!;
+    if (!this.score) {
+      this.score = new OceanScore(ctx, this.musicBus!);
+      // etwas Vorlauf: Was in der nächsten Drittelsekunde erklingt, ist schon geplant
+      this.scoreTimer = window.setInterval(() => this.score?.tick(ctx.currentTime + 0.35), 250);
+    }
+    this.score.mode(m);
+  }
+
+  private stopScore() {
+    if (!this.score || !this.ctx) return;
+    this.score.stop(this.ctx.currentTime);
+    this.score = null;
+    window.clearInterval(this.scoreTimer);
+  }
+
+  /** Wie es im Spiel gerade aussieht: Tiefe und Gefahr (0 … 1) – die Musik folgt weich. */
+  mood(m: ScoreMood) {
+    this.score?.set(m);
+  }
+
+  /** Ein Artgenosse ist gestorben: Für einen Moment bricht die Klanglandschaft fast ganz zusammen. */
+  loss() {
+    if (this.score && this.ctx) this.score.loss(this.ctx.currentTime + 0.05);
+  }
+
   music(name: string | null) {
     this.wanted = name;
     if (!this.ctx || this.ctx.state !== 'running') return;
@@ -689,6 +703,9 @@ export class AudioEngine {
     this.seq?.stop();
     this.seq = null;
     this.track = name;
+    const sm = name ? SCORE[name] : undefined;
+    if (sm) return this.startScore(sm);
+    this.stopScore();
     if (!name || !TRACKS[name]) return;
     this.seq = new Sequencer(this, TRACKS[name]);
     this.seq.start();
