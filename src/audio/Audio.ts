@@ -9,7 +9,14 @@ export type Sfx =
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
   | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
-  | 'thud' | 'crumble' | 'blub' | 'laich';
+  | 'thud' | 'crumble' | 'blub' | 'laich'
+  // Bedienung: Überfahren, Bestätigen, Blättern, Zeitalter wählen und betreten
+  | 'hover' | 'confirm' | 'open' | 'page' | 'tab' | 'era' | 'epoch' | 'stone';
+
+/** Klänge der Bedienung: immer gleich (keine Tonhöhen-Schwankung) und mit Hall – hier ihre Lautstärke untereinander. */
+const UI_GAIN: Partial<Record<Sfx, number>> = {
+  hover: 3.6, click: 2.6, select: 1.4, back: 2.6, confirm: 1.15, open: 1.1, page: 1.6, tab: 2.4, era: 1.6, epoch: 1.5, stone: 2,
+};
 
 interface ToneOpts {
   f: number;
@@ -23,6 +30,8 @@ interface ToneOpts {
   q?: number;
   dest?: AudioNode;
   detune?: number;
+  /** so viel davon geht zusätzlich in den Hall (0 … 1) */
+  wet?: number;
 }
 
 interface NoiseOpts {
@@ -36,6 +45,8 @@ interface NoiseOpts {
   type?: BiquadFilterType;
   q?: number;
   dest?: AudioNode;
+  /** so viel davon geht zusätzlich in den Hall (0 … 1) */
+  wet?: number;
 }
 
 // ---------- Musik ----------
@@ -225,6 +236,8 @@ export class AudioEngine {
   private seaGain: GainNode | null = null;
   private sfxBus: GainNode | null = null;
   private master: GainNode | null = null;
+  /** ein großer, dunkler Raum für die Bedienklänge – sie klingen darin nach */
+  private verb: ConvolverNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   private seq: Sequencer | null = null;
   private score: OceanScore | null = null;
@@ -235,6 +248,8 @@ export class AudioEngine {
   private lastSfx: Record<string, number> = {};
   /** Tonhöhe des gerade gespielten Effekts (leichte Variation, damit nichts gleich klingt) */
   private vary = 1;
+  /** Lautstärke des gerade gespielten Effekts (Bedienklänge, siehe UI_GAIN) */
+  private gainMul = 1;
 
   /** Muss nach einer Nutzeraktion (Klick/Taste) aufgerufen werden. */
   unlock() {
@@ -260,6 +275,13 @@ export class AudioEngine {
       this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      // der Hall: abklingendes Rauschen, das zum Ende hin immer dunkler wird – wie ein Gewölbe unter Wasser
+      this.verb = ctx.createConvolver();
+      this.verb.buffer = this.impulse(ctx, 2.8, 2.6);
+      const wet = ctx.createGain();
+      wet.gain.value = 0.5;
+      this.verb.connect(wet);
+      wet.connect(this.sfxBus);
       document.addEventListener('visibilitychange', () => {
         if (!this.ctx) return;
         if (document.hidden) this.ctx.suspend();
@@ -271,6 +293,33 @@ export class AudioEngine {
     };
     if (this.ctx.state === 'suspended') this.ctx.resume().then(startWanted, () => {});
     else startWanted();
+  }
+
+  /** Antwort eines Raumes: Rauschen, das über sec Sekunden abklingt und dabei dunkler wird (beide Kanäle etwas anders). */
+  private impulse(ctx: AudioContext, sec: number, decay: number) {
+    const len = Math.floor(ctx.sampleRate * sec);
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      let y = 0;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        // je später, desto stärker geglättet (dunkler)
+        const k = 0.9 - 0.82 * t;
+        y += (Math.random() * 2 - 1 - y) * k;
+        d[i] = y * Math.pow(1 - t, decay) * (i < ctx.sampleRate * 0.012 ? i / (ctx.sampleRate * 0.012) : 1);
+      }
+    }
+    return buf;
+  }
+
+  /** Ein Teil des Klangs geht zusätzlich in den Hall. */
+  private send(node: AudioNode, wet?: number) {
+    if (!wet || !this.verb || !this.ctx) return;
+    const g = this.ctx.createGain();
+    g.gain.value = wet;
+    node.connect(g);
+    g.connect(this.verb);
   }
 
   /** Das Musikstück, das gerade läuft bzw. laufen soll. */
@@ -299,7 +348,7 @@ export class AudioEngine {
     if (o.f2) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f2 * vr), t0 + o.d);
     const g = ctx.createGain();
     const a = o.a ?? 0.005;
-    const v = o.v ?? 0.3;
+    const v = (o.v ?? 0.3) * this.gainMul;
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(v, t0 + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(a + 0.01, o.d));
@@ -314,6 +363,7 @@ export class AudioEngine {
     }
     node.connect(g);
     g.connect(o.dest ?? this.sfxBus!);
+    this.send(g, o.wet);
     osc.start(t0);
     osc.stop(t0 + o.d + 0.05);
   }
@@ -330,14 +380,16 @@ export class AudioEngine {
     if (o.f2) bq.frequency.exponentialRampToValueAtTime(o.f2 * this.vary, t0 + o.d);
     bq.Q.value = o.q ?? 0.7;
     const g = ctx.createGain();
+    const v = (o.v ?? 0.2) * this.gainMul;
     if (o.a) {
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(o.v ?? 0.2, t0 + o.a);
-    } else g.gain.setValueAtTime(o.v ?? 0.2, t0);
+      g.gain.exponentialRampToValueAtTime(v, t0 + o.a);
+    } else g.gain.setValueAtTime(v, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(o.d, (o.a ?? 0) + 0.02));
     src.connect(bq);
     bq.connect(g);
     g.connect(o.dest ?? this.sfxBus!);
+    this.send(g, o.wet);
     src.start(t0, Math.random() * 0.5);
     src.stop(t0 + o.d + 0.05);
   }
@@ -406,25 +458,94 @@ export class AudioEngine {
     if (now - (this.lastSfx[name] ?? 0) < 35) return;
     this.lastSfx[name] = now;
     // jedes Mal ein klein wenig anders (±6 % Tonhöhe), Bedienelemente bleiben gleich
-    this.vary = name === 'click' || name === 'select' || name === 'back' ? 1 : 1 + (Math.random() - 0.5) * 0.12;
+    const ui = UI_GAIN[name];
+    this.vary = ui ? 1 : 1 + (Math.random() - 0.5) * 0.12;
+    this.gainMul = ui ?? 1;
     try {
       this.play(name, k);
     } finally {
       this.vary = 1;
+      this.gainMul = 1;
     }
   }
 
   private play(name: Sfx, k: number) {
     switch (name) {
+      // ---- Bedienung: zurückhaltend, aber mit Gewicht – Stein, Wasser und ein Raum, in dem alles nachklingt
+      case 'hover':
+        // ein Glanz, der kurz über Stein streicht
+        this.noise({ d: 0.05, v: 0.022, a: 0.008, filter: 4200, type: 'bandpass', q: 5, wet: 0.35 });
+        this.tone({ f: 1568, d: 0.16, type: 'sine', v: 0.009, a: 0.006, wet: 0.5 });
+        break;
       case 'click':
-        this.noise({ d: 0.04, v: 0.12, filter: 1400, type: 'bandpass', q: 2 });
+        // ein weiches Antippen von Stein, mit leisem Nachklang
+        this.tone({ f: 420, f2: 300, d: 0.07, type: 'sine', v: 0.06, a: 0.002, wet: 0.25 });
+        this.noise({ d: 0.03, v: 0.06, filter: 1700, type: 'bandpass', q: 2.5, wet: 0.2 });
         break;
       case 'select':
-        this.tone({ f: 220, f2: 330, d: 0.16, type: 'triangle', v: 0.12, filter: 1400 });
-        this.noise({ d: 0.08, v: 0.1, filter: 900, type: 'bandpass', q: 1.5 });
+        // zwei helle, weiche Töne (eine Quarte hinauf)
+        this.tone({ f: 659, d: 0.5, type: 'sine', v: 0.035, a: 0.006, wet: 0.5 });
+        this.tone({ f: 880, d: 0.7, type: 'sine', v: 0.03, a: 0.006, t: 0.07, wet: 0.6 });
+        this.noise({ d: 0.04, v: 0.03, filter: 2400, type: 'bandpass', q: 3 });
         break;
       case 'back':
-        this.tone({ f: 260, f2: 170, d: 0.14, type: 'triangle', v: 0.1, filter: 1200 });
+        // ein sanfter, fallender Ton
+        this.tone({ f: 330, f2: 220, d: 0.3, type: 'triangle', v: 0.045, a: 0.006, filter: 1600, wet: 0.45 });
+        this.noise({ d: 0.12, v: 0.025, a: 0.02, filter: 900, f2: 400, type: 'bandpass', wet: 0.3 });
+        break;
+      case 'confirm':
+        // bestätigen: ein tiefer, weicher Schlag, darüber ein offener Klang (Grundton, Quinte, Oktave) und ein heller Schimmer
+        this.tone({ f: 92, f2: 50, d: 0.42, type: 'sine', v: 0.2, a: 0.003 });
+        this.noise({ d: 0.18, v: 0.05, filter: 420, f2: 160, wet: 0.3 });
+        for (const [f, v] of [[146.8, 0.05], [220, 0.04], [293.7, 0.032]] as const) {
+          this.tone({ f, d: 1.5, type: 'triangle', v, a: 0.012, filter: 2200, wet: 0.65 });
+        }
+        this.tone({ f: 1174.7, d: 1.3, type: 'sine', v: 0.012, a: 0.03, t: 0.04, wet: 0.9 });
+        this.tone({ f: 1760, d: 1.1, type: 'sine', v: 0.008, a: 0.03, t: 0.08, wet: 0.9 });
+        this.noise({ d: 0.5, v: 0.02, a: 0.06, filter: 900, f2: 2800, type: 'bandpass', wet: 0.6 });
+        break;
+      case 'open':
+        // etwas öffnet sich: ein dunkles Anschwellen wie Wasser, das sich teilt
+        this.noise({ d: 0.8, v: 0.05, a: 0.28, filter: 260, f2: 1500, type: 'lowpass', wet: 0.55 });
+        this.tone({ f: 73.4, d: 1, type: 'sine', v: 0.07, a: 0.25, wet: 0.4 });
+        this.tone({ f: 220, d: 1.1, type: 'sine', v: 0.018, a: 0.3, t: 0.15, wet: 0.8 });
+        break;
+      case 'page':
+        // eine schwere Pergamentseite wird umgeschlagen
+        this.noise({ d: 0.22, v: 0.06, a: 0.03, filter: 2600, f2: 900, type: 'bandpass', q: 0.9, wet: 0.2 });
+        this.noise({ d: 0.12, v: 0.035, a: 0.01, filter: 1400, f2: 600, type: 'bandpass', q: 1.2, t: 0.13, wet: 0.2 });
+        this.tone({ f: 110, f2: 80, d: 0.18, type: 'sine', v: 0.03, a: 0.01, t: 0.14 });
+        break;
+      case 'tab':
+        // ein Lesezeichen: ein hölzernes Klopfen und ein kleiner Glockenton
+        this.noise({ d: 0.03, v: 0.07, filter: 1300, type: 'bandpass', q: 3, wet: 0.3 });
+        this.tone({ f: 587.3, d: 0.6, type: 'sine', v: 0.03, a: 0.004, wet: 0.6 });
+        this.tone({ f: 1174.7, d: 0.35, type: 'sine', v: 0.008, a: 0.004, wet: 0.7 });
+        break;
+      case 'era':
+        // ein anderes Zeitalter rückt ins Licht: ein tiefes Rauschen wie eine Strömung, darunter ein weicher Ton
+        this.noise({ d: 0.55, v: 0.045, a: 0.08, filter: 380, f2: 1300, type: 'bandpass', q: 0.8, wet: 0.5 });
+        this.tone({ f: 110, d: 0.8, type: 'sine', v: 0.04, a: 0.05, wet: 0.55 });
+        this.tone({ f: 164.8, d: 0.7, type: 'sine', v: 0.018, a: 0.08, t: 0.06, wet: 0.7 });
+        break;
+      case 'epoch': {
+        // in ein Zeitalter aufbrechen: ein Sog in die Tiefe, ein tiefer Schlag und ein weiter, offener Chor
+        this.tone({ f: 70, f2: 34, d: 1.8, type: 'sine', v: 0.26, a: 0.01 });
+        this.noise({ d: 1.4, v: 0.16, a: 0.005, filter: 160, f2: 60, wet: 0.4 });
+        this.noise({ d: 1.6, v: 0.05, a: 0.5, filter: 300, f2: 2200, type: 'bandpass', q: 0.7, wet: 0.7 });
+        const chord = [73.4, 110, 146.8, 220, 293.7];
+        chord.forEach((f, i) => {
+          for (const dt of [-7, 7]) this.tone({ f, d: 3.4, type: 'sawtooth', v: 0.016 - i * 0.002, a: 0.45, filter: 900 + i * 150, q: 2, detune: dt, wet: 0.85, t: 0.08 });
+        });
+        this.tone({ f: 1174.7, d: 2.6, type: 'sine', v: 0.01, a: 0.6, t: 0.3, wet: 1 });
+        this.tone({ f: 880, d: 2.4, type: 'sine', v: 0.008, a: 0.6, t: 0.5, wet: 1 });
+        break;
+      }
+      case 'stone':
+        // noch im Gestein: Stein reibt über Stein, ein dumpfer Schlag – es rührt sich nichts
+        this.noise({ d: 0.42, v: 0.11, a: 0.02, filter: 520, f2: 180, q: 0.9, wet: 0.35 });
+        this.noise({ d: 0.05, v: 0.06, filter: 2300, type: 'bandpass', q: 2, t: 0.03 });
+        this.tone({ f: 82, f2: 50, d: 0.3, type: 'sine', v: 0.14, a: 0.004, wet: 0.3 });
         break;
       case 'bite':
         // Luft schnappen, dann klacken die Zähne aufeinander – tiefer und lauter mit starkem Gebiss

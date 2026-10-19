@@ -67,6 +67,6 @@ export class IntroScene extends Phaser.Scene {
     if (!this.scene.isActive()) return;
     game.data.seenIntro = true;
     game.save();
-    fadeTo(this, 'Level', { epoch: 0 }, 900);
+    fadeTo(this, 'Level', { epoch: game.chosenEpoch }, 900);
   }
 }

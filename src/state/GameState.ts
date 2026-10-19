@@ -1,5 +1,5 @@
 import { CLASSES, type ClassId } from '../data/classes';
-import { EPOCHS, type EpochDef } from '../data/epochs';
+import { EPOCHS, isPlayable, type EpochDef } from '../data/epochs';
 import { linkKey, placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
 import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
@@ -378,9 +378,12 @@ export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand'
 
 export interface TreeNode {
   id: string;
+  /** keiner: die Wurzel eines Zeitalters – sein Urahn, mit dem dort jede Linie beginnt */
   parent: string | null;
-  /** -1 = Urahn, sonst das überlebte (bzw. beim Aussterben: das laufende) Zeitalter */
+  /** das Zeitalter, zu dessen Stammbaum der Knoten gehört (jedes Zeitalter hat seinen eigenen) */
   epoch: number;
+  /** Generation: ab der diese Art lebt (bei einem Astende: in der die Linie endete); die Wurzel hat 0 */
+  gen?: number;
   cls: ClassId;
   traits: Traits;
   hue: number;
@@ -411,6 +414,10 @@ export interface SaveData {
   deepest: number;
   /** Tiere, die man schon gesehen hat (Aquapendium) */
   seen: string[];
+  /** das gewählte Zeitalter (dort lebt die laufende Linie bzw. beginnt die nächste) */
+  epoch?: number;
+  /** die Linien der anderen Zeitalter: Sie ruhen, solange man anderswo lebt (Nummer des Zeitalters → Lauf) */
+  parked?: Record<string, Run>;
 }
 
 const KEY = 'evo-save-v3';
@@ -566,9 +573,7 @@ function fresh(): SaveData {
     seenIntro: false,
     runs: 0,
     nextId: 1,
-    nodes: {
-      root: { id: 'root', parent: null, epoch: -1, cls: 'fish', traits: { ...ZERO }, hue: 0, seed: 1, sig: 'root', children: [], runs: 0, last: 0 },
-    },
+    nodes: { root: rootNode(0) },
     run: null,
     lastEnd: null,
     deepest: -1,
@@ -583,13 +588,22 @@ export function sigOf(cls: ClassId, tIn: Partial<Traits>) {
   return `${cls}:${plateSig(t)}:${diet}:${t.coat}`;
 }
 
+/** Die Wurzel des Stammbaums eines Zeitalters (das Ordovizium hat die alte Wurzel „root“). */
+export const rootId = (epoch: number) => (epoch === 0 ? 'root' : `root:${EPOCHS[epoch]?.id ?? epoch}`);
+
+/** Der Urahn eines Zeitalters: Mit ihm beginnt dort jede Linie. */
+export function rootNode(epoch: number): TreeNode {
+  const cls = EPOCHS[epoch]?.cls ?? 'fish';
+  return { id: rootId(epoch), parent: null, epoch, gen: 0, cls, traits: { ...ZERO }, hue: 0, seed: 1, sig: sigOf(cls, ZERO), children: [], runs: 0, last: 0 };
+}
+
 const GENUS_ROOT: Record<ClassId, string> = { fish: 'ichthys', amphibian: 'batrachus', reptile: 'saurus', mammal: 'therium' };
 const GENUS_PRE: Record<string, string> = { basal: 'Prot', st: 'Placo', bs: 'Odont', vf: 'Drom', sw: 'Agel' };
 const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris', carn: 'carnivorus' };
 
 /** Ein wissenschaftlich klingender Name für eine Linie (nur im Stammbaum zu sehen). */
-export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'>) {
-  if (n.epoch < 0) return 'Der Urahn';
+export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'> & { parent?: string | null }) {
+  if (n.parent === null || n.epoch < 0) return 'Der Urahn';
   const t = full(n.traits);
   const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
   const root = GENUS_ROOT[n.cls];
@@ -672,10 +686,15 @@ class GameState {
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
+        // Früher hing alles an einem Urahn vor dem Ordovizium – heute hat jedes Zeitalter seinen eigenen; das Ordovizium
+        // übernimmt den alten. Astenden kennen ihre Generation (ältere Spielstände: so viele, wie die Linie lebte)
+        const root = this.data.nodes.root;
+        if (root && (root.epoch < 0 || root.gen === undefined)) Object.assign(root, { epoch: 0, gen: 0, sig: sigOf(root.cls, ZERO) });
+        for (const n of Object.values(this.data.nodes)) if (n.parent !== null) n.gen ??= n.dead?.gens ?? 1;
         // Nur noch die Fischzeit: alles, was dahinter lag, wird verworfen
         this.prune();
-        const r = this.data.run;
-        if (r) {
+        for (const r of [this.data.run, ...Object.values(this.data.parked ?? {})]) {
+          if (!r) continue;
           r.prog ??= newProg(r.epoch);
           r.prog.train ??= newStyle();
           r.prog.eaten ??= { meat: 0, plant: 0 };
@@ -707,6 +726,7 @@ class GameState {
           // vorerst schlüpft man immer als Männchen – auch ein Weibchen aus einem älteren Spielstand wird zu einem
           if (SPAWN.alwaysMale) r.sex = 1;
         }
+        this.data.epoch = isPlayable(this.data.epoch ?? -1) ? this.data.epoch : this.data.run?.epoch ?? 0;
       }
     } catch {
       this.data = fresh();
@@ -718,13 +738,29 @@ class GameState {
     const d = this.data;
     const bad = new Set<string>();
     for (const n of Object.values(d.nodes)) if (n.epoch >= EPOCHS.length || n.cls !== 'fish') bad.add(n.id);
+    // Jeder Stammbaum gehört zu einem Zeitalter: Äste, die früher von einem Zeitalter ins nächste führten, fallen weg – samt
+    // allem, was daran hing
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const n of Object.values(d.nodes)) {
+        if (bad.has(n.id) || n.parent === null) continue;
+        const p = d.nodes[n.parent];
+        if (!p || bad.has(p.id) || p.epoch !== n.epoch) {
+          bad.add(n.id);
+          grew = true;
+        }
+      }
+    }
     if (bad.size) {
       for (const id of bad) delete d.nodes[id];
       for (const n of Object.values(d.nodes)) n.children = n.children.filter((c) => !bad.has(c));
       if (d.lastEnd && !d.nodes[d.lastEnd]) d.lastEnd = null;
     }
     d.deepest = Math.min(d.deepest, EPOCHS.length - 1);
-    if (d.run && (d.run.epoch >= EPOCHS.length || d.run.cls !== 'fish' || !d.nodes[d.run.node])) d.run = null;
+    const ok = (r: Run) => isPlayable(r.epoch) && r.cls === 'fish' && !!d.nodes[r.node];
+    if (d.run && !ok(d.run)) d.run = null;
+    // Linien in Zeitaltern, in denen man (noch) nicht leben kann, ruhen nicht weiter
+    for (const [k, r] of Object.entries(d.parked ?? {})) if (!ok(r) || Number(k) !== r.epoch || r.epoch === d.run?.epoch) delete d.parked![k];
   }
 
   save() {
@@ -777,10 +813,48 @@ class GameState {
     return this.r.epoch;
   }
 
-  /** Eine neue Linie beginnt – als frisch geschlüpfter Urfisch an der Wurzel des Stammbaums. */
-  newRun(): Run {
+  /** Das gewählte Zeitalter: Dort lebt die laufende Linie – oder beginnt die nächste. */
+  get chosenEpoch(): number {
+    return this.data.run?.epoch ?? this.data.epoch ?? 0;
+  }
+
+  /** Die Linie eines Zeitalters: die laufende oder die, die dort ruht, während man anderswo lebt. */
+  runIn(epoch: number): Run | null {
+    const r = this.data.run;
+    if (r && r.epoch === epoch) return r;
+    return this.data.parked?.[epoch] ?? null;
+  }
+
+  /**
+   * In ein anderes Zeitalter wechseln (nur spielbare): Die Linie des alten ruht dort, bis man zurückkehrt; die des neuen –
+   * falls es dort schon eine gibt – lebt weiter.
+   */
+  enterEpoch(epoch: number) {
     const d = this.data;
+    if (!isPlayable(epoch)) return;
+    d.epoch = epoch;
+    if (d.run?.epoch !== epoch) {
+      d.parked ??= {};
+      if (d.run) d.parked[d.run.epoch] = d.run;
+      d.run = d.parked[epoch] ?? null;
+      delete d.parked[epoch];
+      this.ghost = null;
+    }
+    this.save();
+  }
+
+  /** Der Urahn eines Zeitalters (die Wurzel seines Stammbaums) – wird beim ersten Mal angelegt. */
+  rootOf(epoch: number): TreeNode {
+    const id = rootId(epoch);
+    return (this.data.nodes[id] ??= rootNode(epoch));
+  }
+
+  /** Eine neue Linie beginnt – als frisch geschlüpftes Tier am Urahn des Zeitalters. */
+  newRun(epoch = this.chosenEpoch): Run {
+    const d = this.data;
+    if (!isPlayable(epoch)) epoch = 0;
     d.runs += 1;
+    const root = this.rootOf(epoch);
     const run: Run = {
       id: d.runs,
       cls: 'fish',
@@ -790,22 +864,22 @@ class GameState {
       hue: Math.floor(Math.random() * 4),
       seed: Math.floor(Math.random() * 100000),
       sex: newSex(),
-      epoch: 0,
-      node: 'root',
+      epoch,
+      node: root.id,
       kin: 0,
       quests: {},
       social: 0.55,
       // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
       canRam: true,
-      prog: newProg(0),
+      prog: newProg(epoch),
       life: newLife(1),
       shells: [],
       seenRows: 0,
       history: [],
     };
     d.run = run;
+    d.epoch = epoch;
     this.ghost = null;
-    const root = d.nodes.root;
     root.runs += 1;
     root.last = run.id;
     this.save();
@@ -1237,6 +1311,10 @@ class GameState {
     run.traits = full({ ...h.traits });
     run.sex = h.sex;
     run.seed = h.seed;
+    // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer Abschnitt
+    // des Astes – gleichen sich zwei Linien, teilen sie ihn sich
+    const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
+    if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, run.life.gen + 1).id;
     this.hatchAt(run, run.life.gen + 1, c);
   }
 
@@ -1516,7 +1594,7 @@ class GameState {
 
   // ---------------------------------------------------------------- Stammbaum
 
-  private node(parent: TreeNode, epoch: number, cls: ClassId, traits: Traits, runId: number, merge: boolean): TreeNode {
+  private node(parent: TreeNode, epoch: number, cls: ClassId, traits: Traits, runId: number, merge: boolean, gen: number): TreeNode {
     const sig = sigOf(cls, traits);
     if (merge) {
       for (const cid of parent.children) {
@@ -1524,6 +1602,7 @@ class GameState {
         if (c && !c.dead && c.epoch === epoch && c.sig === sig) {
           c.runs += 1;
           c.last = runId;
+          c.gen = Math.min(c.gen ?? gen, gen);
           return c;
         }
       }
@@ -1533,6 +1612,7 @@ class GameState {
       id: 'n' + this.data.nextId++,
       parent: parent.id,
       epoch,
+      gen,
       cls,
       traits: full(traits),
       hue: run.hue,
@@ -1557,8 +1637,8 @@ class GameState {
   /** Das Tier ist gestorben: Die Linie endet hier. Gibt den Knoten des Astendes zurück. */
   extinct(frac: number, cause: string): string {
     const run = this.r;
-    const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
-    const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false);
+    const parent = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
+    const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false, run.life.gen);
     leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.life.gen };
     this.data.lastEnd = leaf.id;
     this.data.deepest = Math.max(this.data.deepest, run.epoch);
@@ -1591,9 +1671,10 @@ class GameState {
     return this.data.seen.includes(id);
   }
 
-  /** Gibt es schon einen Stammbaum (mindestens ein beendeter oder laufender Versuch)? */
-  hasTree() {
-    return this.data.runs > 0;
+  /** Gibt es schon einen Stammbaum (mindestens ein beendeter oder laufender Versuch) – überhaupt bzw. in einem Zeitalter? */
+  hasTree(epoch?: number) {
+    if (epoch === undefined) return this.data.runs > 0;
+    return (this.data.nodes[rootId(epoch)]?.runs ?? 0) > 0;
   }
 }
 

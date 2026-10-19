@@ -13,7 +13,10 @@ Weitergeben**.
 **EVO wird ein persistentes Online-Spiel:** eine Welt, die weiterläuft, in der mehrere Spieler einander
 sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere bleiben). Der erste Schritt
 steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
-Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber noch nicht erreichbar.
+Gespielt wird in **Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Ordovizium**, **Devon** und
+**Kreidezeit** – jedes ist eine eigene Welt mit eigener Linie, eigenem Stammbaum und eigenem Teil im Aquapendium; im
+Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben. Spielbar ist vorerst nur das **Ordovizium**,
+Devon und Kreidezeit ruhen noch „im Gestein“ (siehe [Zeitalter wählen](#zeitalter-wählen)).
 
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
@@ -21,14 +24,46 @@ Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 **Das Titelbild** zeigt eine Höhle am Grund des Urmeers: Rechts liegt das **versteinerte Skelett eines Urfisches** im
 Sand, nach links läuft das Bild weich ins Dunkel aus – dort stehen Titel und Menü (Pfeiltasten und Eingabe oder die Maus).
 Von oben fällt ein **Lichtstrahl** herein und malt ein Lichtnetz auf den Grund, Schwebeteilchen treiben, aus einer Spalte
-steigen Blasen, vorn wiegen sich Algen, in der Ferne zieht ab und zu ein Schwarm vorbei – und **im Licht über dem Skelett
-schwimmt dein eigenes Tier** (unten rechts sein Name und seine Generation). Ganz langsam kommt die Kamera näher und weicht
-wieder zurück. Unten links steht die Weltzeit, die für alle gleich weiterläuft (das Bild: `src/assets/title/fossil.webp`).
+steigen Blasen, vorn wiegen sich Algen, in der Ferne zieht ab und zu ein Schwarm vorbei. Ganz langsam kommt die Kamera
+näher und weicht wieder zurück. Das Menü: **Weiterleben**, **Zeitalter** (für das erste Leben „Leben beginnen“),
+**Stammbaum**, **Aquapendium**, **Steuerung** – die angewählte Zeile leuchtet warm auf, rückt ein, davor erscheint eine feine
+Linie mit einer kleinen Raute, und ein Glanz streicht einmal über die Buchstaben. Unten links stehen das gewählte Zeitalter
+und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie und ihre Generation (das Bild:
+`src/assets/title/fossil.webp`).
 
 > Inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne werden im Browser erzeugt –
 > es werden keine Original-Inhalte verwendet.
 
 **Online spielen:** https://lksnio.github.io/EVO/
+
+## Zeitalter wählen
+
+Unter „Zeitalter“ (bzw. „Leben beginnen“) stehen die drei Zeitalter nebeneinander – drei Bilder, so hoch wie der
+Bildschirm. Das gewählte öffnet sich weit, die anderen bleiben schmale Streifen; wer mit der Maus darüberfährt (oder ← →
+drückt), öffnet ein anderes. In jedem Bild **lebt das Wasser**: Licht fällt von oben und atmet, ein Lichtnetz spielt auf dem
+Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm zieht in der Ferne vorbei, und ganz langsam kommt man näher –
+das geöffnete Bild folgt dazu ein Stück der Maus. Unten stehen Nummer und Name des Zeitalters, eine Zeile und ein paar
+Sätze zu seiner Welt, die Weltzeit und deine Linie dort.
+
+- **Ordovizium** – *Die ersten Fische*: **Weiterleben** (bzw. **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die
+  jetzige endet dann). Wer aufbricht, hört einen tiefen Sog und einen weiten Chor, das Bild öffnet sich ganz, und man
+  taucht hinein.
+- **Devon** – *Das Zeitalter der Fische* – und **Kreidezeit** – *Die Herrschaft der Meeresechsen*: Sie **ruhen noch im
+  Gestein**. Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen; wählt man eines an, schimmert ein wenig Farbe
+  durch, und ein Lichtstreif streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein
+  Ammonit-Zeichen und „Noch im Gestein – Diese Welt ruht noch im Fels, bald bricht sie auf.“ Ein Klick darauf: Stein reibt
+  über Stein, es rührt sich (noch) nichts.
+
+Jedes Zeitalter hat **seine eigene Linie**: Wer das Zeitalter wechselt, lässt seine Linie dort ruhen und findet sie bei der
+Rückkehr wieder (`enterEpoch`, `runIn` in `src/state/GameState.ts`) – das wird wichtig, sobald mehr als ein Zeitalter
+spielbar ist. Die Bilder liegen in `src/assets/eras/`, die Szene in `src/scenes/EraScene.ts`.
+
+**Vorbereitet für später:** Alle **Devon-Tiere** sind noch da – die Arten mit Werten und Zeichnung in
+`src/data/species.ts` und `src/art/speciesArt.ts`, das Zeitalter mit seinen Tieren, Durchzüglern und Dunkleosteus in
+`src/data/epochs.ts`, seine zehn Orte und seine Karte in `src/data/world.ts` und `src/data/paleo.json`. Für die
+**Kreidezeit** gibt es 15 Tiere (vier neue Körperformen: Mosasaurier, Plesiosaurier, Riesenschildkröte, Ammonit) mit
+Steckbrief; ihre Orte und ihre Karte fehlen noch. Das **Silur** ist verborgen (`hidden`), seine Tiere, Orte und Karte
+bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/epochs.ts`.
 
 ## Ein Leben – und die nächste Generation
 
@@ -301,15 +336,19 @@ wieder zurück. Unten links steht die Weltzeit, die für alle gleich weiterläuf
   wer sich versteckt, fällt nur aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in
   Ruhe, **schlüpft** der der Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben
   seltener bei ihrem Gelege.
-- **Das Aquapendium** (Knopf im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere
-  (41 Stück). Links das Bild, rechts der Steckbrief mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
+- **Das Aquapendium** (im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere, in
+  **drei Teilen – einer je Zeitalter** (Ordovizium 12, Devon 24, Kreidezeit 15 Tiere; wer in mehreren Zeitaltern lebt,
+  steht in jedem Teil). Oben am Buch stecken drei **Lesezeichen**; jeder Teil beginnt mit seinem Inhalt (wie viel davon
+  gefunden ist, und bei ruhenden Zeitaltern: „Dieses Zeitalter ruht noch im Gestein“). Links das Bild, rechts der Steckbrief
+  mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
   Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
   (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
   Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald du einem neuen Tier **nah genug** kommst, wird seine Seite gefüllt – oben links gleitet ein schmales
   **Schild** herein (dunkle Fläche, feine ochrefarbene Linien, ein Ammonit im Ring, darunter in kleinen Buchstaben
   „NEUER AQUAPENDIUM-EINTRAG“ und der Name des Tieres), das Zeichen leuchtet kurz auf, dazu ein leises Rascheln und zwei
   zarte Töne. Kommen mehrere Einträge zusammen, erscheinen sie nacheinander. Das bleibt über alle Leben erhalten. Blättern mit
-  ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen), **I** oder „Inhalt“ springt zum Verzeichnis, Esc zurück.
+  ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen) – durch alle drei Teile hindurch; **1 2 3**, **Tab** oder die
+  Lesezeichen springen zu einem Teil, **I** oder „Inhalt“ zum Inhalt des aufgeschlagenen, Esc zurück.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
@@ -373,13 +412,17 @@ wieder zurück. Unten links steht die Weltzeit, die für alle gleich weiterläuf
   - **Ordovizium** – die ersten Wirbeltiere: *Arandaspis*, *Astraspis*, *Eriptychius*, *Sacabambaspis* und andere gepanzerte
     Kieferlose, der aalartige *Conodont* (ein kleiner Jäger), Trilobiten (*Isotelus*), Quallen und Orthoceras. Seeskorpione
     sind hier selten.
-  - **Silur** – *Pteraspis* (Panzerkopf mit Schnabel), *Thelodus* und *Lasanius* (Schwarmfische), der aalartige
-    *Jamoytius*, *Birkenia*, *Cephalaspis*, der wehrhafte Stachelhai *Climatius* und *Entelognathus*, einer der ersten
-    Kieferfische (ein gepanzerter Jäger).
+  - **Silur** (vorerst verborgen) – *Pteraspis* (Panzerkopf mit Schnabel), *Thelodus* und *Lasanius* (Schwarmfische), der
+    aalartige *Jamoytius*, *Birkenia*, *Cephalaspis*, der wehrhafte Stachelhai *Climatius* und *Entelognathus*, einer der
+    ersten Kieferfische (ein gepanzerter Jäger).
   - **Devon** – das Zeitalter der Fische: *Moythomasia*, *Acanthodes* (Schwärme), *Cheiracanthus*, die Lungenfische
     *Dipterus*, *Drepanaspis*, *Bothriolepis* und *Pterichthyodes* (Panzerfische mit Ruderarmen), die Jäger *Coccosteus*,
     *Osteolepis*, *Cheirolepis*, *Cladoselache*, der Hai *Stethacanthus* mit seinem „Amboss“, *Rolfosteus*, die
-    Fleischflosser *Eusthenopteron*, *Holoptychius* und *Tiktaalik* – dazu der Herrscher *Dunkleosteus*.
+    Fleischflosser *Eusthenopteron*, *Holoptychius* und *Tiktaalik* – dazu der Herrscher *Dunkleosteus* (ruht noch).
+  - **Kreidezeit** (ruht noch) – das Westliche Binnenmeer: *Apsopelix* (Schwärme), der harmlose Riese *Gillicus*, Ammoniten
+    und *Baculites*, der „Säbelzahnhering“ *Enchodus*, *Protosphyraena* mit Schwertschnauze, *Xiphactinus*, die Haie
+    *Squalicorax* und *Cretoxyrhina*, die Riesenschildkröte *Archelon*, der langhalsige Plesiosaurier *Elasmosaurus* und die
+    Mosasaurier *Platecarpus*, *Tylosaurus* und *Mosasaurus*, der Herrscher der späten Kreidemeere.
   - **Wer flieht, ist weg:** Kleine Fische rennen wirklich davon – wer lange flüchtet und aus dem Bild ist (oder am Rand
     des Ortes nicht weiterkommt), ist **entkommen und verschwunden**. Nach einer Weile ziehen andere Fische dort wieder ein.
     Wer einen Fisch **immer wieder aufscheucht**, vertreibt ihn irgendwann ganz: Er (und sein Schwarm) gibt den Ort auf –
@@ -457,8 +500,7 @@ wieder zurück. Unten links steht die Weltzeit, die für alle gleich weiterläuf
   die Fähigkeiten der Art verändern sich **nur beim Generationswechsel** – im Leben wächst das Tier nur heran.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
-- **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
-  Zeitleiste Fragezeichen.
+- **Keine Spoiler:** Zeitalter, die noch ruhen, zeigen im Stammbaum nur ihren Urahn – im Gestein.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
 Zeitalters, „vor 469.800.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
@@ -471,13 +513,18 @@ sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
 
-Jedes Spiel ist ein Pfad von der Wurzel (dem Urahn) nach unten – nach unten vergeht die Zeit.
-Linien, die sich gleichen, teilen sich einen Ast; wo sie sich unterscheiden, verzweigt er sich.
-Ausgestorbene Zweige enden mit einem Schädel (mit Zeitpunkt und Ursache), gut angepasste Linien
-reichen weiter – vielleicht bis heute. Der Baum ist vorher nicht festgelegt, er entsteht nur
-durch das Spielen.
-Oben rechts im Stammbaum lässt er sich zurücksetzen (zweimal klicken – das löscht alle Äste und das
-laufende Spiel).
+**Jedes Zeitalter hat seinen eigenen Baum.** Alle Linien eines Zeitalters beginnen bei seinem **Urahn** und wachsen nach
+unten – **Generation für Generation** (links stehen die Generationen). Wo sich eine Linie zu einer **neuen Art** entwickelt
+(eine andere Richtung, eine andere Kost, eine Farbe), teilt sich der Ast; Linien, die sich gleichen, teilen ihn sich.
+Ausgestorbene Zweige enden mit einem Schädel (mit Ursache und Generation), die **lebende Linie leuchtet** an ihrem Ende, und
+entlang deines Weges schwimmen kleine Porträts. Der Baum ist vorher nicht festgelegt, er entsteht nur durch das Spielen.
+
+Oben läuft der **Zeitstrom** der Erdgeschichte – vom Ordovizium bis zur Kreidezeit, dazwischen leise Silur, Karbon, Perm,
+Trias und Jura. Die drei Zeitalter sind helle Fenster darin (anklicken oder ← → wechselt den Baum); vom gewählten Fenster
+führen zwei feine Linien hinunter zum Baum, und in den Urahn läuft von oben ein gestrichelter Stamm: Jeder Baum ist ein
+**Ausschnitt aus dem einen großen Baum des Lebens**. Ruhende Zeitalter zeigen nur ihren Urahn – im Gestein. Rechts die
+Tafel zum gewählten Knoten und **Weiterleben** bzw. **Leben beginnen** im gezeigten Zeitalter.
+Oben rechts im Stammbaum lässt er sich zurücksetzen (zweimal klicken – das löscht alle Äste und das laufende Spiel).
 
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
@@ -552,6 +599,21 @@ Wände. Die Welt nimmt keinen Anteil – sie läuft einfach weiter.
 
 Titelbild und der Einschnitt zwischen zwei Leben nutzen dieselbe Klanglandschaft, ruhiger und mit dem Motiv etwas öfter.
 
+### Klänge der Bedienung
+
+Die Bedienung klingt zurückhaltend, aber mit Gewicht – nach Stein, Wasser und einem großen, dunklen Raum: Alle Bedienklänge
+laufen durch einen **Hall**, der wie ein Gewölbe unter Wasser nachklingt (gefaltetes, abklingendes Rauschen, das zum Ende hin
+dunkler wird). **Überfahren** ist ein leiser Glanz, **Klicken** ein weiches Antippen von Stein, **Bestätigen** (die
+wichtigsten Knöpfe, „Weiterleben“) ein tiefer, weicher Schlag mit einem offenen Klang aus Grundton, Quinte und Oktave und
+einem hellen Schimmer darüber. Ein **Buch** oder eine Tafel öffnet sich mit einem dunklen Anschwellen, Seiten werden
+umgeschlagen, Lesezeichen klopfen mit einem kleinen Glockenton. In der Auswahl der Zeitalter rauscht beim Wechseln eine
+Strömung, **Aufbrechen** in ein Zeitalter ist ein Sog in die Tiefe mit einem weiten Chor, und ein ruhendes Zeitalter
+antwortet mit Stein, der über Stein reibt. Die Lautstärken stehen in `UI_GAIN` (`src/audio/Audio.ts`).
+
+Die **Knöpfe** sind Platten aus dunklem Stein mit abgeschrägten Ecken, einem feinen Ockerrand und zwei kleinen Rauten an
+den Seiten; die wichtigste Wahl liegt auf einer Platte aus Bernstein, Gefährliches auf einer blutroten. Angewählt wird die
+Platte heller, mit der Tastatur gewählt glüht sie leise (`Button` in `src/ui/ui.ts`).
+
 ## Steuerung
 
 Die rechte Hand liegt auf den Pfeiltasten, die linke auf **Q W E R**. Im Spiel wird die Steuerung
@@ -570,6 +632,9 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | C | Übersicht: Name, Körper, Leben, Nachwuchs, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
 | M | Ton an/aus |
+
+**In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
+**Im Stammbaum:** ← → wechselt das Zeitalter. **Im Aquapendium:** 1 2 3 oder Tab wechseln den Teil.
 
 **Auf der Karte:** Pfeiltasten (oder antippen) wählen ein anderes Ziel, Eingabe (auch Leertaste oder E) schwimmt los, C
 öffnet die Übersicht, Esc die Rast. Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden von selbst in den Nachbarort.
@@ -740,7 +805,7 @@ src/
 ├── data/                Spieldaten – hier lässt sich das Spiel am leichtesten anpassen
 │   ├── classes.ts       Körperformen mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
-│   ├── epochs.ts        Zeitalter: Zeitraum, Spieldauer, Tiere, Ereignisse
+│   ├── epochs.ts        Zeitalter: Zeitraum, Tiere, Ereignisse, spielbar oder ruhend, Zeile und Text für die Auswahl
 │   ├── quests.ts        die Aufträge der Artgenossen: Texte, Schritte, das Tier, das den Gefährten frisst; die gemeinsame Jagd (JAGD) und der Schwarm (SWARM) mit allen Zielzahlen
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
@@ -757,7 +822,7 @@ src/
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
 │   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
-│   ├── speciesArt.ts    alle anderen Tiere
+│   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten)
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
@@ -767,13 +832,14 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
+├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Demo-Ende
-tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Aquapendium, Demo-Ende
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Zeitalter (Linien, Stammbäume, Aquapendium), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
@@ -782,8 +848,10 @@ tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.p
 
 Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festgelegt – bitte später noch einmal ansehen:
 
-- [ ] **Zeitalter:** Die Welt bleibt im Ordovizium; die Jahreszahl läuft in etwa 30 Tagen bis zu dessen Ende und bleibt dann
-      stehen. Später: Der Server führt alle gemeinsam nach fester Zeit ins nächste Zeitalter (als Weltereignis).
+- [ ] **Zeitalter:** Zur Wahl stehen Ordovizium, Devon und Kreidezeit; spielbar ist nur das Ordovizium. Jedes Zeitalter ist
+      eine eigene Welt mit eigener Linie – man bleibt in seinem Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl
+      läuft in etwa 30 Tagen bis zum Ende des Zeitalters und bleibt dann stehen. Für Devon und Kreidezeit fehlen noch die
+      Starttiere (vorerst ein Urfisch), für die Kreidezeit dazu Orte und Karte; das Silur ist verborgen.
 - [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.

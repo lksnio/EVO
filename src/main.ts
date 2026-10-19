@@ -23,6 +23,7 @@ import { TreeScene } from './scenes/TreeScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
 import { AquapendiumScene } from './scenes/AquapendiumScene';
+import { EraScene } from './scenes/EraScene';
 
 async function start() {
   // Schriften laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
@@ -73,7 +74,7 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, IntroScene, LevelScene, MapScene, HudScene, GenerationScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene],
+    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, MapScene, HudScene, GenerationScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene],
   });
 
   // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren

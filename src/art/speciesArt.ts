@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Art, Role, SpeciesDef } from '../data/species';
 import { css, mix, shade } from '../util/color';
-import { type Ctx, ell, newCanvas, rgrad, trimCanvases } from '../util/canvas';
+import { type Ctx, ell, newCanvas, rgrad, smooth, trimCanvases } from '../util/canvas';
 import { mulberry32 } from '../util/math';
 import { eye, ivory, pattern, skin, tooth } from './paint';
 
@@ -745,6 +745,483 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
   }
 }
 
+// ---------------------------------------------------------------------------- Kreidezeit
+
+/** Eine fleischige Flosse (Paddel): von der Wurzel (0,0) nach vorn entlang x, breit nahe der Wurzel, schmal und rund (oder spitz) am Ende. */
+function paddle(ctx: Ctx, x: number, y: number, L: number, wd: number, ang: number, col: number, lw: number, pointed = false) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, -wd * 0.45);
+    ctx.bezierCurveTo(L * 0.28, -wd * 1.05, L * 0.72, -wd * 0.62, L, pointed ? -wd * 0.02 : -wd * 0.1);
+    if (!pointed) ctx.quadraticCurveTo(L * 1.04, wd * 0.12, L * 0.9, wd * 0.18);
+    ctx.bezierCurveTo(L * 0.62, wd * (pointed ? 0.2 : 0.3), L * 0.24, wd * 0.62, 0, wd * 0.45);
+    ctx.closePath();
+  };
+  skin(ctx, path, { base: col, top: shade(col, 0.12), belly: shade(col, -0.25), y0: -wd, y1: wd, noise: 'mottle', noiseAlpha: 0.28, noiseScale: 0.3, edge: shade(col, -0.62), edgeW: lw, rim: 0.4 });
+  ctx.save();
+  path();
+  ctx.clip();
+  // die Fingerknochen schimmern durch
+  ctx.strokeStyle = css(shade(col, -0.5), 0.26);
+  ctx.lineWidth = Math.max(0.6, lw * 0.8);
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.14, i * wd * 0.18);
+    ctx.quadraticCurveTo(L * 0.5, i * wd * 0.22 - wd * 0.08, L * 0.86, i * wd * 0.06 - wd * 0.04);
+    ctx.stroke();
+  }
+  // die Vorderkante fängt das Licht
+  ctx.strokeStyle = css(shade(col, 0.55), 0.35);
+  ctx.lineWidth = Math.max(0.8, lw * 1.4);
+  ctx.beginPath();
+  ctx.moveTo(L * 0.08, -wd * 0.62);
+  ctx.bezierCurveTo(L * 0.3, -wd * 0.98, L * 0.7, -wd * 0.56, L * 0.96, -wd * 0.08);
+  ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+/** Ein Fangarm (oder Hals …): eine Kurve durch Punkte, die sich von w0 bis w1 verjüngt – als gefüllte Form. */
+function taper(ctx: Ctx, pts: P2[], w0: number, w1: number) {
+  const left: P2[] = [], right: P2[] = [];
+  pts.forEach(([x, y], i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const tx = b[0] - a[0], ty = b[1] - a[1], tl = Math.hypot(tx, ty) || 1;
+    const w = (w0 + (w1 - w0) * (i / Math.max(1, pts.length - 1))) / 2;
+    left.push([x - (ty / tl) * w, y + (tx / tl) * w]);
+    right.push([x + (ty / tl) * w, y - (tx / tl) * w]);
+  });
+  ctx.beginPath();
+  left.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]);
+  ctx.closePath();
+}
+
+/** Punkte entlang einer kubischen Bézierkurve. */
+function bezPts(p0: P2, p1: P2, p2: P2, p3: P2, n: number): P2[] {
+  const out: P2[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push([
+      u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+      u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+    ]);
+  }
+  return out;
+}
+
+/**
+ * Eine Meeresechse (Mosasaurier): ein langer, schlanker Echsenkörper mit vier Paddelflossen und einem langen Schwanz, der in
+ * eine Flosse ausläuft (beim Mosasaurus hoch und sichelförmig wie bei einem Hai). Der Kopf ist lang und flach, das Maul voller
+ * kegelförmiger Zähne.
+ */
+function drawMosa(ctx: Ctx, p: Extract<Art, { t: 'mosa' }>, f: number, E: Eyes) {
+  const hw = p.len / 2, h = p.h, c = p.c, D = dark(c);
+  const lw = Math.max(1, p.len / 130);
+  const tip = hw * (1 + 0.28 * (p.snout ?? 0));
+  const fa = f ? 0.22 : -0.18;
+  const sw = f ? 0.07 : -0.06;
+
+  // ---- Schwanzflosse (hinter dem Körper), schlägt leicht
+  ctx.save();
+  ctx.translate(-hw * 0.84, h * 0.02);
+  ctx.rotate(sw);
+  const tailFin = p.fluke
+    ? () => {
+        // unten der lange, von den Wirbeln gestützte Lappen, oben ein kürzerer aus Haut
+        ctx.beginPath();
+        ctx.moveTo(hw * 0.04, -h * 0.06);
+        ctx.quadraticCurveTo(-hw * 0.06, -h * 0.3, -hw * 0.16, -h * 0.5);
+        ctx.quadraticCurveTo(-hw * 0.15, -h * 0.18, -hw * 0.12, -h * 0.02);
+        ctx.quadraticCurveTo(-hw * 0.16, h * 0.32, -hw * 0.22, h * 0.68);
+        ctx.quadraticCurveTo(-hw * 0.04, h * 0.42, hw * 0.05, h * 0.1);
+        ctx.closePath();
+      }
+    : () => {
+        // eine kleinere Flosse: unten ein Lappen (der Schwanz knickt dort leicht nach unten), oben ein niedriger Saum
+        ctx.beginPath();
+        ctx.moveTo(hw * 0.06, -h * 0.05);
+        ctx.quadraticCurveTo(-hw * 0.05, -h * 0.17, -hw * 0.13, -h * 0.22);
+        ctx.quadraticCurveTo(-hw * 0.12, -h * 0.05, -hw * 0.1, 0);
+        ctx.quadraticCurveTo(-hw * 0.14, h * 0.24, -hw * 0.19, h * 0.48);
+        ctx.quadraticCurveTo(-hw * 0.03, h * 0.32, hw * 0.06, h * 0.08);
+        ctx.closePath();
+      };
+  skin(ctx, tailFin, { base: p.fin, top: shade(p.fin, -0.2), y0: -h * 0.5, y1: h * 0.6, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.3, edge: shade(p.fin, -0.6), edgeW: lw, rim: 0.3 });
+  ctx.restore();
+
+  // ---- Flossen der fernen Seite
+  paddle(ctx, hw * 0.36, h * 0.22, h * 1.0, h * 0.26, Math.PI - 0.8 + fa, shade(p.fin, -0.2), lw);
+  paddle(ctx, -hw * 0.22, h * 0.22, h * 0.8, h * 0.22, Math.PI - 0.85 - fa, shade(p.fin, -0.2), lw);
+
+  // ---- der Körper: vom Schwanz über den Rumpf bis zur Schnauze
+  const outline: P2[] = [
+    [-hw * 0.99, -h * 0.01], [-hw * 0.72, -h * 0.1], [-hw * 0.38, -h * 0.28], [-hw * 0.04, -h * 0.45], [hw * 0.28, -h * 0.47],
+    [hw * 0.5, -h * 0.37], [hw * 0.62, -h * 0.29], [hw * 0.78, -h * 0.28], [tip * 0.93, -h * 0.14], [tip, -h * 0.02],
+    [tip * 0.985, h * 0.05], [tip * 0.88, h * 0.12], [hw * 0.66, h * 0.2], [hw * 0.46, h * 0.36], [hw * 0.16, h * 0.49],
+    [-hw * 0.14, h * 0.45], [-hw * 0.42, h * 0.3], [-hw * 0.7, h * 0.14], [-hw * 0.99, h * 0.03],
+  ];
+  const body = () => smooth(ctx, outline, true);
+  skin(ctx, body, {
+    base: c, top: shade(c, -0.35), belly: p.belly, bellyBand: [h * 0.34, h * 0.24, hw * 0.78, hw * 0.08], y0: -h * 0.5, y1: h * 0.5,
+    noise: 'mottle', noiseAlpha: 0.32, noiseScale: 0.26, edge: D, edgeW: lw, rim: 0.3, wet: true,
+    inner: p.stripes
+      ? (cx) => {
+          // dunkle Querbänder auf dem Rücken
+          cx.fillStyle = css(D, 0.2);
+          for (let i = 0; i < 10; i++) {
+            const x = -hw * 0.82 + i * hw * 0.16;
+            cx.beginPath();
+            cx.ellipse(x, -h * 0.32, hw * 0.032, h * 0.22, 0.3, 0, Math.PI * 2);
+            cx.fill();
+          }
+        }
+      : undefined,
+  });
+
+  // ---- der Kopf: Maulspalte, Zähne, Auge, Nasenloch
+  const mouthY = (x: number) => h * 0.04 + ((tip - x) / Math.max(1, tip - hw * 0.66)) * h * 0.05;
+  const n = Math.max(6, Math.round((tip - hw * 0.68) / (h * 0.09)));
+  for (let i = 0; i < n; i++) {
+    const x = tip * 0.955 - (i * (tip * 0.955 - hw * 0.7)) / Math.max(1, n - 1);
+    const tl = h * (0.07 - 0.02 * (i / n));
+    tooth(ctx, x, mouthY(x) - h * 0.01, h * 0.035, tl, 1, false, 0.1);
+    if (i % 2 === 0) tooth(ctx, x - h * 0.03, mouthY(x) + h * 0.02, h * 0.03, tl * 0.8, -1, false, -0.1);
+  }
+  ctx.beginPath();
+  ctx.moveTo(tip * 0.99, h * 0.03);
+  ctx.quadraticCurveTo(hw * 0.84, mouthY(hw * 0.84) + h * 0.01, hw * 0.66, h * 0.06);
+  ctx.strokeStyle = css(shade(c, -0.8), 0.85);
+  ctx.lineWidth = lw * 1.2;
+  ctx.stroke();
+  ell(ctx, tip * 0.92, -h * 0.08, h * 0.025, h * 0.015, -0.2);
+  ctx.fillStyle = css(shade(c, -0.8), 0.8);
+  ctx.fill();
+  // Brauenwulst über dem Auge
+  ctx.beginPath();
+  ctx.moveTo(hw * 0.68, -h * 0.2);
+  ctx.quadraticCurveTo(hw * 0.74, -h * 0.29, hw * 0.81, -h * 0.21);
+  ctx.strokeStyle = css(shade(c, -0.6), 0.6);
+  ctx.lineWidth = lw * 1.4;
+  ctx.stroke();
+  eye(ctx, hw * 0.745, -h * 0.17, h * 0.06, E.iris, { glow: E.glow, lid: 0.35 });
+
+  // ---- Flossen der nahen Seite
+  paddle(ctx, hw * 0.4, h * 0.3, h * 1.08, h * 0.28, Math.PI - 0.72 - fa, shade(p.fin, 0.12), lw);
+  paddle(ctx, -hw * 0.18, h * 0.3, h * 0.86, h * 0.24, Math.PI - 0.8 + fa, shade(p.fin, 0.12), lw);
+}
+
+/**
+ * Ein Plesiosaurier: ein gedrungener Rumpf mit kurzem Schwanz, vier langen, spitzen Flossen, mit denen er durchs Wasser
+ * „fliegt“, und ein endlos langer Hals mit einem kleinen Kopf voller Nadelzähne.
+ */
+function drawPlesio(ctx: Ctx, p: Extract<Art, { t: 'plesio' }>, f: number, E: Eyes) {
+  const L = p.len, h = p.h, c = p.c, D = dark(c);
+  const lw = Math.max(1, L / 150);
+  const neckL = L * p.neck, bodyL = L - neckL;
+  const xt = -L / 2, xs = xt + bodyL, xm = xt + bodyL * 0.6;
+  const fa = f ? 0.24 : -0.2;
+
+  // ---- Flossen der fernen Seite
+  paddle(ctx, xm + bodyL * 0.16, h * 0.2, h * 1.45, h * 0.34, Math.PI - 0.62 + fa, shade(c, -0.2), lw, true);
+  paddle(ctx, xm - bodyL * 0.3, h * 0.2, h * 1.2, h * 0.3, Math.PI - 0.66 - fa, shade(c, -0.2), lw, true);
+
+  // ---- der Hals: ein Rohr, das sich zum Kopf hin verjüngt und sanft nach oben schwingt
+  const headL = h * 0.66, hs = h * 0.3;
+  const P0: P2 = [xs - h * 0.25, -h * 0.08], P3: P2 = [L / 2 - headL * 0.9, -h * 0.72];
+  const P1: P2 = [P0[0] + neckL * 0.4, P0[1] - h * 0.04], P2v: P2 = [P0[0] + neckL * 0.62, P3[1] + h * 0.1];
+  const spine = bezPts(P0, P1, P2v, P3, 28);
+  const neck = () => taper(ctx, spine, h * 0.44, h * 0.17);
+  skin(ctx, neck, { base: c, top: shade(c, -0.3), belly: p.belly, y0: P3[1] - h * 0.1, y1: h * 0.15, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.26, edge: D, edgeW: lw, rim: 0.3, wet: true });
+
+  // ---- der Kopf (am Ende des Halses): flacher Schädel, spitze Schnauze, Nadelzähne
+  const [ex, ey] = spine[spine.length - 1], [qx, qy] = spine[spine.length - 3];
+  const ang = Math.atan2(ey - qy, ex - qx) * 0.5 + 0.06;
+  ctx.save();
+  ctx.translate(ex, ey);
+  ctx.rotate(ang);
+  const top = () => {
+    ctx.moveTo(-headL * 0.12, -hs * 0.36);
+    ctx.bezierCurveTo(headL * 0.2, -hs * 0.62, headL * 0.62, -hs * 0.5, headL, -hs * 0.04);
+  };
+  const bottom = () => ctx.bezierCurveTo(headL * 0.62, hs * 0.38, headL * 0.2, hs * 0.5, -headL * 0.12, hs * 0.36);
+  const head = () => {
+    ctx.beginPath();
+    top();
+    bottom();
+    ctx.quadraticCurveTo(-headL * 0.2, 0, -headL * 0.12, -hs * 0.36);
+    ctx.closePath();
+  };
+  // die Kante nur oben, vorn und unten – hinten geht der Kopf in den Hals über
+  const outline = () => {
+    ctx.beginPath();
+    top();
+    bottom();
+  };
+  for (let i = 0; i < 7; i++) {
+    const x = headL * (0.9 - i * 0.085);
+    tooth(ctx, x, -hs * 0.02 + i * hs * 0.012, hs * 0.07, hs * 0.26, 1, false, 0.2);
+    tooth(ctx, x - hs * 0.06, hs * 0.08 + i * hs * 0.012, hs * 0.06, hs * 0.22, -1, false, -0.2);
+  }
+  skin(ctx, head, { base: shade(c, 0.05), top: shade(c, -0.3), belly: p.belly, y0: -hs * 0.6, y1: hs * 0.5, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.24, edge: D, edgeW: lw, rim: 0.3, wet: true, outline });
+  ctx.beginPath();
+  ctx.moveTo(headL * 0.97, -hs * 0.01);
+  ctx.quadraticCurveTo(headL * 0.6, hs * 0.12, headL * 0.18, hs * 0.1);
+  ctx.strokeStyle = css(shade(c, -0.8), 0.85);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+  ell(ctx, headL * 0.82, -hs * 0.16, hs * 0.06, hs * 0.035, -0.2);
+  ctx.fillStyle = css(shade(c, -0.8), 0.7);
+  ctx.fill();
+  eye(ctx, headL * 0.36, -hs * 0.17, hs * 0.17, E.iris, { glow: E.glow, lid: 0.2 });
+  ctx.restore();
+
+  // ---- Rumpf mit kurzem Schwanz
+  const outlineB: P2[] = [
+    [xt, -h * 0.01], [xt + bodyL * 0.22, -h * 0.17], [xm - bodyL * 0.1, -h * 0.47], [xm + bodyL * 0.14, -h * 0.47], [xs - bodyL * 0.04, -h * 0.3],
+    [xs + h * 0.12, -h * 0.17], [xs + h * 0.1, h * 0.06], [xs - bodyL * 0.08, h * 0.32], [xm, h * 0.5], [xm - bodyL * 0.24, h * 0.42],
+    [xt + bodyL * 0.24, h * 0.18], [xt, h * 0.02],
+  ];
+  const body = () => smooth(ctx, outlineB, true);
+  skin(ctx, body, {
+    base: c, top: shade(c, -0.35), belly: p.belly, bellyBand: [h * 0.34, h * 0.24, bodyL * 0.36, xm], y0: -h * 0.5, y1: h * 0.5,
+    noise: 'mottle', noiseAlpha: 0.32, noiseScale: 0.26, edge: D, edgeW: lw, rim: 0.3, wet: true,
+  });
+  // eine kleine, rautenförmige Schwanzflosse
+  skin(ctx, () => {
+    ctx.beginPath();
+    ctx.moveTo(xt + bodyL * 0.1, -h * 0.04);
+    ctx.quadraticCurveTo(xt + bodyL * 0.02, -h * 0.2, xt - bodyL * 0.04, -h * 0.01);
+    ctx.quadraticCurveTo(xt + bodyL * 0.02, h * 0.16, xt + bodyL * 0.1, h * 0.04);
+    ctx.closePath();
+  }, { base: shade(c, -0.08), y0: -h * 0.2, y1: h * 0.2, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.3, edge: D, edgeW: lw, rim: 0.25 });
+
+  // ---- Flossen der nahen Seite
+  paddle(ctx, xm + bodyL * 0.2, h * 0.3, h * 1.55, h * 0.36, Math.PI - 0.56 - fa, shade(c, 0.1), lw, true);
+  paddle(ctx, xm - bodyL * 0.26, h * 0.3, h * 1.28, h * 0.32, Math.PI - 0.6 + fa, shade(c, 0.1), lw, true);
+}
+
+/** Eine Meeresschildkröte (Archelon): ein hoher, lederartiger Panzer mit Längskielen, riesige Vorderflossen, ein Hakenschnabel. */
+function drawTurtle(ctx: Ctx, p: Extract<Art, { t: 'turtle' }>, f: number, E: Eyes) {
+  const L = p.len, c = p.c, sc = p.shell;
+  const lw = Math.max(1, L / 110);
+  const S = L * 0.6, sh = S * 0.36;
+  const sx0 = -L * 0.38, sx1 = sx0 + S;
+  const fa = f ? 0.3 : -0.26;
+
+  // ---- Flossen der fernen Seite
+  paddle(ctx, sx1 - S * 0.26, sh * 0.02, L * 0.4, L * 0.085, Math.PI - 0.5 + fa, shade(c, -0.3), lw, true);
+  paddle(ctx, sx0 + S * 0.16, sh * 0.12, L * 0.15, L * 0.06, Math.PI - 0.35 - fa * 0.5, shade(c, -0.3), lw);
+
+  // ---- Hals und Kopf: großer Schädel mit einem Hakenschnabel
+  const hx = sx1 + S * 0.03, hy = -sh * 0.02;
+  const neck = () => {
+    ctx.beginPath();
+    ctx.moveTo(sx1 - S * 0.12, -sh * 0.28);
+    ctx.quadraticCurveTo(hx + S * 0.06, -sh * 0.3, hx + S * 0.1, -sh * 0.12);
+    ctx.lineTo(hx + S * 0.1, sh * 0.16);
+    ctx.quadraticCurveTo(hx, sh * 0.3, sx1 - S * 0.12, sh * 0.26);
+    ctx.closePath();
+  };
+  skin(ctx, neck, { base: c, top: shade(c, -0.3), y0: -sh * 0.3, y1: sh * 0.3, noise: 'mottle', noiseAlpha: 0.4, noiseScale: 0.3, edge: dark(c), edgeW: lw, rim: 0.25 });
+  const HL = S * 0.32, HH = S * 0.18;
+  const head = () => {
+    ctx.beginPath();
+    ctx.moveTo(hx + S * 0.04, -HH * 0.45 + hy);
+    ctx.bezierCurveTo(hx + HL * 0.4, -HH * 0.78 + hy, hx + HL * 0.92, -HH * 0.62 + hy, hx + HL * 1.02, -HH * 0.08 + hy);
+    // der Haken des Schnabels
+    ctx.quadraticCurveTo(hx + HL * 1.06, HH * 0.32 + hy, hx + HL * 0.94, HH * 0.4 + hy);
+    ctx.quadraticCurveTo(hx + HL * 0.9, HH * 0.18 + hy, hx + HL * 0.82, HH * 0.24 + hy);
+    ctx.quadraticCurveTo(hx + HL * 0.5, HH * 0.62 + hy, hx + S * 0.04, HH * 0.46 + hy);
+    ctx.closePath();
+  };
+  skin(ctx, head, { base: shade(c, 0.06), top: shade(c, -0.28), y0: hy - HH * 0.7, y1: hy + HH * 0.6, noise: 'mottle', noiseAlpha: 0.38, noiseScale: 0.28, edge: dark(c), edgeW: lw, rim: 0.3, wet: true });
+  // Schnabel: hornig, heller
+  ctx.save();
+  head();
+  ctx.clip();
+  ctx.fillStyle = css(mix(c, 0xc8b88a, 0.4), 0.55);
+  ctx.beginPath();
+  ctx.ellipse(hx + HL * 0.98, hy + HH * 0.05, HL * 0.16, HH * 0.6, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.beginPath();
+  ctx.moveTo(hx + HL * 0.88, hy + HH * 0.22);
+  ctx.quadraticCurveTo(hx + HL * 0.6, hy + HH * 0.3, hx + HL * 0.32, hy + HH * 0.18);
+  ctx.strokeStyle = css(shade(c, -0.75), 0.8);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+  eye(ctx, hx + HL * 0.5, hy - HH * 0.18, HH * 0.13, E.iris, { glow: E.glow, lid: 0.25 });
+
+  // ---- der Panzer: gewölbter Rücken mit Längskielen, flacher Bauch
+  const shell = () => {
+    ctx.beginPath();
+    ctx.moveTo(sx0, sh * 0.14);
+    ctx.bezierCurveTo(sx0 + S * 0.04, -sh * 0.9, sx0 + S * 0.72, -sh * 1.08, sx1, -sh * 0.12);
+    ctx.quadraticCurveTo(sx1 + S * 0.03, sh * 0.14, sx1 - S * 0.06, sh * 0.3);
+    ctx.quadraticCurveTo(sx0 + S * 0.5, sh * 0.5, sx0 + S * 0.05, sh * 0.34);
+    ctx.closePath();
+  };
+  skin(ctx, shell, {
+    base: sc, top: shade(sc, -0.25), belly: mix(sc, 0xb8a888, 0.45), bellyBand: [sh * 0.34, sh * 0.16, S * 0.46, sx0 + S * 0.52], y0: -sh, y1: sh * 0.45,
+    noise: 'stone', noiseAlpha: 0.35, noiseScale: 0.3, edge: dark(sc), edgeW: lw * 1.2, rim: 0.36, wet: true,
+    inner: (cx) => {
+      // Längskiele über die Wölbung und ein gewellter Rand
+      cx.lineWidth = lw * 1.6;
+      for (let k = 0; k < 4; k++) {
+        const t = 0.2 + k * 0.2;
+        cx.strokeStyle = css(shade(sc, 0.32), 0.42);
+        cx.beginPath();
+        cx.moveTo(sx0 + S * 0.08, sh * (0.12 - t * 0.12));
+        cx.bezierCurveTo(sx0 + S * 0.15, -sh * (0.95 * t + 0.05), sx0 + S * 0.7, -sh * (1.02 * t + 0.08), sx1 - S * 0.06, -sh * (0.18 * t));
+        cx.stroke();
+        cx.strokeStyle = css(shade(sc, -0.5), 0.3);
+        cx.beginPath();
+        cx.moveTo(sx0 + S * 0.08, sh * (0.14 - t * 0.12) + lw * 1.4);
+        cx.bezierCurveTo(sx0 + S * 0.15, -sh * (0.95 * t + 0.05) + lw * 1.4, sx0 + S * 0.7, -sh * (1.02 * t + 0.08) + lw * 1.4, sx1 - S * 0.06, -sh * (0.18 * t) + lw * 1.4);
+        cx.stroke();
+      }
+      cx.strokeStyle = css(shade(sc, -0.45), 0.5);
+      cx.lineWidth = lw;
+      cx.beginPath();
+      for (let i = 0; i <= 16; i++) {
+        const t = i / 16;
+        const x = sx0 + S * (0.06 + t * 0.9), y = sh * (0.3 + 0.08 * Math.sin(t * Math.PI)) - Math.abs(Math.sin(i * 1.7)) * sh * 0.04;
+        if (i) cx.lineTo(x, y);
+        else cx.moveTo(x, y);
+      }
+      cx.stroke();
+    },
+  });
+
+  // ---- Flossen der nahen Seite: die vordere lang wie ein Flügel
+  paddle(ctx, sx0 + S * 0.18, sh * 0.22, L * 0.16, L * 0.065, Math.PI - 0.4 + fa * 0.5, c, lw);
+  paddle(ctx, sx1 - S * 0.22, sh * 0.16, L * 0.44, L * 0.09, Math.PI - 0.46 - fa, c, lw, true);
+}
+
+/**
+ * Ein Ammonit: eine aufgerollte Schale aus Windungen, jede mit feinen, geschwungenen Rippen – die jüngste (äußerste) ist die
+ * größte und endet in der Mündung, aus der Kopf und Fangarme schauen.
+ */
+function drawAmmo(ctx: Ctx, p: Extract<Art, { t: 'ammo' }>, f: number, E: Eyes) {
+  const r = p.r, c = p.c, D = dark(c);
+  const lw = Math.max(0.5, r / 26);
+  // die Spirale: bei th1 (oben rechts) liegt die Mündung, mit jeder Umdrehung zurück wird die Windung um W kleiner
+  const W = 1.85, b = Math.log(W) / (Math.PI * 2);
+  const th1 = -0.75;
+  const rad = (th: number) => r * Math.exp(b * (th - th1));
+  const at = (th: number, k = 1): P2 => [Math.cos(th) * rad(th) * k, Math.sin(th) * rad(th) * k];
+  const TURN = Math.PI * 2;
+  // Mündung: zwischen dem äußeren Rand und der Windung darunter
+  const [ox, oy] = at(th1), [ix, iy] = at(th1 - TURN);
+  const mx = (ox + ix) / 2, my = (oy + iy) / 2;
+  const ma = th1 + Math.PI / 2; // dorthin öffnet sie sich (rechts unten)
+
+  // ---- Fangarme: aus der Mündung nach vorn, sie wiegen sich
+  ctx.save();
+  ctx.translate(mx, my);
+  ctx.rotate(ma - 0.45);
+  for (let i = 0; i < 9; i++) {
+    const k = i / 8;
+    const sway = (f ? 1 : -1) * (0.6 + (i % 3) * 0.35) * r * 0.07;
+    const spread = (k - 0.5) * r * 0.5;
+    const pts = bezPts([r * 0.12, spread * 0.4], [r * 0.6, spread * 0.6 + sway], [r * 0.95, spread * 1.1 - sway], [r * (1.25 + 0.15 * (i % 2)), spread * 1.5 + sway], 14);
+    taper(ctx, pts, r * 0.13, r * 0.025);
+    const tc = shade(p.tent, -0.2 + k * 0.25);
+    ctx.fillStyle = css(tc, 0.96);
+    ctx.fill();
+    ctx.strokeStyle = css(dark(p.tent), 0.4);
+    ctx.lineWidth = lw * 0.6;
+    ctx.stroke();
+  }
+  // der Kopf mit großem Auge (dahinter die Mündung)
+  const headP = () => ell(ctx, r * 0.1, 0, r * 0.26, r * 0.24);
+  skin(ctx, headP, { base: mix(p.tent, c, 0.35), y0: -r * 0.26, y1: r * 0.26, noise: 'mottle', noiseAlpha: 0.45, noiseScale: 0.3, wet: true, edge: dark(p.tent), edgeW: lw });
+  ctx.restore();
+
+  // ---- die Schale
+  const shell = () => {
+    ctx.beginPath();
+    for (let i = 0; i <= 120; i++) {
+      const [x, y] = at(th1 - TURN + (i / 120) * TURN);
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  };
+  skin(ctx, shell, {
+    base: c, top: shade(c, -0.12), belly: shade(c, -0.1), y0: -r, y1: r, noise: 'stone', noiseAlpha: 0.2, noiseScale: 0.32, edge: D, edgeW: lw * 1.3, rim: 0.45, wet: true,
+    inner: (cx) => {
+      // jede Windung: zum Nabel hin etwas dunkler, außen heller; darauf die Rippen
+      for (let w = 0; w < 4; w++) {
+        const a0 = th1 - (w + 1) * TURN, steps = 70;
+        // die Windung als Band
+        cx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const [x, y] = at(a0 + (i / steps) * TURN);
+          if (i) cx.lineTo(x, y);
+          else cx.moveTo(x, y);
+        }
+        for (let i = steps; i >= 0; i--) {
+          const [x, y] = at(a0 - TURN + (i / steps) * TURN);
+          cx.lineTo(x, y);
+        }
+        cx.closePath();
+        cx.fillStyle = css(w % 2 ? shade(c, -0.06) : shade(c, 0.04), 0.5);
+        cx.fill();
+        // Rippen: von der inneren zur äußeren Naht, leicht nach vorn geschwungen
+        const n = Math.round(30 * Math.pow(0.82, w));
+        for (let i = 0; i < n; i++) {
+          const th = a0 + ((i + 0.5) / n) * TURN;
+          const [x0, y0] = at(th - TURN), [x1, y1] = at(th);
+          const nx = (x1 - x0) * 0.5, ny = (y1 - y0) * 0.5;
+          const bx = x0 + nx - ny * 0.22, by = y0 + ny + nx * 0.22;
+          const k = Math.sqrt(rad(th) / r);
+          cx.strokeStyle = css(shade(c, -0.42), 0.5);
+          cx.lineWidth = Math.max(0.4, lw * 1.25 * k);
+          cx.beginPath();
+          cx.moveTo(x0, y0);
+          cx.quadraticCurveTo(bx, by, x1, y1);
+          cx.stroke();
+          cx.strokeStyle = css(shade(c, 0.45), 0.3);
+          cx.lineWidth = Math.max(0.3, lw * 0.8 * k);
+          cx.beginPath();
+          cx.moveTo(x0 + lw * 0.8, y0 - lw * 0.5);
+          cx.quadraticCurveTo(bx + lw * 0.8, by - lw * 0.5, x1 + lw * 0.8, y1 - lw * 0.5);
+          cx.stroke();
+        }
+      }
+      // die Naht zwischen den Windungen
+      cx.strokeStyle = css(D, 0.7);
+      cx.lineWidth = lw * 1.2;
+      cx.beginPath();
+      for (let i = 0; i <= 300; i++) {
+        const [x, y] = at(th1 - TURN - (i / 300) * TURN * 3.6);
+        if (i) cx.lineTo(x, y);
+        else cx.moveTo(x, y);
+      }
+      cx.stroke();
+      // Perlmuttschimmer oben links
+      cx.globalCompositeOperation = 'lighter';
+      cx.fillStyle = rgrad(cx, -r * 0.3, -r * 0.4, 0, r * 0.6, [[0, 'rgba(255,240,215,0.2)'], [1, 'rgba(255,240,215,0)']]);
+      cx.fillRect(-r * 1.2, -r * 1.2, r * 2.4, r * 2.4);
+      cx.globalCompositeOperation = 'source-over';
+    },
+  });
+  // die Mündung: dunkler Rand, davor das Auge
+  ctx.beginPath();
+  ctx.moveTo(ix, iy);
+  ctx.lineTo(ox, oy);
+  ctx.strokeStyle = css(D, 0.85);
+  ctx.lineWidth = lw * 2;
+  ctx.stroke();
+  const ex = mx + Math.cos(ma - 0.45) * r * 0.12, ey = my + Math.sin(ma - 0.45) * r * 0.12;
+  eye(ctx, ex, ey, r * 0.11, E.iris, { glow: E.glow });
+}
+
 function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes) {
   switch (art.t) {
     case 'fish': return drawFish(ctx, art, f, E);
@@ -752,6 +1229,10 @@ function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes) {
     case 'trilo': return drawTrilo(ctx, art, f);
     case 'cone': return drawCone(ctx, art, f, E);
     case 'bug': return drawBug(ctx, art, f, E);
+    case 'mosa': return drawMosa(ctx, art, f, E);
+    case 'plesio': return drawPlesio(ctx, art, f, E);
+    case 'turtle': return drawTurtle(ctx, art, f, E);
+    case 'ammo': return drawAmmo(ctx, art, f, E);
   }
 }
 
@@ -760,7 +1241,8 @@ export const speciesKey = (id: string, f: number) => `sp_${id}_${f}`;
 /** Erzeugt beide Bewegungsphasen einer Art und die Animation dazu. */
 export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   if (scene.textures.exists(speciesKey(def.id, 0))) return;
-  const big = !!def.boss;
+  // große Tiere (Herrscher, Meeresechsen, Riesenhaie …) brauchen mehr Platz
+  const big = !!def.boss || ((def.art as { len?: number }).len ?? 0) > 160;
   const W = big ? 900 : 380, H = big ? 760 : 320;
   const E = eyesFor(def.role);
   const cs = [0, 1].map((f) => {

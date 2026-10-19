@@ -1,24 +1,36 @@
 import Phaser from 'phaser';
-import { W, H, UI } from '../config';
+import { W, H, TITLE_FONT, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { game, speciesName, type TreeNode } from '../state/GameState';
-import { EPOCHS, shortYears, yearsAgo } from '../data/epochs';
+import { game, rootId, rootNode, speciesName, type TreeNode } from '../state/GameState';
+import { EPOCHS, ERAS, inEra, ofEra, yearsAgo } from '../data/epochs';
 import { CLASSES, type ClassId } from '../data/classes';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
-import { Button, MenuNav, fadeIn, fadeTo, text, title } from '../ui/ui';
-import { startNewLife } from './flow';
+import { clamp } from '../util/math';
+import { Button, fadeIn, fadeTo, text, title } from '../ui/ui';
+import { continueLife, startNewLife } from './flow';
 
 type TreeData =
   | { mode: 'extinct'; leaf: string; morph: Morph; epoch: number; cause: string; years: number }
-  | { mode: 'present'; node: string }
-  | { mode?: 'view' };
+  | { mode: 'present'; node: string; epoch?: number }
+  | { mode?: 'view'; epoch?: number };
 
-const TOP = 112;
-const ROW = 118;
-const AX = 196; // linke Kante des Baums
-const AW = 724; // Breite des Baumbereichs
+// ---------------------------------------------------------------------------
+// Der Stammbaum des Lebens – außerhalb des Spiels. Jedes Zeitalter hat seinen eigenen Baum: Alle Linien beginnen dort mit
+// demselben Urahn und wachsen nach unten, Generation für Generation. Wo sich eine Linie zu einer neuen Art entwickelt, teilt
+// sich der Ast; Linien, die sich gleichen, teilen ihn sich. Ausgestorbene Zweige enden mit einem Schädel, die lebende Linie
+// leuchtet. Oben läuft der Zeitstrom der Erdgeschichte: Jeder Baum ist ein Ausschnitt daraus – davor und danach geht das
+// Leben weiter, nur spielt man es (noch) nicht.
+// ---------------------------------------------------------------------------
+
+/** Der Baumbereich */
+const AX = 196, AW = 724, TOP = 196, BOT = 660;
 const PANEL_X = 944;
+/** der Zeitstrom: von vor 490 bis vor 60 Millionen Jahren */
+const STREAM = { y: 96, from: 490, to: 60 };
+/** die wirklichen Zeiträume der Zeitalter (Millionen Jahre) – und was dazwischen liegt */
+const PERIOD: Record<string, [number, number]> = { ordovizium: [485, 443], silur: [443, 419], devon: [419, 359], kreide: [145, 66] };
+const GAPS: [string, number][] = [['Silur', 431], ['Karbon', 329], ['Perm', 275], ['Trias', 226], ['Jura', 173]];
 
 const CLS_COLOR: Record<ClassId, number> = {
   fish: 0x6f9e98,
@@ -27,37 +39,41 @@ const CLS_COLOR: Record<ClassId, number> = {
   mammal: 0xd2aa72,
 };
 
-const rowY = (epoch: number) => TOP + (epoch + 1) * ROW;
-
 interface Pos {
   n: TreeNode;
   x: number;
   y: number;
+  /** die lebende Linie (ihr Astende wächst noch) */
+  alive?: boolean;
 }
 
-/**
- * Der Stammbaum des Lebens – außerhalb des Spiels. Jedes Spiel ist ein Pfad von der Wurzel
- * nach unten (= in der Zeit nach vorne). Linien, die sich gleichen, teilen sich einen Ast;
- * ausgestorbene Zweige enden mit einem Schädel. Zeitalter, die noch niemand erreicht hat,
- * bleiben Fragezeichen.
- */
+const streamX = (ma: number) => AX + ((STREAM.from - ma) / (STREAM.from - STREAM.to)) * AW;
+const LIVING = 'living';
+
 export class TreeScene extends Phaser.Scene {
   private d!: TreeData;
+  /** das Zeitalter, dessen Baum gerade zu sehen ist (Nummer) */
+  private era = 0;
   private pos = new Map<string, Pos>();
   private treeC!: Phaser.GameObjects.Container;
   private lines!: Phaser.GameObjects.Graphics;
   private path!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private info!: Phaser.GameObjects.Container;
+  private axis!: Phaser.GameObjects.Container;
+  private stream!: Phaser.GameObjects.Container;
   private infoView?: CreatureView;
   private views: CreatureView[] = [];
-  private lastPath: string[] = [];
   private panX = 0;
   private minPan = 0;
+  private gmax = 6;
   private drag?: { x: number; pan: number };
   private overlay?: Phaser.GameObjects.Container;
-  private nav?: MenuNav;
   private selected = '';
+  private main!: Button;
+  private home!: Button;
+  private focusIdx = 0;
+  private switching = false;
 
   constructor() {
     super('Tree');
@@ -65,6 +81,8 @@ export class TreeScene extends Phaser.Scene {
 
   init(d: TreeData) {
     this.d = d ?? { mode: 'view' };
+    const want = this.d.mode === 'extinct' ? this.d.epoch : this.d.epoch ?? game.chosenEpoch;
+    this.era = ERAS.some((e) => e.i === want) ? want! : ERAS[0].i;
     this.pos = new Map();
     this.views = [];
     this.infoView = undefined;
@@ -72,6 +90,8 @@ export class TreeScene extends Phaser.Scene {
     this.panX = 0;
     this.drag = undefined;
     this.selected = '';
+    this.focusIdx = 0;
+    this.switching = false;
   }
 
   create() {
@@ -82,26 +102,24 @@ export class TreeScene extends Phaser.Scene {
     bg.fillGradientStyle(0x0d0b09, 0x0d0b09, 0x040303, 0x040303, 1);
     bg.fillRect(0, 0, W, H);
 
-    this.layout();
-
     // Baum (verschiebbar, falls er breiter wird als der Platz)
     this.treeC = this.add.container(0, 0);
     this.lines = this.add.graphics();
     this.path = this.add.graphics();
     this.hover = this.add.graphics();
     this.treeC.add([this.lines, this.path, this.hover]);
-    this.drawTree();
 
-    // Zeitachse links (deckt den Baum ab, wenn man ihn verschiebt)
-    const axis = this.add.graphics();
-    axis.fillStyle(0x070605, 1);
-    axis.fillRect(0, 0, AX - 14, H);
-    axis.fillGradientStyle(0x070605, 0x070605, 0x070605, 0x070605, 1, 0, 1, 0);
-    axis.fillRect(AX - 14, 0, 18, H);
-    this.axisLabels();
+    // links: die Generationen (deckt den Baum ab, wenn man ihn verschiebt)
+    const axisBg = this.add.graphics();
+    axisBg.fillStyle(0x070605, 1);
+    axisBg.fillRect(0, TOP - 40, AX - 14, H);
+    axisBg.fillGradientStyle(0x070605, 0x070605, 0x070605, 0x070605, 1, 0, 1, 0);
+    axisBg.fillRect(AX - 14, TOP - 40, 18, H);
+    this.axis = this.add.container(0, 0);
 
-    // Kopfzeile
-    title(this, 30, 20, 'Stammbaum des Lebens', 32);
+    // Kopfzeile und Zeitstrom
+    title(this, 30, 16, 'Stammbaum des Lebens', 30);
+    this.stream = this.add.container(0, 0);
 
     // Infotafel rechts
     const pg = this.add.graphics();
@@ -113,13 +131,13 @@ export class TreeScene extends Phaser.Scene {
     pg.strokeRoundedRect(PANEL_X + 1, 97, W - PANEL_X - 20, 468, 14);
     this.info = this.add.container(0, 0);
 
-    const b1 = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 608, 'Neues Leben', { w: 290, h: 54, icon: 'ic_play', color: UI.ochreN, onClick: () => this.newLife() });
-    const b2 = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 670, 'Titelbild', { w: 290, h: 46, size: 19, icon: 'ic_home', onClick: () => fadeTo(this, 'Title') });
-    this.nav = new MenuNav(this, [b1, b2], 1, () => fadeTo(this, 'Title'));
+    const cx = PANEL_X + (W - PANEL_X - 18) / 2;
+    this.main = new Button(this, cx, 608, 'Leben beginnen', { w: 290, h: 54, icon: 'ic_play', color: UI.ochreN, sound: null, onClick: () => this.play() });
+    this.home = new Button(this, cx, 670, 'Titelbild', { w: 290, h: 46, size: 19, icon: 'ic_home', sound: 'back', onClick: () => fadeTo(this, 'Title') });
     // Stammbaum zurücksetzen – mit Rückfrage (zweiter Klick innerhalb weniger Sekunden)
     let armed = 0;
-    const reset: Button = new Button(this, PANEL_X + (W - PANEL_X - 18) / 2, 48, 'Stammbaum zurücksetzen', {
-      w: 290, h: 40, size: 16, onClick: () => {
+    const reset: Button = new Button(this, cx, 48, 'Stammbaum zurücksetzen', {
+      w: 290, h: 40, size: 15, onClick: () => {
         if (this.time.now - armed < 4000) {
           game.resetAll();
           this.scene.restart({ mode: 'view' });
@@ -148,7 +166,7 @@ export class TreeScene extends Phaser.Scene {
     });
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.overlay) return this.closeOverlay();
-      if (p.x > AX - 10 && p.x < PANEL_X - 10) {
+      if (p.x > AX - 10 && p.x < PANEL_X - 10 && p.y > TOP - 40) {
         const n = this.pick(p.x, p.y);
         if (n) this.select(n.n.id);
         else this.drag = { x: p.x, pan: this.panX };
@@ -157,14 +175,20 @@ export class TreeScene extends Phaser.Scene {
     this.input.on('pointerup', () => (this.drag = undefined));
     this.input.on('wheel', (_p: unknown, _o: unknown, dx: number, dy: number) => this.panTo(this.panX - (dx || dy) * 0.6));
 
-    const end = this.d.mode === 'extinct' ? this.d.leaf : this.d.mode === 'present' ? this.d.node : game.data.lastEnd;
-    this.select(end && this.pos.has(end) ? end : 'root');
-    // den eigenen Pfad ins Bild rücken
-    const ep = end ? this.pos.get(end) : undefined;
-    if (ep) this.panTo((AX + AW / 2) - ep.x);
+    // Tastatur: ← → das Zeitalter, ↑ ↓ die Knöpfe
+    const kb = this.input.keyboard!;
+    const busy = () => !!this.overlay || !this.input.enabled;
+    kb.on('keydown-LEFT', () => !busy() && this.stepEra(-1));
+    kb.on('keydown-RIGHT', () => !busy() && this.stepEra(1));
+    kb.on('keydown-UP', () => !busy() && this.focusBtn(-1));
+    kb.on('keydown-DOWN', () => !busy() && this.focusBtn(1));
+    const act = () => !busy() && [this.main, this.home][this.focusIdx].click();
+    kb.on('keydown-ENTER', act);
+    kb.on('keydown-SPACE', act);
+    kb.on('keydown-ESC', () => (this.overlay ? this.closeOverlay() : fadeTo(this, 'Title')));
 
+    this.build(false);
     if (this.d.mode === 'extinct') this.extinctOverlay(this.d);
-    else if (this.d.mode === 'present') this.presentOverlay();
     else this.revealPath(false);
   }
 
@@ -174,87 +198,157 @@ export class TreeScene extends Phaser.Scene {
     this.infoView?.animate(dt, this.infoView.L.land ? 'idle' : 'swim', 0.25);
   }
 
+  // ---------------------------------------------------------------- ein Zeitalter zeigen
+
+  /** Baum, Achse, Zeitstrom und Knöpfe für das gewählte Zeitalter (neu) aufbauen. */
+  private build(animate: boolean) {
+    for (const v of this.views) v.destroy();
+    this.views = [];
+    this.treeC.each((o: Phaser.GameObjects.GameObject) => {
+      if (o !== this.lines && o !== this.path && o !== this.hover) o.destroy();
+    });
+    this.pos = new Map();
+    this.selected = '';
+    this.panX = 0;
+    this.treeC.x = 0;
+    this.layout();
+    this.drawTree();
+    this.axisLabels();
+    this.drawStream();
+    const ep = EPOCHS[this.era];
+    const run = game.runIn(this.era);
+    this.main.setLabel(!ep.playable ? 'Noch im Gestein' : run ? 'Weiterleben' : 'Leben beginnen').setDisabled(!ep.playable);
+    this.focusBtn(0);
+    const end = this.d.mode === 'extinct' && this.d.epoch === this.era ? this.d.leaf : run ? LIVING : this.lastEndHere();
+    this.select(end && this.pos.has(end) ? end : rootId(this.era));
+    const ep2 = end ? this.pos.get(end) : undefined;
+    if (ep2) this.panTo(AX + AW / 2 - ep2.x);
+    if (animate) {
+      this.revealPath(false);
+      for (const o of [this.treeC, this.axis]) {
+        o.setAlpha(0);
+        this.tweens.add({ targets: o, alpha: 1, duration: 420, ease: 'Sine.out' });
+      }
+    }
+  }
+
+  /** Das zuletzt beendete Leben – wenn es zu diesem Zeitalter gehört. */
+  private lastEndHere() {
+    const id = game.data.lastEnd;
+    return id && game.data.nodes[id]?.epoch === this.era ? id : null;
+  }
+
+  private stepEra(d: number) {
+    const k = ERAS.findIndex((e) => e.i === this.era);
+    const next = ERAS[clamp(k + d, 0, ERAS.length - 1)].i;
+    this.showEra(next);
+  }
+
+  private showEra(i: number) {
+    if (i === this.era || this.switching) return;
+    this.switching = true;
+    audio.sfx('tab');
+    this.tweens.add({
+      targets: [this.treeC, this.axis], alpha: 0, duration: 180, ease: 'Sine.in',
+      onComplete: () => {
+        this.era = i;
+        this.build(true);
+        this.switching = false;
+      },
+    });
+  }
+
+  private focusBtn(d: number) {
+    const items = [this.main, this.home];
+    let i = d === 0 ? (this.main.disabled ? 1 : 0) : this.focusIdx + d;
+    i = clamp(i, 0, 1);
+    if (items[i].disabled) i = 1;
+    if (d && i !== this.focusIdx) audio.sfx('click');
+    this.focusIdx = i;
+    items.forEach((b, k) => b.setFocus(k === i));
+  }
+
   // ---------------------------------------------------------------- Aufbau
 
-  /** Blätter gleichmäßig verteilen, innere Knoten in die Mitte ihrer Kinder. */
+  /** Die Knoten dieses Zeitalters: Blätter gleichmäßig verteilt, innere Knoten über ihren Kindern; senkrecht die Generation. */
   private layout() {
+    const e = this.era;
     const nodes = game.data.nodes;
-    const order = (ids: string[]) => [...ids].sort((a, b) => (nodes[a]?.last ?? 0) - (nodes[b]?.last ?? 0) || a.localeCompare(b));
-    const leaves: string[] = [];
-    const walk = (id: string) => {
-      const n = nodes[id];
-      if (!n) return;
-      const kids = order(n.children).filter((c) => nodes[c]);
-      if (!kids.length) leaves.push(id);
-      for (const c of kids) walk(c);
+    const root = nodes[rootId(e)] ?? rootNode(e);
+    const run = game.runIn(e);
+    // die lebende Linie: ein Astende, das noch wächst (hängt an der Art, zu der sie gerade gehört)
+    const living: TreeNode | undefined = run
+      ? { id: LIVING, parent: run.node, epoch: e, gen: run.life.gen, cls: run.cls, traits: run.traits, hue: run.hue, seed: run.seed, sig: '', children: [], runs: 1, last: run.id }
+      : undefined;
+    const kids = (n: TreeNode): TreeNode[] => {
+      const out = n.children.map((c) => nodes[c]).filter((c): c is TreeNode => !!c && c.epoch === e);
+      if (living && living.parent === n.id) out.push(living);
+      return out.sort((a, b) => a.last - b.last || a.id.localeCompare(b.id));
     };
-    walk('root');
+    const leaves: TreeNode[] = [];
+    let gmax = 6;
+    const walk = (n: TreeNode) => {
+      gmax = Math.max(gmax, n.gen ?? 0);
+      const ks = kids(n);
+      if (!ks.length && n !== root) leaves.push(n);
+      for (const k of ks) walk(k);
+    };
+    walk(root);
+    this.gmax = gmax;
     const L = leaves.length;
-    const gap = L <= 1 ? 0 : Math.max(16, Math.min(56, (AW - 80) / (L - 1)));
+    const gap = L <= 1 ? 0 : Math.max(18, Math.min(64, (AW - 80) / (L - 1)));
     const total = gap * Math.max(0, L - 1);
     const x0 = AX + AW / 2 - total / 2;
-    leaves.forEach((id, i) => this.place(nodes[id], x0 + i * gap));
-    const post = (id: string): number => {
-      const n = nodes[id];
-      const p = this.pos.get(id);
+    leaves.forEach((n, i) => this.place(n, x0 + i * gap));
+    const post = (n: TreeNode): number => {
+      const p = this.pos.get(n.id);
       if (p) return p.x;
-      const xs = n.children.filter((c) => nodes[c]).map(post);
+      const xs = kids(n).map(post);
       const x = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : AX + AW / 2;
       this.place(n, x);
       return x;
     };
-    post('root');
+    post(root);
     this.minPan = Math.min(0, AW - 60 - total);
   }
 
+  private genY(gen: number) {
+    return TOP + (Math.max(0, gen) / this.gmax) * (BOT - TOP);
+  }
+
   private place(n: TreeNode, x: number) {
-    let y = rowY(n.epoch);
-    if (n.dead) {
-      const parent = n.parent ? game.data.nodes[n.parent] : undefined;
-      const py = parent ? rowY(parent.epoch) : rowY(-1);
-      y = py + Math.max(12, n.dead.frac * (rowY(n.epoch) - py));
-    }
-    this.pos.set(n.id, { n, x, y });
+    this.pos.set(n.id, { n, x, y: this.genY(n.gen ?? 0), alive: n.id === LIVING });
   }
 
   private drawTree() {
     const g = this.lines;
     g.clear();
-    // Zeitbänder: jedes zweite Zeitalter etwas heller
-    for (let i = 0; i < EPOCHS.length; i += 2) {
-      g.fillStyle(0xffffff, 0.022);
-      g.fillRect(AX - 400, rowY(i - 1), AW + 4400, ROW);
+    // Zeitbänder: jede zweite Spanne von Generationen etwas heller
+    const step = this.genStep();
+    for (let gen = 0, k = 0; gen < this.gmax; gen += step, k++) {
+      if (k % 2) continue;
+      g.fillStyle(0xffffff, 0.018);
+      g.fillRect(AX - 400, this.genY(gen), AW + 4400, this.genY(Math.min(this.gmax, gen + step)) - this.genY(gen));
     }
-    // Zeitlinien
-    for (let i = -1; i <= EPOCHS.length; i++) {
-      g.lineStyle(1, 0xffffff, i === -1 ? 0 : 0.035);
-      g.lineBetween(AX - 400, rowY(i), AX + AW + 4000, rowY(i));
-    }
+    const rootP = this.pos.get(rootId(this.era))!;
+    // der Stamm kommt von oben (aus früheren Zeiten) – und die lebende Linie geht unten weiter
+    this.dashed(g, rootP.x, TOP - 46, rootP.x, rootP.y - 8, 0xe6dcc4, 0.35);
     for (const p of this.pos.values()) {
       const n = p.n;
       if (!n.parent) continue;
       const pp = this.pos.get(n.parent);
       if (!pp) continue;
       const w = 1.6 + 1.5 * Math.log2(1 + n.runs);
-      const col = CLS_COLOR[n.cls];
+      const col = p.alive ? 0xe8cf96 : CLS_COLOR[n.cls];
       this.curve(g, pp.x, pp.y, p.x, p.y, w, col, n.dead ? 0.5 : 0.85);
     }
-    // bis heute überlebt
-    for (const p of this.pos.values()) {
-      if (!p.n.present) continue;
-      const yy = rowY(EPOCHS.length);
-      g.lineStyle(2 + p.n.present, 0xe6d2a0, 0.85);
-      g.lineBetween(p.x, p.y, p.x, yy);
-      const glow = this.add.image(p.x, yy, 'glow').setScale(0.6).setTint(0xffe2a8).setBlendMode(Phaser.BlendModes.ADD);
-      this.treeC.add(glow);
-      this.tweens.add({ targets: glow, alpha: 0.5, yoyo: true, repeat: -1, duration: 1400 });
-    }
-    // Knoten und Aussterbe-Zeichen
     for (const p of this.pos.values()) {
       const n = p.n;
-      if (n.id === 'root') {
+      if (!n.parent) {
         g.fillStyle(0xe6dcc4, 1);
-        g.fillCircle(p.x, p.y, 6);
+        g.fillCircle(p.x, p.y, 6.5);
+        g.lineStyle(1.5, 0x000000, 0.6);
+        g.strokeCircle(p.x, p.y, 6.5);
         continue;
       }
       if (n.dead) {
@@ -262,10 +356,37 @@ export class TreeScene extends Phaser.Scene {
         this.treeC.add(sk);
         continue;
       }
+      if (p.alive) {
+        // die lebende Linie: ein leuchtendes Ende, und es geht weiter
+        this.dashed(g, p.x, p.y + 10, p.x, p.y + 42, 0xe8cf96, 0.45);
+        const glow = this.add.image(p.x, p.y, 'glow').setScale(0.5).setTint(0xffe2a8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8);
+        this.treeC.add(glow);
+        this.tweens.add({ targets: glow, alpha: 0.35, scale: 0.65, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
+        g.fillStyle(0xffe6b4, 1);
+        g.fillCircle(p.x, p.y, 5);
+        continue;
+      }
       g.fillStyle(CLS_COLOR[n.cls], 1);
       g.fillCircle(p.x, p.y, 3.6 + Math.min(3, n.runs * 0.4));
       g.lineStyle(1, 0x000000, 0.6);
       g.strokeCircle(p.x, p.y, 3.6 + Math.min(3, n.runs * 0.4));
+    }
+    if (!EPOCHS[this.era].playable || this.pos.size === 1) {
+      // ein leerer Baum: Noch hat hier niemand gelebt
+      const locked = !EPOCHS[this.era].playable;
+      const msg = locked ? 'Dieses Zeitalter ruht noch im Gestein.' : 'Noch hat hier keine Linie gelebt.';
+      const sub = locked ? 'Sein Urahn wartet – bald bricht der Fels auf.' : 'Jede Linie beginnt mit dem Urahn dieses Zeitalters.';
+      this.treeC.add(text(this, rootP.x, rootP.y + 120, msg, 20, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.8));
+      this.treeC.add(text(this, rootP.x, rootP.y + 150, sub, 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
+    }
+  }
+
+  private dashed(g: Phaser.GameObjects.Graphics, x0: number, y0: number, x1: number, y1: number, col: number, a: number) {
+    const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.floor(len / 9));
+    g.lineStyle(2, col, a);
+    for (let i = 0; i < n; i += 2) {
+      const t0 = i / n, t1 = Math.min(1, (i + 1) / n);
+      g.lineBetween(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1);
     }
   }
 
@@ -276,33 +397,102 @@ export class TreeScene extends Phaser.Scene {
     g.strokePoints(c.getPoints(22));
   }
 
+  /** Abstand der Generationen-Marken an der Achse (1, 2, 5, 10, 20 …). */
+  private genStep() {
+    const raw = this.gmax / 6;
+    for (const s of [1, 2, 5, 10, 20, 50, 100, 200]) if (s >= raw) return s;
+    return 500;
+  }
+
   private axisLabels() {
-    const deepest = game.data.deepest;
-    text(this, 24, rowY(-1) - 9, 'Urahn', 16, UI.boneDim);
-    EPOCHS.forEach((ep, i) => {
-      const y = rowY(i);
-      if (i <= deepest) {
-        text(this, 24, y - 17, ep.name, 16, UI.bone);
-        text(this, 24, y + 1, shortYears(ep.to), 13, UI.boneDim);
-      } else title(this, 24, y - 12, '?', 18, '#5e554a');
-    });
-    const reachedNow = Object.values(game.data.nodes).some((n) => n.present);
-    if (reachedNow) text(this, 24, rowY(EPOCHS.length) - 9, 'Demo-Ende', 16, UI.ochre);
-    else title(this, 24, rowY(EPOCHS.length) - 12, '?', 18, '#5e554a');
+    const c = this.axis;
+    c.removeAll(true);
+    c.add(text(this, 24, this.genY(0) - 10, 'Urahn', 16, UI.bone));
+    const step = this.genStep();
+    for (let gen = step; gen <= this.gmax; gen += step) {
+      const y = this.genY(gen);
+      c.add(text(this, 24, y - 9, `Generation ${gen}`, 14, UI.boneDim));
+      const g = this.add.graphics();
+      g.lineStyle(1, 0xffffff, 0.05);
+      g.lineBetween(AX - 30, y, AX - 16, y);
+      c.add(g);
+    }
+  }
+
+  // ---------------------------------------------------------------- der Zeitstrom
+
+  /**
+   * Der Zeitstrom: die Erdgeschichte vom Ordovizium bis zur Kreidezeit als feine Linie. Die spielbaren Zeitalter sind helle
+   * Fenster darin (anwählbar), dazwischen liegen leise die Zeiten, die (noch) niemand spielt. Vom gewählten Fenster führen
+   * zwei Linien hinunter zum Baum: Er ist ein Ausschnitt aus dem einen großen Baum des Lebens.
+   */
+  private drawStream() {
+    const c = this.stream;
+    c.removeAll(true);
+    const g = this.add.graphics();
+    c.add(g);
+    const y = STREAM.y;
+    // die Linie: zwischen den Fenstern nur gepunktet
+    g.fillStyle(0xe6dcc4, 0.22);
+    for (let x = AX; x <= AX + AW; x += 6) g.fillCircle(x, y, 1);
+    for (const [name, ma] of GAPS) {
+      c.add(text(this, streamX(ma), y + 14, name, 12, UI.boneDim).setOrigin(0.5, 0).setAlpha(0.45));
+    }
+    for (const { i, ep } of ERAS) {
+      const [a, b] = PERIOD[ep.id] ?? [ep.from / 1e6, ep.to / 1e6];
+      const x0 = streamX(a), x1 = streamX(b), on = i === this.era;
+      g.fillStyle(on ? 0xd9a24c : 0xe6dcc4, on ? 0.95 : ep.playable ? 0.45 : 0.25);
+      g.fillRoundedRect(x0, y - 4, x1 - x0, 8, 4);
+      if (on) {
+        // vom Fenster hinunter zum Baum
+        g.lineStyle(1, 0xd9a24c, 0.22);
+        g.lineBetween(x0, y + 4, AX - 6, TOP - 52);
+        g.lineBetween(x1, y + 4, AX + AW + 6, TOP - 52);
+        g.lineStyle(1, 0xd9a24c, 0.3);
+        g.lineBetween(AX - 6, TOP - 52, AX + AW + 6, TOP - 52);
+      }
+      const label = this.add.text((x0 + x1) / 2, y - 22, ep.name.toUpperCase(), {
+        fontFamily: TITLE_FONT, fontSize: '12px', color: on ? '#e6b25a' : ep.playable ? UI.bone : UI.boneDim, fontStyle: '700', resolution: 2,
+      }).setOrigin(0.5).setLetterSpacing(3).setAlpha(on ? 1 : 0.7);
+      c.add(label);
+      if (on) {
+        const tag = text(this, (x0 + x1) / 2, y + 30, `${ep.tagline}${ep.playable ? '' : ' · noch im Gestein'}`, 14, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5, 0).setAlpha(0.8);
+        // nicht über den Rand des Baumes hinaus
+        tag.setX(clamp(tag.x, AX + tag.width / 2, AX + AW - tag.width / 2));
+        c.add(tag);
+      }
+      // anwählbar: Fenster und Name
+      const zone = this.add.zone(Math.min(x0, (x0 + x1) / 2 - 60), y - 34, Math.max(x1 - x0, 120), 46).setOrigin(0).setInteractive({ useHandCursor: true });
+      zone.on('pointerover', () => {
+        if (!on) {
+          label.setAlpha(1).setColor('#f2e4c4');
+          audio.sfx('hover');
+        }
+      });
+      zone.on('pointerout', () => label.setAlpha(on ? 1 : 0.7).setColor(on ? '#e6b25a' : ep.playable ? UI.bone : UI.boneDim));
+      zone.on('pointerdown', () => !this.overlay && this.showEra(i));
+      c.add(zone);
+    }
   }
 
   // ---------------------------------------------------------------- Dein Weg
 
-  /** Den Pfad des letzten Spiels hervorheben – auf Wunsch Stück für Stück. */
+  /** Den eigenen Weg hervorheben (die lebende Linie bzw. das zuletzt beendete Leben) – auf Wunsch Stück für Stück. */
   private revealPath(animate: boolean) {
-    const end = this.d.mode === 'extinct' ? this.d.leaf : this.d.mode === 'present' ? this.d.node : game.data.lastEnd;
-    this.lastPath = game.pathTo(end ?? null).filter((id) => this.pos.has(id));
-    const segs = this.lastPath.slice(1);
     const g = this.path;
     g.clear();
+    const run = game.runIn(this.era);
+    const end = this.d.mode === 'extinct' && this.d.epoch === this.era ? this.d.leaf : run ? LIVING : this.lastEndHere();
+    if (!end) return;
+    const chain: string[] = [];
+    for (let id: string | null = end; id; id = this.pos.get(id)?.n.parent ?? null) {
+      if (!this.pos.has(id)) break;
+      chain.unshift(id);
+    }
+    const segs = chain.slice(1);
     const drawSeg = (i: number) => {
       const p = this.pos.get(segs[i])!;
-      const pp = this.pos.get(this.lastPath[i])!;
+      const pp = this.pos.get(chain[i])!;
       this.curve(g, pp.x, pp.y, p.x, p.y, 4.2, 0xf0dcae, 0.95);
       // kleine Porträts entlang des eigenen Weges
       if (!p.n.dead && this.views.length < 12) {
@@ -356,38 +546,45 @@ export class TreeScene extends Phaser.Scene {
     if (!p) return;
     h.lineStyle(2, 0xffe2a8, 0.9);
     h.strokeCircle(p.x, p.y, 10);
-    this.showInfo(p.n);
+    this.showInfo(p);
   }
 
-  private showInfo(n: TreeNode) {
+  private showInfo(p: Pos) {
+    const n = p.n;
     const c = this.info;
     c.removeAll(true);
     this.infoView = undefined;
     const cx = PANEL_X + (W - PANEL_X - 18) / 2;
-    const nodes = game.data.nodes;
-    c.add(this.add.image(cx, 300, 'pedestal').setScale(0.9, 0.8).setAlpha(n.epoch < 0 ? 0.5 : 1));
+    const ep = EPOCHS[n.epoch] ?? EPOCHS[this.era];
+    const root = !n.parent;
+    c.add(this.add.image(cx, 300, 'pedestal').setScale(0.9, 0.8).setAlpha(root ? 0.5 : 1));
     const v = new CreatureView(this, cx, 0, this.morphOf(n), 1.15);
     v.setY(v.L.land ? 296 - v.L.footY * 1.15 : 240);
     if (n.dead) v.setAlpha(0.55);
+    if (root && !ep.playable) v.setShade(0x3a3630);
     c.add(v);
     this.infoView = v;
-    c.add(title(this, cx, 116, speciesName(n), 19, UI.bone).setOrigin(0.5, 0).setWordWrapWidth(290).setAlign('center'));
-    c.add(text(this, cx, 150, n.epoch < 0 ? 'Der Anfang aller Linien' : CLASSES[n.cls].name, 16, UI.boneDim).setOrigin(0.5, 0));
+    const name = root ? `Der Urahn ${ofEra(ep)}` : p.alive ? game.currentName : speciesName(n);
+    c.add(title(this, cx, 116, name, 19, UI.bone).setOrigin(0.5, 0).setWordWrapWidth(290).setAlign('center'));
+    c.add(text(this, cx, 150 + (name.length > 24 ? 22 : 0), root ? 'Der Anfang aller Linien' : CLASSES[n.cls].name, 16, UI.boneDim).setOrigin(0.5, 0));
     const lines: string[] = [];
-    if (n.epoch < 0) {
-      lines.push(`${game.data.runs} ${game.data.runs === 1 ? 'Leben begann' : 'Leben begannen'} hier.`);
+    const nodes = game.data.nodes;
+    if (root) {
+      if (!ep.playable) lines.push('Dieses Zeitalter ruht noch', 'im Gestein.');
+      else if (n.runs) lines.push(`${n.runs} ${n.runs === 1 ? 'Linie begann' : 'Linien begannen'} hier.`);
+      else lines.push('Noch hat hier keine Linie begonnen.');
+    } else if (p.alive) {
+      lines.push('Deine Linie lebt.', `Generation ${n.gen}`);
     } else if (n.dead) {
-      const ep = EPOCHS[n.epoch];
-      const years = ep.from - (ep.from - ep.to) * n.dead.frac;
-      lines.push(`Ausgestorben im ${ep.name},`, `${yearsAgo(years, 1e4)}.`, `Ursache: ${n.dead.cause}`);
+      lines.push(`Ausgestorben ${inEra(ep)}`);
+      if (n.dead.frac > 0) lines.push(`${yearsAgo(ep.from - (ep.from - ep.to) * n.dead.frac, 1e4)}.`);
+      lines.push(`Ursache: ${n.dead.cause}`);
       if (n.dead.gens && n.dead.gens > 1) lines.push(`nach ${n.dead.gens} Generationen`);
     } else {
-      const ep = EPOCHS[n.epoch];
-      lines.push(`Überlebte das ${ep.name}`, `(bis ${shortYears(ep.to)} vor heute).`);
+      lines.push(`Eine Art, die ab Generation ${n.gen ?? 1}`, 'entstand.');
       lines.push(`${n.runs} ${n.runs === 1 ? 'Linie zog' : 'Linien zogen'} hier durch.`);
       const deadKids = n.children.filter((k) => nodes[k]?.dead).length;
       if (deadKids) lines.push(`${deadKids} ${deadKids === 1 ? 'Zweig starb' : 'Zweige starben'} danach aus.`);
-      if (n.present) lines.push('Diese Linie hat die Fischzeit überstanden.');
     }
     c.add(text(this, cx, 330, lines.join('\n'), 17, UI.bone, { align: 'center', lineSpacing: 4, wordWrap: { width: 290 } }).setOrigin(0.5, 0));
   }
@@ -421,42 +618,23 @@ export class TreeScene extends Phaser.Scene {
     this.tweens.add({ targets: [t2, t3], alpha: 1, duration: 1000, delay: 1100 });
     this.tweens.add({ targets: t4, alpha: 0.85, duration: 1000, delay: 1900 });
     this.overlay = c;
-    if (this.nav) this.nav.enabled = false;
     this.input.keyboard!.once('keydown', () => this.closeOverlay());
     this.time.delayedCall(9000, () => this.closeOverlay());
-  }
-
-  private presentOverlay() {
-    audio.sfx('victory');
-    const c = this.add.container(0, 0).setDepth(100);
-    c.add(this.add.rectangle(0, 0, W, H, 0x050403, 0.94).setOrigin(0));
-    const glow = this.add.image(W / 2, H / 2 - 40, 'glow').setScale(7).setTint(0xffe2a8).setAlpha(0.25).setBlendMode(Phaser.BlendModes.ADD);
-    c.add(glow);
-    c.add(title(this, W / 2, H / 2 - 60, 'Deine Linie hat die Fischzeit überstanden.', 36, '#f0e2c0').setOrigin(0.5));
-    this.overlay = c;
-    if (this.nav) this.nav.enabled = false;
-    this.input.keyboard!.once('keydown', () => this.closeOverlay());
-    this.time.delayedCall(5000, () => this.closeOverlay());
   }
 
   private closeOverlay() {
     const c = this.overlay;
     if (!c) return;
     this.overlay = undefined;
-    this.tweens.add({
-      targets: c,
-      alpha: 0,
-      duration: 900,
-      onComplete: () => {
-        c.destroy();
-        if (this.nav) this.nav.enabled = true;
-      },
-    });
+    this.tweens.add({ targets: c, alpha: 0, duration: 900, onComplete: () => c.destroy() });
     this.revealPath(true);
   }
 
-  private newLife() {
-    if (this.overlay) return;
-    startNewLife(this);
+  /** Leben im gezeigten Zeitalter: weiter, oder (ohne Linie) ein neues beginnen. */
+  private play() {
+    if (this.overlay || !EPOCHS[this.era].playable) return;
+    audio.sfx('confirm');
+    if (game.runIn(this.era)) continueLife(this, this.era);
+    else startNewLife(this, this.era);
   }
 }

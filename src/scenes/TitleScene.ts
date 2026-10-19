@@ -1,23 +1,22 @@
 import Phaser from 'phaser';
 import { W, H, DEBUG, FONT, TITLE_FONT, UI } from '../config';
-import { audio } from '../audio/Audio';
-import { game, ZERO_TRAITS } from '../state/GameState';
+import { audio, type Sfx } from '../audio/Audio';
+import { game } from '../state/GameState';
 import { SPECIES } from '../data/species';
 import { EPOCHS, yearsAgo } from '../data/epochs';
-import { ADULT, STAGE_NAME, stageOf, worldYears } from '../sim/life';
+import { STAGE_NAME, stageOf, worldYears } from '../sim/life';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
-import { CreatureView } from '../objects/CreatureView';
 import { tex, vgrad } from '../util/canvas';
 import { clamp } from '../util/math';
 import { MenuNav, controlsList, fadeIn, fadeTo, soundIcon, text, type NavItem } from '../ui/ui';
-import { continueLife, startNewLife } from './flow';
+import { continueLife } from './flow';
 import { changedCount } from '../data/tuning';
 import { openDevConfig } from '../ui/devConfig';
 import fossilUrl from '../assets/title/fossil.webp';
 
 // Das Titelbild: ein versteinerter Urfisch in einer Unterwasserhöhle, durch eine Öffnung fällt Licht. Davor lebt das Wasser –
-// Lichtstrahlen, ein Lichtnetz am Grund, Schwebeteilchen, Blasen, ein ferner Schwarm, und im Licht über dem Skelett schwimmt dein
-// eigenes Tier: Das Leben geht weiter. Links Titel und Menü, schlicht; unten die Weltzeit, die für alle gleich weiterläuft.
+// Lichtstrahlen, ein Lichtnetz am Grund, Schwebeteilchen, Blasen und ein ferner Schwarm. Links Titel und Menü, schlicht; unten
+// die Weltzeit des gewählten Zeitalters, die für alle gleich weiterläuft.
 
 /** Kleine Schwarmfische der Zeit, die in der Ferne vorüberziehen */
 const SCHOOL_SPECIES = ['birkenia', 'kieferlos', 'arandaspis', 'astraspis'];
@@ -67,35 +66,68 @@ function ruleTexture(scene: Phaser.Scene) {
   });
 }
 
-/** Eine Zeile des Menüs: schlichte Schrift; angewählt leuchtet sie auf, und davor erscheint ein feiner Strich. */
+/** Das Zeichen vor einer angewählten Menüzeile: eine feine Linie, die aus dem Dunkel kommt und in einer kleinen Raute endet. */
+function markTexture(scene: Phaser.Scene) {
+  return tex(scene, 'ttl_mark', 46, 12, (ctx) => {
+    const g = ctx.createLinearGradient(0, 0, 36, 0);
+    g.addColorStop(0, 'rgba(214,160,74,0)');
+    g.addColorStop(1, 'rgba(226,176,92,1)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 5.25, 36, 1.5);
+    ctx.beginPath();
+    ctx.moveTo(35, 6);
+    ctx.lineTo(40.5, 1.5);
+    ctx.lineTo(46, 6);
+    ctx.lineTo(40.5, 10.5);
+    ctx.closePath();
+    const d = ctx.createLinearGradient(0, 1.5, 0, 10.5);
+    d.addColorStop(0, '#f6dca4');
+    d.addColorStop(1, '#a8702c');
+    ctx.fillStyle = d;
+    ctx.fill();
+  }, 2);
+}
+
+/**
+ * Eine Zeile des Menüs: schlichte Schrift. Angewählt leuchtet sie warm auf, rückt ein Stück ein, davor erscheint ein feines
+ * Zeichen – und einmal streicht ein heller Glanz über die Buchstaben.
+ */
 class MenuItem extends Phaser.GameObjects.Container implements NavItem {
   disabled = false;
   /** die Trefferfläche (über einer Tafel muss sie über deren Schatten liegen) */
   readonly zone: Phaser.GameObjects.Zone;
   private label: Phaser.GameObjects.Text;
+  private shine: Phaser.GameObjects.Text;
   private mark: Phaser.GameObjects.Image;
+  private glow: Phaser.GameObjects.Image;
   private focused = false;
+  private sheen = { p: -1 };
 
-  constructor(scene: Phaser.Scene, x: number, y: number, str: string, private onClick: () => void, onHover: () => void) {
+  constructor(scene: Phaser.Scene, x: number, y: number, str: string, private onClick: () => void, onHover: () => void, private sound: Sfx = 'select') {
     super(scene, x, y);
-    this.mark = scene.add.image(0, 0, 'ttl_rule').setOrigin(0, 0.5).setDisplaySize(28, 3).setScale(0, 1);
-    this.label = scene.add
-      .text(0, 0, str, { fontFamily: TITLE_FONT, fontSize: '22px', color: UI.bone, fontStyle: '700', resolution: 2 })
-      .setOrigin(0, 0.5)
-      .setLetterSpacing(4)
-      .setAlpha(0.6);
-    this.add([this.mark, this.label]);
+    markTexture(scene);
+    const style = { fontFamily: TITLE_FONT, fontSize: '22px', fontStyle: '700', resolution: 2 };
+    this.label = scene.add.text(0, 0, str, { ...style, color: UI.bone }).setOrigin(0, 0.5).setLetterSpacing(4).setAlpha(0.6);
+    this.shine = scene.add.text(0, 0, str, { ...style, color: 'rgba(0,0,0,0)' }).setOrigin(0, 0.5).setLetterSpacing(4).setBlendMode(Phaser.BlendModes.ADD);
+    this.glow = scene.add.image(this.label.width * 0.5, 0, 'glow').setDisplaySize(this.label.width + 150, 46).setTint(0xd8a868)
+      .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    this.mark = scene.add.image(-6, 0, 'ttl_mark').setOrigin(0, 0.5).setScale(0, 0.5).setAlpha(0);
+    this.add([this.glow, this.mark, this.label, this.shine]);
     scene.add.existing(this);
     // die Trefferfläche: die ganze Zeile, etwas großzügiger als die Schrift
     const zone = (this.zone = scene.add.zone(x - 12, y, this.label.width + 90, 42).setOrigin(0, 0.5).setInteractive({ useHandCursor: true }));
-    zone.on('pointerover', onHover);
+    zone.on('pointerover', () => {
+      if (!this.focused && this.visible && this.alpha > 0.5) audio.sfx('hover');
+      onHover();
+    });
     zone.on('pointerdown', () => this.click());
     this.once('destroy', () => zone.destroy());
   }
 
   click() {
     if (this.disabled || !this.visible) return;
-    audio.sfx('click');
+    audio.sfx(this.sound);
+    this.scene.tweens.add({ targets: this.glow, alpha: { from: 0.32, to: this.focused ? 0.12 : 0 }, duration: 600, ease: 'Sine.out' });
     this.onClick();
   }
 
@@ -103,10 +135,29 @@ class MenuItem extends Phaser.GameObjects.Container implements NavItem {
     if (f === this.focused) return this;
     this.focused = f;
     const tw = this.scene.tweens;
-    tw.killTweensOf([this.mark, this.label]);
-    tw.add({ targets: this.mark, scaleX: f ? (28 / 380) : 0, duration: 260, ease: 'Cubic.out' });
-    tw.add({ targets: this.label, x: f ? 40 : 0, alpha: f ? 1 : 0.6, duration: 260, ease: 'Cubic.out' });
+    tw.killTweensOf([this.mark, this.label, this.shine, this.glow]);
+    tw.add({ targets: this.mark, scaleX: f ? 0.5 : 0, alpha: f ? 1 : 0, duration: 300, ease: 'Cubic.out' });
+    tw.add({ targets: [this.label, this.shine], x: f ? 48 : 0, duration: 300, ease: 'Cubic.out' });
+    tw.add({ targets: this.label, alpha: f ? 1 : 0.6, duration: 300, ease: 'Cubic.out' });
+    tw.add({ targets: this.glow, x: (f ? 48 : 0) + this.label.width * 0.5, alpha: f ? 0.12 : 0, duration: 420, ease: 'Sine.out' });
+    this.label.setColor(f ? '#fbf1dc' : UI.bone);
+    if (f) this.sweep();
     return this;
+  }
+
+  /** Ein heller Glanz wandert einmal über die Schrift. */
+  private sweep() {
+    const s = this.sheen, shine = this.shine;
+    const paint = () => {
+      const p = s.p, b = 0.18;
+      if (p + b <= 0 || p - b >= 1) return shine.setFill('rgba(0,0,0,0)');
+      const g = shine.context.createLinearGradient(0, 0, shine.width, 0);
+      const at = (o: number) => `rgba(255,236,196,${(0.75 * Math.max(0, 1 - Math.abs(o - p) / b)).toFixed(3)})`;
+      for (const o of [Math.max(0, p - b), clamp(p, 0, 1), Math.min(1, p + b)]) g.addColorStop(o, at(o));
+      shine.setFill(g);
+    };
+    s.p = -0.2;
+    this.scene.tweens.add({ targets: s, p: 1.2, duration: 700, delay: 60, ease: 'Sine.inOut', onUpdate: paint, onComplete: () => { s.p = -1; paint(); } });
   }
 }
 
@@ -121,8 +172,6 @@ interface Swimmer {
 export class TitleScene extends Phaser.Scene {
   /** schon einmal gezeigt: Beim Zurückkehren baut sich alles schneller auf */
   private static seen = false;
-  private hero!: CreatureView;
-  private heroT = 0;
   private nav?: MenuNav;
   private overlay?: Phaser.GameObjects.Container;
   private overlayNav?: MenuNav;
@@ -155,7 +204,6 @@ export class TitleScene extends Phaser.Scene {
     this.sways = [];
     this.caustics = [];
     this.t = 0;
-    this.heroT = Math.random() * 60;
 
     this.world();
     this.life();
@@ -238,14 +286,8 @@ export class TitleScene extends Phaser.Scene {
     this.add.image(0, 0, 'ttl_scrim').setOrigin(0).setDepth(45);
   }
 
-  /** Die Lebenden: dein Tier im Licht über dem Skelett, in der Ferne ein Schwarm. */
+  /** Die Lebenden: in der Ferne zieht ab und zu ein Schwarm vorbei. */
   private life() {
-    // dein Tier (oder ein Urfisch, der auf sein erstes Leben wartet) – ausgewachsen gezeigt
-    const run = game.run;
-    const m = run ? game.morph({ belly: 1, life: ADULT }) : game.morph({ cls: 'fish', traits: { ...ZERO_TRAITS }, fierce: 0, hue: 0, seed: 7, sex: 0 });
-    this.hero = new CreatureView(this, BEAM_X, 150, m, 1.75);
-    // im kühlen Licht der Höhle
-    this.hero.setDepth(20).setShade(0xcbd9dc);
     for (const id of SCHOOL_SPECIES) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     this.newSchool(true);
   }
@@ -321,23 +363,23 @@ export class TitleScene extends Phaser.Scene {
       .setLetterSpacing(12)
       .setDepth(60);
 
-    // das Menü
-    const entries: [string, () => void][] = [];
-    if (run) entries.push(['Weiterleben', () => this.continueGame()]);
-    entries.push(['Neues Leben', () => this.newGame()]);
-    if (game.hasTree()) entries.push(['Stammbaum', () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view' }, 600)]);
-    entries.push(['Aquapendium', () => !this.overlay && fadeTo(this, 'Aquapendium', { page: 0 }, 600)]);
-    entries.push(['Steuerung', () => this.showHelp()]);
+    // das Menü: weiterleben – oder ein Zeitalter wählen (für das erste Leben heißt das „Leben beginnen“)
+    const entries: [string, () => void, Sfx][] = [];
+    if (run) entries.push(['Weiterleben', () => this.continueGame(), 'confirm']);
+    entries.push([run ? 'Zeitalter' : 'Leben beginnen', () => !this.overlay && fadeTo(this, 'Eras', {}, 600), 'open']);
+    if (game.hasTree()) entries.push(['Stammbaum', () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view', epoch: game.chosenEpoch }, 600), 'open']);
+    entries.push(['Aquapendium', () => !this.overlay && fadeTo(this, 'Aquapendium', { epoch: game.chosenEpoch }, 600), 'open']);
+    entries.push(['Steuerung', () => this.showHelp(), 'select']);
     const items: MenuItem[] = [];
-    entries.forEach(([label, fn], i) => {
-      const it = new MenuItem(this, X, 330 + i * 48, label, fn, () => !this.overlay && this.nav?.focus(i));
+    entries.forEach(([label, fn, sound], i) => {
+      const it = new MenuItem(this, X, 330 + i * 48, label, fn, () => !this.overlay && this.nav?.focus(i), sound);
       it.setDepth(60);
       items.push(it);
     });
     this.nav = new MenuNav(this, items);
 
-    // unten links: die Weltzeit – sie läuft für alle gleich weiter
-    const ep = EPOCHS[run?.epoch ?? 0];
+    // unten links: die Weltzeit des gewählten Zeitalters – sie läuft für alle gleich weiter
+    const ep = EPOCHS[game.chosenEpoch];
     const era = this.add.text(X, H - 82, ep.name.toUpperCase(), { fontFamily: TITLE_FONT, fontSize: '13px', color: UI.ochre, fontStyle: '700', resolution: 2 })
       .setLetterSpacing(6).setDepth(60);
     this.clock = text(this, X, H - 60, '', 19, UI.bone).setDepth(60).setAlpha(0.85);
@@ -426,7 +468,7 @@ export class TitleScene extends Phaser.Scene {
     this.clockAt -= dt;
     if (this.clockAt > 0 || !this.clock) return;
     this.clockAt = 0.2;
-    const ep = EPOCHS[game.run?.epoch ?? 0];
+    const ep = EPOCHS[game.chosenEpoch];
     this.clock.setText(yearsAgo(worldYears(ep.from, ep.to), 1));
   }
 
@@ -439,18 +481,6 @@ export class TitleScene extends Phaser.Scene {
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
     for (const w of this.sways) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
     this.tickClock(dt);
-
-    // dein Tier zieht gemächlich seine Bahnen durchs Licht über dem Skelett
-    this.heroT += dt;
-    const ht = this.heroT;
-    const x = BEAM_X + Math.sin(ht * 0.14) * 190 + Math.sin(ht * 0.41) * 16;
-    const y = 128 + Math.sin(ht * 0.23) * 24 + Math.sin(ht * 0.9) * 4;
-    const vx = (x - this.hero.x) / Math.max(0.001, dt), vy = (y - this.hero.y) / Math.max(0.001, dt);
-    if (Math.abs(vx) > 1) this.hero.setFacing(vx > 0 ? 1 : -1);
-    this.hero.setPosition(x, y);
-    // beim Steigen und Sinken neigt es sich ein wenig
-    this.hero.setRotation(this.hero.rotation + (clamp(vy / 160, -0.14, 0.14) * (vx >= 0 ? 1 : -1) - this.hero.rotation) * Math.min(1, dt * 3));
-    this.hero.animate(dt, 'swim', clamp(Math.abs(vx) / 70, 0.15, 0.7));
 
     // der Schwarm
     const s = this.school;
@@ -469,15 +499,6 @@ export class TitleScene extends Phaser.Scene {
   private continueGame() {
     if (this.overlay) return;
     continueLife(this);
-  }
-
-  private newGame() {
-    if (this.overlay) return;
-    if (game.hasRun()) {
-      this.confirm('Ein neuer Urfisch schlüpft –\ndeine jetzige Linie endet dann.', () => startNewLife(this));
-      return;
-    }
-    startNewLife(this);
   }
 
   /** Eine schlichte Tafel über dem Bild – dunkel, ein feiner Rand, die Überschrift wie „Living World“. */
@@ -501,19 +522,6 @@ export class TitleScene extends Phaser.Scene {
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
     return { c, x, y, shade };
-  }
-
-  private confirm(msg: string, yes: () => void) {
-    const { c, y } = this.sheet(620, 290, 'NEUES LEBEN');
-    c.add(text(this, W / 2, y + 128, msg, 22, UI.bone, { align: 'center', lineSpacing: 6 }).setOrigin(0.5));
-    const opts: [string, () => void][] = [['Abbrechen', () => this.closeOverlay()], ['Neu beginnen', () => yes()]];
-    const items = opts.map(([label, fn], i) => {
-      const it = new MenuItem(this, W / 2 - 230 + i * 250, y + 222, label, fn, () => this.overlayNav?.focus(i));
-      it.zone.setDepth(101);
-      c.add(it);
-      return it;
-    });
-    this.overlayNav = new MenuNav(this, items);
   }
 
   private showHelp() {

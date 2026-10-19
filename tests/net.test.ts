@@ -40,6 +40,8 @@ describe('Spielserver (Colyseus)', () => {
     expect(parseZone('0/lagune')).toEqual({ epoch: 0, place: 'lagune' });
     expect(parseZone('0/gibtsnicht')).toBeNull();
     expect(parseZone('9/lagune')).toBeNull();
+    // ruhende Zeitalter (Devon, Kreidezeit) haben noch keine Orte, die man betreten kann
+    expect(parseZone('2/riff')).toBeNull();
     expect(parseZone('../etc')).toBeNull();
     expect(parseZone(42)).toBeNull();
   });

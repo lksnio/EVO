@@ -44,7 +44,23 @@ export type Art =
   | {
       t: 'bug'; len: number; h: number; segs: number; c: number; legs: number;
       pincers?: boolean; stinger?: 'up' | 'straight'; antenna?: boolean; paddles?: boolean;
-    };
+    }
+  /** Meeresechse (Mosasaurier): langer Echsenkörper, vier Paddelflossen, ein langer Schwanz mit Flosse */
+  | {
+      t: 'mosa'; len: number; h: number; c: number; belly: number; fin: number;
+      /** längere, knöcherne Schnauze (Tylosaurus); Anteil der halben Körperlänge */
+      snout?: number;
+      /** hohe, sichelförmige Schwanzflosse wie bei einem Hai (Mosasaurus) */
+      fluke?: boolean;
+      /** dunkle Querbänder auf dem Rücken */
+      stripes?: boolean;
+    }
+  /** Plesiosaurier: gedrungener Rumpf, vier lange Flossen, ein langer Hals (Anteil der Körperlänge) und ein kleiner Kopf */
+  | { t: 'plesio'; len: number; h: number; c: number; belly: number; neck: number }
+  /** Meeresschildkröte: gewölbter Panzer, große Vorderflossen, Hakenschnabel */
+  | { t: 'turtle'; len: number; c: number; shell: number }
+  /** Ammonit: aufgerollte, gerippte Schale, aus der Kopf und Fangarme schauen */
+  | { t: 'ammo'; r: number; c: number; band: number; tent: number };
 
 export interface SpeciesDef {
   id: string;
@@ -219,5 +235,44 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'megalograptus', name: 'Megalograptus', art: { t: 'bug', len: 120, h: 26, segs: 9, c: 0x5a3a26, legs: 4, pincers: false, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 60, dmg: 9, power: 12, speed: 112, sense: 300, meat: 5, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'pterygotus', name: 'Pterygotus', art: { t: 'bug', len: 210, h: 46, segs: 10, c: 0x4a2c1e, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'apex', diet: 'meat', habitat: 'water', hp: 150, dmg: 11, power: 20, speed: 118, sense: 380, meat: 8, boss: true, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'hyneria', name: 'Hyneria', art: { t: 'fish', len: 210, h: 66, c: 0x4a4a30, belly: 0x9a9268, fin: 0x34341e, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 180, dmg: 12, power: 24, speed: 112, sense: 400, meat: 10, boss: true, roam: true, hit: [0.8, 0.65] }),
+    // ---------------------------------------------------------------- Kreidezeit: das Westliche Binnenmeer (noch nicht spielbar – die Werte sind vorläufig)
+    // Apsopelix: ein kleiner, heringsartiger Schwarmfisch – Futter für alle
+    S({ id: 'apsopelix', name: 'Apsopelix', art: { t: 'fish', len: 30, h: 10, c: 0x7a8a98, belly: 0xdce4ea, fin: 0x56626e, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.1, speed: 132, sense: 250, meat: 1, herd: [9, 16], sprint: 1.9,
+      layer: 'open', where: { start: 1.3, lush: 1.2, murky: 0.9, deep: 0.3, abyss: 0 } }),
+    // Gillicus: groß, aber harmlos – siebt Kleinzeug aus dem Wasser
+    S({ id: 'gillicus', name: 'Gillicus', art: { t: 'fish', len: 74, h: 22, c: 0x687a88, belly: 0xd0d8dc, fin: 0x4a5866 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 12, dmg: 0, power: 2.4, speed: 118, sense: 260, meat: 3, herd: [3, 6], sprint: 1.7,
+      layer: 'open', where: { start: 1, lush: 1, murky: 0.8, deep: 0.8, abyss: 0.2 } }),
+    // Placenticeras: ein Ammonit – treibt gemächlich im Mittelwasser
+    S({ id: 'ammonit', name: 'Ammonit', art: { t: 'ammo', r: 20, c: 0xa8865c, band: 0x6e4c30, tent: 0x8a5a4c }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.8, speed: 44, sense: 180, meat: 2, herd: [2, 4], sprint: 1.5,
+      layer: 'mid', where: { start: 1, lush: 1.2, murky: 1, deep: 0.8, abyss: 0.3 } }),
+    // Baculites: ein Ammonit mit fast gerader Schale
+    S({ id: 'baculites', name: 'Baculites', art: { t: 'cone', len: 64, c: 0x8c7650 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 10, dmg: 0, power: 2, speed: 50, sense: 200, meat: 2, herd: [2, 5], sprint: 1.5,
+      layer: 'mid', where: { start: 0.8, lush: 1, murky: 1.2, deep: 1, abyss: 0.4 } }),
+    // Enchodus: der „Säbelzahnhering“ – klein, aber mit langen Fangzähnen
+    S({ id: 'enchodus', name: 'Enchodus', art: { t: 'fish', len: 62, h: 15, c: 0x5e6c78, belly: 0xc8d0d4, fin: 0x3e4a54, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 18, dmg: 4, power: 5, speed: 140, sense: 290, meat: 3, herd: [2, 4], sprint: 1.45, hit: [0.8, 0.6],
+      layer: 'mid', where: { start: 1, lush: 0.8, murky: 1.2, deep: 1.1, abyss: 0.5 } }),
+    // Protosphyraena: ein schneller Jäger mit Schwertschnauze
+    S({ id: 'protosphyraena', name: 'Protosphyraena', art: { t: 'fish', len: 128, h: 24, c: 0x4e5e70, belly: 0xc4ccd4, fin: 0x34404e, teeth: true, snout: 0.38 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 40, dmg: 7, power: 10, speed: 172, sense: 330, meat: 4, herd: [1, 2], roam: true, sprint: 1.5, hit: [0.8, 0.6],
+      layer: 'open', where: { start: 0.7, lush: 0.4, murky: 0.6, deep: 1.4, abyss: 1 } }),
+    // Squalicorax: der „Krähenhai“ – jagt und frisst auch Aas
+    S({ id: 'squalicorax', name: 'Squalicorax', art: { t: 'fish', len: 124, h: 30, c: 0x5c6268, belly: 0xc8c8c2, fin: 0x3e444a, shark: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 48, dmg: 8, power: 11, speed: 152, sense: 360, meat: 5, herd: [1, 3], roam: true, sprint: 1.45, hit: [0.8, 0.6],
+      layer: 'open', where: { start: 0.8, lush: 0.4, murky: 0.8, deep: 1.3, abyss: 0.9 } }),
+    // Xiphactinus: ein Raubfisch so groß wie ein Hai, mit vorstehendem Unterkiefer
+    S({ id: 'xiphactinus', name: 'Xiphactinus', art: { t: 'fish', len: 190, h: 46, c: 0x58687a, belly: 0xd4dadc, fin: 0x3a4654, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 90, dmg: 13, power: 18, speed: 136, sense: 360, meat: 7, herd: [1, 2], roam: true, hit: [0.8, 0.6],
+      where: { start: 0.6, lush: 0.3, murky: 0.7, deep: 1.4, abyss: 1.4 } }),
+    // Archelon: die Riesenschildkröte – friedlich, aber gewaltig
+    S({ id: 'archelon', name: 'Archelon', art: { t: 'turtle', len: 170, c: 0x5e604c, shell: 0x4a4838 }, role: 'defender', diet: 'plant', habitat: 'water', hp: 120, dmg: 8, power: 14, speed: 72, sense: 240, meat: 8, roam: true, hit: [0.8, 0.7],
+      where: { start: 0.6, lush: 1.2, murky: 0.8, deep: 0.8, abyss: 0.3 } }),
+    // Cretoxyrhina: der Riesenhai
+    S({ id: 'cretoxyrhina', name: 'Cretoxyrhina', art: { t: 'fish', len: 236, h: 58, c: 0x4a525c, belly: 0xc4c8ca, fin: 0x30363e, shark: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 140, dmg: 16, power: 24, speed: 160, sense: 420, meat: 10, roam: true, sprint: 1.35, hit: [0.8, 0.65],
+      layer: 'open', where: { start: 0.4, lush: 0.2, murky: 0.6, deep: 1.4, abyss: 1.6 } }),
+    // Platecarpus: ein mittelgroßer, schneller Mosasaurier
+    S({ id: 'platecarpus', name: 'Platecarpus', art: { t: 'mosa', len: 190, h: 32, c: 0x5a6258, belly: 0xbab89e, fin: 0x3c423c }, role: 'predator', diet: 'meat', habitat: 'water', hp: 110, dmg: 13, power: 18, speed: 150, sense: 380, meat: 8, roam: true, sprint: 1.4, hit: [0.85, 0.6] }),
+    // Elasmosaurus: ein Plesiosaurier mit endlos langem Hals
+    S({ id: 'elasmosaurus', name: 'Elasmosaurus', art: { t: 'plesio', len: 280, h: 52, c: 0x4e5a5e, belly: 0xaab2aa, neck: 0.48 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 170, dmg: 12, power: 21, speed: 112, sense: 400, meat: 11, roam: true, hit: [0.8, 0.6] }),
+    // Tylosaurus: ein riesiger Mosasaurier mit Rammschnauze
+    S({ id: 'tylosaurus', name: 'Tylosaurus', art: { t: 'mosa', len: 310, h: 52, c: 0x4a5450, belly: 0xb2b098, fin: 0x30383a, snout: 0.3, stripes: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 260, dmg: 20, power: 30, speed: 140, sense: 450, meat: 14, boss: true, roam: true, hit: [0.85, 0.6] }),
+    // Mosasaurus: der Herrscher der späten Kreidemeere
+    S({ id: 'mosasaurus', name: 'Mosasaurus', art: { t: 'mosa', len: 350, h: 64, c: 0x3e4a52, belly: 0xa8aca0, fin: 0x283036, fluke: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 320, dmg: 24, power: 34, speed: 150, sense: 480, meat: 16, boss: true, hit: [0.85, 0.65] }),
   ].map((d) => [d.id, toughen(paced(d))]),
 );

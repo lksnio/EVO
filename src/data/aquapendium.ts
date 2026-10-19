@@ -1,10 +1,11 @@
-import { EPOCHS } from './epochs';
+import { ERAS, type EpochDef } from './epochs';
 import { SPECIES, type Role, type SpeciesDef } from './species';
 import type { PlaceKind } from './world';
 
 // ---------------------------------------------------------------------------
-// Das Aquapendium: ein Buch mit einer Seite für jedes Tier der Urmeere. Alle Seiten gibt es von Anfang an – wer ein
-// Tier noch nie gesehen hat, sieht nur seinen schwarzen Umriss. Hier stehen die Angaben zu jedem Tier: wie es in der
+// Das Aquapendium: ein Buch mit einer Seite für jedes Tier der Urmeere, in drei Teilen – einer je Zeitalter (Ordovizium,
+// Devon, Kreidezeit). Alle Seiten gibt es von Anfang an – wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen
+// Umriss. Hier stehen die Angaben zu jedem Tier: wie es in der
 // Wirklichkeit hieß, wie groß es etwa war und wann es lebte, dazu ein paar Worte. Die Werte (Lebenskraft, Biss …) sind
 // die aus dem Spiel. Alle Größen und Zeiten sind grobe Näherungen – bei vielen Urtieren weiß man es nicht genauer.
 // ---------------------------------------------------------------------------
@@ -62,13 +63,28 @@ const FACTS: Record<string, Fact> = {
   megalograptus: { latin: 'Megalograptus ohioensis', cm: 130, ma: 450, note: 'Ein großer Seeskorpion mit Stachelzangen an den Vorderbeinen. Er jagte am Meeresgrund nach Würmern, Krebsen und Fischen.' },
   pterygotus: { latin: 'Pterygotus anglicus', cm: 200, ma: 420, note: 'Der Riese unter den Seeskorpionen: fast zwei Meter lang, mit kräftigen Scheren und riesigen Augen. Er zählte zu den größten Räubern seiner Zeit.' },
   hyneria: { latin: 'Hyneria lindae', cm: 280, ma: 365, note: 'Ein riesiger Fleischflosser mit mächtigen Fangzähnen – ein Räuber der Flüsse und Mündungen im Spätdevon.' },
+  // ---- Kreidezeit
+  apsopelix: { latin: 'Apsopelix anglicus', cm: 30, ma: 85, note: 'Ein kleiner, heringsartiger Fisch, der in großen Schwärmen durch das Binnenmeer zog – Futter für fast alle größeren Jäger.' },
+  gillicus: { latin: 'Gillicus arcuatus', cm: 200, ma: 85, note: 'Groß, aber harmlos: Mit winzigen Zähnen siebte er Kleinzeug aus dem Wasser. Man fand ihn im Bauch eines Xiphactinus – im Ganzen verschluckt.' },
+  ammonit: { latin: 'Placenticeras meeki', cm: 60, ma: 75, note: 'Ein Kopffüßer in einer aufgerollten, gekammerten Schale, die ihn wie ein Schwimmkörper trug. Viele Schalen tragen Bissspuren von Mosasauriern.' },
+  baculites: { latin: 'Baculites ovatus', cm: 100, ma: 75, note: 'Ein Ammonit mit fast gerader Schale. Er trieb wohl schräg im Wasser, den Kopf nach unten, und fing kleines Getier.' },
+  enchodus: { latin: 'Enchodus petrosus', cm: 100, ma: 80, note: 'Der „Säbelzahnhering“: ein Raubfisch mit langen Fangzähnen vorn im Maul. Er war häufig – und selbst eine beliebte Beute der Meeresechsen.' },
+  protosphyraena: { latin: 'Protosphyraena perniciosa', cm: 300, ma: 85, note: 'Ein schneller Jäger mit schwertartiger Schnauze und sichelförmigen Brustflossen – er erinnert an einen Schwertfisch, ist aber nicht mit ihm verwandt.' },
+  squalicorax: { latin: 'Squalicorax falcatus', cm: 250, ma: 80, note: 'Der „Krähenhai“: Seine gesägten Zähne steckten in Knochen von Meeresechsen, Schildkröten und sogar Dinosauriern, die ins Meer gespült wurden – er fraß auch Aas.' },
+  xiphactinus: { latin: 'Xiphactinus audax', cm: 500, ma: 85, note: 'Ein Raubfisch so groß wie ein Hai, mit vorstehendem Unterkiefer und langen Fangzähnen. Ein berühmtes Fossil zeigt einen Xiphactinus mit einem fast zwei Meter langen Fisch im Bauch.' },
+  archelon: { latin: 'Archelon ischyros', cm: 400, ma: 75, note: 'Die größte Meeresschildkröte, die je gelebt hat: vier Meter lang, mit einem lederartigen Panzer und einem kräftigen Hakenschnabel. Sie fraß wohl Quallen und Ammoniten.' },
+  cretoxyrhina: { latin: 'Cretoxyrhina mantelli', cm: 700, ma: 85, note: 'Ein Riesenhai, gebaut wie ein Weißer Hai, mit messerscharfen Zähnen – daher sein Spitzname „Ginsu-Hai“. Er jagte Fische, Meeresechsen und Plesiosaurier.' },
+  platecarpus: { latin: 'Platecarpus tympaniticus', cm: 550, ma: 82, note: 'Ein mittelgroßer Mosasaurier, schlank und schnell, mit einer Schwanzflosse wie ein Hai. Er jagte Fische und Kopffüßer.' },
+  elasmosaurus: { latin: 'Elasmosaurus platyurus', cm: 1300, ma: 80, note: 'Ein Plesiosaurier, dessen Hals länger ist als der ganze übrige Körper – über 70 Halswirbel. Mit vier Flossen „flog“ er durchs Wasser und schnappte nach Fischschwärmen.' },
+  tylosaurus: { latin: 'Tylosaurus proriger', cm: 1300, ma: 82, note: 'Einer der größten Mosasaurier, mit einer langen, knöchernen Schnauze, mit der er Beute rammen konnte. In seinem Magen fand man Fische, Haie, Plesiosaurier – und sogar einen Seevogel.' },
+  mosasaurus: { latin: 'Mosasaurus hoffmannii', cm: 1500, ma: 70, note: 'Der Herrscher der späten Kreidemeere: eine Meeresechse von bis zu fünfzehn Metern, mit einem Maul voller kegelförmiger Zähne. Ihm war keiner gewachsen.' },
 };
 
 // ---------------------------------------------------------------------------
 
 export interface Entry {
   id: string;
-  /** Seitenzahl im Buch (ab 1) */
+  /** Seitenzahl in seinem Teil des Buches (ab 1) */
   no: number;
   def: SpeciesDef;
   latin: string;
@@ -79,40 +95,49 @@ export interface Entry {
   eras: string[];
 }
 
+/** Ein Teil des Buches: die Tiere eines Zeitalters. */
+export interface Section {
+  /** Nummer des Zeitalters */
+  epoch: number;
+  ep: EpochDef;
+  entries: Entry[];
+}
+
 const ROLE_ORDER: Role[] = ['prey', 'defender', 'predator', 'hazard', 'apex'];
 
 const size = (d: SpeciesDef) => (d.art as { len?: number }).len ?? ((d.art as { r?: number }).r ?? 16) * 2;
 
-/** In welchen Zeitaltern (nach Spielreihenfolge) kommt die Art vor – als Beute der Orte oder als Gast. */
-function erasOf(id: string): number[] {
-  const out: number[] = [];
-  EPOCHS.forEach((e, i) => {
-    if (e.fauna.some(([f]) => f === id) || e.events.some((v) => v.species === id)) out.push(i);
-  });
-  return out;
+/** Die Tiere eines Zeitalters: die Bewohner seiner Orte, die Durchzügler und die großen Gäste. */
+function idsOf(ep: EpochDef): string[] {
+  const ids = [...ep.fauna.map(([f]) => f), ...ep.passers.map(([f]) => f), ...ep.events.map((v) => v.species ?? '')];
+  return [...new Set(ids)].filter((id) => SPECIES[id]);
 }
 
-function build(): Entry[] {
-  const rows = Object.keys(SPECIES).map((id) => {
-    const eras = erasOf(id);
-    return { id, eras, first: eras.length ? eras[0] : 99 };
-  });
-  rows.sort((a, b) => {
-    if (a.first !== b.first) return a.first - b.first;
-    const da = SPECIES[a.id], db = SPECIES[b.id];
+function entry(id: string, no: number): Entry {
+  const def = SPECIES[id];
+  const f = FACTS[id] ?? { latin: def.name, cm: 20, ma: 400, note: '' };
+  return { id, no, def, latin: f.latin, cm: f.cm, ma: f.ma, note: f.note, eras: ERAS.filter((e) => idsOf(e.ep).includes(id)).map((e) => e.ep.name) };
+}
+
+/** Die Seiten eines Teils: erst die Beute, dann die Wehrhaften, die Jäger … – innerhalb davon die großen zuerst. */
+function build(ep: EpochDef): Entry[] {
+  const ids = idsOf(ep).sort((a, b) => {
+    const da = SPECIES[a], db = SPECIES[b];
     const ra = ROLE_ORDER.indexOf(da.role), rb = ROLE_ORDER.indexOf(db.role);
     if (ra !== rb) return ra - rb;
-    return size(db) - size(da) || a.id.localeCompare(b.id);
+    return size(db) - size(da) || a.localeCompare(b);
   });
-  return rows.map((r, i) => {
-    const def = SPECIES[r.id];
-    const f = FACTS[r.id] ?? { latin: def.name, cm: 20, ma: 400, note: '' };
-    return { id: r.id, no: i + 1, def, latin: f.latin, cm: f.cm, ma: f.ma, note: f.note, eras: r.eras.map((i) => EPOCHS[i].name) };
-  });
+  return ids.map((id, i) => entry(id, i + 1));
 }
 
-/** Alle Seiten des Buches, in der Reihenfolge der Zeitalter. */
-export const ENTRIES: Entry[] = build();
+/** Das Buch in drei Teilen – einer je Zeitalter, in der Reihenfolge der Erdgeschichte. */
+export const SECTIONS: Section[] = ERAS.map(({ i, ep }) => ({ epoch: i, ep, entries: build(ep) }));
+
+/** Alle Tiere des Buches (jedes nur einmal – manche leben in mehreren Zeitaltern). */
+export const ENTRIES: Entry[] = (() => {
+  const seen = new Set<string>();
+  return SECTIONS.flatMap((s) => s.entries).filter((e) => !seen.has(e.id) && !!seen.add(e.id));
+})();
 
 export const ROLE_TEXT: Record<Role, string> = {
   prey: 'Beute',

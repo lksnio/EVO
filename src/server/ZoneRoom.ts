@@ -23,7 +23,8 @@ export function parseZone(zone: unknown): { epoch: number; place: string } | nul
   if (!m) return null;
   const epoch = Number(m[1]);
   const ep = EPOCHS[epoch];
-  if (!ep || !placesOf(ep).some((p) => p.id === m[2])) return null;
+  // nur in Zeitaltern, in denen man leben kann (die anderen ruhen noch)
+  if (!ep?.playable || !placesOf(ep).some((p) => p.id === m[2])) return null;
   return { epoch, place: m[2] };
 }
 
