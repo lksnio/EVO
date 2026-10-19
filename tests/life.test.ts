@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LIFE, SPAWN, WORLD } from '../src/data/life';
-import { broodBase, cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phases, spawnBlock, spawnMinFood, stageOf, worldYears, youngOf } from '../src/sim/life';
+import { broodBase, cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phases, spawnBlock, stageOf, worldYears, youngOf } from '../src/sim/life';
 
 describe('Lebenszyklus', () => {
   it('die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch', () => {
@@ -45,11 +45,10 @@ describe('Lebenszyklus', () => {
     expect(lifeK(0)).toEqual({ grow: growthAt(0), old: 0 });
   });
 
-  it('sagt, was zum Laichen noch fehlt', () => {
-    const ok = { age: phases(1).mature + 10, food: 0.9, lastSpawn: -1e9, inGrounds: true, atGround: true };
+  it('sagt, was zum Laichen noch fehlt – Hunger gibt es nicht, nur Nahrung für den Nachwuchs', () => {
+    const ok = { age: phases(1).mature + 10, lastSpawn: -1e9, inGrounds: true, atGround: true };
     expect(spawnBlock(ok)).toBeNull();
     expect(spawnBlock({ ...ok, age: 10 })).toBe('jung');
-    expect(spawnBlock({ ...ok, food: SPAWN.minFood - 0.01 })).toBe('hunger');
     expect(spawnBlock({ ...ok, lastSpawn: ok.age - 10 })).toBe('pause');
     expect(spawnBlock({ ...ok, inGrounds: false })).toBe('ort');
     expect(spawnBlock({ ...ok, atGround: false })).toBe('grund');
@@ -57,6 +56,9 @@ describe('Lebenszyklus', () => {
     // ohne genug Nahrung für wenigstens einen Nachkommen geht es nicht
     expect(spawnBlock({ ...ok, fed: 99, base: 100 })).toBe('nahrung');
     expect(spawnBlock({ ...ok, fed: 100, base: 100 })).toBeNull();
+    // mehr als SPAWN.maxYoung Nachkommen hat niemand
+    expect(spawnBlock({ ...ok, fed: 500, base: 100, young: SPAWN.maxYoung })).toBe('voll');
+    expect(spawnBlock({ ...ok, fed: 500, base: 100, young: SPAWN.maxYoung - 1 })).toBeNull();
   });
 
   it('Nachkommen aus Nahrung: je Grundwert einer – weiter Entwickelte brauchen mehr', () => {
@@ -67,18 +69,11 @@ describe('Lebenszyklus', () => {
     expect(youngOf(500, 100)).toBe(5);
     expect(youngOf(99, 100)).toBe(0);
     expect(youngOf(1e6, 100)).toBe(SPAWN.maxYoung);
-    // Biss 25 % stärker: etwa 200 je Nachkomme; dazu 10 % schneller: etwa 250
-    expect(broodBase(0.25)).toBe(200);
-    expect(broodBase(0.35)).toBeGreaterThanOrEqual(230);
-    expect(broodBase(0.35)).toBeLessThanOrEqual(260);
-  });
-
-  it('der Magen muss zum Laichen kaum voll sein – bei schweren Tieren etwas mehr, nie mehr als ein Viertel', () => {
-    expect(spawnMinFood(1)).toBeCloseTo(SPAWN.minFood, 6);
-    expect(spawnMinFood(1)).toBeLessThanOrEqual(0.1);
-    expect(spawnMinFood(4)).toBeGreaterThan(spawnMinFood(1));
-    expect(spawnMinFood(1000)).toBe(SPAWN.minFoodMax);
-    expect(SPAWN.minFoodMax).toBeLessThanOrEqual(0.25);
+    // sanft: Biss 25 % stärker → 150 je Nachkomme; dazu 10 % schneller → 170
+    expect(broodBase(0.25)).toBe(150);
+    expect(broodBase(0.35)).toBe(170);
+    // Verschlechterungen zählen nicht
+    expect(broodBase(-0.2)).toBe(100);
   });
 
   it('die Weltzeit ist für alle gleich und bleibt im Zeitalter', () => {

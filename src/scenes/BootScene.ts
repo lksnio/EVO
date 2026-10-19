@@ -3,7 +3,7 @@ import { W, H, DEBUG, TITLE_FONT, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
 import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
-import { tabletTextures } from '../art/tabletArt';
+import { shellTexture } from '../art/shellArt';
 import { mapTextures } from '../art/mapArt';
 
 
@@ -24,7 +24,7 @@ export class BootScene extends Phaser.Scene {
     this.time.delayedCall(40, () => {
       commonTextures(this);
       uiTextures(this);
-      tabletTextures(this);
+      shellTexture(this);
       mapTextures(this);
       decorTextures(this);
       lifeTextures(this);

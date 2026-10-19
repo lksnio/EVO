@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
-import { game, maxSatiety, type Stats } from '../state/GameState';
+import { game, type Stats } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
@@ -19,21 +19,21 @@ export interface PlayerHost extends Phaser.Scene {
 
 type Body = Phaser.Physics.Arcade.Body;
 
-/** Sättigung: 0 = verhungert … maxSat = randvoll (je nach Größe). */
-export const FULL = 100;
-
 /** So lange (ms) schlägt das Tier beim Stoß höchstens kräftiger, bevor es gleitet. */
 const CHARGE_MS = 650;
+/** So lange (s) dauert das Einschlafen am Ende des Lebens: still werden, die Augen schließen, sanft absinken. */
+export const SLEEP_S = 3.2;
 
 export class Player {
   rect: Phaser.GameObjects.Rectangle;
   view: CreatureView;
   stats!: Stats;
   hp = 1;
-  satiety = 50;
-  /** so viel passt in den Magen (größere Tiere fassen mehr) */
-  maxSat = 100;
   stamina = 1;
+  /** am Lebensende: Es wird langsamer (1 = wie immer … 0 = steht still) */
+  fade = 1;
+  /** Einschlafen am Ende des Lebens: seit wann (Spielzeit in ms, < 0: wach) – nach der Uhr der Szene, wie das Abblenden */
+  private sleepAt = -1;
   /** erschöpft: lahm unterwegs, kein Spurt und kein Rammen, bis wieder etwas Kraft da ist */
   exhausted = false;
   /** lässt sich ruhig treiben bzw. liegt still und sammelt Kraft (und heilt ein wenig) */
@@ -106,18 +106,11 @@ export class Player {
     this.view = new CreatureView(host, x, y, this.morph());
     this.view.setDepth(DEPTH.player);
     this.refresh(true);
-    // Jedes Zeitalter beginnt etwa halb satt
-    this.satiety = this.maxSat * 0.5;
     this.lastSafe = { x, y };
   }
 
   get body() {
     return this.rect.body as Body;
-  }
-
-  /** 1 = bei Kräften … 0 = ausgehungert (unter einem Drittel des Magens wird man schwächer) */
-  get hungerK() {
-    return clamp(this.satiety / Math.max(1, this.maxSat) / 0.33, 0, 1);
   }
 
   get x() {
@@ -164,8 +157,7 @@ export class Player {
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
   morph(): Morph {
-    const f = this.satiety / Math.max(1, this.maxSat);
-    return game.morph({ belly: f < 0.22 ? 0 : f > 0.78 ? 2 : 1, fierce: game.fear() });
+    return game.morph({ belly: 1, fierce: game.fear() });
   }
 
   /**
@@ -176,8 +168,6 @@ export class Player {
   refresh(full = false, look = true) {
     const ratio = full ? 1 : this.hp / Math.max(1, this.stats?.maxHp ?? 1);
     this.stats = game.stats();
-    this.maxSat = maxSatiety(this.stats.size);
-    this.satiety = Math.min(this.satiety, this.maxSat);
     const before = this.view.key;
     if (look || full) this.view.build(this.morph());
     if (before === this.view.key && !full) {
@@ -224,6 +214,7 @@ export class Player {
   update(time: number, dt: number, c: Controls) {
     const b = this.body;
     if (this.dead) {
+      if (this.sleepAt >= 0) this.sleepStep(time, dt);
       this.syncView(dt, 'idle', 0);
       return;
     }
@@ -240,7 +231,7 @@ export class Player {
     // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
     this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : 0.9));
     // Kraft: der Spurt zehrt sie auf, beim Schwimmen kehrt sie nur langsam zurück, beim Treiben rasch
-    const refill = this.stats.recover * (0.5 + 0.5 * this.hungerK);
+    const refill = this.stats.recover;
     this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (3 * en) : this.resting ? dt * refill / 5 : dt * refill / 14), 0, 1);
     if (!this.exhausted && this.stamina <= 0.02) {
       this.exhausted = true;
@@ -248,8 +239,8 @@ export class Player {
     } else if (this.exhausted && this.stamina >= 0.35) this.exhausted = false;
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
-    // ausgehungert: langsamer
-    const starving = 0.65 + 0.35 * this.hungerK;
+    // am Lebensende: langsamer
+    const starving = this.fade;
     const boosted = time < this.boostUntil;
     if (boosted) {
       this.stamina = Math.min(1, this.stamina + dt * 0.6);
@@ -343,7 +334,7 @@ export class Player {
       this.dashAge = 0;
       this.dashV0 = Math.max(this.stats.speed * 0.6, Math.hypot(b.velocity.x, this.water ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      this.dashPeak = this.stats.speed * 2.3 * (0.8 + 0.2 * this.hungerK);
+      this.dashPeak = this.stats.speed * 2.3 * this.fade;
       const dy = this.water ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
       const len = Math.hypot(this.facing, dy * 0.7) || 1;
       this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
@@ -403,7 +394,7 @@ export class Player {
       this.breath = time + 500;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
     }
-    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.satiety < this.maxSat * 0.1 ? 0.3 : 0) + (this.exhausted ? 0.3 : this.stamina < 0.2 ? 0.2 : 0), 0, 1);
+    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.exhausted ? 0.3 : this.stamina < 0.2 ? 0.2 : 0) + (1 - this.fade) * 0.6, 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: AnimMode = 'idle';
@@ -440,18 +431,13 @@ export class Player {
     return n;
   }
 
-  /** Nahrung aufnehmen. Gibt false zurück, wenn das Tier satt ist. */
+  /**
+   * Nahrung aufnehmen. Hunger gibt es nicht: Was gefressen wird, nährt die Brut (daraus werden die Nachkommen) – man kann
+   * immer weiterfressen. Heilen tun nur Ruhe und besondere Heilkräuter.
+   */
   eat(nutrition: number, kind: 'meat' | 'plant' = 'plant') {
-    // nie mehr als das Maximum
-    if (this.satiety >= this.maxSat - 0.5 || nutrition <= 0) {
-      this.view.refuse();
-      audio.sfx('refuse');
-      return false;
-    }
-    // Fleisch und Pflanzen machen satt – heilen tun nur Ruhe und besondere Heilkräuter. Was in den Magen geht, nährt
-    // auch die Brut (daraus werden die Nachkommen)
-    game.feed(Math.min(nutrition, this.maxSat - this.satiety));
-    this.satiety = Math.min(this.maxSat, this.satiety + nutrition);
+    if (nutrition <= 0) return false;
+    game.feed(nutrition);
     this.view.chew();
     audio.sfx(kind === 'meat' ? 'eatMeat' : 'eatPlant');
     return true;
@@ -460,8 +446,7 @@ export class Player {
   hurt(dmg: number, fromX: number, by?: string) {
     if (this.dead || this.invulnerable || this.shielded) return;
     if (by) this.lastCause = by;
-    // ausgehungert hält man weniger aus
-    const d = Math.max(1, dmg * this.stats.defense * (1 + 0.7 * (1 - this.hungerK)));
+    const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
     const now = this.host.time.now;
     // Wie hart war der Treffer? Schwere Treffer schleudern einen weit zurück, betäuben kurz und erschüttern das Bild.
@@ -477,8 +462,7 @@ export class Player {
     audio.sfx('hurt');
     this.host.cameras.main.shake(130 + 320 * ratio, 0.007 + 0.022 * ratio);
     if (ratio > 0.25) this.host.cameras.main.flash(140 + 200 * ratio, 140, 10, 0);
-    // Schwere Treffer, die man überlebt, hinterlassen Narben – und machen die Nachkommen robuster
-    if (d > this.stats.maxHp * 0.22 && this.hp > 0) game.addScar();
+    // Überstandene Treffer machen die Nachkommen robuster (das Tier selbst bleibt, wie es ist)
     if (this.hp > 0) this.endured += 0.25 + 3 * ratio;
     if (this.hp <= 0) this.die();
   }
@@ -503,7 +487,35 @@ export class Player {
     }
   }
 
-  /** Das Leben endet ohne Gewalt (Altersschwäche, das Leben an die Nachkommen weitergeben). */
+  /**
+   * Das Leben endet ohne Gewalt – am Ende des Lebens: Das Tier wird still, die Augen fallen zu, es sinkt langsam ab. Danach
+   * (SLEEP_S) ist es ganz zur Ruhe gekommen.
+   */
+  fallAsleep(cause: string) {
+    if (this.dead) return;
+    this.lastCause = cause;
+    this.dead = true;
+    this.sleepAt = this.host.time.now;
+    this.sprinting = false;
+    this.dash = 'none';
+  }
+
+  private sleepStep(time: number, dt: number) {
+    const t = (time - this.sleepAt) / 1000;
+    const k = clamp(t / SLEEP_S, 0, 1);
+    const b = this.body;
+    // ausgleiten und sanft absinken
+    b.setVelocityX(b.velocity.x * Math.pow(0.2, dt));
+    if (this.water) b.setVelocityY(b.velocity.y + (12 - b.velocity.y) * Math.min(1, dt * 1.2));
+    this.view.still = k;
+    this.view.weary = 1;
+    this.view.headTilt = 0.1 * k;
+    this.view.rotation = this.facing * 0.14 * k * k;
+    // erst werden die Lider schwer, dann fallen sie zu
+    this.view.eyes(clamp((t - 0.5) / (SLEEP_S * 0.55), 0, 1));
+  }
+
+  /** Das Leben endet ohne Gewalt (das Leben an die Nachkommen weitergeben). */
   expire(cause: string) {
     if (this.dead) return;
     this.lastCause = cause;

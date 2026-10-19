@@ -69,6 +69,13 @@ export class CreatureView extends Phaser.GameObjects.Container {
   /** spricht gerade (1) oder schweigt (0): Das Maul bewegt sich wie beim Reden */
   talk = 0;
   private talkK = 0;
+  /** 0..1: Das Tier kommt zur Ruhe (am Ende des Lebens) – alle Bewegungen ebben ab */
+  still = 0;
+  /** die Augenlider (0 offen … 1 geschlossen) */
+  private lid?: Phaser.GameObjects.Graphics;
+  private lidK = 0;
+  private lidCol = 0x3a3a2a;
+  private lidEdge = 0x101010;
 
   constructor(scene: Phaser.Scene, x: number, y: number, m: Morph, scale = 1) {
     super(scene, x, y);
@@ -114,8 +121,12 @@ export class CreatureView extends Phaser.GameObjects.Container {
     const headImg = img(T.head, 0, 0);
     this.jaw = img(T.jaw, L.hg.hingeX * L.s, L.hg.mouthY * L.s);
     const teeth = img(T.teeth, 0, 0);
-    this.headC.add([headImg, this.jaw, teeth]);
+    this.lid = new Phaser.GameObjects.Graphics(this.scene);
+    this.lidCol = T.lid;
+    this.lidEdge = T.lidEdge;
+    this.headC.add([headImg, this.lid, this.jaw, teeth]);
     this.add(this.headC);
+    this.drawLid();
     if (!L.land && T.fin) {
       this.fin = img(T.fin, 6 * L.s, 7 * L.s);
       this.add(this.fin);
@@ -150,6 +161,49 @@ export class CreatureView extends Phaser.GameObjects.Container {
     const m = this.headC.getWorldTransformMatrix();
     const p = m.transformPoint(hg.L * this.L.s, hg.mouthY * this.L.s);
     return { x: p.x, y: p.y };
+  }
+
+  /**
+   * Die Augen schließen sich (0 offen … 1 geschlossen): Ober- und Unterlid treffen sich etwas unter der Mitte – beim
+   * Einschlafen am Ende des Lebens; beim Schlüpfen öffnen sie sich.
+   */
+  eyes(closed: number) {
+    const k = Math.max(0, Math.min(1, closed));
+    if (Math.abs(k - this.lidK) < 0.015 && (k > 0) === (this.lidK > 0)) return this;
+    this.lidK = k;
+    this.drawLid();
+    return this;
+  }
+
+  private drawLid() {
+    const g = this.lid;
+    if (!g) return;
+    g.clear();
+    const k = this.lidK;
+    if (k <= 0.01) return;
+    const hg = this.L.hg, s = this.L.s;
+    const x = hg.ex * s, y = hg.ey * s, r = hg.er * s * 1.14;
+    // das Oberlid senkt sich weit, das Unterlid hebt sich ein Stück – sie treffen sich bei y + r/4
+    const up = y - r + 1.25 * r * k, low = y + r - 0.75 * r * k;
+    const seg = (edge: number, above: boolean) => {
+      const v = Math.asin(Math.max(-1, Math.min(1, (edge - y) / r)));
+      const a0 = above ? v : Math.PI - v, a1 = above ? -Math.PI - v : v;
+      g.beginPath();
+      for (let i = 0; i <= 16; i++) {
+        const a = a0 + (a1 - a0) * (i / 16);
+        if (i === 0) g.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        else g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      g.closePath();
+      g.fillPath();
+    };
+    g.fillStyle(this.lidCol, 1);
+    seg(up, true);
+    seg(low, false);
+    // die Kante des Oberlids
+    const w = Math.sqrt(Math.max(0, r * r - (up - y) * (up - y)));
+    g.lineStyle(Math.max(0.6, r * 0.16), this.lidEdge, 0.85);
+    g.lineBetween(x - w, up, x + w, up);
   }
 
   /** Kaubewegung beim Fressen */
@@ -227,7 +281,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   }
 
   animate(dt: number, mode: AnimMode, speed01 = 0) {
-    const slow = 1 - this.weary * 0.4;
+    const slow = (1 - this.weary * 0.4) * (1 - 0.85 * this.still);
     this.t += dt * slow;
     const t = this.t;
     const L = this.L;
@@ -282,7 +336,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
     if (!L.land) {
       const crawl = mode === 'crawl';
       const sp = (crawl ? 3 : 6 + speed01 * 9) * slow;
-      this.tailImg.rotation = Math.sin(t * sp) * (crawl ? 0.08 : 0.16 + speed01 * 0.24);
+      this.tailImg.rotation = Math.sin(t * sp) * (crawl ? 0.08 : 0.16 + speed01 * 0.24) * (1 - 0.7 * this.still);
       let bob = Math.sin(t * 2.2) * 0.6;
       if (crawl) {
         // auf den Flossen am Grund entlang: Schritt für Schritt

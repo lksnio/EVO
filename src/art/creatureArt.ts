@@ -1224,6 +1224,9 @@ export interface CreatureTex {
   leg?: PartTex;
   fin?: PartTex;
   layout: Layout;
+  /** Farbe der Augenlider (die Haut um das Auge) und ihrer Kante */
+  lid: number;
+  lidEdge: number;
 }
 
 function part(scene: Phaser.Scene, key: string, w: number, h: number, px: number, py: number, s: number, draw: (ctx: Ctx) => void): PartTex {
@@ -1254,7 +1257,7 @@ export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
   const jl = hg.L - hg.hingeX + 10;
   const jaw = part(scene, id + '_j', jl + 12, hg.jawH + 30, 6, 12, s, (ctx) => drawJaw(ctx, m, P, hg));
   const tail = part(scene, id + '_s', 120, 100, 108, 50, s, (ctx) => drawTail(ctx, m, P, g));
-  const out: CreatureTex = { body, head, teeth, jaw, tail, layout: L };
+  const out: CreatureTex = { body, head, teeth, jaw, tail, layout: L, lid: shade(P.base, -0.08), lidEdge: P.dark };
   if (L.land) {
     const lw = g.legW * 2.4 + 26;
     out.leg = part(scene, id + '_l', lw, g.legLen + 16, lw / 2 - 1, 7, s, (ctx) => drawLeg(ctx, m, P, g.legLen, g.legW));

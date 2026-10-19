@@ -9,6 +9,7 @@ import { W, H, DEBUG } from './config';
 import { audio } from './audio/Audio';
 import { OceanScore } from './audio/OceanScore';
 import { game } from './state/GameState';
+import { applyTuning } from './data/tuning';
 import { setMuteHandler, toggleMute } from './ui/ui';
 import { keepAlive } from './util/guard';
 import { BootScene } from './scenes/BootScene';
@@ -42,6 +43,8 @@ async function start() {
 
   // ?slot=2: ein eigener Spielstand (zum Ausprobieren mit zwei Fenstern im selben Browser)
   game.load(new URLSearchParams(location.search).get('slot'));
+  // eigene Werte aus der Entwickler-Einstellung (Titelbild, Zahnrad)
+  applyTuning();
   audio.setMuted(game.data.muted);
   setMuteHandler((m) => {
     game.data.muted = m;

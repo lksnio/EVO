@@ -54,6 +54,23 @@ export function uiTextures(scene: Phaser.Scene) {
     ctx.lineTo(31, 30);
     ctx.stroke();
   });
+  // Zahnrad: die Entwickler-Einstellung
+  icon(scene, 'ic_gear', (ctx) => {
+    ctx.beginPath();
+    const n = 8;
+    for (let i = 0; i < n * 2; i++) {
+      const a0 = (i / (n * 2)) * Math.PI * 2 - Math.PI / (n * 2);
+      const a1 = a0 + Math.PI / n;
+      const r = i % 2 ? 13.5 : 18;
+      if (i === 0) ctx.moveTo(24 + Math.cos(a0) * r, 24 + Math.sin(a0) * r);
+      else ctx.lineTo(24 + Math.cos(a0) * r, 24 + Math.sin(a0) * r);
+      ctx.lineTo(24 + Math.cos(a1) * r, 24 + Math.sin(a1) * r);
+    }
+    ctx.closePath();
+    ctx.moveTo(30.5, 24);
+    ctx.arc(24, 24, 6.5, 0, Math.PI * 2, true);
+    ctx.fill('evenodd');
+  });
   icon(scene, 'ic_pause', (ctx) => {
     ctx.fillRect(13, 10, 8, 28);
     ctx.fillRect(27, 10, 8, 28);
@@ -212,7 +229,7 @@ export function uiTextures(scene: Phaser.Scene) {
     ctx.fillStyle = rgrad(ctx, W / 2, H / 2, 200, 820, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.8)']]);
     ctx.fillRect(0, 0, W, H);
   });
-  // Steintafel für Karten
+  // Steinplatte für Karten
   tex(scene, 'tablet', 220, 340, (ctx) => {
     ctx.beginPath();
     ctx.moveTo(14, 4);

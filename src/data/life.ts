@@ -37,17 +37,21 @@ export const LIFE = {
   oldEndurance: 0.35,
   oldRecover: 0.3,
   oldHp: 0.25,
+  /** in den letzten so vielen Sekunden wird das Tier spürbar langsamer – bis auf fadeTo seines Tempos, dann schläft es ein */
+  fadeSeconds: 40,
+  fadeTo: 0.45,
 };
 
 /**
  * Laichen: Gelaicht wird im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund. Weibchen legen ein Gelege,
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.
  *
- * Nachkommen aus Nahrung: Was ein Tier in seinem Leben frisst (die Zahlen, die beim Fressen aufsteigen), nährt seine Brut.
- * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 100: 250 gefressen → 2 Nachkommen, 490 → 4, 500 → 5. Wer
- * weiter entwickelt ist, braucht mehr (siehe sim/life.ts, broodBase): Nachkommen mit einem um 25 % stärkeren Biss etwa
- * 200, dazu 10 % schneller etwa 250. Die Nachkommen sind deine Leben: Stirbt dein
- * Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste Generation, vorher ein Geschwister.
+ * Nachkommen aus Nahrung: Hunger gibt es nicht – was ein Tier frisst (die Zahlen, die beim Fressen aufsteigen), sammelt sich
+ * für die Brut. Beim Laichen wird daraus Nachwuchs: je perYoung ein Nachkomme (beim ersten Fisch 100), der Rest bleibt
+ * für das nächste Mal. Wer mehrmals laicht, hat mehr Nachkommen – sie zählen zusammen (250 gefressen, gelaicht: 2; später
+ * noch einmal 100 gefressen und gelaicht: 3). Weiter entwickelte Tiere brauchen etwas mehr (siehe sim/life.ts, broodBase).
+ * Die Nachkommen sind deine Leben: Stirbt dein Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste
+ * Generation, vorher ein Geschwister.
  */
 export const SPAWN = {
   /**
@@ -55,22 +59,18 @@ export const SPAWN = {
    * (Weibchen legen ab und warten auf ein Männchen – das gibt es weiterhin, nur schlüpft man gerade nicht als eines.)
    */
   alwaysMale: true,
-  /** so satt muss man mindestens sein (Anteil des Magens): beim ersten Fisch kaum etwas, schwere Tiere mehr (bis minFoodMax) */
-  minFood: 0.1,
-  minFoodMax: 0.25,
-  /** so stark wächst die Schwelle mit dem Gewicht (Gewicht im Verhältnis zum ersten Fisch, hoch minFoodExp) */
-  minFoodExp: 0.4,
   /** so viel Nahrung je Nachkomme (beim ersten Fisch) … */
   perYoung: 100,
-  /** … und je 1 % Verbesserung gegenüber dem ersten Fisch (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit) so viel % mehr */
-  perGain: 4,
+  /**
+   * … und so viel mehr, je weiter das Tier entwickelt ist: perGain × die Verbesserungen gegenüber dem ersten Fisch, zusammengezählt
+   * (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit). Nur das Gebiss 25 % stärker: 100 × (1 + 2 × 0,25) = 150; dazu 10 %
+   * schneller: 170. Eine Generation bringt meist 10–25 % zusammen – die zweite braucht also etwa 120–150.
+   */
+  perGain: 2,
   /** höchstens so viele Nachkommen in einem Leben */
   maxYoung: 12,
-  /** das kostet ein Gelege (Anteil des Magens): Weibchen bzw. Männchen */
-  costFemale: 0.4,
-  costMale: 0.2,
-  /** frühestens wieder nach so vielen Sekunden aktiven Lebens */
-  cooldown: 90,
+  /** nach dem Laichen frühestens wieder nach so vielen Sekunden aktiven Lebens */
+  cooldown: 30,
   /** so nah (Bildpunkte) muss man über dem Grund sein */
   ground: 80,
   /** so nah (Bildpunkte) muss ein Männchen an einem Gelege sein (großzügig – die Strömung im Fluss treibt einen ab) */
@@ -88,20 +88,23 @@ export const SPAWN = {
 };
 
 /**
- * Vererbung beim Generationswechsel – keine Wahl mehr, die Nachkommen sind angepasst an die Spielweise:
+ * Vererbung beim Generationswechsel – keine Wahl, die Nachkommen sind angepasst an die Spielweise. Das eigene Tier verändert
+ * sich im Leben nicht (es wächst nur heran und altert): Was es tut, zeigt sich erst an seinen Nachkommen.
  *   – Jede Evolutionsplatte wächst je nachdem, wie gut die Spielweise zu ihr passte (gain × Passung).
- *   – Was im Leben Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich zum Teil fort (carry).
- *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie (wie bisher).
+ *   – Was sich im Leben angesammelt hat (Tarnung beim Verstecken, Bodenkontakt am Grund …), geht zum Teil weiter (carry).
+ *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie.
  *   – Der Partner gibt etwas von seinem Aussehen mit (partner).
- * Keine Generation verändert sich zu stark – aber so, dass man es merkt: Jede Richtung wächst höchstens um plateStep ihrer
- * vollen Ausprägung, alle zusammen um höchstens plateTotal; Größe, Robustheit, Kost und Fortgesetztes um höchstens step.
+ * Keine Generation verändert sich zu stark – man merkt es erst über mehrere: Jede Richtung wächst höchstens um plateStep
+ * ihrer vollen Ausprägung (beim Gebiss etwa 15 % Beißkraft), alle zusammen um höchstens plateTotal; Größe, Robustheit, Kost
+ * und Fortgesetztes um höchstens step.
  */
 export const INHERIT = {
+  /** eine Richtung wächst um plateStep × gain × Passung (höchstens plateStep): Wer fast nur stößt, bekommt den vollen Schritt */
   gain: 1.1,
   carry: 0.6,
   partner: 0.15,
-  plateStep: 0.16,
-  plateTotal: 0.22,
+  plateStep: 0.045,
+  plateTotal: 0.065,
   /**
    * Wie im Fitnessstudio: Eine Richtung wächst nur so weit, wie die Gegner es hergeben, die man damit bezwungen hat. Ihre
    * Stärke (im Verhältnis zum eigenen ausgewachsenen Tier, die drei stärksten zählen) setzt die Obergrenze der Ausprägung:
@@ -111,5 +114,21 @@ export const INHERIT = {
    */
   ceilBase: 0.3,
   ceilPer: 0.45,
-  step: { growth: 0.1, armor: 0.1, diet: 0.25, carry: 0.07, fins: 0.08 },
+  step: { growth: 0.03, armor: 0.035, diet: 0.15, carry: 0.04, fins: 0.04 },
+};
+
+/** Was sonst noch das Gleichgewicht bestimmt (alles in der Entwickler-Einstellung, siehe data/tuning.ts). */
+export const MISC = {
+  /** Beim Ausruhen heilt der Körper nur bis zu diesem Anteil der Lebenskraft */
+  restHealCap: 0.75,
+  /** ein Bissen Heilkraut gibt so viel Lebenskraft zurück (Anteil am Maximum) */
+  healBite: 0.17,
+  /** eine abgefressene Pflanze wächst nach so vielen Sekunden um einen Bissen nach … */
+  plantRegrow: 22,
+  /** … zur Blütezeit nach so vielen */
+  plantRegrowBloom: 2.5,
+  /** so viel Fleisch nimmt ein anderes Tier mit einem Biss */
+  animalBite: 5,
+  /** so viele Sekunden Leben kostet ein Weg über die Karte */
+  travel: 7,
 };

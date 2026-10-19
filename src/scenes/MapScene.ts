@@ -4,14 +4,13 @@ import { audio } from '../audio/Audio';
 import { EPOCHS, type EpochDef } from '../data/epochs';
 import { PALEO } from '../data/paleo';
 import { placesOf, type PlaceDef } from '../data/world';
-import { STAT_COUNT } from '../data/tablet';
 import { game } from '../state/GameState';
-import { broodText, STAGE_NAME, stageOf, worldYears } from '../sim/life';
+import { worldYears } from '../sim/life';
 import { MAP_BOX, mapPos } from '../art/mapArt';
 import { FogMap, mapFrame, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
 import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
-import { TabletScreen } from '../ui/tabletScreen';
+import { Overview } from '../ui/overview';
 
 /** Halbmesser des Punktes eines Ortes (die Karte ist weit herausgezoomt: alles ist klein) */
 const DOT = 6;
@@ -42,7 +41,7 @@ export class MapScene extends Phaser.Scene {
   private moving = false;
   private infoName!: Phaser.GameObjects.Text;
   private infoState!: Phaser.GameObjects.Text;
-  private tablet?: TabletScreen;
+  private overview?: Overview;
   private rest?: Phaser.GameObjects.Container;
   private restNav?: MenuNav;
   private glow?: Phaser.GameObjects.Image;
@@ -67,7 +66,7 @@ export class MapScene extends Phaser.Scene {
     this.nodes = new Map();
     this.trails = new Map();
     this.moving = false;
-    this.tablet = undefined;
+    this.overview = undefined;
     this.rest = undefined;
     this.restNav = undefined;
     this.leaving = false;
@@ -163,14 +162,14 @@ export class MapScene extends Phaser.Scene {
     // Knöpfe oben rechts (wie im Level)
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.toggleRest() }).setAlpha(0.8).setDepth(20);
     this.glow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0).setDepth(19);
-    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleTablet() }).setAlpha(0.8).setDepth(20);
+    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleOverview() }).setAlpha(0.8).setDepth(20);
     soundButton(this, W - 40, 38, 50).setAlpha(0.8).setDepth(20);
     this.updateGlow();
 
     const kb = this.input.keyboard!;
     for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => this.skip());
-    kb.on('keydown-C', () => this.toggleTablet());
-    kb.on('keydown-ESC', () => (this.tablet ? this.toggleTablet() : this.toggleRest()));
+    kb.on('keydown-C', () => this.toggleOverview());
+    kb.on('keydown-ESC', () => (this.overview ? this.toggleOverview() : this.toggleRest()));
     kb.on('keydown-P', () => this.toggleRest());
     if (this.toId) this.time.delayedCall(1100, () => this.travel());
   }
@@ -178,7 +177,7 @@ export class MapScene extends Phaser.Scene {
   update(_t: number, dms: number) {
     const dt = dms / 1000;
     this.fish.animate(dt, 'swim', this.moving ? 0.8 : 0.2);
-    this.tablet?.update(dt);
+    this.overview?.update(dt);
     if (!this.moving) {
       const n = this.nodes.get(this.cur.id)!;
       this.fish.setPosition(n.x, n.y - FISH_LIFT + Math.sin(this.time.now / 700) * 1.5);
@@ -295,7 +294,7 @@ export class MapScene extends Phaser.Scene {
 
   /** Das Ziel erscheint (falls neu), dann schwimmt das Tier hin und taucht dort auf. */
   private travel() {
-    if (this.moving || this.leaving || this.tablet || this.rest) return;
+    if (this.moving || this.leaving || this.overview || this.rest) return;
     const to = this.places.find((p) => p.id === this.toId);
     if (!to) return;
     const n = this.nodes.get(to.id);
@@ -380,13 +379,13 @@ export class MapScene extends Phaser.Scene {
 
   /** Mit Enter geht es sofort weiter. */
   private skip() {
-    if (this.tablet || this.rest || this.leaving) return;
+    if (this.overview || this.rest || this.leaving) return;
     this.enter();
   }
 
   /** Den Zielort betreten (bzw. den eigenen, wenn man nur die Karte ansieht). */
   private enter() {
-    if (this.leaving || this.tablet || this.rest) return;
+    if (this.leaving || this.overview || this.rest) return;
     this.leaving = true;
     const dest = this.places.find((p) => p.id === this.toId) ?? this.cur;
     game.enterPlace(dest.id, dest.id === this.toId ? this.fromId : undefined, dest.id === this.toId ? this.edge : undefined);
@@ -394,42 +393,27 @@ export class MapScene extends Phaser.Scene {
     fadeTo(this, 'Level', { epoch: game.epochIndex, place: dest.id }, 900);
   }
 
-  // ---------------------------------------------------------------- Steintafel und Rast
+  // ---------------------------------------------------------------- Übersicht und Rast
 
   private updateGlow() {
     const g = this.glow;
     if (!g) return;
     this.tweens.killTweensOf(g);
-    if (Math.min(STAT_COUNT, game.shells.length) <= game.seenRows) return g.setAlpha(0);
-    g.setAlpha(0.1);
-    this.tweens.add({ targets: g, alpha: 0.32, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
+    if (game.shells.length <= game.seenRows) return g.setAlpha(0);
+    g.setAlpha(0.06);
+    this.tweens.add({ targets: g, alpha: 0.22, yoyo: true, repeat: -1, duration: 1600, ease: 'Sine.inOut' });
   }
 
-  private toggleTablet() {
-    if (this.tablet) {
-      this.tablet.destroy();
-      this.tablet = undefined;
+  private toggleOverview() {
+    if (this.overview) {
+      this.overview.destroy();
+      this.overview = undefined;
       this.updateGlow();
       return;
     }
     if (this.rest || this.leaving) return;
     audio.sfx('select');
-    const prog = game.prog;
-    this.tablet = new TabletScreen(
-      this,
-      {
-        ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat, life: game.lifeK },
-        morph: game.morph(),
-        placeName: this.cur.name,
-        life: {
-          stage: STAGE_NAME[stageOf(game.life.age, game.life.gen)],
-          spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss',
-          brood: broodText(game.life.fed, game.broodBase, game.run?.siblings?.n),
-        },
-        kin: prog.kin ?? game.run?.kin ?? 0,
-      },
-      () => this.toggleTablet(),
-    );
+    this.overview = new Overview(this, { morph: game.morph(), placeName: this.cur.name, kin: game.prog.kin ?? game.run?.kin ?? 0 }, () => this.toggleOverview());
   }
 
   private toggleRest() {
@@ -437,7 +421,7 @@ export class MapScene extends Phaser.Scene {
       this.closeRest();
       return;
     }
-    if (this.tablet || this.leaving) return;
+    if (this.overview || this.leaving) return;
     audio.sfx('select');
     const c = this.add.container(0, 0).setDepth(50);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.66).setOrigin(0).setInteractive());

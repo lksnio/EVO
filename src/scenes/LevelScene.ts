@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, hungerRate, kcalOf, meatOf, mouthful, newStyle, noteBest, ZERO_TRAITS, type Member, type PlateId, type PlayStyle, type Sex } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatOf, mouthful, newStyle, noteBest, ZERO_TRAITS, type Member, type PlayStyle } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
-import { LIFE, WORLD } from '../data/life';
-import { broodText, cyclePhase, diesOfAge, lifeK, phases, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { LIFE, MISC, WORLD } from '../data/life';
+import { cyclePhase, diesOfAge, lifeK, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
@@ -14,9 +14,8 @@ import { coverTextures, foodKey, groundTextures, levelBackgrounds, plantTextures
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
-import type { Morph } from '../art/creatureArt';
 import { Controls } from '../objects/Controls';
-import { Player } from '../objects/Player';
+import { Player, SLEEP_S } from '../objects/Player';
 import { BackSea } from '../objects/BackSea';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
@@ -40,37 +39,21 @@ const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 
 
 /** Bildschirmfeste Ebenen müssen beim Herauszoomen größer sein, damit sie das ganze Bild füllen. */
 const Z = LEVEL_ZOOM;
-/** Beim Ausruhen heilt der Körper nur bis zu diesem Anteil der Lebenskraft */
-const REST_HEAL_CAP = 0.75;
-/** Ein Bissen Heilkraut gibt so viel Lebenskraft zurück (Anteil am Maximum) */
-const HEAL_BITE = 0.17;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
 /** So viel näher ist die Kamera beim frisch geschlüpften Jungtier (mit dem Wachsen zieht sie zurück) */
 const GROW_ZOOM = 0.45;
+/** Beim Einschlafen und Aufwachen kommt die Kamera so viel näher heran */
+const WAKE_ZOOM = 3;
 
-/** Daten für den Bildschirm beim Generationswechsel: Wer starb, wer schlüpft – und was sich verändert hat. */
+/** Daten für den Einschnitt zwischen zwei Leben (GenerationScene). */
 export interface SuccessionData {
   epoch: number;
   /** woran das Tier starb (bzw. dass es sein Leben weitergab) */
   cause: string;
   /** die Generation, die gerade zu Ende ging */
   gen: number;
-  /** so sah es aus (ausgewachsen, am Ende seines Lebens) */
-  parent: Morph;
-  /** so wird der Nachkomme aussehen, wenn er ausgewachsen ist – und so klein schlüpft er */
-  child: Morph;
-  hatchling: Morph;
-  sex: Sex;
-  /** wie gut die Spielweise zu jeder Evolutionsplatte passte – und die Richtung, die am deutlichsten wurde */
-  fit: Record<PlateId, number>;
-  line?: PlateId;
-  /** Richtungen, die an ihre Obergrenze stießen: Dafür braucht es stärkere Gegner */
-  capped?: PlateId[];
   /** Weltzeit (Jahre vor heute) */
   years: number;
-  /** so viele Nachkommen hatte das Tier – und so viele Geschwister warten danach noch im Gelege */
-  young: number;
-  siblings: number;
   /** kein Generationswechsel: Das Tier starb vor dem Laichen, ein Geschwister aus seinem Gelege schlüpft */
   sibling?: boolean;
 }
@@ -114,6 +97,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Lebensabschnitt beim letzten Blick (für die Meldung, wenn ein neuer beginnt) */
   private stage: Stage = 'jung';
   private oldWarned = false;
+  /** das Bild ist schon dunkel (eingeschlafen) – der Szenenwechsel braucht kein Abblenden mehr */
+  private dark = false;
+  /** beim Aufwachen ist die Kamera ganz nah am Tier (so sieht man die Augen) und zieht dann langsam zurück */
+  private near = { k: 1 };
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
@@ -147,7 +134,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private vitalsAt = 0;
   private lookAt = 0;
   private hideTick = 0;
-  private growlAt = 0;
   private wasInCover = false;
   private coverFront: Phaser.GameObjects.Image[][] = [];
   private curCover = -1;
@@ -333,13 +319,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cine = undefined;
     this.cineWanted = false;
     this.slow = 1;
+    this.near = { k: 1 };
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
 
   }
 
   create() {
-    fadeIn(this, 900);
+    // wer gerade schlüpft, wacht langsam auf (siehe unten); sonst geht es zügig los
+    const waking = !!game.prog.at;
+    fadeIn(this, waking ? 2600 : 900);
+    this.dark = false;
     game.beginLife();
     const ep = this.ep;
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
@@ -426,10 +416,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.player = new Player(this, born ? born.x : L.start.x, born ? born.y - 40 : L.start.y, this.water);
     this.stamG = this.add.graphics().setDepth(DEPTH.fx + 2);
     this.stamA = 0;
-    // von einem Ort zum nächsten bleibt man, wie man war: Kraft, Magen und Artgenossen
+    // von einem Ort zum nächsten bleibt man, wie man war: Kraft und Artgenossen
     const pr = game.prog;
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
-    if (pr.sat !== undefined) this.player.satiety = clamp(pr.sat, 0.01, this.player.maxSat);
     this.spawnKin();
     // Artgenossen sind selten und geben Aufträge: Wer einen hat, wartet an seiner Stelle (siehe objects/Quest.ts)
     this.quest = new Quest(this);
@@ -505,9 +494,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
-    this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name });
-    // wer gerade schlüpft, sieht seine Geschwister ausschwärmen
-    if (born) this.time.delayedCall(450, () => !this.ended && this.spawning?.hatched());
+    this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
+    // Schlüpfen ist Aufwachen: Die Augen sind noch zu und öffnen sich, während das Bild hell wird – dann schwärmen die
+    // Geschwister aus
+    if (born) {
+      const v = this.player.view;
+      v.eyes(1);
+      const o = { k: 1 };
+      this.tweens.add({ targets: o, k: 0, delay: 1300, duration: 1600, ease: 'Sine.inOut', onUpdate: () => v.eyes(o.k) });
+      this.time.delayedCall(2600, () => !this.ended && this.spawning?.hatched());
+      this.near.k = WAKE_ZOOM;
+      cam.setDeadzone();
+      cam.setZoom(this.camZoom);
+      cam.centerOn(this.player.x, this.player.y);
+      this.tweens.add({ targets: this.near, k: 1, delay: 1800, duration: 4200, ease: 'Sine.inOut', onComplete: () => cam.setDeadzone(90, 70) });
+    }
     // Mehrspieler: diesen Ort auf dem Server betreten – die anderen Spieler hier erscheinen
     this.net = netWanted() ? new NetSync(this) : undefined;
     audio.music(ep.music);
@@ -540,7 +541,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
     // das Leben an die Nachkommen weitergeben (aus der Rast; nur mit einem befruchteten Gelege)
-    const onHandOver = () => !this.ended && game.heir() && this.player.expire('Lebensende – an die Nachkommen weitergegeben');
+    const onHandOver = () => !this.ended && game.heir() && this.passAway('Lebensende – an die Nachkommen weitergegeben');
     bus.on('handOver', onHandOver);
     this.events.on('player-dead', () => this.onDeath());
     this.events.once('shutdown', () => {
@@ -769,19 +770,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = this.time.now;
   }
 
-  /** Aus einer Höhle herausgeschwommen: Der Körper nimmt die Farbe der Höhle an – aber nur ein einziges Mal pro Lauf. */
+  /**
+   * Aus einer Höhle herausgeschwommen: Die Farbe der Höhle geht an die Nachkommen – nur ein einziges Mal pro Lauf. Das Tier
+   * selbst bleibt, wie es ist; nur ein leiser Schimmer zeigt, dass etwas geschehen ist.
+   */
   private paintCoat(coat: number) {
     const p = this.player;
     const run = game.run;
-    if (!run || run.coatSet) return;
-    run.coatSet = true;
-    if (game.traits.coat === coat) return;
-    game.traits.coat = coat;
-    p.refresh(false, true);
-    this.puff(p.x, p.y, 14, coat === 1 ? 0x7fbf5a : 0x07080a);
-    this.sparkle.explode(8, p.x, p.y);
-    audio.sfx('evolve');
-    this.cameras.main.flash(260, coat === 1 ? 120 : 10, coat === 1 ? 180 : 10, coat === 1 ? 90 : 12);
+    if (!run || run.coatSet || run.life.coat !== undefined || game.traits.coat === coat) return;
+    game.setCoat(coat);
+    this.sparkle.explode(5, p.x, p.y);
   }
 
   /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
@@ -816,7 +814,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Strömung: schiebt alles mit – je massiger, desto weniger. Riesen bleiben unbeeindruckt. */
   private flowStep(dt: number) {
     const cv = this.cameras.main.worldView;
-    const unset = !game.run?.coatSet;
+    const unset = !game.run?.coatSet && game.run?.life.coat === undefined;
     for (const f of this.caveFx) {
       const on = unset && f.c.x + f.c.w > cv.x - 100 && f.c.x < cv.right + 100;
       if (on !== f.on) {
@@ -1688,7 +1686,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const killer = a.lastAttacker;
     const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
     // (nach der Lebenskraft der Art und der Größe des Tiers – kleine Beute ist zwar zerbrechlicher gemacht, nährt aber wie sie ist)
-    const total = meatOf(a.def.hp * a.sz);
+    const total = a.def.food !== undefined ? a.def.food * a.sz : meatOf(a.def.hp * a.sz);
     const pieces = total <= 60 ? 1 : total <= 180 ? 2 : 3;
     const n = pieces + (giant ? 1 : 0);
     const each = total / pieces;
@@ -1789,8 +1787,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.lastBitten = a;
       this.lastBiteAt = now;
       const ran = a.runningFor(now);
-      // ausgehungert beißt man schwächer
-      a.hurt(st.bite * (0.5 + 0.5 * p.hungerK) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
+      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
       // Bisse zählen für die Platte „Beißen“ – gegen Starke viel, gegen kleine Beute kaum
@@ -1809,9 +1806,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const m of this.meats) {
       if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
       const dig = st.digestMeat;
-      const room = p.maxSat - p.satiety;
-      // ein Mundvoll – höchstens so viel, wie in den Magen passt; der Rest bleibt liegen
-      const got = room > 0.5 ? m.bite(Math.min(room, mouthful(p.maxSat, game.traits.jaw)) / dig) : 0;
+      // ein Mundvoll – große Beute frisst man in mehreren Bissen
+      const got = m.bite(mouthful(st.size, game.traits.jaw));
       if (!p.eat(got * dig, 'meat')) return;
       this.floatNum(m.x, m.y - 16, got * dig, 'meat');
       this.ate('meat', got * (FOOD.meat.kcal / FOOD.meat.sat) * dig);
@@ -1822,7 +1818,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     for (const rr of this.roes) {
       if (rr.units <= 0 || rr.hatched || rr.spared || !overlaps(rect, rr.rect)) continue;
-      const gain = Math.min(FOOD.roe.sat * st.digestMeat, p.maxSat - p.satiety);
+      const gain = FOOD.roe.sat * st.digestMeat;
       if (p.eat(gain, 'meat')) {
         this.floatNum(rr.x, rr.y - 48, gain, 'roe');
         this.ate('meat', FOOD.roe.kcal * st.digestMeat);
@@ -1835,13 +1831,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const pl of this.plants) {
       if (pl.units <= 0 || !overlaps(rect, pl.rect)) continue;
       const food = pl.toxic ? FOOD.toxic : FOOD.plant;
-      const gain = Math.min(food.sat * st.digestPlant, p.maxSat - p.satiety);
-      // Ein Heilkraut hilft auch dem, der satt ist – dann wird es nur nicht verdaut
-      if (pl.heals && gain < 0.5 && p.hp < p.stats.maxHp - 0.5) {
-        pl.take(now);
-        this.healed(pl);
-        return;
-      }
+      const gain = food.sat * st.digestPlant;
       if (p.eat(gain, 'plant')) {
         this.floatNum(pl.x, pl.y - 44, gain, pl.toxic ? 'toxic' : 'plant');
         this.ate('plant', food.kcal * st.digestPlant);
@@ -1874,12 +1864,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   floatNum(x: number, y: number, n: number, kind: 'meat' | 'plant' | 'toxic' | 'roe') {
     const v = Math.round(n);
     if (v < 1) return;
-    const col = kind === 'meat' ? '#ff4a3c' : kind === 'toxic' ? '#c486f0' : kind === 'roe' ? '#ffc870' : '#7fdc5a';
-    const t = text(this, x, y, `+${v}`, Math.round((kind === 'meat' ? 30 : 25) / Z), col, { fontStyle: 'bold', stroke: '#160806', strokeThickness: 6 })
-      .setOrigin(0.5).setDepth(DEPTH.text).setScale(0.6);
-    this.tweens.add({ targets: t, scale: 1, duration: 180, ease: 'Back.out' });
-    this.tweens.add({ targets: t, y: y - 70, duration: 1500, ease: 'Sine.out' });
-    this.tweens.add({ targets: t, alpha: 0, delay: 1000, duration: 500, onComplete: () => t.destroy() });
+    // dezent: klein, gedämpfte Farben, steigt kurz auf und vergeht
+    const col = kind === 'meat' ? '#e0806c' : kind === 'toxic' ? '#b49ad0' : kind === 'roe' ? '#e8c890' : '#a8d088';
+    const t = text(this, x, y, `+${v}`, Math.round(19 / Z), col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0);
+    this.tweens.add({ targets: t, alpha: 0.8, duration: 200 });
+    this.tweens.add({ targets: t, y: y - 40, duration: 1300, ease: 'Sine.out' });
+    this.tweens.add({ targets: t, alpha: 0, delay: 800, duration: 500, onComplete: () => t.destroy() });
   }
 
   /** Kraftbalken über dem Fisch: blendet sich ein, wenn die Kraft schwindet, und wieder aus, wenn sie zurück ist. */
@@ -1930,7 +1921,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Heilkraut: die Wunden schließen sich, die Kraft kehrt zurück. */
   private healed(pl: Plant) {
     const p = this.player;
-    p.heal(HEAL_BITE);
+    p.heal(MISC.healBite);
     p.stamina = Math.min(1, p.stamina + 0.3);
     p.view.flash(0xffc8e0);
     this.time.delayedCall(160, () => p.view.flash(null));
@@ -1977,7 +1968,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = this.time.now;
     const plates = Math.max(0, -t.spike) * t.skull;
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
-    const dealt = st.ram * 0.5 * sf * (0.5 + 0.5 * p.hungerK);
+    const dealt = st.ram * 0.5 * sf;
     const small = a.def.power <= st.power * 3;
     const ran = a.runningFor(this.time.now);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
@@ -2121,7 +2112,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const z = this.cameras.main.zoom;
       this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.run?.siblings?.n ?? 0}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.run?.siblings?.n ?? 0}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
           `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
@@ -2163,7 +2154,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const last = this.phase;
     this.phase = ph;
     // so viel Weltzeit seit dem letzten Blick (über den Beginn eines neuen Durchgangs hinweg). Mehr als ein paar Sekunden:
-    // Das Spiel stand (Rast, Steintafel, anderer Tab) oder die Uhr sprang (Serveruhr) – dann wird nichts nachgeholt.
+    // Das Spiel stand (Rast, Übersicht, anderer Tab) oder die Uhr sprang (Serveruhr) – dann wird nichts nachgeholt.
     const step = (ph - last + 1) % 1;
     const fresh = step * this.ep.seconds < 3;
     // überschritten seit dem letzten Blick
@@ -2611,22 +2602,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
 
-    // Hunger: ohne Nahrung geht es bergab (Kälte zehrt mehr). Heilen tun nur Ruhe und Heilkräuter – Fleisch nicht.
-    const cold = this.L.theme === 'eis' ? 1 + 0.4 * this.stormK : 1;
-    // Am Grund entlangzulaufen kostet weniger Kraft als zu schwimmen
-    // Je leerer der Magen, desto langsamer sinkt er (der Körper spart) – ganz leer wird er nie.
-    // Wer sich versteckt und still hält, kann so lange durchhalten; geschwächt ist man trotzdem.
-    const fill = p.satiety / Math.max(1, p.maxSat);
-    const rate = hungerRate(p.stats.size, p.speed01, p.stats.upkeep) * cold * (p.bottomWalk ? 0.55 : 1) * Math.min(1, fill / 0.5);
-    p.satiety = Math.max(0.01, p.satiety - rate * dt);
-    // Wer sich treiben lässt, kommt wieder zu Kräften – die Lebenskraft aber nur bis etwa drei Viertel
-    // (ausgehungert geht das nicht). Mehr braucht ein Heilkraut.
-    if (p.resting && p.satiety > p.maxSat * 0.2 && p.hp < p.stats.maxHp * REST_HEAL_CAP) {
-      p.hp = Math.min(p.stats.maxHp * REST_HEAL_CAP, p.hp + p.stats.maxHp * 0.02 * p.stats.recover * dt);
-    }
-    if (p.satiety < p.maxSat * 0.18 && time > this.growlAt) {
-      this.growlAt = time + 9000;
-      audio.sfx('growl');
+    // Hunger gibt es nicht (Fressen nährt nur die Brut). Wer sich treiben lässt, kommt wieder zu Kräften – die
+    // Lebenskraft aber nur bis etwa drei Viertel; mehr braucht ein Heilkraut. Fleisch heilt nicht.
+    if (p.resting && p.hp < p.stats.maxHp * MISC.restHealCap) {
+      p.hp = Math.min(p.stats.maxHp * MISC.restHealCap, p.hp + p.stats.maxHp * 0.02 * p.stats.recover * dt);
     }
     game.calm(dt);
 
@@ -2654,9 +2633,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Anzeige (ohne Zahlen)
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
-      bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
-      // oben: die Weltzeit (für alle gleich) und darunter die Lebenslinie des eigenen Tiers
-      bus.emit('clock', worldYears(this.ep.from, this.ep.to), WORLD.yearsPerSecond * 60);
+      bus.emit('vitals', p.hp / p.stats.maxHp, p.hidden);
+      // oben: die Weltzeit (für alle gleich, Jahr für Jahr) und darunter die Lebenslinie des eigenen Tiers
+      bus.emit('clock', worldYears(this.ep.from, this.ep.to), 1);
       bus.emit('life', game.life.age / phases(game.life.gen).span, stageOf(game.life.age, game.life.gen), !!game.heir());
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
@@ -2783,7 +2762,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swarm?.storeAll();
     game.leavePlace({
       hp: p.hp,
-      sat: p.satiety,
       kin: this.animals.filter((a) => a instanceof Kin && !a.dead).length,
       eaten: { meat: this.eatenMeat, plant: this.eatenPlant },
       train: { ...this.train, hab: { ...this.train.hab } },
@@ -2817,46 +2795,23 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const age = game.life.age, gen = game.life.gen;
     const st = stageOf(age, gen);
     if (st !== this.stage) {
+      const was = this.stage;
       this.stage = st;
-      if (st === 'heran') bus.emit('notice', 'Neuer Lebensabschnitt', 'Heranwachsend');
-      else if (st === 'adult') {
-        bus.emit('notice', 'Laichzeit', game.run?.sex === 1 ? 'Im Laichfluss: zum orangen Laich schwimmen, dann E' : 'Im Laichfluss: dicht an den Grund, dann E');
-        audio.sfx('evolve');
-      } else if (st === 'alt') bus.emit('notice', 'Alt geworden', 'Die Kräfte lassen nach');
+      // nur die Laichzeit wird gemeldet (leise) – Heranwachsen und Altern merkt man am Tier
+      if (st === 'adult' && was === 'heran') bus.emit('notice', 'Ausgewachsen', 'Laichzeit');
       // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
       this.player.refresh(false, false);
     }
     if (!this.cine && !this.quest?.zooming && !this.hunt?.zooming) this.cameras.main.setZoom(this.camZoom);
-    if (!this.oldWarned && age > phases(gen).span - 60) {
+    // am Ende wird das Tier spürbar langsamer
+    const left = phases(gen).span - age;
+    this.player.fade = left < LIFE.fadeSeconds ? LIFE.fadeTo + (1 - LIFE.fadeTo) * clamp(left / LIFE.fadeSeconds, 0, 1) : 1;
+    if (!this.oldWarned && left < 60) {
       this.oldWarned = true;
-      const sib = game.run?.siblings?.n ?? 0;
-      bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir()
-        ? `${game.young === 1 ? 'Dein Nachkomme wartet' : `Deine ${game.young} Nachkommen warten`} im Laichfluss`
-        : sib ? 'Noch kein befruchtetes Gelege – nur deine Geschwister warten' : 'Noch kein befruchtetes Gelege');
+      // nur wenn es darauf ankommt: Ohne befruchtetes Gelege endet hier die Linie (oder ein Geschwister schlüpft)
+      if (!game.heir()) bus.emit('notice', 'Das Leben neigt sich dem Ende zu', 'Noch kein befruchtetes Gelege');
     }
-    if (diesOfAge(age, gen)) this.player.expire('Altersschwäche');
-  }
-
-  /** Was gerade über das Leben zu sagen ist (Steintafel): Lebensabschnitt, Laichen, Gelege, Nachkommen. */
-  lifeStatus(): { stage: string; spawn: string; brood: string } {
-    const life = game.life;
-    const st = stageOf(life.age, life.gen);
-    const P = phases(life.gen);
-    const left = Math.max(0, P.mature - life.age);
-    const stage = st === 'jung' || st === 'heran'
-      ? `${STAGE_NAME[st]} – Laichzeit in ${Math.ceil(left / 60)} Min.`
-      : `${STAGE_NAME[st]} – noch etwa ${Math.max(1, Math.ceil((P.span - life.age) / 60))} Min.`;
-    const fert = life.clutches.filter((c) => c.fert).length;
-    const open = life.clutches.length - fert;
-    const block = this.spawning?.block ?? null;
-    const spawn = fert
-      ? `${fert > 1 ? `${fert} befruchtete Gelege` : 'Ein befruchtetes Gelege'} – deine Linie geht weiter`
-      : open
-        ? 'Gelege wartet auf ein Männchen'
-        : block === null
-          ? 'Jetzt laichen: E'
-          : `Laichen: ${SPAWN_BLOCK[block]}`;
-    return { stage, spawn, brood: broodText(life.fed, game.broodBase, game.run?.siblings?.n) };
+    if (diesOfAge(age, gen)) this.passAway('Altersschwäche');
   }
 
   /** Ein Artgenosse (kein Mitglied deiner Gruppe) – z. B. ein Partner beim Laichen. */
@@ -2875,7 +2830,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * zum gewohnten Bild beim ausgewachsenen Tier.
    */
   get camZoom() {
-    return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1));
+    return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
   }
 
   /** E gedrückt: Ist Laichzeit und gerade die Gelegenheit, wird gelaicht statt gebissen (Spieler, Player.update). */
@@ -2910,64 +2865,52 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const heir = game.heir();
     if (!heir) return game.run?.siblings?.n ? this.nextSibling(cause, wait) : this.endLine(cause, wait);
     this.ended = true;
-    const run = game.run!;
     this.train.hurt += this.player.takeEndured();
     this.swarm?.storeAll();
-    const parent = { ...this.player.morph(), belly: 1, fierce: 0 };
     const h = game.inherit({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train, heir.partner);
-    const look = { traits: h.traits, seed: h.seed, sex: h.sex, hue: run.hue, fierce: 0 };
-    const data: SuccessionData = {
-      epoch: this.epochIdx,
-      cause,
-      gen: game.life.gen,
-      parent,
-      child: game.morph(look),
-      hatchling: game.morph({ ...look, life: lifeK(0) }),
-      sex: h.sex,
-      fit: h.fit,
-      line: h.line,
-      capped: h.capped,
-      years: worldYears(this.ep.from, this.ep.to),
-      young: game.young,
-      siblings: 0,
-    };
+    const data: SuccessionData = { epoch: this.epochIdx, cause, gen: game.life.gen, years: worldYears(this.ep.from, this.ep.to) };
     game.succeed(heir, h);
-    data.siblings = game.run?.siblings?.n ?? 0;
     audio.music(null);
-    this.time.delayedCall(wait, () => {
-      this.scene.stop('Hud');
-      fadeTo(this, 'Generation', data, 1200);
+    this.time.delayedCall(wait, () => this.exitTo('Generation', data));
+  }
+
+  /** Weiter zur nächsten Szene – ist das Bild schon dunkel (eingeschlafen), ohne erneutes Abblenden. */
+  private exitTo(key: string, data: object) {
+    this.scene.stop('Hud');
+    if (this.dark) this.scene.start(key, data);
+    else fadeTo(this, key, data, 1200);
+  }
+
+  /**
+   * Das Leben endet ohne Gewalt (Altersschwäche, das Leben weitergeben): kein Sturz, kein Laut – das Tier wird still, schließt
+   * die Augen und sinkt langsam ab, die Anzeigen treten zurück, das Bild wird dunkel. Danach schlüpft die nächste Generation
+   * (bzw. ein Geschwister) – oder die Linie endet.
+   */
+  private passAway(cause: string) {
+    if (this.ended || this.player.dead) return;
+    this.player.fallAsleep(cause);
+    bus.emit('veil', true);
+    audio.music(null);
+    const cam = this.cameras.main;
+    // die Kamera kommt ganz nah heran: Man sieht, wie die Augen zufallen
+    cam.setDeadzone();
+    cam.zoomTo(this.camZoom * WAKE_ZOOM, SLEEP_S * 750, Phaser.Math.Easing.Sine.InOut);
+    // erst wenn die Augen fast zu sind, wird es dunkel
+    this.time.delayedCall(SLEEP_S * 700, () => cam.fadeOut(SLEEP_S * 300 + 1600, 0, 0, 0));
+    this.time.delayedCall(SLEEP_S * 1000 + 1600, () => {
+      this.dark = true;
+      this.succession(cause, 0);
     });
   }
 
   /** Gestorben, bevor es gelaicht hat: Das nächste Geschwister aus dem Gelege schlüpft – dieselbe Generation. */
   private nextSibling(cause: string, wait: number) {
     this.ended = true;
-    const run = game.run!;
     this.swarm?.storeAll();
-    const parent = { ...this.player.morph(), belly: 1, fierce: 0 };
-    const gen = game.life.gen;
+    const data: SuccessionData = { epoch: this.epochIdx, cause, gen: game.life.gen, years: worldYears(this.ep.from, this.ep.to), sibling: true };
     game.sibling();
-    const look = { traits: run.traits, seed: run.seed, sex: run.sex, hue: run.hue, fierce: 0 };
-    const data: SuccessionData = {
-      epoch: this.epochIdx,
-      cause,
-      gen,
-      parent,
-      child: game.morph(look),
-      hatchling: game.morph({ ...look, life: lifeK(0) }),
-      sex: run.sex,
-      fit: { st: 0, bs: 0, vf: 0, sw: 0 },
-      years: worldYears(this.ep.from, this.ep.to),
-      young: 0,
-      siblings: run.siblings?.n ?? 0,
-      sibling: true,
-    };
     audio.music(null);
-    this.time.delayedCall(wait, () => {
-      this.scene.stop('Hud');
-      fadeTo(this, 'Generation', data, 1200);
-    });
+    this.time.delayedCall(wait, () => this.exitTo('Generation', data));
   }
 
   /** Das Tier ist tot. Wer ein befruchtetes Gelege hinterlässt, lebt darin weiter – sonst stirbt die Linie aus. */
@@ -2988,9 +2931,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const morph = this.player.morph();
     const leaf = game.extinct(frac, cause);
     audio.music(null);
-    this.time.delayedCall(wait, () => {
-      this.scene.stop('Hud');
-      fadeTo(this, 'Tree', { mode: 'extinct', leaf, morph, epoch: this.epochIdx, cause, years }, 1200);
-    });
+    this.time.delayedCall(wait, () => this.exitTo('Tree', { mode: 'extinct', leaf, morph, epoch: this.epochIdx, cause, years }));
   }
 }

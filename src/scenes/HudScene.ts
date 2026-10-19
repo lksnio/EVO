@@ -6,28 +6,25 @@ import type { LevelScene } from './LevelScene';
 import type { Kin } from '../objects/Kin';
 import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
-import { WORLD } from '../data/life';
 import { phases, worldYears } from '../sim/life';
 import { CLASSES } from '../data/classes';
-import { STAT_COUNT } from '../data/tablet';
 import { SPECIES } from '../data/species';
 import { tapped, touch } from '../objects/Controls';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, controlsList, panel, soundButton, text, title } from '../ui/ui';
-import { TabletScreen } from '../ui/tabletScreen';
+import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
 
 /**
- * Die Anzeige im Level: oben die Zeit (Zeitalter und Jahresangabe), sonst kaum etwas. Hunger steht nur auf der Steintafel (Taste C).
- * Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand, am Herzschlag und am Tier.
+ * Die Anzeige im Level: oben die Zeit (Zeitalter und Jahresangabe), sonst kaum etwas – mehr zeigt die Übersicht (Taste C).
+ * Verletzung und Verstecktsein zeigen sich am Bildrand, am Herzschlag und am Tier.
  */
 export class HudScene extends Phaser.Scene {
   private ep!: EpochDef;
   private placeName = '';
   private hurtV!: Phaser.GameObjects.Image;
   private edgeV!: Phaser.GameObjects.Image;
-  private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
   /** Neuer Aquapendium-Eintrag (oder eine Meldung zum Leben): ein schmales Schild oben links, das sanft einblendet */
   private dexC!: Phaser.GameObjects.Container;
@@ -37,10 +34,8 @@ export class HudScene extends Phaser.Scene {
   private cineOn = false;
   private dexBusy = false;
   private hp = 1;
-  private food = 1;
   private hidden = false;
   private hurtA = 0;
-  private hungerA = 0;
   private hideA = 0;
   private pulse = 0;
   private beatAt = 0;
@@ -55,8 +50,8 @@ export class HudScene extends Phaser.Scene {
   private bossName!: Phaser.GameObjects.Text;
   private bossBar!: Phaser.GameObjects.Graphics;
   private bossShown = false;
-  private tabletView?: TabletScreen;
-  private tabletGlow?: Phaser.GameObjects.Image;
+  private overview?: Overview;
+  private overviewGlow?: Phaser.GameObjects.Image;
   private clockText!: Phaser.GameObjects.Text;
   private fuse!: Phaser.GameObjects.Graphics;
   /** Lebenslinie: wie weit das Leben des eigenen Tiers ist (0 … 1), ob es ausgewachsen ist und ob ein Nachkomme wartet */
@@ -64,26 +59,28 @@ export class HudScene extends Phaser.Scene {
   private heir = false;
   /** Antwort im Gespräch (ja oder nein) */
   private choiceC?: Phaser.GameObjects.Container;
+  /** frisch geschlüpft: Die Anzeigen kommen erst, wenn das Tier aufgewacht ist */
+  private wake = false;
 
   constructor() {
     super('Hud');
   }
 
-  init(d: { epoch: number; place?: string }) {
+  init(d: { epoch: number; place?: string; wake?: boolean }) {
     this.ep = EPOCHS[d?.epoch ?? 0];
+    this.wake = !!d?.wake;
     this.placeName = d?.place ?? this.ep.place;
     this.pauseC = undefined;
     this.portrait = undefined;
     this.giveUp = undefined;
     this.giveUpArmed = false;
     this.ramBtn = false;
-    this.tabletView = undefined;
-    this.tabletGlow = undefined;
+    this.overview = undefined;
+    this.overviewGlow = undefined;
     this.bossShown = false;
     this.hp = 1;
-    this.food = 1;
     this.hidden = false;
-    this.hurtA = this.hungerA = this.hideA = this.pulse = 0;
+    this.hurtA = this.hideA = this.pulse = 0;
     this.lifeFrac = 0;
     this.heir = false;
     this.beatAt = 0;
@@ -92,8 +89,7 @@ export class HudScene extends Phaser.Scene {
   create() {
     const ep = this.ep;
 
-    // Bildränder: Hunger (dunkel), Verletzung (rot), Versteck (grünlich-dunkel)
-    this.hungerV = this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0);
+    // Bildränder: Verletzung (rot), Versteck (grünlich-dunkel)
     this.hideV = this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setTint(0x0c1a0a).setAlpha(0);
     this.hurtV = this.add.image(W / 2, H / 2, 'vignette_red').setDisplaySize(W, H).setAlpha(0);
     this.edgeV = this.add.image(W / 2, H / 2, 'edge_red').setDisplaySize(W, H).setAlpha(0);
@@ -108,7 +104,7 @@ export class HudScene extends Phaser.Scene {
     clockBg.fillStyle(0x050403, 0.55);
     clockBg.fillRoundedRect(W / 2 - 200, 8, 400, 70, 12);
     title(this, W / 2, 26, ep.name.toUpperCase(), 18, UI.ochre).setOrigin(0.5).setLetterSpacing(3);
-    this.clockText = text(this, W / 2, 50, yearsAgo(worldYears(ep.from, ep.to), WORLD.yearsPerSecond * 60), 21, UI.bone).setOrigin(0.5);
+    this.clockText = text(this, W / 2, 50, yearsAgo(worldYears(ep.from, ep.to), 1), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
     this.spawnTimeUi();
     this.lifeFrac = game.run ? game.life.age / phases(game.life.gen).span : 0;
@@ -121,9 +117,9 @@ export class HudScene extends Phaser.Scene {
     this.dexGlow = this.add.image(0, 0, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0).setDepth(6);
 
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.togglePause() }).setAlpha(0.75);
-    // Die Steintafel: Dort steht der Hunger. Leuchtet, wenn sie etwas Neues zeigt.
-    this.tabletGlow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0);
-    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleTablet() }).setAlpha(0.75);
+    // Die Übersicht über das eigene Tier: Der Knopf leuchtet leise, wenn eine neue Muschel gefunden wurde.
+    this.overviewGlow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0);
+    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleOverview() }).setAlpha(0.75);
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
     this.updateGlow();
     this.swarmUi();
@@ -133,7 +129,19 @@ export class HudScene extends Phaser.Scene {
 
     // Beim Betreten eines Ortes: nur sein Name, sanft ein- und wieder ausgeblendet
     const head = title(this, W / 2, H / 2 - 90, this.placeName, 46).setOrigin(0.5).setAlpha(0);
-    this.tweens.add({ targets: head, alpha: 1, duration: 900, hold: 2200, yoyo: true });
+    this.tweens.add({ targets: head, alpha: 1, duration: 900, hold: 2200, yoyo: true, delay: this.wake ? 3000 : 0 });
+    // Frisch geschlüpft: Erst wacht das Tier auf, dann kommen die Anzeigen. Am Ende eines Lebens treten sie zurück (veil).
+    const cam = this.cameras.main;
+    if (this.wake) {
+      cam.setAlpha(0);
+      this.tweens.add({ targets: cam, alpha: 1, duration: 1600, delay: 2600 });
+    }
+    const onVeil = (on: boolean) => {
+      this.tweens.killTweensOf(cam);
+      this.tweens.add({ targets: cam, alpha: on ? 0 : 1, duration: on ? 1400 : 900 });
+    };
+    bus.on('veil', onVeil);
+    this.events.once('shutdown', () => bus.off('veil', onVeil));
 
     const run = game.run;
     if (run?.ramNew) {
@@ -145,13 +153,12 @@ export class HudScene extends Phaser.Scene {
     if (isTouch) this.touchControls(ep.habitat === 'water');
 
     const kb = this.input.keyboard!;
-    kb.on('keydown-ESC', () => (this.tabletView ? this.toggleTablet() : this.togglePause()));
+    kb.on('keydown-ESC', () => (this.overview ? this.toggleOverview() : this.togglePause()));
     kb.on('keydown-P', () => this.togglePause());
-    kb.on('keydown-C', () => this.toggleTablet());
+    kb.on('keydown-C', () => this.toggleOverview());
 
-    const onVitals = (hp: number, food: number, hidden: boolean) => {
+    const onVitals = (hp: number, hidden: boolean) => {
       this.hp = hp;
-      this.food = food;
       this.hidden = hidden;
     };
     const onClock = (years: number, step: number) => {
@@ -246,37 +253,36 @@ export class HudScene extends Phaser.Scene {
 
   /**
    * Laichzeit: unter der Lebenslinie, klein und warm – dass es Zeit ist und was noch fehlt (zurück in den Laichfluss, zum
-   * schimmernden Laich …). Geht es gerade, schimmert die Zeile; ist ein Gelege befruchtet, verblasst sie nach einer Weile.
+   * schimmernden Laich …). Geht es gerade, schimmert die Zeile leise.
    */
   private spawnTimeUi() {
-    const t = text(this, W / 2, 86, '', 16, UI.ochre, { stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 0).setAlpha(0);
+    const t = text(this, W / 2, 86, '', 15, UI.ochre, { stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 0).setAlpha(0);
     const show = (msg: string, now: boolean) => {
       this.tweens.killTweensOf(t);
       if (!msg) {
         this.tweens.add({ targets: t, alpha: 0, duration: 500 });
         return;
       }
-      t.setText(msg).setColor(now ? '#f0c878' : UI.ochre);
-      this.tweens.add({ targets: t, alpha: 0.9, duration: 500 });
-      if (now) this.tweens.add({ targets: t, alpha: 0.55, yoyo: true, repeat: -1, duration: 900, delay: 500, ease: 'Sine.inOut' });
-      if (msg.startsWith('Gelege befruchtet')) this.tweens.add({ targets: t, alpha: 0, delay: 7000, duration: 1500 });
+      t.setText(msg).setColor(now ? '#e8c07a' : UI.ochre);
+      this.tweens.add({ targets: t, alpha: 0.75, duration: 500 });
+      if (now) this.tweens.add({ targets: t, alpha: 0.45, yoyo: true, repeat: -1, duration: 1100, delay: 500, ease: 'Sine.inOut' });
     };
     bus.on('spawnTime', show);
     this.events.once('shutdown', () => bus.off('spawnTime', show));
   }
 
-  /** Der Knopf der Steintafel leuchtet, solange es dort etwas Neues zu sehen gibt. */
+  /** Der Knopf der Übersicht leuchtet leise, solange dort eine neue Muschel zu sehen ist. */
   private updateGlow() {
-    const g = this.tabletGlow;
+    const g = this.overviewGlow;
     if (!g) return;
-    const fresh = Math.min(STAT_COUNT, game.shells.length) > game.seenRows;
+    const fresh = game.shells.length > game.seenRows;
     this.tweens.killTweensOf(g);
     if (!fresh) {
       g.setAlpha(0);
       return;
     }
-    g.setAlpha(0.1);
-    this.tweens.add({ targets: g, alpha: 0.32, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
+    g.setAlpha(0.06);
+    this.tweens.add({ targets: g, alpha: 0.22, yoyo: true, repeat: -1, duration: 1600, ease: 'Sine.inOut' });
   }
 
   /**
@@ -308,7 +314,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   /**
-   * Der Knopf für deine Gruppe (links neben der Steintafel, Taste S): erst sichtbar, wenn sie auf deinen Ruf kommt.
+   * Der Knopf für deine Gruppe (links neben der Übersicht, Taste S): erst sichtbar, wenn sie auf deinen Ruf kommt.
    * Die Zahl zeigt, wie viele leben; solange sie bei dir sind, leuchtet er. Gleich nach dem Fortschicken ist er kurz matt.
    */
   private swarmUi() {
@@ -446,34 +452,23 @@ export class HudScene extends Phaser.Scene {
     if (f <= 0 && this.bossShown) this.tweens.add({ targets: this.bossC, alpha: 0, duration: 1200, delay: 1500 });
   }
 
-  // ---------------------------------------------------------------- Steintafel (Taste C)
+  // ---------------------------------------------------------------- Übersicht (Taste C)
 
-  toggleTablet() {
-    if (this.tabletView) {
-      this.tabletView.destroy();
-      this.tabletView = undefined;
+  toggleOverview() {
+    if (this.overview) {
+      this.overview.destroy();
+      this.overview = undefined;
       this.updateGlow();
       if (!this.pauseC) this.scene.resume('Level');
       return;
     }
     const lvl = this.scene.get('Level') as unknown as LevelScene;
-    if (this.pauseC || !lvl || lvl.ended || !game.run) return;
+    // nicht, während das Tier einschläft
+    if (this.pauseC || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    const p = lvl.player;
     const kin = lvl.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
-    this.tabletView = new TabletScreen(
-      this,
-      {
-        ctx: { cls: game.cls, traits: game.traits, hp: p.hp, sat: p.satiety, life: game.lifeK },
-        morph: p.morph(),
-        placeName: this.placeName,
-        life: lvl.lifeStatus(),
-        kin: kin.length,
-        group: game.swarm?.members.length ?? 0,
-      },
-      () => this.toggleTablet(),
-    );
+    this.overview = new Overview(this, { morph: lvl.player.morph(), placeName: this.placeName, kin: kin.length }, () => this.toggleOverview());
   }
 
   /**
@@ -530,7 +525,7 @@ export class HudScene extends Phaser.Scene {
     c.setAlpha(0).setX(-6);
     this.dexGlow.setPosition(22 + cx + 8, 22 + cy).setAlpha(0);
     this.tweens.add({ targets: c, alpha: 1, x: 22, duration: 700, ease: 'Sine.out' });
-    this.tweens.add({ targets: this.dexGlow, alpha: 0.5, duration: 600, delay: 250, yoyo: true, hold: 120, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: this.dexGlow, alpha: 0.3, duration: 600, delay: 250, yoyo: true, hold: 120, ease: 'Sine.inOut' });
     audio.sfx('entry');
     const crowded = this.dexQueue.length > 0;
     this.time.delayedCall(700 + (crowded ? 1700 : 3600), () => {
@@ -566,18 +561,12 @@ export class HudScene extends Phaser.Scene {
     this.hurtV.setAlpha(Math.min(1, this.hurtA * 0.45 + beat * 0.2));
     this.edgeV.setAlpha(Math.min(1, this.hurtA * 0.7 + beat * 0.25));
 
-    // Hunger: Es gibt keinen Balken – der Magen knurrt, das Bild wird dunkler
-    const hunger = this.food < 0.3 ? (0.3 - this.food) / 0.3 : 0;
-    const starving = this.food <= 0.02 ? 0.12 + Math.sin(time / 600) * 0.08 : 0;
-    this.hungerA = ease(this.hungerA, hunger * 0.65 + starving, 2);
-    this.hungerV.setAlpha(Math.min(1, this.hungerA));
-
     // Versteckt im Dickicht
     this.hideA = ease(this.hideA, this.hidden ? 0.6 : 0, 5);
     this.hideV.setAlpha(this.hideA);
 
     this.portrait?.animate(dt, this.portrait.L.land ? 'idle' : 'swim', 0.2);
-    this.tabletView?.update(dt);
+    this.overview?.update(dt);
   }
 
   /** Der Schädel ist hart genug: Ab jetzt kann man gezielt rammen (ein Ton, bei Touch erscheint der Knopf). */
@@ -590,7 +579,7 @@ export class HudScene extends Phaser.Scene {
 
   togglePause() {
     const lvl = this.scene.get('Level') as unknown as { ended?: boolean };
-    if (this.tabletView) this.toggleTablet();
+    if (this.overview) this.toggleOverview();
     if (this.pauseC) {
       this.resumeGame();
       return;

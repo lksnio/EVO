@@ -42,20 +42,31 @@ describe('Generationswechsel', () => {
     expect(game.life.clutches[0].called).toBe(true);
   });
 
-  it('die Nahrung eines Lebens wird zu Nachkommen – sie sind die übrigen Leben (Geschwister im Gelege)', () => {
+  it('die Nahrung wird beim Laichen zu Nachkommen – mehrmals laichen zählt zusammen, sie sind die übrigen Leben', () => {
     // der erste Fisch: je 100 Gefressenem ein Nachkomme
     expect(game.broodBase).toBe(SPAWN.perYoung);
     expect(SPAWN.perYoung).toBe(100);
-    expect(game.spawnMinFood).toBeCloseTo(SPAWN.minFood, 6);
-    game.feed(SPAWN.perYoung * 4.3);
-    expect(game.young).toBe(4);
-    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'father' });
+    game.feed(SPAWN.perYoung * 2.5);
+    expect(game.young).toBe(0);
+    // gelaicht: zwei Nachkommen, der Rest bleibt für das nächste Mal
+    let n = game.takeYoung();
+    expect(n).toBe(2);
+    expect(game.life.fed).toBeCloseTo(50, 6);
+    game.addClutch({ place: 'lagune', x: 300, y: 800, at: Date.now(), fert: true, role: 'father', young: n });
+    expect(game.young).toBe(2);
+    // später noch einmal gefressen und gelaicht: Es kommt dazu (zusammen 300 → 3)
+    game.feed(SPAWN.perYoung * 0.5);
+    n = game.takeYoung();
+    expect(n).toBe(1);
+    expect(game.life.fed).toBeCloseTo(0, 6);
+    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'father', young: n });
+    expect(game.young).toBe(3);
     const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
     game.succeed(c, h);
     expect(game.life.gen).toBe(2);
     expect(game.life.fed).toBe(0);
-    // eins ist geschlüpft, drei warten
-    expect(game.run?.siblings?.n).toBe(3);
+    // eins ist geschlüpft, zwei warten
+    expect(game.run?.siblings?.n).toBe(2);
     // stirbt es vor dem Laichen, schlüpft ein Geschwister: dieselbe Generation, so wie es geschlüpft ist
     game.grow('stealth', 0.5);
     game.ageBy(200);
@@ -68,24 +79,51 @@ describe('Generationswechsel', () => {
     expect(game.prog.at).toEqual({ x: 500, y: 800 });
     expect(game.run?.history.length).toBe(1);
     expect(game.sibling()).toBe(true);
-    expect(game.sibling()).toBe(true);
     expect(game.run?.siblings).toBeUndefined();
     expect(game.sibling()).toBe(false);
   });
 
+  it('nie mehr als SPAWN.maxYoung Nachkommen in einem Leben – der Rest der Nahrung bleibt', () => {
+    game.feed(SPAWN.perYoung * (SPAWN.maxYoung + 3.5));
+    const n = game.takeYoung();
+    expect(n).toBe(SPAWN.maxYoung);
+    game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: n });
+    expect(game.takeYoung()).toBe(0);
+    expect(game.life.fed).toBeCloseTo(SPAWN.perYoung * 3.5, 6);
+  });
+
   it('mit einem befruchteten Gelege gibt es wenigstens einen Nachkommen; ein neues Gelege ersetzt die alten Geschwister', () => {
     game.feed(SPAWN.perYoung * 3.2);
-    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'mother' });
+    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'mother', young: game.takeYoung() });
     game.succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
     expect(game.run?.siblings?.n).toBe(2);
-    // (ältere Spielstände): kaum Nahrung, aber befruchtet – einer schlüpft, keiner wartet
-    game.feed(SPAWN.perYoung * 0.4);
+    // (ältere Spielstände): ein befruchtetes Gelege ohne Angabe zählt einen Nachkommen – einer schlüpft, keiner wartet
     expect(game.young).toBe(0);
     const d = game.addClutch({ place: 'lagune', x: 700, y: 800, at: Date.now(), fert: true, role: 'mother' });
     expect(game.young).toBe(1);
     game.succeed(d, game.inherit({ meat: 0, plant: 0 }, newStyle()));
     expect(game.life.gen).toBe(3);
     expect(game.run?.siblings).toBeUndefined();
+  });
+
+  it('das eigene Tier verändert sich im Leben nicht – was es tut, zeigt sich erst bei den Nachkommen', () => {
+    const before = JSON.stringify(game.traits);
+    const look = JSON.stringify(game.morph({ belly: 1 }));
+    // lange versteckt, am Grund gelaufen, im Licht geschwommen, durch eine Höhle
+    for (let i = 0; i < 40; i++) game.grow('stealth', 0.05);
+    game.grow('limb', 0.3);
+    game.shiftLight(0.5);
+    game.shiftBody('fin', 0.4);
+    game.setCoat(1);
+    expect(JSON.stringify(game.traits)).toBe(before);
+    expect(JSON.stringify(game.morph({ belly: 1 }))).toBe(look);
+    // die Nachkommen tragen einen Teil davon weiter – höchstens einen Schritt je Generation
+    const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
+    expect(h.traits.stealth).toBeGreaterThan(game.traits.stealth);
+    expect(h.traits.stealth - game.traits.stealth).toBeLessThanOrEqual(INHERIT.step.carry + 1e-9);
+    expect(h.traits.light).toBeGreaterThan(game.traits.light);
+    expect(h.traits.coat).toBe(1);
+    expect(h.traits.scars).toBe(0);
   });
 
   it('vorerst schlüpft jedes eigene Tier als Männchen – auch Nachkommen und Geschwister', () => {
@@ -103,34 +141,46 @@ describe('Generationswechsel', () => {
     }
   });
 
-  it('weiter entwickelte Nachfahren brauchen mehr Nahrung je Nachkomme – Schwere einen volleren Magen zum Laichen', () => {
-    const food = game.spawnMinFood;
+  it('weiter entwickelte Nachfahren brauchen mehr Nahrung je Nachkomme – aber sanft', () => {
     const bite0 = game.stats(game.cls, game.traits).bite;
-    // nur das Gebiss etwa 25 % stärker: rund 200 je Nachkomme
+    // nur das Gebiss etwa 25 % stärker: rund 150 je Nachkomme
     game.traits.jaw = 0.089;
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
     expect(bite).toBeGreaterThan(0.2);
     expect(bite).toBeLessThan(0.3);
-    expect(game.broodBase).toBeGreaterThan(180);
-    expect(game.broodBase).toBeLessThan(225);
-    // ein schwereres Tier: stärker in vielem – deutlich mehr je Nachkomme, und ein vollerer Magen zum Laichen
+    expect(game.broodBase).toBeGreaterThan(140);
+    expect(game.broodBase).toBeLessThan(162);
+    // ein schwereres Tier: stärker in vielem – deutlich mehr je Nachkomme
     game.traits.growth = 1;
     game.traits.girth = 0.6;
     expect(game.weight()).toBeGreaterThan(3);
-    expect(game.broodBase).toBeGreaterThan(300);
-    expect(game.spawnMinFood).toBeGreaterThan(food);
-    expect(game.spawnMinFood).toBeLessThanOrEqual(SPAWN.minFoodMax);
+    expect(game.broodBase).toBeGreaterThan(200);
   });
 
-  it('Beute gibt Futter nach Stärke und Größe – kleine einen Happen, große mehrere Mägen voll', () => {
-    const stomach = 100;
-    // ein kleiner Beutefisch (Lebenskraft 6): ein ordentlicher Happen, kein Krümel
-    expect(meatOf(6)).toBeGreaterThan(stomach * 0.12);
-    expect(meatOf(6)).toBeLessThan(stomach * 0.25);
-    // ein Räuber wie Orthoceras (41): fast ein ganzer Magen
-    expect(meatOf(41)).toBeGreaterThan(stomach * 0.7);
-    // ein Riese: mehrere Mägen voll
-    expect(meatOf(343)).toBeGreaterThan(stomach * 4);
+  it('eine Generation verändert sich sanft: die zweite braucht etwa 120–160 Nahrung je Nachkomme', () => {
+    game.ageBy(phases(1).mature + 60);
+    // ein Leben voller Jagd auf etwas kleinere Beute
+    const style = { ...newStyle(), hunt: 40, hurt: 10, fwd: 200, turns: 60, up: 30, down: 30, hab: { start: 200, murky: 100 } };
+    for (let i = 0; i < 3; i++) noteBest(style, 'hunt', 0.7);
+    const bite0 = game.stats(game.cls, game.traits).bite;
+    const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
+    game.succeed(c, game.inherit({ meat: 300, plant: 100 }, style));
+    const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
+    expect(bite).toBeGreaterThan(0.08);
+    expect(bite).toBeLessThan(0.2);
+    expect(game.broodBase).toBeGreaterThan(120);
+    expect(game.broodBase).toBeLessThan(160);
+  });
+
+  it('Beute gibt Futter nach Stärke und Größe – kleine einen Happen, große viel', () => {
+    // ein kleiner Beutefisch (Lebenskraft 6–8, zwei Bisse): ein Happen – viele davon für einen Nachkommen
+    expect(meatOf(6)).toBeGreaterThan(3);
+    expect(meatOf(8)).toBeLessThan(8);
+    // ein Räuber wie Orthoceras (41): etwa ein Viertel eines Nachkommen
+    expect(meatOf(41)).toBeGreaterThan(SPAWN.perYoung * 0.15);
+    expect(meatOf(41)).toBeLessThan(SPAWN.perYoung * 0.35);
+    // ein Riese: mehr als ein Nachkomme
+    expect(meatOf(343)).toBeGreaterThan(SPAWN.perYoung);
     // je stärker, desto mehr – aber nicht ganz im selben Maß (große Tiere sind zäh)
     expect(meatOf(20)).toBeGreaterThan(meatOf(10));
     expect(meatOf(200) / meatOf(20)).toBeLessThan(10);
@@ -140,7 +190,7 @@ describe('Generationswechsel', () => {
     const train = (best: number) => {
       game.resetAll();
       game.newRun();
-      for (let gen = 0; gen < 14; gen++) {
+      for (let gen = 0; gen < 30; gen++) {
         const style = { ...newStyle(), hunt: 200 };
         for (let i = 0; i < 5; i++) noteBest(style, 'hunt', best);
         const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
@@ -211,12 +261,12 @@ describe('Generationswechsel', () => {
     const grew = PLATE_IDS.map((id) => 1 - Math.exp(-0.7 * h.traits[id]) - (1 - Math.exp(-0.7 * before[id])));
     for (const g of grew) expect(g).toBeLessThanOrEqual(INHERIT.plateStep + 1e-9);
     expect(grew.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(INHERIT.plateTotal + 1e-9);
-    expect(Math.max(...grew)).toBeGreaterThan(0.05);
+    expect(Math.max(...grew)).toBeGreaterThan(INHERIT.plateTotal * 0.3);
     expect(Math.abs(h.traits.growth - before.growth)).toBeLessThanOrEqual(INHERIT.step.growth + 1e-9);
     expect(h.traits.armor - before.armor).toBeLessThanOrEqual(INHERIT.step.armor + 1e-9);
     expect(Math.abs(h.traits.diet - before.diet)).toBeLessThanOrEqual(INHERIT.step.diet + 1e-9);
-    // sichtbar: Kiefer, Schädel oder Körperbau haben sich bewegt
-    expect(Math.abs(h.traits.jaw - before.jaw) + Math.abs(h.traits.skull - before.skull) + Math.abs(h.traits.len - before.len)).toBeGreaterThan(0.05);
+    // merklich: Kiefer, Schädel oder Körperbau haben sich bewegt
+    expect(Math.abs(h.traits.jaw - before.jaw) + Math.abs(h.traits.skull - before.skull) + Math.abs(h.traits.len - before.len)).toBeGreaterThan(0.02);
   });
 
   it('der Partner gibt nur etwas vom Aussehen mit', () => {

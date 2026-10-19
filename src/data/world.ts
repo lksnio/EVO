@@ -208,8 +208,5 @@ export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left'
 /** Alle Muscheln eines Zeitalters: Kennung "zeitalter:ort:nr". */
 export const shellId = (ep: string, place: string, k: number) => `${ep}:${place}:${k}`;
 
-/** Zeit, die ein Weg über die Karte kostet (Sekunden des Zeitalters). */
-export const TRAVEL_SECONDS = 7;
-
 /** Wie viele Muscheln es insgesamt zu finden gibt. */
 export const SHELLS_TOTAL = EPOCHS.reduce((n, e) => n + placesOf(e).reduce((m, p) => m + p.shells, 0), 0);

@@ -61,6 +61,8 @@ export interface SpeciesDef {
   speed: number;
   /** Tempo bei Angriffen (Ausholen, Zustoßen, Ansturm) – ohne Angabe wie speed */
   atkSpeed?: number;
+  /** so viel Nahrung gibt ein erlegtes Tier dieser Art (bei Größe 1) – ohne Angabe nach seiner Lebenskraft (meatOf) */
+  food?: number;
   /** Wahrnehmung in Pixeln */
   sense: number;
   /** Fleischportionen, wenn das Tier stirbt */

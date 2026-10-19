@@ -3,6 +3,7 @@ import type { Theme } from '../data/epochs';
 import { foodKey, HEAL, MEAT_SIZES, roeKey, TOXIC } from '../art/worldArt';
 import type { Animal } from './Animal';
 import { DEPTH } from '../config';
+import { MISC } from '../data/life';
 import type { Rect } from '../util/math';
 
 /** Eine fressbare Pflanze. Wird abgefressen und wächst langsam nach. */
@@ -49,7 +50,7 @@ export class Plant {
   take(now: number) {
     if (this.units <= 0) return false;
     this.units--;
-    this.regrowAt = now + 22000;
+    this.regrowAt = now + MISC.plantRegrow * 1000;
     this.heldUntil = now + 1500;
     this.img.setTexture(this.key);
     this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.85, to: 1 }, duration: 200 });
@@ -61,7 +62,7 @@ export class Plant {
     if (this.net) return;
     if (this.units < this.max && now > this.regrowAt) {
       this.units++;
-      this.regrowAt = now + (fast ? 2500 : 22000);
+      this.regrowAt = now + (fast ? MISC.plantRegrowBloom : MISC.plantRegrow) * 1000;
       this.img.setTexture(this.key);
     }
   }
@@ -88,7 +89,7 @@ export class Plant {
   local(now: number) {
     this.net = false;
     this.onTake = undefined;
-    if (this.units < this.max) this.regrowAt = now + 22000;
+    if (this.units < this.max) this.regrowAt = now + MISC.plantRegrow * 1000;
   }
 }
 
@@ -167,9 +168,6 @@ export class Kill {
   }
 }
 
-/** Fressen für andere Tiere: so viel Sättigung nimmt ein Tier mit einem Bissen. */
-/** so viel nimmt ein Tier mit einem Biss von einem Fleischstück */
-const ANIMAL_BITE = 5;
 
 /**
  * Ein saftiges Stück Fleisch (wie in E.V.O.). Im Wasser sinkt es zügig zu Boden (große Stücke
@@ -231,7 +229,7 @@ export class Meat {
 
   /** Bissen, die ein anderes Tier noch davon nehmen kann */
   get units() {
-    return this.gone ? 0 : Math.ceil(this.value / ANIMAL_BITE);
+    return this.gone ? 0 : Math.ceil(this.value / MISC.animalBite);
   }
 
   get rect(): Rect {
@@ -241,7 +239,7 @@ export class Meat {
 
   /** Ein anderes Tier beißt hinein. */
   take(_now?: number) {
-    return this.bite(ANIMAL_BITE) > 0;
+    return this.bite(MISC.animalBite) > 0;
   }
 
   /** Nimmt höchstens so viel Sättigung heraus und gibt zurück, wie viel es war. */
@@ -336,7 +334,7 @@ export class Meat {
   }
 }
 
-/** Eine Muschel auf dem Grund. Wer sie berührt, legt eine Zeile der Steintafel frei. */
+/** Eine Muschel auf dem Grund. Wer sie berührt, nimmt sie mit (die Übersicht zählt sie). */
 export class Shell {
   img: Phaser.GameObjects.Image;
   /** nur ein ganz zarter Schimmer, damit man sie findet – kein Leuchten */

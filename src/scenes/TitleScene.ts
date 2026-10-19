@@ -14,6 +14,8 @@ import { ell, tex, vgrad } from '../util/canvas';
 import { clamp, mulberry32 } from '../util/math';
 import { MenuNav, controlsList, fadeIn, fadeTo, soundIcon, text, type NavItem } from '../ui/ui';
 import { continueLife, startNewLife } from './flow';
+import { changedCount } from '../data/tuning';
+import { openDevConfig } from '../ui/devConfig';
 
 // Das Titelbild: ein lebendiger Ausschnitt des Urmeers – Licht fällt von oben, Seelilien und Algen wiegen sich, Trilobiten
 // kriechen über den Sand, ein Schwarm zieht vorbei, in der Tiefe gleitet ab und zu ein riesiger Kopffüßer. Mittendrin schwimmt
@@ -188,6 +190,8 @@ export class TitleScene extends Phaser.Scene {
   private nav?: MenuNav;
   private overlay?: Phaser.GameObjects.Container;
   private overlayNav?: MenuNav;
+  /** die Entwickler-Einstellung ist offen (sie liegt als Seite über dem Spiel) */
+  private devOpen = false;
   private backSea?: BackSea;
   private sways: { o: Phaser.GameObjects.Image; amp: number; sp: number; ph: number }[] = [];
   private caustics: { s: Phaser.GameObjects.TileSprite; v: number }[] = [];
@@ -203,6 +207,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create() {
+    this.devOpen = false;
     const quick = TitleScene.seen;
     TitleScene.seen = true;
     const k = quick ? 0.45 : 1;
@@ -458,6 +463,7 @@ export class TitleScene extends Phaser.Scene {
     }
 
     const snd = soundIcon(this, W - 48, 44, 28).setDepth(60);
+    const gear = this.devButton(W - 92, 44);
     const dbg = DEBUG ? [text(this, 16, 12, 'Debug', 14, UI.boneDim).setDepth(60).setAlpha(0.6)] : [];
 
     // der Auftritt: der Titel atmet sich ins Bild, dann die Linie, der Untertitel, das Menü
@@ -485,11 +491,42 @@ export class TitleScene extends Phaser.Scene {
       targets: beat, alpha: 1, duration: 900 * k, delay: 2000 * k,
       onComplete: () => this.tweens.add({ targets: beat, alpha: 0.25, scale: 0.7, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
     });
-    for (const o of [era, this.clock, ...cap, snd, ...dbg]) {
+    for (const o of [era, this.clock, ...cap, snd, ...gear, ...dbg]) {
       const a = o.alpha;
       o.setAlpha(0);
       this.tweens.add({ targets: o, alpha: a, duration: 900 * k, delay: 2000 * k });
     }
+  }
+
+  /**
+   * Für Entwickler und Tester: ein kleines Zahnrad neben dem Ton – es öffnet die Einstellung aller Zahlen, die das Gleichgewicht
+   * bestimmen. Sind eigene Werte gesetzt, steht darunter leise „eigene Werte“.
+   */
+  private devButton(x: number, y: number) {
+    const img = this.add.image(x, y, 'ic_gear').setDisplaySize(26, 26).setAlpha(0.45).setDepth(60).setInteractive({ useHandCursor: true });
+    const note = text(this, x + 22, y + 24, '', 12, UI.ochre).setOrigin(1, 0).setDepth(60).setAlpha(0.8);
+    const upd = () => {
+      const n = changedCount();
+      note.setText(n ? 'eigene Werte' : '');
+      img.setTint(n ? 0xe8c07a : 0xffffff);
+    };
+    upd();
+    img.on('pointerover', () => img.setAlpha(0.95));
+    img.on('pointerout', () => img.setAlpha(0.45));
+    img.on('pointerdown', () => {
+      if (this.overlay || this.devOpen) return;
+      audio.sfx('select');
+      this.devOpen = true;
+      const kb = this.input.keyboard;
+      if (kb) kb.enabled = false;
+      if (this.nav) this.nav.enabled = false;
+      openDevConfig(upd, () => {
+        this.devOpen = false;
+        if (kb) kb.enabled = true;
+        if (this.nav) this.nav.enabled = true;
+      });
+    });
+    return [img, note];
   }
 
   /** Die Weltzeit, auf das Jahr genau – sie tickt sichtbar weiter. */

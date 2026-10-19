@@ -1,0 +1,369 @@
+import { CLASSES } from './classes';
+import { EPOCHS } from './epochs';
+import { INHERIT, LIFE, MISC, SPAWN } from './life';
+import { JAGD, SWARM } from './quests';
+import { SPECIES } from './species';
+import { FOOD, game, meatOf } from '../state/GameState';
+
+// ---------------------------------------------------------------------------
+// Die Entwickler-Einstellung (Titelbild, Zahnrad): alle Zahlen, die das Gleichgewicht des Spiels bestimmen, an einer Stelle –
+// mit dem eingestellten Standard. Geändert wird direkt an den Werten selbst (LIFE, SPAWN, FOOD, SPECIES …); was vom Standard
+// abweicht, merkt sich der Browser und setzt es beim nächsten Start wieder. Die meisten Werte gelten ab dem nächsten Ort.
+// ---------------------------------------------------------------------------
+
+export interface Param {
+  /** fester Schlüssel (so steht er im Speicher und beim Exportieren) */
+  id: string;
+  label: string;
+  hint?: string;
+  /** der eingestellte Standard – bei manchen errechnet (die Nahrung einer Art aus ihrer Lebenskraft) */
+  def: () => number;
+  get: () => number;
+  set: (v: number) => void;
+  reset: () => void;
+  step: number;
+  min: number;
+  max: number;
+  bool?: boolean;
+}
+
+export interface Group {
+  id: string;
+  title: string;
+  note?: string;
+  params: Param[];
+}
+
+/** Eine Art in der Tabelle: ihre fünf Werte (Nahrung, Lebenskraft, Biss, Tempo, Stärke). */
+export interface SpeciesRow {
+  id: string;
+  name: string;
+  epoch: string;
+  params: Param[];
+}
+
+type Bag = Record<string | number, unknown>;
+
+const stepOf = (v: number) => (Number.isInteger(v) && Math.abs(v) >= 1 ? 1 : Math.abs(v) >= 10 ? 1 : Math.abs(v) >= 1 ? 0.1 : 0.01);
+
+/** Ein Wert in einem Objekt (Zahl oder ja/nein). */
+function field(obj: object, key: string | number, id: string, label: string, o: { hint?: string; step?: number; min?: number; max?: number } = {}): Param {
+  const bag = obj as Bag;
+  const d = bag[key] as number | boolean;
+  const bool = typeof d === 'boolean';
+  const num = bool ? (d ? 1 : 0) : (d as number);
+  return {
+    id,
+    label,
+    hint: o.hint,
+    def: () => num,
+    get: () => {
+      const v = bag[key];
+      return typeof v === 'boolean' ? (v ? 1 : 0) : (v as number);
+    },
+    set: (v) => (bag[key] = bool ? v >= 0.5 : v),
+    reset: () => (bag[key] = d),
+    step: bool ? 1 : (o.step ?? stepOf(num)),
+    min: bool ? 0 : (o.min ?? 0),
+    max: bool ? 1 : (o.max ?? 1e9),
+    bool,
+  };
+}
+
+// ---------------------------------------------------------------- Tiere
+
+/** Die Werte jeder Art, wie im Spiel eingestellt. Die Regler gelten ihnen; die Faktoren für alle Tiere kommen obendrauf. */
+const BASE: Record<string, { hp: number; dmg: number; speed: number; atkSpeed: number; power: number; food?: number }> = {};
+for (const [id, d] of Object.entries(SPECIES)) BASE[id] = { hp: d.hp, dmg: d.dmg, speed: d.speed, atkSpeed: d.atkSpeed ?? d.speed, power: d.power, food: d.food };
+
+/** Faktoren für alle Tiere zugleich */
+export const ANIMALS = { hp: 1, dmg: 1, speed: 1, atkSpeed: 1 };
+
+/** Die Arten bekommen ihre Werte: eigene Werte × Faktoren für alle. */
+function syncSpecies() {
+  for (const [id, b] of Object.entries(BASE)) {
+    const d = SPECIES[id];
+    d.hp = Math.max(1, Math.round(b.hp * ANIMALS.hp));
+    d.dmg = Math.round(b.dmg * ANIMALS.dmg * 100) / 100;
+    d.speed = Math.round(b.speed * ANIMALS.speed);
+    d.atkSpeed = Math.round(b.atkSpeed * ANIMALS.atkSpeed);
+    d.power = b.power;
+    d.food = b.food;
+  }
+}
+
+function speciesRow(id: string, epoch: string): SpeciesRow {
+  const b = BASE[id];
+  const d0 = { ...b };
+  const num = (key: 'hp' | 'dmg' | 'speed' | 'power', label: string): Param => ({
+    id: `art.${id}.${key}`,
+    label,
+    def: () => d0[key],
+    get: () => b[key],
+    set: (v) => {
+      b[key] = v;
+      // das Angriffstempo geht mit dem Tempo mit
+      if (key === 'speed') b.atkSpeed = d0.atkSpeed * (d0.speed ? v / d0.speed : 1);
+    },
+    reset: () => {
+      b[key] = d0[key];
+      if (key === 'speed') b.atkSpeed = d0.atkSpeed;
+    },
+    step: key === 'dmg' || key === 'power' ? 0.5 : 1,
+    min: key === 'hp' ? 1 : 0,
+    max: 1e5,
+  });
+  // Nahrung: ohne eigenen Wert nach der Lebenskraft (FOOD.meatPerHp, FOOD.meatExp) – bei Größe 1
+  const food: Param = {
+    id: `art.${id}.food`,
+    label: 'Nahrung',
+    def: () => (d0.food !== undefined ? d0.food : Math.round(meatOf(b.hp * ANIMALS.hp) * 10) / 10),
+    get: () => (b.food !== undefined ? b.food : Math.round(meatOf(b.hp * ANIMALS.hp) * 10) / 10),
+    set: (v) => (b.food = v),
+    reset: () => (b.food = d0.food),
+    step: 1,
+    min: 0,
+    max: 1e5,
+  };
+  return { id, name: SPECIES[id].name, epoch, params: [food, num('hp', 'Lebenskraft'), num('dmg', 'Biss'), num('speed', 'Tempo'), num('power', 'Stärke')] };
+}
+
+/** Alle Arten, nach dem Zeitalter, in dem sie zuerst vorkommen. */
+export const SPECIES_ROWS: SpeciesRow[] = (() => {
+  const seen = new Set<string>();
+  const rows: SpeciesRow[] = [];
+  for (const ep of EPOCHS) {
+    const ids = [...ep.fauna.map(([id]) => id), ...ep.passers.map(([id]) => id), ...ep.events.map((e) => e.species)];
+    for (const id of ids) {
+      if (!id || seen.has(id) || !BASE[id]) continue;
+      seen.add(id);
+      rows.push(speciesRow(id, ep.name));
+    }
+  }
+  for (const id of Object.keys(BASE)) if (!seen.has(id)) rows.push(speciesRow(id, 'Sonst'));
+  return rows;
+})();
+
+// ---------------------------------------------------------------- alle Gruppen
+
+const fish = CLASSES.fish.base;
+
+export const GROUPS: Group[] = [
+  {
+    id: 'nahrung',
+    title: 'Nahrung',
+    note: 'Was Fressen bringt. Alles Gefressene sammelt sich für den Nachwuchs.',
+    params: [
+      field(FOOD, 'meatPerHp', 'FOOD.meatPerHp', 'Nahrung je Lebenskraft der Beute', { hint: 'Ein erlegtes Tier gibt meatPerHp × (Lebenskraft × Größe) hoch meatExp – sofern die Art keinen eigenen Wert hat.' }),
+      field(FOOD, 'meatExp', 'FOOD.meatExp', 'Abnahme bei großer Beute (Exponent)', { hint: '1 = genau nach Lebenskraft, kleiner = große Tiere geben verhältnismäßig weniger.', max: 2 }),
+      field(FOOD.plant, 'sat', 'FOOD.plant.sat', 'Nahrung je Pflanzenbissen'),
+      field(FOOD.toxic, 'sat', 'FOOD.toxic.sat', 'Nahrung je Bissen Giftpflanze'),
+      field(FOOD.roe, 'sat', 'FOOD.roe.sat', 'Nahrung je Bissen Laich'),
+      field(FOOD, 'bite', 'FOOD.bite', 'Fleisch je eigenem Bissen', { hint: 'Beim ausgewachsenen ersten Fisch – große Beute frisst man in mehreren Bissen.' }),
+      field(FOOD, 'biteJaw', 'FOOD.biteJaw', '… mehr mit kräftigem Gebiss'),
+      field(MISC, 'animalBite', 'MISC.animalBite', 'Fleisch je Biss anderer Tiere'),
+      field(MISC, 'plantRegrow', 'MISC.plantRegrow', 'Pflanzen wachsen nach (Sekunden je Bissen)'),
+      field(MISC, 'plantRegrowBloom', 'MISC.plantRegrowBloom', '… zur Blütezeit (Sekunden)'),
+    ],
+  },
+  {
+    id: 'nachwuchs',
+    title: 'Nachwuchs und Laichen',
+    params: [
+      field(SPAWN, 'perYoung', 'SPAWN.perYoung', 'Nahrung je Nachkomme (erster Fisch)'),
+      field(SPAWN, 'perGain', 'SPAWN.perGain', 'Mehr je Verbesserung', { hint: 'Nahrung je Nachkomme = perYoung × (1 + perGain × Verbesserungen). Nur das Gebiss 25 % stärker: × 1,5.' }),
+      field(SPAWN, 'maxYoung', 'SPAWN.maxYoung', 'Höchstens Nachkommen je Leben'),
+      field(SPAWN, 'cooldown', 'SPAWN.cooldown', 'Pause nach dem Laichen (Sekunden)'),
+      field(SPAWN, 'alwaysMale', 'SPAWN.alwaysMale', 'Immer als Männchen schlüpfen (1 = ja)'),
+      field(SPAWN, 'reach', 'SPAWN.reach', 'Reichweite zum Gelege (Bildpunkte)'),
+      field(SPAWN, 'ground', 'SPAWN.ground', 'Abstand zum Grund beim Ablegen (Bildpunkte)'),
+      field(SPAWN.maleDelay, 0, 'SPAWN.maleDelay.0', 'Männchen kommt nach … (von, Sekunden)'),
+      field(SPAWN.maleDelay, 1, 'SPAWN.maleDelay.1', '… bis (Sekunden)'),
+      field(SPAWN.femaleDelay, 0, 'SPAWN.femaleDelay.0', 'Weibchen legt nach … (von, Sekunden)'),
+      field(SPAWN.femaleDelay, 1, 'SPAWN.femaleDelay.1', '… bis (Sekunden)'),
+      field(SPAWN, 'femaleEvery', 'SPAWN.femaleEvery', 'Weibchen legt höchstens alle … Sekunden'),
+      field(SPAWN, 'decay', 'SPAWN.decay', 'Unbefruchtetes Gelege verdirbt nach (Sekunden)'),
+      field(SPAWN, 'eggs', 'SPAWN.eggs', 'Eier je Gelege'),
+    ],
+  },
+  {
+    id: 'leben',
+    title: 'Leben',
+    note: 'Sekunden aktiven Lebens. Spätere Generationen leben länger (je Verdopplung der Generation).',
+    params: [
+      field(LIFE, 'mature', 'LIFE.mature', 'Bis zur Laichzeit (Sekunden, Generation 1)'),
+      field(LIFE, 'maturePerDoubling', 'LIFE.maturePerDoubling', '… länger je Verdopplung'),
+      field(LIFE, 'rest', 'LIFE.rest', 'Danach noch (Sekunden, Generation 1)'),
+      field(LIFE, 'restPerDoubling', 'LIFE.restPerDoubling', '… länger je Verdopplung'),
+      field(LIFE, 'hatch', 'LIFE.hatch', 'Größe beim Schlüpfen (Anteil)', { max: 1 }),
+      field(LIFE, 'adult', 'LIFE.adult', 'Ausgewachsen ab (Anteil der Größe)', { max: 1 }),
+      field(LIFE, 'oldFrac', 'LIFE.oldFrac', 'Alt ab (Anteil der Restzeit)', { max: 1 }),
+      field(LIFE, 'oldSpeed', 'LIFE.oldSpeed', 'Im Alter: weniger Tempo (Anteil)', { max: 1 }),
+      field(LIFE, 'oldEndurance', 'LIFE.oldEndurance', 'Im Alter: weniger Ausdauer (Anteil)', { max: 1 }),
+      field(LIFE, 'oldRecover', 'LIFE.oldRecover', 'Im Alter: langsamere Erholung (Anteil)', { max: 1 }),
+      field(LIFE, 'oldHp', 'LIFE.oldHp', 'Im Alter: weniger Lebenskraft (Anteil)', { max: 1 }),
+      field(LIFE, 'fadeSeconds', 'LIFE.fadeSeconds', 'Am Ende langsamer: die letzten … Sekunden'),
+      field(LIFE, 'fadeTo', 'LIFE.fadeTo', '… bis auf (Anteil des Tempos)', { max: 1 }),
+      field(MISC, 'restHealCap', 'MISC.restHealCap', 'Ausruhen heilt bis (Anteil)', { max: 1 }),
+      field(MISC, 'healBite', 'MISC.healBite', 'Heilkraut je Bissen (Anteil)', { max: 1 }),
+      field(MISC, 'travel', 'MISC.travel', 'Ein Weg über die Karte kostet (Sekunden)'),
+    ],
+  },
+  {
+    id: 'vererbung',
+    title: 'Vererbung',
+    note: 'Wie stark sich die Nachkommen je Generation verändern.',
+    params: [
+      field(INHERIT, 'gain', 'INHERIT.gain', 'Wachstum der Richtungen (× Passung)'),
+      field(INHERIT, 'plateStep', 'INHERIT.plateStep', 'Je Richtung höchstens (Anteil)', { max: 1 }),
+      field(INHERIT, 'plateTotal', 'INHERIT.plateTotal', 'Alle Richtungen zusammen höchstens', { max: 1 }),
+      field(INHERIT, 'ceilBase', 'INHERIT.ceilBase', 'Obergrenze ohne starke Gegner', { max: 1 }),
+      field(INHERIT, 'ceilPer', 'INHERIT.ceilPer', 'Obergrenze mehr je „so stark wie du“', { max: 2 }),
+      field(INHERIT, 'carry', 'INHERIT.carry', 'Im Leben Angesammeltes geht weiter (Anteil)', { max: 1 }),
+      field(INHERIT, 'partner', 'INHERIT.partner', 'Vom Partner (Anteil)', { max: 1 }),
+      field(INHERIT.step, 'growth', 'INHERIT.step.growth', 'Größe je Generation höchstens'),
+      field(INHERIT.step, 'armor', 'INHERIT.step.armor', 'Robustheit je Generation höchstens'),
+      field(INHERIT.step, 'diet', 'INHERIT.step.diet', 'Kost je Generation höchstens'),
+      field(INHERIT.step, 'carry', 'INHERIT.step.carry', 'Angesammeltes je Generation höchstens'),
+      field(INHERIT.step, 'fins', 'INHERIT.step.fins', 'Flossen je Generation höchstens'),
+      field(FOOD.meat, 'kcal', 'FOOD.meat.kcal', 'Nährwert Fleisch (für die Kost)'),
+      field(FOOD.plant, 'kcal', 'FOOD.plant.kcal', 'Nährwert Pflanzen (für die Kost)'),
+    ],
+  },
+  {
+    id: 'tier',
+    title: 'Eigenes Tier (erster Fisch)',
+    note: 'Grundwerte, bevor Wachstum, Alter und Vererbung wirken.',
+    params: [
+      field(fish, 'hp', 'CLASSES.fish.hp', 'Lebenskraft'),
+      field(fish, 'bite', 'CLASSES.fish.bite', 'Biss'),
+      field(fish, 'ram', 'CLASSES.fish.ram', 'Stoß'),
+      field(fish, 'speed', 'CLASSES.fish.speed', 'Tempo'),
+    ],
+  },
+  {
+    id: 'alle',
+    title: 'Alle Tiere',
+    note: 'Faktoren auf die Werte jeder Art (1 = wie eingestellt).',
+    params: [
+      field(ANIMALS, 'hp', 'ANIMALS.hp', 'Lebenskraft ×', { step: 0.05 }),
+      field(ANIMALS, 'dmg', 'ANIMALS.dmg', 'Biss ×', { step: 0.05 }),
+      field(ANIMALS, 'speed', 'ANIMALS.speed', 'Tempo ×', { step: 0.05 }),
+      field(ANIMALS, 'atkSpeed', 'ANIMALS.atkSpeed', 'Tempo beim Angriff ×', { step: 0.05 }),
+    ],
+  },
+  {
+    id: 'gruppe',
+    title: 'Gruppe und gemeinsame Jagd',
+    params: [
+      field(SWARM, 'cap', 'SWARM.cap', 'Höchstens auf einen Ruf'),
+      field(SWARM, 'capPlus', 'SWARM.capPlus', '… mehr mit vollem Zusammenhalt'),
+      field(SWARM, 'growEvery', 'SWARM.growEvery', 'Neuer Artgenosse je geteilter Beute'),
+      field(SWARM, 'dmg', 'SWARM.dmg', 'Angriffskraft eines Artgenossen (Anteil)', { max: 1 }),
+      field(SWARM, 'dmgPlus', 'SWARM.dmgPlus', '… mehr mit vollem Zusammenhalt', { max: 1 }),
+      field(SWARM, 'cooldown', 'SWARM.cooldown', 'Wieder rufen nach (ms)', { step: 500 }),
+      field(JAGD, 'kills', 'JAGD.kills', 'Gemeinsame Jagd: zu erlegen'),
+      field(JAGD, 'school', 'JAGD.school', 'Gemeinsame Jagd: Tiere im Schwarm'),
+    ],
+  },
+];
+
+const ALL: Param[] = [...GROUPS.flatMap((g) => g.params), ...SPECIES_ROWS.flatMap((r) => r.params)];
+const BY_ID = new Map(ALL.map((p) => [p.id, p]));
+
+// ---------------------------------------------------------------- Speichern und Anwenden
+
+const KEY = 'evo-tuning-v1';
+let overrides: Record<string, number> = {};
+
+function save() {
+  try {
+    if (Object.keys(overrides).length) localStorage.setItem(KEY, JSON.stringify(overrides));
+    else localStorage.removeItem(KEY);
+  } catch {
+    /* ohne Speicher gilt es nur bis zum Neuladen */
+  }
+}
+
+/** Nach jeder Änderung: Arten neu setzen, Bezugswerte vergessen. */
+function settle() {
+  syncSpecies();
+  game.forgetBaseline();
+}
+
+/** Beim Start: die gespeicherten eigenen Werte setzen. */
+export function applyTuning() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    overrides = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    overrides = {};
+  }
+  for (const [id, v] of Object.entries(overrides)) {
+    const p = BY_ID.get(id);
+    if (p && Number.isFinite(v)) p.set(v);
+    else delete overrides[id];
+  }
+  settle();
+}
+
+/** Ist der Wert vom Standard verändert? */
+export const isChanged = (p: Param) => p.id in overrides;
+
+/** Einen Wert setzen (auf den Standard: die Änderung fällt weg). */
+export function setParam(p: Param, v: number) {
+  const x = Math.min(p.max, Math.max(p.min, p.bool ? (v >= 0.5 ? 1 : 0) : v));
+  if (Math.abs(x - p.def()) < 1e-9) {
+    delete overrides[p.id];
+    p.reset();
+  } else {
+    overrides[p.id] = x;
+    p.set(x);
+  }
+  settle();
+  save();
+}
+
+export function resetParam(p: Param) {
+  delete overrides[p.id];
+  p.reset();
+  settle();
+  save();
+}
+
+/** Alles zurück auf den Standard. */
+export function resetAll() {
+  for (const id of Object.keys(overrides)) BY_ID.get(id)?.reset();
+  overrides = {};
+  settle();
+  save();
+}
+
+/** Wie viele Werte verändert sind. */
+export const changedCount = () => Object.keys(overrides).length;
+
+/** Die eigenen Werte als Text (zum Weitergeben). */
+export const exportTuning = () => JSON.stringify(overrides, null, 2);
+
+/** Eigene Werte aus Text übernehmen (ersetzt alle bisherigen). Gibt die Zahl der übernommenen Werte zurück, -1 bei Unsinn. */
+export function importTuning(text: string): number {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return -1;
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return -1;
+  resetAll();
+  let n = 0;
+  for (const [id, v] of Object.entries(data as Record<string, unknown>)) {
+    const p = BY_ID.get(id);
+    if (!p || typeof v !== 'number' || !Number.isFinite(v)) continue;
+    overrides[id] = v;
+    p.set(v);
+    n++;
+  }
+  settle();
+  save();
+  return n;
+}

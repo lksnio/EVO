@@ -58,7 +58,7 @@ export const CONTROL_ROWS: [string, string][] = [
   ['S', 'Deine Gruppe rufen bzw. fortschicken'],
   ['Leertaste', 'Auftauchen'],
   ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
-  ['C', 'Steintafel mit Werten und Hunger'],
+  ['C', 'Übersicht über dein Tier'],
   ['Esc  oder  P', 'Rast (Pause)'],
   ['M', 'Ton an/aus'],
 ];
