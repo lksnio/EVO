@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "EVO – Überlebensspiel über Evolution (Phaser 4, TypeScript)",
+  "description": "EVO: Living World – Überlebensspiel über Evolution in einer gemeinsamen, lebendigen Welt (Phaser 4, TypeScript)",
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",

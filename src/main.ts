@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import '@fontsource/cinzel/latin-400.css';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/alegreya-sans/latin-400.css';
 import '@fontsource/alegreya-sans/latin-500.css';
@@ -27,6 +28,7 @@ async function start() {
   try {
     await Promise.race([
       Promise.all([
+        document.fonts.load('400 20px Cinzel'),
         document.fonts.load('700 20px Cinzel'),
         document.fonts.load('500 20px "Alegreya Sans"'),
         document.fonts.load('700 20px "Alegreya Sans"'),

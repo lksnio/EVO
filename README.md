@@ -1,4 +1,4 @@
-# EVO – Die Suche nach Eden
+# EVO: Living World
 
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
@@ -15,11 +15,16 @@ sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere ble
 steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
 Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber noch nicht erreichbar.
 
-**Stirbst du ohne befruchtetes Gelege, stirbt deine Linie aus** – und bleibt als Ast im
-**Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
+**Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
+Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
-> Fan-Projekt, inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne
-> werden im Browser erzeugt – es werden keine Original-Inhalte verwendet.
+**Das Titelbild** ist selbst ein Stück lebendiges Urmeer: Licht fällt von oben, Seelilien und Algen wiegen sich,
+Trilobiten kriechen über den Sand, Schwärme ziehen vorbei, in der Tiefe gleitet ab und zu ein Riesenkopffüßer – und
+mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generation). Links stehen Titel und Menü
+(Pfeiltasten und Eingabe oder die Maus), unten die Weltzeit, die für alle gleich weiterläuft.
+
+> Inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne werden im Browser erzeugt –
+> es werden keine Original-Inhalte verwendet.
 
 **Online spielen:** https://lksnio.github.io/EVO/
 
@@ -720,7 +725,7 @@ src/
 │   ├── mapArt.ts        Kartenmaße, Gebiete um die Orte, Zeichen der Ortsarten
 │   ├── paleoArt.ts      die Urzeit-Erde: Land, Küstenschelf, Nebel und Aufdecken
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
-│   └── uiArt.ts         Symbole und Titelbild
+│   └── uiArt.ts         Symbole
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)

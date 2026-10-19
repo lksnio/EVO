@@ -1,7 +1,7 @@
 @echo off
-rem EVO-Server für einen Spieleabend: einmal doppelklicken. Freunde öffnen die angezeigte Tailscale-Adresse.
+rem EVO: Living World - Server für einen Spieleabend: einmal doppelklicken. Freunde öffnen die angezeigte Tailscale-Adresse.
 cd /d "%~dp0"
-echo Installiere und baue EVO ...
+echo Installiere und baue EVO: Living World ...
 call npm install || goto fehler
 call npm run build || goto fehler
 call npm start

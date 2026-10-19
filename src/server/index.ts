@@ -13,7 +13,7 @@ function announce() {
     .filter((a) => a && a.family === 'IPv4' && !a.internal)
     .map((a) => a!.address);
   const tail = ips.filter((ip) => ip.startsWith('100.'));
-  console.log('\n  EVO läuft.');
+  console.log('\n  EVO: Living World läuft.');
   console.log(`  Du selbst:        http://localhost:${PORT}/?name=DeinName`);
   for (const ip of tail) console.log(`  Freunde (Tailscale): http://${ip}:${PORT}/?name=IhrName`);
   if (!tail.length) console.log('  Tailscale nicht gefunden – läuft es? (Adresse sonst mit: tailscale ip -4)');

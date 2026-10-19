@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { W, H, DEBUG, UI } from '../config';
+import { W, H, DEBUG, TITLE_FONT, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
 import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { tabletTextures } from '../art/tabletArt';
 import { mapTextures } from '../art/mapArt';
-import { text, title } from '../ui/ui';
+
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
 export class BootScene extends Phaser.Scene {
@@ -15,8 +15,11 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor('#030405');
-    title(this, W / 2, H / 2 - 20, 'EVO', 72, UI.bone).setOrigin(0.5);
-    text(this, W / 2, H / 2 + 50, 'Die Urzeit erwacht …', 22, UI.boneDim).setOrigin(0.5);
+    // schlicht wie im Titelbild: EVO, darunter Living World
+    this.add.text(W / 2, H / 2 - 18, 'EVO', { fontFamily: TITLE_FONT, fontSize: '72px', color: UI.bone, fontStyle: '400', resolution: 2 })
+      .setOrigin(0.5).setLetterSpacing(14).setAlpha(0.85);
+    this.add.text(W / 2, H / 2 + 42, 'LIVING WORLD', { fontFamily: TITLE_FONT, fontSize: '15px', color: UI.ochre, fontStyle: '700', resolution: 2 })
+      .setOrigin(0.5).setLetterSpacing(9).setAlpha(0.85);
     // erst ein Bild anzeigen, dann die (kurze) Arbeit erledigen
     this.time.delayedCall(40, () => {
       commonTextures(this);

@@ -198,13 +198,21 @@ export class Button extends Phaser.GameObjects.Container {
   }
 }
 
+/** Was sich mit der Tastatur anwählen lässt: Knöpfe, Menüzeilen … */
+export interface NavItem {
+  disabled: boolean;
+  visible: boolean;
+  click(): void;
+  setFocus(f: boolean): unknown;
+}
+
 /** Tastatursteuerung für eine Liste von Knöpfen. */
 export class MenuNav {
   idx = 0;
   enabled = true;
   constructor(
     scene: Phaser.Scene,
-    public items: Button[],
+    public items: NavItem[],
     cols = 1,
     private onBack?: () => void,
   ) {
@@ -252,6 +260,19 @@ export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 50
   muteListeners.add(upd);
   b.once('destroy', () => muteListeners.delete(upd));
   return b;
+}
+
+/** Ton an/aus als schlichtes Symbol, ohne Knopf darum (für das Titelbild). */
+export function soundIcon(scene: Phaser.Scene, x: number, y: number, size = 30) {
+  const key = () => (audio.muted ? 'ic_mute' : 'ic_sound');
+  const img = scene.add.image(x, y, key()).setDisplaySize(size, size).setAlpha(0.5).setInteractive({ useHandCursor: true });
+  img.on('pointerover', () => img.setAlpha(0.95));
+  img.on('pointerout', () => img.setAlpha(0.5));
+  img.on('pointerdown', () => toggleMute());
+  const upd = () => img.setTexture(key()).setDisplaySize(size, size);
+  muteListeners.add(upd);
+  img.once('destroy', () => muteListeners.delete(upd));
+  return img;
 }
 
 const muteListeners = new Set<() => void>();
