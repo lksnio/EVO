@@ -21,6 +21,7 @@ import { BackSea } from '../objects/BackSea';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
+import type { PlayerLike } from '../objects/Animal';
 import { Quest } from '../objects/Quest';
 import { HuntQuest } from '../objects/HuntQuest';
 import { SwarmCtl } from '../objects/Swarm';
@@ -110,6 +111,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   spawning?: SpawnCtl;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
   private net?: NetSync;
+  /** Mehrspieler: um welchen Spieler sich ein Tier gerade kümmert (für eine Weile gemerkt, damit es nicht hin und her springt) */
+  private focus = new WeakMap<Animal, { p: PlayerLike; until: number }>();
   controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   /** alle festen Körper, nach 40-Pixel-Streifen geordnet (für solidAt) */
@@ -1380,6 +1383,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   detectFactor(a: Animal) {
+    // ein anderer Spieler: so gut zu sehen wie jedes Tier (Verstecke und Tarnung rechnet sein Spiel nicht mit)
+    if (this.net && this.focusFor(a) !== this.player) return 1;
     const p = this.player;
     const t = game.traits;
     const coat = t.coat | 0;
@@ -1430,6 +1435,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * auch wenn er kräftig zubeißt – und etwas auf die Stärke im Vergleich zum Tier.
    */
   fearOf(a: Animal) {
+    if (this.net && this.focusFor(a) !== this.player) return 0.5;
     const ratio = this.player.bodyLen / Math.max(20, a.displayWidth);
     const size = clamp((ratio - 0.45) / 1.05, 0, 1.15);
     const power = clamp(this.playerThreat() / Math.max(0.6, a.def.power * a.sz) / 1.3, 0.45, 1.2);
@@ -1520,8 +1526,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Liegt der Punkt außerhalb des Bildes (mit Rand)? */
   private offScreen(x: number, y: number, m: number) {
+    return this.views().every((v) => x < v.x - m || x > v.right + m || y < v.y - m || y > v.bottom + m);
+  }
+
+  /**
+   * Was die Spieler am Ort gerade sehen: dein Bild – und im Mehrspieler etwa so viel um jeden anderen Spieler herum. So
+   * verschwindet kein Tier vor den Augen eines anderen, und keines taucht vor ihnen aus dem Nichts auf.
+   */
+  private views(): { x: number; y: number; right: number; bottom: number }[] {
     const v = this.cameras.main.worldView;
-    return x < v.x - m || x > v.right + m || y < v.y - m || y > v.bottom + m;
+    const ts = this.net?.world.targets;
+    if (!ts || !ts.size) return [v];
+    const out = [{ x: v.x, y: v.y, right: v.right, bottom: v.bottom }];
+    const hw = v.width / 2, hh = v.height / 2;
+    for (const t of ts.values()) if (!t.dead) out.push({ x: t.x - hw, y: t.y - hh, right: t.x + hw, bottom: t.y + hh });
+    return out;
   }
 
   /** Beute, die schon eine Weile flieht, entkommt: aus dem Bild – oder am Rand des Ortes, wo es nicht mehr weitergeht. */
@@ -1534,9 +1553,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Ist das Tier (seine ganze Gestalt) im Bild bzw. höchstens margin davon entfernt? */
   private seen(a: Animal, margin: number) {
-    const v = this.cameras.main.worldView;
     const hw = Math.max(a.displayWidth, a.body?.width ?? 0) / 2 + margin, hh = Math.max(a.displayHeight, a.body?.height ?? 0) / 2 + margin;
-    return a.x + hw > v.x && a.x - hw < v.right && a.y + hh > v.y && a.y - hh < v.bottom;
+    return this.views().some((v) => a.x + hw > v.x && a.x - hw < v.right && a.y + hh > v.y && a.y - hh < v.bottom);
   }
 
   inView(a: Animal) {
@@ -1545,7 +1563,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Entkommene Tiere kommen nach einer Weile wieder – andere Fische ziehen an ihrer Stelle ein, außerhalb des Bildes. */
   private restock(time: number) {
-    if (time < this.restockAt || !this.returning.length) return;
+    if (time < this.restockAt || !this.returning.length || !this.authority) return;
     this.restockAt = time + 1500;
     for (let i = this.returning.length - 1; i >= 0; i--) {
       const r = this.returning[i];
@@ -1572,6 +1590,52 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Ein Tier aus der Liste der Tiere nehmen (es wird nicht mehr bedacht). */
   dropAnimal(a: Animal) {
     this.removeAnimal(a);
+  }
+
+  /**
+   * Mehrspieler: Rechnet dieses Spiel die Tiere des Ortes? Allein immer; mit anderen nur der Ortswächter – die anderen
+   * sehen seine Tiere, und nur bei ihm kommen neue hinzu (Durchzügler, Rückkehrer, Schlüpflinge).
+   */
+  get authority() {
+    return !this.net || this.net.world.authority;
+  }
+
+  /**
+   * Mehrspieler: Der Spieler, um den sich ein Tier gerade kümmert – der nächste (du oder ein anderer). Ein Wechsel braucht
+   * einen deutlichen Unterschied, sonst bliebe ein Tier zwischen zwei Spielern unentschlossen.
+   */
+  focusFor(a: Animal): PlayerLike {
+    const ts = this.net?.world.targets;
+    if (!ts || !ts.size || a.kin || a.personal) return this.player;
+    const now = this.time.now;
+    const c = this.focus.get(a);
+    if (c && now < c.until && !c.p.dead) return c.p;
+    const dist = (p: PlayerLike) => (p.dead ? Infinity : Math.hypot(p.x - a.x, p.y - a.y));
+    let best: PlayerLike = this.player, bd = dist(this.player);
+    for (const t of ts.values()) {
+      const d = dist(t);
+      if (d < bd) {
+        best = t;
+        bd = d;
+      }
+    }
+    if (c && !c.p.dead && dist(c.p) < bd * 1.3) best = c.p;
+    this.focus.set(a, { p: best, until: now + 400 });
+    return best;
+  }
+
+  /** Mehrspieler, als Gast: Die eigenen Tiere und das Fleisch dieses Ortes gehen – es gelten die des Ortswächters. */
+  dropShared() {
+    for (const a of [...this.animals]) {
+      if (a.kin || a.personal || (a as { ghost?: boolean }).ghost) continue;
+      a.dead = true;
+      this.removeAnimal(a);
+      a.destroy();
+    }
+    for (const m of this.meats) if (!m.net) m.remove();
+    this.meats = this.meats.filter((m) => !m.gone);
+    this.returning = [];
+    this.bossA = undefined;
   }
 
   private removeAnimal(a: Animal) {
@@ -1816,6 +1880,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Das Gelege schlüpft: ein paar kleine Junge, die sich bald auf den Weg machen. */
   private hatch(rr: Roe) {
+    // im Mehrspieler schlüpft nur beim Ortswächter etwas (dessen Tiere sehen alle)
+    if (!this.authority) return;
     const n = Math.max(2, Math.ceil(rr.units * 0.8));
     for (let i = 0; i < n; i++) {
       const a = this.spawnAnimal(rr.species, rr.x + (Math.random() - 0.5) * 50, rr.y - 26 - Math.random() * 20);
@@ -2205,7 +2271,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   private spawnVisitors(id: string, count: number, fast = false, ambient = false) {
     const def = SPECIES[id];
-    if (!def) return;
+    if (!def || !this.authority) return;
     makeSpeciesTextures(this, def);
     const L = this.L;
     const p = this.player;
@@ -2253,7 +2319,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private spawnBoss(id: string) {
     const def = SPECIES[id];
-    if (!def || this.bossA) return;
+    if (!def || this.bossA || !this.authority) return;
     makeSpeciesTextures(this, def);
     const L = this.L;
     const p = this.player;
@@ -2275,7 +2341,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Neue Tiere wandern ein, wenn der Lebensraum leerer wird. */
   private migrate(time: number) {
-    if (time < this.nextMigrate) return;
+    if (time < this.nextMigrate || !this.authority) return;
     this.nextMigrate = time + 15000;
     const resident = this.animals.filter((a) => !a.dead && !a.kin && !a.visitor).length;
     // Auch die Tiere hier ziehen weiter: Manche schwimmen zum Rand und verlassen das Gewässer

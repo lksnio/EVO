@@ -166,6 +166,12 @@ export class Meat {
   wanted = new Set<object>();
   ateFrom = new Set<object>();
   playerBites = 0;
+  /** Mehrspieler: Nummer des Stücks im Ort */
+  netId = 0;
+  /** Mehrspieler: Das Stück gehört dem Ortswächter – es liegt dort, wo er es meldet, und verdirbt nicht von selbst */
+  net?: { x: number; y: number };
+  /** Mehrspieler: Jemand hat davon abgebissen (so viel) – der Ortswächter erfährt es */
+  onBite?: (got: number) => void;
 
   constructor(
     private scene: Phaser.Scene,
@@ -216,13 +222,31 @@ export class Meat {
     if (this.gone || this.value <= 0) return 0;
     const got = Math.min(this.value, amount);
     this.value -= got;
+    if (got > 0) this.onBite?.(got);
     if (this.value <= 0.5) this.remove(true);
     else this.img.setScale(0.5 * (0.6 + 0.4 * this.value / this.max));
     return got;
   }
 
+  /** Mehrspieler: neue Meldung des Ortswächters (Lage und was noch übrig ist). */
+  netUpdate(x: number, y: number, value: number) {
+    this.net = { x, y };
+    if (value < this.value - 0.01) {
+      this.value = value;
+      if (this.value <= 0.5) this.remove(true);
+      else this.img.setScale(0.5 * (0.6 + 0.4 * this.value / this.max));
+    }
+  }
+
   update(now: number, dt: number) {
     if (this.gone) return;
+    if (this.net) {
+      this.x += (this.net.x - this.x) * Math.min(1, dt * 8);
+      this.y += (this.net.y - this.y) * Math.min(1, dt * 8);
+      this.img.setPosition(this.x, this.y).setAngle(Math.sin(now / 700 + this.ph) * 8);
+      this.glow.setPosition(this.x, this.y).setAlpha(0.14 + 0.08 * Math.sin(now / 260 + this.ph));
+      return;
+    }
     const e = this.env;
     const h = MEAT_SIZES[this.size][1] * 0.5;
     if (e.water) {

@@ -3,11 +3,17 @@ import { EPOCHS } from '../data/epochs';
 import { WORLD } from '../data/life';
 import { placesOf } from '../data/world';
 import { generateLevel } from '../level/LevelGen';
-import { NetFish, ZoneState } from '../net/schema';
-import { cleanName, MAX_SPEED, MOVE_BURST, RECONNECT_S, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg } from '../net/protocol';
+import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
+import {
+  cleanName, MAX_SPEED, MOVE_BURST, RECONNECT_S,
+  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg,
+} from '../net/protocol';
 
 const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const int = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 1e9 ? v : 0);
+/** so viele Tiere bzw. Fleischstücke hält ein Ort höchstens */
+const MAX_ANIMALS = 600, MAX_MEATS = 200;
 
 /** Ein Ort aus "zeitalter/ort" – oder null, wenn es ihn nicht gibt. */
 export function parseZone(zone: unknown): { epoch: number; place: string } | null {
@@ -39,6 +45,31 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   messages = {
     pos: (client: Client, m: PosMsg) => this.onPos(client, m),
+    fauna: (client: Client, m: FaunaMsg) => this.onFauna(client, m),
+    // der Ortswächter gibt ab (sein Fenster ist im Hintergrund – dort rechnet der Browser kaum noch): ein anderer übernimmt
+    yield: (client: Client) => {
+      if (client.sessionId !== this.state.host) return;
+      const next = [...this.state.players.entries()].find(([id, f]) => id !== client.sessionId && !f.away);
+      if (next) this.state.host = next[0];
+    },
+    // ein Spieler trifft ein Tier bzw. frisst vom Fleisch: Das rechnet der Ortswächter
+    hit: (client: Client, m: HitMsg) => {
+      const id = int(m?.id);
+      if (!id || client.sessionId === this.state.host) return;
+      const kind = m.kind === 'ram' || m.kind === 'other' ? m.kind : 'bite';
+      this.toHost({ type: 'hit', msg: { id, dmg: clamp(num(m.dmg, 0), 0, 200), kind, stun: clamp(num(m.stun, 0), 0, 3000), from: client.sessionId } satisfies HitMsg });
+    },
+    eat: (client: Client, m: EatMsg) => {
+      const id = int(m?.id);
+      if (!id || client.sessionId === this.state.host) return;
+      this.toHost({ type: 'eat', msg: { id, amount: clamp(num(m.amount, 0), 0, 60) } satisfies EatMsg });
+    },
+    // ein Tier des Ortswächters trifft einen anderen Spieler
+    hurt: (client: Client, m: HurtMsg) => {
+      if (client.sessionId !== this.state.host || typeof m?.to !== 'string') return;
+      const to = this.clients.getById(m.to);
+      to?.send('hurt', { dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
+    },
     look: (client: Client, m: LookMsg) => {
       const f = this.state.players.get(client.sessionId);
       if (!f || !m || typeof m.look !== 'string' || m.look.length > 4000) return;
@@ -70,6 +101,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     f.gen = clamp(Math.round(num(o?.gen, 1)), 1, 60000);
     this.state.players.set(client.sessionId, f);
     this.budget.set(client.sessionId, { left: MOVE_BURST, at: Date.now() });
+    // der Erste am Ort (oder wenn keiner mehr da ist) wird Ortswächter
+    if (!this.state.players.has(this.state.host)) this.state.host = client.sessionId;
     client.send('welcome', { now: Date.now(), you: client.sessionId } satisfies WelcomeMsg);
   }
 
@@ -77,6 +110,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   onDrop(client: Client) {
     const f = this.state.players.get(client.sessionId);
     if (f) f.away = true;
+    // ein Ortswächter ohne Verbindung rechnet nichts mehr: ein anderer übernimmt
+    if (this.state.host === client.sessionId) this.newHost(client.sessionId);
     this.allowReconnection(client, RECONNECT_S);
   }
 
@@ -89,6 +124,75 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   onLeave(client: Client) {
     this.state.players.delete(client.sessionId);
     this.budget.delete(client.sessionId);
+    if (this.state.host === client.sessionId) this.newHost(client.sessionId);
+  }
+
+  /** Ein anderer Spieler wird Ortswächter (wer verbunden ist). Ist keiner da, rechnet der Nächste, der kommt, neu. */
+  private newHost(old: string) {
+    let next = '';
+    for (const [id, f] of this.state.players) if (id !== old && !f.away) next = next || id;
+    this.state.host = next;
+    if (!next && !this.state.players.size) {
+      this.state.animals.clear();
+      this.state.meats.clear();
+    }
+  }
+
+  private toHost(m: { type: string; msg: unknown }) {
+    this.clients.getById(this.state.host)?.send(m.type, m.msg);
+  }
+
+  /** Der Ortswächter meldet seine Tiere und das Fleisch: Sie gehen an alle (nur geänderte Werte). */
+  private onFauna(client: Client, m: FaunaMsg) {
+    if (client.sessionId !== this.state.host || !m) return;
+    const b = this.bounds;
+    const A = this.state.animals, M = this.state.meats;
+    for (const r of Array.isArray(m.a) ? m.a.slice(0, MAX_ANIMALS) : []) {
+      const id = int(r?.id);
+      if (!id || typeof r.sp !== 'string' || r.sp.length > 40) continue;
+      const key = String(id);
+      let a = A.get(key);
+      if (!a) {
+        if (A.size >= MAX_ANIMALS) continue;
+        a = new NetAnimal();
+        a.sp = r.sp;
+        A.set(key, a);
+      }
+      a.x = clamp(num(r.x, a.x), b.x0 - 600, b.x1 + 600);
+      a.y = clamp(num(r.y, a.y), b.y0, b.y1 + 200);
+      a.d = num(r.d, 1) < 0 ? -1 : 1;
+      a.an = clamp(Math.round(num(r.an, 0)), -360, 360);
+      a.mh = clamp(num(r.mh, 1), 0.1, 1e5);
+      a.hp = clamp(num(r.hp, a.mh), 0, a.mh);
+      a.sz = clamp(num(r.sz, 1), 0.1, 5);
+      a.tn = clamp(Math.round(num(r.tn, 0)), 0, 0xffffff);
+      a.al = clamp(Math.round(num(r.al, 100)), 0, 100);
+      a.at = r.at === true;
+    }
+    const died: number[] = [];
+    for (const g of Array.isArray(m.gone) ? m.gone : []) {
+      const id = int(Array.isArray(g) ? g[0] : 0);
+      if (!id || !A.delete(String(id))) continue;
+      if (g[1]) died.push(id);
+    }
+    // gestorben (nicht nur fort): Die anderen sehen es vergehen
+    if (died.length) this.broadcast('died', died, { except: client });
+    for (const r of Array.isArray(m.m) ? m.m.slice(0, MAX_MEATS) : []) {
+      const id = int(r?.id);
+      if (!id) continue;
+      const key = String(id);
+      let f = M.get(key);
+      if (!f) {
+        if (M.size >= MAX_MEATS) continue;
+        f = new NetMeat();
+        M.set(key, f);
+      }
+      f.x = clamp(num(r.x, f.x), b.x0 - 200, b.x1 + 200);
+      f.y = clamp(num(r.y, f.y), b.y0, b.y1 + 200);
+      f.v = clamp(num(r.v, 0), 0, 1000);
+      f.s = clamp(Math.round(num(r.s, 0)), 0, 2);
+    }
+    for (const id of Array.isArray(m.mgone) ? m.mgone : []) if (int(id)) M.delete(String(id));
   }
 
   /**

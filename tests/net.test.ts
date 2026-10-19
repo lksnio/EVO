@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client, type Room } from '@colyseus/sdk';
 import { server } from '../src/server/index';
 import { parseZone } from '../src/server/ZoneRoom';
-import { ZONE_ROOM, zoneId, type JoinOptions, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
+import { ZONE_ROOM, zoneId, type EatMsg, type HitMsg, type HurtMsg, type JoinOptions, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
 import { ZoneState } from '../src/net/schema';
 
 // Meilenstein 1: Zwei Clients betreten denselben Ort und sehen die Bewegungen des jeweils anderen.
@@ -31,7 +31,8 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   afterAll(async () => {
-    for (const r of rooms) await r.leave().catch(() => undefined);
+    // wer schon gegangen ist, antwortet nicht mehr – nicht ewig warten
+    for (const r of rooms) await Promise.race([r.leave().catch(() => undefined), wait(500)]);
     await server.gracefullyShutdown(false);
   });
 
@@ -87,6 +88,64 @@ describe('Spielserver (Colyseus)', () => {
     await until(() => watcher.state.players.has(e.sessionId));
     await e.leave();
     await until(() => !watcher.state.players.has(e.sessionId));
+  });
+
+  it('der Ortswächter rechnet die Tiere: Gäste sehen sie, Treffer und Fressen gehen an ihn, Schaden an den Getroffenen', async () => {
+    const zone = zoneId(0, 'bucht');
+    const host = await join(opts('Wächter', { zone }));
+    const hits: HitMsg[] = [], eats: EatMsg[] = [];
+    host.onMessage('hit', (m: HitMsg) => hits.push(m));
+    host.onMessage('eat', (m: EatMsg) => eats.push(m));
+    const guest = await join(opts('Gast', { zone }));
+    const hurts: HurtMsg[] = [], died: number[][] = [];
+    guest.onMessage('hurt', (m: HurtMsg) => hurts.push(m));
+    guest.onMessage('died', (ids: number[]) => died.push(ids));
+    rooms.push(host, guest);
+    await until(() => guest.state.players.size === 2);
+    expect(guest.state.host).toBe(host.sessionId);
+    host.send('fauna', {
+      a: [{ id: 7, sp: 'arandaspis', x: 1200, y: 600, d: -1, an: 5, hp: 4, mh: 6, sz: 1.1, tn: 0, al: 100, at: false }],
+      m: [{ id: 3, x: 1300, y: 640, v: 5, s: 1 }],
+    });
+    await until(() => guest.state.animals.has('7') && guest.state.meats.has('3'));
+    // ein volles Paket (so viele Tiere schickt der Ortswächter höchstens auf einmal) passt durch
+    host.send('fauna', { a: Array.from({ length: 24 }, (_, i) => ({ id: 100 + i, sp: 'arandaspis', x: 1000 + i * 37.5, y: 600.5, d: -1, an: 12, hp: 5.5, mh: 6.5, sz: 1.123, tn: 0xff9a82, al: 100, at: true })) });
+    await until(() => guest.state.animals.has('123'));
+    expect(guest.state.animals.get('7')!.hp).toBe(4);
+    // nur der Ortswächter darf Tiere melden
+    guest.send('fauna', { a: [{ id: 99, sp: 'arandaspis', x: 1, y: 1, d: 1, an: 0, hp: 1, mh: 1, sz: 1, tn: 0, al: 100, at: false }] });
+    guest.send('hit', { id: 7, dmg: 2.5, kind: 'bite', stun: 550 });
+    guest.send('eat', { id: 3, amount: 1.5 });
+    await until(() => hits.length > 0 && eats.length > 0);
+    expect(hits[0]).toEqual({ id: 7, dmg: 2.5, kind: 'bite', stun: 550, from: guest.sessionId });
+    expect(eats[0]).toEqual({ id: 3, amount: 1.5 });
+    expect(guest.state.animals.has('99')).toBe(false);
+    host.send('hurt', { to: guest.sessionId, dmg: 3, x: 1200, by: 'Arandaspis' });
+    await until(() => hurts.length > 0);
+    expect(hurts[0]).toEqual({ dmg: 3, x: 1200, by: 'Arandaspis' });
+    host.send('fauna', { gone: [[7, 1]], mgone: [3] });
+    await until(() => !guest.state.animals.has('7') && died.length > 0);
+    expect(died[0]).toEqual([7]);
+    expect(guest.state.meats.has('3')).toBe(false);
+    // geht der Ortswächter, übernimmt der Gast – mit den Tieren, wie sie gerade sind
+    host.send('fauna', { a: [{ id: 8, sp: 'arandaspis', x: 900, y: 500, d: 1, an: 0, hp: 6, mh: 6, sz: 1, tn: 0, al: 100, at: false }] });
+    await until(() => guest.state.animals.has('8'));
+    await host.leave();
+    await until(() => guest.state.host === guest.sessionId);
+    expect(guest.state.animals.has('8')).toBe(true);
+  });
+
+  it('ein Ortswächter im Hintergrund gibt ab – an einen anderen Spieler am Ort', async () => {
+    const zone = zoneId(0, 'sandfeld');
+    const a = await join(opts('Ada', { zone }));
+    const b = await join(opts('Bo', { zone }));
+    rooms.push(a, b);
+    await until(() => b.state.host === a.sessionId);
+    b.send('yield', {});
+    await wait(150);
+    expect(b.state.host).toBe(a.sessionId);
+    a.send('yield', {});
+    await until(() => a.state.host === b.sessionId);
   });
 
   it('einen Ort, den es nicht gibt, kann man nicht betreten', async () => {

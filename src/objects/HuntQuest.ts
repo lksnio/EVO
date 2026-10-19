@@ -182,6 +182,8 @@ export class HuntQuest {
     const [s0, s1] = JAGD.size;
     for (let i = 0; i < n; i++) {
       const a = h.spawnAnimal(JAGD.prey, this.den.x + (Math.random() - 0.5) * 260, this.den.y + (Math.random() - 0.5) * 140, SCHOOL_HERD);
+      // der Schwarm gehört zu deinem Auftrag – andere Spieler sehen ihn nicht
+      a.personal = true;
       a.sz = s0 + Math.random() * (s1 - s0);
       a.setScale(a.sz);
       a.hp = a.maxHp = Math.round(a.def.hp * a.sz);

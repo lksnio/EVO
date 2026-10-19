@@ -502,8 +502,14 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
 - **Die Weltzeit** kommt vom Server – für alle gleich.
 - **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
   von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
-- **Noch nicht gemeinsam:** Tiere, Pflanzen, Kämpfe, Laichen und Leben rechnet vorerst jeder Client für sich – die Tiere,
-  die du siehst, sieht dein Freund nicht. Das wandert Schritt für Schritt auf den Server (siehe Plan).
+- **Gemeinsame Tiere:** Alle am Ort sehen **dieselben Tiere** und dasselbe Fleisch. Gerechnet werden sie im Spiel eines
+  Spielers, dem **Ortswächter** (wer zuerst da war); der Server verteilt sie an alle anderen. Beißt oder stößt ein anderer
+  Spieler ein Tier, geht der Treffer an den Ortswächter; Tiere jagen, meiden und beißen **jeden** Spieler (den jeweils
+  nächsten); wer vom Fleisch frisst, nimmt es allen weg. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
+  er in der Rast), übernimmt ein anderer Spieler die Tiere, so wie sie gerade sind. Neue Tiere (Durchzügler, Rückkehrer,
+  Schlüpflinge) kommen nur beim Ortswächter dazu. Kein Tier verschwindet vor den Augen eines Spielers.
+- **Noch für jeden einzeln:** Pflanzen und Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner) und die Tiere
+  eines Auftrags – die sieht nur, wem sie gehören.
 
 Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind.
 
@@ -552,6 +558,8 @@ src/net/protocol.ts      Nachrichten und Grenzwerte (Sendetakt, Höchsttempo …
 src/net/NetClient.ts     die Verbindung im Browser (wird nur geladen, wenn ein Server da ist)
 src/net/NetSync.ts       Level ↔ Server: melden, die anderen zeigen; Name (?name), Server (?server), ?offline
 src/net/RemoteFish.ts    der Fisch eines anderen Spielers: geglättet, mit Namen
+src/net/WorldSync.ts     gemeinsame Tiere: Ortswächter meldet, Gäste zeigen Stellvertreter, Wechsel des Ortswächters
+src/net/GhostAnimal.ts   ein Tier des Ortswächters bei den anderen: folgt den Meldungen, gibt Treffer weiter
 ```
 
 `npm run typecheck` prüft den Server ohne Browser-Typen (`tsconfig.server.json`) – so rutscht nichts aus dem Browser
@@ -661,8 +669,10 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Geschlecht** jeder neuen Generation: zufällig.
 - [ ] **Aussterben:** ohne befruchtetes Gelege Neustart als Urfisch (wie bisher).
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
-- [ ] **Im Mehrspieler noch lokal:** Tiere, Pflanzen, Kämpfe, Laichen, Aufträge – jeder sieht seine eigenen. Auf der Karte
-      (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
+- [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
+      Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
+- [ ] **Im Mehrspieler noch für jeden einzeln:** Pflanzen und Laich, deine Artgenossen (Gruppe, Auftrags-Figuren,
+      Laich-Partner) und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
 - [ ] **Lebenstempo** (bestätigt): ausgewachsen nach 8 Minuten, Lebensende nach 30 Minuten.
 
 ### Ideen für später

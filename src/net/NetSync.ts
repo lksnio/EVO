@@ -2,7 +2,8 @@ import { bus, game } from '../state/GameState';
 import { setServerClock } from '../sim/life';
 import { ANIM, SEND_HZ, cleanName, zoneId, type PosMsg } from './protocol';
 import { RemoteFish } from './RemoteFish';
-import type { NetFish } from './schema';
+import type { NetFish, ZoneState } from './schema';
+import { WorldSync } from './WorldSync';
 import type { NetStatus, Zone, ZoneHandlers } from './NetClient';
 import type { LevelScene } from '../scenes/LevelScene';
 
@@ -72,8 +73,27 @@ export class NetSync {
   private lookKey = '';
   private closed = false;
   private others = -1;
+  /** der Ortswächter, wie zuletzt gemeldet (auch schon, bevor das Betreten ganz fertig ist) */
+  private hostId = '';
+  /** die Tiere und das Fleisch des Ortes – für alle Spieler gleich */
+  readonly world: WorldSync;
 
   constructor(private host: LevelScene) {
+    this.world = new WorldSync(host, () => this.zone);
+    // Im Hintergrund rechnet der Browser kaum noch, und in der Rast steht das Level: Ein Ortswächter gibt dann ab, sonst
+    // stünden die Tiere für alle still
+    const onHide = () => {
+      if (document.hidden && this.world.host) this.zone?.yieldHost();
+    };
+    const onPause = () => {
+      if (this.world.host) this.zone?.yieldHost();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    host.events.on('pause', onPause);
+    host.events.once('shutdown', () => {
+      document.removeEventListener('visibilitychange', onHide);
+      host.events.off('pause', onPause);
+    });
     // bis dieser Ort betreten ist, zeigt das HUD nichts
     netInfo.state = 'offline';
     void this.connect();
@@ -93,6 +113,8 @@ export class NetSync {
       if (this.closed) return zone.leave();
       this.zone = zone;
       this.lookKey = p.view.key;
+      // steht schon fest, wer die Tiere des Ortes rechnet? (sonst gleich, mit dem ersten Stand des Ortes)
+      this.decideRole();
     } catch (e) {
       console.warn('[EVO] Kein Spielserver erreichbar – es geht allein weiter.', e);
       tell('offline', 0);
@@ -104,22 +126,39 @@ export class NetSync {
     return {
       add: (id: string, f: NetFish) => {
         if (this.closed || this.fish.has(id)) return;
-        this.fish.set(id, new RemoteFish(h, f, performance.now()));
+        const r = new RemoteFish(h, f, performance.now());
+        this.fish.set(id, r);
+        this.world.addTarget(id, r);
       },
       remove: (id: string) => {
         this.fish.get(id)?.destroy();
         this.fish.delete(id);
+        this.world.removeTarget(id);
       },
-      patch: (players: Map<string, NetFish>) => {
+      patch: (state: ZoneState) => {
         if (this.closed) return;
         const now = performance.now();
+        const players = state.players;
         for (const [id, f] of players) this.fish.get(id)?.push(f, now);
+        if (!this.world.started) {
+          this.hostId = state.host;
+          this.decideRole();
+        }
+        this.world.patch(state);
         const n = Math.max(0, players.size - 1);
         if (n !== this.others) {
           this.others = n;
           tell('online', n);
         }
       },
+      host: (id: string) => {
+        this.hostId = id;
+        this.decideRole();
+      },
+      hit: (m) => !this.closed && this.world.hit(m),
+      eat: (m) => !this.closed && this.world.eat(m),
+      hurt: (m) => !this.closed && this.world.hurt(m),
+      died: (ids) => !this.closed && this.world.died(ids),
       welcome: (m) => setServerClock(m.now),
       // Der Server kennt die Lage besser (der Fisch war zu schnell): zurück dorthin
       snap: (m) => !this.closed && !h.player.dead && h.player.body.reset(m.x, m.y),
@@ -131,11 +170,18 @@ export class NetSync {
     };
   }
 
+  /** Wer rechnet die Tiere? Erst entscheiden, wenn der Ortswächter bekannt ist (beim Betreten kommt der Stand etwas später). */
+  private decideRole() {
+    if (!this.zone || this.closed || !this.hostId) return;
+    this.world.setHost(this.hostId === this.zone.me);
+  }
+
   update() {
     const now = performance.now();
     const dt = Math.min(0.05, Math.max(0.001, (now - this.lastAt) / 1000));
     this.lastAt = now;
     for (const f of this.fish.values()) f.update(now, dt);
+    if (!this.closed) this.world.update();
     const z = this.zone, p = this.host.player;
     if (!z || this.closed || now < this.sendAt) return;
     this.sendAt = now + 1000 / SEND_HZ;
@@ -160,6 +206,7 @@ export class NetSync {
     this.closed = true;
     this.zone?.leave();
     this.zone = undefined;
+    this.world.close();
     for (const f of this.fish.values()) f.destroy();
     this.fish.clear();
   }

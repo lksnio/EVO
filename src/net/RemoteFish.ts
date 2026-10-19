@@ -59,6 +59,24 @@ export class RemoteFish {
     this.push(f, now);
   }
 
+  /** tot oder gerade ohne Verbindung (für die Tiere kein Ziel) */
+  get dead() {
+    return this.anim === ANIM.dead;
+  }
+
+  get gone() {
+    return this.away;
+  }
+
+  /** schnell unterwegs (Spurt, Stoß) – fällt auf */
+  get fast() {
+    return this.anim === ANIM.dash || this.anim === ANIM.ram || this.speed01 > 0.85;
+  }
+
+  get facingDir() {
+    return this.facing;
+  }
+
   /** Eine neue Meldung vom Server. */
   push(f: NetFish, now: number) {
     const last = this.samples[this.samples.length - 1];

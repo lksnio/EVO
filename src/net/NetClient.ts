@@ -1,6 +1,9 @@
 import { Callbacks, Client, type Room } from '@colyseus/sdk';
 import { ZoneState, type NetFish } from './schema';
-import { ZONE_ROOM, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg } from './protocol';
+import {
+  ZONE_ROOM,
+  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg,
+} from './protocol';
 
 // Die Verbindung zum Spielserver (Colyseus). Dieses Modul wird erst geladen, wenn gespielt wird – wer offline spielt,
 // lädt es nie (siehe net/NetSync.ts).
@@ -10,18 +13,34 @@ export type NetStatus = 'verbunden' | 'unterbrochen' | 'getrennt';
 export interface ZoneHandlers {
   add(id: string, f: NetFish): void;
   remove(id: string): void;
-  /** nach jeder Änderung vom Server (etwa 20 Mal je Sekunde) */
-  patch(players: Map<string, NetFish>): void;
+  /** nach jeder Änderung vom Server (etwa 20 Mal je Sekunde) – mit dem ganzen Zustand des Ortes */
+  patch(state: ZoneState): void;
+  /** ein anderer (oder man selbst) ist jetzt Ortswächter */
+  host(id: string): void;
   welcome(m: WelcomeMsg): void;
   snap(m: SnapMsg): void;
   status(s: NetStatus): void;
+  /** als Ortswächter: ein Spieler hat ein Tier getroffen bzw. vom Fleisch gefressen */
+  hit(m: HitMsg): void;
+  eat(m: EatMsg): void;
+  /** ein Tier des Ortswächters hat dich getroffen */
+  hurt(m: HurtMsg): void;
+  /** diese Tiere sind gestorben */
+  died(ids: number[]): void;
 }
 
 /** Ein betretener Ort: senden, verlassen – und wer man selbst ist. */
 export interface Zone {
   readonly me: string;
+  readonly state: ZoneState;
   pos(m: PosMsg): void;
   look(m: LookMsg): void;
+  fauna(m: FaunaMsg): void;
+  hit(m: HitMsg): void;
+  hurt(m: HurtMsg): void;
+  eat(m: EatMsg): void;
+  /** als Ortswächter abgeben (ein anderer Spieler rechnet weiter) */
+  yieldHost(): void;
   leave(): void;
 }
 
@@ -46,19 +65,33 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
     if (id !== room.sessionId) h.add(id, f);
   });
   cb.onRemove('players', (_f, id) => h.remove(id));
-  room.onStateChange((s) => h.patch(s.players as unknown as Map<string, NetFish>));
+  cb.listen('host', (id) => h.host(id));
+  room.onStateChange((s) => h.patch(s));
   room.onMessage('welcome', (m: WelcomeMsg) => h.welcome(m));
   room.onMessage('snap', (m: SnapMsg) => h.snap(m));
+  room.onMessage('hit', (m: HitMsg) => h.hit(m));
+  room.onMessage('eat', (m: EatMsg) => h.eat(m));
+  room.onMessage('hurt', (m: HurtMsg) => h.hurt(m));
+  room.onMessage('died', (ids: number[]) => h.died(ids));
   room.onDrop(() => h.status('unterbrochen'));
   room.onReconnect(() => h.status('verbunden'));
   room.onLeave(() => {
     if (!left) h.status('getrennt');
   });
   h.status('verbunden');
+  const send = (type: string, m: unknown) => room.connection.isOpen && room.send(type, m);
   return {
     me: room.sessionId,
-    pos: (m) => room.connection.isOpen && room.send('pos', m),
-    look: (m) => room.connection.isOpen && room.send('look', m),
+    get state() {
+      return room.state;
+    },
+    pos: (m) => send('pos', m),
+    look: (m) => send('look', m),
+    fauna: (m) => send('fauna', m),
+    hit: (m) => send('hit', m),
+    hurt: (m) => send('hurt', m),
+    eat: (m) => send('eat', m),
+    yieldHost: () => send('yield', {}),
     leave: () => {
       if (left) return;
       left = true;

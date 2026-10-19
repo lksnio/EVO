@@ -614,6 +614,8 @@ export class Quest {
     const v = h.cameras.main.worldView;
     const x = Math.max(v.right + 200, npc.x + 900);
     const a = new Animal(h, sp, x, npc.y - 10);
+    // gehört zu deinem Auftrag – andere Spieler sehen es nicht
+    a.personal = true;
     a.scripted = true;
     a.dir = -1;
     a.setFlipX(true);
