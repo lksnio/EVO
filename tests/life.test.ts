@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LIFE, SPAWN, WORLD } from '../src/data/life';
-import { cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phases, spawnBlock, stageOf, worldYears } from '../src/sim/life';
+import { broodBase, cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phases, spawnBlock, spawnMinFood, stageOf, worldYears, youngOf } from '../src/sim/life';
 
 describe('Lebenszyklus', () => {
   it('die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch', () => {
@@ -54,6 +54,29 @@ describe('Lebenszyklus', () => {
     expect(spawnBlock({ ...ok, inGrounds: false })).toBe('ort');
     expect(spawnBlock({ ...ok, atGround: false })).toBe('grund');
     expect(spawnBlock({ ...ok, atGround: false, male: true })).toBe('gelege');
+    // ohne genug Nahrung für wenigstens einen Nachkommen geht es nicht
+    expect(spawnBlock({ ...ok, fed: 99, base: 100 })).toBe('nahrung');
+    expect(spawnBlock({ ...ok, fed: 100, base: 100 })).toBeNull();
+  });
+
+  it('Nachkommen aus Nahrung: je Grundwert einer – Schwere brauchen mehr', () => {
+    expect(broodBase(1)).toBe(SPAWN.perYoung);
+    expect(youngOf(250, 100)).toBe(2);
+    expect(youngOf(490, 100)).toBe(4);
+    expect(youngOf(500, 100)).toBe(5);
+    expect(youngOf(99, 100)).toBe(0);
+    expect(youngOf(1e6, 100)).toBe(SPAWN.maxYoung);
+    // ein zehnmal so schweres Tier braucht mehr je Nachkomme – aber nicht zehnmal so viel
+    expect(broodBase(10)).toBeGreaterThan(2 * broodBase(1));
+    expect(broodBase(10)).toBeLessThan(10 * broodBase(1));
+  });
+
+  it('der Magen muss zum Laichen kaum voll sein – bei schweren Tieren etwas mehr, nie mehr als ein Viertel', () => {
+    expect(spawnMinFood(1)).toBeCloseTo(SPAWN.minFood, 6);
+    expect(spawnMinFood(1)).toBeLessThanOrEqual(0.1);
+    expect(spawnMinFood(4)).toBeGreaterThan(spawnMinFood(1));
+    expect(spawnMinFood(1000)).toBe(SPAWN.minFoodMax);
+    expect(SPAWN.minFoodMax).toBeLessThanOrEqual(0.25);
   });
 
   it('die Weltzeit ist für alle gleich und bleibt im Zeitalter', () => {

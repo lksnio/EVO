@@ -6,7 +6,7 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { INHERIT, LIFE, SPAWN } from '../data/life';
-import { ADULT, lifeK, phases, worldNow, type LifeK } from '../sim/life';
+import { ADULT, broodBase, lifeK, phases, spawnMinFood, worldNow, youngOf, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
 // Spielstand.
@@ -236,9 +236,23 @@ export interface Life {
   lastSpawn: number;
   clutches: Clutch[];
   nextClutch: number;
+  /** in diesem Leben gefressen (Sättigung, wie sie beim Fressen aufsteigt) – daraus werden die Nachkommen (siehe SPAWN) */
+  fed: number;
 }
 
-export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, lastSpawn: -1e9, clutches: [], nextClutch: 1 });
+export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, lastSpawn: -1e9, clutches: [], nextClutch: 1, fed: 0 });
+
+/**
+ * Die Geschwister, die noch im Gelege warten, aus dem das eigene Tier geschlüpft ist: Stirbt es, bevor es selbst gelaicht
+ * hat, schlüpft das nächste – dieselbe Generation, so beschaffen, wie es geschlüpft ist.
+ */
+export interface Siblings {
+  n: number;
+  traits: Traits;
+  place: string;
+  x: number;
+  y: number;
+}
 
 /** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern, ohne Wahl. */
 export interface Heir {
@@ -286,6 +300,8 @@ export interface Run {
   prog: EpochProg;
   /** das Leben des eigenen Tiers */
   life: Life;
+  /** die Geschwister, die noch im Gelege warten (deine übrigen Leben) */
+  siblings?: Siblings;
   /** gefundene Muscheln (jede legt eine Zeile der Steintafel frei) */
   shells: string[];
   /** so viele Zeilen der Tafel hat man schon freigelegt gesehen */
@@ -585,6 +601,8 @@ class GameState {
   private snap: { traits: Traits; aggression: number; infamy: number } | null = null;
   /** Das gerade beendete Leben – damit Anzeigen bis zum Szenenwechsel weiterlaufen können. */
   private ghost: Run | null = null;
+  /** Gewicht des ersten Fischs (Bezug für den Grundwert der Nachkommen) */
+  private g0?: number;
 
   load(slot?: string | null) {
     const s = (slot ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 16);
@@ -607,6 +625,8 @@ class GameState {
           // ältere Spielstände kennen kein Alter: Wer schon unterwegs war, ist ausgewachsen
           r.life ??= newLife(r.history.length + 1, phases(r.history.length + 1).mature);
           r.life.clutches ??= [];
+          // ältere Spielstände zählen die Nahrung nicht: so viel, wie ein Tier bis zu diesem Alter etwa frisst
+          r.life.fed ??= Math.round(r.life.age * 0.4);
           // Leben sind kürzer geworden: Wer schon über die Laichzeit hinaus war, steht wieder an ihrem Anfang
           if (r.life.age > phases(r.life.gen).mature + 30) r.life.age = phases(r.life.gen).mature;
           // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
@@ -930,6 +950,33 @@ class GameState {
 
   // ---------------------------------------------------------------- Leben und Laichen
 
+  /** Gewicht des ausgewachsenen eigenen Tiers im Verhältnis zum ersten Fisch (dem Urfisch an der Wurzel). */
+  weight(): number {
+    this.g0 ??= this.measure('fish', ZERO, ADULT).g;
+    return this.measure(this.r.cls, this.r.traits, ADULT).g / this.g0;
+  }
+
+  /** So viel Nahrung braucht ein Nachkomme des eigenen Tiers (der Grundwert – schwere Tiere brauchen mehr). */
+  get broodBase(): number {
+    return broodBase(this.weight());
+  }
+
+  /** So voll muss der Magen des eigenen Tiers zum Laichen mindestens sein (Anteil). */
+  get spawnMinFood(): number {
+    return spawnMinFood(this.weight());
+  }
+
+  /** Gefressen (Sättigung): Es nährt die Brut. */
+  feed(units: number) {
+    if (units > 0) this.r.life.fed += units;
+  }
+
+  /** So viele Nachkommen hat das eigene Tier, wenn es jetzt stirbt (mit einem befruchteten Gelege wenigstens einen). */
+  get young(): number {
+    const n = youngOf(this.r.life.fed, this.broodBase);
+    return this.heir() ? Math.max(1, n) : n;
+  }
+
   /** Das Leben des eigenen Tiers. */
   get life(): Life {
     return this.r.life;
@@ -1099,16 +1146,42 @@ class GameState {
    */
   succeed(c: Clutch, h: Heir) {
     const run = this.r;
+    // eins schlüpft jetzt, die übrigen warten im Gelege (die Geschwister des alten Geleges sind ihre eigenen Wege gegangen)
+    const n = this.young;
+    run.siblings = n > 1 ? { n: n - 1, traits: full({ ...h.traits }), place: c.place, x: c.x, y: c.y } : undefined;
     run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
     if (run.history.length > 24) run.history.splice(1, 1);
     run.traits = full({ ...h.traits });
     run.sex = h.sex;
     run.seed = h.seed;
+    this.hatchAt(run, run.life.gen + 1, c);
+  }
+
+  /**
+   * Das eigene Tier ist gestorben, bevor es gelaicht hat – aber im Gelege, aus dem es kam, warten noch Geschwister: Das
+   * nächste schlüpft (dieselbe Generation, so beschaffen, wie das Tier geschlüpft war; Geschlecht und Zeichnung neu).
+   * Gibt false zurück, wenn keines mehr wartet.
+   */
+  sibling(): boolean {
+    const run = this.r;
+    const s = run.siblings;
+    if (!s || s.n < 1) return false;
+    s.n -= 1;
+    if (s.n < 1) run.siblings = undefined;
+    run.traits = full({ ...s.traits });
+    run.sex = Math.random() < 0.5 ? 1 : 2;
+    run.seed = Math.floor(Math.random() * 100000);
+    this.hatchAt(run, run.life.gen, s);
+    return true;
+  }
+
+  /** Ein neues Tier schlüpft aus dem Gelege c: Alter, Magen und Spielweise beginnen neu – was die Linie weiß, bleibt. */
+  private hatchAt(run: Run, gen: number, c: { place: string; x: number; y: number }) {
     run.aggression *= 0.5;
     run.infamy *= 0.8;
     run.kin = 0;
     this.newGeneration(run);
-    run.life = newLife(run.life.gen + 1);
+    run.life = newLife(gen);
     const p = run.prog;
     p.place = c.place;
     p.from = undefined;

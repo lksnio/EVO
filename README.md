@@ -34,12 +34,24 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
 - **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 7 + 4 Minuten, Generation 2 schon 10 + 5,
   Generation 4 13 + 6, Generation 8 16 + 7, Generation 16 19 + 8 … Wer viel spielt, verändert sich so immer seltener und hat
   Zeit, sich mit seinem Tier anzufreunden.
-- **Laichen (Taste E – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, satt
-  genug (gut die Hälfte des Magens) und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner eigenen
-  Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
+- **Nachkommen aus Nahrung – sie sind deine Leben:** Alles, was dein Tier in seinem Leben frisst (die Zahlen, die beim
+  Fressen aufsteigen), nährt seine Brut. Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein Nachkomme. Beim
+  ersten Fisch sind es **100** – 250 gefressen ergibt 2 Nachkommen, 490 ergibt 4, 500 ergibt 5 (höchstens 12). Schwerere
+  Tiere haben einen höheren Grundwert (er wächst mit der Wurzel des Gewichts): Sie müssen mehr fressen – und wer dafür nur
+  kleine Fische frisst, dessen Art passt sich auch daran an (Kost, Größe …). Gezählt wird bis zum Tod, auch nach dem Laichen.
+  Stirbt dein Tier nach dem Laichen, schlüpft die nächste Generation, und die **übrigen Nachkommen warten als Geschwister im
+  Gelege**. Stirbt es **vor dem Laichen**, schlüpft eines dieser Geschwister – dieselbe Generation, so beschaffen, wie dein
+  Tier geschlüpft war (was es im Leben dazugelernt hat, ist verloren). Erst wenn kein Geschwister mehr wartet, stirbt die
+  Linie aus. Ein neues Gelege ersetzt die alten Geschwister. Die Steintafel (C) zeigt, wie viel gefressen ist, den
+  Grundwert und wie viele Geschwister warten.
+- **Laichen (Taste E – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, der
+  Magen **nicht leer** (beim ersten Fisch reichen 10 %, schwere Tiere brauchen mehr, höchstens ein Viertel), **genug
+  gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
+  eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
   - Ist Laichzeit, steht es oben im Bild unter der Lebenslinie – zusammen mit dem, was noch fehlt („zurück in den
-    Laichfluss“, „zum schimmernden Laich deiner Art“, „dicht an den Grund“, „erst etwas fressen“ …). Geht es gerade, schimmert
-    die Zeile („Laichzeit · E: Laich befruchten“).
+    Laichfluss“, „zum schimmernden Laich deiner Art“, „dicht an den Grund“, „der Magen ist zu leer“, „zu wenig gefressen für
+    Nachwuchs (60 von 100)“ …). Geht es gerade, schimmert die Zeile und nennt die Nachkommen („Laichzeit · E: Laich
+    befruchten · 3 Nachkommen“); nach dem Laichen erscheint sie wieder, sobald es einer mehr wird.
   - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
     Zur Laichzeit ist befruchtbarer Laich **wärmer gefärbt** (orange statt rosa, mit einem leisen Schimmer) – der in
     Reichweite noch etwas kräftiger. Schwimm hin und drück E. Liegt keiner (mehr) da, kommt ein **Weibchen deiner Art**
@@ -47,7 +59,7 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   - **Als Weibchen** schwimmst du dicht über den Grund (dort schimmert es warm unter dir) und drückst E – dann liegt dein
     **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
     **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm). Liegt vor deinem Maul gerade etwas Fressbares,
-    frisst du mit E wie immer.
+    frisst du mit E wie immer (oben steht dann „hier frisst E – zum Ablegen ein Stück weiter“).
   - Laichen kostet Kraft aus dem Magen (Weibchen mehr als Männchen); danach dauert es anderthalb Minuten, bis es wieder geht.
     Wer mehrmals laicht, hat mehrere Gelege – die **jüngste befruchtete** führt die Linie weiter.
   - Ein **unbefruchtetes eigenes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein
@@ -56,9 +68,10 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
 - **Der Generationswechsel:** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder weil du es in der Rast (Esc)
   mit **„Leben weitergeben“** selbst beendest –, schlüpft aus deinem jüngsten befruchteten Gelege die nächste Generation.
   Ein Bildschirm zeigt das Tier, das starb, daneben den Nachkommen (ausgewachsen und so klein, wie er schlüpft), die
-  deutlichste Veränderung in einem Satz und **deine Spielweise** (ein bis drei Punkte je Richtung). Mit „Schlüpfen“ geht
-  es im Laichfluss weiter – dort, wo das Gelege lag; die Geschwister schwärmen aus. Was die Linie weiß (Orte, Muscheln,
-  Aufträge, deine Gruppe), bleibt; Alter, Magen und Spielweise beginnen neu. Ohne befruchtetes Gelege stirbt die Linie aus.
+  deutlichste Veränderung in einem Satz, **deine Spielweise** (ein bis drei Punkte je Richtung) und wie viele Nachkommen es
+  waren. Mit „Schlüpfen“ geht es im Laichfluss weiter – dort, wo das Gelege lag; die Geschwister schwärmen aus. Was die Linie
+  weiß (Orte, Muscheln, Aufträge, deine Gruppe), bleibt; Alter, Magen, Nahrung und Spielweise beginnen neu. Ohne
+  befruchtetes Gelege schlüpft ein Geschwister („Ein Geschwister schlüpft“) – und ohne Geschwister stirbt die Linie aus.
 - **Keine Wahl, sondern Anpassung:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten mehr zur
   Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte; was im Leben
   Stück für Stück gewachsen ist (Tarnung, Bodenkontakt, Flossen …), setzt sich zum Teil fort; Größe, Robustheit und Kost
@@ -401,7 +414,8 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
   Tier, die **Generation**, das Geschlecht, den **Lebensabschnitt** (als Jungtier: wann es ausgewachsen ist), was zum
-  **Laichen** noch fehlt bzw. ob ein befruchtetes Gelege wartet, und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
+  **Laichen** noch fehlt bzw. ob ein befruchtetes Gelege wartet, was du gefressen hast und wie viele **Nachkommen** und
+  Geschwister es sind, und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
   andere an deinem Tier bleibt verborgen – es zeigt sich nur in dem, was es tut.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
@@ -706,7 +720,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Partner beim Laichen ist immer die KI** (garantiert). Später: echte Spieler mit Vorrang – dafür muss das Laichen
       auf den Server.
 - [ ] **Geschlecht** jeder neuen Generation: zufällig.
-- [ ] **Aussterben:** ohne befruchtetes Gelege Neustart als Urfisch (wie bisher).
+- [ ] **Aussterben:** ohne befruchtetes Gelege und ohne Geschwister im Gelege Neustart als Urfisch (wie bisher).
+- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 100, mit der Wurzel des Gewichts mehr, höchstens 12);
+      gezählt wird die ganze Lebenszeit bis zum Tod. Magen zum Laichen: erster Fisch 10 %, mit dem Gewicht bis 25 %.
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
       Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
@@ -718,6 +734,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 ### Ideen für später
 
 - [ ] Andere Spieler als Partner beim Laichen (heute kommt ein Artgenosse der KI)
+- [ ] Zur Laichzeit auch mit vollem Magen fressen – der Überschuss geht in den Laich (mehr Nachkommen für fleißige Fresser)
 - [ ] Weitere Orte, Tiere und Zeitalter im Fischreich
 - [ ] Gamepad-Steuerung
 - [ ] Echte Zeichnungen/Sprites (z. B. von OpenGameArt oder Kenney) statt gemalter Canvas-Grafik

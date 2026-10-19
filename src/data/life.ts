@@ -42,10 +42,24 @@ export const LIFE = {
 /**
  * Laichen: Gelaicht wird im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund. Weibchen legen ein Gelege,
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.
+ *
+ * Nachkommen aus Nahrung: Was ein Tier in seinem Leben frisst (die Zahlen, die beim Fressen aufsteigen), nährt seine Brut.
+ * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 100, bei schwereren Tieren mehr (mit dem Gewicht, siehe
+ * sim/life.ts, broodBase): 250 gefressen → 2 Nachkommen, 490 → 4, 500 → 5. Die Nachkommen sind deine Leben: Stirbt dein
+ * Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste Generation, vorher ein Geschwister.
  */
 export const SPAWN = {
-  /** so satt muss man mindestens sein (Anteil des Magens) */
-  minFood: 0.5,
+  /** so satt muss man mindestens sein (Anteil des Magens): beim ersten Fisch kaum etwas, schwere Tiere mehr (bis minFoodMax) */
+  minFood: 0.1,
+  minFoodMax: 0.25,
+  /** so stark wächst die Schwelle mit dem Gewicht (Gewicht im Verhältnis zum ersten Fisch, hoch minFoodExp) */
+  minFoodExp: 0.4,
+  /** so viel Nahrung je Nachkomme (beim ersten Fisch) … */
+  perYoung: 100,
+  /** … und so stark wächst das mit dem Gewicht (hoch perYoungExp): Große müssen mehr fressen */
+  perYoungExp: 0.5,
+  /** höchstens so viele Nachkommen in einem Leben */
+  maxYoung: 12,
   /** das kostet ein Gelege (Anteil des Magens): Weibchen bzw. Männchen */
   costFemale: 0.4,
   costMale: 0.2,

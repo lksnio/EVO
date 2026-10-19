@@ -3,7 +3,7 @@ import { DEPTH, TILE } from '../config';
 import { audio } from '../audio/Audio';
 import { SPAWN } from '../data/life';
 import { bus, game, type Clutch, type Sex, type Traits } from '../state/GameState';
-import { isAdult, spawnBlock, worldNow, type SpawnBlock } from '../sim/life';
+import { isAdult, spawnBlock, worldNow, youngOf, type SpawnBlock } from '../sim/life';
 import { clamp } from '../util/math';
 import { CreatureView } from './CreatureView';
 import { Roe } from './Food';
@@ -34,11 +34,13 @@ interface Brood {
 }
 
 const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
+const youngText = (n: number) => `${n} ${n === 1 ? 'Nachkomme' : 'Nachkommen'}`;
 
 /**
- * Laichen im Laichfluss (dem Startort, flussaufwärts der Mündung) – sobald das eigene Tier ausgewachsen ist (Laichzeit) und
- * satt genug (siehe data/life.ts, SPAWN). Gelaicht wird mit derselben Taste wie gefressen (E): Zur Laichzeit frisst man
- * Laich der eigenen Art nicht, man befruchtet ihn – Laich deiner Art ist ohnehin nie Futter.
+ * Laichen im Laichfluss (dem Startort, flussaufwärts der Mündung) – sobald das eigene Tier ausgewachsen ist (Laichzeit), der
+ * Magen nicht zu leer ist und es genug für wenigstens einen Nachkommen gefressen hat (siehe data/life.ts, SPAWN). Wie viele
+ * Nachkommen es werden, bestimmt die Nahrung des ganzen Lebens. Gelaicht wird mit derselben Taste wie gefressen (E): Zur
+ * Laichzeit frisst man Laich der eigenen Art nicht, man befruchtet ihn – Laich deiner Art ist ohnehin nie Futter.
  *   – Männchen befruchten Laich ihrer Art: Im Startgebiet liegt er schon (die Artgenossen laichen dort), sonst kommt ein
  *     Weibchen und legt in deiner Nähe. Zur Laichzeit schimmert befruchtbarer Laich warm – nah genug, schimmert er stärker.
  *   – Weibchen legen ihren Laich dicht am Grund ab; kurz darauf kommt ein Männchen deiner Art und befruchtet ihn.
@@ -63,6 +65,9 @@ export class SpawnCtl {
   private fry: { v: CreatureView; vx: number; vy: number; t: number }[] = [];
   /** was gerade noch fehlt (für die Tafel) */
   block: SpawnBlock | null = 'jung';
+  /** so viel Nahrung braucht ein Nachkomme, so voll muss der Magen sein – je nach Gewicht (gilt das ganze Leben) */
+  readonly base = game.broodBase;
+  readonly minFood = game.spawnMinFood;
 
   constructor(private host: LevelScene) {
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
@@ -109,7 +114,9 @@ export class SpawnCtl {
       v.setDepth(DEPTH.enemies).setFacing(dir);
       this.fry.push({ v, vx: dir * (80 + Math.random() * 90), vy: -15 - Math.random() * 45, t: Math.random() * 0.4 });
     }
-    h.time.delayedCall(1400, () => !h.ended && bus.emit('notice', 'Geschlüpft', `Generation ${game.life.gen} – wachse heran`));
+    const sib = game.run?.siblings?.n ?? 0;
+    const wait = sib ? ` · ${sib === 1 ? 'ein Geschwister wartet' : `${sib} Geschwister warten`} im Gelege` : '';
+    h.time.delayedCall(1400, () => !h.ended && bus.emit('notice', 'Geschlüpft', `Generation ${game.life.gen} – wachse heran${wait}`));
   }
 
   private fryStep(dt: number) {
@@ -171,15 +178,18 @@ export class SpawnCtl {
       }
     }
     const atGround = male ? !!this.target : this.groundY(p.x) - p.y < SPAWN.ground;
-    this.block = spawnBlock({ age: life.age, gen: life.gen, food, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
+    this.block = spawnBlock({ age: life.age, gen: life.gen, food, minFood: this.minFood, fed: life.fed, base: this.base, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
     this.setAble(this.block === null);
     // Laichzeit (ausgewachsen, satt genug, nicht gerade erst gelaicht): zeigen, was sich befruchten lässt bzw. wo es geht
     const time4 = this.block === null || this.block === 'gelege' || this.block === 'grund' || this.block === 'ort';
+    // ein Weibchen vor etwas Fressbarem frisst mit E (act) – dann sagt die Zeile das auch
+    const eats = !male && this.block === null && this.host.foodAhead();
     this.marks(male && time4);
-    this.nestHint(!male && this.block === null);
-    this.tell(male);
+    this.nestHint(!male && this.block === null && !eats);
+    this.tell(male, eats);
     // Ein Weibchen deiner Art laicht, wenn du als Männchen bereit im Laichfluss bist (und kein Laich mehr da ist)
-    const ready = male && isAdult(life.age, life.gen) && this.grounds && food >= SPAWN.minFood && life.age - life.lastSpawn >= SPAWN.cooldown;
+    const ready = male && isAdult(life.age, life.gen) && this.grounds && food >= this.minFood && youngOf(life.fed, this.base) >= 1
+      && life.age - life.lastSpawn >= SPAWN.cooldown;
     if (ready && !this.female && !this.broods.some((b) => b.mother) && time > this.femaleAt) this.callFemale(time);
   }
 
@@ -198,25 +208,31 @@ export class SpawnCtl {
     return true;
   }
 
-  /** Was oben im Bild unter der Lebenslinie steht: dass Laichzeit ist – und was noch fehlt. */
-  private tell(male: boolean) {
+  /**
+   * Was oben im Bild unter der Lebenslinie steht: dass Laichzeit ist, was noch fehlt – und wie viele Nachkommen die Nahrung
+   * gerade hergibt (mit jedem Nachkommen mehr erscheint die Zeile wieder).
+   */
+  private tell(male: boolean, eats = false) {
     const life = game.life;
+    const young = youngText(youngOf(life.fed, this.base));
     let msg = '';
-    if (game.heir()) msg = 'Gelege befruchtet – deine Linie geht weiter';
+    if (game.heir()) msg = `Gelege befruchtet – ${youngText(game.young)}`;
     else if (isAdult(life.age, life.gen)) {
       const b = this.block;
       msg = b === null
-        ? male ? 'Laichzeit · E: Laich befruchten' : 'Laichzeit · E: hier ablegen'
+        ? male ? `Laichzeit · E: Laich befruchten · ${young}`
+        : eats ? 'Laichzeit · hier frisst E – zum Ablegen ein Stück weiter' : `Laichzeit · E: hier ablegen · ${young}`
         : b === 'gelege' ? 'Laichzeit · zum schimmernden Laich deiner Art'
         : b === 'grund' ? 'Laichzeit · dicht an den Grund'
         : b === 'ort' ? 'Laichzeit · zurück in den Laichfluss'
-        : b === 'hunger' ? 'Laichzeit · erst etwas fressen'
+        : b === 'hunger' ? 'Laichzeit · der Magen ist zu leer – erst etwas fressen'
+        : b === 'nahrung' ? `Laichzeit · zu wenig gefressen für Nachwuchs (${Math.floor(life.fed)} von ${this.base})`
         : b === 'pause' ? 'Laichzeit · gleich wieder'
         : '';
     }
     if (msg === this.said) return;
     this.said = msg;
-    bus.emit('spawnTime', msg, this.block === null);
+    bus.emit('spawnTime', msg, this.block === null && !eats);
   }
 
   /** Befruchtbarer Laich schimmert warm, solange Laichzeit ist – der in Reichweite stärker. */
@@ -301,7 +317,7 @@ export class SpawnCtl {
     if (!b.clutch || b.clutch.fert) return;
     game.fertilize(b.clutch.id, genes ?? game.kinTraits(this.kinIndex(1)));
     this.miltFx(b);
-    bus.emit('notice', 'Gelege befruchtet', 'Deine Linie geht weiter.');
+    bus.emit('notice', 'Gelege befruchtet', `${youngText(game.young)} – deine Linie geht weiter.`);
   }
 
   // ---------------------------------------------------------------- Männchen
@@ -350,7 +366,7 @@ export class SpawnCtl {
     b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner: b.mother });
     b.mother = undefined;
     this.miltFx(b);
-    bus.emit('notice', 'Gelege befruchtet', 'Deine Linie geht weiter.');
+    bus.emit('notice', 'Gelege befruchtet', `${youngText(game.young)} – deine Linie geht weiter.`);
   }
 
   // ---------------------------------------------------------------- Gelege

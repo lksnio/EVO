@@ -54,12 +54,13 @@ export const diesOfAge = (age: number, gen = 1) => age >= phases(gen).span;
 
 // ---------------------------------------------------------------- Laichen
 
-export type SpawnBlock = 'jung' | 'hunger' | 'pause' | 'ort' | 'grund' | 'gelege';
+export type SpawnBlock = 'jung' | 'hunger' | 'nahrung' | 'pause' | 'ort' | 'grund' | 'gelege';
 
 /** Was noch fehlt, um zu laichen (in Worten, für die Tafel). */
 export const SPAWN_BLOCK: Record<SpawnBlock, string> = {
   jung: 'noch nicht ausgewachsen',
-  hunger: 'zu hungrig',
+  hunger: 'der Magen ist zu leer',
+  nahrung: 'zu wenig gefressen für Nachwuchs',
   pause: 'gerade erst gelaicht',
   ort: 'nur im Laichfluss',
   grund: 'dicht am Grund',
@@ -67,13 +68,35 @@ export const SPAWN_BLOCK: Record<SpawnBlock, string> = {
 };
 
 /**
+ * So viel Nahrung braucht ein Nachkomme – beim ersten Fisch SPAWN.perYoung, schwerere Tiere brauchen mehr.
+ * weight: Gewicht des ausgewachsenen Tiers im Verhältnis zum ersten Fisch.
+ */
+export const broodBase = (weight = 1) => Math.round(SPAWN.perYoung * Math.pow(Math.max(0.1, weight), SPAWN.perYoungExp));
+
+/** So voll muss der Magen zum Laichen mindestens sein (Anteil): beim ersten Fisch kaum, bei schweren Tieren mehr. */
+export const spawnMinFood = (weight = 1) => clamp(SPAWN.minFood * Math.pow(Math.max(0.1, weight), SPAWN.minFoodExp), SPAWN.minFood, SPAWN.minFoodMax);
+
+/** So viele Nachkommen bringt die Nahrung eines Lebens (fed) bei diesem Grundwert (base). */
+export const youngOf = (fed: number, base: number) => clamp(Math.floor(Math.max(0, fed) / Math.max(1, base)), 0, SPAWN.maxYoung);
+
+/** Für die Tafel: was gefressen wurde, was ein Nachkomme braucht, wie viele es werden – und wer im Gelege noch wartet. */
+export function broodText(fed: number, base: number, siblings = 0) {
+  const n = youngOf(fed, base);
+  const wait = siblings ? ` · ${siblings} Geschwister im Gelege` : '';
+  return `${Math.floor(fed)} gefressen · je ${base} ein Nachkomme → ${n}${wait}`;
+}
+
+/**
  * Kann dieses Tier jetzt laichen? Gibt den ersten Hinderungsgrund zurück (oder null). Wo gelaicht werden darf
  * (im Laichfluss) und ob man am rechten Fleck ist – Weibchen dicht am Grund, Männchen an einem frischen Gelege –,
- * entscheidet der Aufrufer (atGround).
+ * entscheidet der Aufrufer (atGround). Ohne genug Nahrung für wenigstens einen Nachkommen (fed, base) geht es nicht.
  */
-export function spawnBlock(o: { age: number; gen?: number; food: number; lastSpawn: number; inGrounds: boolean; atGround: boolean; male?: boolean }): SpawnBlock | null {
+export function spawnBlock(o: {
+  age: number; gen?: number; food: number; minFood?: number; fed?: number; base?: number; lastSpawn: number; inGrounds: boolean; atGround: boolean; male?: boolean;
+}): SpawnBlock | null {
   if (!isAdult(o.age, o.gen)) return 'jung';
-  if (o.food < SPAWN.minFood) return 'hunger';
+  if (o.food < (o.minFood ?? SPAWN.minFood)) return 'hunger';
+  if (o.fed !== undefined && o.base !== undefined && youngOf(o.fed, o.base) < 1) return 'nahrung';
   if (o.age - o.lastSpawn < SPAWN.cooldown) return 'pause';
   if (!o.inGrounds) return 'ort';
   if (!o.atGround) return o.male ? 'gelege' : 'grund';

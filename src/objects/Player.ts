@@ -448,7 +448,9 @@ export class Player {
       audio.sfx('refuse');
       return false;
     }
-    // Fleisch und Pflanzen machen satt – heilen tun nur Ruhe und besondere Heilkräuter
+    // Fleisch und Pflanzen machen satt – heilen tun nur Ruhe und besondere Heilkräuter. Was in den Magen geht, nährt
+    // auch die Brut (daraus werden die Nachkommen)
+    game.feed(Math.min(nutrition, this.maxSat - this.satiety));
     this.satiety = Math.min(this.maxSat, this.satiety + nutrition);
     this.view.chew();
     audio.sfx(kind === 'meat' ? 'eatMeat' : 'eatPlant');

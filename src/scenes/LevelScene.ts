@@ -6,7 +6,7 @@ import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { LIFE, WORLD } from '../data/life';
-import { cyclePhase, diesOfAge, lifeK, phases, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { broodText, cyclePhase, diesOfAge, lifeK, phases, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
@@ -66,6 +66,11 @@ export interface SuccessionData {
   line?: PlateId;
   /** Weltzeit (Jahre vor heute) */
   years: number;
+  /** so viele Nachkommen hatte das Tier – und so viele Geschwister warten danach noch im Gelege */
+  young: number;
+  siblings: number;
+  /** kein Generationswechsel: Das Tier starb vor dem Laichen, ein Geschwister aus seinem Gelege schlüpft */
+  sibling?: boolean;
 }
 
 /** Geröll vor einer Höhle im Level: Bild, Risse, Hitbox – und wann es zuletzt getroffen wurde. */
@@ -2094,7 +2099,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const z = this.cameras.main.zoom;
       this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.run?.siblings?.n ?? 0}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
           `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
@@ -2802,13 +2807,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.cine && !this.quest?.zooming && !this.hunt?.zooming) this.cameras.main.setZoom(this.camZoom);
     if (!this.oldWarned && age > phases(gen).span - 60) {
       this.oldWarned = true;
-      bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir() ? 'Deine Nachkommen warten im Laichfluss' : 'Noch kein befruchtetes Gelege');
+      const sib = game.run?.siblings?.n ?? 0;
+      bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir()
+        ? `${game.young === 1 ? 'Dein Nachkomme wartet' : `Deine ${game.young} Nachkommen warten`} im Laichfluss`
+        : sib ? 'Noch kein befruchtetes Gelege – nur deine Geschwister warten' : 'Noch kein befruchtetes Gelege');
     }
     if (diesOfAge(age, gen)) this.player.expire('Altersschwäche');
   }
 
-  /** Was gerade über das Leben zu sagen ist (Steintafel): Lebensabschnitt, Laichen, Gelege. */
-  lifeStatus(): { stage: string; spawn: string } {
+  /** Was gerade über das Leben zu sagen ist (Steintafel): Lebensabschnitt, Laichen, Gelege, Nachkommen. */
+  lifeStatus(): { stage: string; spawn: string; brood: string } {
     const life = game.life;
     const st = stageOf(life.age, life.gen);
     const P = phases(life.gen);
@@ -2826,7 +2834,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         : block === null
           ? 'Jetzt laichen: E'
           : `Laichen: ${SPAWN_BLOCK[block]}`;
-    return { stage, spawn };
+    return { stage, spawn, brood: broodText(life.fed, game.broodBase, game.run?.siblings?.n) };
   }
 
   /** Ein Artgenosse (kein Mitglied deiner Gruppe) – z. B. ein Partner beim Laichen. */
@@ -2852,11 +2860,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   spawnAct() {
     const sp = this.spawning;
     if (!sp || this.ended) return false;
-    const r = this.player.biteRect();
     // ein Weibchen, das gerade vor etwas Fressbarem ist, frisst lieber
-    const food = this.plants.some((pl) => pl.units > 0 && overlaps(r, pl.rect)) || this.meats.some((m) => !m.gone && overlaps(r, m.rect))
+    return sp.act(this.foodAhead());
+  }
+
+  /** Liegt gerade etwas Fressbares (oder ein Tier) vor dem Maul? */
+  foodAhead() {
+    const r = this.player.biteRect();
+    return this.plants.some((pl) => pl.units > 0 && overlaps(r, pl.rect)) || this.meats.some((m) => !m.gone && overlaps(r, m.rect))
       || this.animals.some((a) => !a.dead && !a.kin && overlaps(r, a.hitRect()));
-    return sp.act(food);
   }
 
   /** Ein kurzes Funkeln. */
@@ -2866,14 +2878,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /**
    * Das eigene Tier ist gestorben – nach dem Laichen ist das kein Ende: Aus dem jüngsten befruchteten Gelege schlüpft die
-   * nächste Generation. Sie ist an die Spielweise angepasst (keine Wahl) und muss erst heranwachsen.
+   * nächste Generation. Sie ist an die Spielweise angepasst (keine Wahl) und muss erst heranwachsen. Vor dem Laichen
+   * schlüpft ein Geschwister aus dem eigenen Gelege, solange dort noch eines wartet.
    */
   private succession(cause: string, wait: number) {
     if (this.ended) return;
     // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
     this.spawning?.settle();
     const heir = game.heir();
-    if (!heir) return this.endLine(cause, wait);
+    if (!heir) return game.run?.siblings?.n ? this.nextSibling(cause, wait) : this.endLine(cause, wait);
     this.ended = true;
     const run = game.run!;
     this.train.hurt += this.player.takeEndured();
@@ -2892,8 +2905,41 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       fit: h.fit,
       line: h.line,
       years: worldYears(this.ep.from, this.ep.to),
+      young: game.young,
+      siblings: 0,
     };
     game.succeed(heir, h);
+    data.siblings = game.run?.siblings?.n ?? 0;
+    audio.music(null);
+    this.time.delayedCall(wait, () => {
+      this.scene.stop('Hud');
+      fadeTo(this, 'Generation', data, 1200);
+    });
+  }
+
+  /** Gestorben, bevor es gelaicht hat: Das nächste Geschwister aus dem Gelege schlüpft – dieselbe Generation. */
+  private nextSibling(cause: string, wait: number) {
+    this.ended = true;
+    const run = game.run!;
+    this.swarm?.storeAll();
+    const parent = { ...this.player.morph(), belly: 1, fierce: 0 };
+    const gen = game.life.gen;
+    game.sibling();
+    const look = { traits: run.traits, seed: run.seed, sex: run.sex, hue: run.hue, fierce: 0 };
+    const data: SuccessionData = {
+      epoch: this.epochIdx,
+      cause,
+      gen,
+      parent,
+      child: game.morph(look),
+      hatchling: game.morph({ ...look, life: lifeK(0) }),
+      sex: run.sex,
+      fit: { st: 0, bs: 0, vf: 0, sw: 0 },
+      years: worldYears(this.ep.from, this.ep.to),
+      young: 0,
+      siblings: run.siblings?.n ?? 0,
+      sibling: true,
+    };
     audio.music(null);
     this.time.delayedCall(wait, () => {
       this.scene.stop('Hud');

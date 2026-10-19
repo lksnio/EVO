@@ -42,6 +42,61 @@ describe('Generationswechsel', () => {
     expect(game.life.clutches[0].called).toBe(true);
   });
 
+  it('die Nahrung eines Lebens wird zu Nachkommen – sie sind die übrigen Leben (Geschwister im Gelege)', () => {
+    // der erste Fisch: je 100 Gefressenem ein Nachkomme
+    expect(game.broodBase).toBe(SPAWN.perYoung);
+    expect(game.spawnMinFood).toBeCloseTo(SPAWN.minFood, 6);
+    game.feed(430);
+    expect(game.young).toBe(4);
+    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'father' });
+    const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
+    game.succeed(c, h);
+    expect(game.life.gen).toBe(2);
+    expect(game.life.fed).toBe(0);
+    // eins ist geschlüpft, drei warten
+    expect(game.run?.siblings?.n).toBe(3);
+    // stirbt es vor dem Laichen, schlüpft ein Geschwister: dieselbe Generation, so wie es geschlüpft ist
+    game.grow('stealth', 0.5);
+    game.ageBy(200);
+    game.feed(80);
+    expect(game.sibling()).toBe(true);
+    expect(game.life.gen).toBe(2);
+    expect(game.life.age).toBe(0);
+    expect(game.life.fed).toBe(0);
+    expect(game.traits.stealth).toBe(h.traits.stealth);
+    expect(game.prog.at).toEqual({ x: 500, y: 800 });
+    expect(game.run?.history.length).toBe(1);
+    expect(game.sibling()).toBe(true);
+    expect(game.sibling()).toBe(true);
+    expect(game.run?.siblings).toBeUndefined();
+    expect(game.sibling()).toBe(false);
+  });
+
+  it('mit einem befruchteten Gelege gibt es wenigstens einen Nachkommen; ein neues Gelege ersetzt die alten Geschwister', () => {
+    game.feed(320);
+    const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'mother' });
+    game.succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.run?.siblings?.n).toBe(2);
+    // (ältere Spielstände): kaum Nahrung, aber befruchtet – einer schlüpft, keiner wartet
+    game.feed(20);
+    expect(game.young).toBe(0);
+    const d = game.addClutch({ place: 'lagune', x: 700, y: 800, at: Date.now(), fert: true, role: 'mother' });
+    expect(game.young).toBe(1);
+    game.succeed(d, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.life.gen).toBe(3);
+    expect(game.run?.siblings).toBeUndefined();
+  });
+
+  it('schwerere Tiere brauchen mehr Nahrung je Nachkomme und einen volleren Magen zum Laichen', () => {
+    const base = game.broodBase, food = game.spawnMinFood;
+    game.traits.growth = 1;
+    game.traits.girth = 0.6;
+    expect(game.weight()).toBeGreaterThan(3);
+    expect(game.broodBase).toBeGreaterThan(base * 1.5);
+    expect(game.spawnMinFood).toBeGreaterThan(food);
+    expect(game.spawnMinFood).toBeLessThanOrEqual(SPAWN.minFoodMax);
+  });
+
   it('ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation', () => {
     game.prog.boss = 1;
     const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });

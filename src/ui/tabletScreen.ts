@@ -14,7 +14,7 @@ export interface TabletScreenData {
   morph: Morph;
   placeName: string;
   /** Lebensabschnitt und was es mit dem Laichen auf sich hat (zwei kurze Zeilen) */
-  life?: { stage: string; spawn: string };
+  life?: { stage: string; spawn: string; brood: string };
   kin: number;
   /** so viele zählt deine Gruppe (game.swarm) – sie steht dann statt der Artgenossen hier */
   group?: number;
@@ -63,8 +63,12 @@ export class TabletScreen {
     this.portrait = new CreatureView(scene, cx, 220, { ...d.morph, belly: 1 }, 1.7);
     this.portrait.setFacing(1);
     c.add(this.portrait);
-    if (run) c.add(text(scene, cx, 312, `Generation ${game.life.gen} · ${run.sex === 1 ? 'Männchen' : 'Weibchen'}${d.life ? ` · ${d.life.stage}` : ''}`, 17, UI.boneDim).setOrigin(0.5));
-    if (d.life) c.add(text(scene, cx, 340, d.life.spawn, 16, UI.ochre).setOrigin(0.5));
+    if (run) c.add(text(scene, cx, 308, `Generation ${game.life.gen} · ${run.sex === 1 ? 'Männchen' : 'Weibchen'}${d.life ? ` · ${d.life.stage}` : ''}`, 17, UI.boneDim).setOrigin(0.5));
+    if (d.life) {
+      c.add(text(scene, cx, 332, d.life.spawn, 16, UI.ochre).setOrigin(0.5));
+      // Nachkommen: was gefressen wurde, wird zur Brut
+      c.add(text(scene, cx, 355, d.life.brood, 15, UI.boneDim).setOrigin(0.5));
+    }
 
     const line = (y: number) => {
       const g = scene.add.graphics();

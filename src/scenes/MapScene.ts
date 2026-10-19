@@ -6,7 +6,7 @@ import { PALEO } from '../data/paleo';
 import { placesOf, type PlaceDef } from '../data/world';
 import { STAT_COUNT } from '../data/tablet';
 import { game } from '../state/GameState';
-import { STAGE_NAME, stageOf, worldYears } from '../sim/life';
+import { broodText, STAGE_NAME, stageOf, worldYears } from '../sim/life';
 import { MAP_BOX, mapPos } from '../art/mapArt';
 import { FogMap, mapFrame, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
@@ -421,7 +421,11 @@ export class MapScene extends Phaser.Scene {
         ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat, life: game.lifeK },
         morph: game.morph(),
         placeName: this.cur.name,
-        life: { stage: STAGE_NAME[stageOf(game.life.age, game.life.gen)], spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss' },
+        life: {
+          stage: STAGE_NAME[stageOf(game.life.age, game.life.gen)],
+          spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss',
+          brood: broodText(game.life.fed, game.broodBase, game.run?.siblings?.n),
+        },
         kin: prog.kin ?? game.run?.kin ?? 0,
       },
       () => this.toggleTablet(),

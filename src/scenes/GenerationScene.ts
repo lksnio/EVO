@@ -33,7 +33,8 @@ const LINES = [
 /**
  * Der Generationswechsel: Das eigene Tier ist gestorben (oder hat sein Leben weitergegeben) – aus seinem befruchteten Gelege
  * schlüpft die nächste Generation. Es gibt keine Wahl: Die Nachkommen sind an die Spielweise angepasst. Links das Tier, das
- * starb, rechts sein Nachkomme (ausgewachsen, daneben klein, wie er schlüpft), darunter, was sich verändert hat.
+ * starb, rechts sein Nachkomme (ausgewachsen, daneben klein, wie er schlüpft), darunter, was sich verändert hat – und wie
+ * viele Nachkommen es hatte. Starb es vor dem Laichen, schlüpft stattdessen ein Geschwister (dieselbe Generation).
  */
 export class GenerationScene extends Phaser.Scene {
   private d!: SuccessionData;
@@ -66,23 +67,30 @@ export class GenerationScene extends Phaser.Scene {
     });
 
     const handed = d.cause.startsWith('Lebensende');
-    const head = title(this, W / 2, 62, 'Eine neue Generation', 42).setOrigin(0.5);
+    const sib = !!d.sibling;
+    const head = title(this, W / 2, 62, sib ? 'Ein Geschwister schlüpft' : 'Eine neue Generation', 42).setOrigin(0.5);
     const sub = text(this, W / 2, 110, handed ? 'Dein Fisch hat sein Leben an die Nachkommen weitergegeben.' : `Dein Fisch ist gestorben – ${d.cause}.`, 21, UI.boneDim).setOrigin(0.5);
     const when = text(this, W / 2, 140, `${ep.name} · ${yearsAgo(d.years, 1e3)}`, 17, UI.boneDim).setOrigin(0.5);
     this.fadeInAll([head, sub, when], 0);
 
     const gy = 400;
-    const changed = morphKey(d.parent) !== morphKey(d.child);
+    const changed = !sib && morphKey(d.parent) !== morphKey(d.child);
     const [left, lb] = this.creature(d.parent, W * 0.27, gy, 2);
     const [right, rb] = this.creature(d.child, W * 0.7, gy, 2);
     // so klein schlüpft er
     const [baby, bb] = this.creature(d.hatchling, W * 0.7 + 190, gy + 18, 2);
     const lt = text(this, W * 0.27, gy + 42, `Generation ${d.gen}`, 21, UI.boneDim).setOrigin(0.5);
-    const rt = text(this, W * 0.7, gy + 42, `Generation ${d.gen + 1} · ${d.sex === 1 ? 'Männchen' : 'Weibchen'}`, 21, UI.bone).setOrigin(0.5);
+    const rt = text(this, W * 0.7, gy + 42, `Generation ${sib ? d.gen : d.gen + 1} · ${d.sex === 1 ? 'Männchen' : 'Weibchen'}`, 21, UI.bone).setOrigin(0.5);
+    // wie viele Nachkommen es waren – und wer noch im Gelege wartet (die übrigen Leben)
+    const waiting = d.siblings === 1 ? 'ein Geschwister wartet' : `${d.siblings} Geschwister warten`;
+    const young = `${d.young} ${d.young === 1 ? 'Nachkomme' : 'Nachkommen'}`;
+    const yt = text(this, W * 0.7, gy + 70, sib
+      ? d.siblings ? `Im Gelege: ${waiting} noch` : 'Das letzte Ei des Geleges'
+      : `${young}${d.siblings ? ` · ${waiting} im Gelege` : ''}`, 16, UI.boneDim).setOrigin(0.5);
     const bt = text(this, W * 0.7 + 190, gy + 42, 'schlüpft', 16, UI.boneDim).setOrigin(0.5);
     const arrow = title(this, W * 0.485, gy - 60, '›', 64, UI.ochre).setOrigin(0.5);
     this.fadeInAll([left, lb, lt], 500, 0.75);
-    this.fadeInAll([right, rb, rt], 1400);
+    this.fadeInAll([right, rb, rt, yt], 1400);
     this.fadeInAll([baby, bb, bt], 1900, 0.9);
     this.fadeInAll([arrow], 1100, 0.8, 600);
     const glow = this.add.image(W * 0.7, gy - 70, 'glow').setScale(3.6).setTint(0xe6d0a0).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
@@ -90,12 +98,14 @@ export class GenerationScene extends Phaser.Scene {
     this.tweens.add({ targets: arrow, x: W * 0.485 + 10, yoyo: true, repeat: -1, duration: 900, delay: 1800, ease: 'Sine.inOut' });
     if (changed) this.time.delayedCall(1400, () => audio.sfx('evolve'));
 
-    // was sich verändert hat: die deutlichste Richtung – und wie die Spielweise dazu beitrug
-    const line = d.line ? PLATE_TEXT[d.line] : LINES[d.gen % LINES.length];
+    // was sich verändert hat: die deutlichste Richtung – und wie die Spielweise dazu beitrug (ein Geschwister ist, wie du
+    // geschlüpft bist: Es hat nichts geerbt, was du erst gelebt hast)
+    const line = sib
+      ? 'Es schlüpft, wie du geschlüpft bist. Wachse heran und laiche – sonst bleibt nur, was im Gelege wartet.'
+      : d.line ? PLATE_TEXT[d.line] : LINES[d.gen % LINES.length];
     const l1 = text(this, W / 2, 504, line, 21, UI.bone, { fontStyle: 'italic', align: 'center', wordWrap: { width: 980 } }).setOrigin(0.5);
     this.fadeInAll([l1], 2300);
-    const style = this.styleRow(560);
-    this.fadeInAll(style, 2700);
+    if (!sib) this.fadeInAll(this.styleRow(560), 2700);
 
     this.time.delayedCall(2600, () => {
       const b = new Button(this, W / 2, H - 46, 'Schlüpfen', { w: 260, h: 52, icon: 'ic_play', color: UI.ochreN, onClick: () => this.next() });
