@@ -18,10 +18,12 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
-**Das Titelbild** ist selbst ein Stück lebendiges Urmeer: Licht fällt von oben, Seelilien und Algen wiegen sich,
-Trilobiten kriechen über den Sand, Schwärme ziehen vorbei, in der Tiefe gleitet ab und zu ein Riesenkopffüßer – und
-mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generation). Links stehen Titel und Menü
-(Pfeiltasten und Eingabe oder die Maus), unten die Weltzeit, die für alle gleich weiterläuft.
+**Das Titelbild** zeigt eine Höhle am Grund des Urmeers: Rechts liegt das **versteinerte Skelett eines Urfisches** im
+Sand, nach links läuft das Bild weich ins Dunkel aus – dort stehen Titel und Menü (Pfeiltasten und Eingabe oder die Maus).
+Von oben fällt ein **Lichtstrahl** herein und malt ein Lichtnetz auf den Grund, Schwebeteilchen treiben, aus einer Spalte
+steigen Blasen, vorn wiegen sich Algen, in der Ferne zieht ab und zu ein Schwarm vorbei – und **im Licht über dem Skelett
+schwimmt dein eigenes Tier** (unten rechts sein Name und seine Generation). Ganz langsam kommt die Kamera näher und weicht
+wieder zurück. Unten links steht die Weltzeit, die für alle gleich weiterläuft (das Bild: `src/assets/title/fossil.webp`).
 
 > Inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne werden im Browser erzeugt –
 > es werden keine Original-Inhalte verwendet.
@@ -45,16 +47,18 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
   Zeit, sich mit seinem Tier anzufreunden.
 - **Hunger gibt es nicht.** Man muss nicht fressen, um zu überleben, ist nie „satt“ und muss nirgends warten – Fressen nährt
   nur die **Brut**. Alles Gefressene (die kleinen Zahlen, die beim Fressen kurz aufsteigen) sammelt sich als **Nahrung** für
-  den Nachwuchs: Ein kleiner Beutefisch, den man mit zwei Bissen erlegt, gibt etwa 5, ein Conodont um 13, Orthoceras um 23,
-  ein Riese weit über hundert, ein Pflanzenbissen 1. Je stärker und größer die Beute, desto mehr (`meatOf` in
-  `src/state/GameState.ts`) – bei großen Tieren aber nicht ganz im selben Maß.
+  den Nachwuchs. **Nahrung kommt in Brocken: klein (1) oder groß (5)** – jeder Brocken wird mit **einem Bissen ganz**
+  gefressen, ebenso eine ganze Pflanze (1). Ein kleiner Beutefisch gibt einen kleinen Brocken, ein Conodont um 3 kleine,
+  Orthoceras einen großen, ein Seeskorpion um 16, ein Riese wie Cameroceras um 43 (8 große und 3 kleine Brocken). Je
+  stärker und größer die Beute, desto mehr (`meatOf` in `src/state/GameState.ts`: ein Zehntel ihrer Lebenskraft, gerundet,
+  wenigstens 1).
 - **Nachkommen aus Nahrung – sie sind deine Leben:** Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein
-  Nachkomme. Beim ersten Fisch sind es **100**. **Beim Laichen** wird aus der gesammelten Nahrung Nachwuchs – je 100 einer,
-  der Rest bleibt für das nächste Mal. **Mehrmals laichen zählt zusammen:** 250 gefressen und gelaicht ergibt 2 Nachkommen
-  (50 bleiben übrig); wer später noch 50 frisst und wieder laicht, hat 3 – höchstens 12 in einem Leben. **Weiter entwickelte
+  Nachkomme. Beim ersten Fisch sind es **20**. **Beim Laichen** wird aus der gesammelten Nahrung Nachwuchs – je 20 einer,
+  der Rest bleibt für das nächste Mal. **Mehrmals laichen zählt zusammen:** 50 gefressen und gelaicht ergibt 2 Nachkommen
+  (10 bleiben übrig); wer später noch 10 frisst und wieder laicht, hat 3 – höchstens 12 in einem Leben. **Weiter entwickelte
   Nachfahren brauchen etwas mehr:** Jedes Prozent, um das dein ausgewachsenes Tier besser ist als der erste Fisch (Biss, Stoß,
   Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 2 % größer. Ein um 25 %
-  stärkerer Biss heißt also 150 je Nachkomme, dazu 10 % schneller 170; die zweite Generation braucht meist 120–160.
+  stärkerer Biss heißt also 30 je Nachkomme, dazu 10 % schneller 34; die zweite Generation braucht meist 24–30.
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
   Stirbt dein Tier nach dem Laichen, schlüpft die nächste Generation, und die **übrigen Nachkommen warten als Geschwister im
   Gelege**. Stirbt es **vor dem Laichen**, schlüpft eines dieser Geschwister – dieselbe Generation, so beschaffen, wie dein
@@ -140,7 +144,7 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
     heran; je größer und stärker man wird, desto früher und weiter fliehen sie. Die Flucht geht **nie schnurgerade**,
     sondern mit Haken – mal hoch, mal runter, mal ein Schlenker –, Hauptsache weg. Wer lange ruhig in der Nähe bleibt
     (nicht sprinten, nicht kämpfen), kommt etwas näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
-    zu Beginn sind kleine Fische mit zwei Bissen erledigt. Oder man **reizt einen großen Räuber**
+    die kleinsten Fische sind mit zwei Bissen erledigt, kleine brauchen wenigstens drei. Oder man **reizt einen großen Räuber**
     (beißen, stoßen, frech nah heran) und schwimmt davon: Er verfolgt einen und reißt unterwegs alles,
     was ihm vor das Maul kommt – bis man sich versteckt. Was er liegen lässt, kann man fressen. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
     man anfangs nur meiden; später gibt es vier Wege: ein **starkes Gebiss**, schnelle **Stöße und
@@ -241,25 +245,28 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
     (ein leiser Schimmer zeigt es; das Tier selbst bleibt, wie es ist). Die Farbe gibt es **nur einmal pro Spieldurchlauf** –
     wer einmal gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht in der Übersicht (C). Daneben gibt es einige
     niedrige **Felsspalten** zum Verstecken für Schlanke.
-  - **Neue Orte schaltest du frei, indem du hinausschwimmst:** Nach **links und rechts gibt es keine Wand** – die Grenze
-    eines Ortes sieht man nicht, es ist ein Stück Meer wie jedes andere. Wer über den Rand hinausschwimmt, kommt im
-    **Nachbarort** an (auf der Karte erscheint er zum ersten Mal), am gegenüberliegenden Rand und **auf derselben Wassertiefe**.
+  - **Neue Orte entdeckst du, indem du hinausschwimmst:** Nach **links und rechts gibt es keine Wand** – die Grenze
+    eines Ortes sieht man nicht, es ist ein Stück Meer wie jedes andere. Wer über den Rand hinausschwimmt, landet auf der
+    **Karte**: Der Weg in den **Nachbarort** zeichnet sich ab, und ist der Ort neu, **erscheint er dort zum ersten Mal**.
     Gibt es auf der Seite mehrere Nachbarn, entscheidet die Tiefe: oben im Wasser der nördlichere, unten der südlichere.
-    Dazu liegen **im Boden** (ein Schacht nach unten) und **oben im Licht** **Durchgänge** – man muss sie erst
-    finden. Schwimmst du hinaus, landest du auf der **Karte**, und der Ort, zu dem du schwimmst,
-    **erscheint dort zum ersten Mal**. Durch einen Durchgang kommst du am Gegenstück im neuen Ort heraus. Jeder Weg kostet etwas
-    Zeit. Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer dunkler. Auch Tiere, die den Rand
-    erreichen, schwimmen einfach weiter hinaus.
+    Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden hinein und kommt am gegenüberliegenden Rand an, **auf derselben
+    Wassertiefe**. Man kann aber auch **selbst wählen, wohin** (Pfeiltasten oder antippen, Eingabe zum Losschwimmen): jeden
+    bekannten Ort, zu dem bekannte Wege führen – auch zurück; dann schwimmt das Tier die Wege auf der Karte entlang.
+    **Wege entstehen durch Durchschwimmen:** Jeder Übergang über einen Rand verbindet die beiden Orte auf der Karte. Jedes
+    Wegstück kostet etwas Lebenszeit (7 Sekunden). Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer
+    dunkler. Auch Tiere, die den Rand erreichen, schwimmen einfach weiter hinaus.
   - **Die Karte ist die Urzeit-Erde:** Jedes Zeitalter hat seine eigene Weltkarte nach der **echten Lage der Kontinente** –
     Ordovizium: Gondwana im Süden, Laurentia, Baltica und Sibiria; Silur und Devon: Laurussia (Laurentia + Baltica),
     Gondwana, Sibiria, dazu Iapetus-, Rheischer Ozean, Paläotethys und Panthalassa ringsum (**Pangäa** gibt es erst viel
-    später – im Perm). Die **Orte sind Punkte im Wasser**. Da du ein Fisch bist, bleibt das **meiste unbesucht**: Die Karte
+    später – im Perm). Beschriftet ist vom Land nur das Hauptland **Gondwana** (`MAP_LABELS` in `src/art/paleoArt.ts`),
+    dazu leise die Meere. Die **Orte sind schlichte, dicke Punkte im Wasser** mit ihrem Namen – ohne Zeichen. Orte und Wege,
+    die man noch nicht kennt, sind gar nicht zu sehen. Da du ein Fisch bist, bleibt das **meiste unbesucht**: Die Karte
     ist dunkel, nur um bekannte Orte und entlang der geschwommenen Wege (Blasenspuren) wird sie hell – das Land bleibt Nebel.
     Das Tier **schwimmt auf der Karte um das Land herum** (Wegsuche im Wasser, nie über Land), neue Orte decken sich mit
     einem Aufhellen entlang des Weges auf. Die Umrisse sind **gezeichnet, nicht vermessen** – vereinfachte Näherungen.
     Die Karte ist **weit herausgezoomt**: Die zehn Orte liegen nur in der Mitte, ringsum liegt noch viel Welt (Gondwana bis zum Südpol,
-    dazu ferne Landmassen wie Nordchina, Südchina, Kasachstania – später braucht man das Land für die Schritte an Land). Die
-    **Punkte der Orte sind klein**, das Tier darauf ebenso. `MAP_ZOOM` in `src/art/mapArt.ts` stellt ein, wie weit.
+    dazu ferne Landmassen wie Nordchina, Südchina, Kasachstania – später braucht man das Land für die Schritte an Land). Das
+    Tier auf der Karte ist klein. `MAP_ZOOM` in `src/art/mapArt.ts` stellt ein, wie weit.
     Die Daten stehen in `src/data/paleo.json` (Umrisse, Meeresnamen, Lage der Orte, ferne Landmassen unter `far`); weitere
     Zeitalter (z. B. Pangäa) lassen sich dort ergänzen.
 - **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
@@ -320,9 +327,11 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
   und sprintet, ist irgendwann **erschöpft** – dann geht es nur noch lahm voran, ohne Spurt und Stoß. Verschiedene
   Fische ermüden **verschieden schnell** (siehe Kompromisse). Beim normalen Schwimmen kehrt die Kraft nur langsam
   zurück; **ausruhen** geht schneller: nichts tun und sich **vom Wasser treiben lassen** (man steht dabei nie ganz
-  still, sondern gleitet leicht nach links oder rechts). So füllt sich die Kraft **ganz**; die **Lebenskraft** kehrt
-  beim Ausruhen aber nur **bis etwa drei Viertel** zurück. Alles darüber heilen **Heilkräuter** (hellgrün mit rosa
-  Blüten, goldener Schimmer) – manche Pflanzen heilen also, **Fleisch heilt nicht**, es nährt nur die Brut.
+  still, sondern gleitet leicht nach links oder rechts). So füllen sich Kraft und **Lebenskraft** wieder **ganz**: Wer sich
+  treiben lässt, heilt gut ein Prozent je Sekunde (in knapp anderthalb Minuten von fast nichts bis voll), wer nur langsam
+  schwimmt, ein halbes – nicht gleich nach einem Treffer, nicht im Spurt oder Stoß, im Alter langsamer. Schneller geht es
+  mit **Heilkräutern** (hellgrün mit rosa Blüten, goldener Schimmer; eines heilt 40 %) – manche Pflanzen heilen also,
+  **Fleisch heilt nicht**, es nährt nur die Brut.
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
   mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
   spannen sich vor dem Angriff an und glühen auf, schnellen mit einer Spur vor, und wer sie anbeißt,
@@ -333,13 +342,14 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
   nur stillhalten und sich fressen lassen), sondern **nach oben ins freie, mittlere Wasser**, wo nichts im Weg ist, und
   dann **auf eine sichere Entfernung**. Nur Bodentiere wie Trilobiten verkriechen sich im Dickicht.
 - **Fressen – für den Nachwuchs:** Hunger gibt es nicht (siehe oben). Ein Happen zeigt klein und kurz, was er gebracht
-  hat: rötlich für Fleisch, grünlich für Pflanzen. Pflanzen bringen wenig („+1“ je Bissen), sind aber ungefährlich und
-  wachsen nach. **Beute nährt nach ihrer Stärke und Größe** (`meatOf` in `src/state/GameState.ts`): ein kleiner Beutefisch
-  etwa 5, ein Räuber wie der Conodont um 13, Orthoceras um 23, Seeskorpione und Riesen weit mehr (in mehreren Stücken).
-  Große Beute frisst man in mehreren Bissen (mit kräftigem Gebiss in weniger) – wer mehr will, muss Stärkeres erlegen, mit
-  mehr Risiko. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
-- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einer **saftigen
-  Fleischkeule mit Knochen**, große Tiere zu mehreren. Das Fleisch sinkt zügig zu Boden
+  hat: rötlich für Fleisch, grünlich für Pflanzen. Pflanzen bringen wenig (1 je Pflanze, mit einem Bissen ganz gefressen),
+  sind aber ungefährlich und wachsen nach. **Beute nährt nach ihrer Stärke und Größe** (`meatOf` in
+  `src/state/GameState.ts`) und zerfällt in **Brocken zu 5 und zu 1**: ein kleiner Beutefisch 1, ein Räuber wie der
+  Conodont um 3, Orthoceras um 5, Seeskorpione und Riesen weit mehr (viele große Brocken). Jeder Brocken ist **ein Bissen** –
+  wer mehr will, muss Stärkeres erlegen, mit mehr Risiko. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz
+  hellwach und schnell.
+- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu Fleisch: kleine Brocken (1) als Happen, große
+  (5) als **saftige Fleischkeule mit Knochen** – große Tiere zu vielen. Das Fleisch sinkt zügig zu Boden
   (große Stücke schneller) – und nach einer Weile verdirbt es. Andere Fleischfresser
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus. Auch **große Tiere töten nicht nur**, sondern
   **fressen ihre Beute**: Ein Räuber, der etwas erlegt hat, schwimmt zum Fleisch, senkt den Kopf und frisst Bissen für Bissen –
@@ -432,8 +442,9 @@ mittendrin schwimmt dein eigenes Tier (unten rechts sein Name und seine Generati
   Links dein Tier und sein **Körper** (Länge, Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht,
   Lebensabschnitt), der **Nachwuchs** (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende
   Geschwister) und die **Funde**: die Muscheln als **eine Muschel mit „× 12“** und deine Gruppe. **Kampfwerte stehen hier
-  nicht** – wie kräftig dein Tier beißt oder wie schnell es ist, merkt man beim Spielen. Die Muscheln sind schlichte
-  Spiralmuscheln in Creme und Rosa; sie liegen selten – in Höhlen, Felsspalten und weit draußen am Grund. Wurde eine neue
+  nicht** – wie kräftig dein Tier beißt oder wie schnell es ist, merkt man beim Spielen. Die Muscheln sind klein und
+  kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
+  die ab und zu kurz funkeln. Sie liegen selten – in Höhlen, Felsspalten und weit draußen am Grund. Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
@@ -552,13 +563,16 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | Leertaste | auftauchen |
 | E (auch Q oder J) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund) |
 | W (auch Shift) | sprinten (kostet Kraft) |
-| (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
+| (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft kehren zurück (langsam schwimmen heilt auch, nur langsamer) |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Name, Körper, Leben, Nachwuchs, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
 | M | Ton an/aus |
+
+**Auf der Karte:** Pfeiltasten (oder antippen) wählen ein anderes Ziel, Eingabe (auch Leertaste oder E) schwimmt los, C
+öffnet die Übersicht, Esc die Rast. Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden von selbst in den Nachbarort.
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
@@ -567,12 +581,12 @@ Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querfo
 Zum Testen und Abstimmen: Im Titelbild oben rechts, neben dem Ton, sitzt ein kleines **Zahnrad**. Es öffnet eine Seite
 mit **allen Zahlen, die das Gleichgewicht bestimmen** – jeweils mit dem eingestellten Standard daneben:
 
-- **Nahrung:** Nahrung je Lebenskraft der Beute und wie stark sie bei großen Tieren abnimmt, Pflanzen- und Laichbissen,
-  Fleisch je Bissen, wie schnell Pflanzen nachwachsen.
+- **Nahrung:** Nahrung je Lebenskraft der Beute und wie stark sie bei großen Tieren abnimmt, wie viel in einem großen
+  Brocken steckt, Nahrung je Pflanze und je Ei, Fleisch je Biss anderer Tiere, wie schnell Pflanzen nachwachsen.
 - **Nachwuchs und Laichen:** Nahrung je Nachkomme, wie viel mehr weiter Entwickelte brauchen, höchstens Nachkommen, Pause
   nach dem Laichen, immer als Männchen schlüpfen, Reichweiten, Zeiten der KI-Partner, Verderben der Gelege.
 - **Leben:** Dauer bis zur Laichzeit und danach (und wie viel länger je Generation), Größe beim Schlüpfen, Alter, das
-  Langsamerwerden am Ende, Heilen beim Ausruhen, Heilkraut, Weg über die Karte.
+  Langsamerwerden am Ende, Heilen beim Treiben und beim langsamen Schwimmen (und bis wohin), Heilkraut, Weg über die Karte.
 - **Vererbung:** wie stark sich die Nachkommen je Generation verändern (Richtungen, Obergrenzen, Größe, Robustheit, Kost,
   Angesammeltes, Partner).
 - **Eigenes Tier:** Grundwerte des ersten Fischs (Lebenskraft, Biss, Stoß, Tempo).
@@ -747,11 +761,12 @@ src/
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
-│   ├── shellArt.ts      die Muschel
-│   ├── mapArt.ts        Kartenmaße, Gebiete um die Orte, Zeichen der Ortsarten
+│   ├── shellArt.ts      die Muschel (eine Wellhornschnecke) und ihr Funkeln
+│   ├── mapArt.ts        Kartenmaße, Lage der Punkte, Gebiete um die Orte
 │   ├── paleoArt.ts      die Urzeit-Erde: Land, Küstenschelf, Nebel und Aufdecken
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole
+├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)
@@ -776,7 +791,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       auf den Server.
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne befruchtetes Gelege und ohne Geschwister im Gelege Neustart als Urfisch (wie bisher).
-- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 100, je 1 % Verbesserung 2 % mehr, höchstens 12); beim
+- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 20, je 1 % Verbesserung 2 % mehr, höchstens 12); beim
       Laichen wird die gesammelte Nahrung zu Nachwuchs, der Rest bleibt – mehrmals laichen zählt zusammen. Kein Hunger.
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
@@ -786,8 +801,13 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Tempo:** Das eigene Tier ist etwa 15 % gemächlicher als früher (Grundtempo 183 statt 215), alle anderen Tiere 10 %
       (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen. Angriffe der
       Tiere (Ausholen, Zustoßen, Ansturm) sind so schnell wie früher.
-- [ ] **Futter:** Fleisch nach Stärke und Größe der Beute (`meatOf`, ein kleiner Beutefisch etwa 5), Pflanzen +1 je Bissen;
-      Training gedeckelt nach den stärksten bezwungenen Gegnern (`ceilBase`, `ceilPer` in `INHERIT`).
+- [ ] **Futter:** Fleisch nach Stärke und Größe der Beute (`meatOf`, ein Zehntel der Lebenskraft; ein kleiner Beutefisch 1),
+      in Brocken zu 5 und zu 1, jeder mit einem Bissen ganz gefressen (weitere Größen, wenn es größere Tiere gibt); eine
+      Pflanze 1; Training gedeckelt nach den stärksten bezwungenen Gegnern (`ceilBase`, `ceilPer` in `INHERIT`).
+- [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
+      Beutefische ab 6 Lebenskraft × 1,2 – die kleinsten sind mit zwei Bissen erledigt, kleine brauchen drei und mehr);
+      Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
+- [ ] **Karte:** Wege entstehen nur durch Durchschwimmen; ohne eigene Wahl geht es nach 3,4 Sekunden in den Nachbarort.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
       eigene Tier verändert sich im Leben nicht (auch nicht durch eine Farbhöhle – die Farbe geht an die Nachkommen).
 - [ ] **Lebenstempo** (bestätigt): Generation 1 laicht nach 7 Minuten und lebt danach noch 4; Generation 2: 10 + 5; danach

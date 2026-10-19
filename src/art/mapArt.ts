@@ -4,7 +4,7 @@ import { type Ctx, rgrad, tex } from '../util/canvas';
 import { mulberry32, type Rng } from '../util/math';
 import type { PlaceKind } from '../data/world';
 
-// Die Weltkarte: Maße, Lage der Punkte, das Gebiet um jeden Ort und die Zeichen der Ortsarten.
+// Die Weltkarte: Maße, Lage der Punkte und das Gebiet um jeden Ort.
 // Die Urzeit-Erde selbst (Land und Meer) zeichnet paleoArt.ts.
 
 /** Kartenfläche (ohne Rahmen). */
@@ -102,74 +102,4 @@ export function placeField(scene: Phaser.Scene, kind: PlaceKind, seed: number) {
     mask();
     ctx.restore();
   });
-}
-
-/** Zeichen für die Art eines Ortes (hell, wird eingefärbt). */
-export function placeIcons(scene: Phaser.Scene) {
-  const icon = (kind: PlaceKind, draw: (ctx: Ctx) => void) =>
-    tex(scene, `mapicon_${kind}`, 40, 40, (ctx) => {
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.fillStyle = '#efe6d2';
-      ctx.strokeStyle = '#efe6d2';
-      draw(ctx);
-    }, 2);
-  icon('start', (ctx) => {
-    // Kompassstern
-    ctx.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = (i * Math.PI) / 4 - Math.PI / 2, r = i % 2 ? 6 : 15;
-      ctx.lineTo(20 + Math.cos(a) * r, 20 + Math.sin(a) * r);
-    }
-    ctx.closePath();
-    ctx.fill();
-  });
-  icon('lush', (ctx) => {
-    // drei Halme
-    ctx.lineWidth = 3.4;
-    for (const [dx, h] of [[-8, 18], [0, 24], [8, 17]]) {
-      ctx.beginPath();
-      ctx.moveTo(20 + dx * 0.5, 33);
-      ctx.quadraticCurveTo(20 + dx * 1.6, 33 - h * 0.5, 20 + dx * 1.2, 33 - h);
-      ctx.stroke();
-    }
-  });
-  icon('murky', (ctx) => {
-    // Trübung: drei Wellenlinien
-    ctx.lineWidth = 3.2;
-    for (const y of [13, 21, 29]) {
-      ctx.beginPath();
-      ctx.moveTo(7, y);
-      for (let x = 7; x <= 33; x += 2) ctx.lineTo(x, y + Math.sin(x * 0.5 + y) * 2.4);
-      ctx.stroke();
-    }
-  });
-  icon('deep', (ctx) => {
-    // Abwärtspfeile
-    ctx.lineWidth = 3.8;
-    for (const y of [9, 20]) {
-      ctx.beginPath();
-      ctx.moveTo(9, y);
-      ctx.lineTo(20, y + 11);
-      ctx.lineTo(31, y);
-      ctx.stroke();
-    }
-  });
-  icon('abyss', (ctx) => {
-    // ein Auge in der Dunkelheit
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(5, 20);
-    ctx.quadraticCurveTo(20, 4, 35, 20);
-    ctx.quadraticCurveTo(20, 36, 5, 20);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(20, 20, 6, 0, 6.28);
-    ctx.fill();
-  });
-}
-
-export function mapTextures(scene: Phaser.Scene) {
-  placeIcons(scene);
 }

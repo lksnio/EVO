@@ -92,16 +92,23 @@ const S = (d: SpeciesDef) => d;
 const PACE = 0.9;
 const paced = (d: SpeciesDef): SpeciesDef => ({ ...d, atkSpeed: d.atkSpeed ?? d.speed, speed: Math.round(d.speed * PACE) });
 
+/** Jäger, Verteidiger und Riesen halten so viel mehr aus als früher (Kämpfe mit ihnen dauern länger) */
+const STURDY = 1.25;
+/** kleine Beutefische (ab 6 Lebenskraft) halten so viel mehr aus: drei Bisse und mehr – nur die kleinsten sind mit zwei erledigt */
+const PREY_HP = 1.2;
+
 /**
  * Je stärker ein Tier, desto stärker wird es noch einmal: Jäger, Verteidiger und vor allem die Riesen haben
- * deutlich mehr Leben und beißen viel härter zu. Kleine Beute bleibt, wie sie ist.
+ * deutlich mehr Leben und beißen viel härter zu. Kleine Beute bleibt, wie sie ist (die kleinsten sind mit zwei Bissen
+ * erledigt, kleine Fische brauchen drei und mehr).
  */
 function toughen(d: SpeciesDef): SpeciesDef {
+  if (d.role === 'prey') return d.hp >= 6 ? { ...d, hp: Math.round(d.hp * PREY_HP) } : d;
   if (!(d.role === 'predator' || d.role === 'apex' || d.role === 'defender')) return d;
   const f = 1 + Math.min(1.3, d.power / 17);
   return {
     ...d,
-    hp: Math.round(d.hp * (0.8 + 0.8 * f)),
+    hp: Math.round(d.hp * (0.8 + 0.8 * f) * STURDY),
     dmg: +(d.dmg * (0.85 + 0.55 * f)).toFixed(1),
     power: +(d.power * (1 + 0.5 * (f - 1))).toFixed(1),
   };

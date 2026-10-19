@@ -46,6 +46,13 @@ export class Plant {
     return { x: this.x - 26, y: this.y - 50, w: 52, h: 52 };
   }
 
+  /** Ganz gefressen (mit einem Bissen): Gibt zurück, wie viel daran war. */
+  eatAll(now: number) {
+    let n = 0;
+    while (this.take(now)) n++;
+    return n;
+  }
+
   /** Ein Bissen davon. Gibt false zurück, wenn nichts mehr da ist. */
   take(now: number) {
     if (this.units <= 0) return false;
@@ -176,10 +183,10 @@ export class Kill {
 export class Meat {
   img: Phaser.GameObjects.Image;
   private glow: Phaser.GameObjects.Image;
-  /** Sättigung, die noch darin steckt */
+  /** Nahrung, die darin steckt (ein kleiner Brocken 1, ein großer FOOD.chunk) */
   value: number;
   readonly max: number;
-  /** 0 klein, 1 mittel, 2 groß */
+  /** Bild: 0 kleiner Brocken, 2 große Keule */
   readonly size: 0 | 1 | 2;
   private vx: number;
   private vy: number;
@@ -211,7 +218,7 @@ export class Meat {
   ) {
     this.value = value;
     this.max = value;
-    this.size = value < 20 ? 0 : value < 60 ? 1 : 2;
+    this.size = value >= 5 ? 2 : 0;
     this.vx = vx;
     this.vy = vy;
     this.bornAt = now;
@@ -339,24 +346,32 @@ export class Shell {
   img: Phaser.GameObjects.Image;
   /** nur ein ganz zarter Schimmer, damit man sie findet – kein Leuchten */
   halo: Phaser.GameObjects.Image;
+  /** ab und zu ein kurzes Funkeln: Sie ist kostbar */
+  private glint: Phaser.GameObjects.Image;
   taken = false;
 
   constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly id: string) {
-    this.halo = scene.add.image(x, y - 20, 'glow').setTint(0xffe6d6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setDisplaySize(130, 100).setAlpha(0.09);
-    this.img = scene.add.image(x, y + 4, 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(62, 68);
-    scene.tweens.add({ targets: this.halo, alpha: 0.045, yoyo: true, repeat: -1, duration: 2400 + (x % 7) * 110, ease: 'Sine.inOut' });
+    this.halo = scene.add.image(x, y - 14, 'glow').setTint(0xffe6d6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setDisplaySize(80, 64).setAlpha(0.08);
+    this.img = scene.add.image(x, y + 3, 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(30, 33);
+    this.glint = scene.add.image(x - 4, y - 22, 'shell_glint').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups + 0.1).setScale(0).setAlpha(0.9);
+    scene.tweens.add({ targets: this.halo, alpha: 0.04, yoyo: true, repeat: -1, duration: 2400 + (x % 7) * 110, ease: 'Sine.inOut' });
+    scene.tweens.add({
+      targets: this.glint, scale: { from: 0, to: 0.6 }, angle: { from: -20, to: 25 }, duration: 380, yoyo: true, ease: 'Sine.inOut',
+      repeat: -1, repeatDelay: 2600 + (x % 11) * 160, delay: (x % 13) * 140,
+    });
   }
 
   get rect(): Rect {
-    return { x: this.x - 34, y: this.y - 62, w: 68, h: 68 };
+    return { x: this.x - 22, y: this.y - 40, w: 44, h: 46 };
   }
 
   /** Aufgehoben: Die Muschel steigt ein Stück auf und verblasst. */
   take() {
     if (this.taken) return;
     this.taken = true;
-    this.scene.tweens.killTweensOf(this.halo);
+    this.scene.tweens.killTweensOf([this.halo, this.glint]);
+    this.glint.destroy();
     this.scene.tweens.add({ targets: this.halo, alpha: 0, duration: 600, onComplete: () => this.halo.destroy() });
-    this.scene.tweens.add({ targets: this.img, y: this.y - 34, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => this.img.destroy() });
+    this.scene.tweens.add({ targets: this.img, y: this.y - 26, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => this.img.destroy() });
   }
 }

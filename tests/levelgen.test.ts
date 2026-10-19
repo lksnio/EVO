@@ -12,7 +12,6 @@ const shape = (L: ReturnType<typeof generateLevel>) => ({
   spawns: L.spawns,
   plants: L.plants,
   caves: L.caves.map((c) => [c.x, c.y, c.w, c.h]),
-  gates: L.gates.map((g) => [g.x, g.y, g.to]),
   shells: L.shells,
 });
 
@@ -28,13 +27,15 @@ describe('Weltgenerator', () => {
   it('hängt nicht davon ab, von wo man ankommt (nur der Ankunftsplatz ändert sich)', () => {
     for (const place of placesOf(ep)) {
       const base = generateLevel(ep, 'test-welt', place);
-      for (const g of base.gates) {
-        const via = generateLevel(ep, 'test-welt', place, g.to);
-        expect(shape(via)).toEqual(shape(base));
-        expect(via.start).toEqual(g.arrive);
+      for (const side of ['left', 'right'] as const) {
+        for (const frac of [0.1, 0.9]) {
+          const via = generateLevel(ep, 'test-welt', place, { side, frac });
+          expect(shape(via)).toEqual(shape(base));
+          // man kommt am Gegenrand an (links verlassen → rechts herein)
+          if (side === 'left') expect(via.start.x).toBeGreaterThan(via.width * 0.9);
+          else expect(via.start.x).toBeLessThan(via.width * 0.1);
+        }
       }
-      const edge = generateLevel(ep, 'test-welt', place, base.gates[0]?.to ?? 'x', { side: 'left', frac: 0.5 });
-      expect(shape(edge)).toEqual(shape(base));
     }
   });
 

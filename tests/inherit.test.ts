@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { INHERIT, SPAWN } from '../src/data/life';
 import { phases } from '../src/sim/life';
-import { game, meatOf, newStyle, noteBest, plateCeil, plateLevel, PLATE_IDS } from '../src/state/GameState';
+import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, plateLevel, PLATE_IDS } from '../src/state/GameState';
+import { SPECIES } from '../src/data/species';
 
 // Vererbung ohne Wahl: Die Nachkommen sind an die Spielweise angepasst – und schlüpfen aus dem befruchteten Gelege.
 describe('Generationswechsel', () => {
@@ -43,18 +44,18 @@ describe('Generationswechsel', () => {
   });
 
   it('die Nahrung wird beim Laichen zu Nachkommen – mehrmals laichen zählt zusammen, sie sind die übrigen Leben', () => {
-    // der erste Fisch: je 100 Gefressenem ein Nachkomme
+    // der erste Fisch: je 20 Gefressenem ein Nachkomme
     expect(game.broodBase).toBe(SPAWN.perYoung);
-    expect(SPAWN.perYoung).toBe(100);
+    expect(SPAWN.perYoung).toBe(20);
     game.feed(SPAWN.perYoung * 2.5);
     expect(game.young).toBe(0);
     // gelaicht: zwei Nachkommen, der Rest bleibt für das nächste Mal
     let n = game.takeYoung();
     expect(n).toBe(2);
-    expect(game.life.fed).toBeCloseTo(50, 6);
+    expect(game.life.fed).toBeCloseTo(10, 6);
     game.addClutch({ place: 'lagune', x: 300, y: 800, at: Date.now(), fert: true, role: 'father', young: n });
     expect(game.young).toBe(2);
-    // später noch einmal gefressen und gelaicht: Es kommt dazu (zusammen 300 → 3)
+    // später noch einmal gefressen und gelaicht: Es kommt dazu (zusammen 60 → 3)
     game.feed(SPAWN.perYoung * 0.5);
     n = game.takeYoung();
     expect(n).toBe(1);
@@ -143,21 +144,21 @@ describe('Generationswechsel', () => {
 
   it('weiter entwickelte Nachfahren brauchen mehr Nahrung je Nachkomme – aber sanft', () => {
     const bite0 = game.stats(game.cls, game.traits).bite;
-    // nur das Gebiss etwa 25 % stärker: rund 150 je Nachkomme
+    // nur das Gebiss etwa 25 % stärker: rund 30 je Nachkomme (das Anderthalbfache)
     game.traits.jaw = 0.089;
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
     expect(bite).toBeGreaterThan(0.2);
     expect(bite).toBeLessThan(0.3);
-    expect(game.broodBase).toBeGreaterThan(140);
-    expect(game.broodBase).toBeLessThan(162);
+    expect(game.broodBase).toBeGreaterThanOrEqual(28);
+    expect(game.broodBase).toBeLessThanOrEqual(32);
     // ein schwereres Tier: stärker in vielem – deutlich mehr je Nachkomme
     game.traits.growth = 1;
     game.traits.girth = 0.6;
     expect(game.weight()).toBeGreaterThan(3);
-    expect(game.broodBase).toBeGreaterThan(200);
+    expect(game.broodBase).toBeGreaterThan(40);
   });
 
-  it('eine Generation verändert sich sanft: die zweite braucht etwa 120–160 Nahrung je Nachkomme', () => {
+  it('eine Generation verändert sich sanft: die zweite braucht etwa 24–32 Nahrung je Nachkomme', () => {
     game.ageBy(phases(1).mature + 60);
     // ein Leben voller Jagd auf etwas kleinere Beute
     const style = { ...newStyle(), hunt: 40, hurt: 10, fwd: 200, turns: 60, up: 30, down: 30, hab: { start: 200, murky: 100 } };
@@ -168,22 +169,40 @@ describe('Generationswechsel', () => {
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
     expect(bite).toBeGreaterThan(0.08);
     expect(bite).toBeLessThan(0.2);
-    expect(game.broodBase).toBeGreaterThan(120);
-    expect(game.broodBase).toBeLessThan(160);
+    expect(game.broodBase).toBeGreaterThan(SPAWN.perYoung * 1.2);
+    expect(game.broodBase).toBeLessThan(SPAWN.perYoung * 1.6);
   });
 
-  it('Beute gibt Futter nach Stärke und Größe – kleine einen Happen, große viel', () => {
-    // ein kleiner Beutefisch (Lebenskraft 6–8, zwei Bisse): ein Happen – viele davon für einen Nachkommen
-    expect(meatOf(6)).toBeGreaterThan(3);
-    expect(meatOf(8)).toBeLessThan(8);
-    // ein Räuber wie Orthoceras (41): etwa ein Viertel eines Nachkommen
-    expect(meatOf(41)).toBeGreaterThan(SPAWN.perYoung * 0.15);
-    expect(meatOf(41)).toBeLessThan(SPAWN.perYoung * 0.35);
-    // ein Riese: mehr als ein Nachkomme
-    expect(meatOf(343)).toBeGreaterThan(SPAWN.perYoung);
-    // je stärker, desto mehr – aber nicht ganz im selben Maß (große Tiere sind zäh)
-    expect(meatOf(20)).toBeGreaterThan(meatOf(10));
-    expect(meatOf(200) / meatOf(20)).toBeLessThan(10);
+  it('Beute gibt Futter in ganzen Brocken – nach Stärke und Größe, kleine einen, große viele', () => {
+    // ein kleiner Beutefisch: ein kleiner Brocken (1) – zwanzig davon für einen Nachkommen
+    for (const id of ['birkenia', 'kieferlos', 'sacabambaspis']) expect(meatOf(SPECIES[id].hp)).toBe(1);
+    // ein Räuber wie Orthoceras: etwa ein Viertel eines Nachkommen
+    expect(meatOf(SPECIES.orthoceras.hp)).toBeGreaterThanOrEqual(4);
+    expect(meatOf(SPECIES.orthoceras.hp)).toBeLessThanOrEqual(7);
+    // ein Riese: rund 40 – zehn große Brocken und ein paar kleine
+    expect(meatOf(SPECIES.cameroceras.hp)).toBeGreaterThan(30);
+    expect(meatOf(SPECIES.cameroceras.hp)).toBeLessThan(60);
+    // immer ganze Einheiten
+    for (const hp of [1, 7, 33, 120]) expect(Number.isInteger(meatOf(hp))).toBe(true);
+    // in Brocken: große (5) und kleine (1), zusammen genau so viel
+    expect(meatChunks(1)).toEqual([1]);
+    expect(meatChunks(7)).toEqual([5, 1, 1]);
+    expect(meatChunks(50)).toEqual(Array(10).fill(5));
+    const c = meatChunks(43);
+    expect(c.reduce((a, b) => a + b, 0)).toBe(43);
+    expect(c.filter((v) => v === 5).length).toBe(8);
+  });
+
+  it('kleine Fische brauchen ausgewachsen drei Bisse und mehr, nur die kleinsten zwei', () => {
+    game.ageBy(phases(1).mature);
+    const bite = game.stats().bite;
+    const bites = (hp: number) => Math.ceil(hp / bite);
+    for (const id of ['birkenia', 'moythomasia', 'thelodus', 'lasanius']) expect(bites(SPECIES[id].hp)).toBe(2);
+    for (const id of ['kieferlos', 'astraspis', 'sacabambaspis', 'arandaspis']) expect(bites(SPECIES[id].hp)).toBeGreaterThanOrEqual(3);
+    // ein Jungtier braucht mehr, aber nicht endlos viele
+    game.resetAll();
+    game.newRun();
+    expect(Math.ceil(SPECIES.kieferlos.hp / game.stats().bite)).toBeLessThanOrEqual(5);
   });
 
   it('wie im Fitnessstudio: nur kleine Beute trägt bis zu einer Stufe, stärkere Gegner darüber hinaus', () => {

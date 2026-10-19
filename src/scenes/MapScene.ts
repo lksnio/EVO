@@ -3,68 +3,85 @@ import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { EPOCHS, type EpochDef } from '../data/epochs';
 import { PALEO } from '../data/paleo';
-import { placesOf, type PlaceDef } from '../data/world';
+import { linkKey, placesOf, type PlaceDef } from '../data/world';
 import { game } from '../state/GameState';
 import { worldYears } from '../sim/life';
 import { MAP_BOX, mapPos } from '../art/mapArt';
-import { FogMap, mapFrame, routePoints } from '../art/paleoArt';
+import { FogMap, mapFrame, MAP_LABELS, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
 import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
 import { Overview } from '../ui/overview';
 
 /** Halbmesser des Punktes eines Ortes (die Karte ist weit herausgezoomt: alles ist klein) */
-const DOT = 6;
+const DOT = 6.5;
 /** Das eigene Tier auf der Karte: klein, knapp über dem Punkt */
 const FISH_SCALE = 0.32;
 const FISH_LIFT = 17;
+/** so lange wartet die Karte auf eine eigene Wahl, bevor das Tier von selbst in den neuen Ort schwimmt (ms) */
+const AUTO_GO = 3400;
+
+type Edge = { side: 'left' | 'right'; frac: number };
 
 interface NodeVis {
   def: PlaceDef;
   x: number;
   y: number;
   c: Phaser.GameObjects.Container;
-  ring: Phaser.GameObjects.Graphics;
-  known: boolean;
+  dot: Phaser.GameObjects.Graphics;
+  label: Phaser.GameObjects.Text;
 }
 
 /**
- * Die Karte des Zeitalters. Wer durch einen Durchgang schwimmt, sieht hier, wohin es geht – ein neuer Ort wird
- * dabei freigeschaltet und erscheint auf der Karte. Orte, die man nicht entdeckt hat, sind gar nicht zu sehen.
+ * Die Karte des Zeitalters. Wer über den Rand eines Ortes hinausschwimmt, kommt hierher: Der Weg in den Nachbarort erscheint
+ * (und der Ort selbst, wenn er neu ist), dann schwimmt das Tier hin – es sei denn, man wählt ein anderes Ziel: jeden
+ * bekannten Ort, zu dem bekannte Wege führen, auch zurück. Orte und Wege, die man nicht kennt, sind gar nicht zu sehen.
+ * Die Orte sind schlichte Punkte mit ihrem Namen.
  */
 export class MapScene extends Phaser.Scene {
   private ep!: EpochDef;
   private places: PlaceDef[] = [];
   private nodes = new Map<string, NodeVis>();
+  /** der Ort, den man gerade verlassen hat */
   private cur!: PlaceDef;
   private focus!: PlaceDef;
   private fish!: CreatureView;
   private moving = false;
-  private infoName!: Phaser.GameObjects.Text;
-  private infoState!: Phaser.GameObjects.Text;
   private overview?: Overview;
   private rest?: Phaser.GameObjects.Container;
   private restNav?: MenuNav;
   private glow?: Phaser.GameObjects.Image;
   private leaving = false;
-  private fromId?: string;
   private toId?: string;
-  private edge?: { side: 'left' | 'right'; frac: number };
-  private isNew = false;
+  private edge?: Edge;
+  /** der Nachbarort bzw. der Weg dorthin ist neu: Er erscheint erst */
+  private newPlace = false;
+  private newLink = false;
   private fog!: FogMap;
   private trails = new Map<string, Phaser.GameObjects.Graphics>();
+  /** bekannte Wege (linkKey) */
+  private links = new Set<string>();
+  /** wohin man über bekannte Wege kommt (auch zurück) – erst nach dem Erscheinen des neuen Ortes */
+  private reach: PlaceDef[] = [];
+  private auto?: Phaser.Time.TimerEvent;
+  private nameT!: Phaser.GameObjects.Text;
+  private hintT!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Map');
   }
 
-  init(d: { epoch?: number; from?: string; to?: string; edge?: { side: 'left' | 'right'; frac: number } }) {
+  init(d: { epoch?: number; from?: string; to?: string; edge?: Edge; newPlace?: boolean; newLink?: boolean }) {
     this.ep = EPOCHS[d?.epoch ?? game.epochIndex];
-    this.fromId = d?.from;
+    this.places = placesOf(this.ep);
+    this.cur = this.places.find((p) => p.id === (d?.from ?? game.prog.place)) ?? this.places[0];
     this.toId = d?.to;
     this.edge = d?.edge;
-    this.places = placesOf(this.ep);
+    this.newPlace = !!d?.newPlace;
+    this.newLink = !!d?.newLink;
     this.nodes = new Map();
     this.trails = new Map();
+    this.reach = [];
+    this.auto = undefined;
     this.moving = false;
     this.overview = undefined;
     this.rest = undefined;
@@ -78,74 +95,60 @@ export class MapScene extends Phaser.Scene {
     audio.sea(0.12, 1.5);
     this.events.once('shutdown', () => audio.sea(0, 0.8));
     const prog = game.prog;
-    this.cur = this.places.find((p) => p.id === prog.place) ?? this.places[0];
-
-    // Welche Orte kennt man? Nur die, durch deren Durchgang man schon geschwommen ist.
     const known = new Set<string>(prog.known);
-    if (this.fromId) {
-      const f = this.places.find((p) => p.id === this.fromId);
-      if (f) this.cur = f;
-    }
     known.add(this.cur.id);
-    this.isNew = !!this.toId && !known.has(this.toId);
+    this.links = new Set(prog.links ?? []);
     const target = this.places.find((p) => p.id === this.toId);
     this.focus = target ?? this.cur;
+    const fresh = (id: string) => this.newPlace && id === this.toId;
+    const freshKey = target && this.newLink ? linkKey(this.cur.id, target.id) : '';
 
     const pos = (p: PlaceDef) => mapPos(p.x, p.y);
     // Die Urzeit-Erde: dunkel, nur um bekannte Orte und geschwommene Wege hell
     const mine = this.places.map((p) => ({ id: p.id, kind: p.kind, ...pos(p) }));
-    this.fog = new FogMap(this, this.ep.id, mine, [...known]);
+    this.fog = new FogMap(this, this.ep.id, mine, [...known].filter((id) => !fresh(id)));
     this.add.image(0, 0, this.fog.key).setOrigin(0);
     const mid = Math.round((this.ep.from + this.ep.to) / 2e6);
     this.add.image(0, 0, mapFrame(this, this.ep.id, `ERDE VOR ${mid} MIO. JAHREN`)).setOrigin(0).setDepth(1);
 
-    // Wege: Blasenspuren zwischen bekannten Orten, um das Land herum
-    const drawn = new Set<string>();
-    for (const p of this.places) {
-      for (const lid of p.links) {
-        const q = this.places.find((o) => o.id === lid);
-        const k = this.linkKey(p.id, lid);
-        if (!q || drawn.has(k) || !known.has(p.id) || !known.has(lid)) continue;
-        drawn.add(k);
-        const pts = this.route(p.id, lid);
-        this.trailTo(k, pts, 1);
-        this.fog.showRoute(k, pts, 1);
-      }
+    // Wege: Blasenspuren – nur die, die man selbst geschwommen ist (der neue erscheint gleich)
+    for (const k of this.links) {
+      const [a, b] = k.split('|');
+      if (k === freshKey || !known.has(a) || !known.has(b)) continue;
+      const pts = this.route(a, b);
+      this.trailTo(k, pts, 1);
+      this.fog.showRoute(k, pts, 1);
     }
     this.fog.refresh();
 
-    // Orte
+    // Orte: schlichte Punkte mit Namen
     const spots = this.labelSpots(pos);
-    this.places.forEach((p, i) => {
+    for (const p of this.places) {
+      if (!known.has(p.id)) continue;
       const { x, y } = pos(p);
-      const isKnown = known.has(p.id);
-      const isTarget = p.id === this.toId;
-      if (!isKnown && !isTarget) return;
       const c = this.add.container(x, y).setDepth(5);
-      const ring = this.add.graphics();
-      c.add(ring);
-      c.add(this.add.image(0, 0, `mapicon_${p.kind}`).setDisplaySize(DOT * 1.7, DOT * 1.7).setAlpha(0.95));
-      const visited = prog.seen.includes(p.id);
+      const dot = this.add.graphics();
       const sp = spots.get(p.id)!;
-      const label = text(this, sp.x, sp.y, p.name, 13, visited ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 3 }).setOrigin(sp.ox, 0.5);
-      c.add(label);
-      c.setVisible(isKnown);
-      // Wer noch nie dort war: ein Funkeln über dem Ort
-      if (isKnown && !visited) {
-        const star = this.add.image(0, 0, 'glow').setTint(0xffe8b0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(30, 30).setAlpha(0.5);
-        c.add(star);
-        this.tweens.add({ targets: star, alpha: 0.12, yoyo: true, repeat: -1, duration: 900 + i * 130, ease: 'Sine.inOut' });
-      }
-      const vis: NodeVis = { def: p, x, y, c, ring, known: isKnown };
-      this.nodes.set(p.id, vis);
-      this.drawRing(vis);
-    });
+      const label = text(this, sp.x, sp.y, p.name, 13, prog.seen.includes(p.id) ? UI.bone : UI.boneDim, { fontStyle: '700', stroke: '#050403', strokeThickness: 3 })
+        .setOrigin(sp.ox, 0.5);
+      c.add([dot, label]);
+      c.setVisible(!fresh(p.id));
+      // antippen bzw. mit der Maus: wählen und losschwimmen
+      const hit = this.add.zone(0, 0, 34, 34).setInteractive({ useHandCursor: true });
+      hit.on('pointerover', () => this.choose(p));
+      hit.on('pointerdown', () => {
+        this.choose(p);
+        if (this.focus === p) this.go(p);
+      });
+      c.add(hit);
+      this.nodes.set(p.id, { def: p, x, y, c, dot, label });
+    }
 
-    // Das eigene Tier
+    // Das eigene Tier – über dem Ort, den es gerade verlassen hat
     const here = this.nodes.get(this.cur.id)!;
     const m = { ...game.morph(), belly: 1 };
     this.fish = new CreatureView(this, here.x, here.y - FISH_LIFT, m, FISH_SCALE).setDepth(10);
-    this.fish.setFacing(here.x > W / 2 ? -1 : 1);
+    this.fish.setFacing(target ? (pos(target).x >= here.x ? 1 : -1) : here.x > W / 2 ? -1 : 1);
 
     // Blasen, die aufsteigen
     this.add.particles(0, 0, 'p_bubble', {
@@ -154,10 +157,11 @@ export class MapScene extends Phaser.Scene {
     }).setDepth(3);
     this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0.6).setDepth(8);
 
-    // Überschrift und Auskunft
+    // Überschrift; unten der gewählte Ort und leise, wie man wählt
     title(this, 86, 40, this.ep.name.toUpperCase(), 30, UI.ochre).setOrigin(0, 0.5).setLetterSpacing(3).setDepth(9);
-    this.buildInfo();
-    this.setFocus(this.focus);
+    this.nameT = title(this, W / 2, H - 58, '', 24, UI.bone).setOrigin(0.5).setDepth(12);
+    this.hintT = text(this, W / 2, H - 28, '', 14, UI.boneDim).setOrigin(0.5).setDepth(12).setAlpha(0);
+    this.showFocus();
 
     // Knöpfe oben rechts (wie im Level)
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.toggleRest() }).setAlpha(0.8).setDepth(20);
@@ -167,11 +171,15 @@ export class MapScene extends Phaser.Scene {
     this.updateGlow();
 
     const kb = this.input.keyboard!;
-    for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => this.skip());
+    for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => !this.blocked() && this.go(this.focus));
+    kb.on('keydown-LEFT', () => this.pick(-1, 0));
+    kb.on('keydown-RIGHT', () => this.pick(1, 0));
+    kb.on('keydown-UP', () => this.pick(0, -1));
+    kb.on('keydown-DOWN', () => this.pick(0, 1));
     kb.on('keydown-C', () => this.toggleOverview());
     kb.on('keydown-ESC', () => (this.overview ? this.toggleOverview() : this.toggleRest()));
     kb.on('keydown-P', () => this.toggleRest());
-    if (this.toId) this.time.delayedCall(1100, () => this.travel());
+    this.time.delayedCall(700, () => this.reveal());
   }
 
   update(_t: number, dms: number) {
@@ -182,53 +190,44 @@ export class MapScene extends Phaser.Scene {
       const n = this.nodes.get(this.cur.id)!;
       this.fish.setPosition(n.x, n.y - FISH_LIFT + Math.sin(this.time.now / 700) * 1.5);
     }
-    // der Ring des gewählten Ortes pulsiert
-    for (const n of this.nodes.values()) if (n.known) this.drawRing(n);
+    for (const n of this.nodes.values()) this.drawDot(n);
   }
 
   // ---------------------------------------------------------------- Zeichnen
 
-  private drawRing(n: NodeVis) {
-    const g = n.ring;
+  /** Ein Ort: ein dicker Punkt. Hier warst du gerade (ocker); das gewählte Ziel bekommt einen leise pulsierenden Ring. */
+  private drawDot(n: NodeVis) {
+    const g = n.dot;
     const here = n.def.id === this.cur.id;
     const focus = n.def.id === this.focus.id;
     const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 380);
     g.clear();
-    g.fillStyle(0x0b100f, 0.9);
+    g.fillStyle(0x040706, 0.8);
+    g.fillCircle(0, 0, DOT + 2.2);
+    g.fillStyle(here ? 0xe0a848 : focus ? 0xf4e4bc : game.prog.seen.includes(n.def.id) ? 0xcdbf9a : 0x9c9078, 1);
     g.fillCircle(0, 0, DOT);
-    g.lineStyle(here ? 1.8 : 1.3, here ? 0xe0a848 : focus ? 0xcdb88a : 0x7a6a4a, here ? 0.95 : 0.8);
-    g.strokeCircle(0, 0, DOT);
-    if (focus || here) {
-      g.lineStyle(1.2, 0xe0a848, 0.25 + 0.35 * pulse);
-      g.strokeCircle(0, 0, DOT + 3 + 1.5 * pulse);
+    if (focus && this.reach.length > 1) {
+      g.lineStyle(1.4, 0xf0d9a6, 0.3 + 0.4 * pulse);
+      g.strokeCircle(0, 0, DOT + 4 + 2 * pulse);
     }
   }
 
-  private buildInfo() {
-    const c = this.add.container(W / 2, H - 46).setDepth(12);
-    c.add(panel(this, -360, -26, 720, 52, 0.88, UI.stone));
-    this.infoName = title(this, -336, 0, '', 24, UI.bone).setOrigin(0, 0.5);
-    this.infoState = text(this, 336, 0, '', 16, UI.ochre).setOrigin(1, 0.5);
-    c.add([this.infoName, this.infoState]);
+  /** Unten: der Name des gewählten Ortes – und, sobald man wählen kann, leise wie. */
+  private showFocus() {
+    this.nameT.setText(this.focus.name);
+    for (const n of this.nodes.values()) n.label.setColor(n.def === this.focus ? '#f4e4bc' : game.prog.seen.includes(n.def.id) ? UI.bone : UI.boneDim);
   }
 
-  private setFocus(p: PlaceDef) {
-    this.focus = p;
-    const seen = game.prog.seen.includes(p.id);
-    this.infoName.setText(p.name);
-    this.infoState.setText(p.id === this.cur.id && !this.toId ? 'Hier bist du' : this.isNew ? 'Neu entdeckt' : seen ? 'Schon besucht' : '');
-  }
-
-  /** Wohin die Namen kommen: meist unter das Zeichen, sonst daneben, wenn dort ein anderer Ort im Weg wäre. */
+  /** Wohin die Namen kommen: meist unter den Punkt, sonst daneben, wenn dort ein anderer Ort im Weg wäre. */
   private labelSpots(pos: (p: PlaceDef) => { x: number; y: number }) {
     type Box = [number, number, number, number];
     const hit = (a: Box, b: Box) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
     const rings = new Map(this.places.map((p) => [p.id, pos(p)]));
-    // Die Namen von Kontinenten und Meeren bleiben nach Möglichkeit frei (sind aber nur Hintergrund)
+    // Die Namen von Land und Meeren bleiben nach Möglichkeit frei (sind aber nur Hintergrund)
     const geoBoxes: Box[] = [];
     const geo = PALEO[this.ep.id];
-    for (const c of [...geo.continents, ...(geo.far ?? [])]) {
-      if (!c.name) continue;
+    for (const c of geo.continents) {
+      if (!MAP_LABELS.has(c.name)) continue;
       const q = mapPos(c.label[0], c.label[1]), w = c.name.length * 12;
       geoBoxes.push([q.x - w / 2, q.y - 8, q.x + w / 2, q.y + 8]);
     }
@@ -260,10 +259,6 @@ export class MapScene extends Phaser.Scene {
     return out;
   }
 
-  private linkKey(a: string, b: string) {
-    return [a, b].sort().join('|');
-  }
-
   /** Der Schwimmweg von Ort a nach Ort b in Bildpunkten (immer im Wasser). */
   private route(a: string, b: string) {
     const [lo, hi] = [a, b].sort();
@@ -290,64 +285,186 @@ export class MapScene extends Phaser.Scene {
     }
   }
 
-  // ---------------------------------------------------------------- Bewegen und betreten
+  // ---------------------------------------------------------------- Erscheinen, Wählen, Schwimmen
 
-  /** Das Ziel erscheint (falls neu), dann schwimmt das Tier hin und taucht dort auf. */
-  private travel() {
-    if (this.moving || this.leaving || this.overview || this.rest) return;
+  /** Der neue Weg zeichnet sich ab (die Karte hellt sich entlang der Strecke auf), dann erscheint der neue Ort. */
+  private reveal() {
     const to = this.places.find((p) => p.id === this.toId);
-    if (!to) return;
+    if (!to) return this.arm();
     const n = this.nodes.get(to.id);
-    if (!n) return;
-    const go = () => {
-      if (!this.leaving) this.swimTo(to);
-    };
-    if (this.isNew && !n.known) {
-      n.known = true;
-      // erst der Weg dorthin (die Karte hellt sich entlang der Strecke auf) …
-      const key = this.linkKey(this.cur.id, to.id);
-      const pts = this.route(this.cur.id, to.id);
-      const k = { p: 0, d: 0 };
+    const showPlace = () => {
+      if (!this.newPlace || !n) return this.arm();
+      n.c.setVisible(true).setAlpha(0);
+      this.tweens.add({ targets: n.c, alpha: { from: 0, to: 1 }, duration: 900 });
+      const k = { d: 0 };
       this.tweens.add({
-        targets: k, p: 1, duration: Math.min(1500, 500 + pts.length * 9), ease: 'Sine.inOut',
+        targets: k, d: 1, duration: 1100, ease: 'Sine.out',
         onUpdate: () => {
-          this.trailTo(key, pts, k.p);
-          this.fog.showRoute(key, pts, k.p);
+          this.fog.reveal(to.id, k.d);
           this.fog.refresh();
         },
-        onComplete: () => {
-          // … dann zeigt sich der neue Ort
-          n.c.setVisible(true).setAlpha(0);
-          this.tweens.add({ targets: n.c, alpha: { from: 0, to: 1 }, duration: 900 });
-          this.tweens.add({
-            targets: k, d: 1, duration: 1100, ease: 'Sine.out',
-            onUpdate: () => {
-              this.fog.reveal(to.id, k.d);
-              this.fog.refresh();
-            },
-            onComplete: () => go(),
-          });
-          audio.sfx('shell');
-          const sp = this.add.particles(n.x, n.y, 'p_dot', {
-            emitting: false, lifespan: 1200, speed: { min: 30, max: 120 }, scale: { start: 0.8, end: 0 }, alpha: { start: 0.9, end: 0 },
-            tint: [0xffe8b0, 0xe0a848, 0xfff4dc], blendMode: 'ADD',
-          }).setDepth(7);
-          sp.explode(30);
-        },
+        onComplete: () => this.arm(),
       });
-    } else go();
+      audio.sfx('shell');
+      const sp = this.add.particles(n.x, n.y, 'p_dot', {
+        emitting: false, lifespan: 1200, speed: { min: 30, max: 120 }, scale: { start: 0.8, end: 0 }, alpha: { start: 0.9, end: 0 },
+        tint: [0xffe8b0, 0xe0a848, 0xfff4dc], blendMode: 'ADD',
+      }).setDepth(7);
+      sp.explode(30);
+    };
+    if (!this.newLink) return showPlace();
+    const key = linkKey(this.cur.id, to.id);
+    const pts = this.route(this.cur.id, to.id);
+    const k = { p: 0 };
+    this.tweens.add({
+      targets: k, p: 1, duration: Math.min(1500, 500 + pts.length * 9), ease: 'Sine.inOut',
+      onUpdate: () => {
+        this.trailTo(key, pts, k.p);
+        this.fog.showRoute(key, pts, k.p);
+        this.fog.refresh();
+      },
+      onComplete: showPlace,
+    });
   }
 
-  private swimTo(p: PlaceDef) {
-    const a = this.nodes.get(this.cur.id)!, b = this.nodes.get(p.id)!;
-    const pts = this.route(this.cur.id, p.id);
+  /** Jetzt kann gewählt werden: alle bekannten Orte, zu denen bekannte Wege führen. Ohne eigene Wahl geht es bald von selbst los. */
+  private arm() {
+    const ids = new Set<string>([this.cur.id]);
+    const q = [this.cur.id];
+    while (q.length) {
+      const x = q.shift()!;
+      for (const y of this.neighbors(x)) if (!ids.has(y) && this.nodes.has(y)) {
+        ids.add(y);
+        q.push(y);
+      }
+    }
+    this.reach = this.places.filter((p) => ids.has(p.id));
+    if (this.reach.length > 1) {
+      this.hintT.setText('Anderes Ziel: Pfeiltasten oder antippen  ·  Eingabe: losschwimmen');
+      this.tweens.add({ targets: this.hintT, alpha: 0.7, duration: 600 });
+    }
+    // man kam über den Rand: Ohne eigene Wahl schwimmt das Tier bald in den Nachbarort (sind Übersicht oder Rast offen, danach)
+    const auto = () => {
+      if (this.blocked()) this.auto = this.time.delayedCall(500, auto);
+      else this.go(this.focus);
+    };
+    if (this.toId) this.auto = this.time.delayedCall(AUTO_GO, auto);
+  }
+
+  private neighbors(id: string) {
+    const out: string[] = [];
+    for (const k of this.links) {
+      const [a, b] = k.split('|');
+      if (a === id) out.push(b);
+      else if (b === id) out.push(a);
+    }
+    return out;
+  }
+
+  private blocked() {
+    return this.moving || this.leaving || !!this.overview || !!this.rest;
+  }
+
+  /** Ein Ziel wählen (nur erreichbare); die eigene Wahl hält das Tier zurück, bis man losschwimmt. */
+  private choose(p: PlaceDef) {
+    if (this.blocked() || !this.reach.includes(p) || p === this.focus) return;
+    this.auto?.remove();
+    this.auto = undefined;
+    this.focus = p;
+    this.showFocus();
+    audio.sfx('click');
+  }
+
+  /** Mit den Pfeiltasten: der nächste erreichbare Ort in dieser Richtung (sonst der nächste der Reihe nach). */
+  private pick(dx: number, dy: number) {
+    if (this.blocked() || this.reach.length < 2) return;
+    const f = this.nodes.get(this.focus.id)!;
+    let best: PlaceDef | undefined;
+    let bestScore = Infinity;
+    for (const p of this.reach) {
+      if (p === this.focus) continue;
+      const n = this.nodes.get(p.id)!;
+      const vx = n.x - f.x, vy = n.y - f.y, d = Math.hypot(vx, vy) || 1;
+      const cos = (vx * dx + vy * dy) / d;
+      if (cos < 0.35) continue;
+      const score = d * (2 - cos);
+      if (score < bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+    if (!best) {
+      const order = this.reach.slice().sort((a, b) => (dx ? a.x - b.x : a.y - b.y));
+      const i = order.indexOf(this.focus);
+      best = order[(i + (dx + dy > 0 ? 1 : -1) + order.length) % order.length];
+    }
+    this.choose(best);
+  }
+
+  /** Der kürzeste bekannte Weg von a nach b (Orte der Reihe nach). */
+  private path(a: string, b: string): string[] {
+    const prev = new Map<string, string>([[a, a]]);
+    const q = [a];
+    while (q.length && !prev.has(b)) {
+      const x = q.shift()!;
+      for (const y of this.neighbors(x)) if (!prev.has(y)) {
+        prev.set(y, x);
+        q.push(y);
+      }
+    }
+    if (!prev.has(b)) return [a];
+    const out = [b];
+    for (let x = b; x !== a; x = prev.get(x)!) out.unshift(prev.get(x)!);
+    return out;
+  }
+
+  /** Losschwimmen: über die bekannten Wege zum Ziel (oder zurück in den Ort, aus dem man kam). */
+  private go(dest: PlaceDef) {
+    if (this.blocked() || !this.reach.includes(dest)) return;
+    this.auto?.remove();
+    this.auto = undefined;
+    this.tweens.add({ targets: this.hintT, alpha: 0, duration: 300 });
+    const path = this.path(this.cur.id, dest.id);
+    const edge = this.arrival(path);
+    if (path.length < 2) {
+      this.enter(dest, edge, 1);
+      return;
+    }
     this.moving = true;
-    this.fish.setFacing(b.x >= a.x ? 1 : -1);
     audio.sfx('travel');
+    const hop = (i: number) => {
+      if (i >= path.length - 1) {
+        // angekommen: kurz über dem Punkt schweben, dann eintauchen (das Tier bleibt dort, bis die Karte ausblendet)
+        audio.sfx('click');
+        this.time.delayedCall(450, () => this.enter(dest, edge, path.length - 1));
+        return;
+      }
+      this.swim(path[i], path[i + 1], () => hop(i + 1));
+    };
+    hop(0);
+  }
+
+  /**
+   * Wo man im Zielort ankommt: am Gegenrand dessen, über den man den letzten Ort verlassen hat. Wer in den Ort zurückkehrt,
+   * aus dem er kam, taucht am selben Rand wieder auf.
+   */
+  private arrival(path: string[]): Edge {
+    const frac = this.edge?.frac ?? 0.5;
+    if (path.length < 2) return { side: this.edge?.side === 'left' ? 'right' : 'left', frac };
+    const a = path[path.length - 2], b = path[path.length - 1];
+    if (a === this.cur.id && b === this.toId && this.edge) return this.edge;
+    const pa = this.places.find((p) => p.id === a)!, pb = this.places.find((p) => p.id === b)!;
+    return { side: pb.x >= pa.x ? 'right' : 'left', frac: 0.5 };
+  }
+
+  /** Das Tier schwimmt den Weg von a nach b entlang. */
+  private swim(a: string, b: string, done: () => void) {
+    const pts = this.route(a, b);
     const k = { t: 0 };
     let len = 0;
     for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    let facing = b.x >= a.x ? 1 : -1;
+    let facing = pts[pts.length - 1].x >= pts[0].x ? 1 : -1;
+    this.fish.setFacing(facing);
     this.tweens.add({
       targets: k,
       t: 1,
@@ -363,32 +480,19 @@ export class MapScene extends Phaser.Scene {
           facing = Math.sign(dx);
           this.fish.setFacing(facing);
         }
-        // über dem Weg schwimmen, nur an den Orten über dem Zeichen schweben
+        // über dem Weg schwimmen, nur an den Orten über dem Punkt schweben
         const e = Math.min(1, Math.min(k.t, 1 - k.t) * 8);
         this.fish.setPosition(x, y - (FISH_LIFT * 0.4 + FISH_LIFT * 0.6 * (1 - e)));
       },
-      onComplete: () => {
-        this.cur = p;
-        this.moving = false;
-        this.setFocus(p);
-        audio.sfx('click');
-        this.time.delayedCall(700, () => this.enter());
-      },
+      onComplete: done,
     });
   }
 
-  /** Mit Enter geht es sofort weiter. */
-  private skip() {
-    if (this.overview || this.rest || this.leaving) return;
-    this.enter();
-  }
-
-  /** Den Zielort betreten (bzw. den eigenen, wenn man nur die Karte ansieht). */
-  private enter() {
-    if (this.leaving || this.overview || this.rest) return;
+  /** Den Zielort betreten. */
+  private enter(dest: PlaceDef, edge: Edge, hops: number) {
+    if (this.leaving) return;
     this.leaving = true;
-    const dest = this.places.find((p) => p.id === this.toId) ?? this.cur;
-    game.enterPlace(dest.id, dest.id === this.toId ? this.fromId : undefined, dest.id === this.toId ? this.edge : undefined);
+    game.enterPlace(dest.id, edge, hops);
     audio.sfx('travel');
     fadeTo(this, 'Level', { epoch: game.epochIndex, place: dest.id }, 900);
   }

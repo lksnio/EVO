@@ -46,10 +46,11 @@ export const LIFE = {
  * Laichen: Gelaicht wird im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund. Weibchen legen ein Gelege,
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.
  *
- * Nachkommen aus Nahrung: Hunger gibt es nicht – was ein Tier frisst (die Zahlen, die beim Fressen aufsteigen), sammelt sich
- * für die Brut. Beim Laichen wird daraus Nachwuchs: je perYoung ein Nachkomme (beim ersten Fisch 100), der Rest bleibt
- * für das nächste Mal. Wer mehrmals laicht, hat mehr Nachkommen – sie zählen zusammen (250 gefressen, gelaicht: 2; später
- * noch einmal 100 gefressen und gelaicht: 3). Weiter entwickelte Tiere brauchen etwas mehr (siehe sim/life.ts, broodBase).
+ * Nachkommen aus Nahrung: Hunger gibt es nicht – was ein Tier frisst (die Zahlen, die beim Fressen aufsteigen: ein kleiner
+ * Fleischbrocken oder eine Pflanze 1, ein großer Brocken 5), sammelt sich für die Brut. Beim Laichen wird daraus Nachwuchs:
+ * je perYoung ein Nachkomme (beim ersten Fisch 20), der Rest bleibt für das nächste Mal. Wer mehrmals laicht, hat mehr
+ * Nachkommen – sie zählen zusammen (50 gefressen, gelaicht: 2; später noch einmal 10 gefressen und gelaicht: 3). Weiter
+ * entwickelte Tiere brauchen etwas mehr (siehe sim/life.ts, broodBase).
  * Die Nachkommen sind deine Leben: Stirbt dein Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste
  * Generation, vorher ein Geschwister.
  */
@@ -60,11 +61,11 @@ export const SPAWN = {
    */
   alwaysMale: true,
   /** so viel Nahrung je Nachkomme (beim ersten Fisch) … */
-  perYoung: 100,
+  perYoung: 20,
   /**
    * … und so viel mehr, je weiter das Tier entwickelt ist: perGain × die Verbesserungen gegenüber dem ersten Fisch, zusammengezählt
-   * (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit). Nur das Gebiss 25 % stärker: 100 × (1 + 2 × 0,25) = 150; dazu 10 %
-   * schneller: 170. Eine Generation bringt meist 10–25 % zusammen – die zweite braucht also etwa 120–150.
+   * (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit). Nur das Gebiss 25 % stärker: 20 × (1 + 2 × 0,25) = 30; dazu 10 %
+   * schneller: 34. Eine Generation bringt meist 10–25 % zusammen – die zweite braucht also etwa 24–30.
    */
   perGain: 2,
   /** höchstens so viele Nachkommen in einem Leben */
@@ -119,10 +120,13 @@ export const INHERIT = {
 
 /** Was sonst noch das Gleichgewicht bestimmt (alles in der Entwickler-Einstellung, siehe data/tuning.ts). */
 export const MISC = {
-  /** Beim Ausruhen heilt der Körper nur bis zu diesem Anteil der Lebenskraft */
-  restHealCap: 0.75,
-  /** ein Bissen Heilkraut gibt so viel Lebenskraft zurück (Anteil am Maximum) */
-  healBite: 0.17,
+  /** Wer sich wenig bewegt, heilt bis zu diesem Anteil der Lebenskraft … */
+  restHealCap: 1,
+  /** … je Sekunde so viel (Anteil der vollen Lebenskraft): treibend bzw. langsam schwimmend */
+  regenRest: 0.012,
+  regenSlow: 0.005,
+  /** ein Heilkraut (ganz gefressen) gibt so viel Lebenskraft zurück (Anteil am Maximum) */
+  healBite: 0.4,
   /** eine abgefressene Pflanze wächst nach so vielen Sekunden um einen Bissen nach … */
   plantRegrow: 22,
   /** … zur Blütezeit nach so vielen */

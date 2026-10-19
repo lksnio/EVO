@@ -6,103 +6,27 @@ import { SPECIES } from '../data/species';
 import { EPOCHS, yearsAgo } from '../data/epochs';
 import { ADULT, STAGE_NAME, stageOf, worldYears } from '../sim/life';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
-import { levelBackgrounds, SWAYS } from '../art/worldArt';
-import { LIFE_SWAY } from '../art/lifeArt';
 import { CreatureView } from '../objects/CreatureView';
-import { BackSea } from '../objects/BackSea';
-import { ell, tex, vgrad } from '../util/canvas';
-import { clamp, mulberry32 } from '../util/math';
+import { tex, vgrad } from '../util/canvas';
+import { clamp } from '../util/math';
 import { MenuNav, controlsList, fadeIn, fadeTo, soundIcon, text, type NavItem } from '../ui/ui';
 import { continueLife, startNewLife } from './flow';
 import { changedCount } from '../data/tuning';
 import { openDevConfig } from '../ui/devConfig';
+import fossilUrl from '../assets/title/fossil.webp';
 
-// Das Titelbild: ein lebendiger Ausschnitt des Urmeers – Licht fällt von oben, Seelilien und Algen wiegen sich, Trilobiten
-// kriechen über den Sand, ein Schwarm zieht vorbei, in der Tiefe gleitet ab und zu ein riesiger Kopffüßer. Mittendrin schwimmt
-// dein eigenes Tier. Links Titel und Menü, schlicht; unten die Weltzeit, die für alle gleich weiterläuft.
+// Das Titelbild: ein versteinerter Urfisch in einer Unterwasserhöhle, durch eine Öffnung fällt Licht. Davor lebt das Wasser –
+// Lichtstrahlen, ein Lichtnetz am Grund, Schwebeteilchen, Blasen, ein ferner Schwarm, und im Licht über dem Skelett schwimmt dein
+// eigenes Tier: Das Leben geht weiter. Links Titel und Menü, schlicht; unten die Weltzeit, die für alle gleich weiterläuft.
 
-/** Wo der Meeresgrund im Bild beginnt (die Dünen liegen etwas tiefer, siehe crest) */
-const FLOOR_Y = H - 236;
-
-/** Die Oberkante des Meeresgrunds: sanfte Dünen (y im Bild). */
-const crest = (x: number) => FLOOR_Y + 62 + Math.sin(x * 0.0042 + 0.6) * 20 + Math.sin(x * 0.011 + 2) * 8 + Math.sin(x * 0.029 + 1) * 2.5;
-
-/** Was am Grund wächst und liegt: Textur (ohne „d2_“), Lage, Größe – von links nach rechts. */
-const FLOOR_LIFE: [string, number, number][] = [
-  ['kelp', 34, 1.25],
-  ['seagrass', 196, 0.85],
-  ['shell', 292, 0.9],
-  ['algae_tuft', 404, 0.85],
-  ['brachio_cluster', 452, 0.8],
-  ['crinoid_tall', 548, 1.1],
-  ['crinoid_short', 590, 0.85],
-  ['boulder', 676, 1.2],
-  ['sponge_vase', 712, 0.9],
-  ['algae_sheet', 758, 1],
-  ['stromatolite', 836, 1],
-  ['seagrass', 884, 1.1],
-  ['bryo_fan', 952, 0.9],
-  ['crinoid_cluster', 1012, 1],
-  ['coral_horn', 1062, 0.9],
-  ['kelp', 1122, 1.45],
-  ['rock', 1172, 1.1],
-  ['anemone', 1206, 0.9],
-  ['grapto_bush', 1236, 0.9],
-  ['seaweed', 1264, 1.2],
-];
-
-/** Kleine Schwarmfische der Zeit, die vorüberziehen */
+/** Kleine Schwarmfische der Zeit, die in der Ferne vorüberziehen */
 const SCHOOL_SPECIES = ['birkenia', 'kieferlos', 'arandaspis', 'astraspis'];
 
-/** Der Sandgrund, einmal gemalt: Dünen, Rippel, Kiesel – zur Tiefe hin dunkel und bläulich. */
-function floorTexture(scene: Phaser.Scene) {
-  const FH = H - FLOOR_Y;
-  return tex(scene, 'ttl_floor', W, FH, (ctx) => {
-    const r = mulberry32(23);
-    const top = (x: number) => crest(x) - FLOOR_Y;
-    const outline = (dy: number) => {
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 6) ctx.lineTo(x, top(x) + dy);
-    };
-    ctx.beginPath();
-    ctx.moveTo(0, FH);
-    for (let x = 0; x <= W; x += 6) ctx.lineTo(x, top(x));
-    ctx.lineTo(W, FH);
-    ctx.closePath();
-    ctx.fillStyle = vgrad(ctx, 28, FH, [[0, '#8e8467'], [0.16, '#6b624b'], [0.42, '#38362c'], [0.75, '#161a19'], [1, '#080b0c']]);
-    ctx.fill();
-    ctx.save();
-    ctx.clip();
-    // Rippel, die den Dünen folgen
-    for (let k = 0; k < 26; k++) {
-      const off = 10 + k * 7 + r() * 4;
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 10) ctx.lineTo(x, top(x) + off + Math.sin(x * 0.05 + k * 1.7) * 2.2);
-      ctx.strokeStyle = k % 2 ? 'rgba(255,240,200,.05)' : 'rgba(0,0,0,.09)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-    // Kiesel und Schalenbruch
-    for (let i = 0; i < 280; i++) {
-      const x = r() * W, d = Math.pow(r(), 0.8);
-      const y = top(x) + 6 + d * (FH - top(x));
-      const s = 0.8 + r() * 2.6 * (1 - d * 0.5);
-      ell(ctx, x, y, s * 1.4, s);
-      ctx.fillStyle = r() > 0.45 ? `rgba(28,26,20,${0.25 + r() * 0.35})` : `rgba(170,160,128,${0.15 + r() * 0.3})`;
-      ctx.fill();
-    }
-    // Wasser über dem Sand: bläulich, nach unten dunkel
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = vgrad(ctx, 0, FH, [[0, 'rgba(14,52,56,.22)'], [0.5, 'rgba(6,20,24,.4)'], [1, 'rgba(2,6,8,.7)']]);
-    ctx.fillRect(0, 0, W, FH);
-    ctx.restore();
-    // Licht auf der Kante
-    outline(1.5);
-    ctx.strokeStyle = 'rgba(232,220,180,.32)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  });
-}
+/** Lage des Bildes: so groß und so weit rechts, dass links Platz für Titel und Menü bleibt */
+const PIC = { x: 432, y: -84, s: 884 };
+/** Wo im Bild das Licht hereinfällt (Anteil der Bildbreite) und wo es den Grund trifft (Anteil der Höhe) */
+const BEAM_X = PIC.x + 0.5 * PIC.s;
+const BEAM_FLOOR = PIC.y + 0.8 * PIC.s;
 
 /** Ein dunkler Schleier links (dort stehen Titel und Menü) und unten (Weltzeit) – nach rechts läuft er aus. */
 function scrimTexture(scene: Phaser.Scene) {
@@ -115,6 +39,19 @@ function scrimTexture(scene: Phaser.Scene) {
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = vgrad(ctx, H - 170, H, [[0, 'rgba(2,5,6,0)'], [1, 'rgba(2,5,6,.75)']]);
     ctx.fillRect(0, H - 170, W, 170);
+  });
+}
+
+/** Der linke Rand des Bildes läuft weich ins Dunkel aus (in der Farbe des Hintergrunds). */
+function fadeTexture(scene: Phaser.Scene) {
+  // (die letzten Spalten bleiben ganz leer – sonst zeichnet die Glättung am Rand eine feine Linie)
+  return tex(scene, 'ttl_fade', 70, 6, (ctx) => {
+    const g = ctx.createLinearGradient(0, 0, 64, 0);
+    g.addColorStop(0, 'rgba(3,7,10,1)');
+    g.addColorStop(0.35, 'rgba(3,7,10,0.72)');
+    g.addColorStop(1, 'rgba(3,7,10,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 6);
   });
 }
 
@@ -185,25 +122,25 @@ export class TitleScene extends Phaser.Scene {
   /** schon einmal gezeigt: Beim Zurückkehren baut sich alles schneller auf */
   private static seen = false;
   private hero!: CreatureView;
-  private heroShadow!: Phaser.GameObjects.Image;
   private heroT = 0;
   private nav?: MenuNav;
   private overlay?: Phaser.GameObjects.Container;
   private overlayNav?: MenuNav;
   /** die Entwickler-Einstellung ist offen (sie liegt als Seite über dem Spiel) */
   private devOpen = false;
-  private backSea?: BackSea;
   private sways: { o: Phaser.GameObjects.Image; amp: number; sp: number; ph: number }[] = [];
   private caustics: { s: Phaser.GameObjects.TileSprite; v: number }[] = [];
-  private fog?: Phaser.GameObjects.TileSprite;
   private school: { members: Swimmer[]; x: number; y: number; vx: number; at: number } = { members: [], x: 0, y: 0, vx: 0, at: 0 };
-  private crawlers: { s: Phaser.GameObjects.Sprite; vx: number; lo: number; hi: number }[] = [];
   private t = 0;
   private clock?: Phaser.GameObjects.Text;
   private clockAt = 0;
 
   constructor() {
     super('Title');
+  }
+
+  preload() {
+    if (!this.textures.exists('ttl_fossil')) this.load.image('ttl_fossil', fossilUrl);
   }
 
   create() {
@@ -217,7 +154,6 @@ export class TitleScene extends Phaser.Scene {
     this.overlayNav = undefined;
     this.sways = [];
     this.caustics = [];
-    this.crawlers = [];
     this.t = 0;
     this.heroT = Math.random() * 60;
 
@@ -229,133 +165,89 @@ export class TitleScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- die Welt
 
-  /** Wasser, Licht und Grund. */
+  /**
+   * Das Bild: die Höhle mit dem versteinerten Urfisch rechts; nach links läuft sie weich ins Dunkel aus (dort stehen Titel und
+   * Menü). Ganz langsam kommt die Kamera näher und weicht wieder zurück. Davor: Licht, Wasser und Leben.
+   */
   private world() {
-    const [far, mid, fog] = levelBackgrounds(this, 'ozean', 'normal');
-    this.add.image(0, 0, far).setOrigin(0).setDepth(-100);
-    this.add.image(0, 0, mid).setOrigin(0).setDepth(-98.9).setAlpha(0.9);
-    this.fog = this.add.tileSprite(0, H * 0.35, W, H * 0.65, fog).setOrigin(0).setDepth(-98.5).setAlpha(0.3);
-    // ferne Schwärme in zwei Tiefen (wie im Spiel)
-    this.backSea = new BackSea(this, { x: 0, y: 0, w: W, h: H }, EPOCHS[0], 'lagune', 'deep', -400, false);
+    this.add.rectangle(0, 0, W, H, 0x03070a).setOrigin(0).setDepth(-101);
+    const { x, y, s } = PIC;
+    const cave = this.add.container(x + s / 2, y + s / 2).setDepth(-100);
+    const main = this.add.image(-s / 2, -s / 2, 'ttl_fossil').setOrigin(0).setDisplaySize(s, s);
+    fadeTexture(this);
+    const fade = this.add.image(-s / 2 - 2, -s / 2, 'ttl_fade').setOrigin(0).setDisplaySize(284, s);
+    cave.add([main, fade]);
+    this.tweens.add({ targets: cave, scale: 1.045, x: cave.x - 16, y: cave.y - 10, duration: 36000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
-    // Licht von oben: die Wasseroberfläche schimmert, Lichtnetze, Strahlen bis hinunter zum Grund
-    this.add.tileSprite(0, -40, W, 220, 'surface_light').setOrigin(0).setDepth(-90).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.32).setTileScale(1, 0.62);
-    for (const [key, a, v, sc] of [['caustics', 0.22, 7, 1.2], ['caustics2', 0.16, -5, 1.6]] as const) {
-      const s = this.add.tileSprite(0, -10, W, 200, key).setOrigin(0).setDepth(-89).setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc);
-      this.caustics.push({ s, v });
+    // Licht: Strahlen aus der Öffnung oben, bis hinunter zum Grund – sie atmen langsam
+    for (const [dx, sx, a, rot, ph] of [[0, 2.4, 0.2, 0.02, 0], [-70, 1.3, 0.12, 0.1, 2], [90, 1.5, 0.11, -0.08, 4], [30, 3.4, 0.07, -0.02, 1]] as const) {
+      const ray = this.add.image(BEAM_X + dx, -40, 'lightray').setOrigin(0.5, 0).setScale(sx, 1.4).setRotation(rot).setDepth(-60)
+        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTint(0xd8f2ee);
+      this.tweens.add({ targets: ray, alpha: a * 1.7, rotation: rot + 0.03, duration: 5200 + ph * 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: ph * 400 });
     }
-    for (const [x, sx, a, rot, ph] of [[940, 2.6, 0.2, -0.16, 0], [700, 1.5, 0.11, -0.1, 2], [1170, 1.9, 0.12, -0.2, 4]] as const) {
-      const ray = this.add.image(x, -30, 'lightray').setOrigin(0.5, 0).setScale(sx, 1.25).setRotation(rot).setDepth(-60)
-        .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a);
-      this.tweens.add({ targets: ray, alpha: a * 1.6, rotation: rot + 0.035, duration: 5200 + ph * 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: ph * 400 });
+    // ein Lichtnetz, wo der Strahl den Grund trifft (nach oben auslaufend), dazu ein heller Fleck
+    for (const [key, a, v, sc] of [['caustics', 0.2, -5, 1.1], ['caustics2', 0.14, 4, 1.5]] as const) {
+      const c = this.add.tileSprite(BEAM_X - 330, BEAM_FLOOR - 90, 660, 200, key).setOrigin(0).setDepth(-58)
+        .setBlendMode(Phaser.BlendModes.ADD).setTileScale(sc, sc * 0.45);
+      c.setAlpha(0, 0, a, a);
+      this.caustics.push({ s: c, v });
+    }
+    const spot = this.add.image(BEAM_X, BEAM_FLOOR + 20, 'glow').setScale(5.6, 1.3).setTint(0xcfe8e0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.1).setDepth(-57);
+    this.tweens.add({ targets: spot, alpha: 0.18, duration: 5400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    // oben schimmert ein wenig Lichtnetz über die Höhlendecke
+    const roof = this.add.tileSprite(0, -10, W, 210, 'caustics').setOrigin(0).setDepth(-59).setBlendMode(Phaser.BlendModes.ADD).setTileScale(1.3, 1.3);
+    roof.setAlpha(0.1, 0.1, 0, 0);
+    this.caustics.push({ s: roof, v: 6 });
+
+    // ganz vorn: Tang, unscharf und dunkel – an beiden Seiten, das Bild bekommt Tiefe
+    for (const [key, x, sx, sy, a, amp, sp, ph] of [
+      ['d2_kelp', W + 18, 2.5, 2.7, 0.94, 1.6, 0.35, 1], ['d2_algae_sheet', W - 70, 2.4, 2.4, 0.9, 2.2, 0.42, 3],
+      ['d2_kelp', -26, 2.2, 2.3, 0.9, 1.4, 0.3, 2], ['d2_seaweed', 46, 2, 2, 0.85, 2, 0.4, 5],
+    ] as const) {
+      if (!this.textures.exists(key)) continue;
+      const o = this.add.image(x, H + 28, key).setOrigin(0.5, 1).setScale(sx, sy).setTint(0x030809).setAlpha(a).setDepth(40);
+      this.sways.push({ o, amp, sp, ph });
     }
 
-    // der Grund – mit einem leisen Lichtnetz, wo die Sonne ihn trifft (nur oben, nach unten verlöschend)
-    floorTexture(this);
-    this.add.image(0, FLOOR_Y, 'ttl_floor').setOrigin(0).setDepth(5);
-    const cy = Math.max(...Array.from({ length: 65 }, (_, i) => crest(i * 20))) + 4;
-    for (const [key, a, v, sc] of [['caustics', 0.1, -4, 1.3], ['caustics2', 0.07, 3, 1.8]] as const) {
-      const s = this.add.tileSprite(0, cy, W, 200 * sc * 0.42, key).setOrigin(0).setDepth(5.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc * 0.42);
-      this.caustics.push({ s, v });
-    }
-    // wo der Hauptstrahl auftrifft, ist der Sand heller
-    const spot = this.add.image(1010, crest(1010) + 22, 'glow').setScale(5.2, 1.2).setTint(0xcfe8d8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.13).setDepth(5.6);
-    this.tweens.add({ targets: spot, alpha: 0.2, duration: 5200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-
-    // was am Grund wächst: Es wiegt sich in der Strömung
-    const rnd = mulberry32(5);
-    for (const [key, x, sc] of FLOOR_LIFE) {
-      const k = 'd2_' + key;
-      if (!this.textures.exists(k)) continue;
-      const img = this.add.image(x, crest(x) + 7, k).setOrigin(0.5, 1).setScale(sc).setDepth(6 + rnd() * 0.5).setTint(0xc4cec8);
-      if (SWAYS.has(key) || key in LIFE_SWAY) this.sways.push({ o: img, amp: (2.4 + rnd() * 3) * (LIFE_SWAY[key] ?? 1), sp: 0.5 + rnd() * 0.7, ph: rnd() * 6 });
-    }
-
-    // ganz vorn: Tang, unscharf und dunkel – das Bild bekommt Tiefe
-    const front = this.add.image(W + 18, H + 30, 'd2_kelp').setOrigin(0.5, 1).setScale(2.5, 2.7).setTint(0x030809).setAlpha(0.94).setDepth(40);
-    this.sways.push({ o: front, amp: 1.6, sp: 0.35, ph: 1 });
-    const front2 = this.add.image(W - 70, H + 26, 'd2_algae_sheet').setOrigin(0.5, 1).setScale(2.4).setTint(0x030809).setAlpha(0.9).setDepth(40);
-    this.sways.push({ o: front2, amp: 2.2, sp: 0.42, ph: 3 });
-
-    // Meeresschnee, Schwebstoffe im Licht, Blasen aus dem Grund
+    // Meeresschnee, Schwebstoffe im Licht, Blasen aus einer Spalte am Grund
     this.add.particles(0, 0, 'p_dot', {
-      x: { min: 0, max: W }, y: { min: -20, max: H }, lifespan: 14000, frequency: 120,
+      x: { min: 0, max: W }, y: { min: -20, max: H }, lifespan: 14000, frequency: 110,
       speedY: { min: 3, max: 12 }, speedX: { min: -4, max: 4 },
-      scale: { min: 0.06, max: 0.24 }, alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, tint: 0xd8e0d8,
+      scale: { min: 0.06, max: 0.24 }, alpha: { start: 0, end: 0.45, ease: 'Sine.inOut' }, tint: 0xd8e0d8,
     }).setDepth(13);
     this.add.particles(0, 0, 'p_dot', {
-      x: { min: 820, max: 1120 }, y: { min: 40, max: 520 }, lifespan: 6000, frequency: 160,
+      x: { min: BEAM_X - 160, max: BEAM_X + 160 }, y: { min: 0, max: BEAM_FLOOR }, lifespan: 6500, frequency: 120,
       speedY: { min: -3, max: 6 }, speedX: { min: -3, max: 3 },
-      scale: { min: 0.05, max: 0.14 }, alpha: { start: 0, end: 0.9, ease: 'Sine.inOut' }, tint: 0xf4fff4, blendMode: Phaser.BlendModes.ADD,
+      scale: { min: 0.05, max: 0.15 }, alpha: { start: 0, end: 0.9, ease: 'Sine.inOut' }, tint: 0xf4fff4, blendMode: Phaser.BlendModes.ADD,
     }).setDepth(14);
-    const vent = this.add.particles(1052, crest(1052) - 6, 'p_bubble', {
-      lifespan: 9000, frequency: 1300, speedY: { min: -46, max: -24 }, speedX: { min: -5, max: 5 },
-      scale: { start: 0.45, end: 1 }, alpha: { start: 0.75, end: 0 }, accelerationX: { min: -2, max: 2 },
+    const vent = this.add.particles(PIC.x + 0.86 * PIC.s, PIC.y + 0.83 * PIC.s, 'p_bubble', {
+      lifespan: 9000, frequency: 1500, speedY: { min: -46, max: -24 }, speedX: { min: -5, max: 5 },
+      scale: { start: 0.4, end: 0.95 }, alpha: { start: 0.7, end: 0 }, accelerationX: { min: -2, max: 2 },
     }).setDepth(11);
-    this.time.addEvent({ delay: 6200, loop: true, callback: () => vent.explode(4) });
+    this.time.addEvent({ delay: 6400, loop: true, callback: () => vent.explode(4) });
 
     // Schärfentiefe: ein paar weiche Lichtpunkte ganz vorn
-    for (let i = 0; i < 6; i++) {
-      const b = this.add.image(560 + Math.random() * 700, 80 + Math.random() * 480, 'glow').setScale(0.4 + Math.random() * 0.9)
+    for (let i = 0; i < 7; i++) {
+      const b = this.add.image(520 + Math.random() * 740, 60 + Math.random() * 520, 'glow').setScale(0.4 + Math.random() * 0.9)
         .setTint(0xa8e0d4).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.03 + Math.random() * 0.05).setDepth(41);
       this.tweens.add({ targets: b, y: b.y + (Math.random() - 0.5) * 70, x: b.x + (Math.random() - 0.5) * 40, duration: 9000 + Math.random() * 7000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
 
-    this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0.8).setDepth(44);
+    this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0.75).setDepth(44);
     scrimTexture(this);
     this.add.image(0, 0, 'ttl_scrim').setOrigin(0).setDepth(45);
   }
 
-  /** Die Bewohner: dein Tier, ein Schwarm, Trilobiten am Grund, Kopffüßer in der Ferne. */
+  /** Die Lebenden: dein Tier im Licht über dem Skelett, in der Ferne ein Schwarm. */
   private life() {
     // dein Tier (oder ein Urfisch, der auf sein erstes Leben wartet) – ausgewachsen gezeigt
     const run = game.run;
     const m = run ? game.morph({ belly: 1, life: ADULT }) : game.morph({ cls: 'fish', traits: { ...ZERO_TRAITS }, fierce: 0, hue: 0, seed: 7, sex: 0 });
-    this.heroShadow = this.add.image(900, crest(900) + 4, 'shadow').setDepth(5.8).setAlpha(0.35);
-    this.hero = new CreatureView(this, 900, 400, m, 1.9);
-    this.hero.setDepth(20);
-
-    for (const id of [...SCHOOL_SPECIES, 'trilobit', 'isotelus', 'orthoceras', 'cameroceras']) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
+    this.hero = new CreatureView(this, BEAM_X, 150, m, 1.75);
+    // im kühlen Licht der Höhle
+    this.hero.setDepth(20).setShade(0xcbd9dc);
+    for (const id of SCHOOL_SPECIES) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     this.newSchool(true);
-
-    // Trilobiten kriechen über den Sand
-    for (const [id, x, lo, hi, sc] of [['trilobit', 780, 640, 900, 0.85], ['isotelus', 1150, 1040, 1250, 0.7], ['trilobit', 470, 380, 560, 0.7]] as const) {
-      const s = this.add.sprite(x, crest(x), speciesKey(id, 0)).setScale(sc).setDepth(9).setTint(0xc8d0c8);
-      s.play({ key: `anim_${id}`, frameRate: 3 });
-      this.crawlers.push({ s, vx: (Math.random() < 0.5 ? -1 : 1) * (7 + Math.random() * 6), lo, hi });
-    }
-
-    // ein Orthoceras zieht in einiger Entfernung vorüber – immer wieder
-    const ortho = () => {
-      const ltr = Math.random() < 0.5;
-      const s = this.add.sprite(ltr ? -160 : W + 160, 170 + Math.random() * 140, speciesKey('orthoceras', 0))
-        .setScale(0.75).setTint(0x9fb6b8).setAlpha(0.78).setDepth(10).setFlipX(!ltr);
-      s.play('anim_orthoceras');
-      this.tweens.add({
-        targets: s, x: ltr ? W + 160 : -160, y: s.y + (Math.random() - 0.5) * 60, duration: 42000 + Math.random() * 12000, ease: 'Sine.inOut',
-        onComplete: () => {
-          s.destroy();
-          this.time.delayedCall(9000 + Math.random() * 14000, ortho);
-        },
-      });
-    };
-    this.time.delayedCall(2500, ortho);
-
-    // tief unten im Blau: der Riesenkopffüßer, nur als Schatten
-    const giant = () => {
-      const ltr = Math.random() < 0.5;
-      const s = this.add.sprite(ltr ? -700 : W + 700, 300 + Math.random() * 120, speciesKey('cameroceras', 0))
-        .setScale(2.3).setTint(0x081419).setAlpha(0.5).setDepth(-99.7).setFlipX(!ltr);
-      s.play({ key: 'anim_cameroceras', frameRate: 2 });
-      this.tweens.add({
-        targets: s, x: ltr ? W + 700 : -700, y: s.y + (Math.random() - 0.5) * 90, duration: 52000, ease: 'Sine.inOut',
-        onComplete: () => {
-          s.destroy();
-          this.time.delayedCall(18000 + Math.random() * 20000, giant);
-        },
-      });
-    };
-    this.time.delayedCall(5000, giant);
   }
 
   /** Ein Schwarm kleiner Fische – beim Aufbau schon mitten im Bild, später von einer Seite hereinschwimmend. */
@@ -366,12 +258,12 @@ export class TitleScene extends Phaser.Scene {
     const n = 7 + Math.floor(Math.random() * 5);
     const members: Swimmer[] = [];
     for (let i = 0; i < n; i++) {
-      const s = this.add.sprite(0, 0, speciesKey(id, 0)).setScale(0.7 + Math.random() * 0.22).setDepth(12).setTint(0xdce6e2).setFlipX(dir < 0);
+      const s = this.add.sprite(0, 0, speciesKey(id, 0)).setScale(0.5 + Math.random() * 0.16).setDepth(12).setTint(0x6f8a90).setAlpha(0.62).setFlipX(dir < 0);
       s.play({ key: `anim_${id}`, startFrame: i % 2 });
       members.push({ s, ox: (Math.random() - 0.5) * 150, oy: (Math.random() - 0.5) * 56, ph: Math.random() * 6 });
     }
     const x = first ? 760 + Math.random() * 260 : dir > 0 ? -140 : W + 140;
-    this.school = { members, x, y: 230 + Math.random() * 110, vx: dir * (30 + Math.random() * 14), at: 0 };
+    this.school = { members, x, y: 250 + Math.random() * 120, vx: dir * (24 + Math.random() * 12), at: 0 };
   }
 
   // ---------------------------------------------------------------- Titel und Menü
@@ -544,26 +436,21 @@ export class TitleScene extends Phaser.Scene {
     const dt = Math.min(0.05, dms / 1000);
     this.t += dt;
     const t = this.t;
-    this.backSea?.update(this.time.now, dt, 0, 0);
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
-    if (this.fog) this.fog.tilePositionX += dt * 4;
     for (const w of this.sways) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
     this.tickClock(dt);
 
-    // dein Tier zieht gemächlich seine Bahnen durchs Licht
+    // dein Tier zieht gemächlich seine Bahnen durchs Licht über dem Skelett
     this.heroT += dt;
     const ht = this.heroT;
-    const x = 905 + Math.sin(ht * 0.16) * 120 + Math.sin(ht * 0.41) * 18;
-    const y = 366 + Math.sin(ht * 0.27) * 26 + Math.sin(ht * 0.9) * 4;
+    const x = BEAM_X + Math.sin(ht * 0.14) * 190 + Math.sin(ht * 0.41) * 16;
+    const y = 128 + Math.sin(ht * 0.23) * 24 + Math.sin(ht * 0.9) * 4;
     const vx = (x - this.hero.x) / Math.max(0.001, dt), vy = (y - this.hero.y) / Math.max(0.001, dt);
     if (Math.abs(vx) > 1) this.hero.setFacing(vx > 0 ? 1 : -1);
     this.hero.setPosition(x, y);
     // beim Steigen und Sinken neigt es sich ein wenig
     this.hero.setRotation(this.hero.rotation + (clamp(vy / 160, -0.14, 0.14) * (vx >= 0 ? 1 : -1) - this.hero.rotation) * Math.min(1, dt * 3));
     this.hero.animate(dt, 'swim', clamp(Math.abs(vx) / 70, 0.15, 0.7));
-    const gy = crest(x);
-    const lift = clamp((gy - y) / 260, 0, 1);
-    this.heroShadow.setPosition(x, gy + 5).setScale(2.2 - lift, 1).setAlpha(0.42 - 0.22 * lift);
 
     // der Schwarm
     const s = this.school;
@@ -574,17 +461,6 @@ export class TitleScene extends Phaser.Scene {
     if ((s.vx > 0 && s.x > W + 220) || (s.vx < 0 && s.x < -220)) {
       s.at += dt;
       if (s.at > 4) this.newSchool();
-    }
-
-    // die Trilobiten am Grund
-    for (const c of this.crawlers) {
-      let nx = c.s.x + c.vx * dt;
-      if (nx < c.lo || nx > c.hi) {
-        c.vx = -c.vx;
-        nx = clamp(nx, c.lo, c.hi);
-      }
-      const slope = crest(nx + 6) - crest(nx - 6);
-      c.s.setPosition(nx, crest(nx) - c.s.displayHeight * 0.32).setFlipX(c.vx < 0).setRotation(Math.atan2(slope, 12));
     }
   }
 

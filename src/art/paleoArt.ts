@@ -7,6 +7,9 @@ import { type Ctx, newCanvas, rgrad, vgrad } from '../util/canvas';
 import { MAP_BOX, mapPos, placeField } from './mapArt';
 import { drawnOutlines, farOutlines, waterRoute } from './paleoGeo';
 
+/** Welches Land auf der Karte beschriftet ist: nur das große Gondwana – die Inseln bleiben ohne Namen. */
+export const MAP_LABELS = new Set(['Gondwana']);
+
 // Die Weltkarte als Bild: die Urzeit-Erde von oben (Land, Küstenschelf, Meer) in zwei Fassungen –
 // "hell" (was man schon gesehen hat) und "dunkel" (unbekannt). Das Bild, das man sieht, ist die dunkle Fassung,
 // durch die die helle um jeden bekannten Ort und entlang der geschwommenen Wege hindurchscheint.
@@ -202,16 +205,14 @@ function drawWorld(epId: string, pal: Palette, fields: { x: number; y: number; i
     ctx.stroke();
   }
 
-  // Namen
+  // Namen: vom Land nur das große Gondwana (MAP_LABELS), dazu die Meere
   ctx.textBaseline = 'middle';
-  for (const [list, far] of [[map.continents, false], [map.far ?? [], true]] as [typeof map.continents, boolean][]) {
-    for (const c of list) {
-      if (!c.name) continue;
-      const p = scr(c.label);
-      ctx.font = `700 ${far ? 11 : 12}px ${TITLE_FONT}`;
-      ctx.fillStyle = pal.label;
-      spaced(ctx, c.name.toUpperCase(), p.x, p.y, 3.6);
-    }
+  for (const c of map.continents) {
+    if (!MAP_LABELS.has(c.name)) continue;
+    const p = scr(c.label);
+    ctx.font = `700 12px ${TITLE_FONT}`;
+    ctx.fillStyle = pal.label;
+    spaced(ctx, c.name.toUpperCase(), p.x, p.y, 3.6);
   }
   for (const o of map.oceans) {
     const p = scr([o.x, o.y]);

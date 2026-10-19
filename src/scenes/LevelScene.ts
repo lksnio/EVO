@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, meatOf, mouthful, newStyle, noteBest, ZERO_TRAITS, type Member, type PlayStyle } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, type Member, type PlayStyle } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { LIFE, MISC, WORLD } from '../data/life';
-import { cyclePhase, diesOfAge, lifeK, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { cyclePhase, diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
-import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
+import { generateLevel, type CaveWall, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
@@ -167,10 +167,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   place!: PlaceDef;
   /** Muscheln auf dem Grund */
   private shells: Shell[] = [];
-  /** wie lange man schon gegen den Rand schwimmt (dann geht es auf die Karte) */
-  /** Durchgänge: Sichtbares je Tor (wird mit der Entfernung stärker), wie lange man schon darin schwimmt */
-  private gateFx: { g: Gate; items: { o: Phaser.GameObjects.Image; a: number }[]; pe?: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
-  private gateHold = 0;
   /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
   private deepDark?: Phaser.GameObjects.Image;
   private deepK = 0;
@@ -288,8 +284,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.redrawAt = 0;
     this.surfGlow = undefined;
     this.shells = [];
-    this.gateHold = 0;
-    this.gateFx = [];
     this.deepDark = undefined;
     this.deepK = 0;
     this.deepBeatAt = this.deepRumbleAt = 0;
@@ -333,7 +327,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.beginLife();
     const ep = this.ep;
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
-    const L = (this.L = generateLevel(ep, WORLD.seed, this.place, game.prog.from, game.prog.edge));
+    const L = (this.L = generateLevel(ep, WORLD.seed, this.place, game.prog.edge));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
@@ -440,7 +434,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawning = new SpawnCtl(this);
     // Muscheln, die noch nicht gefunden sind
     for (const sh of L.shells) if (!game.hasShell(sh.id)) this.shells.push(new Shell(this, sh.x, sh.y, sh.id));
-    this.buildGates();
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -1282,11 +1275,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (list) list.push(a);
       else this.herds.set(herd, [a]);
     }
-    // Kleine Beutetiere sind zerbrechlich: Schon ein frisch geschlüpftes Tier braucht nur zwei Bisse
-    if (def.role === 'prey' && def.power <= 2.2) {
-      const fresh = game.stats(game.cls, { ...ZERO_TRAITS }, lifeK(0)).bite;
-      a.hp = a.maxHp = Math.min(a.maxHp, Math.round(fresh * 1.9 * 10) / 10);
-    }
     this.groundIt(a);
     this.animals.push(a);
     return a;
@@ -1681,23 +1669,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.train.pack += 0.5 + this.challenge(a);
       noteBest(this.train, 'pack', this.strength(a));
     }
-    // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – so viel, wie es stark und groß war (meatOf); große Tiere
-    // geben mehrere Stücke
+    // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – so viel, wie es stark und groß war (meatOf, nach der
+    // Lebenskraft der Art und der Größe des Tiers), in Brocken: große Keulen (je FOOD.chunk) und kleine Stücke (je 1)
     const killer = a.lastAttacker;
-    const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
-    // (nach der Lebenskraft der Art und der Größe des Tiers – kleine Beute ist zwar zerbrechlicher gemacht, nährt aber wie sie ist)
     const total = a.def.food !== undefined ? a.def.food * a.sz : meatOf(a.def.hp * a.sz);
-    const pieces = total <= 60 ? 1 : total <= 180 ? 2 : 3;
-    const n = pieces + (giant ? 1 : 0);
-    const each = total / pieces;
+    const chunks = meatChunks(total);
+    const n = chunks.length;
     const fresh: Meat[] = [];
-    for (let i = 0; i < n; i++) {
-      const spread = (i - (n - 1) / 2) * 70 + (Math.random() - 0.5) * 30;
-      const vy = this.water ? -40 - Math.random() * 40 : -220 - Math.random() * 120;
-      const m = new Meat(this, this, a.x, a.y, each, this.time.now, kill, spread, vy);
+    chunks.forEach((value, i) => {
+      const spread = (i - (n - 1) / 2) * (n > 6 ? 36 : 60) + (Math.random() - 0.5) * 30;
+      const vy = this.water ? -40 - Math.random() * 60 : -220 - Math.random() * 120;
+      const m = new Meat(this, this, a.x, a.y, value, this.time.now, kill, spread, vy);
       this.meats.push(m);
       fresh.push(m);
-    }
+    });
     // Wer das Tier erlegt hat, frisst es – mit der passenden Fress-Haltung, statt gleich weiterzuziehen
     if (killer instanceof Animal && !killer.dead && !killer.kin && killer.def.diet === 'meat' && fresh.length) killer.startFeast(fresh[Math.floor(fresh.length / 2)], this.time.now);
     this.puff(a.x, a.y, 6, 0xffe0c0);
@@ -1806,11 +1791,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const m of this.meats) {
       if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
       const dig = st.digestMeat;
-      // ein Mundvoll – große Beute frisst man in mehreren Bissen
-      const got = m.bite(mouthful(st.size, game.traits.jaw));
+      // ein Brocken – immer ganz, mit einem Bissen
+      const got = m.bite(m.value);
       if (!p.eat(got * dig, 'meat')) return;
       this.floatNum(m.x, m.y - 16, got * dig, 'meat');
-      this.ate('meat', got * (FOOD.meat.kcal / FOOD.meat.sat) * dig);
+      this.ate('meat', got * FOOD.meat.kcal * dig);
       m.playerBites++;
       m.kill.playerAte = true;
       this.checkShare(m.kill);
@@ -1835,7 +1820,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (p.eat(gain, 'plant')) {
         this.floatNum(pl.x, pl.y - 44, gain, pl.toxic ? 'toxic' : 'plant');
         this.ate('plant', food.kcal * st.digestPlant);
-        pl.take(now);
+        // die ganze Pflanze mit einem Bissen – sie wächst nach
+        pl.eatAll(now);
         if (pl.toxic) this.poisoned();
         else if (pl.heals) this.healed(pl);
         game.grow('stealth', 0.012);
@@ -2081,7 +2067,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.clock(time);
       this.interact(time, dt);
       this.shellStep(time);
-      this.gateStep(time, dt);
+      this.edgeStep();
       this.weather(time, dt);
       this.migrate(time);
       this.spotStep(time);
@@ -2602,10 +2588,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
 
-    // Hunger gibt es nicht (Fressen nährt nur die Brut). Wer sich treiben lässt, kommt wieder zu Kräften – die
-    // Lebenskraft aber nur bis etwa drei Viertel; mehr braucht ein Heilkraut. Fleisch heilt nicht.
-    if (p.resting && p.hp < p.stats.maxHp * MISC.restHealCap) {
-      p.hp = Math.min(p.stats.maxHp * MISC.restHealCap, p.hp + p.stats.maxHp * 0.02 * p.stats.recover * dt);
+    // Wer sich wenig oder gar nicht bewegt, kommt langsam wieder zu Kräften – wer sich treiben lässt, am schnellsten. Nicht
+    // gleich nach einem Treffer, nicht im Spurt oder Stoß. Fleisch heilt nicht; schneller geht es mit einem Heilkraut.
+    const cap = p.stats.maxHp * MISC.restHealCap;
+    if (p.hp < cap && !p.sprinting && !p.isRamming && time - p.lastHurt > 2500) {
+      const rate = p.resting ? MISC.regenRest : p.speed01 < 0.35 ? MISC.regenSlow : 0;
+      if (rate > 0) p.hp = Math.min(cap, p.hp + p.stats.maxHp * rate * p.stats.recover * dt);
     }
     game.calm(dt);
 
@@ -2672,86 +2660,38 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- Ränder, Karte, Muscheln
 
   /**
-   * Durchgänge: Die Ränder des Ortes sind Felswand, nur an einigen Stellen öffnet sie sich. Dazu ein Loch im Boden und
-   * Lichtöffnungen oben an der Oberfläche. Aus der Ferne sieht man sie kaum – erst wer in die Nähe kommt, sieht es schimmern.
+   * Links und rechts gibt es keine Wand: Wer über den Rand hinausschwimmt, kommt (über die Karte) in den Nachbarort auf dieser
+   * Seite – welcher es ist, entscheidet die Tiefe (siehe edgeNeighbor). Andere Wege gibt es nicht.
    */
-  private buildGates() {
-    const L = this.L;
-    for (const g of L.gates) {
-      const cx = g.x + g.w / 2, cy = g.y + g.h / 2;
-      const items: { o: Phaser.GameObjects.Image; a: number }[] = [];
-      const add = (o: Phaser.GameObjects.Image, a: number) => {
-        o.setAlpha(0);
-        items.push({ o, a });
-      };
-      let pe: Phaser.GameObjects.Particles.ParticleEmitter | undefined;
-      if (g.kind === 'left' || g.kind === 'right') {
-        add(this.add.image(cx, cy, 'glow').setDisplaySize(520, 420).setTint(0xb4f0e2).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.5);
-      } else if (g.kind === 'surface') {
-        add(this.add.image(cx, L.surfaceY, 'lightray').setOrigin(0.5, 0).setScale(1.1, 1.2).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD).setTint(0xe8fff4), 0.55);
-        add(this.add.image(cx, L.surfaceY + 60, 'glow').setDisplaySize(380, 300).setTint(0xd8fff0).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.4);
-      } else {
-        // ein dunkles Loch im Boden, aus dem kalte Blasen aufsteigen
-        const floorY = g.y + 80;
-        const hole = this.add.graphics().setDepth(DEPTH.terrain + 2);
-        hole.fillStyle(0x010304, 0.95);
-        hole.fillEllipse(cx, floorY + 4, g.w * 0.92, 30);
-        hole.fillStyle(0x0a1a22, 0.9);
-        hole.fillEllipse(cx, floorY + 2, g.w * 0.7, 18);
-        this.cullAdd(hole, g.x - 100, g.x + g.w + 100);
-        add(this.add.image(cx, floorY - 40, 'glow').setDisplaySize(300, 220).setTint(0x8fe0d0).setDepth(DEPTH.decoFront + 0.4).setBlendMode(Phaser.BlendModes.ADD), 0.4);
-        pe = this.add.particles(0, 0, 'p_bubble', {
-          x: { min: g.x + 20, max: g.x + g.w - 20 }, y: floorY, lifespan: 2600, frequency: 220, speedY: { min: -60, max: -26 }, speedX: { min: -10, max: 10 },
-          scale: { start: 0.5, end: 0.9 }, alpha: { start: 0.5, end: 0 }, emitting: false,
-        }).setDepth(DEPTH.fx);
-      }
-      this.gateFx.push({ g, items, pe });
-    }
-  }
-
-  /** Die Durchgänge schimmern erst, wenn man nah genug ist; wer ganz hineinschwimmt, kommt im Nachbarort an. */
-  private gateStep(time: number, dt: number) {
+  private edgeStep() {
     const p = this.player;
-    let inside = -1;
-    this.gateFx.forEach((f, i) => {
-      const g = f.g;
-      const cx = g.x + g.w / 2, cy = g.y + g.h / 2;
-      const d = Math.hypot(p.x - cx, p.y - cy);
-      const k = Math.pow(clamp(1 - (d - 450) / 1300, 0, 1), 1.3);
-      const pulse = 0.85 + 0.15 * Math.sin(time / 600 + i);
-      for (const it of f.items) it.o.setAlpha(it.a * k * pulse);
-      if (f.pe) {
-        if (k > 0.05 && !f.pe.emitting) f.pe.start();
-        else if (k <= 0.05 && f.pe.emitting) f.pe.stop();
-      }
-      if (p.x > g.x && p.x < g.x + g.w && p.y > g.y && p.y < g.y + g.h) inside = i;
-    });
-    this.gateHold = inside >= 0 ? this.gateHold + dt : Math.max(0, this.gateHold - dt * 2);
-    if (inside >= 0 && this.gateHold > 0.25) this.leave(this.gateFx[inside].g.to);
-    // Links und rechts gibt es keine Wand: Wer über den Rand hinausschwimmt, kommt in den Nachbarort
-    if (this.water && !this.ended) {
-      const L = this.L;
-      const side = p.x < -34 ? 'left' : p.x > L.width + 34 ? 'right' : null;
-      if (side) {
-        const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
-        const frac = clamp((p.y - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY), 0, 1);
-        const to = edgeNeighbor(this.ep, this.place, side, frac);
-        if (to) this.leave(to.id, { side, frac });
-      }
-    }
+    if (!this.water || this.ended) return;
+    const L = this.L;
+    const side = p.x < -34 ? 'left' : p.x > L.width + 34 ? 'right' : null;
+    if (!side) return;
+    const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
+    const frac = clamp((p.y - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY), 0, 1);
+    const to = edgeNeighbor(this.ep, this.place, side, frac);
+    if (to) this.leave(to.id, { side, frac });
   }
 
-  /** Durch den Durchgang (oder über den Rand): Der Stand wird gemerkt, dann geht es (über die Karte) in den Nachbarort. */
-  private leave(to: string, edge?: { side: 'left' | 'right'; frac: number }) {
+  /**
+   * Über den Rand hinaus: Der Stand wird gemerkt, der Weg zwischen den beiden Orten ist ab jetzt bekannt (er erscheint auf der
+   * Karte), dann geht es über die Karte weiter – in den Nachbarort oder an einen anderen bekannten Ort.
+   */
+  private leave(to: string, edge: { side: 'left' | 'right'; frac: number }) {
     if (this.ended) return;
     this.ended = true;
     this.saveProgress();
+    // neu: der Ort bzw. der Weg dorthin – die Karte lässt ihn erscheinen
+    const newPlace = !game.isKnown(to), newLink = !game.hasLink(this.place.id, to);
+    game.discoverLink(this.place.id, to);
     audio.sfx('travel');
     this.player.body.setVelocity(0, 0);
     this.cameras.main.fadeOut(900, 2, 3, 4);
     this.time.delayedCall(950, () => {
       this.scene.stop('Hud');
-      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to, edge });
+      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to, edge, newPlace, newLink });
     });
   }
 

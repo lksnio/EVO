@@ -1,6 +1,6 @@
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, type EpochDef } from '../data/epochs';
-import { placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
+import { linkKey, placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
 import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
@@ -110,36 +110,41 @@ const DIET_MAX = 0.85;
 
 /**
  * Was Fressen bringt. Hunger gibt es nicht: Alles Gefressene ist Nahrung für die Brut (daraus werden die Nachkommen, siehe
- * data/life.ts, SPAWN). sat: so viel Nahrung je Bissen (Pflanzen, Laich) bzw. je Einheit Fleisch; kcal: der Nährwert dabei
- * (er bestimmt, wohin sich die Kost der Nachkommen verschiebt).
+ * data/life.ts, SPAWN). Nahrung kommt in ganzen Einheiten: Ein erlegtes Tier zerfällt in Fleischbrocken – große (chunk, 5)
+ * und kleine (1) –, und jeder Brocken wird mit einem Bissen ganz gefressen; eine Pflanze ebenso (sat), ein Ei aus fremdem
+ * Laich auch. kcal: der Nährwert je Einheit (er bestimmt, wohin sich die Kost der Nachkommen verschiebt).
  */
 export const FOOD = {
-  meat: { sat: 3, kcal: 3.5 },
-  /** Pflanzen: wenig, aber ohne Gefahr – sie wachsen nach */
+  meat: { kcal: 1.2 },
+  /** eine Pflanze (ganz, mit einem Bissen): wenig, aber ohne Gefahr – sie wächst nach */
   plant: { sat: 1, kcal: 1 },
-  toxic: { sat: 0.75, kcal: 1.5 },
-  /** Fischlaich anderer Arten: nahrhaft und leicht zu fressen – aber die Eltern passen auf */
-  roe: { sat: 1.5, kcal: 1.6 },
-  /** Fleisch je erlegtem Tier: meatPerHp × (Lebenskraft der Art × Größe des Tiers) hoch meatExp (siehe meatOf) */
-  meatPerHp: 1,
-  meatExp: 0.85,
-  /** ein Bissen Fleisch beim ausgewachsenen ersten Fisch (größere schaffen mehr, ein kräftiges Gebiss auch: biteJaw) */
-  bite: 6,
-  biteJaw: 0.8,
+  toxic: { sat: 1, kcal: 1.5 },
+  /** ein Ei aus dem Laich anderer Arten: leicht zu fressen – aber die Eltern passen auf */
+  roe: { sat: 1, kcal: 1.2 },
+  /** Fleisch je erlegtem Tier: meatPerHp × (Lebenskraft der Art × Größe des Tiers) hoch meatExp, ganzzahlig (siehe meatOf) */
+  meatPerHp: 0.1,
+  meatExp: 1,
+  /** so viel steckt in einem großen Fleischbrocken (die kleinen: 1) */
+  chunk: 5,
 };
 
 /**
- * So viel Fleisch (Nahrung) gibt ein erlegtes Tier – nach seiner Lebenskraft, in der Größe und Stärke schon stecken: ein
- * kleiner Beutefisch etwa 4–7, ein Conodont um 13, Orthoceras um 23, die Riesen ein Vielfaches. Wer mehr will, muss Stärkeres
- * erlegen – mit mehr Risiko. Eine Art kann einen festen Wert haben (SpeciesDef.food, in der Entwickler-Einstellung).
+ * So viel Fleisch (Nahrung) gibt ein erlegtes Tier – nach seiner Lebenskraft, in der Größe und Stärke schon stecken, in ganzen
+ * Einheiten und wenigstens 1: ein kleiner Beutefisch 1, ein Conodont um 3, Orthoceras um 5, Megalograptus um 16, der
+ * Riesenkopffüßer um 43. Wer mehr will, muss Stärkeres erlegen – mit mehr Risiko. Eine Art kann einen festen Wert haben
+ * (SpeciesDef.food, in der Entwickler-Einstellung).
  */
-export const meatOf = (hp: number) => FOOD.meatPerHp * Math.pow(Math.max(1, hp), FOOD.meatExp);
+export const meatOf = (hp: number) => Math.max(1, Math.round(FOOD.meatPerHp * Math.pow(Math.max(1, hp), FOOD.meatExp)));
 
-/** So viel Fleisch schafft man mit einem Bissen – größere Tiere und ein kräftiges Gebiss mehr. Große Beute in Etappen. */
-export const mouthful = (size: number, jaw: number) => FOOD.bite * (0.5 + 0.5 * size / 0.7) * (1 + FOOD.biteJaw * jaw);
+/** Die Brocken eines erlegten Tiers: so viele große (je FOOD.chunk) und kleine (je 1), wie zusammen seine Nahrung ergeben. */
+export function meatChunks(total: number): number[] {
+  const n = Math.max(1, Math.round(total));
+  const big = Math.floor(n / FOOD.chunk);
+  return [...Array<number>(big).fill(FOOD.chunk), ...Array<number>(n - big * FOOD.chunk).fill(1)];
+}
 
 /** Bezugsgröße für die Ernährung: so viel frisst ein Tier, das gut über die Runden kommt – in so vielen Sekunden Leben. */
-export const fedRef = (seconds: number, size: number) => 0.15 * seconds * (0.85 + 0.3 * size);
+export const fedRef = (seconds: number, size: number) => 0.05 * seconds * (0.85 + 0.3 * size);
 
 export interface Stats {
   maxHp: number;
@@ -192,10 +197,10 @@ export interface EpochProg {
   place: string;
   /** schon besuchte Orte */
   seen: string[];
-  /** freigeschaltete Orte (nur diese zeigt die Karte) – ein neuer Ort wird frei, sobald man durch seinen Durchgang schwimmt */
+  /** bekannte Orte (nur diese zeigt die Karte) – ein neuer Ort wird bekannt, sobald man über den Rand zu ihm hinüberschwimmt */
   known: string[];
-  /** von welchem Ort man gekommen ist (dort liegt der Ankunftsplatz) */
-  from?: string;
+  /** bekannte Wege zwischen zwei Orten (linkKey) – sie entstehen, wenn man von einem Ort in den anderen schwimmt */
+  links: string[];
   /** über den Rand hereingeschwommen: über welche Seite man den anderen Ort verlassen hat und wie tief man war */
   edge?: { side: 'left' | 'right'; frac: number };
   /** Hier beginnt das Leben (ein neues Jungtier schlüpft aus seinem Gelege) – gilt nur einmal */
@@ -215,6 +220,7 @@ export const newProg = (epoch: number): EpochProg => ({
   place: startPlace(EPOCHS[epoch]).id,
   seen: [startPlace(EPOCHS[epoch]).id],
   known: [startPlace(EPOCHS[epoch]).id],
+  links: [],
   boss: 0,
   eaten: { meat: 0, plant: 0 },
   train: newStyle(),
@@ -687,6 +693,9 @@ class GameState {
           r.prog.known = r.prog.known.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
           r.prog.seen = r.prog.seen.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
           if (!placesOf(EPOCHS[r.epoch]).some((p) => p.id === r.prog.place)) r.prog = newProg(r.epoch);
+          // ältere Spielstände kennen nur Orte, keine Wege: Wer zwei benachbarte Orte kennt, kennt auch den Weg dazwischen
+          r.prog.links ??= placesOf(EPOCHS[r.epoch]).flatMap((p) =>
+            r.prog.known.includes(p.id) ? p.links.filter((q) => q > p.id && r.prog.known.includes(q)).map((q) => linkKey(p.id, q)) : []);
           r.shells ??= [];
           r.seenRows ??= r.shells.length;
           r.traits = migrate(r.traits);
@@ -825,8 +834,10 @@ class GameState {
     const girth = t.girth ?? 0;
     const land = CLASSES[cls].habitat === 'land';
     const limb = t.limb ?? 0;
-    const bite = b.bite * size * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
-    const ram = b.ram * size * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth);
+    // Jungtiere beißen und stoßen schwächer – aber nicht ganz so schwach, wie ihre Größe vermuten ließe
+    const force = adult * Math.pow(k.grow, 0.6);
+    const bite = b.bite * force * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
+    const ram = b.ram * force * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth);
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
     // Verfolgungsfische halten lange durch – das zeigt ihr Körperbau allein nicht
     const chase = plateLevel(t.vf ?? 0);
@@ -1256,7 +1267,6 @@ class GameState {
     run.life = newLife(gen);
     const p = run.prog;
     p.place = c.place;
-    p.from = undefined;
     p.edge = undefined;
     p.at = { x: c.x, y: c.y };
     p.hp = undefined;
@@ -1444,24 +1454,38 @@ class GameState {
     this.save();
   }
 
-  /** Durch einen Durchgang in einen Nachbarort: Er wird freigeschaltet, der Weg kostet etwas Zeit und Kraft. */
-  enterPlace(id: string, from?: string, edge?: { side: 'left' | 'right'; frac: number }) {
+  /** Über die Karte in einen Ort (hops: wie viele Wege es waren): Er ist danach bekannt, jeder Weg kostet etwas Lebenszeit. */
+  enterPlace(id: string, edge?: { side: 'left' | 'right'; frac: number }, hops = 1) {
     const run = this.r;
     const p = run.prog;
-    if (id !== p.place) {
-      run.life.age += MISC.travel;
-    }
+    // jeder Weg über die Karte kostet etwas Lebenszeit
+    if (id !== p.place || edge) run.life.age += MISC.travel * Math.max(1, hops);
     p.place = placeOf(EPOCHS[run.epoch], id).id;
-    p.from = from;
-    p.edge = from ? edge : undefined;
+    p.edge = edge;
     if (!p.seen.includes(p.place)) p.seen.push(p.place);
     if (!p.known.includes(p.place)) p.known.push(p.place);
     this.save();
   }
 
-  /** Ist dieser Ort schon freigeschaltet? */
+  /** Von einem Ort in den anderen geschwommen: Der Weg zwischen beiden ist bekannt (und der neue Ort auch). */
+  discoverLink(a: string, b: string) {
+    const p = this.r.prog;
+    p.links ??= [];
+    const k = linkKey(a, b);
+    if (!p.links.includes(k)) p.links.push(k);
+    if (!p.known.includes(b)) p.known.push(b);
+    if (!p.known.includes(a)) p.known.push(a);
+    this.save();
+  }
+
+  /** Ist dieser Ort schon bekannt? */
   isKnown(id: string) {
     return this.r.prog.known.includes(id);
+  }
+
+  /** Kennt man den Weg zwischen diesen beiden Orten? */
+  hasLink(a: string, b: string) {
+    return (this.r.prog.links ?? []).includes(linkKey(a, b));
   }
 
   get shells(): string[] {

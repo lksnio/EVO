@@ -11,17 +11,17 @@ describe('Entwickler-Einstellung', () => {
 
   it('ändert die Werte selbst – und auf den Standard zurück', () => {
     const p = param('SPAWN.perYoung');
-    expect(p.def()).toBe(100);
-    setParam(p, 140);
-    expect(SPAWN.perYoung).toBe(140);
+    expect(p.def()).toBe(20);
+    setParam(p, 30);
+    expect(SPAWN.perYoung).toBe(30);
     expect(isChanged(p)).toBe(true);
     expect(changedCount()).toBe(1);
     // genau der Standard: keine Änderung mehr
-    setParam(p, 100);
+    setParam(p, 20);
     expect(isChanged(p)).toBe(false);
-    setParam(p, 90);
+    setParam(p, 15);
     resetAll();
-    expect(SPAWN.perYoung).toBe(100);
+    expect(SPAWN.perYoung).toBe(20);
     expect(changedCount()).toBe(0);
   });
 
@@ -29,7 +29,7 @@ describe('Entwickler-Einstellung', () => {
     const row = SPECIES_ROWS.find((r) => r.id === 'kieferlos')!;
     const [food, hp] = row.params;
     const hp0 = SPECIES.kieferlos.hp;
-    expect(food.get()).toBeCloseTo(meatOf(hp0), 1);
+    expect(food.get()).toBe(meatOf(hp0));
     setParam(food, 3);
     expect(SPECIES.kieferlos.food).toBe(3);
     setParam(hp, hp0 * 2);

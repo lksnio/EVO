@@ -1,7 +1,7 @@
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
-import { gateKind, placeOf, SHAPE_OF, shellId, type CaveKind, type GateKind, type PlaceDef, type ZoneDef } from '../data/world';
+import { SHAPE_OF, shellId, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
 import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
@@ -91,20 +91,10 @@ export interface LevelData {
   crevices: Rect[];
   /** Stellen an der Oberfläche, an denen Licht ins Wasser fällt – überall sonst liegt Schatten */
   lit: { x0: number; x1: number }[];
-  /** Durchgänge zu den Nachbarorten */
-  gates: Gate[];
   /** Fischlaich am Boden */
   roe: RoeSpot[];
   /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
   riverEnd?: number;
-}
-
-/** Ein Durchgang: Wer hindurchschwimmt, kommt im Nachbarort an (und schaltet ihn frei). */
-export interface Gate extends Rect {
-  to: string;
-  kind: GateKind;
-  /** wo man im Ort ankommt, wenn man von dort (to) kommt */
-  arrive: { x: number; y: number };
 }
 
 /** Eine Höhle: Innenraum und die Farbe, die man darin annimmt (1 grün, 2 schwarz). */
@@ -162,7 +152,6 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     currents: [],
     crevices: [],
     lit: [],
-    gates: [],
     roe: [],
   };
 }
@@ -321,8 +310,6 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
     if (d.role === 'predator' && r() > 0.45) continue;
     const c = nearFlat(Math.round(sp.x / T) + rint(r, -6, 6), 8);
     if (c < 0 || c < riverEndCol + 40 || heights[c] > 32 || arrCols.some((a) => Math.abs(c - a) < 16) || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
-    // nicht in den Durchgängen
-    if (L.gates.some((g) => g.kind === 'floor' && (c + 0.5) * T > g.x - 3 * T && (c + 0.5) * T < g.x + g.w + 3 * T)) continue;
     const idx = L.roe.length;
     const roe = spot(c, toneOf(sp.id), sp.id, false);
     L.roe.push(roe);
@@ -335,7 +322,7 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
 
 // ---------------------------------------------------------------------------
 
-function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: EdgeEntry): LevelData {
+function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): LevelData {
   const cols = Math.round(ep.len * place.wide);
   const extra = place.deep;
   // das Meer ist tief: Unten wird es dunkel, oben fällt das Licht herein
@@ -410,10 +397,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   addCrevices(L, 2, r, cols, G, startCol);
   addCurrents(L, r, cols, G.heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
-  addGates(L, ep, place, r, cols, G, startCol);
-  // Die Welt ist für alle gleich – egal, von wo man kommt. Deshalb bleibt an jedem möglichen Ankunftsplatz Platz: am Start,
-  // an jedem Durchgang und an beiden Rändern (Felsen, Räuber, Gelege und Dickicht halten dort Abstand).
-  const arrCols = [startCol, ...L.gates.map((g) => Math.floor(g.arrive.x / T)), 9, cols - 10];
+  // Die Welt ist für alle gleich – egal, von wo man kommt. Deshalb bleibt an jedem möglichen Ankunftsplatz Platz: am Start
+  // und an beiden Rändern (Felsen, Räuber, Gelege und Dickicht halten dort Abstand).
+  const arrCols = [startCol, 9, cols - 10];
   // Felsen und Kiesel – nicht dort, wo man ankommt
   placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T])], riverEndCol);
   placeMats(L, place, r, G, riverEndCol);
@@ -424,16 +410,14 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => (c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T) && arrCols.every((a) => c.x > (a + 9) * T || c.x + c.w < (a - 9) * T));
-  // Wo man selbst ankommt (das Einzige, was davon abhängt, von wo man kommt): am Durchgang, durch den man kam – oder, wer über
-  // den Rand hereinschwimmt, am Gegenrand auf derselben Höhe (soweit es dort Wasser gibt)
-  let arrive = from ? L.gates.find((g) => g.to === from)?.arrive : undefined;
+  // Wo man selbst ankommt (das Einzige, was davon abhängt, von wo man kommt): wer über den Rand hereinschwimmt, am Gegenrand
+  // auf derselben Höhe (soweit es dort Wasser gibt)
   if (edge) {
     const col = edge.side === 'left' ? cols - 10 : 9;
     const floorY = G.at((col + 0.5) * T);
     const top = L.surfaceY + 120, bot = Math.max(top + 10, floorY - 130);
-    arrive = { x: (col + 0.5) * T, y: clampN(L.surfaceY + edge.frac * (floorY - L.surfaceY), top, bot) };
+    L.start = { x: (col + 0.5) * T, y: clampN(L.surfaceY + edge.frac * (floorY - L.surfaceY), top, bot) };
   }
-  if (arrive) L.start = { x: arrive.x, y: arrive.y };
   // keine Tiere im Fels (Felsen, Platten, Bögen) und nicht im Boden
   for (const sp of L.spawns) {
     const crawl = SPECIES[sp.id]?.crawl;
@@ -469,8 +453,7 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   const frozen = (x0: number, x1: number) =>
     keep.some(([a, b]) => x1 > a && x0 < b)
     || L.caves.some((c) => x1 > c.x - 5 * T && x0 < c.x + c.w + 5 * T)
-    || L.crevices.some((c) => x1 > c.x - 4 * T && x0 < c.x + c.w + 4 * T)
-    || L.gates.some((g) => g.kind === 'floor' && x1 > g.x - 3 * T && x0 < g.x + g.w + 3 * T);
+    || L.crevices.some((c) => x1 > c.x - 4 * T && x0 < c.x + c.w + 4 * T);
   // der Felsen sitzt auf dem tiefsten Punkt unter ihm, ein Stück im Boden
   const seat = (x: number, rx: number, ry: number, tone: number, sink: number): RockSpec => {
     const seed = Math.floor(r() * 1e9);
@@ -520,7 +503,7 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   for (let i = 0, n = Math.round(cols * 0.6); i < n; i++) {
     const x = (2 + r() * (cols - 4)) * T;
     const m = matAt(zones, x);
-    if (r() > WEIGHT[m] + 0.1 || L.caves.some((c) => x > c.x - 20 && x < c.x + c.w + 20) || L.gates.some((g) => g.kind === 'floor' && x > g.x - 20 && x < g.x + g.w + 20)) continue;
+    if (r() > WEIGHT[m] + 0.1 || L.caves.some((c) => x > c.x - 20 && x < c.x + c.w + 20)) continue;
     const prx = 5 + r() * 9;
     L.rocks.push(seat(x, prx, prx * (0.55 + r() * 0.3), toneOf(m), 4));
   }
@@ -550,8 +533,7 @@ function placeMats(L: LevelData, place: PlaceDef, r: Rng, G: Ground, riverEndCol
     const m = matAt(zones, x0 + w / 2);
     if (m === 'rock' && r() < 0.85) continue;
     if (x0 < riverEndCol * T && x1 > riverEndCol * T) continue;
-    if (L.caves.some((c) => x1 > c.x - T && x0 < c.x + c.w + T) || L.crevices.some((c) => x1 > c.x - T && x0 < c.x + c.w + T)
-      || L.gates.some((g) => g.kind === 'floor' && x1 > g.x - T && x0 < g.x + g.w + T)) continue;
+    if (L.caves.some((c) => x1 > c.x - T && x0 < c.x + c.w + T) || L.crevices.some((c) => x1 > c.x - T && x0 < c.x + c.w + T)) continue;
     if (L.solids.some((s) => s.x < x1 && s.x + s.w > x0 && s.y < G.at(s.x + s.w / 2) - 8)) continue;
     if (G.flat(x0, x1) > 40 || L.mats.some((q) => x0 < q.x1 + 40 && x1 > q.x0 - 40)) continue;
     L.mats.push({ x0, x1, tone: tones[Math.floor(r() * tones.length)], seed: Math.floor(r() * 1e9) });
@@ -559,7 +541,7 @@ function placeMats(L: LevelData, place: PlaceDef, r: Rng, G: Ground, riverEndCol
   }
 }
 
-/** Bewuchs auf dem Boden: Deko, fressbare Pflanzen und Dickicht – nicht in Tunneln, an Durchgängen und auf oder hinter Felsen. */
+/** Bewuchs auf dem Boden: Deko, fressbare Pflanzen und Dickicht – nicht in Tunneln und auf oder hinter Felsen. */
 function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, riverEndCol: number) {
   const cols = G.heights.length;
   const z = place.def;
@@ -568,7 +550,6 @@ function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
   const free = (x: number, w: number) =>
     !L.caves.some((c) => x + w > c.x - T && x - w < c.x + c.w + T)
     && !L.crevices.some((c) => x + w > c.x - T && x - w < c.x + c.w + T)
-    && !L.gates.some((g) => g.kind === 'floor' && x + w > g.x - T && x - w < g.x + g.w + T)
     && !L.solids.some((s) => x + w > s.x && x - w < s.x + s.w && s.y < G.at(x) - 8)
     && !L.fore.some((f) => Math.abs(x - f.x) < f.rx * 0.95 + w);
   // Wer hier lebt, hängt vom Ort, vom Zeitalter und vom Untergrund ab (data/biota.ts); manche wachsen in kleinen Gruppen
@@ -754,49 +735,6 @@ function placeShells(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
   }
 }
 
-/**
- * Durchgänge zu den Nachbarorten. Westen und Osten: eine Öffnung in der Felswand an einer bestimmten Höhe. Süden: ein Loch
- * im Boden. Norden: eine Lichtöffnung an der Oberfläche. Man muss sie finden – nur dort kommt man hinaus.
- */
-function addGates(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, cols: number, G: Ground, startCol: number) {
-  const rows = L.height / T;
-  const usedCols: number[] = [];
-  let sun = 0;
-  // Öffnungen räumen alles ab, was im Weg steht (Säulen, Platten)
-  const clear = (x0: number, y0: number, x1: number, y1: number) => {
-    L.solids = L.solids.filter((s) => !(s.x > -T && s.x < cols * T && s.x < x1 && s.x + s.w > x0 && s.y < y1 && s.y + s.h > y0 && s.y + s.h < rows * T - 2 * T));
-    L.plants = L.plants.filter((p) => !(p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1 + T));
-  };
-  for (const lid of place.links) {
-    const q = placeOf(ep, lid);
-    let kind = gateKind(place, q);
-    if (kind === 'surface' && !L.lit.length) kind = 'left';
-    if (kind === 'surface') {
-      const lit = L.lit[sun % L.lit.length];
-      const nth = Math.floor(sun++ / L.lit.length);
-      const x = Math.round(((lit.x0 + lit.x1) / 2 + (nth % 2 ? 1 : -1) * nth * 5 * T) / T) * T - 2 * T;
-      clear(x - T, L.surfaceY, x + 5 * T, L.surfaceY + 7 * T);
-      L.gates.push({ x, y: L.surfaceY, w: 4 * T, h: 4 * T, to: lid, kind, arrive: { x: x + 2 * T, y: L.surfaceY + 7 * T } });
-    } else if (kind === 'floor') {
-      for (let k = 0; k < 400; k++) {
-        const c = rint(r, 8, cols - 14);
-        if (G.flat((c - 1) * T, (c + 5) * T) > 14) continue;
-        const f = Math.round(G.at((c + 2) * T) / T);
-        if (Math.abs(c + 2 - startCol) < 12 || usedCols.some((u) => Math.abs(u - c) < 14) || L.caves.some((cv) => c * T < cv.x + cv.w + 4 * T && (c + 4) * T > cv.x - 4 * T)
-          || L.crevices.some((cv) => c * T < cv.x + cv.w + 4 * T && (c + 4) * T > cv.x - 4 * T)) continue;
-        if (f < 12) continue;
-        usedCols.push(c);
-        G.flatten((c - 1) * T, (c + 5) * T, f * T, 100);
-        clear(c * T - T, (f - 7) * T, (c + 5) * T, f * T);
-        L.gates.push({ x: c * T, y: f * T - 80, w: 4 * T, h: 100, to: lid, kind, arrive: { x: (c + 2) * T, y: f * T - 150 } });
-        break;
-      }
-      // (findet sich keine passende Stelle, erreicht man diesen Nachbarn über den Rand)
-    }
-    // Westen und Osten: kein Tor in einer Wand – man schwimmt einfach über den Rand hinaus (siehe edgeNeighbor)
-  }
-}
-
 /** Wie man in einen Ort gekommen ist, wenn man über den Rand eines anderen hinausgeschwommen ist (side = dort verlassene Seite). */
 export interface EdgeEntry {
   side: 'left' | 'right';
@@ -805,7 +743,7 @@ export interface EdgeEntry {
 }
 
 /** Ein Ort dieses Zeitalters – bei jedem Lauf etwas anders, aber immer derselbe für einen Lauf. */
-export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, from?: string, edge?: EdgeEntry): LevelData {
+export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry): LevelData {
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
-  return genWater(ep, r, place, from, edge);
+  return genWater(ep, r, place, edge);
 }

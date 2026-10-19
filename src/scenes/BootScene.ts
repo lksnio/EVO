@@ -4,7 +4,6 @@ import { commonTextures, decorTextures } from '../art/worldArt';
 import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { shellTexture } from '../art/shellArt';
-import { mapTextures } from '../art/mapArt';
 
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
@@ -25,7 +24,6 @@ export class BootScene extends Phaser.Scene {
       commonTextures(this);
       uiTextures(this);
       shellTexture(this);
-      mapTextures(this);
       decorTextures(this);
       lifeTextures(this);
       const q = new URLSearchParams(location.search);

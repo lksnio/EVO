@@ -62,18 +62,18 @@ describe('Lebenszyklus', () => {
   });
 
   it('Nachkommen aus Nahrung: je Grundwert einer – weiter Entwickelte brauchen mehr', () => {
-    expect(broodBase(0)).toBe(100);
-    expect(SPAWN.perYoung).toBe(100);
+    expect(broodBase(0)).toBe(20);
+    expect(SPAWN.perYoung).toBe(20);
     expect(youngOf(250, 100)).toBe(2);
     expect(youngOf(490, 100)).toBe(4);
     expect(youngOf(500, 100)).toBe(5);
     expect(youngOf(99, 100)).toBe(0);
     expect(youngOf(1e6, 100)).toBe(SPAWN.maxYoung);
-    // sanft: Biss 25 % stärker → 150 je Nachkomme; dazu 10 % schneller → 170
-    expect(broodBase(0.25)).toBe(150);
-    expect(broodBase(0.35)).toBe(170);
+    // sanft: Biss 25 % stärker → 30 je Nachkomme; dazu 10 % schneller → 34
+    expect(broodBase(0.25)).toBe(30);
+    expect(broodBase(0.35)).toBe(34);
     // Verschlechterungen zählen nicht
-    expect(broodBase(-0.2)).toBe(100);
+    expect(broodBase(-0.2)).toBe(20);
   });
 
   it('die Weltzeit ist für alle gleich und bleibt im Zeitalter', () => {

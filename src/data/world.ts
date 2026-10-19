@@ -2,10 +2,10 @@ import { EPOCHS, type EpochDef } from './epochs';
 import { PALEO } from './paleo';
 
 // ---------------------------------------------------------------------------
-// Die Weltkarte. Jedes Zeitalter hat zehn Orte; wer durch einen Durchgang hinausschwimmt,
-// schaltet den nächsten Ort frei und kommt dort an. Die Orte unterscheiden sich:
-// manche sind dicht bewachsen und voller Nahrung, andere trüb – und manche reichen tief hinab,
-// wo die schlimmen Tiere warten.
+// Die Weltkarte. Jedes Zeitalter hat zehn Orte; wer links oder rechts über den Rand eines Ortes hinausschwimmt,
+// kommt in den Nachbarort – der Weg dorthin erscheint auf der Karte, und auf ihm kann man später auch andere bekannte Orte
+// ansteuern. Die Orte unterscheiden sich: manche sind dicht bewachsen und voller Nahrung, andere trüb – und manche reichen
+// tief hinab, wo die schlimmen Tiere warten.
 // ---------------------------------------------------------------------------
 
 /** Wie sich ein Ort anfühlt (Faktoren auf die Werte des Zeitalters). */
@@ -80,7 +80,7 @@ type Role = 'start' | 'lush1' | 'lush2' | 'murky1' | 'murky2' | 'deep1' | 'deep2
 interface RoleDef {
   kind: PlaceKind;
   shape: PlaceShape;
-  /** Nachbarn: Zu jedem führt im Ort ein Durchgang (Tor) */
+  /** Nachbarn: Man erreicht sie über den linken bzw. rechten Rand (welcher, entscheidet die Tiefe, siehe edgeNeighbor) */
   links: Role[];
   deep: number;
   wide: number;
@@ -93,9 +93,8 @@ interface RoleDef {
 }
 
 /**
- * Zehn Orte je Zeitalter, miteinander verbunden wie ein Netz. Von einem Ort in den nächsten kommt man nur durch
- * einen **Durchgang** im Gelände (eine Öffnung in der Wand, im Boden oder oben im Licht) – wer ihn findet, schaltet den
- * Ort frei und sieht ihn danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
+ * Zehn Orte je Zeitalter, miteinander verbunden wie ein Netz. Von einem Ort in den nächsten kommt man über den Rand – wer
+ * hinüberschwimmt, sieht den Ort und den Weg danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
  */
 const ROLES: Record<Role, RoleDef> = {
   start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
@@ -177,14 +176,8 @@ export function placeOf(ep: EpochDef | string, id: string): PlaceDef {
 /** Der Startort eines Zeitalters. */
 export const startPlace = (ep: EpochDef | string) => placesOf(ep)[0];
 
-/** Wo im Ort der Durchgang zu einem Nachbarn liegt: Westen/Osten in der Wand, Süden im Boden, Norden oben im Licht. */
-export type GateKind = 'left' | 'right' | 'floor' | 'surface';
-
-export function gateKind(from: PlaceDef, to: PlaceDef): GateKind {
-  const dx = to.x - from.x, dy = to.y - from.y;
-  if (Math.abs(dy) > 0.9 * Math.abs(dx) + 0.12) return dy > 0 ? 'floor' : 'surface';
-  return dx < 0 ? 'left' : 'right';
-}
+/** Schlüssel eines Weges zwischen zwei Orten (unabhängig von der Richtung). */
+export const linkKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 /**
  * Wer links oder rechts über den Rand hinausschwimmt (es gibt dort keine Wand), kommt in einen Nachbarort: Links liegen die
