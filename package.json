@@ -10,7 +10,8 @@
     "start": "node dist/server/server.mjs",
     "preview": "vite preview --outDir dist/client",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "spielabend": "vite build && node dist/server/server.mjs"
   },
   "dependencies": {
     "@colyseus/schema": "^5.0.41",

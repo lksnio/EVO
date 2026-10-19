@@ -526,21 +526,21 @@ gemieteten Server.
 1. **Tailscale installieren** – auf deinem Windows-PC und bei jedem Freund – und anmelden. Deine Freunde müssen deinen PC
    erreichen können: Entweder lädst du sie in dein Tailnet ein (Admin-Konsole → *Users* → *Invite*), oder du teilst nur
    deinen PC mit ihnen (Admin-Konsole → *Machines* → dein PC → *Share*).
-2. **Spiel starten** auf deinem PC – zum Entwickeln wie oben mit `npm run dev` (Port 8080), für einen Spieleabend besser
-   als fertiger Build:
-   ```bash
-   npm run build
-   npm start          # Spiel und Server auf Port 2567
-   ```
-3. **Adresse weitergeben:** Deine Tailscale-Adresse steht im Tailscale-Fenster (`100.x.y.z`) bzw. mit `tailscale ip -4`.
-   Freunde öffnen `http://100.x.y.z:2567/?name=IhrName` (mit `npm run dev`: Port 8080). Mit MagicDNS geht auch der Name,
-   z. B. `http://mein-pc.tail1234.ts.net:2567`.
+2. **Server starten** auf deinem PC: **`Spielabend-starten.bat` doppelklicken** (installiert, baut und startet) – oder
+   `npm run spielabend`. Nur du brauchst Node.js und das Projekt; deine Freunde brauchen nur Tailscale und einen Browser.
+3. **Adresse weitergeben:** Der Server schreibt beim Start die Adresse für Freunde ins Fenster
+   (`Freunde (Tailscale): http://100.x.y.z:2567/?name=IhrName`). Sonst steht sie im Tailscale-Fenster bzw. bei
+   `tailscale ip -4`. Mit MagicDNS geht auch der Name, z. B. `http://mein-pc.tail1234.ts.net:2567`. (Zum Entwickeln
+   geht auch `npm run dev` – dann Port 8080.)
 4. **Windows-Firewall:** Fragt Windows beim ersten Start, ob Node.js Verbindungen annehmen darf, **erlauben** (private
    Netzwerke). Kommt keine Frage und Freunde erreichen dich nicht: in der Windows-Firewall eine eingehende Regel für
    TCP-Port 2567 (bzw. 8080) anlegen.
 
 Solange dein PC läuft, läuft die Welt. Das Spiel auf GitHub Pages bleibt eine Einzelspieler-Fassung (dort gibt es keinen
 Server).
+
+Alle neuen Fische schlüpfen im **Laichfluss** – dort trefft ihr euch. Wer weiterschwimmt, sieht die anderen erst wieder
+im selben Ort.
 
 ### Der Server im Projekt
 
@@ -571,6 +571,7 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 | `npm run dev` | Startet Spiel und Spielserver zusammen (Live-Reload, auch für den Server) |
 | `npm run build` | Typprüfung + Produktions-Build: das Spiel nach `dist/client`, der Server nach `dist/server` |
 | `npm start` | Startet den gebauten Server auf Port 2567 – er liefert auch das Spiel aus |
+| `npm run spielabend` | Baut das Spiel und startet den Server – für einen Spieleabend (unter Windows auch: `Spielabend-starten.bat` doppelklicken) |
 | `npm run preview` | Zeigt den fertigen Build lokal an (ohne Server, also allein) |
 | `npm run typecheck` | Nur TypeScript prüfen (Spiel, Tests und Konfiguration) |
 | `npm test` | Tests der Spiellogik ohne Browser (Vitest, `tests/`): Weltgenerator, Lebenszyklus, Vererbung |
@@ -645,6 +646,24 @@ tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Le
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
+
+### Später klären (vorläufig so entschieden)
+
+Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festgelegt – bitte später noch einmal ansehen:
+
+- [ ] **Zeitalter:** Die Welt bleibt im Ordovizium; die Jahreszahl läuft in etwa 30 Tagen bis zu dessen Ende und bleibt dann
+      stehen. Später: Der Server führt alle gemeinsam nach fester Zeit ins nächste Zeitalter (als Weltereignis).
+- [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
+- [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
+- [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.
+- [ ] **Partner beim Laichen ist immer die KI** (garantiert). Später: echte Spieler mit Vorrang – dafür muss das Laichen
+      auf den Server.
+- [ ] **Geschlecht** jeder neuen Generation: zufällig.
+- [ ] **Aussterben:** ohne befruchtetes Gelege Neustart als Urfisch (wie bisher).
+- [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
+- [ ] **Im Mehrspieler noch lokal:** Tiere, Pflanzen, Kämpfe, Laichen, Aufträge – jeder sieht seine eigenen. Auf der Karte
+      (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
+- [ ] **Lebenstempo** (bestätigt): ausgewachsen nach 8 Minuten, Lebensende nach 30 Minuten.
 
 ### Ideen für später
 
