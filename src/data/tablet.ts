@@ -1,11 +1,11 @@
 import { CLASSES, type ClassId } from './classes';
 import { game, hungerRate, kcalOf, maxSatiety, skillName, type Traits } from '../state/GameState';
+import type { LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
 // Die Steintafel. Anfangs ist sie ganz von Moos bedeckt. Jede gefundene Muschel legt eine weitere
 // Zeile frei – immer in dieser Reihenfolge. Was "gelernt" ist, zeigt sich in bis zu drei Fischen:
-// einer für ein bisschen, zwei für mehr, drei für stark. Dieselben Zeilen stehen auf den Evolutionsplatten
-// zwischen den Zeitaltern – dort mit einem Pfeil, wohin sich der Wert verändern würde.
+// einer für ein bisschen, zwei für mehr, drei für stark.
 // ---------------------------------------------------------------------------
 
 export type StatVal =
@@ -21,6 +21,8 @@ export interface StatCtx {
   /** aktuelle Lebenskraft und Sättigung (nur beim eigenen, lebenden Tier) */
   hp?: number;
   sat?: number;
+  /** wie weit das Tier herangewachsen bzw. gealtert ist (ohne Angabe: ausgewachsen) */
+  life?: LifeK;
 }
 
 export interface StatDef {
@@ -47,7 +49,7 @@ const skill = (id: string, label: (c: StatCtx) => string, get: (t: Traits) => nu
 });
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-const stats = (c: StatCtx) => game.stats(c.cls, c.traits);
+const stats = (c: StatCtx) => game.stats(c.cls, c.traits, c.life);
 const needPerMin = (c: StatCtx) => {
   const st = stats(c);
   return kcalOf(hungerRate(st.size, 0.55, st.upkeep) * 60, c.cls, st.size);
@@ -75,10 +77,10 @@ export const STATS: StatDef[] = [
     id: 'weight',
     label: () => 'Gewicht',
     value: (c) => {
-      const g = game.measure(c.cls, c.traits).g;
+      const g = game.measure(c.cls, c.traits, c.life).g;
       return { t: 'text', v: g >= 1000 ? `${nf(g / 1000, 1)} kg` : `${nf(g)} g` };
     },
-    num: (c) => game.measure(c.cls, c.traits).g,
+    num: (c) => game.measure(c.cls, c.traits, c.life).g,
   },
   {
     id: 'temp',
@@ -98,10 +100,10 @@ export const STATS: StatDef[] = [
     id: 'length',
     label: () => 'Länge',
     value: (c) => {
-      const cm = game.measure(c.cls, c.traits).cm;
+      const cm = game.measure(c.cls, c.traits, c.life).cm;
       return { t: 'text', v: cm >= 100 ? `${nf(cm / 100, 2)} m` : `${nf(cm)} cm` };
     },
-    num: (c) => game.measure(c.cls, c.traits).cm,
+    num: (c) => game.measure(c.cls, c.traits, c.life).cm,
   },
   {
     id: 'hp',

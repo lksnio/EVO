@@ -1,0 +1,10 @@
+{
+  // Der Spielserver läuft in Node: geprüft ohne Browser-Typen (DOM), damit nichts davon versehentlich hineinrutscht.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["src/server"],
+  "exclude": []
+}

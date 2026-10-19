@@ -1,4 +1,3 @@
-import { LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
 import { bus, game } from '../state/GameState';
 import { JAGD } from '../data/quests';
@@ -17,7 +16,6 @@ import type { LevelScene } from '../scenes/LevelScene';
 // helfen die Artgenossen mit. Sind genug erlegt und du warst selbst dabei, erklärt dir einer der Überlebenden, wie du die
 // Gruppe künftig rufen kannst. Wer dabei stirbt, fehlt der Gruppe für immer (game.swarm).
 
-const Z = LEVEL_ZOOM;
 const TALK_RANGE = 300;
 /** Kennungen für den Schwarm der Beute und die wartende Gruppe (wie die Schwärme und Rudel des Ortes) */
 const SCHOOL_HERD = 90001, GROUP_HERD = 90002;
@@ -58,6 +56,11 @@ export class HuntQuest {
   private touchMode: boolean;
   private offs: (() => void)[] = [];
   private cam = { k: 0, kTo: 0, fx: 0, fy: 0 };
+
+  /** Die Kamera ist gerade nah dran (Gespräch) – dann bestimmt dieser Auftrag den Zoom. */
+  get zooming() {
+    return this.cam.k > 0 || this.cam.kTo > 0;
+  }
   private hold?: { x: number; y: number };
   /** der Schwarm sammelt sich neu (bis dahin) */
   private regroupAt = 0;
@@ -484,11 +487,11 @@ export class HuntQuest {
     if (c.k < 0.003 && c.kTo === 0) {
       if (c.k !== 0) {
         c.k = 0;
-        cam.setZoom(Z);
+        cam.setZoom(h.camZoom);
       }
       return;
     }
-    cam.setZoom(Z * (1 + 0.34 * c.k));
+    cam.setZoom(h.camZoom * (1 + 0.34 * c.k));
     if (this.busy) {
       const sp = this.speaker;
       const mx = sp && !sp.dead ? (p.x + sp.x) / 2 : p.x, my = (sp && !sp.dead ? (p.y + sp.y) / 2 : p.y) - 24;

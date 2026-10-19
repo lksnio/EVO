@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DEPTH, FONT, LEVEL_ZOOM, TITLE_FONT } from '../config';
+import { DEPTH, FONT, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { bus, game } from '../state/GameState';
 import { SPECIES } from '../data/species';
@@ -18,7 +18,6 @@ import type { LevelScene } from '../scenes/LevelScene';
 // in Sprechblasen, und danach geschieht, was der Auftrag vorsieht – hier: Er schwimmt in den nächsten Ort vor, und dort wird er
 // von einem Tier gefressen, das in diese Zeit passt.
 
-const Z = LEVEL_ZOOM;
 const TALK_RANGE = 300;
 const NOTICE_RANGE = 700;
 
@@ -286,6 +285,11 @@ export class Quest {
   /** Zustand der Sprechblase: wartet auf „weiter“ */
   private advanceAt = 0;
   private cam = { k: 0, kTo: 0, fx: 0, fy: 0 };
+
+  /** Die Kamera ist gerade nah dran (Gespräch) – dann bestimmt dieser Auftrag den Zoom. */
+  get zooming() {
+    return this.cam.k > 0 || this.cam.kTo > 0;
+  }
   private eater?: Animal;
   private nearShown = false;
   private touchMode: boolean;
@@ -555,12 +559,12 @@ export class Quest {
     if (c.k < 0.003 && c.kTo === 0) {
       if (c.k !== 0) {
         c.k = 0;
-        cam.setZoom(Z);
+        cam.setZoom(h.camZoom);
       }
       return;
     }
     this.zb += (this.zbTo - this.zb) * Math.min(1, dt * 1.6);
-    cam.setZoom(Z * (1 + this.zb * c.k));
+    cam.setZoom(h.camZoom * (1 + this.zb * c.k));
     if (this.busy) {
       // der Mittelpunkt zwischen den beteiligten Tieren (etwas nach oben, damit die Sprechblase Platz hat)
       const npc = this.npc;

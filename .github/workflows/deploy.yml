@@ -24,10 +24,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm test
+      # nur das Spiel (dist/client) – den Server (dist/server) gibt es auf GitHub Pages nicht; dort spielt man allein
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
-          path: dist
+          path: dist/client
 
   deploy:
     if: github.ref == 'refs/heads/main'

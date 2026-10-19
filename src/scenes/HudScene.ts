@@ -16,6 +16,7 @@ import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, controlsList, panel, soundButton, text, title } from '../ui/ui';
 import { TabletScreen } from '../ui/tabletScreen';
+import { netInfo } from '../net/NetSync';
 
 /**
  * Die Anzeige im Level: oben die Zeit (Zeitalter und Jahresangabe), sonst kaum etwas. Hunger steht nur auf der Steintafel (Taste C).
@@ -125,6 +126,7 @@ export class HudScene extends Phaser.Scene {
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
     this.updateGlow();
     this.swarmUi();
+    this.netUi();
     this.questUi();
     this.choiceUi();
 
@@ -252,6 +254,27 @@ export class HudScene extends Phaser.Scene {
     }
     g.setAlpha(0.1);
     this.tweens.add({ targets: g, alpha: 0.32, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
+  }
+
+  /**
+   * Mehrspieler: unter den Knöpfen oben rechts, klein – wie viele andere Spieler an diesem Ort sind (oder dass die
+   * Verbindung gerade weg ist). Wer allein ohne Server spielt, sieht nichts.
+   */
+  private netUi() {
+    const t = text(this, W - 20, 74, '', 15, UI.boneDim, { stroke: '#000', strokeThickness: 3 }).setOrigin(1, 0).setAlpha(0);
+    const show = (state: string, n: number) => {
+      this.tweens.killTweensOf(t);
+      if (state === 'offline') return t.setAlpha(0);
+      const msg =
+        state === 'online' ? (n ? `● ${n === 1 ? 'ein weiterer Spieler' : `${n} weitere Spieler`} hier` : '● online – allein hier')
+        : state === 'unterbrochen' ? '○ Verbindung unterbrochen …'
+        : '○ getrennt – es geht allein weiter';
+      t.setText(msg).setColor(state === 'online' ? UI.boneDim : UI.ochre).setAlpha(0.85);
+      if (state === 'getrennt') this.tweens.add({ targets: t, alpha: 0, delay: 6000, duration: 1200 });
+    };
+    show(netInfo.state, netInfo.others);
+    bus.on('net', show);
+    this.events.once('shutdown', () => bus.off('net', show));
   }
 
   /**
@@ -412,7 +435,7 @@ export class HudScene extends Phaser.Scene {
     this.tabletView = new TabletScreen(
       this,
       {
-        ctx: { cls: game.cls, traits: game.traits, hp: p.hp, sat: p.satiety },
+        ctx: { cls: game.cls, traits: game.traits, hp: p.hp, sat: p.satiety, life: game.lifeK },
         morph: p.morph(),
         placeName: this.placeName,
         life: lvl.lifeStatus(),

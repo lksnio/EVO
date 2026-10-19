@@ -37,7 +37,8 @@ async function start() {
     /* ohne Schrift geht es auch */
   }
 
-  game.load();
+  // ?slot=2: ein eigener Spielstand (zum Ausprobieren mit zwei Fenstern im selben Browser)
+  game.load(new URLSearchParams(location.search).get('slot'));
   audio.setMuted(game.data.muted);
   setMuteHandler((m) => {
     game.data.muted = m;

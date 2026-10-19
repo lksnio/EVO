@@ -33,6 +33,21 @@ describe('Generationswechsel', () => {
     void b;
   });
 
+  it('ein Gelege, zu dem ein Männchen unterwegs ist, verdirbt nicht (auch nach langer Pause)', () => {
+    const now = Date.now();
+    const c = game.addClutch({ place: 'lagune', x: 100, y: 200, at: now, fert: false, role: 'mother' });
+    game.maleCalled(c.id);
+    expect(game.decayClutches(now + SPAWN.decay * 1000 * 5)).toBe(false);
+    expect(game.life.clutches[0].called).toBe(true);
+  });
+
+  it('ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation', () => {
+    game.prog.boss = 1;
+    const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
+    game.succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.prog.boss).toBe(0);
+  });
+
   it('wer viel stößt, bekommt Nachkommen mit härterem Kopf – ohne Wahl, eine Generation weiter', () => {
     game.ageBy(LIFE.mature + 60);
     const before = { ...game.traits };

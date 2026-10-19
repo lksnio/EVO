@@ -25,6 +25,7 @@ import { Quest } from '../objects/Quest';
 import { HuntQuest } from '../objects/HuntQuest';
 import { SwarmCtl } from '../objects/Swarm';
 import { SpawnCtl } from '../objects/Spawning';
+import { NetSync, netWanted } from '../net/NetSync';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -43,6 +44,8 @@ const REST_HEAL_CAP = 0.75;
 /** Ein Bissen Heilkraut gibt so viel Lebenskraft zurück (Anteil am Maximum) */
 const HEAL_BITE = 0.17;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
+/** So viel näher ist die Kamera beim frisch geschlüpften Jungtier (mit dem Wachsen zieht sie zurück) */
+const GROW_ZOOM = 0.45;
 
 /** Daten für den Bildschirm beim Generationswechsel: Wer starb, wer schlüpft – und was sich verändert hat. */
 export interface SuccessionData {
@@ -105,6 +108,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private oldWarned = false;
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
+  /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
+  private net?: NetSync;
   controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   /** alle festen Körper, nach 40-Pixel-Streifen geordnet (für solidAt) */
@@ -478,7 +483,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Kamera: etwas herausgezoomt; an Land reicht der Blick auch über den oberen Levelrand in den Himmel
     const cam = this.cameras.main;
-    cam.setZoom(Z);
+    cam.setZoom(this.camZoom);
     const bottom = this.water ? L.height : L.height - 70;
     const camH = Math.max(bottom, VH + 40);
     cam.setBounds(0, bottom - camH, L.width, camH);
@@ -488,6 +493,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name });
     // wer gerade schlüpft, sieht seine Geschwister ausschwärmen
     if (born) this.time.delayedCall(450, () => !this.ended && this.spawning?.hatched());
+    // Mehrspieler: diesen Ort auf dem Server betreten – die anderen Spieler hier erscheinen
+    this.net = netWanted() ? new NetSync(this) : undefined;
     audio.music(ep.music);
     // im Wasser rauscht leise das Meer; Zeitlupe aus einem abgebrochenen Kino-Moment zurücksetzen
     audio.musicLevel(1, 0.3);
@@ -1262,7 +1269,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Kleine Beutetiere sind zerbrechlich: Schon ein frisch geschlüpftes Tier braucht nur zwei Bisse
     if (def.role === 'prey' && def.power <= 2.2) {
-      const fresh = game.stats(game.cls, { ...ZERO_TRAITS }).bite;
+      const fresh = game.stats(game.cls, { ...ZERO_TRAITS }, lifeK(0)).bite;
       a.hp = a.maxHp = Math.min(a.maxHp, Math.round(fresh * 1.9 * 10) / 10);
     }
     this.groundIt(a);
@@ -1916,6 +1923,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
     this.spawning?.update(time, dt);
+    this.net?.update();
     this.drawStamina(p, dt);
     for (const a of [...this.animals]) {
       try {
@@ -2049,8 +2057,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ph = cyclePhase(this.ep.seconds);
     const last = this.phase;
     this.phase = ph;
-    // überschritten seit dem letzten Blick (auch über den Beginn eines neuen Durchgangs hinweg)
-    const passed = (at: number) => (ph >= last ? at > last && at <= ph : at > last || at <= ph);
+    // so viel Weltzeit seit dem letzten Blick (über den Beginn eines neuen Durchgangs hinweg). Mehr als ein paar Sekunden:
+    // Das Spiel stand (Rast, Steintafel, anderer Tab) oder die Uhr sprang (Serveruhr) – dann wird nichts nachgeholt.
+    const step = (ph - last + 1) % 1;
+    const fresh = step * this.ep.seconds < 3;
+    // überschritten seit dem letzten Blick
+    const passed = (at: number) => fresh && (ph >= last ? at > last && at <= ph : at > last || at <= ph);
     for (const e of this.timeline) {
       if (!passed(e.at)) continue;
       // im stillen Fluss am Start tauchen keine Durchzügler auf
@@ -2134,7 +2146,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.physics.world.timeScale = 1 / this.slow;
     this.tweens.timeScale = this.slow;
     this.anims.globalTimeScale = this.slow;
-    this.cameras.main.setZoom(Z * (1 + 0.32 * k));
+    this.cameras.main.setZoom(this.camZoom * (1 + 0.32 * k));
     // der Riese zieht weit hinten durchs Bild (vor dem fernen Hintergrund, hinter allem anderen)
     const u = clamp((c.t - IN * 0.5) / PASS, 0, 1);
     const x0 = c.dir > 0 ? VX - 800 : VX + VW + 800, x1 = c.dir > 0 ? VX + VW + 800 : VX - 800;
@@ -2163,7 +2175,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.physics.world.timeScale = 1;
     this.tweens.timeScale = 1;
     this.anims.globalTimeScale = 1;
-    this.cameras.main.setZoom(Z);
+    this.cameras.main.setZoom(this.camZoom);
     this.player.shielded = false;
   }
 
@@ -2697,6 +2709,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
       this.player.refresh(false, false);
     }
+    if (!this.cine && !this.quest?.zooming && !this.hunt?.zooming) this.cameras.main.setZoom(this.camZoom);
     if (!this.oldWarned && age > LIFE.span - 90) {
       this.oldWarned = true;
       bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir() ? 'Deine Nachkommen warten im Laichfluss' : 'Noch kein befruchtetes Gelege');
@@ -2734,6 +2747,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return k;
   }
 
+  /**
+   * Der Zoom der Kamera (ohne Kino-Momente): Ein Jungtier sieht man näher – mit dem Wachsen zieht die Kamera zurück, bis
+   * zum gewohnten Bild beim ausgewachsenen Tier.
+   */
+  get camZoom() {
+    return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1));
+  }
+
   /** Ein kurzes Funkeln. */
   glitter(x: number, y: number, n: number) {
     this.sparkle.explode(n, x, y);
@@ -2745,6 +2766,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private succession(cause: string, wait: number) {
     if (this.ended) return;
+    // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
+    this.spawning?.settle();
     const heir = game.heir();
     if (!heir) return this.endLine(cause, wait);
     this.ended = true;

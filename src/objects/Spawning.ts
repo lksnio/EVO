@@ -3,7 +3,7 @@ import { DEPTH, TILE, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { SPAWN } from '../data/life';
 import { bus, game, type Clutch, type Sex, type Traits } from '../state/GameState';
-import { isAdult, spawnBlock, type SpawnBlock } from '../sim/life';
+import { isAdult, spawnBlock, worldNow, type SpawnBlock } from '../sim/life';
 import { clamp } from '../util/math';
 import { touch } from './Controls';
 import { CreatureView } from './CreatureView';
@@ -236,7 +236,7 @@ export class SpawnCtl {
     const y = Math.round(this.groundY(p.x) + 6);
     p.satiety = Math.max(0.01, p.satiety - p.maxSat * SPAWN.costFemale);
     game.markSpawn();
-    const c = game.addClutch({ place: h.place.id, x: Math.round(p.x), y, at: Date.now(), fert: false, role: 'mother' });
+    const c = game.addClutch({ place: h.place.id, x: Math.round(p.x), y, at: worldNow(), fert: false, role: 'mother' });
     const b = this.addBrood(c.x, c.y, c.at, { clutch: c });
     this.layFx(b, p.x, p.y);
     bus.emit('notice', 'Gelege abgelegt', 'Ein Männchen deiner Art kommt …');
@@ -248,6 +248,7 @@ export class SpawnCtl {
     const h = this.host;
     if (b.maleCalled) return;
     b.maleCalled = true;
+    if (b.clutch) game.maleCalled(b.clutch.id);
     h.time.delayedCall(delay * 1000, () => {
       if (h.ended || !this.broods.includes(b) || !b.clutch || b.clutch.fert) return;
       const v = h.cameras.main.worldView;
@@ -261,7 +262,7 @@ export class SpawnCtl {
         stay: 1.6,
         t: 0,
         done: () => {
-          if (k.dead || !b.clutch) return;
+          if (k.dead || !b.clutch || h.ended || !this.broods.includes(b)) return;
           this.fertilizeOwn(b, k.genes);
           k.dismiss();
         },
@@ -297,7 +298,7 @@ export class SpawnCtl {
       t: 0,
       done: () => {
         if (k.dead) return;
-        const b = this.addBrood(Math.round(x), Math.round(gy + 6), Date.now(), { mother: k.genes });
+        const b = this.addBrood(Math.round(x), Math.round(gy + 6), worldNow(), { mother: k.genes });
         this.layFx(b, x, gy - 40);
         // sie bleibt noch eine Weile in der Nähe, dann zieht sie ins Meer
         k.task = {
@@ -368,7 +369,7 @@ export class SpawnCtl {
 
   /** Unbefruchtete Gelege verderben nach einer Weile. */
   private decay() {
-    const now = Date.now();
+    const now = worldNow();
     game.decayClutches(now);
     const life = game.life.clutches;
     for (const b of [...this.broods]) {
@@ -390,19 +391,24 @@ export class SpawnCtl {
   }
 
   /**
-   * Der Ort wird verlassen: Ein Männchen, das schon unterwegs war, findet dein Gelege trotzdem – es wird befruchtet,
-   * während du fort bist.
+   * Was unterwegs ist, kommt an: Jedes eigene Gelege, zu dem schon ein Männchen gerufen wurde, gilt als befruchtet – wenn
+   * du den Ort verlässt und bevor eine neue Generation schlüpft (auch wenn dein Tier stirbt, bevor er da ist).
    */
+  settle() {
+    for (const c of game.life.clutches) {
+      if (!c.called || c.fert) continue;
+      const b = this.broods.find((x) => x.clutch === c);
+      game.fertilize(c.id, b?.male?.genes ?? game.kinTraits(this.kinIndex(1)));
+    }
+  }
+
+  /** Der Ort wird verlassen: Ein Männchen, das schon unterwegs war, findet dein Gelege trotzdem. */
   private shutdown() {
-    for (const b of this.broods) if (b.clutch && !b.clutch.fert && b.maleCalled) this.fertilizeQuietly(b);
+    this.settle();
     for (const f of this.fry) f.v.destroy();
     this.fry = [];
     this.sign.destroy();
     bus.emit('spawnable', false);
   }
 
-  private fertilizeQuietly(b: Brood) {
-    if (!b.clutch || b.clutch.fert) return;
-    game.fertilize(b.clutch.id, b.male?.genes ?? game.kinTraits(this.kinIndex(1)));
-  }
 }

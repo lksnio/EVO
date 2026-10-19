@@ -13,7 +13,8 @@ export const TITLE_FONT = 'Cinzel, Georgia, "Times New Roman", serif';
 
 /** Mit ?debug in der URL: Entwickler-Hilfen (verborgene Werte anzeigen, alle Karten offen …). */
 // (auf dem Server und in Tests gibt es keine Adresszeile)
-export const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
+const search = (globalThis as { location?: { search: string } }).location?.search ?? '';
+export const DEBUG = new URLSearchParams(search).has('debug');
 
 export const DEPTH = {
   bg: -100,

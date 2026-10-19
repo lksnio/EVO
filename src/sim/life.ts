@@ -74,18 +74,29 @@ export function spawnBlock(o: { age: number; food: number; lastSpawn: number; in
 
 // ---------------------------------------------------------------- Weltzeit
 
-/** Sekunden Weltzeit seit Beginn der Welt – für alle gleich (heute die Uhr des Rechners, später die des Servers). */
-export function worldSeconds(now = Date.now()) {
+/** So weit geht die Uhr des Rechners gegenüber der des Servers nach (ms) – ohne Server 0. */
+let serverOffset = 0;
+
+/** Die Uhr des Servers ist bekannt (beim Betreten eines Ortes): Ab jetzt zählt sie für die Weltzeit. */
+export function setServerClock(serverNow: number, localNow = Date.now()) {
+  if (Number.isFinite(serverNow)) serverOffset = serverNow - localNow;
+}
+
+/** Jetzt – nach der Uhr des Servers, sobald es eine gibt (ms seit 1970). */
+export const worldNow = () => Date.now() + serverOffset;
+
+/** Sekunden Weltzeit seit Beginn der Welt – für alle gleich (nach der Uhr des Servers, offline nach der des Rechners). */
+export function worldSeconds(now = worldNow()) {
   return (now - WORLD.start) / 1000;
 }
 
 /** "vor … Jahren": Die Jahre laufen mit der Weltzeit rückwärts – bis zum Ende des Zeitalters. */
-export function worldYears(from: number, to: number, now = Date.now()) {
+export function worldYears(from: number, to: number, now = worldNow()) {
   return clamp(from - Math.max(0, worldSeconds(now)) * WORLD.yearsPerSecond, to, from);
 }
 
 /** Wo im wiederkehrenden Ablauf eines Zeitalters (0 … 1) die Welt gerade steht: Ereignisse kommen für alle zugleich wieder. */
-export function cyclePhase(cycleSeconds: number, now = Date.now()) {
+export function cyclePhase(cycleSeconds: number, now = worldNow()) {
   const s = worldSeconds(now);
   return (((s % cycleSeconds) + cycleSeconds) % cycleSeconds) / cycleSeconds;
 }

@@ -2,7 +2,7 @@ import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
 import { gateKind, placeOf, SHAPE_OF, shellId, type CaveKind, type GateKind, type PlaceDef, type ZoneDef } from '../data/world';
-import { HEAL, TOXIC } from '../art/worldArt';
+import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 import { caveRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';

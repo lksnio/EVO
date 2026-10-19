@@ -6,7 +6,7 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { INHERIT, LIFE, SPAWN } from '../data/life';
-import { ADULT, lifeK, type LifeK } from '../sim/life';
+import { ADULT, lifeK, worldNow, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
 // Spielstand.
@@ -219,6 +219,8 @@ export interface Clutch {
   at: number;
   /** befruchtet */
   fert: boolean;
+  /** ein Männchen ist schon unterwegs: Das Gelege wird sicher befruchtet und verdirbt nicht mehr */
+  called?: boolean;
   /** dein Anteil daran */
   role: 'mother' | 'father';
   /** der Partner (er gibt etwas von seinem Aussehen mit) */
@@ -362,6 +364,8 @@ export interface SaveData {
 }
 
 const KEY = 'evo-save-v3';
+/** Spielstand-Platz (?slot=…): Zwei Fenster im selben Browser spielen so zwei verschiedene Fische. */
+let slotKey = KEY;
 const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
@@ -582,9 +586,11 @@ class GameState {
   /** Das gerade beendete Leben – damit Anzeigen bis zum Szenenwechsel weiterlaufen können. */
   private ghost: Run | null = null;
 
-  load() {
+  load(slot?: string | null) {
+    const s = (slot ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 16);
+    slotKey = s ? `${KEY}-${s}` : KEY;
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(slotKey);
       if (raw) {
         const d = JSON.parse(raw) as Partial<SaveData>;
         const f = fresh();
@@ -601,6 +607,8 @@ class GameState {
           // ältere Spielstände kennen kein Alter: Wer schon unterwegs war, ist ausgewachsen
           r.life ??= newLife(r.history.length + 1, LIFE.mature);
           r.life.clutches ??= [];
+          // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
+          if (r.prog.boss === 1) r.prog.boss = 0;
           r.prog.known ??= [...r.prog.seen];
           // Orte aus einer älteren Karte, die es nicht mehr gibt
           r.prog.known = r.prog.known.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
@@ -637,7 +645,7 @@ class GameState {
 
   save() {
     try {
-      localStorage.setItem(KEY, JSON.stringify(this.data));
+      localStorage.setItem(slotKey, JSON.stringify(this.data));
     } catch {
       /* Speichern nicht möglich (z. B. privates Fenster) – Spiel läuft trotzdem. */
     }
@@ -944,6 +952,14 @@ class GameState {
     return cl;
   }
 
+  /** Ein Männchen ist zum Gelege unterwegs (gespeichert: auch nach einer Pause oder einem Neustart verdirbt es nicht). */
+  maleCalled(id: number) {
+    const c = this.r.life.clutches.find((x) => x.id === id);
+    if (!c || c.called) return;
+    c.called = true;
+    this.save();
+  }
+
   /** Das eigene Gelege wird befruchtet (von einem Männchen deiner Art). */
   fertilize(id: number, partner: Clutch['partner']) {
     const c = this.r.life.clutches.find((x) => x.id === id);
@@ -969,9 +985,9 @@ class GameState {
   }
 
   /** Unbefruchtete Gelege verderben nach einer Weile (Weltzeit). */
-  decayClutches(now = Date.now()) {
+  decayClutches(now = worldNow()) {
     const L = this.r.life;
-    const keep = L.clutches.filter((c) => c.fert || now - c.at < SPAWN.decay * 1000);
+    const keep = L.clutches.filter((c) => c.fert || c.called || now - c.at < SPAWN.decay * 1000);
     if (keep.length === L.clutches.length) return false;
     L.clutches = keep;
     this.save();
@@ -1088,6 +1104,8 @@ class GameState {
     p.sat = undefined;
     p.eaten = { meat: 0, plant: 0 };
     p.train = newStyle();
+    // ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation
+    if (p.boss === 1) p.boss = 0;
     if (!p.seen.includes(c.place)) p.seen.push(c.place);
     if (!p.known.includes(c.place)) p.known.push(c.place);
     if (this.checkRamUnlock()) run.ramNew = true;

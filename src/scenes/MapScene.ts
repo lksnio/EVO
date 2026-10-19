@@ -418,7 +418,7 @@ export class MapScene extends Phaser.Scene {
     this.tablet = new TabletScreen(
       this,
       {
-        ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat },
+        ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat, life: game.lifeK },
         morph: game.morph(),
         placeName: this.cur.name,
         life: { stage: STAGE_NAME[stageOf(game.life.age)], spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss' },

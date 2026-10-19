@@ -44,6 +44,8 @@ export class Player {
   /** Tempo relativ zum Normaltempo (0..~1.5) */
   speed01 = 0;
   lastHurt = -1e9;
+  /** wann zuletzt zugebissen wurde (Spielzeit in ms) – so sehen die anderen Spieler den Biss */
+  bitAt = -1e9;
   /** woran das Tier zuletzt Schaden nahm (für den Stammbaum) */
   lastCause = 'unbekannt';
   private invulnUntil = 0;
@@ -383,6 +385,7 @@ export class Player {
     // Nach vorn trägt einen allein der Schwung eines Stoßes oder Spurts.
     if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 380;
+      this.bitAt = time;
       // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
       this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.view.bite();

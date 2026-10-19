@@ -6,6 +6,7 @@ import { mulberry32, type Rng } from '../util/math';
 import { W, H } from '../config';
 import { noiseTex, pattern } from './paint';
 import { LIFE_SWAY } from './lifeArt';
+import { HEAL, TOXIC } from '../data/plants';
 
 /** Größe der Fleischstücke (Breite, Höhe in Pixeln): klein, mittel, groß */
 export const MEAT_SIZES: [number, number][] = [[32, 22], [42, 29], [56, 38]];
@@ -790,10 +791,8 @@ export function foodKey(theme: Theme, stage: number, variant = 0) {
 }
 
 export const PLANT_VARIANTS = 3;
-/** Variante der giftigen Pflanze (Giftanemone im Meer, Giftbeeren an Land) */
-export const TOXIC = 3;
-/** Variante des Heilkrauts (leuchtet leise rosa-golden und schließt Wunden) */
-export const HEAL = 4;
+// giftige Pflanze und Heilkraut: Die Nummern stehen in data/plants.ts (auch der Server braucht sie)
+export { HEAL, TOXIC };
 
 // ---------------------------------------------------------------------------
 // Fischlaich: ein Klumpen glasiger Eier mit dunklem Keim, am Boden festgeklebt (3 Stufen: voll, angefressen, Reste)

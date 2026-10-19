@@ -12,7 +12,7 @@ Weitergeben**.
 
 **EVO wird ein persistentes Online-Spiel:** eine Welt, die weiterläuft, in der mehrere Spieler einander
 sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere bleiben). Der erste Schritt
-dahin, ein Server, auf dem sich zwei Spieler sehen, ist in Arbeit.
+steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
 Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber noch nicht erreichbar.
 
 **Stirbst du ohne befruchtetes Gelege, stirbt deine Linie aus** – und bleibt als Ast im
@@ -488,6 +488,75 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
+## Mehrspieler-Prototyp
+
+EVO wird ein persistentes Online-Spiel mit einem **autoritativen Server** ([Colyseus](https://colyseus.io) 0.18, TypeScript).
+Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen einander schwimmen.**
+
+- **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `0/lagune`);
+  wer ihn verlässt, verschwindet dort und erscheint im nächsten. Die Orte sehen für alle gleich aus (feste Weltsaat).
+- **Die anderen Spieler** schwimmen als ihr eigener Fisch – mit ihrem Aussehen, ihrer Größe (Jungtier oder ausgewachsen),
+  Bissen und Stößen – und ihrem **Namen** darüber. Ihre Lage kommt 15 bis 20 Mal je Sekunde an und wird geglättet.
+- **Der Server prüft**, was die Clients melden: niemand schwimmt schneller, als ein Fisch kann (sonst setzt er ihn
+  zurück), und niemand verlässt den Ort durch die Wand. Die Grenzen kennt er aus demselben Weltgenerator.
+- **Die Weltzeit** kommt vom Server – für alle gleich.
+- **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
+  von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
+- **Noch nicht gemeinsam:** Tiere, Pflanzen, Kämpfe, Laichen und Leben rechnet vorerst jeder Client für sich – die Tiere,
+  die du siehst, sieht dein Freund nicht. Das wandert Schritt für Schritt auf den Server (siehe Plan).
+
+Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind.
+
+### Selbst ausprobieren (ein Rechner)
+
+```bash
+npm install
+npm run dev
+```
+
+Dann **zwei Fenster** öffnen: `http://localhost:8080/?name=Anna` und `http://localhost:8080/?name=Ben&slot=2`
+(`slot=2` gibt dem zweiten Fenster einen eigenen Spielstand – sonst spielen beide denselben Fisch). Beide starten im
+Laichfluss und sehen einander. Mit `?offline` spielt man ohne Server.
+
+### Mit Freunden über Tailscale
+
+[Tailscale](https://tailscale.com) verbindet eure Rechner in einem privaten Netz – ohne Portfreigabe am Router und ohne
+gemieteten Server.
+
+1. **Tailscale installieren** – auf deinem Windows-PC und bei jedem Freund – und anmelden. Deine Freunde müssen deinen PC
+   erreichen können: Entweder lädst du sie in dein Tailnet ein (Admin-Konsole → *Users* → *Invite*), oder du teilst nur
+   deinen PC mit ihnen (Admin-Konsole → *Machines* → dein PC → *Share*).
+2. **Spiel starten** auf deinem PC – zum Entwickeln wie oben mit `npm run dev` (Port 8080), für einen Spieleabend besser
+   als fertiger Build:
+   ```bash
+   npm run build
+   npm start          # Spiel und Server auf Port 2567
+   ```
+3. **Adresse weitergeben:** Deine Tailscale-Adresse steht im Tailscale-Fenster (`100.x.y.z`) bzw. mit `tailscale ip -4`.
+   Freunde öffnen `http://100.x.y.z:2567/?name=IhrName` (mit `npm run dev`: Port 8080). Mit MagicDNS geht auch der Name,
+   z. B. `http://mein-pc.tail1234.ts.net:2567`.
+4. **Windows-Firewall:** Fragt Windows beim ersten Start, ob Node.js Verbindungen annehmen darf, **erlauben** (private
+   Netzwerke). Kommt keine Frage und Freunde erreichen dich nicht: in der Windows-Firewall eine eingehende Regel für
+   TCP-Port 2567 (bzw. 8080) anlegen.
+
+Solange dein PC läuft, läuft die Welt. Das Spiel auf GitHub Pages bleibt eine Einzelspieler-Fassung (dort gibt es keinen
+Server).
+
+### Der Server im Projekt
+
+```
+src/server/index.ts      der Spielserver: Räume (je Ort einer, filterBy 'zone')
+src/server/ZoneRoom.ts   ein Ort: Spieler betreten/verlassen, Lage prüfen (Tempo, Grenzen), Wiederverbinden
+src/net/schema.ts        der Zustand, den der Server verteilt (Colyseus-Schema) – von Server und Client genutzt
+src/net/protocol.ts      Nachrichten und Grenzwerte (Sendetakt, Höchsttempo …)
+src/net/NetClient.ts     die Verbindung im Browser (wird nur geladen, wenn ein Server da ist)
+src/net/NetSync.ts       Level ↔ Server: melden, die anderen zeigen; Name (?name), Server (?server), ?offline
+src/net/RemoteFish.ts    der Fisch eines anderen Spielers: geglättet, mit Namen
+```
+
+`npm run typecheck` prüft den Server ohne Browser-Typen (`tsconfig.server.json`) – so rutscht nichts aus dem Browser
+(Phaser, `window`) in den Server. `npm test` startet den Server und lässt zwei Clients einander sehen (`tests/net.test.ts`).
+
 ## Entwickeln
 
 Voraussetzung: [Node.js](https://nodejs.org) 22 oder neuer.
@@ -499,9 +568,10 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 
 | Befehl | Was es macht |
 | --- | --- |
-| `npm run dev` | Startet den Entwicklungsserver |
-| `npm run build` | Typprüfung + Produktions-Build nach `dist/` |
-| `npm run preview` | Zeigt den fertigen Build lokal an |
+| `npm run dev` | Startet Spiel und Spielserver zusammen (Live-Reload, auch für den Server) |
+| `npm run build` | Typprüfung + Produktions-Build: das Spiel nach `dist/client`, der Server nach `dist/server` |
+| `npm start` | Startet den gebauten Server auf Port 2567 – er liefert auch das Spiel aus |
+| `npm run preview` | Zeigt den fertigen Build lokal an (ohne Server, also allein) |
 | `npm run typecheck` | Nur TypeScript prüfen (Spiel, Tests und Konfiguration) |
 | `npm test` | Tests der Spiellogik ohne Browser (Vitest, `tests/`): Weltgenerator, Lebenszyklus, Vererbung |
 
@@ -509,6 +579,9 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
 `?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
 (Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC.
+
+**Mehrspieler-Adresszusätze:** `?name=Anna` (Name über dem Fisch, wird gemerkt), `?slot=2` (eigener Spielstand – für ein
+zweites Fenster im selben Browser), `?offline` (ohne Server spielen), `?server=http://…` (einen anderen Server benutzen).
 
 ### Stabilität und Leistung
 
@@ -545,6 +618,8 @@ src/
 │   └── tablet.ts        die Zeilen der Steintafel und wie sie berechnet werden
 ├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
+├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern)
+├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts
 ├── level/
 │   ├── LevelGen.ts      erzeugt jeden Ort – für alle Spieler und in jedem Leben gleich (feste Weltsaat), ohne Phaser
 │   └── terrain.ts       der Meeresboden: glatte Höhenlinie, Zonen aus Sand/Fels/Schlamm, Felsbrocken, Bögen, Hitboxen
@@ -565,7 +640,7 @@ src/
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
 └── scenes/              Titel, Intro, Level, Karte, HUD, Generationswechsel, Stammbaum, Demo-Ende
-tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Ereignis-Bus
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
@@ -579,5 +654,7 @@ tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.p
 
 ## Veröffentlichung
 
-Der Workflow in `.github/workflows/deploy.yml` baut das Spiel bei jedem Push auf `main` und
-veröffentlicht es auf GitHub Pages (Settings → Pages → Source: **GitHub Actions**).
+Der Workflow in `.github/workflows/deploy.yml` prüft und testet das Spiel bei jedem Push auf `main` und
+veröffentlicht `dist/client` auf GitHub Pages (Settings → Pages → Source: **GitHub Actions**). Dort gibt es keinen
+Spielserver – die Pages-Fassung spielt man allein. Für das gemeinsame Spiel läuft der Server auf deinem Rechner
+(siehe [Mehrspieler](#mehrspieler-prototyp)).
