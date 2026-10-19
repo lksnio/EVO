@@ -5,15 +5,16 @@ import { placesOf } from '../data/world';
 import { generateLevel } from '../level/LevelGen';
 import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
 import {
-  cleanName, MAX_SPEED, MOVE_BURST, RECONNECT_S,
-  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg,
+  cleanName, MAX_SPEED, MOVE_BURST, PATCH_HZ, RECONNECT_S,
+  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
+  type SnapMsg, type WelcomeMsg,
 } from '../net/protocol';
 
 const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const int = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 1e9 ? v : 0);
-/** so viele Tiere bzw. Fleischstücke hält ein Ort höchstens */
-const MAX_ANIMALS = 600, MAX_MEATS = 200;
+/** so viele Tiere bzw. Fleischstücke (und Pflanzen) hält ein Ort höchstens */
+const MAX_ANIMALS = 600, MAX_MEATS = 200, MAX_PLANTS = 1000;
 
 /** Ein Ort aus "zeitalter/ort" – oder null, wenn es ihn nicht gibt. */
 export function parseZone(zone: unknown): { epoch: number; place: string } | null {
@@ -64,6 +65,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!id || client.sessionId === this.state.host) return;
       this.toHost({ type: 'eat', msg: { id, amount: clamp(num(m.amount, 0), 0, 60) } satisfies EatMsg });
     },
+    // ein Spieler beißt in eine Pflanze: Das rechnet der Ortswächter
+    plant: (client: Client, m: PlantMsg) => {
+      const i = m?.i;
+      if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= MAX_PLANTS || client.sessionId === this.state.host) return;
+      this.toHost({ type: 'plant', msg: { i } satisfies PlantMsg });
+    },
+    // hin und zurück: So misst ein Client, wie schnell seine Verbindung ist
+    ping: (client: Client, m: PingMsg) => client.send('pong', { t: num(m?.t, 0) } satisfies PingMsg),
     // ein Tier des Ortswächters trifft einen anderen Spieler
     hurt: (client: Client, m: HurtMsg) => {
       if (client.sessionId !== this.state.host || typeof m?.to !== 'string') return;
@@ -85,8 +94,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const ep = EPOCHS[z.epoch];
     const L = generateLevel(ep, WORLD.seed, placesOf(ep).find((p) => p.id === z.place)!);
     this.bounds = { x0: 0, x1: L.width, y0: Math.min(0, L.surfaceY) - 600, y1: L.height + 60, sx: L.start.x, sy: L.start.y };
-    // 20 Mal je Sekunde gehen die Änderungen hinaus
-    this.setPatchRate(50);
+    // PATCH_HZ-mal je Sekunde gehen die Änderungen hinaus
+    this.setPatchRate(1000 / PATCH_HZ);
   }
 
   onJoin(client: Client, o: JoinOptions) {
@@ -135,6 +144,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (!next && !this.state.players.size) {
       this.state.animals.clear();
       this.state.meats.clear();
+      this.state.plants.clear();
     }
   }
 
@@ -147,6 +157,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (client.sessionId !== this.state.host || !m) return;
     const b = this.bounds;
     const A = this.state.animals, M = this.state.meats;
+    const sent = num(m.t, 0);
     for (const r of Array.isArray(m.a) ? m.a.slice(0, MAX_ANIMALS) : []) {
       const id = int(r?.id);
       if (!id || typeof r.sp !== 'string' || r.sp.length > 40) continue;
@@ -168,6 +179,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       a.tn = clamp(Math.round(num(r.tn, 0)), 0, 0xffffff);
       a.al = clamp(Math.round(num(r.al, 100)), 0, 100);
       a.at = r.at === true;
+      a.t = sent;
     }
     const died: number[] = [];
     for (const g of Array.isArray(m.gone) ? m.gone : []) {
@@ -193,6 +205,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       f.s = clamp(Math.round(num(r.s, 0)), 0, 2);
     }
     for (const id of Array.isArray(m.mgone) ? m.mgone : []) if (int(id)) M.delete(String(id));
+    // die Pflanzen: übrige Bissen je Pflanze
+    const P = this.state.plants;
+    for (const r of Array.isArray(m.p) ? m.p.slice(0, MAX_PLANTS) : []) {
+      const i = Array.isArray(r) ? r[0] : -1;
+      if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= MAX_PLANTS) continue;
+      P.set(String(i), clamp(Math.round(num(r[1], 0)), 0, 20));
+    }
   }
 
   /**
@@ -221,6 +240,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       acc.left = 0;
       client.send('snap', { x: f.x, y: f.y } satisfies SnapMsg);
     }
+    f.t = num(m.t, 0);
     f.facing = num(m.facing, 1) < 0 ? -1 : 1;
     f.anim = clamp(Math.round(num(m.anim, 0)), 0, 7);
     f.size = clamp(num(m.size, 1), 0.1, 3);

@@ -81,6 +81,10 @@ export interface SpeciesDef {
 
 const S = (d: SpeciesDef) => d;
 
+/** Alle Tiere schwimmen etwas gemächlicher als früher (das eigene Tier noch etwas mehr, siehe data/classes.ts). */
+const PACE = 0.9;
+const paced = (d: SpeciesDef): SpeciesDef => ({ ...d, speed: Math.round(d.speed * PACE) });
+
 /**
  * Je stärker ein Tier, desto stärker wird es noch einmal: Jäger, Verteidiger und vor allem die Riesen haben
  * deutlich mehr Leben und beißen viel härter zu. Kleine Beute bleibt, wie sie ist.
@@ -201,5 +205,5 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'megalograptus', name: 'Megalograptus', art: { t: 'bug', len: 120, h: 26, segs: 9, c: 0x5a3a26, legs: 4, pincers: false, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 60, dmg: 9, power: 12, speed: 112, sense: 300, meat: 5, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'pterygotus', name: 'Pterygotus', art: { t: 'bug', len: 210, h: 46, segs: 10, c: 0x4a2c1e, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'apex', diet: 'meat', habitat: 'water', hp: 150, dmg: 11, power: 20, speed: 118, sense: 380, meat: 8, boss: true, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'hyneria', name: 'Hyneria', art: { t: 'fish', len: 210, h: 66, c: 0x4a4a30, belly: 0x9a9268, fin: 0x34341e, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 180, dmg: 12, power: 24, speed: 112, sense: 400, meat: 10, boss: true, roam: true, hit: [0.8, 0.65] }),
-  ].map((d) => [d.id, toughen(d)]),
+  ].map((d) => [d.id, toughen(paced(d))]),
 );

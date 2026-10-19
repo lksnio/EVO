@@ -7,10 +7,20 @@
 export const ZONE_ROOM = 'zone';
 
 /** So oft (je Sekunde) meldet ein Client die Lage seines Fisches. */
-export const SEND_HZ = 15;
+export const SEND_HZ = 20;
 
-/** So weit zurück (ms) zeigt ein Client die anderen Fische – dazwischen wird geglättet. */
-export const INTERP_MS = 110;
+/** So oft (je Sekunde) verteilt der Server die Änderungen eines Ortes. */
+export const PATCH_HZ = 30;
+
+/**
+ * So weit zurück (ms) zeigt ein Client die anderen Fische mindestens – dazwischen wird geglättet. Kommen Meldungen
+ * unregelmäßig, wächst die Verzögerung von selbst (bis INTERP_MAX_MS, siehe net/Interp.ts).
+ */
+export const INTERP_MS = 75;
+export const INTERP_MAX_MS = 400;
+
+/** Bleibt eine Meldung aus, schwimmt ein Fisch oder Tier höchstens so lange (ms) in seiner Richtung weiter. */
+export const EXTRAPOLATE_MS = 150;
 
 /** Schneller schwimmt kein Fisch (Bildpunkte je Sekunde, mit Stoß und Strömung) – was schneller ist, ist ein Fehler. */
 export const MAX_SPEED = 1400;
@@ -21,8 +31,8 @@ export const MOVE_BURST = 900;
 /** So oft (je Sekunde) meldet der Ortswächter die Tiere und das Fleisch seines Ortes. */
 export const FAUNA_HZ = 10;
 
-/** Tiere anderer Spieler werden so weit zurück (ms) gezeigt – der Ortswächter meldet seltener als die Spieler sich selbst. */
-export const FAUNA_INTERP_MS = 160;
+/** Tiere des Ortswächters werden mindestens so weit zurück (ms) gezeigt – er meldet seltener als die Spieler sich selbst. */
+export const FAUNA_INTERP_MS = 130;
 
 /** So lange (s) hält der Server den Platz eines Spielers, dessen Verbindung abriss. */
 export const RECONNECT_S = 20;
@@ -47,6 +57,8 @@ export interface JoinOptions {
 
 /** Client → Server, SEND_HZ-mal je Sekunde */
 export interface PosMsg {
+  /** Uhrzeit des Absenders (ms, performance.now) – damit die anderen die Abstände ohne das Zittern des Netzes kennen */
+  t: number;
   x: number;
   y: number;
   facing: number;
@@ -114,12 +126,27 @@ export interface MeatRow {
   s: number;
 }
 
-/** Ortswächter → Server: geänderte Tiere und Fleischstücke, und was fort ist (gestorben: died = 1). */
+/**
+ * Ortswächter → Server: geänderte Tiere und Fleischstücke, und was fort ist (gestorben: died = 1); dazu die Pflanzen, deren
+ * Stand sich geändert hat (Nummer in der Reihenfolge des Weltgenerators, noch übrige Bissen). t: seine Uhrzeit (ms).
+ */
 export interface FaunaMsg {
+  t?: number;
   a?: AnimalRow[];
   gone?: [id: number, died: number][];
   m?: MeatRow[];
   mgone?: number[];
+  p?: [i: number, units: number][];
+}
+
+/** Ein Spieler beißt in eine Pflanze (→ an den Ortswächter): ihre Nummer. */
+export interface PlantMsg {
+  i: number;
+}
+
+/** Client → Server → Client: Wie lange braucht eine Nachricht hin und zurück? (t: Uhrzeit des Absenders) */
+export interface PingMsg {
+  t: number;
 }
 
 /** Ein Spieler trifft ein Tier (→ an den Ortswächter, dort mit from = wer). stun: so lange betäubt (ms). */

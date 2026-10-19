@@ -6,13 +6,8 @@ import { CLASSES } from '../data/classes';
 import type { Morph } from '../art/creatureArt';
 import { clamp } from '../util/math';
 import { ANIM, INTERP_MS } from './protocol';
+import { Interp } from './Interp';
 import type { NetFish } from './schema';
-
-interface Sample {
-  t: number;
-  x: number;
-  y: number;
-}
 
 /**
  * Ein Aussehen aus dem Netz – nur Zahlen in vernünftigen Grenzen (es kommt von einem anderen Spieler). Fehlt es oder ist es
@@ -34,13 +29,13 @@ function parseLook(s: string): Morph {
 }
 
 /**
- * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt (INTERP_MS) und zwischen den Meldungen geglättet,
- * damit er ruhig schwimmt, obwohl seine Lage nur 15 bis 20 Mal je Sekunde ankommt. Darüber steht sein Name.
+ * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt und zwischen den Meldungen geglättet (net/Interp.ts),
+ * damit er ruhig schwimmt, obwohl seine Lage nur etwa 20 Mal je Sekunde ankommt. Darüber steht sein Name.
  */
 export class RemoteFish {
   readonly view: CreatureView;
   private label: Phaser.GameObjects.Text;
-  private samples: Sample[] = [];
+  private path = new Interp(INTERP_MS);
   private look = '';
   private anim = 0;
   private facing = 1;
@@ -79,10 +74,8 @@ export class RemoteFish {
 
   /** Eine neue Meldung vom Server. */
   push(f: NetFish, now: number) {
-    const last = this.samples[this.samples.length - 1];
-    if (!last || last.x !== f.x || last.y !== f.y || now - last.t > 200) this.samples.push({ t: now, x: f.x, y: f.y });
-    // eine Sekunde Verlauf reicht
-    while (this.samples.length > 2 && now - this.samples[0].t > 1000) this.samples.shift();
+    // ein älterer Server meldet keine Uhrzeit: dann die Ankunft
+    this.path.push(f.t || now, f.x, f.y, now);
     if (f.look !== this.look && f.look) {
       this.look = f.look;
       this.view.build(parseLook(f.look));
@@ -95,23 +88,10 @@ export class RemoteFish {
   }
 
   update(now: number, dt: number) {
-    const t = now - INTERP_MS;
-    const s = this.samples;
-    let x = s[s.length - 1].x, y = s[s.length - 1].y;
-    // die beiden Meldungen um den Zeitpunkt t herum – dazwischen gleitet der Fisch
-    for (let i = s.length - 1; i > 0; i--) {
-      const a = s[i - 1], b = s[i];
-      if (a.t <= t && t <= b.t) {
-        const k = (t - a.t) / Math.max(1, b.t - a.t);
-        x = a.x + (b.x - a.x) * k;
-        y = a.y + (b.y - a.y) * k;
-        break;
-      }
-      if (i === 1 && t < a.t) {
-        x = a.x;
-        y = a.y;
-      }
-    }
+    const p = this.path.at(now, dt);
+    // Sprünge (nach einer Pause im Netz, einer Korrektur des Servers) weich aufholen – sonst genau auf der Bahn
+    const k = Math.hypot(p.x - this.view.x, p.y - this.view.y) > 60 ? Math.min(1, dt * 12) : 1;
+    const x = this.view.x + (p.x - this.view.x) * k, y = this.view.y + (p.y - this.view.y) * k;
     const v = Math.hypot(x - this.view.x, y - this.view.y) / Math.max(0.001, dt);
     this.speed01 += (clamp(v / 260, 0, 1) - this.speed01) * Math.min(1, dt * 6);
     this.view.setPosition(x, y);

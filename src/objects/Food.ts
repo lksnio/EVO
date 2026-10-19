@@ -17,6 +17,12 @@ export class Plant {
   readonly heals: boolean;
   /** Artgenossen, die gerade hierher wollen */
   wanted = new Set<object>();
+  /** Mehrspieler (Gast): Wie viel daran ist, rechnet der Ortswächter – hier wächst nichts von selbst nach */
+  net = false;
+  /** Gast: Ein Bissen davon wird dem Ortswächter gemeldet */
+  onTake?: () => void;
+  /** nach einem eigenen Bissen: so lange (Spielzeit) gilt der eigene Stand, bis der Ortswächter ihn kennt */
+  private heldUntil = 0;
 
   constructor(private scene: Phaser.Scene, public x: number, public y: number, private theme: Theme, units = 3, private variant = 0) {
     this.max = units;
@@ -44,12 +50,15 @@ export class Plant {
     if (this.units <= 0) return false;
     this.units--;
     this.regrowAt = now + 22000;
+    this.heldUntil = now + 1500;
     this.img.setTexture(this.key);
     this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.85, to: 1 }, duration: 200 });
+    this.onTake?.();
     return true;
   }
 
   update(now: number, fast = false) {
+    if (this.net) return;
     if (this.units < this.max && now > this.regrowAt) {
       this.units++;
       this.regrowAt = now + (fast ? 2500 : 22000);
@@ -57,12 +66,29 @@ export class Plant {
     }
   }
 
-  /** Alles wächst auf einmal nach (Blütezeit). */
+  /** Alles wächst auf einmal nach (Blütezeit). Beim Gast kommt das vom Ortswächter. */
   refill() {
-    if (this.units >= this.max) return;
+    if (this.net || this.units >= this.max) return;
     this.units = this.max;
     this.img.setTexture(this.key);
     this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.6, to: 1 }, duration: 600, ease: 'Back.out' });
+  }
+
+  /** Mehrspieler (Gast): So viel ist laut Ortswächter daran – nach einem eigenen Bissen erst, wenn er ihn kennt. */
+  netSet(units: number, now: number) {
+    const u = Math.max(0, Math.min(this.max, Math.round(units)));
+    if (u === this.units || (u > this.units && now < this.heldUntil)) return;
+    const grew = u > this.units;
+    this.units = u;
+    this.img.setTexture(this.key);
+    if (grew) this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.8, to: 1 }, duration: 400, ease: 'Back.out' });
+  }
+
+  /** Wird wieder selbst gerechnet (man ist jetzt Ortswächter): Was fehlt, wächst von jetzt an nach. */
+  local(now: number) {
+    this.net = false;
+    this.onTake = undefined;
+    if (this.units < this.max) this.regrowAt = now + 22000;
   }
 }
 

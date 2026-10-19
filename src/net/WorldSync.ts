@@ -6,7 +6,7 @@ import { Kill, Meat } from '../objects/Food';
 import type { Rect } from '../util/math';
 import type { LevelScene } from '../scenes/LevelScene';
 import { GhostAnimal } from './GhostAnimal';
-import { FAUNA_HZ, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow } from './protocol';
+import { FAUNA_HZ, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow, type PlantMsg } from './protocol';
 import type { RemoteFish } from './RemoteFish';
 import type { ZoneState } from './schema';
 import type { Zone } from './NetClient';
@@ -14,6 +14,8 @@ import type { Zone } from './NetClient';
 const r1 = (v: number) => Math.round(v * 10) / 10;
 /** so viele Tiere bzw. Fleischstücke je Nachricht (eine Nachricht bleibt so unter 3 KB) */
 const ROWS_PER_MSG = 24;
+/** Ein Tier, das stehen bleibt, wird noch so oft gemeldet – damit es bei den anderen nicht über das Ziel hinausschwimmt */
+const SETTLE_SENDS = 2;
 
 /**
  * Ein anderer Spieler – so, wie ihn die Tiere des Ortswächters sehen: Sie jagen ihn, weichen ihm aus und beißen ihn wie
@@ -73,11 +75,12 @@ export class RemoteTarget implements PlayerLike {
 const shared = (a: Animal) => !a.dead && !a.kin && !a.personal && !a.scripted && !(a instanceof GhostAnimal);
 
 /**
- * Die Tiere und das Fleisch eines Ortes für alle Spieler gleich (siehe net/protocol.ts):
+ * Die Tiere, das Fleisch und die Pflanzen eines Ortes für alle Spieler gleich (siehe net/protocol.ts):
  *   – Ortswächter: Sein Spiel rechnet wie immer; FAUNA_HZ-mal je Sekunde meldet es, was sich geändert hat.
  *   – Gast: Die eigenen Tiere des Ortes verschwinden, dafür kommen Stellvertreter (GhostAnimal) und Fleisch des
- *     Ortswächters. Treffer, Fressen und Schaden gehen über den Server.
- *   – Wechsel: Wer Ortswächter wird, übernimmt die Tiere so, wie sie gerade sind.
+ *     Ortswächters; seine Pflanzen wachsen nicht mehr selbst nach, sondern zeigen den Stand des Ortswächters. Treffer,
+ *     Fressen (auch Bissen in Pflanzen) und Schaden gehen über den Server.
+ *   – Wechsel: Wer Ortswächter wird, übernimmt Tiere und Pflanzen so, wie sie gerade sind.
  */
 export class WorldSync {
   /** Rolle schon bekannt? Bis dahin rechnet das eigene Spiel (wie allein). */
@@ -88,8 +91,10 @@ export class WorldSync {
   private ghosts = new Map<number, GhostAnimal>();
   private gmeats = new Map<number, Meat>();
   /** Ortswächter: zuletzt gemeldet (Kurzform) und die Tiere/Stücke dazu */
-  private sentA = new Map<number, string>();
+  private sentA = new Map<number, { sig: string; same: number }>();
   private sentM = new Map<number, string>();
+  /** Ortswächter: zuletzt gemeldete Bissen je Pflanze */
+  private sentP = new Map<number, number>();
   private lastA = new Map<number, Animal>();
   private lastM = new Set<number>();
   private byId = new Map<number, Animal>();
@@ -129,9 +134,15 @@ export class WorldSync {
       if (!first) this.takeOver();
       this.sentA.clear();
       this.sentM.clear();
+      this.sentP.clear();
       this.sendAt = 0;
     } else {
       this.h.dropShared();
+      // die Pflanzen rechnet der Ortswächter: Bissen gehen an ihn
+      this.h.plants.forEach((pl, i) => {
+        pl.net = true;
+        pl.onTake = () => this.z?.plant({ i });
+      });
       if (this.z) this.patch(this.z.state);
     }
   }
@@ -141,7 +152,7 @@ export class WorldSync {
     const now = performance.now();
     if (now < this.sendAt) return;
     this.sendAt = now + 1000 / FAUNA_HZ;
-    const msg: FaunaMsg = {};
+    const msg: FaunaMsg = { t: Math.round(now) };
     const seen = new Map<number, Animal>();
     for (const a of this.h.animals) {
       if (!shared(a)) continue;
@@ -149,8 +160,11 @@ export class WorldSync {
       seen.set(a.netId, a);
       const r = this.rowOf(a);
       const sig = `${r.sp},${r.x | 0},${r.y | 0},${r.d},${r.an},${r.hp},${r.mh},${r.sz},${r.tn},${r.al},${r.at}`;
-      if (this.sentA.get(r.id) === sig) continue;
-      this.sentA.set(r.id, sig);
+      const last = this.sentA.get(r.id);
+      // unverändert: nur noch ein paar Mal (es ist stehen geblieben), dann nicht mehr
+      const same = last?.sig === sig ? last.same + 1 : 0;
+      if (same > SETTLE_SENDS) continue;
+      this.sentA.set(r.id, { sig, same });
       (msg.a ??= []).push(r);
     }
     for (const [id, a] of this.lastA) {
@@ -179,6 +193,11 @@ export class WorldSync {
       this.sentM.delete(id);
     }
     this.lastM = mseen;
+    this.h.plants.forEach((pl, i) => {
+      if (this.sentP.get(i) === pl.units) return;
+      this.sentP.set(i, pl.units);
+      (msg.p ??= []).push([i, pl.units]);
+    });
     this.send(msg);
   }
 
@@ -186,10 +205,10 @@ export class WorldSync {
   private send(msg: FaunaMsg) {
     const z = this.z;
     if (!z) return;
-    const a = msg.a ?? [], m = msg.m ?? [];
-    for (let i = 0; i < a.length; i += ROWS_PER_MSG) z.fauna({ a: a.slice(i, i + ROWS_PER_MSG) });
+    const a = msg.a ?? [], m = msg.m ?? [], t = msg.t;
+    for (let i = 0; i < a.length; i += ROWS_PER_MSG) z.fauna({ t, a: a.slice(i, i + ROWS_PER_MSG) });
     for (let i = 0; i < m.length; i += ROWS_PER_MSG) z.fauna({ m: m.slice(i, i + ROWS_PER_MSG) });
-    if (msg.gone || msg.mgone) z.fauna({ gone: msg.gone?.slice(0, 200), mgone: msg.mgone?.slice(0, 200) });
+    if (msg.gone || msg.mgone || msg.p) z.fauna({ gone: msg.gone?.slice(0, 200), mgone: msg.mgone?.slice(0, 200), p: msg.p?.slice(0, 400) });
   }
 
   private rowOf(a: Animal): AnimalRow {
@@ -211,7 +230,7 @@ export class WorldSync {
 
   // ---------------------------------------------------------------- Gast
 
-  /** Der Stand des Ortes ist da (etwa 20 Mal je Sekunde): Stellvertreter und Fleisch nachführen. */
+  /** Der Stand des Ortes ist da (etwa 30 Mal je Sekunde): Stellvertreter, Fleisch und Pflanzen nachführen. */
   patch(s: ZoneState) {
     if (!this.started || this.host) return;
     const now = performance.now();
@@ -219,9 +238,11 @@ export class WorldSync {
       const id = Number(key);
       const r: AnimalRow = { id, sp: n.sp, x: n.x, y: n.y, d: n.d, an: n.an, hp: n.hp, mh: n.mh, sz: n.sz, tn: n.tn, al: n.al, at: n.at };
       const g = this.ghosts.get(id);
-      if (g && !g.dead) g.apply(r, now);
-      else if (!g && now > (this.deadUntil.get(id) ?? 0)) this.addGhost(r, now);
+      if (g && !g.dead) g.apply(r, now, n.t || now);
+      else if (!g && now > (this.deadUntil.get(id) ?? 0)) this.addGhost(r, now, n.t || now);
     }
+    const time = this.h.time.now;
+    for (const [key, units] of s.plants) this.h.plants[Number(key)]?.netSet(units, time);
     for (const [id, g] of this.ghosts) {
       if (s.animals.has(String(id))) continue;
       this.ghosts.delete(id);
@@ -244,11 +265,11 @@ export class WorldSync {
     }
   }
 
-  private addGhost(r: AnimalRow, now: number) {
+  private addGhost(r: AnimalRow, now: number, sent: number) {
     const def = SPECIES[r.sp];
     if (!def) return;
     makeSpeciesTextures(this.h, def);
-    const g = new GhostAnimal(this.h, def, r, now);
+    const g = new GhostAnimal(this.h, def, r, now, sent);
     g.onHit = (_g, dmg, kind, stun) => this.z?.hit({ id: r.id, dmg, kind, stun });
     g.onDie = () => {
       this.deadUntil.set(r.id, performance.now() + 1500);
@@ -305,6 +326,12 @@ export class WorldSync {
     f?.bite(m.amount);
   }
 
+  /** Ein anderer Spieler hat in eine Pflanze gebissen. */
+  plant(m: PlantMsg) {
+    if (!this.host) return;
+    this.h.plants[m.i]?.take(this.h.time.now);
+  }
+
   /** Der Ortswächter ging: Ab jetzt rechnet dieses Spiel die Tiere – so, wie sie gerade sind. */
   private takeOver() {
     let max = 0;
@@ -335,6 +362,8 @@ export class WorldSync {
     this.gmeats.clear();
     this.nextId = Math.max(this.nextId, max + 1);
     this.nextMeat = Math.max(this.nextMeat, maxM + 1);
+    // die Pflanzen: wie sie gerade sind – was fehlt, wächst von jetzt an hier nach
+    for (const pl of this.h.plants) pl.local(this.h.time.now);
   }
 
   close() {

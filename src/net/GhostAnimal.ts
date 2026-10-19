@@ -3,12 +3,7 @@ import type { SpeciesDef } from '../data/species';
 import { Animal, type Target, type World } from '../objects/Animal';
 import type { Rect } from '../util/math';
 import { FAUNA_INTERP_MS, type AnimalRow } from './protocol';
-
-interface Sample {
-  t: number;
-  x: number;
-  y: number;
-}
+import { Interp } from './Interp';
 
 /**
  * Ein Tier, das der Ortswächter rechnet – hier nur sein Stellvertreter: Es denkt nicht selbst, sondern schwimmt dorthin, wo
@@ -22,25 +17,23 @@ export class GhostAnimal extends Animal {
   onHit?: (g: GhostAnimal, dmg: number, kind: 'bite' | 'ram' | 'other', stun: number) => void;
   /** gestorben (vorhergesagt) – an den Ortswächter gemeldet */
   onDie?: (g: GhostAnimal) => void;
-  private samples: Sample[] = [];
+  private path = new Interp(FAUNA_INTERP_MS);
   private tn = 0;
   private al = 100;
   private flashUntil = 0;
 
-  constructor(world: World, def: SpeciesDef, r: AnimalRow, now: number) {
+  constructor(world: World, def: SpeciesDef, r: AnimalRow, now: number, sent = now) {
     super(world, def, r.x, r.y);
     this.netId = r.id;
     // nichts davon rechnet dieses Spiel: kein Körper in der Physik
     this.b.enable = false;
-    this.apply(r, now);
+    this.apply(r, now, sent);
     this.setAlpha(r.al / 100);
   }
 
-  /** Eine neue Meldung des Ortswächters. */
-  apply(r: AnimalRow, now: number) {
-    const last = this.samples[this.samples.length - 1];
-    if (!last || last.x !== r.x || last.y !== r.y || now - last.t > 300) this.samples.push({ t: now, x: r.x, y: r.y });
-    while (this.samples.length > 2 && now - this.samples[0].t > 1500) this.samples.shift();
+  /** Eine neue Meldung des Ortswächters (sent: seine Uhrzeit dabei – ohne sie die Ankunft). */
+  apply(r: AnimalRow, now: number, sent = now) {
+    this.path.push(sent, r.x, r.y, now);
     this.dir = r.d < 0 ? -1 : 1;
     if (Math.abs(this.sz - r.sz) > 0.001) {
       this.sz = r.sz;
@@ -58,22 +51,7 @@ export class GhostAnimal extends Animal {
   tick(_time: number, dt: number) {
     if (this.dead) return;
     const now = performance.now();
-    const t = now - FAUNA_INTERP_MS;
-    const s = this.samples;
-    let x = s[s.length - 1].x, y = s[s.length - 1].y;
-    for (let i = s.length - 1; i > 0; i--) {
-      const a = s[i - 1], b = s[i];
-      if (a.t <= t && t <= b.t) {
-        const k = (t - a.t) / Math.max(1, b.t - a.t);
-        x = a.x + (b.x - a.x) * k;
-        y = a.y + (b.y - a.y) * k;
-        break;
-      }
-      if (i === 1 && t < a.t) {
-        x = a.x;
-        y = a.y;
-      }
-    }
+    const { x, y } = this.path.at(now, dt);
     // ein kleiner Rückstand wird weich aufgeholt (z. B. nach dem ersten Bild)
     const k = Math.min(1, dt * 14);
     this.setPosition(this.x + (x - this.x) * k, this.y + (y - this.y) * k);

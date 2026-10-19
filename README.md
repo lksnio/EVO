@@ -548,22 +548,28 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
 - **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `0/lagune`);
   wer ihn verlässt, verschwindet dort und erscheint im nächsten. Die Orte sehen für alle gleich aus (feste Weltsaat).
 - **Die anderen Spieler** schwimmen als ihr eigener Fisch – mit ihrem Aussehen, ihrer Größe (Jungtier oder ausgewachsen),
-  Bissen und Stößen – und ihrem **Namen** darüber. Ihre Lage kommt 15 bis 20 Mal je Sekunde an und wird geglättet.
+  Bissen und Stößen – und ihrem **Namen** darüber. Ihre Lage kommt etwa 20 Mal je Sekunde an und wird geglättet
+  (`src/net/Interp.ts`): Jede Meldung trägt die Uhrzeit des Absenders, so stört das Zittern des Netzes die Bahn nicht. Die
+  anderen werden ein kleines Stück in der Vergangenheit gezeigt – bei einer ruhigen Verbindung knapp 0,1 Sekunden, bei
+  einer wackligen (oder einem langsamen Rechner) von selbst mehr, höchstens 0,4 Sekunden. Bleibt eine Meldung aus,
+  schwimmen sie kurz in ihrer Richtung weiter, statt stehen zu bleiben. Der Server verteilt Änderungen 30 Mal je Sekunde.
 - **Der Server prüft**, was die Clients melden: niemand schwimmt schneller, als ein Fisch kann (sonst setzt er ihn
   zurück), und niemand verlässt den Ort durch die Wand. Die Grenzen kennt er aus demselben Weltgenerator.
 - **Die Weltzeit** kommt vom Server – für alle gleich.
 - **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
   von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
-- **Gemeinsame Tiere:** Alle am Ort sehen **dieselben Tiere** und dasselbe Fleisch. Gerechnet werden sie im Spiel eines
+- **Gemeinsame Tiere und Pflanzen:** Alle am Ort sehen **dieselben Tiere**, dasselbe Fleisch und **dieselben Pflanzen**
+  (wer abfrisst, frisst es allen weg; nachwachsen und die Blütezeit rechnet der Ortswächter). Gerechnet werden sie im Spiel eines
   Spielers, dem **Ortswächter** (wer zuerst da war); der Server verteilt sie an alle anderen. Beißt oder stößt ein anderer
   Spieler ein Tier, geht der Treffer an den Ortswächter; Tiere jagen, meiden und beißen **jeden** Spieler (den jeweils
   nächsten); wer vom Fleisch frisst, nimmt es allen weg. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
   er in der Rast), übernimmt ein anderer Spieler die Tiere, so wie sie gerade sind. Neue Tiere (Durchzügler, Rückkehrer,
   Schlüpflinge) kommen nur beim Ortswächter dazu. Kein Tier verschwindet vor den Augen eines Spielers.
-- **Noch für jeden einzeln:** Pflanzen und Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner) und die Tiere
-  eines Auftrags – die sieht nur, wem sie gehören.
+- **Noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner) und die Tiere eines
+  Auftrags – die sieht nur, wem sie gehören.
 
-Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind.
+Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind – und wie lange eine Nachricht zum Server und zurück
+braucht (z. B. „· 40 ms“; ab 150 ms wird die Zeile ocker: Dann liegt ein Ruckeln eher an der Verbindung als am Spiel).
 
 ### Selbst ausprobieren (ein Rechner)
 
@@ -610,7 +616,8 @@ src/net/protocol.ts      Nachrichten und Grenzwerte (Sendetakt, Höchsttempo …
 src/net/NetClient.ts     die Verbindung im Browser (wird nur geladen, wenn ein Server da ist)
 src/net/NetSync.ts       Level ↔ Server: melden, die anderen zeigen; Name (?name), Server (?server), ?offline
 src/net/RemoteFish.ts    der Fisch eines anderen Spielers: geglättet, mit Namen
-src/net/WorldSync.ts     gemeinsame Tiere: Ortswächter meldet, Gäste zeigen Stellvertreter, Wechsel des Ortswächters
+src/net/Interp.ts        die Glättung: Uhrzeit des Absenders, Verzögerung nach Netz, kurz weiterschwimmen
+src/net/WorldSync.ts     gemeinsame Tiere und Pflanzen: Ortswächter meldet, Gäste zeigen Stellvertreter, Wechsel
 src/net/GhostAnimal.ts   ein Tier des Ortswächters bei den anderen: folgt den Meldungen, gibt Treffer weiter
 ```
 
@@ -726,8 +733,10 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
       Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
-- [ ] **Im Mehrspieler noch für jeden einzeln:** Pflanzen und Laich, deine Artgenossen (Gruppe, Auftrags-Figuren,
-      Laich-Partner) und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
+- [ ] **Im Mehrspieler noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner)
+      und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
+- [ ] **Tempo:** Das eigene Tier ist etwa 15 % gemächlicher als früher (Grundtempo 183 statt 215), alle anderen Tiere 10 %
+      (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen.
 - [ ] **Lebenstempo** (bestätigt): Generation 1 laicht nach 7 Minuten und lebt danach noch 4; Generation 2: 10 + 5; danach
       logarithmisch länger (Generation 8: 16 + 7). Laich der Artgenossen im Startgebiet verdirbt nicht.
 

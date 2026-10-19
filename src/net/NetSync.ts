@@ -7,13 +7,16 @@ import { WorldSync } from './WorldSync';
 import type { NetStatus, Zone, ZoneHandlers } from './NetClient';
 import type { LevelScene } from '../scenes/LevelScene';
 
-// Mehrspieler im Level (Meilenstein 1): den eigenen Fisch melden, die anderen am selben Ort zeigen. Die Tiere, Pflanzen
-// und alles andere rechnet vorerst jeder Client für sich; die Orte sehen für alle gleich aus (feste Weltsaat).
+// Mehrspieler im Level: den eigenen Fisch melden, die anderen am selben Ort zeigen. Tiere, Fleisch und Pflanzen rechnet der
+// Ortswächter für alle (net/WorldSync.ts); die Orte sehen für alle gleich aus (feste Weltsaat).
 
 const params = () => new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
 
-/** Der letzte Stand der Verbindung (für das HUD, auch wenn es erst danach startet): offline, online, unterbrochen, getrennt. */
-export const netInfo = { state: 'offline', others: 0 };
+/**
+ * Der letzte Stand der Verbindung (für das HUD, auch wenn es erst danach startet): offline, online, unterbrochen, getrennt –
+ * und wie lange eine Nachricht zum Server und zurück braucht (ms, 0 = noch nicht gemessen).
+ */
+export const netInfo = { state: 'offline', others: 0, ping: 0 };
 
 function tell(state: string, others: number) {
   netInfo.state = state;
@@ -70,6 +73,9 @@ export class NetSync {
   private last?: PosMsg;
   private lastAt = 0;
   private lastSent = 0;
+  /** zuletzt bewegt: danach noch kurz weiter melden – so wissen die anderen, dass der Fisch steht */
+  private movedAt = 0;
+  private pingAt = 0;
   private lookKey = '';
   private closed = false;
   private others = -1;
@@ -159,6 +165,14 @@ export class NetSync {
       eat: (m) => !this.closed && this.world.eat(m),
       hurt: (m) => !this.closed && this.world.hurt(m),
       died: (ids) => !this.closed && this.world.died(ids),
+      plant: (m) => !this.closed && this.world.plant(m),
+      pong: (m) => {
+        const rtt = performance.now() - m.t;
+        if (this.closed || !(rtt >= 0 && rtt < 10000)) return;
+        // geglättet, damit die Anzeige nicht springt
+        netInfo.ping = netInfo.ping ? netInfo.ping + (rtt - netInfo.ping) * 0.3 : rtt;
+        bus.emit('ping', Math.round(netInfo.ping));
+      },
       welcome: (m) => setServerClock(m.now),
       // Der Server kennt die Lage besser (der Fisch war zu schnell): zurück dorthin
       snap: (m) => !this.closed && !h.player.dead && h.player.body.reset(m.x, m.y),
@@ -185,11 +199,18 @@ export class NetSync {
     const z = this.zone, p = this.host.player;
     if (!z || this.closed || now < this.sendAt) return;
     this.sendAt = now + 1000 / SEND_HZ;
-    const m: PosMsg = { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, facing: p.facing, anim: animOf(this.host, this.host.time.now), size: p.stats.size };
+    if (now > this.pingAt) {
+      this.pingAt = now + 2000;
+      z.ping({ t: now });
+    }
+    const m: PosMsg = {
+      t: Math.round(now), x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, facing: p.facing, anim: animOf(this.host, this.host.time.now), size: p.stats.size,
+    };
     const l = this.last;
-    // still: nur ab und zu melden, dass man noch da ist
+    // still: nur ab und zu melden, dass man noch da ist (gleich nach dem Anhalten aber noch ein paar Mal)
     const same = l && l.x === m.x && l.y === m.y && l.anim === m.anim && l.facing === m.facing;
-    if (!same || now - this.lastSent > 1000) {
+    if (!same) this.movedAt = now;
+    if (!same || now - this.movedAt < 300 || now - this.lastSent > 1000) {
       z.pos(m);
       this.last = m;
       this.lastSent = now;

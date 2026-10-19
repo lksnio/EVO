@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client, type Room } from '@colyseus/sdk';
 import { server } from '../src/server/index';
 import { parseZone } from '../src/server/ZoneRoom';
-import { ZONE_ROOM, zoneId, type EatMsg, type HitMsg, type HurtMsg, type JoinOptions, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
+import { ZONE_ROOM, zoneId, type EatMsg, type HitMsg, type HurtMsg, type JoinOptions, type PingMsg, type PlantMsg, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
 import { ZoneState } from '../src/net/schema';
 
 // Meilenstein 1: Zwei Clients betreten denselben Ort und sehen die Bewegungen des jeweils anderen.
@@ -55,14 +55,22 @@ describe('Spielserver (Colyseus)', () => {
     expect(b.state.players.get(a.sessionId)?.name).toBe('Anna');
     // A schwimmt ein Stück nach rechts – B sieht es
     for (let i = 1; i <= 10; i++) {
-      a.send('pos', { x: 900 + i * 12, y: 500, facing: 1, anim: 0, size: 0.5 });
+      a.send('pos', { t: 5000 + i * 50, x: 900 + i * 12, y: 500, facing: 1, anim: 0, size: 0.5 });
       await wait(70);
     }
     await until(() => Math.round(b.state.players.get(a.sessionId)!.x) === 1020);
     expect(b.state.players.get(a.sessionId)!.size).toBeCloseTo(0.5, 3);
+    // mit der Uhrzeit des Absenders (zum Glätten)
+    expect(b.state.players.get(a.sessionId)!.t).toBe(5500);
     // die Uhr des Servers (für die gemeinsame Weltzeit) kam an
     await until(() => welcome.length > 0);
     expect(Math.abs(welcome[0].now - Date.now())).toBeLessThan(5000);
+    // hin und zurück
+    const pongs: PingMsg[] = [];
+    a.onMessage('pong', (m: PingMsg) => pongs.push(m));
+    a.send('ping', { t: 1234.5 });
+    await until(() => pongs.length > 0);
+    expect(pongs[0].t).toBe(1234.5);
   });
 
   it('ein unmöglicher Sprung wird abgefangen', async () => {
@@ -127,6 +135,19 @@ describe('Spielserver (Colyseus)', () => {
     await until(() => !guest.state.animals.has('7') && died.length > 0);
     expect(died[0]).toEqual([7]);
     expect(guest.state.meats.has('3')).toBe(false);
+    // die Pflanzen: Der Ortswächter meldet ihren Stand, Bissen der Gäste gehen an ihn
+    const plants: PlantMsg[] = [];
+    host.onMessage('plant', (m: PlantMsg) => plants.push(m));
+    host.send('fauna', { t: 777, p: [[0, 3], [5, 1], [-1, 2], [3.5, 1]], a: [{ id: 9, sp: 'arandaspis', x: 1000, y: 500, d: 1, an: 0, hp: 6, mh: 6, sz: 1, tn: 0, al: 100, at: false }] });
+    await until(() => guest.state.plants.get('5') === 1 && guest.state.animals.has('9'));
+    expect(guest.state.plants.get('0')).toBe(3);
+    expect(guest.state.plants.size).toBe(2);
+    expect(guest.state.animals.get('9')!.t).toBe(777);
+    guest.send('plant', { i: 5 });
+    guest.send('plant', { i: -3 });
+    await until(() => plants.length > 0);
+    await wait(100);
+    expect(plants).toEqual([{ i: 5 }]);
     // geht der Ortswächter, übernimmt der Gast – mit den Tieren, wie sie gerade sind
     host.send('fauna', { a: [{ id: 8, sp: 'arandaspis', x: 900, y: 500, d: 1, an: 0, hp: 6, mh: 6, sz: 1, tn: 0, al: 100, at: false }] });
     await until(() => guest.state.animals.has('8'));

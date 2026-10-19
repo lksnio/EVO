@@ -2,7 +2,8 @@ import { Callbacks, Client, type Room } from '@colyseus/sdk';
 import { ZoneState, type NetFish } from './schema';
 import {
   ZONE_ROOM,
-  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PosMsg, type SnapMsg, type WelcomeMsg,
+  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
+  type SnapMsg, type WelcomeMsg,
 } from './protocol';
 
 // Die Verbindung zum Spielserver (Colyseus). Dieses Modul wird erst geladen, wenn gespielt wird – wer offline spielt,
@@ -27,6 +28,10 @@ export interface ZoneHandlers {
   hurt(m: HurtMsg): void;
   /** diese Tiere sind gestorben */
   died(ids: number[]): void;
+  /** als Ortswächter: ein Spieler hat in eine Pflanze gebissen */
+  plant(m: PlantMsg): void;
+  /** die Antwort auf ping() – mit der eigenen Uhrzeit von damals */
+  pong(m: PingMsg): void;
 }
 
 /** Ein betretener Ort: senden, verlassen – und wer man selbst ist. */
@@ -39,6 +44,9 @@ export interface Zone {
   hit(m: HitMsg): void;
   hurt(m: HurtMsg): void;
   eat(m: EatMsg): void;
+  plant(m: PlantMsg): void;
+  /** Wie lange braucht eine Nachricht hin und zurück? (Antwort: pong) */
+  ping(m: PingMsg): void;
   /** als Ortswächter abgeben (ein anderer Spieler rechnet weiter) */
   yieldHost(): void;
   leave(): void;
@@ -73,6 +81,8 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
   room.onMessage('eat', (m: EatMsg) => h.eat(m));
   room.onMessage('hurt', (m: HurtMsg) => h.hurt(m));
   room.onMessage('died', (ids: number[]) => h.died(ids));
+  room.onMessage('plant', (m: PlantMsg) => h.plant(m));
+  room.onMessage('pong', (m: PingMsg) => h.pong(m));
   room.onDrop(() => h.status('unterbrochen'));
   room.onReconnect(() => h.status('verbunden'));
   room.onLeave(() => {
@@ -91,6 +101,8 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
     hit: (m) => send('hit', m),
     hurt: (m) => send('hurt', m),
     eat: (m) => send('eat', m),
+    plant: (m) => send('plant', m),
+    ping: (m) => send('ping', m),
     yieldHost: () => send('yield', {}),
     leave: () => {
       if (left) return;

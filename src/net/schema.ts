@@ -15,6 +15,8 @@ export const NetFish = schema(
     /** Aussehen: JSON eines Morph – ändert sich selten (Wachstum in Stufen, neue Generation) */
     look: t.string(),
     gen: t.uint16(),
+    /** Uhrzeit des Spielers bei seiner letzten Meldung (ms) – zum Glätten bei den anderen */
+    t: t.float64(),
     /** Verbindung kurz weg: Der Fisch bleibt stehen, bis der Spieler zurück ist (oder der Platz verfällt) */
     away: t.boolean(),
   },
@@ -36,6 +38,8 @@ export const NetAnimal = schema(
     tn: t.uint32(),
     al: t.uint8(),
     at: t.boolean(),
+    /** Uhrzeit des Ortswächters, als er es zuletzt meldete (ms) */
+    t: t.float64(),
   },
   'NetAnimal',
 );
@@ -63,6 +67,8 @@ export const ZoneState = schema(
     /** die Tiere und das Fleisch des Ortes (Schlüssel: ihre Nummer) */
     animals: t.map(NetAnimal),
     meats: t.map(NetMeat),
+    /** die Pflanzen des Ortes: übrige Bissen (Schlüssel: ihre Nummer, siehe FaunaMsg) */
+    plants: t.map('uint8'),
   },
   'ZoneState',
 );

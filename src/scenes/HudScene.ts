@@ -288,16 +288,23 @@ export class HudScene extends Phaser.Scene {
     const show = (state: string, n: number) => {
       this.tweens.killTweensOf(t);
       if (state === 'offline') return t.setAlpha(0);
+      // dazu, wie lange eine Nachricht zum Server und zurück braucht (ab 150 ms merkt man es)
+      const ms = netInfo.ping ? ` · ${Math.round(netInfo.ping)} ms` : '';
       const msg =
-        state === 'online' ? (n ? `● ${n === 1 ? 'ein weiterer Spieler' : `${n} weitere Spieler`} hier` : '● online – allein hier')
+        state === 'online' ? (n ? `● ${n === 1 ? 'ein weiterer Spieler' : `${n} weitere Spieler`} hier${ms}` : `● online – allein hier${ms}`)
         : state === 'unterbrochen' ? '○ Verbindung unterbrochen …'
         : '○ getrennt – es geht allein weiter';
-      t.setText(msg).setColor(state === 'online' ? UI.boneDim : UI.ochre).setAlpha(0.85);
+      t.setText(msg).setColor(state === 'online' && netInfo.ping < 150 ? UI.boneDim : UI.ochre).setAlpha(0.85);
       if (state === 'getrennt') this.tweens.add({ targets: t, alpha: 0, delay: 6000, duration: 1200 });
     };
+    const onPing = () => netInfo.state === 'online' && show(netInfo.state, netInfo.others);
     show(netInfo.state, netInfo.others);
     bus.on('net', show);
-    this.events.once('shutdown', () => bus.off('net', show));
+    bus.on('ping', onPing);
+    this.events.once('shutdown', () => {
+      bus.off('net', show);
+      bus.off('ping', onPing);
+    });
   }
 
   /**
