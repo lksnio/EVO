@@ -578,7 +578,8 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 **Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) – im Level
 werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
 `?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
-(Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC.
+(Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC. Mit `?debug` lässt **T** dein Tier eine Minute
+altern – so kommt man schnell zum Laichen (ausgewachsen nach acht Minuten) und zum Generationswechsel.
 
 **Mehrspieler-Adresszusätze:** `?name=Anna` (Name über dem Fisch, wird gemerkt), `?slot=2` (eigener Spielstand – für ein
 zweites Fenster im selben Browser), `?offline` (ohne Server spielen), `?server=http://…` (einen anderen Server benutzen).

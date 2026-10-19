@@ -514,6 +514,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (DEBUG) {
       this.dbg = this.add.text(VX + 12, VY + VH - 160, '', { fontFamily: 'monospace', fontSize: '13px', color: '#9f9', backgroundColor: 'rgba(0,0,0,.6)' })
         .setScrollFactor(0).setDepth(DEPTH.text + 10);
+      // zum Ausprobieren von Laichen und Generationswechsel: T lässt das eigene Tier eine Minute älter werden
+      this.input.keyboard?.on('keydown-T', () => !this.ended && !this.player.dead && game.ageBy(60));
     }
 
     // Ein Endgegner, der noch lebt, folgt dir von Ort zu Ort
@@ -2015,6 +2017,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const kin = this.animals.filter((a) => a.kin).length;
       const allies = this.animals.filter((a) => a.ally).length;
       const vis = this.animals.filter((a) => a.visitor).length;
+      // links unten im Bild – auch wenn die Kamera beim Jungtier näher heranzoomt
+      const z = this.cameras.main.zoom;
+      this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
         `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${LIFE.span} (${STAGE_NAME[stageOf(game.life.age)]})  Gen ${game.life.gen}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
