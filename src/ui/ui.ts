@@ -51,12 +51,11 @@ export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: n
 /** Die Tasten des Spiels – für die Seite "Steuerung" (Titelbild und Rast). */
 export const CONTROL_ROWS: [string, string][] = [
   ['← ↑ → ↓', 'Schwimmen'],
-  ['E  (auch Q oder J)', 'Beißen und Fressen'],
+  ['E  (auch Q oder J)', 'Beißen und Fressen – zur Laichzeit: laichen'],
   ['W  (auch Shift)', 'Sprinten – kostet Kraft'],
   ['R', 'Stoß – Anlauf nehmen, dann den Schwung nutzen'],
   ['F  (auch Eingabe)', 'Ansprechen – und im Gespräch weiter'],
   ['S', 'Deine Gruppe rufen bzw. fortschicken'],
-  ['L (halten)', 'Laichen – ausgewachsen, im Laichfluss am Grund'],
   ['Leertaste', 'Auftauchen'],
   ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
   ['C', 'Steintafel mit Werten und Hunger'],

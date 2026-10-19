@@ -26,22 +26,33 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
 ## Ein Leben – und die nächste Generation
 
 - **Heranwachsen:** Jedes Leben beginnt als **Jungtier** mit 40 % der ausgewachsenen Größe. Der Fisch wächst schnell, dann
-  immer langsamer – nach **8 Minuten** Spielzeit ist er **ausgewachsen** (92 %) und nähert sich danach weiter der vollen Größe.
-  Mit der Größe wachsen Lebenskraft, Biss, Stoß und Magen; ein Jungtier ist dafür etwas flinker. Ab etwa **22 Minuten** wird
-  er **alt** (langsamer, schneller müde, weniger Lebenskraft), nach **30 Minuten** stirbt er an Altersschwäche. Gezählt wird
-  nur die Zeit, in der man spielt – wer offline ist, altert nicht. Neue Lebensabschnitte melden sich oben links.
-- **Laichen (Taste L halten, am Handy der Knopf „Laichen“):** Ausgewachsen, satt genug (gut die Hälfte des Magens) und im
-  **Laichfluss** (dem Startort, flussaufwärts der Mündung):
-  - **Als Weibchen** schwimmst du dicht über den Grund und hältst L – über dir füllt sich ein Ring, dann liegt dein
+  immer langsamer – nach **7 Minuten** Spielzeit ist er **ausgewachsen** (92 %): **Laichzeit**. Danach lebt er noch etwa
+  **4 Minuten** – zum Laichen, Weiterschwimmen oder um gleich mit „Leben weitergeben“ zu gehen. In den letzten 40 % dieser
+  Zeit ist er **alt** (langsamer, schneller müde, weniger Lebenskraft), dann stirbt er an Altersschwäche. Mit der Größe
+  wachsen Lebenskraft, Biss, Stoß und Magen; ein Jungtier ist dafür etwas flinker. Gezählt wird nur die Zeit, in der man
+  spielt – wer offline ist, altert nicht. Neue Lebensabschnitte melden sich oben links.
+- **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 7 + 4 Minuten, Generation 2 schon 10 + 5,
+  Generation 4 13 + 6, Generation 8 16 + 7, Generation 16 19 + 8 … Wer viel spielt, verändert sich so immer seltener und hat
+  Zeit, sich mit seinem Tier anzufreunden.
+- **Laichen (Taste E – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, satt
+  genug (gut die Hälfte des Magens) und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner eigenen
+  Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
+  - Ist Laichzeit, steht es oben im Bild unter der Lebenslinie – zusammen mit dem, was noch fehlt („zurück in den
+    Laichfluss“, „zum schimmernden Laich deiner Art“, „dicht an den Grund“, „erst etwas fressen“ …). Geht es gerade, schimmert
+    die Zeile („Laichzeit · E: Laich befruchten“).
+  - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
+    Zur Laichzeit ist befruchtbarer Laich **wärmer gefärbt** (orange statt rosa, mit einem leisen Schimmer) – der in
+    Reichweite noch etwas kräftiger. Schwimm hin und drück E. Liegt keiner (mehr) da, kommt ein **Weibchen deiner Art**
+    und legt ein Gelege ein Stück vor dir.
+  - **Als Weibchen** schwimmst du dicht über den Grund (dort schimmert es warm unter dir) und drückst E – dann liegt dein
     **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
-    **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm).
-  - **Als Männchen** bist du bereit, sobald du im Laichfluss bist: Ein **Weibchen deiner Art** kommt und legt ein Gelege
-    ein Stück vor dir. Schwimm hin – über dem Gelege erscheint das Zeichen L – und halte L, um es zu befruchten.
-  - Laichen kostet Kraft aus dem Magen (Weibchen mehr als Männchen); danach dauert es gut zwei Minuten, bis es wieder geht.
+    **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm). Liegt vor deinem Maul gerade etwas Fressbares,
+    frisst du mit E wie immer.
+  - Laichen kostet Kraft aus dem Magen (Weibchen mehr als Männchen); danach dauert es anderthalb Minuten, bis es wieder geht.
     Wer mehrmals laicht, hat mehrere Gelege – die **jüngste befruchtete** führt die Linie weiter.
-  - Ein **unbefruchtetes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein Gelege
-    auch, wenn du den Fluss verlässt.
-  - Was noch fehlt („noch nicht ausgewachsen“, „zu hungrig“, „nur im Laichfluss“ …), steht auf der Steintafel (C).
+  - Ein **unbefruchtetes eigenes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein
+    Gelege auch, wenn du den Fluss verlässt.
+  - Was noch fehlt, steht auch auf der Steintafel (C) – dort außerdem, wie lange das Leben noch dauert.
 - **Der Generationswechsel:** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder weil du es in der Rast (Esc)
   mit **„Leben weitergeben“** selbst beendest –, schlüpft aus deinem jüngsten befruchteten Gelege die nächste Generation.
   Ein Bildschirm zeigt das Tier, das starb, daneben den Nachkommen (ausgewachsen und so klein, wie er schlüpft), die
@@ -260,7 +271,8 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
 - **Wachsen von Generation zu Generation:** Im Leben wächst dein Tier nur heran (und altert); die **Art** verändert sich
-  erst beim **Generationswechsel** – dann aber deutlich, und die Merkmale bauen über viele Generationen aufeinander auf. Was
+  erst beim **Generationswechsel** – merklich, aber **nie zu stark** auf einmal, und die Merkmale bauen über viele
+  Generationen aufeinander auf. Was
   sich ändert, bestimmen deine Spielweise (die **Evolutionsrichtungen**, siehe unten) und drei Anpassungen, die unabhängig
   davon geschehen: **Körpergröße** (Lebensraum), **Körperrobustheit** (überstandene Angriffe) und **Ernährung** (gefressene
   Energie).
@@ -363,6 +375,10 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   Tempo für den Verfolgungsfisch, **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
   Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Die Richtungen bauen über die
   Generationen aufeinander auf; wer anders lebt, bekommt Mischformen. Keine ist überall die beste.
+  **Nie zu viel auf einmal:** Je Generation wächst eine Richtung höchstens um ein Sechstel ihrer vollen Ausprägung, alle
+  zusammen um gut ein Fünftel; Größe und Robustheit ändern sich höchstens um 10 %, die Kost um ein Viertel, Flossen und
+  was im Leben gewachsen ist (Tarnung, Bodenkontakt …) nur um ein paar Prozent. Wer konsequent spielt, sieht es trotzdem
+  jedes Mal (Grenzen in `src/data/life.ts`, `INHERIT`).
 - **Drei Anpassungen, unabhängig von der Platte:**
   - **Körpergröße** aus dem **Lebensraum**: Es zählt, wo du im Leben am **aktivsten** warst (schwimmen, fressen, kämpfen –
     bloßes Treiben kaum). Flache, bewachsene Orte machen kleiner, trübe etwas größer, die Tiefe und erst recht der Abgrund
@@ -498,13 +514,12 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | --- | --- |
 | ← → ↑ ↓ | schwimmen |
 | Leertaste | auftauchen |
-| E (auch Q oder J) | beißen und fressen |
+| E (auch Q oder J) | beißen und fressen – zur Laichzeit: laichen (Weibchen dicht am Grund, Männchen am warm gefärbten Laich deiner Art) |
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| L (halten) | laichen – ausgewachsen, satt genug, im Laichfluss: Weibchen dicht am Grund, Männchen an einem frischen Gelege |
 | C | Steintafel: Werte, Hunger, Lebensabschnitt, Laichen, Muscheln |
 | Esc / P | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
 | M | Ton an/aus |
@@ -611,7 +626,7 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
 `?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
 (Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC. Mit `?debug` lässt **T** dein Tier eine Minute
-altern – so kommt man schnell zum Laichen (ausgewachsen nach acht Minuten) und zum Generationswechsel.
+altern – so kommt man schnell zum Laichen (Laichzeit nach sieben Minuten) und zum Generationswechsel.
 
 **Mehrspieler-Adresszusätze:** `?name=Anna` (Name über dem Fisch, wird gemerkt), `?slot=2` (eigener Spielstand – für ein
 zweites Fenster im selben Browser), `?offline` (ohne Server spielen), `?server=http://…` (einen anderen Server benutzen).
@@ -697,7 +712,8 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
 - [ ] **Im Mehrspieler noch für jeden einzeln:** Pflanzen und Laich, deine Artgenossen (Gruppe, Auftrags-Figuren,
       Laich-Partner) und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
-- [ ] **Lebenstempo** (bestätigt): ausgewachsen nach 8 Minuten, Lebensende nach 30 Minuten.
+- [ ] **Lebenstempo** (bestätigt): Generation 1 laicht nach 7 Minuten und lebt danach noch 4; Generation 2: 10 + 5; danach
+      logarithmisch länger (Generation 8: 16 + 7). Laich der Artgenossen im Startgebiet verdirbt nicht.
 
 ### Ideen für später
 

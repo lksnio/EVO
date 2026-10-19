@@ -6,7 +6,7 @@ import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { LIFE, WORLD } from '../data/life';
-import { cyclePhase, diesOfAge, lifeK, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { cyclePhase, diesOfAge, lifeK, phases, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
@@ -278,8 +278,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Die Ereignisse des Zeitalters kehren in der Weltzeit immer wieder – für alle zugleich (der Endgegner nicht)
     this.timeline = this.ep.events.filter((e) => e.kind !== 'boss');
     this.phase = cyclePhase(this.ep.seconds);
-    this.stage = stageOf(game.life.age);
-    this.oldWarned = game.life.age > LIFE.span - 90;
+    this.stage = stageOf(game.life.age, game.life.gen);
+    this.oldWarned = game.life.age > phases(game.life.gen).span - 60;
     this.nextPasser = 0;
     this.bloomUntil = this.stormUntil = 0;
     this.stormK = 0;
@@ -391,6 +391,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     roeTextures(this);
     for (const s of L.roe) {
       const roe = new Roe(this, s.x, s.y, s.species, s.tone, 4, s.own);
+      // Laich deiner Art ist kein Futter – zur Laichzeit befruchtest du ihn (objects/Spawning.ts)
+      roe.spared = s.own;
       // nur Pflanzen- und Allesfresser-Gelege schlüpfen (die Jungen der Jäger bleiben Eier); eigene Brut schlüpft nicht
       const hatches = !s.own && SPECIES[s.species]?.role !== 'predator';
       roe.hatchAt = hatches ? this.time.now + 90000 + Math.random() * 70000 : Infinity;
@@ -2092,7 +2094,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const z = this.cameras.main.zoom;
       this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${LIFE.span} (${STAGE_NAME[stageOf(game.life.age)]})  Gen ${game.life.gen}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
           `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
@@ -2628,7 +2630,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
       // oben: die Weltzeit (für alle gleich) und darunter die Lebenslinie des eigenen Tiers
       bus.emit('clock', worldYears(this.ep.from, this.ep.to), WORLD.yearsPerSecond * 60);
-      bus.emit('life', game.life.age / LIFE.span, stageOf(game.life.age), !!game.heir());
+      bus.emit('life', game.life.age / phases(game.life.gen).span, stageOf(game.life.age, game.life.gen), !!game.heir());
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }
@@ -2785,32 +2787,35 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * am Ende stirbt das Tier an Altersschwäche.
    */
   private lifeStep() {
-    const age = game.life.age;
-    const st = stageOf(age);
+    const age = game.life.age, gen = game.life.gen;
+    const st = stageOf(age, gen);
     if (st !== this.stage) {
       this.stage = st;
       if (st === 'heran') bus.emit('notice', 'Neuer Lebensabschnitt', 'Heranwachsend');
       else if (st === 'adult') {
-        bus.emit('notice', 'Ausgewachsen', 'Zum Laichen zurück in den Laichfluss');
+        bus.emit('notice', 'Laichzeit', game.run?.sex === 1 ? 'Befruchte Laich deiner Art – im Laichfluss' : 'Lege deinen Laich ab – im Laichfluss');
         audio.sfx('evolve');
       } else if (st === 'alt') bus.emit('notice', 'Alt geworden', 'Die Kräfte lassen nach');
       // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
       this.player.refresh(false, false);
     }
     if (!this.cine && !this.quest?.zooming && !this.hunt?.zooming) this.cameras.main.setZoom(this.camZoom);
-    if (!this.oldWarned && age > LIFE.span - 90) {
+    if (!this.oldWarned && age > phases(gen).span - 60) {
       this.oldWarned = true;
       bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir() ? 'Deine Nachkommen warten im Laichfluss' : 'Noch kein befruchtetes Gelege');
     }
-    if (diesOfAge(age)) this.player.expire('Altersschwäche');
+    if (diesOfAge(age, gen)) this.player.expire('Altersschwäche');
   }
 
   /** Was gerade über das Leben zu sagen ist (Steintafel): Lebensabschnitt, Laichen, Gelege. */
   lifeStatus(): { stage: string; spawn: string } {
     const life = game.life;
-    const st = stageOf(life.age);
-    const left = Math.max(0, LIFE.mature - life.age);
-    const stage = st === 'jung' || st === 'heran' ? `${STAGE_NAME[st]} – ausgewachsen in ${Math.ceil(left / 60)} Min.` : STAGE_NAME[st];
+    const st = stageOf(life.age, life.gen);
+    const P = phases(life.gen);
+    const left = Math.max(0, P.mature - life.age);
+    const stage = st === 'jung' || st === 'heran'
+      ? `${STAGE_NAME[st]} – Laichzeit in ${Math.ceil(left / 60)} Min.`
+      : `${STAGE_NAME[st]} – noch etwa ${Math.max(1, Math.ceil((P.span - life.age) / 60))} Min.`;
     const fert = life.clutches.filter((c) => c.fert).length;
     const open = life.clutches.length - fert;
     const block = this.spawning?.block ?? null;
@@ -2819,7 +2824,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       : open
         ? 'Gelege wartet auf ein Männchen'
         : block === null
-          ? 'Jetzt laichen: L halten'
+          ? 'Jetzt laichen: E'
           : `Laichen: ${SPAWN_BLOCK[block]}`;
     return { stage, spawn };
   }
@@ -2841,6 +2846,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   get camZoom() {
     return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1));
+  }
+
+  /** E gedrückt: Ist Laichzeit und gerade die Gelegenheit, wird gelaicht statt gebissen (Spieler, Player.update). */
+  spawnAct() {
+    const sp = this.spawning;
+    if (!sp || this.ended) return false;
+    const r = this.player.biteRect();
+    // ein Weibchen, das gerade vor etwas Fressbarem ist, frisst lieber
+    const food = this.plants.some((pl) => pl.units > 0 && overlaps(r, pl.rect)) || this.meats.some((m) => !m.gone && overlaps(r, m.rect))
+      || this.animals.some((a) => !a.dead && !a.kin && overlaps(r, a.hitRect()));
+    return sp.act(food);
   }
 
   /** Ein kurzes Funkeln. */

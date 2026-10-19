@@ -13,19 +13,25 @@ export const WORLD = {
 
 /**
  * Ein Leben, gemessen in Sekunden aktiven Lebens (nur solange man spielt – wer offline ist, altert nicht):
- *   schlüpfen → heranwachsen → ausgewachsen (laichbereit) → alt → Tod durch Altersschwäche.
+ *   schlüpfen → heranwachsen → ausgewachsen (Laichzeit) → alt → Tod durch Altersschwäche.
+ * Die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch mit der Generation: Wer viel spielt, verändert sich
+ * immer seltener und hat Zeit, sich mit seinem Tier anzufreunden. Generation 1: 7 Minuten bis zur Laichzeit, danach noch
+ * 4 Minuten; Generation 2: 10 + 5; Generation 4: 13 + 6; Generation 8: 16 + 7 (siehe sim/life.ts, phases).
  */
 export const LIFE = {
   /** Größe beim Schlüpfen (Anteil der ausgewachsenen Größe) */
   hatch: 0.4,
   /** so viel der ausgewachsenen Größe gilt als ausgewachsen (dann kann man laichen) */
   adult: 0.92,
-  /** nach so vielen Sekunden ist man ausgewachsen – das Wachstum nähert sich danach weiter der vollen Größe */
-  mature: 480,
-  /** ab hier altert der Fisch: langsamer, schneller müde, weniger Lebenskraft */
-  old: 1320,
-  /** so lange lebt ein Fisch höchstens */
-  span: 1800,
+  /** Generation 1: nach so vielen Sekunden ist man ausgewachsen (Laichzeit) – das Wachstum nähert sich danach der vollen Größe */
+  mature: 7 * 60,
+  /** … und mit jeder Verdopplung der Generationen so viel später */
+  maturePerDoubling: 3 * 60,
+  /** Generation 1: so lange lebt man nach dem Ausgewachsensein noch – zum Laichen und danach */
+  rest: 4 * 60,
+  restPerDoubling: 60,
+  /** ab diesem Anteil der Restzeit ist man alt: langsamer, schneller müde, weniger Lebenskraft */
+  oldFrac: 0.6,
   /** so stark lässt das Alter am Ende nach (Anteil): Tempo, Ausdauer, Erholung, Lebenskraft */
   oldSpeed: 0.2,
   oldEndurance: 0.35,
@@ -39,14 +45,12 @@ export const LIFE = {
  */
 export const SPAWN = {
   /** so satt muss man mindestens sein (Anteil des Magens) */
-  minFood: 0.55,
+  minFood: 0.5,
   /** das kostet ein Gelege (Anteil des Magens): Weibchen bzw. Männchen */
   costFemale: 0.4,
   costMale: 0.2,
-  /** so lange (Sekunden) hält man L gedrückt */
-  hold: 1.4,
   /** frühestens wieder nach so vielen Sekunden aktiven Lebens */
-  cooldown: 150,
+  cooldown: 90,
   /** so nah (Bildpunkte) muss man über dem Grund sein */
   ground: 80,
   /** so nah (Bildpunkte) muss ein Männchen an einem Gelege sein */
@@ -69,9 +73,14 @@ export const SPAWN = {
  *   – Was im Leben Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich zum Teil fort (carry).
  *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie (wie bisher).
  *   – Der Partner gibt etwas von seinem Aussehen mit (partner).
+ * Keine Generation verändert sich zu stark – aber so, dass man es merkt: Jede Richtung wächst höchstens um plateStep ihrer
+ * vollen Ausprägung, alle zusammen um höchstens plateTotal; Größe, Robustheit, Kost und Fortgesetztes um höchstens step.
  */
 export const INHERIT = {
   gain: 1.1,
   carry: 0.6,
   partner: 0.15,
+  plateStep: 0.16,
+  plateTotal: 0.22,
+  step: { growth: 0.1, armor: 0.1, diet: 0.25, carry: 0.07, fins: 0.08 },
 };

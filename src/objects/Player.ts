@@ -9,6 +9,8 @@ import { DEPTH } from '../config';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect, momentum?: number): void;
+  /** Zur Laichzeit: E laicht (befruchtet bzw. legt ab), statt zu beißen – true, wenn gelaicht wurde */
+  spawnAct?(): boolean;
   puff(x: number, y: number, n: number, tint?: number): void;
   bleed(x: number, y: number, n: number): void;
   solidAt(x: number, y: number): boolean;
@@ -383,7 +385,8 @@ export class Player {
 
     // Beißen (und Fressen): aus dem Stand, der Körper bleibt, wo er ist – nur der Kopf schnappt zu.
     // Nach vorn trägt einen allein der Schwung eines Stoßes oder Spurts.
-    if (c.pressed.bite && time >= this.biteReady) {
+    if (c.pressed.bite && time >= this.biteReady && this.host.spawnAct?.()) this.biteReady = time + 380;
+    else if (c.pressed.bite && time >= this.biteReady) {
       this.biteReady = time + 380;
       this.bitAt = time;
       // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum

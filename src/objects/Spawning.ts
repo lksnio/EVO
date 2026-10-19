@@ -1,11 +1,10 @@
 import Phaser from 'phaser';
-import { DEPTH, TILE, TITLE_FONT } from '../config';
+import { DEPTH, TILE } from '../config';
 import { audio } from '../audio/Audio';
 import { SPAWN } from '../data/life';
 import { bus, game, type Clutch, type Sex, type Traits } from '../state/GameState';
 import { isAdult, spawnBlock, worldNow, type SpawnBlock } from '../sim/life';
 import { clamp } from '../util/math';
-import { touch } from './Controls';
 import { CreatureView } from './CreatureView';
 import { Roe } from './Food';
 import type { Kin } from './Kin';
@@ -28,67 +27,34 @@ interface Brood {
   male?: Kin;
   maleCalled?: boolean;
   glow?: Phaser.GameObjects.Image;
+  /** befruchtbar und du bist bereit: Das Gelege schimmert warm (stärker, wenn du nah genug bist) */
+  mark?: Phaser.GameObjects.Image;
+  /** Laich der Artgenossen, der zum Ort gehört (im Startgebiet): verdirbt nicht */
+  lasting?: boolean;
 }
 
 const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
 
 /**
- * Das Zeichen beim Laichen: über dem eigenen Tier (Weibchen) bzw. über dem Gelege (Männchen) steht „L“. Wer die Taste hält,
- * sieht den Ring sich füllen – ist er voll, ist gelaicht.
- */
-class HoldSign {
-  private c: Phaser.GameObjects.Container;
-  private ring: Phaser.GameObjects.Graphics;
-  private a = 0;
-  private t = 0;
-
-  constructor(scene: Phaser.Scene, touchMode: boolean) {
-    const g = scene.add.graphics();
-    g.fillStyle(0x000000, 0.35);
-    g.fillCircle(1.5, 3, 19);
-    g.fillStyle(0x0d0c0b, 0.88);
-    g.fillCircle(0, 0, 19);
-    g.lineStyle(1.5, 0xc8913c, 0.55);
-    g.strokeCircle(0, 0, 18.5);
-    const label = scene.add.text(0, 0, touchMode ? '···' : 'L', { fontFamily: TITLE_FONT, fontSize: touchMode ? '18px' : '19px', color: '#e0a848', fontStyle: '700', resolution: 2 }).setOrigin(0.5);
-    this.ring = scene.add.graphics();
-    this.c = scene.add.container(0, 0, [g, this.ring, label]).setDepth(DEPTH.text).setAlpha(0).setScale(1.25);
-  }
-
-  update(dt: number, x: number, y: number, want: boolean, k: number) {
-    this.t += dt;
-    this.a += ((want ? 1 : 0) - this.a) * Math.min(1, dt * 6);
-    this.c.setAlpha(this.a).setVisible(this.a > 0.02);
-    this.c.setPosition(x, y - 84 + Math.sin(this.t * 3) * 3);
-    this.ring.clear();
-    if (k > 0.01) {
-      this.ring.lineStyle(4, 0xffe0a0, 0.95);
-      this.ring.beginPath();
-      this.ring.arc(0, 0, 18.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k);
-      this.ring.strokePath();
-    }
-  }
-
-  destroy() {
-    this.c.destroy();
-  }
-}
-
-/**
- * Laichen im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund – sobald das eigene Tier ausgewachsen und
- * satt genug ist (siehe data/life.ts, SPAWN):
- *   – Weibchen halten L und legen ein Gelege. Kurz darauf kommt ein Männchen deiner Art und befruchtet es.
- *   – Männchen: Bist du bereit im Laichfluss, kommt ein Weibchen deiner Art und legt ein Gelege – halte L daran, um es zu
- *     befruchten.
+ * Laichen im Laichfluss (dem Startort, flussaufwärts der Mündung) – sobald das eigene Tier ausgewachsen ist (Laichzeit) und
+ * satt genug (siehe data/life.ts, SPAWN). Gelaicht wird mit derselben Taste wie gefressen (E): Zur Laichzeit frisst man
+ * Laich der eigenen Art nicht, man befruchtet ihn – Laich deiner Art ist ohnehin nie Futter.
+ *   – Männchen befruchten Laich ihrer Art: Im Startgebiet liegt er schon (die Artgenossen laichen dort), sonst kommt ein
+ *     Weibchen und legt in deiner Nähe. Zur Laichzeit schimmert befruchtbarer Laich warm – nah genug, schimmert er stärker.
+ *   – Weibchen legen ihren Laich dicht am Grund ab; kurz darauf kommt ein Männchen deiner Art und befruchtet ihn.
  * Ein befruchtetes Gelege bleibt im Spielstand: Stirbt dein Tier, schlüpft daraus die nächste Generation (LevelScene).
- * Unbefruchtete Gelege verderben nach einer Weile. Später übernehmen andere Spieler die Rolle des Partners.
+ * Was gerade fehlt (oder dass es jetzt geht), steht oben im Bild unter der Lebenslinie (Ereignis 'spawnTime').
  */
 export class SpawnCtl {
   private broods: Brood[] = [];
-  private sign: HoldSign;
-  private holdT = 0;
-  private bubbleAt = 0;
   private able = false;
+  /** Männchen: der befruchtbare Laich in Reichweite */
+  private target?: Brood;
+  private t = 0;
+  /** zuletzt oben im Bild gezeigt */
+  private said = '';
+  /** Weibchen, bereit: ein warmer Schimmer am Grund unter ihr */
+  private nest?: Phaser.GameObjects.Image;
   /** frühestens dann legt ein Weibchen deiner Art (wenn du als Männchen bereit bist) */
   private femaleAt = 0;
   private female?: Kin;
@@ -99,12 +65,21 @@ export class SpawnCtl {
   block: SpawnBlock | null = 'jung';
 
   constructor(private host: LevelScene) {
-    const touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
-    this.sign = new HoldSign(host, touchMode);
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
     // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen
     game.decayClutches();
     for (const c of game.life.clutches) if (c.place === host.place.id) this.addBrood(c.x, c.y, c.at, { clutch: c });
+    // der Laich deiner Art, der hier schon liegt (im Startgebiet): befruchtbar – wo schon dein eigenes Gelege liegt, nicht
+    for (const roe of host.roes) {
+      if (!roe.own || roe.hatched || this.broods.some((b) => b.roe === roe)) continue;
+      roe.spared = true;
+      roe.img.setDepth(DEPTH.terrain + 1);
+      if (this.broods.some((b) => b.clutch && Math.abs(b.x - roe.x) < 60)) {
+        roe.vanish();
+        continue;
+      }
+      this.broods.push({ roe, x: roe.x, y: roe.y, at: worldNow(), mother: game.kinTraits(this.kinIndex(2)), lasting: true });
+    }
     for (const b of this.broods) if (b.clutch && !b.clutch.fert) this.callMale(b, rnd(SPAWN.maleDelay));
     host.events.once('shutdown', () => this.shutdown());
   }
@@ -156,12 +131,12 @@ export class SpawnCtl {
   update(time: number, dt: number) {
     const h = this.host, p = h.player;
     const run = game.run;
+    this.t += dt;
     this.fryStep(dt);
     // das Leben ist zu Ende (oder ein neues hat schon begonnen): hier geschieht nichts mehr
     if (h.ended) {
-      this.holdT = 0;
       this.setAble(false);
-      this.sign.update(dt, p.x, p.y, false, 0);
+      this.marks(false);
       return;
     }
     this.decay();
@@ -176,56 +151,108 @@ export class SpawnCtl {
     }
     const busy = !run || p.dead || !!h.quest?.busy || !!h.hunt?.busy || h.cineActive;
     if (busy) {
-      this.holdT = 0;
       this.setAble(false);
-      this.sign.update(dt, p.x, p.y, false, 0);
+      this.marks(false);
       return;
     }
     const life = game.life;
     const male = run.sex === 1;
     const food = p.satiety / Math.max(1, p.maxSat);
-    // Männchen: das nächste unbefruchtete Gelege eines Weibchens deiner Art in Reichweite
-    let target: Brood | undefined;
+    // Männchen: der nächste befruchtbare Laich in Reichweite
+    this.target = undefined;
     if (male) {
       let best = SPAWN.reach;
       for (const b of this.broods) {
         const d = Math.hypot(b.x - p.x, b.y - 20 - p.y);
         if (b.mother && !b.clutch && d < best) {
           best = d;
-          target = b;
+          this.target = b;
         }
       }
     }
-    const atGround = male ? !!target : this.groundY(p.x) - p.y < SPAWN.ground;
-    this.block = spawnBlock({ age: life.age, food, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
-    const able = this.block === null;
-    this.setAble(able);
-    const held = h.controls.held.spawn || touch.spawn;
-    if (able && held) this.holdT += dt;
-    else this.holdT = Math.max(0, this.holdT - dt * 2);
-    const k = clamp(this.holdT / SPAWN.hold, 0, 1);
-    const sx = target ? target.x : p.x, sy = target ? target.y - 10 : p.y;
-    this.sign.update(dt, sx, sy, able, able ? k : 0);
-    // beim Halten steigen Bläschen auf
-    if (able && held && time > this.bubbleAt) {
-      this.bubbleAt = time + 160;
-      h.puff(p.x - p.facing * 6, p.y + 8, 1, 0xf4f0e0);
-    }
-    if (able && k >= 1) {
-      this.holdT = 0;
-      if (target) this.fertilizeAsMale(target);
-      else if (!male) this.lay();
-    }
-    // Ein Weibchen deiner Art laicht, wenn du als Männchen bereit im Laichfluss bist
-    const ready = male && isAdult(life.age) && this.grounds && food >= SPAWN.minFood && life.age - life.lastSpawn >= SPAWN.cooldown;
+    const atGround = male ? !!this.target : this.groundY(p.x) - p.y < SPAWN.ground;
+    this.block = spawnBlock({ age: life.age, gen: life.gen, food, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
+    this.setAble(this.block === null);
+    // Laichzeit (ausgewachsen, satt genug, nicht gerade erst gelaicht): zeigen, was sich befruchten lässt bzw. wo es geht
+    const time4 = this.block === null || this.block === 'gelege' || this.block === 'grund' || this.block === 'ort';
+    this.marks(male && time4);
+    this.nestHint(!male && this.block === null);
+    this.tell(male);
+    // Ein Weibchen deiner Art laicht, wenn du als Männchen bereit im Laichfluss bist (und kein Laich mehr da ist)
+    const ready = male && isAdult(life.age, life.gen) && this.grounds && food >= SPAWN.minFood && life.age - life.lastSpawn >= SPAWN.cooldown;
     if (ready && !this.female && !this.broods.some((b) => b.mother) && time > this.femaleAt) this.callFemale(time);
+  }
+
+  /**
+   * E gedrückt: Laichen, wenn es jetzt geht (sonst beißt bzw. frisst man wie immer). food: Vor dem Maul liegt etwas zu
+   * fressen – ein Weibchen frisst dann, statt abzulegen.
+   */
+  act(food: boolean): boolean {
+    if (this.block !== null || this.host.ended) return false;
+    if (this.target) {
+      this.fertilizeAsMale(this.target);
+      return true;
+    }
+    if (game.run?.sex === 1 || food) return false;
+    this.lay();
+    return true;
+  }
+
+  /** Was oben im Bild unter der Lebenslinie steht: dass Laichzeit ist – und was noch fehlt. */
+  private tell(male: boolean) {
+    const life = game.life;
+    let msg = '';
+    if (game.heir()) msg = 'Gelege befruchtet – deine Linie geht weiter';
+    else if (isAdult(life.age, life.gen)) {
+      const b = this.block;
+      msg = b === null
+        ? male ? 'Laichzeit · E: Laich befruchten' : 'Laichzeit · E: hier ablegen'
+        : b === 'gelege' ? 'Laichzeit · zum schimmernden Laich deiner Art'
+        : b === 'grund' ? 'Laichzeit · dicht an den Grund'
+        : b === 'ort' ? 'Laichzeit · zurück in den Laichfluss'
+        : b === 'hunger' ? 'Laichzeit · erst etwas fressen'
+        : b === 'pause' ? 'Laichzeit · gleich wieder'
+        : '';
+    }
+    if (msg === this.said) return;
+    this.said = msg;
+    bus.emit('spawnTime', msg, this.block === null);
+  }
+
+  /** Befruchtbarer Laich schimmert warm, solange Laichzeit ist – der in Reichweite stärker. */
+  private marks(on: boolean) {
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 2.6);
+    for (const b of this.broods) {
+      const show = on && !!b.mother && !b.clutch;
+      if (!show) {
+        if (b.mark?.visible) {
+          b.mark.setVisible(false);
+          b.roe.img.clearTint();
+        }
+        continue;
+      }
+      b.mark ??= this.host.add.image(b.x, b.y - 16, 'glow').setTint(0xffc870).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 70).setDepth(DEPTH.terrain + 0.5);
+      const near = b === this.target;
+      b.mark.setVisible(true).setAlpha((near ? 0.42 : 0.2) + (near ? 0.25 : 0.12) * pulse);
+      b.roe.img.setTint(near ? 0xffd890 : 0xffe4b8);
+    }
+  }
+
+  /** Weibchen, bereit: ein leiser, warmer Schimmer am Grund unter ihr. */
+  private nestHint(on: boolean) {
+    const p = this.host.player;
+    if (!on) {
+      this.nest?.setVisible(false);
+      return;
+    }
+    this.nest ??= this.host.add.image(p.x, p.y, 'glow').setTint(0xffc870).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(110, 40).setDepth(DEPTH.terrain + 0.5);
+    this.nest.setVisible(true).setPosition(p.x, this.groundY(p.x) - 4).setAlpha(0.22 + 0.12 * Math.sin(this.t * 2.6));
   }
 
   private setAble(v: boolean) {
     if (v === this.able) return;
     this.able = v;
     bus.emit('spawnable', v);
-    if (!v) touch.spawn = false;
   }
 
   // ---------------------------------------------------------------- Weibchen
@@ -373,11 +400,12 @@ export class SpawnCtl {
     game.decayClutches(now);
     const life = game.life.clutches;
     for (const b of [...this.broods]) {
-      const gone = b.clutch ? !life.includes(b.clutch) : now - b.at > SPAWN.decay * 1000;
+      const gone = b.clutch ? !life.includes(b.clutch) : !b.lasting && now - b.at > SPAWN.decay * 1000;
       if (!gone) continue;
       this.broods = this.broods.filter((x) => x !== b);
       b.roe.vanish();
       b.glow?.destroy();
+      b.mark?.destroy();
       if (b.clutch) bus.emit('notice', 'Gelege verdorben', 'Es wurde nicht befruchtet.');
     }
   }
@@ -407,8 +435,8 @@ export class SpawnCtl {
     this.settle();
     for (const f of this.fry) f.v.destroy();
     this.fry = [];
-    this.sign.destroy();
     bus.emit('spawnable', false);
+    bus.emit('spawnTime', '', false);
   }
 
 }

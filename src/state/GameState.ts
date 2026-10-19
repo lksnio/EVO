@@ -6,7 +6,7 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { INHERIT, LIFE, SPAWN } from '../data/life';
-import { ADULT, lifeK, worldNow, type LifeK } from '../sim/life';
+import { ADULT, lifeK, phases, worldNow, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
 // Spielstand.
@@ -605,8 +605,10 @@ class GameState {
           r.prog.train ??= newStyle();
           r.prog.eaten ??= { meat: 0, plant: 0 };
           // ältere Spielstände kennen kein Alter: Wer schon unterwegs war, ist ausgewachsen
-          r.life ??= newLife(r.history.length + 1, LIFE.mature);
+          r.life ??= newLife(r.history.length + 1, phases(r.history.length + 1).mature);
           r.life.clutches ??= [];
+          // Leben sind kürzer geworden: Wer schon über die Laichzeit hinaus war, steht wieder an ihrem Anfang
+          if (r.life.age > phases(r.life.gen).mature + 30) r.life.age = phases(r.life.gen).mature;
           // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
           if (r.prog.boss === 1) r.prog.boss = 0;
           r.prog.known ??= [...r.prog.seen];
@@ -935,7 +937,7 @@ class GameState {
 
   /** Wie weit das eigene Tier gewachsen und gealtert ist. */
   get lifeK(): LifeK {
-    return lifeK(this.r.life.age);
+    return lifeK(this.r.life.age, this.r.life.gen);
   }
 
   /** Zeit vergeht für das eigene Tier (Sekunden aktiven Lebens – wer nicht spielt, altert nicht). */
@@ -1018,40 +1020,52 @@ class GameState {
     const start = full(this.snap?.traits ?? run.traits);
     const end = full(run.traits);
     const k = INHERIT.carry;
+    // nie zu viel auf einmal: jede Veränderung je Generation hat ihre Grenze (INHERIT.step)
+    const S = INHERIT.step;
+    const lim = (v: number, m: number) => clamp(v, -m, m);
     const lived = Math.max(60, run.life.age);
     const t = full({ ...end });
-    for (const key of AMP) t[key] = clamp(end[key] + Math.max(0, end[key] - start[key]) * k, 0, 1);
+    for (const key of AMP) t[key] = clamp(end[key] + Math.min(S.carry, Math.max(0, end[key] - start[key]) * k), 0, 1);
     // Färbung und Flossen, die sich im Leben verschoben haben (Licht, Verstecke), setzen sich fort
-    for (const g of ['light', 'fin', 'crest'] as const) t[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
+    for (const g of ['light', 'fin', 'crest'] as const) t[g] = clamp(end[g] + lim((end[g] - start[g]) * k * 0.8, S.carry), -1, 1);
     const mv = moveGrowth(style);
-    t.fUp = clamp(end.fUp + mv.up, 0, 1);
-    t.fDown = clamp(end.fDown + mv.down, 0, 1);
-    t.fSide = clamp(end.fSide + mv.side, 0, 1);
-    t.fTail = clamp(end.fTail + mv.tail, 0, 1);
-    // Körpergröße aus dem Lebensraum: knapp die Hälfte des Weges je Generation
+    t.fUp = clamp(end.fUp + Math.min(S.fins, mv.up), 0, 1);
+    t.fDown = clamp(end.fDown + Math.min(S.fins, mv.down), 0, 1);
+    t.fSide = clamp(end.fSide + Math.min(S.fins, mv.side), 0, 1);
+    t.fTail = clamp(end.fTail + Math.min(S.fins, mv.tail), 0, 1);
+    // Körpergröße aus dem Lebensraum: ein Stück des Weges je Generation
     const hab = habitatPull(style.hab, lived);
     if (hab) {
-      const dg = (hab.target - end.growth) * 0.45 * hab.sure;
+      const dg = lim((hab.target - end.growth) * 0.45 * hab.sure, S.growth);
       t.growth = clamp(end.growth + dg, GROWTH_MIN, 1);
       t.girth = clamp(end.girth + 0.4 * dg, -1, 1);
     }
     // Körperrobustheit aus überstandenen Angriffen (je robuster schon, desto weniger kommt dazu)
-    t.armor = clamp(end.armor + 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - end.armor), 0, 1);
-    // Ernährung aus der aufgenommenen Energie – höchstens 0,4 je Generation und nie ganz bis zum Äußersten
+    t.armor = clamp(end.armor + Math.min(S.armor, 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - end.armor)), 0, 1);
+    // Ernährung aus der aufgenommenen Energie – Schritt für Schritt und nie ganz bis zum Äußersten
     const total = eaten.meat + eaten.plant;
     if (total > 0) {
       const target = clamp((2 * eaten.meat) / total - 1, -DIET_MAX, DIET_MAX);
       const sure = Math.min(1, total / (0.4 * fedRef(lived, this.stats(run.cls, run.traits).size)));
-      t.diet = clamp(end.diet + clamp(target - end.diet, -0.4, 0.4) * sure, -DIET_MAX, DIET_MAX);
+      t.diet = clamp(end.diet + lim(target - end.diet, S.diet) * sure, -DIET_MAX, DIET_MAX);
     }
     // die Evolutionsplatten: jede so weit, wie die Spielweise zu ihr passte (den Schwarmfisch nur mit einer Gruppe)
     const fit = plateFit(style);
     const plates = this.swarm?.callable && this.swarm.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
     let line: PlateId | undefined;
     let best = 0;
-    for (const id of plates) {
-      const n0 = t[id], n1 = Math.min(PLATE_MAX, n0 + INHERIT.gain * fit[id]);
-      const f = plateLevel(n1) - plateLevel(n0);
+    // wie weit jede Richtung wachsen würde – höchstens plateStep je Richtung, alle zusammen höchstens plateTotal
+    const want = plates.map((id) => {
+      const n0 = t[id];
+      return Math.min(INHERIT.plateStep, plateLevel(Math.min(PLATE_MAX, n0 + INHERIT.gain * fit[id])) - plateLevel(n0));
+    });
+    const sum = want.reduce((a, b) => a + b, 0);
+    const scale = sum > INHERIT.plateTotal ? INHERIT.plateTotal / sum : 1;
+    for (const [i, id] of plates.entries()) {
+      const n0 = t[id];
+      const f = Math.max(0, want[i] * scale);
+      // die Punkte, die zu dieser Ausprägung gehören
+      const n1 = Math.min(PLATE_MAX, -Math.log(Math.max(1e-6, 1 - Math.min(0.999, plateLevel(n0) + f))) / 0.7);
       for (const [key, d] of Object.entries(PLATE_D[id]) as [keyof Traits, number][]) {
         const [lo, hi] = range(key);
         t[key] = clamp(t[key] + d * f, lo, hi);

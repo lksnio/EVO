@@ -421,7 +421,7 @@ export class MapScene extends Phaser.Scene {
         ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat, life: game.lifeK },
         morph: game.morph(),
         placeName: this.cur.name,
-        life: { stage: STAGE_NAME[stageOf(game.life.age)], spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss' },
+        life: { stage: STAGE_NAME[stageOf(game.life.age, game.life.gen)], spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss' },
         kin: prog.kin ?? game.run?.kin ?? 0,
       },
       () => this.toggleTablet(),

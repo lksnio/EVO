@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LIFE, SPAWN } from '../src/data/life';
+import { INHERIT, SPAWN } from '../src/data/life';
+import { phases } from '../src/sim/life';
 import { game, newStyle, PLATE_IDS } from '../src/state/GameState';
 
 // Vererbung ohne Wahl: Die Nachkommen sind an die Spielweise angepasst – und schlüpfen aus dem befruchteten Gelege.
@@ -11,13 +12,13 @@ describe('Generationswechsel', () => {
 
   it('ein Jungtier ist klein und schwach, ausgewachsen stark – Artgenossen sind immer ausgewachsen', () => {
     const young = game.stats();
-    game.ageBy(LIFE.mature * 3);
+    game.ageBy(phases(1).mature * 1.3);
     const grown = game.stats();
     expect(young.size).toBeLessThan(grown.size * 0.5);
     expect(young.bite).toBeLessThan(grown.bite);
     expect(young.maxHp).toBeLessThan(grown.maxHp);
     expect(game.stats(game.cls, game.traits).size).toBeCloseTo(game.stats(game.cls, game.traits).size);
-    game.ageBy(LIFE.span);
+    game.ageBy(phases(1).span);
     expect(game.stats().speed).toBeLessThan(grown.speed);
   });
 
@@ -49,7 +50,7 @@ describe('Generationswechsel', () => {
   });
 
   it('wer viel stößt, bekommt Nachkommen mit härterem Kopf – ohne Wahl, eine Generation weiter', () => {
-    game.ageBy(LIFE.mature + 60);
+    game.ageBy(phases(1).mature + 60);
     const before = { ...game.traits };
     const style = { ...newStyle(), ram: 60, hunt: 2, chase: 1, swim: 10 };
     const h = game.inherit({ meat: 10, plant: 10 }, style);
@@ -67,6 +68,23 @@ describe('Generationswechsel', () => {
     expect(game.prog.at).toEqual({ x: 640, y: 900 });
     expect(game.traits.st).toBe(h.traits.st);
     expect(game.run?.history.length).toBe(1);
+  });
+
+  it('keine Generation verändert sich zu stark – aber merklich', () => {
+    game.ageBy(phases(1).mature + 60);
+    const before = { ...game.traits };
+    // ein Leben voller Stöße, Bisse und Verfolgungen, tief unten, viel eingesteckt, nur Fleisch
+    const style = { ...newStyle(), ram: 500, hunt: 500, chase: 500, swim: 500, hurt: 200, hab: { abyss: 900 } };
+    const h = game.inherit({ meat: 100, plant: 0 }, style);
+    const grew = PLATE_IDS.map((id) => 1 - Math.exp(-0.7 * h.traits[id]) - (1 - Math.exp(-0.7 * before[id])));
+    for (const g of grew) expect(g).toBeLessThanOrEqual(INHERIT.plateStep + 1e-9);
+    expect(grew.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(INHERIT.plateTotal + 1e-9);
+    expect(Math.max(...grew)).toBeGreaterThan(0.05);
+    expect(Math.abs(h.traits.growth - before.growth)).toBeLessThanOrEqual(INHERIT.step.growth + 1e-9);
+    expect(h.traits.armor - before.armor).toBeLessThanOrEqual(INHERIT.step.armor + 1e-9);
+    expect(Math.abs(h.traits.diet - before.diet)).toBeLessThanOrEqual(INHERIT.step.diet + 1e-9);
+    // sichtbar: Kiefer, Schädel oder Körperbau haben sich bewegt
+    expect(Math.abs(h.traits.jaw - before.jaw) + Math.abs(h.traits.skull - before.skull) + Math.abs(h.traits.len - before.len)).toBeGreaterThan(0.05);
   });
 
   it('der Partner gibt nur etwas vom Aussehen mit', () => {

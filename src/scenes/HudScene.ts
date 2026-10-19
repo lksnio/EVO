@@ -6,8 +6,8 @@ import type { LevelScene } from './LevelScene';
 import type { Kin } from '../objects/Kin';
 import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
-import { LIFE, WORLD } from '../data/life';
-import { worldYears } from '../sim/life';
+import { WORLD } from '../data/life';
+import { phases, worldYears } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
 import { SPECIES } from '../data/species';
@@ -110,7 +110,8 @@ export class HudScene extends Phaser.Scene {
     title(this, W / 2, 26, ep.name.toUpperCase(), 18, UI.ochre).setOrigin(0.5).setLetterSpacing(3);
     this.clockText = text(this, W / 2, 50, yearsAgo(worldYears(ep.from, ep.to), WORLD.yearsPerSecond * 60), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
-    this.lifeFrac = game.run ? game.life.age / LIFE.span : 0;
+    this.spawnTimeUi();
+    this.lifeFrac = game.run ? game.life.age / phases(game.life.gen).span : 0;
     this.drawFuse();
     // Ein neues Tier im Aquapendium: ein kleines Schild oben links
     this.dexQueue = [];
@@ -215,7 +216,8 @@ export class HudScene extends Phaser.Scene {
   private drawFuse() {
     const g = this.fuse;
     const x0 = W / 2 - 170, w = 340, y = 70;
-    const m = LIFE.mature / LIFE.span, o = LIFE.old / LIFE.span;
+    const P = phases(game.run ? game.life.gen : 1);
+    const m = P.mature / P.span, o = P.old / P.span;
     const f = Math.min(1, Math.max(0, this.lifeFrac));
     g.clear();
     g.fillStyle(0x2a2420, 1);
@@ -240,6 +242,27 @@ export class HudScene extends Phaser.Scene {
     }
     g.fillStyle(this.heir ? 0xfff0c0 : 0xffe0a0, 1);
     g.fillCircle(x0 + w * f, y + 1.5, 3);
+  }
+
+  /**
+   * Laichzeit: unter der Lebenslinie, klein und warm – dass es Zeit ist und was noch fehlt (zurück in den Laichfluss, zum
+   * schimmernden Laich …). Geht es gerade, schimmert die Zeile; ist ein Gelege befruchtet, verblasst sie nach einer Weile.
+   */
+  private spawnTimeUi() {
+    const t = text(this, W / 2, 86, '', 16, UI.ochre, { stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 0).setAlpha(0);
+    const show = (msg: string, now: boolean) => {
+      this.tweens.killTweensOf(t);
+      if (!msg) {
+        this.tweens.add({ targets: t, alpha: 0, duration: 500 });
+        return;
+      }
+      t.setText(msg).setColor(now ? '#f0c878' : UI.ochre);
+      this.tweens.add({ targets: t, alpha: 0.9, duration: 500 });
+      if (now) this.tweens.add({ targets: t, alpha: 0.55, yoyo: true, repeat: -1, duration: 900, delay: 500, ease: 'Sine.inOut' });
+      if (msg.startsWith('Gelege befruchtet')) this.tweens.add({ targets: t, alpha: 0, delay: 7000, duration: 1500 });
+    };
+    bus.on('spawnTime', show);
+    this.events.once('shutdown', () => bus.off('spawnTime', show));
   }
 
   /** Der Knopf der Steintafel leuchtet, solange es dort etwas Neues zu sehen gibt. */
@@ -662,46 +685,15 @@ export class HudScene extends Phaser.Scene {
     this.touchBtn(220, 610, 46, '▶', 'right');
     this.touchBtn(150, 540, 40, '▲', 'up');
     this.touchBtn(150, 680, 36, '▼', 'down');
-    this.touchBtn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
+    // zur Laichzeit laicht derselbe Knopf (wie E)
+    const bite = this.touchBtn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
+    const onAble = (on: boolean) => bite.setText(on ? 'Laichen' : 'Biss');
+    bus.on('spawnable', onAble);
+    this.events.once('shutdown', () => bus.off('spawnable', onAble));
     this.touchBtn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);
     this.touchBtn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
     if (game.canRam) this.ramButton();
     this.talkButton();
-    this.spawnButton();
-  }
-
-  /** Der Knopf zum Laichen: erscheint nur, wenn man gerade laichen kann – gedrückt halten, bis der Ring voll ist. */
-  private spawnButton() {
-    const x = 1066, y = 292, r = 42;
-    const g = this.add.graphics().setDepth(5);
-    const draw = (down: boolean) => {
-      g.clear();
-      g.fillStyle(0x0b0a09, down ? 0.55 : 0.4);
-      g.fillCircle(x, y, r);
-      g.lineStyle(2.5, 0xffe0a0, down ? 0.9 : 0.6);
-      g.strokeCircle(x, y, r);
-    };
-    draw(false);
-    const t = text(this, x, y, 'Laichen', 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
-    const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
-    const all = [g, t];
-    for (const o of all) o.setAlpha(0);
-    z.input!.enabled = false;
-    const set = (v: boolean) => {
-      touch.spawn = v;
-      draw(v);
-      if (v) audio.unlock();
-    };
-    z.on('pointerdown', () => set(true));
-    z.on('pointerup', () => set(false));
-    z.on('pointerout', () => set(false));
-    const onAble = (on: boolean) => {
-      this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
-      z.input!.enabled = on;
-      if (!on) set(false);
-    };
-    bus.on('spawnable', onAble);
-    this.events.once('shutdown', () => bus.off('spawnable', onAble));
   }
 
   /** Der Knopf zum Ansprechen: erscheint nur, wenn ein Artgenosse in der Nähe ist, der etwas zu erzählen hat. */
@@ -749,7 +741,7 @@ export class HudScene extends Phaser.Scene {
       g.strokeCircle(x, y, r);
     };
     draw(false);
-    text(this, x, y, label, r > 50 ? 21 : 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
+    const t = text(this, x, y, label, r > 50 ? 21 : 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
     const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
     const set = (v: boolean) => {
       touch[key] = v;
@@ -759,5 +751,6 @@ export class HudScene extends Phaser.Scene {
     z.on('pointerdown', () => set(true));
     z.on('pointerup', () => set(false));
     z.on('pointerout', () => set(false));
+    return t;
   }
 }
