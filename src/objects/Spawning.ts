@@ -8,6 +8,7 @@ import { clamp } from '../util/math';
 import { CreatureView } from './CreatureView';
 import { Roe } from './Food';
 import type { Kin } from './Kin';
+import { Prompt } from './Quest';
 import type { LevelScene } from '../scenes/LevelScene';
 
 type Genes = { traits: Traits; seed: number; sex: Sex };
@@ -57,6 +58,9 @@ export class SpawnCtl {
   private said = '';
   /** Weibchen, bereit: ein warmer Schimmer am Grund unter ihr */
   private nest?: Phaser.GameObjects.Image;
+  /** das Zeichen „E“: Jetzt kann gelaicht werden (über dem Laich in Reichweite bzw. über einem Weibchen am Grund) */
+  private prompt: Prompt;
+  private touchMode: boolean;
   /** frühestens dann legt ein Weibchen deiner Art (wenn du als Männchen bereit bist) */
   private femaleAt = 0;
   private female?: Kin;
@@ -70,6 +74,8 @@ export class SpawnCtl {
   readonly minFood = game.spawnMinFood;
 
   constructor(private host: LevelScene) {
+    this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
+    this.prompt = new Prompt(host, this.touchMode, 'E');
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
     // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen
     game.decayClutches();
@@ -144,6 +150,7 @@ export class SpawnCtl {
     if (h.ended) {
       this.setAble(false);
       this.marks(false);
+      this.prompt.update(dt, p.x, p.y, false);
       return;
     }
     this.decay();
@@ -160,6 +167,7 @@ export class SpawnCtl {
     if (busy) {
       this.setAble(false);
       this.marks(false);
+      this.prompt.update(dt, p.x, p.y, false);
       return;
     }
     const life = game.life;
@@ -187,6 +195,10 @@ export class SpawnCtl {
     this.marks(male && time4);
     this.nestHint(!male && this.block === null && !eats);
     this.tell(male, eats);
+    // jetzt geht es: das Zeichen „E“ über dem Laich (Männchen) bzw. über dem Weibchen am Grund
+    const t = this.target;
+    if (male && t) this.prompt.update(dt, t.x, t.y - 4, this.block === null);
+    else this.prompt.update(dt, p.x, p.y + 20, !male && this.block === null && !eats);
     // Ein Weibchen deiner Art laicht, wenn du als Männchen bereit im Laichfluss bist (und kein Laich mehr da ist)
     const ready = male && isAdult(life.age, life.gen) && this.grounds && food >= this.minFood && youngOf(life.fed, this.base) >= 1
       && life.age - life.lastSpawn >= SPAWN.cooldown;
@@ -215,16 +227,18 @@ export class SpawnCtl {
   private tell(male: boolean, eats = false) {
     const life = game.life;
     const young = youngText(youngOf(life.fed, this.base));
+    // am Handy heißt der Biss-Knopf zur Laichzeit „Laichen“
+    const key = this.touchMode ? '„Laichen“' : 'E';
     let msg = '';
     if (game.heir()) msg = `Gelege befruchtet – ${youngText(game.young)}`;
     else if (isAdult(life.age, life.gen)) {
       const b = this.block;
       msg = b === null
-        ? male ? `Laichzeit · E: Laich befruchten · ${young}`
-        : eats ? 'Laichzeit · hier frisst E – zum Ablegen ein Stück weiter' : `Laichzeit · E: hier ablegen · ${young}`
-        : b === 'gelege' ? 'Laichzeit · zum schimmernden Laich deiner Art'
+        ? male ? `Laichzeit · ${key} drücken: Laich befruchten · ${young}`
+        : eats ? `Laichzeit · hier frisst ${key} – zum Ablegen ein Stück weiter` : `Laichzeit · ${key} drücken: hier ablegen · ${young}`
+        : b === 'gelege' ? `Laichzeit · schwimm zum orange schimmernden Laich deiner Art, dann ${key}`
         : b === 'grund' ? 'Laichzeit · dicht an den Grund'
-        : b === 'ort' ? 'Laichzeit · zurück in den Laichfluss'
+        : b === 'ort' ? 'Laichzeit · zurück in den Laichfluss, dort liegt Laich deiner Art'
         : b === 'hunger' ? 'Laichzeit · der Magen ist zu leer – erst etwas fressen'
         : b === 'nahrung' ? `Laichzeit · zu wenig gefressen für Nachwuchs (${Math.floor(life.fed)} von ${this.base})`
         : b === 'pause' ? 'Laichzeit · gleich wieder'

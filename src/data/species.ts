@@ -59,6 +59,8 @@ export interface SpeciesDef {
   /** Stärke: Damit vergleichen Tiere sich untereinander und mit dir. */
   power: number;
   speed: number;
+  /** Tempo bei Angriffen (Ausholen, Zustoßen, Ansturm) – ohne Angabe wie speed */
+  atkSpeed?: number;
   /** Wahrnehmung in Pixeln */
   sense: number;
   /** Fleischportionen, wenn das Tier stirbt */
@@ -81,9 +83,12 @@ export interface SpeciesDef {
 
 const S = (d: SpeciesDef) => d;
 
-/** Alle Tiere schwimmen etwas gemächlicher als früher (das eigene Tier noch etwas mehr, siehe data/classes.ts). */
+/**
+ * Alle Tiere schwimmen etwas gemächlicher als früher (das eigene Tier noch etwas mehr, siehe data/classes.ts) – nur ihre
+ * Angriffe sind so schnell wie eh und je.
+ */
 const PACE = 0.9;
-const paced = (d: SpeciesDef): SpeciesDef => ({ ...d, speed: Math.round(d.speed * PACE) });
+const paced = (d: SpeciesDef): SpeciesDef => ({ ...d, atkSpeed: d.atkSpeed ?? d.speed, speed: Math.round(d.speed * PACE) });
 
 /**
  * Je stärker ein Tier, desto stärker wird es noch einmal: Jäger, Verteidiger und vor allem die Riesen haben

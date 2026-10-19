@@ -36,7 +36,7 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   Zeit, sich mit seinem Tier anzufreunden.
 - **Nachkommen aus Nahrung – sie sind deine Leben:** Alles, was dein Tier in seinem Leben frisst (die Zahlen, die beim
   Fressen aufsteigen), nährt seine Brut. Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein Nachkomme. Beim
-  ersten Fisch sind es **100** – 250 gefressen ergibt 2 Nachkommen, 490 ergibt 4, 500 ergibt 5 (höchstens 12). Schwerere
+  ersten Fisch sind es **50** – 125 gefressen ergibt 2 Nachkommen, 245 ergibt 4, 250 ergibt 5 (höchstens 12). Schwerere
   Tiere haben einen höheren Grundwert (er wächst mit der Wurzel des Gewichts): Sie müssen mehr fressen – und wer dafür nur
   kleine Fische frisst, dessen Art passt sich auch daran an (Kost, Größe …). Gezählt wird bis zum Tod, auch nach dem Laichen.
   Stirbt dein Tier nach dem Laichen, schlüpft die nächste Generation, und die **übrigen Nachkommen warten als Geschwister im
@@ -44,18 +44,23 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   Tier geschlüpft war (was es im Leben dazugelernt hat, ist verloren). Erst wenn kein Geschwister mehr wartet, stirbt die
   Linie aus. Ein neues Gelege ersetzt die alten Geschwister. Die Steintafel (C) zeigt, wie viel gefressen ist, den
   Grundwert und wie viele Geschwister warten.
+- **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
+  Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
+  eines (`SPAWN.alwaysMale` in `src/data/life.ts`).
 - **Laichen (Taste E – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, der
   Magen **nicht leer** (beim ersten Fisch reichen 10 %, schwere Tiere brauchen mehr, höchstens ein Viertel), **genug
   gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
   eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
   - Ist Laichzeit, steht es oben im Bild unter der Lebenslinie – zusammen mit dem, was noch fehlt („zurück in den
     Laichfluss“, „zum schimmernden Laich deiner Art“, „dicht an den Grund“, „der Magen ist zu leer“, „zu wenig gefressen für
-    Nachwuchs (60 von 100)“ …). Geht es gerade, schimmert die Zeile und nennt die Nachkommen („Laichzeit · E: Laich
+    Nachwuchs (30 von 50)“ …). Geht es gerade, schimmert die Zeile und nennt die Nachkommen („Laichzeit · E drücken: Laich
     befruchten · 3 Nachkommen“); nach dem Laichen erscheint sie wieder, sobald es einer mehr wird.
+  - **Das Zeichen „E“** (wie das „F“ zum Ansprechen) erscheint über dem Laich, sobald du nah genug bist und es geht – dann
+    E drücken (ein kurzer Druck reicht). Am Handy steht dort „···“, und der Biss-Knopf heißt „Laichen“.
   - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
     Zur Laichzeit ist befruchtbarer Laich **wärmer gefärbt** (orange statt rosa, mit einem leisen Schimmer) – der in
-    Reichweite noch etwas kräftiger. Schwimm hin und drück E. Liegt keiner (mehr) da, kommt ein **Weibchen deiner Art**
-    und legt ein Gelege ein Stück vor dir.
+    Reichweite noch etwas kräftiger. Schwimm hin (gut eine Fischlänge Abstand reicht – die Strömung treibt einen ab) und
+    drück E. Liegt keiner (mehr) da, kommt ein **Weibchen deiner Art** und legt ein Gelege ein Stück vor dir.
   - **Als Weibchen** schwimmst du dicht über den Grund (dort schimmert es warm unter dir) und drückst E – dann liegt dein
     **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
     **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm). Liegt vor deinem Maul gerade etwas Fressbares,
@@ -318,9 +323,12 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   der Magen knurrt, das Bild wird dunkler, und genau nachsehen kann man nur auf der Steintafel
   (siehe unten). Fressen füllt ihn wieder auf, aber nie über das Maximum. Wie viel hineinpasst,
   hängt von der Größe ab: Große Tiere richten mehr Schaden an, verbrauchen aber auch mehr. Ein
-  Happen bringt wenig – jeder zeigt kurz, was er gebracht hat: **rot** für Fleisch, **grün** für
-  Pflanzen (eine Pflanze „+1“, ein kleiner Fisch etwa „+3“). Manche Pflanzen sind giftig: Sie
-  brennen, machen aber kurz hellwach und schnell.
+  Happen zeigt kurz, was er gebracht hat: **rot** für Fleisch, **grün** für Pflanzen. Pflanzen bringen wenig („+2“ je
+  Bissen), sind aber ungefährlich und wachsen nach. **Beute nährt nach ihrer Stärke und Größe** (`meatOf` in
+  `src/state/GameState.ts`): ein kleiner Beutefisch etwa 15–20 (ein Sechstel eines Magens), ein Räuber wie der Conodont
+  um 45, Orthoceras um 85, Seeskorpione und Riesen mehrere Mägen voll (in mehreren Stücken). Große Beute frisst man in
+  mehreren Bissen (ein Mundvoll ist gut ein Fünftel des Magens, mit kräftigem Gebiss mehr) – wer mehr will, muss
+  Stärkeres erlegen, mit mehr Risiko. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz hellwach und schnell.
 - **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu einer **saftigen
   Fleischkeule mit Knochen**, große Tiere zu mehreren. Das Fleisch sinkt zügig zu Boden
   (große Stücke schneller) – und nach einer Weile verdirbt es. Andere Fleischfresser
@@ -388,6 +396,13 @@ Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber
   Tempo für den Verfolgungsfisch, **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
   Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Die Richtungen bauen über die
   Generationen aufeinander auf; wer anders lebt, bekommt Mischformen. Keine ist überall die beste.
+  **Wie im Fitnessstudio:** Jede Richtung wächst nur so weit, wie die Gegner es hergeben, die du damit bezwungen hast. Es
+  zählen die drei stärksten (im Verhältnis zu deinem ausgewachsenen Tier; erlegt ganz, nur getroffen halb). Wer nur kleine
+  Beute (etwa halb so stark wie er) frisst, spezialisiert sich ein paar Generationen lang – bis gut zur Hälfte der vollen
+  Ausprägung, dann ist Schluss. Ebenbürtige Gegner tragen bis drei Viertel, doppelt so starke bis ganz hinauf. Und weil du
+  dabei stärker wirst, wird dieselbe Beute für dich schwächer: Weiter kommt nur, wer sich an Größere wagt. Steht eine
+  Richtung an, sagt es das Generationsbild („Beißen: Kleine Beute formt dich hier nicht weiter …“). Die Kompromisse
+  bleiben: Ein starkes Gebiss macht langsamer, ein Panzerkopf schwerer, Schlanke halten weniger aus.
   **Nie zu viel auf einmal:** Je Generation wächst eine Richtung höchstens um ein Sechstel ihrer vollen Ausprägung, alle
   zusammen um gut ein Fünftel; Größe und Robustheit ändern sich höchstens um 10 %, die Kost um ein Viertel, Flossen und
   was im Leben gewachsen ist (Tarnung, Bodenkontakt …) nur um ein paar Prozent. Wer konsequent spielt, sieht es trotzdem
@@ -528,7 +543,7 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | --- | --- |
 | ← → ↑ ↓ | schwimmen |
 | Leertaste | auftauchen |
-| E (auch Q oder J) | beißen und fressen – zur Laichzeit: laichen (Weibchen dicht am Grund, Männchen am warm gefärbten Laich deiner Art) |
+| E (auch Q oder J) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund) |
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft (bis ¾) kehren zurück |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
@@ -726,9 +741,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.
 - [ ] **Partner beim Laichen ist immer die KI** (garantiert). Später: echte Spieler mit Vorrang – dafür muss das Laichen
       auf den Server.
-- [ ] **Geschlecht** jeder neuen Generation: zufällig.
+- [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne befruchtetes Gelege und ohne Geschwister im Gelege Neustart als Urfisch (wie bisher).
-- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 100, mit der Wurzel des Gewichts mehr, höchstens 12);
+- [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 50, mit der Wurzel des Gewichts mehr, höchstens 12);
       gezählt wird die ganze Lebenszeit bis zum Tod. Magen zum Laichen: erster Fisch 10 %, mit dem Gewicht bis 25 %.
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
@@ -736,7 +751,10 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Im Mehrspieler noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner)
       und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
 - [ ] **Tempo:** Das eigene Tier ist etwa 15 % gemächlicher als früher (Grundtempo 183 statt 215), alle anderen Tiere 10 %
-      (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen.
+      (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen. Angriffe der
+      Tiere (Ausholen, Zustoßen, Ansturm) sind so schnell wie früher.
+- [ ] **Futter:** Fleisch nach Stärke und Größe der Beute (`meatOf`), Pflanzen +2 je Bissen; Training gedeckelt nach den
+      stärksten bezwungenen Gegnern (`ceilBase`, `ceilPer` in `INHERIT`).
 - [ ] **Lebenstempo** (bestätigt): Generation 1 laicht nach 7 Minuten und lebt danach noch 4; Generation 2: 10 + 5; danach
       logarithmisch länger (Generation 8: 16 + 7). Laich der Artgenossen im Startgebiet verdirbt nicht.
 

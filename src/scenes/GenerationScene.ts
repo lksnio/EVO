@@ -106,6 +106,13 @@ export class GenerationScene extends Phaser.Scene {
     const l1 = text(this, W / 2, 504, line, 21, UI.bone, { fontStyle: 'italic', align: 'center', wordWrap: { width: 980 } }).setOrigin(0.5);
     this.fadeInAll([l1], 2300);
     if (!sib) this.fadeInAll(this.styleRow(560), 2700);
+    // wie im Fitnessstudio: Was nur an kleiner Beute geübt wurde, trägt nicht weiter
+    const capped = d.capped ?? [];
+    if (!sib && capped.length) {
+      const names = capped.map((id) => STYLE_NAME[id]).join(' und ');
+      const hint = text(this, W / 2, 624, `${names}: Kleine Beute formt dich hier nicht weiter – dafür braucht es stärkere Gegner.`, 17, UI.ochre, { fontStyle: 'italic' }).setOrigin(0.5);
+      this.fadeInAll([hint], 3100, 0.9);
+    }
 
     this.time.delayedCall(2600, () => {
       const b = new Button(this, W / 2, H - 46, 'Schlüpfen', { w: 260, h: 52, icon: 'ic_play', color: UI.ochreN, onClick: () => this.next() });

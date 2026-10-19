@@ -168,7 +168,8 @@ export class Kill {
 }
 
 /** Fressen für andere Tiere: so viel Sättigung nimmt ein Tier mit einem Bissen. */
-const ANIMAL_BITE = 2;
+/** so viel nimmt ein Tier mit einem Biss von einem Fleischstück */
+const ANIMAL_BITE = 5;
 
 /**
  * Ein saftiges Stück Fleisch (wie in E.V.O.). Im Wasser sinkt es zügig zu Boden (große Stücke
@@ -212,7 +213,7 @@ export class Meat {
   ) {
     this.value = value;
     this.max = value;
-    this.size = value < 3 ? 0 : value < 6 ? 1 : 2;
+    this.size = value < 20 ? 0 : value < 60 ? 1 : 2;
     this.vx = vx;
     this.vy = vy;
     this.bornAt = now;

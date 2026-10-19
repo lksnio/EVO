@@ -237,13 +237,13 @@ export class Bubble {
   }
 }
 
-/** Das kleine Zeichen über einem Artgenossen, den man ansprechen kann. */
+/** Das kleine Zeichen über etwas, mit dem man gerade etwas tun kann: ansprechen (F), laichen (E) … */
 export class Prompt {
   private c: Phaser.GameObjects.Container;
   private a = 0;
   private t = 0;
 
-  constructor(scene: Phaser.Scene, touchMode: boolean) {
+  constructor(scene: Phaser.Scene, touchMode: boolean, key = 'F') {
     const g = scene.add.graphics();
     g.fillStyle(0x000000, 0.35);
     g.fillRoundedRect(2, 4, 38, 30, 9);
@@ -253,7 +253,7 @@ export class Prompt {
     g.strokeRoundedRect(0.75, 0.75, 36.5, 28.5, 9);
     g.fillStyle(0x0d0c0b, 0.88);
     g.fillTriangle(12, 29, 26, 29, 19, 38);
-    const label = scene.add.text(19, 15, touchMode ? '···' : 'F', { fontFamily: TITLE_FONT, fontSize: touchMode ? '20px' : '19px', color: '#e0a848', fontStyle: '700', resolution: 2 }).setOrigin(0.5);
+    const label = scene.add.text(19, 15, touchMode ? '···' : key, { fontFamily: TITLE_FONT, fontSize: touchMode ? '20px' : '19px', color: '#e0a848', fontStyle: '700', resolution: 2 }).setOrigin(0.5);
     this.c = scene.add.container(0, 0, [g, label]).setDepth(DEPTH.text).setAlpha(0).setScale(1.3);
   }
 

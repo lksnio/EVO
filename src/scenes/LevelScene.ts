@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Member, type PlateId, type PlayStyle, type Sex } from '../state/GameState';
+import { bus, FOOD, game, hungerRate, kcalOf, meatOf, mouthful, newStyle, noteBest, ZERO_TRAITS, type Member, type PlateId, type PlayStyle, type Sex } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -64,6 +64,8 @@ export interface SuccessionData {
   /** wie gut die Spielweise zu jeder Evolutionsplatte passte – und die Richtung, die am deutlichsten wurde */
   fit: Record<PlateId, number>;
   line?: PlateId;
+  /** Richtungen, die an ihre Obergrenze stießen: Dafür braucht es stärkere Gegner */
+  capped?: PlateId[];
   /** Weltzeit (Jahre vor heute) */
   years: number;
   /** so viele Nachkommen hatte das Tier – und so viele Geschwister warten danach noch im Gelege */
@@ -331,7 +333,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cine = undefined;
     this.cineWanted = false;
     this.slow = 1;
-    this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab } };
+    this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
 
   }
@@ -1677,13 +1679,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const kill = new Kill(ours);
     for (const k of a.helpers) if (k instanceof Kin && !k.dead) kill.helpers.add(k);
     // gemeinsam erlegt: zählt für den Schwarmfisch (gegen Starke mehr)
-    if (ours && kill.helpers.size) this.train.pack += 0.5 + this.challenge(a);
-    // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – große Tiere geben mehrere Stücke
+    if (ours && kill.helpers.size) {
+      this.train.pack += 0.5 + this.challenge(a);
+      noteBest(this.train, 'pack', this.strength(a));
+    }
+    // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – so viel, wie es stark und groß war (meatOf); große Tiere
+    // geben mehrere Stücke
     const killer = a.lastAttacker;
     const giant = killer instanceof Animal && (killer.role === 'apex' || !!killer.visitor || !!killer.def.boss);
-    const meat = Math.max(1, a.def.meat);
-    const n = (meat <= 4 ? 1 : meat <= 8 ? 2 : 3) + (giant ? 1 : 0);
-    const each = (1.7 * meat * a.sz) / (meat <= 4 ? 1 : meat <= 8 ? 2 : 3);
+    // (nach der Lebenskraft der Art und der Größe des Tiers – kleine Beute ist zwar zerbrechlicher gemacht, nährt aber wie sie ist)
+    const total = meatOf(a.def.hp * a.sz);
+    const pieces = total <= 60 ? 1 : total <= 180 ? 2 : 3;
+    const n = pieces + (giant ? 1 : 0);
+    const each = total / pieces;
     const fresh: Meat[] = [];
     for (let i = 0; i < n; i++) {
       const spread = (i - (n - 1) / 2) * 70 + (Math.random() - 0.5) * 30;
@@ -1725,6 +1733,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
+   * Wie stark ein Gegner im Verhältnis zu deiner Art ist (zum ausgewachsenen eigenen Tier, nicht zum Jungtier – sonst
+   * zählte jede Beute aus der Jugend als stark). Daraus wird, wie weit dich das Training trägt (GameState, plateCeil).
+   */
+  private strength(a: Animal) {
+    if (a.kin || a.role === 'hazard') return 0;
+    return (a.def.power * a.sz) / Math.max(1, game.stats(game.cls, game.traits).power);
+  }
+
+  /**
    * Eine geglückte Verfolgung: Getroffen wurde Beute, die schon eine Weile davonrannte – je länger sie floh und je schneller
    * sie (im Vergleich zu dir) ist, desto mehr zählt es. ranMs: so lange rannte sie vor dem Treffer schon.
    */
@@ -1748,7 +1765,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private scoreHit(kind: 'ram' | 'hunt', a: Animal, ranMs: number, k = 1) {
     const kill = a.dead ? 3 : 1;
     this.train[kind] += this.challenge(a) * kill * k;
-    this.train.chase += this.pursuit(a, ranMs) * kill;
+    const chase = this.pursuit(a, ranMs);
+    this.train.chase += chase * kill;
+    // die stärksten bezwungenen Gegner (erlegt zählt ganz, ein Treffer halb) – sie bestimmen, wie weit das Training trägt
+    const won = a.dead ? 1 : 0.5;
+    noteBest(this.train, kind, this.strength(a) * won);
+    if (chase > 0) noteBest(this.train, 'chase', (a.fleeSpeed() / Math.max(1, game.stats(game.cls, game.traits).speed)) * won);
     this.useHere(0.6);
     this.hunt?.hit(a);
   }
@@ -1788,8 +1810,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
       const dig = st.digestMeat;
       const room = p.maxSat - p.satiety;
-      // so viel, wie in den Magen passt – der Rest bleibt liegen
-      const got = room > 0.5 ? m.bite(room / dig) : 0;
+      // ein Mundvoll – höchstens so viel, wie in den Magen passt; der Rest bleibt liegen
+      const got = room > 0.5 ? m.bite(Math.min(room, mouthful(p.maxSat, game.traits.jaw)) / dig) : 0;
       if (!p.eat(got * dig, 'meat')) return;
       this.floatNum(m.x, m.y - 16, got * dig, 'meat');
       this.ate('meat', got * (FOOD.meat.kcal / FOOD.meat.sat) * dig);
@@ -2798,7 +2820,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.stage = st;
       if (st === 'heran') bus.emit('notice', 'Neuer Lebensabschnitt', 'Heranwachsend');
       else if (st === 'adult') {
-        bus.emit('notice', 'Laichzeit', game.run?.sex === 1 ? 'Befruchte Laich deiner Art – im Laichfluss' : 'Lege deinen Laich ab – im Laichfluss');
+        bus.emit('notice', 'Laichzeit', game.run?.sex === 1 ? 'Im Laichfluss: zum orangen Laich schwimmen, dann E' : 'Im Laichfluss: dicht an den Grund, dann E');
         audio.sfx('evolve');
       } else if (st === 'alt') bus.emit('notice', 'Alt geworden', 'Die Kräfte lassen nach');
       // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
@@ -2904,6 +2926,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       sex: h.sex,
       fit: h.fit,
       line: h.line,
+      capped: h.capped,
       years: worldYears(this.ep.from, this.ep.to),
       young: game.young,
       siblings: 0,

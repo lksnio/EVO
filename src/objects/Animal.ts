@@ -358,6 +358,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     return this.def.habitat === 'air';
   }
 
+  /** Tempo bei Angriffen – die Tiere schwimmen gemächlicher als früher, greifen aber so schnell an wie eh und je */
+  protected get atkSpeed() {
+    return this.def.atkSpeed ?? this.def.speed;
+  }
+
   protected get swims() {
     return this.world.water && !this.def.crawl;
   }
@@ -1100,7 +1105,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     if (this.cr === 'dash') {
       this.attacking = true;
-      const v = this.def.speed * 2.6 + 60;
+      const v = this.atkSpeed * 2.6 + 60;
       if (free) this.b.setVelocity(this.crDir.x * v, this.crDir.y * v);
       else this.b.setVelocityX(this.crDir.x * v);
       if (Math.random() < 0.4) W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 1);
@@ -1282,8 +1287,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.attacking = true;
         const tg = this.target;
         if (tg && this.stT < 0.25) this.dir = Math.sign(tg.x - this.x) || this.dir;
-        if (this.swims) this.b.setVelocity(this.dir * this.def.speed * 3, 0);
-        else this.b.setVelocityX(this.dir * this.def.speed * 3.2);
+        if (this.swims) this.b.setVelocity(this.dir * this.atkSpeed * 3, 0);
+        else this.b.setVelocityX(this.dir * this.atkSpeed * 3.2);
         if (tg && !tg.dead && overlaps(this.hitRect(), tg.hitRect()) && time > this.biteReady) {
           this.biteReady = time + 900;
           if (this.isPlayer(tg)) {
@@ -1447,7 +1452,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const b = this.b;
     const tg = this.target;
     const W = this.world;
-    const sp = this.def.speed;
+    // die großen Angriffe: so schnell wie eh und je
+    const sp = this.atkSpeed;
     switch (this.mv) {
       case 'lunge':
         if (t < 0.35) this.halt();
@@ -1819,7 +1825,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     } else if (this.atk === 'strike') {
       // vorschnellen und zuschnappen – mit einer Blasenspur
-      const v = Math.max(this.def.speed * 2.6, 280) * (big ? 1.15 : 1);
+      const v = Math.max(this.atkSpeed * 2.6, 280) * (big ? 1.15 : 1);
       if (this.world.time.now > this.trailAt) {
         this.trailAt = this.world.time.now + 45;
         this.world.puff(this.x - this.atkDir.x * this.displayWidth * 0.3, this.y, 1, 0xffffff);

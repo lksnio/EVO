@@ -11,7 +11,7 @@ import { phases, worldYears } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
 import { SPECIES } from '../data/species';
-import { touch } from '../objects/Controls';
+import { tapped, touch } from '../objects/Controls';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, controlsList, panel, soundButton, text, title } from '../ui/ui';
@@ -752,6 +752,8 @@ export class HudScene extends Phaser.Scene {
     const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
     const set = (v: boolean) => {
       touch[key] = v;
+      // ein kurzes Tippen zählt, auch wenn der Finger vor dem nächsten Bild schon wieder oben ist
+      if (v) tapped[key] = true;
       draw(v);
       if (v) audio.unlock();
     };

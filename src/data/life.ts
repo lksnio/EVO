@@ -44,18 +44,23 @@ export const LIFE = {
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.
  *
  * Nachkommen aus Nahrung: Was ein Tier in seinem Leben frisst (die Zahlen, die beim Fressen aufsteigen), nährt seine Brut.
- * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 100, bei schwereren Tieren mehr (mit dem Gewicht, siehe
- * sim/life.ts, broodBase): 250 gefressen → 2 Nachkommen, 490 → 4, 500 → 5. Die Nachkommen sind deine Leben: Stirbt dein
+ * Je perYoung davon wird ein Nachkomme – beim ersten Fisch 50, bei schwereren Tieren mehr (mit dem Gewicht, siehe
+ * sim/life.ts, broodBase): 125 gefressen → 2 Nachkommen, 245 → 4, 250 → 5. Die Nachkommen sind deine Leben: Stirbt dein
  * Tier, schlüpft das nächste aus dem Gelege – nach dem Laichen die nächste Generation, vorher ein Geschwister.
  */
 export const SPAWN = {
+  /**
+   * Vorerst schlüpft jedes eigene Tier als Männchen: Laich deiner Art zum Befruchten liegt im Startgebiet immer bereit.
+   * (Weibchen legen ab und warten auf ein Männchen – das gibt es weiterhin, nur schlüpft man gerade nicht als eines.)
+   */
+  alwaysMale: true,
   /** so satt muss man mindestens sein (Anteil des Magens): beim ersten Fisch kaum etwas, schwere Tiere mehr (bis minFoodMax) */
   minFood: 0.1,
   minFoodMax: 0.25,
   /** so stark wächst die Schwelle mit dem Gewicht (Gewicht im Verhältnis zum ersten Fisch, hoch minFoodExp) */
   minFoodExp: 0.4,
   /** so viel Nahrung je Nachkomme (beim ersten Fisch) … */
-  perYoung: 100,
+  perYoung: 50,
   /** … und so stark wächst das mit dem Gewicht (hoch perYoungExp): Große müssen mehr fressen */
   perYoungExp: 0.5,
   /** höchstens so viele Nachkommen in einem Leben */
@@ -67,8 +72,8 @@ export const SPAWN = {
   cooldown: 90,
   /** so nah (Bildpunkte) muss man über dem Grund sein */
   ground: 80,
-  /** so nah (Bildpunkte) muss ein Männchen an einem Gelege sein */
-  reach: 90,
+  /** so nah (Bildpunkte) muss ein Männchen an einem Gelege sein (großzügig – die Strömung im Fluss treibt einen ab) */
+  reach: 150,
   /** ein Männchen deiner Art kommt so viele Sekunden nach dem Ablegen (von … bis) */
   maleDelay: [3, 6] as [number, number],
   /** ein Weibchen deiner Art legt Laich, wenn ein Männchen bereit im Laichfluss ist – so viele Sekunden danach (von … bis) */
@@ -96,5 +101,14 @@ export const INHERIT = {
   partner: 0.15,
   plateStep: 0.16,
   plateTotal: 0.22,
+  /**
+   * Wie im Fitnessstudio: Eine Richtung wächst nur so weit, wie die Gegner es hergeben, die man damit bezwungen hat. Ihre
+   * Stärke (im Verhältnis zum eigenen ausgewachsenen Tier, die drei stärksten zählen) setzt die Obergrenze der Ausprägung:
+   * ceilBase ohne nennenswerte Gegner, dazu ceilPer je „so stark wie du“. Kleine Beute (etwa halb so stark) trägt bis knapp
+   * über die Hälfte, ebenbürtige Gegner bis drei Viertel, doppelt so starke bis ganz hinauf. Wer stärker wird, für den wird
+   * dieselbe Beute schwächer – dann braucht es größere Gegner.
+   */
+  ceilBase: 0.3,
+  ceilPer: 0.45,
   step: { growth: 0.1, armor: 0.1, diet: 0.25, carry: 0.07, fins: 0.08 },
 };

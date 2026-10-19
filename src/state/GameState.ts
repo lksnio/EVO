@@ -111,11 +111,22 @@ const DIET_MAX = 0.85;
 /** Was ein Happen bringt: Sättigung (füllt den Magen) und Nährwert (die aufgenommene Energie – sie bestimmt die Ernährung). */
 export const FOOD = {
   meat: { sat: 3, kcal: 3.5 },
-  plant: { sat: 1, kcal: 1 },
-  toxic: { sat: 0.75, kcal: 1.5 },
+  /** Pflanzen: wenig, aber ohne Gefahr – sie wachsen nach */
+  plant: { sat: 2, kcal: 2 },
+  toxic: { sat: 1.5, kcal: 3 },
   /** Fischlaich: nahrhaft und leicht zu fressen – aber die Eltern passen auf */
   roe: { sat: 2.4, kcal: 2.6 },
 };
+
+/**
+ * So viel Fleisch (Sättigung) gibt ein erlegtes Tier – nach seiner Lebenskraft, in der Größe und Stärke schon stecken: ein
+ * kleiner Beutefisch etwa 15 (ein Sechstel eines Magens), ein Räuber wie Orthoceras um 85, die Riesen mehrere Mägen voll.
+ * Wer mehr will, muss Stärkeres erlegen – mit mehr Risiko.
+ */
+export const meatOf = (hp: number) => 3 * Math.pow(Math.max(1, hp), 0.9);
+
+/** So viel schafft man mit einem Biss (Anteil des Magens) – ein kräftiges Gebiss mehr. Große Beute frisst man in Etappen. */
+export const mouthful = (maxSat: number, jaw: number) => maxSat * (0.22 + 0.18 * jaw);
 
 /** Wie viel in den Magen passt – größere Tiere fassen mehr (verbrauchen aber auch mehr). */
 export const maxSatiety = (size: number) => Math.round(100 * (0.7 + 0.45 * size));
@@ -163,6 +174,9 @@ export interface Stats {
 
 /** 1 = männlich, 2 = weiblich */
 export type Sex = 1 | 2;
+
+/** Das Geschlecht eines frisch geschlüpften eigenen Tiers: vorerst immer männlich (SPAWN.alwaysMale), sonst zufällig. */
+const newSex = (): Sex => (SPAWN.alwaysMale || Math.random() < 0.5 ? 1 : 2);
 
 /** Ein Vorfahre: so sah das Tier aus, als es ein Zeitalter überlebt hatte. */
 export interface Ancestor {
@@ -263,6 +277,8 @@ export interface Heir {
   fit: Record<PlateId, number>;
   /** die Richtung, in die sich die Nachkommen am deutlichsten entwickelt haben (wenn eine herausragt) */
   line?: PlateId;
+  /** Richtungen, die mehr gewollt hätten, aber an ihre Obergrenze stießen: Dafür braucht es stärkere Gegner */
+  capped: PlateId[];
 }
 
 export interface Run {
@@ -592,9 +608,34 @@ export interface PlayStyle {
   turns: number;
   /** aktive Zeit je Art des Ortes (wer nur treibt, zählt kaum) – sie bestimmt die Körpergröße */
   hab: Partial<Record<PlaceKind, number>>;
+  /**
+   * Die stärksten Gegner, die mit Stoß, Biss, Verfolgung bzw. im Schwarm bezwungen wurden (je die drei stärksten; Stärke im
+   * Verhältnis zum eigenen ausgewachsenen Tier – bei der Verfolgung: ihr Fluchttempo im Verhältnis zu deinem). Sie setzen die
+   * Obergrenze, bis zu der sich jede Richtung ausprägen kann (plateCeil).
+   */
+  best?: Partial<Record<TrainKey, number[]>>;
 }
 
-export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {} });
+export type TrainKey = 'ram' | 'hunt' | 'chase' | 'pack';
+
+export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {}, best: {} });
+
+/** Ein Gegner wurde bezwungen (r: seine Stärke im Verhältnis zu dir) – merken, wenn er zu den drei stärksten gehört. */
+export function noteBest(style: PlayStyle, k: TrainKey, r: number) {
+  if (!(r > 0)) return;
+  const b = (style.best ??= {});
+  b[k] = [...(b[k] ?? []), r].sort((x, y) => y - x).slice(0, 3);
+}
+
+/** Wie weit sich jede Richtung höchstens ausprägen kann (0 … 1) – nach den stärksten Gegnern, die damit bezwungen wurden. */
+export function plateCeil(style: Pick<PlayStyle, 'best'>): Record<PlateId, number> {
+  const peak = (k: TrainKey) => {
+    const b = style.best?.[k] ?? [];
+    return (b[0] ?? 0) / 3 + (b[1] ?? 0) / 3 + (b[2] ?? 0) / 3;
+  };
+  const c = (k: TrainKey) => Math.min(1, INHERIT.ceilBase + INHERIT.ceilPer * peak(k));
+  return { st: c('ram'), bs: c('hunt'), vf: c('chase'), sw: c('pack') };
+}
 
 class GameState {
   data: SaveData = fresh();
@@ -644,6 +685,8 @@ class GameState {
           r.traits.spike = -Math.abs(r.traits.spike);
           r.social ??= 0.55;
           r.canRam = true;
+          // vorerst schlüpft man immer als Männchen – auch ein Weibchen aus einem älteren Spielstand wird zu einem
+          if (SPAWN.alwaysMale) r.sex = 1;
         }
       }
     } catch {
@@ -727,7 +770,7 @@ class GameState {
       infamy: 0,
       hue: Math.floor(Math.random() * 4),
       seed: Math.floor(Math.random() * 100000),
-      sex: Math.random() < 0.5 ? 1 : 2,
+      sex: newSex(),
       epoch: 0,
       node: 'root',
       kin: 0,
@@ -1101,10 +1144,16 @@ class GameState {
     const plates = this.swarm?.callable && this.swarm.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
     let line: PlateId | undefined;
     let best = 0;
-    // wie weit jede Richtung wachsen würde – höchstens plateStep je Richtung, alle zusammen höchstens plateTotal
+    // wie weit jede Richtung wachsen würde – höchstens plateStep je Richtung, alle zusammen höchstens plateTotal, und nie
+    // über das hinaus, was die bezwungenen Gegner hergeben (plateCeil)
+    const ceil = plateCeil(style);
+    const capped: PlateId[] = [];
     const want = plates.map((id) => {
       const n0 = t[id];
-      return Math.min(INHERIT.plateStep, plateLevel(Math.min(PLATE_MAX, n0 + INHERIT.gain * fit[id])) - plateLevel(n0));
+      const free = Math.min(INHERIT.plateStep, plateLevel(Math.min(PLATE_MAX, n0 + INHERIT.gain * fit[id])) - plateLevel(n0));
+      const w = Math.min(free, Math.max(0, ceil[id] - plateLevel(n0)));
+      if (fit[id] > 0.25 && free - w > 0.03) capped.push(id);
+      return w;
     });
     const sum = want.reduce((a, b) => a + b, 0);
     const scale = sum > INHERIT.plateTotal ? INHERIT.plateTotal / sum : 1;
@@ -1133,10 +1182,11 @@ class GameState {
     }
     return {
       traits: t,
-      sex: Math.random() < 0.5 ? 1 : 2,
+      sex: newSex(),
       seed: Math.floor(Math.random() * 100000),
       fit,
       line: best > 0.04 ? line : undefined,
+      capped,
     };
   }
 
@@ -1169,7 +1219,7 @@ class GameState {
     s.n -= 1;
     if (s.n < 1) run.siblings = undefined;
     run.traits = full({ ...s.traits });
-    run.sex = Math.random() < 0.5 ? 1 : 2;
+    run.sex = newSex();
     run.seed = Math.floor(Math.random() * 100000);
     this.hatchAt(run, run.life.gen, s);
     return true;
