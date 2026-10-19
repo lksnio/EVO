@@ -56,6 +56,7 @@ export const CONTROL_ROWS: [string, string][] = [
   ['R', 'Stoß – Anlauf nehmen, dann den Schwung nutzen'],
   ['F  (auch Eingabe)', 'Ansprechen – und im Gespräch weiter'],
   ['S', 'Deine Gruppe rufen bzw. fortschicken'],
+  ['L (halten)', 'Laichen – ausgewachsen, im Laichfluss am Grund'],
   ['Leertaste', 'Auftauchen'],
   ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
   ['C', 'Steintafel mit Werten und Hunger'],

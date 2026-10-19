@@ -1,10 +1,12 @@
-import Phaser from 'phaser';
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, type EpochDef } from '../data/epochs';
 import { placeOf, placesOf, startPlace, TRAVEL_SECONDS, type PlaceKind } from '../data/world';
 import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
+import { Emitter } from '../util/emitter';
+import { INHERIT, LIFE, SPAWN } from '../data/life';
+import { ADULT, lifeK, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
 // Spielstand.
@@ -124,8 +126,8 @@ export const maxSatiety = (size: number) => Math.round(100 * (0.7 + 0.45 * size)
  */
 export const hungerRate = (size: number, speed01: number, upkeep = 1) => (0.9 + 1.0 * Math.min(1.5, speed01)) * Math.pow(size, 1.3) * upkeep;
 
-/** Bezugsgröße für die Ernährung: so viel frisst ein Tier, das gut über die Runden kommt. */
-export const fedRef = (ep: EpochDef, size: number) => 0.35 * ep.seconds * (0.85 + 0.3 * size);
+/** Bezugsgröße für die Ernährung: so viel frisst ein Tier, das gut über die Runden kommt – in so vielen Sekunden Leben. */
+export const fedRef = (seconds: number, size: number) => 0.35 * seconds * (0.85 + 0.3 * size);
 
 export interface Stats {
   maxHp: number;
@@ -181,13 +183,11 @@ export interface EpochProg {
   from?: string;
   /** über den Rand hereingeschwommen: über welche Seite man den anderen Ort verlassen hat und wie tief man war */
   edge?: { side: 'left' | 'right'; frac: number };
-  /** gelebte Sekunden in diesem Zeitalter */
-  elapsed: number;
-  /** schon eingetretene Ereignisse (Nummern aus der Ereignisliste) */
-  events: number[];
+  /** Hier beginnt das Leben (ein neues Jungtier schlüpft aus seinem Gelege) – gilt nur einmal */
+  at?: { x: number; y: number };
   /** Endgegner: 0 noch nicht da, 1 lebt, 2 besiegt */
   boss: 0 | 1 | 2;
-  /** in diesem Zeitalter aufgenommene Energie (Nährwert nach der Verdauung) */
+  /** in diesem Leben aufgenommene Energie (Nährwert nach der Verdauung) */
   eaten: { meat: number; plant: number };
   /** Zustand beim Verlassen eines Ortes */
   hp?: number;
@@ -201,12 +201,53 @@ export const newProg = (epoch: number): EpochProg => ({
   place: startPlace(EPOCHS[epoch]).id,
   seen: [startPlace(EPOCHS[epoch]).id],
   known: [startPlace(EPOCHS[epoch]).id],
-  elapsed: 0,
-  events: [],
   boss: 0,
   eaten: { meat: 0, plant: 0 },
   train: newStyle(),
 });
+
+/**
+ * Ein Gelege im Laichfluss, an dem dieses Tier beteiligt ist: selbst gelegt (Mutter) oder befruchtet (Vater). Aus einem
+ * befruchteten Gelege schlüpft die nächste Generation – unbefruchtete verderben nach einer Weile.
+ */
+export interface Clutch {
+  id: number;
+  place: string;
+  x: number;
+  y: number;
+  /** Weltzeit (ms), als es gelegt wurde */
+  at: number;
+  /** befruchtet */
+  fert: boolean;
+  /** dein Anteil daran */
+  role: 'mother' | 'father';
+  /** der Partner (er gibt etwas von seinem Aussehen mit) */
+  partner?: { traits: Traits; seed: number; sex: Sex };
+}
+
+/** Das Leben des eigenen Tiers: wie alt es ist (Sekunden aktiven Lebens), die wievielte Generation, seine Gelege. */
+export interface Life {
+  age: number;
+  gen: number;
+  spawns: number;
+  /** Alter beim letzten Laichen */
+  lastSpawn: number;
+  clutches: Clutch[];
+  nextClutch: number;
+}
+
+export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, lastSpawn: -1e9, clutches: [], nextClutch: 1 });
+
+/** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern, ohne Wahl. */
+export interface Heir {
+  traits: Traits;
+  sex: Sex;
+  seed: number;
+  /** wie gut die Spielweise zu jeder Evolutionsplatte passte (0 … 1) */
+  fit: Record<PlateId, number>;
+  /** die Richtung, in die sich die Nachkommen am deutlichsten entwickelt haben (wenn eine herausragt) */
+  line?: PlateId;
+}
 
 export interface Run {
   id: number;
@@ -239,8 +280,10 @@ export interface Run {
   coatSet?: boolean;
   /** aufgebrochenes Geröll vor Höhlen (Zeitalter:Ort:Nummer) – bleibt offen, solange dieses Leben dauert */
   walls?: string[];
-  /** Stand im aktuellen Zeitalter */
+  /** Stand im aktuellen Leben (Ort, Magen, Gefressenes, Spielweise …) */
   prog: EpochProg;
+  /** das Leben des eigenen Tiers */
+  life: Life;
   /** gefundene Muscheln (jede legt eine Zeile der Steintafel frei) */
   shells: string[];
   /** so viele Zeilen der Tafel hat man schon freigelegt gesehen */
@@ -279,17 +322,6 @@ export interface Swarm {
   left: number;
 }
 
-/** Ein möglicher Nachkomme, der die Linie ins nächste Zeitalter führt – je einer für jede Evolutionsplatte. */
-export interface Offspring {
-  traits: Traits;
-  sex: Sex;
-  seed: number;
-  /** die Evolutionsplatte, für die dieser Nachkomme steht */
-  plate: PlateId;
-  /** wie gut die Spielweise des Zeitalters zu dieser Platte passte (0 … 1) – so stark prägt sie sich aus */
-  fit: number;
-}
-
 export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
 
 export interface TreeNode {
@@ -305,8 +337,8 @@ export interface TreeNode {
   children: string[];
   /** Wie viele Linien hier durchkamen */
   runs: number;
-  /** Ende einer Linie: hier ausgestorben (frac = wie weit ins Zeitalter) */
-  dead?: { frac: number; cause: string; run: number };
+  /** Ende einer Linie: hier ausgestorben (frac = wie weit ins Zeitalter, gens = nach so vielen Generationen) */
+  dead?: { frac: number; cause: string; run: number; gens?: number };
   /** Wie viele Linien von hier bis heute überlebten */
   present?: number;
   /** zuletzt von diesem Lauf berührt */
@@ -337,6 +369,8 @@ export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 const AMP: TraitKey[] = ['stealth', 'green', 'sand', 'nerve', 'tox', 'limb'];
 /** Merkmale, die man dem Tier ansieht und die sich nur bei der Verwandlung nach einem Zeitalter ändern. */
 const LOOK_KEYS: (keyof Traits)[] = ['jaw', 'skull', 'stealth', 'diet', 'spike', 'green', 'sand', 'len', 'girth', 'swift', 'fang', 'light', 'limb', 'pack', 'fin', 'tail', 'crest', 'tint', 'snout', 'armor', 'st', 'bs', 'vf', 'sw', 'fUp', 'fDown', 'fSide', 'fTail'];
+/** Was ein Partner an die Nachkommen weitergibt: das Aussehen, nicht Größe, Kost, Robustheit oder die Evolutionsplatten. */
+const BLEND_KEYS: (keyof Traits)[] = ['stealth', 'green', 'sand', 'len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout', 'fUp', 'fDown', 'fSide', 'fTail'];
 /** Merkmale zwischen 0 und 1 (die übrigen reichen von -1 bis 1; Kopfplatte und Wuchs haben eigene Grenzen) */
 const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
 const range = (k: keyof Traits): [number, number] => (k === 'spike' ? [-1, 0] : k === 'growth' ? [GROWTH_MIN, 1] : UNIT_KEYS.has(k) ? [0, 1] : [-1, 1]);
@@ -513,7 +547,7 @@ export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'>) {
 }
 
 /** Ereignisse zwischen den Szenen (HUD, Level …). */
-export const bus = new Phaser.Events.EventEmitter();
+export const bus = new Emitter();
 
 /**
  * Was im Zeitalter getan wurde. Daraus ergeben sich beim Generationswechsel die Ausprägung der gewählten Platte und die
@@ -542,20 +576,6 @@ export interface PlayStyle {
 
 export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {} });
 
-export interface SurviveResult {
-  epoch: EpochDef;
-  next?: EpochDef;
-  /** Merkmale vor und nach den Jahrmillionen zwischen den Zeitaltern */
-  drift?: { before: Traits; after: Traits };
-  /** Die Nachkommen nehmen eine neue Form an */
-  transition?: { from: ClassId; to: ClassId };
-  /** bis in die Gegenwart überlebt */
-  finished?: boolean;
-  /** das Zeitalter wird wiederholt (Endgegner nicht besiegt) */
-  repeat?: boolean;
-  node: string;
-}
-
 class GameState {
   data: SaveData = fresh();
   private snap: { traits: Traits; aggression: number; infamy: number } | null = null;
@@ -578,6 +598,9 @@ class GameState {
           r.prog ??= newProg(r.epoch);
           r.prog.train ??= newStyle();
           r.prog.eaten ??= { meat: 0, plant: 0 };
+          // ältere Spielstände kennen kein Alter: Wer schon unterwegs war, ist ausgewachsen
+          r.life ??= newLife(r.history.length + 1, LIFE.mature);
+          r.life.clutches ??= [];
           r.prog.known ??= [...r.prog.seen];
           // Orte aus einer älteren Karte, die es nicht mehr gibt
           r.prog.known = r.prog.known.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
@@ -662,7 +685,7 @@ class GameState {
     return this.r.epoch;
   }
 
-  /** Ein neues Leben beginnt – als kleiner Urfisch an der Wurzel des Stammbaums. */
+  /** Eine neue Linie beginnt – als frisch geschlüpfter Urfisch an der Wurzel des Stammbaums. */
   newRun(): Run {
     const d = this.data;
     d.runs += 1;
@@ -683,6 +706,7 @@ class GameState {
       // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
       canRam: true,
       prog: newProg(0),
+      life: newLife(1),
       shells: [],
       seenRows: 0,
       history: [],
@@ -699,11 +723,18 @@ class GameState {
 
   // ---------------------------------------------------------------- Werte
 
-  stats(cls: ClassId = this.r.cls, t: Traits = this.r.traits): Stats {
+  /**
+   * Die Werte eines Tiers. Ohne ausdrücklich übergebene Merkmale sind es die des eigenen Tiers – so groß, wie es gerade
+   * gewachsen ist, und so alt, wie es ist; übergebene Merkmale gelten für ein ausgewachsenes Tier (life: ADULT), sofern
+   * nichts anderes angegeben ist.
+   */
+  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK): Stats {
+    const t = traits ?? this.r.traits;
+    const k = life ?? (traits ? ADULT : this.lifeK);
     const b = CLASSES[cls].base;
-    // klein anfangen: Der Urfisch ist winzig, Platz zum Wachsen gibt es reichlich. Die Größe kommt allein aus dem Wuchs
-    // (dem Lebensraum) – sie ändert sich also nur beim Generationswechsel.
-    const size = clamp(0.7 + 0.62 * t.growth, 0.58, 1.5);
+    // Die ausgewachsene Größe kommt aus dem Wuchs (dem Lebensraum der Vorfahren); ein Jungtier ist davon erst ein Teil
+    const adult = clamp(0.7 + 0.62 * t.growth, 0.58, 1.5);
+    const size = adult * k.grow;
     const carn = Math.max(0, t.diet), herb = Math.max(0, -t.diet);
     // die Kopfplatte des Stoßfischs: ein gepanzerter, harter Schädel
     const plates = Math.max(0, -(t.spike ?? 0)) * t.skull;
@@ -720,13 +751,14 @@ class GameState {
     // Schwarmfische sind allein verletzlicher: Ihre Stärke ist die Gruppe
     const school = plateLevel(t.sw ?? 0);
     return {
-      maxHp: Math.round(b.hp * Math.pow(size, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school)),
+      // Jungtiere sind verletzlich, aber nicht ganz so sehr, wie ihre Größe vermuten ließe; im Alter lässt die Kraft nach
+      maxHp: Math.max(3, Math.round(b.hp * Math.pow(adult, 1.3) * Math.pow(k.grow, 0.8) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old))),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
       speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1)
-        * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0) - 0.1 * armor),
+        * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0) - 0.1 * armor) * (1 - LIFE.oldSpeed * k.old),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       size,
       defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor, 0.35, 1.1),
@@ -738,8 +770,8 @@ class GameState {
       digestMeat: Math.max(0.35, 1 + 0.6 * carn - 0.6 * herb),
       digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn),
       // Schwere Waffen und Panzer ermüden: starke Kiefer, ein harter Kopf und Schuppenpanzer kosten Kraft, schlanke Verfolger halten länger durch
-      endurance: clamp(1 + 0.3 * chase - 0.32 * t.jaw - 0.22 * t.skull - 0.12 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9),
-      recover: clamp(1 + 0.2 * chase - 0.2 * t.jaw - 0.08 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6),
+      endurance: clamp(1 + 0.3 * chase - 0.32 * t.jaw - 0.22 * t.skull - 0.12 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
+      recover: clamp(1 + 0.2 * chase - 0.2 * t.jaw - 0.08 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
       climb: 1 + 0.45 * (t.fUp ?? 0),
       dive: 1 + 0.45 * (t.fDown ?? 0),
@@ -764,7 +796,7 @@ class GameState {
   }
 
   /** Das Aussehen zu einer Form und ihren Merkmalen. */
-  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number } = {}): Morph {
+  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number; life?: LifeK } = {}): Morph {
     const run = this.data.run;
     const cls = o.cls ?? run?.cls ?? 'fish';
     const live = o.traits ?? run?.traits ?? ZERO;
@@ -772,7 +804,7 @@ class GameState {
     const t = o.traits ? o.traits : this.looks(live);
     return {
       cls,
-      size: this.stats(cls, live).size,
+      size: this.stats(cls, live, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
       jaw: t.jaw,
       skull: t.skull,
       stealth: t.stealth,
@@ -864,10 +896,10 @@ class GameState {
     return this.morph({ traits: k.traits, belly, fierce: 0, seed: k.seed, sex: k.sex });
   }
 
-  /** Länge (cm) und Gewicht (g) eines Tiers. */
-  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits) {
+  /** Länge (cm) und Gewicht (g) eines Tiers (ausgewachsen, sofern nichts anderes angegeben ist). */
+  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits, life: LifeK = ADULT) {
     const b = BODY[cls];
-    const size = this.stats(cls, t).size;
+    const size = this.stats(cls, t, life).size;
     const cm = b.cm * size * (1 + 0.15 * (t.len ?? 0));
     const g = b.g * Math.pow(cm, 3) * (1 + 0.35 * (t.girth ?? 0) - 0.08 * (t.len ?? 0)) * (0.9 + 0.2 * t.growth);
     return { cm, g };
@@ -886,103 +918,180 @@ class GameState {
     return speciesName({ cls: r.cls, traits: r.traits, epoch: Math.max(0, r.epoch) });
   }
 
-  /**
-   * Der Zeitraum, den eine Runde in einem Zeitalter abdeckt. Wird ein Zeitalter wiederholt (der
-   * Endgegner ist noch nicht besiegt), läuft die Uhr weiter – immer kürzer bis zum nächsten Zeitalter.
-   */
-  epochSpan(i = this.r.epoch, round = this.data.run?.round ?? 0) {
-    const ep = EPOCHS[i];
-    const floor = EPOCHS[i + 1]?.from ?? 0;
-    let from = ep.from, to = ep.to;
-    for (let k = 0; k < round; k++) {
-      const f = (ep.from - ep.to) / (ep.from - floor || 1);
-      from = to;
-      to = from - (from - floor) * Math.min(0.5, f);
-    }
-    return { from, to };
+  // ---------------------------------------------------------------- Leben und Laichen
+
+  /** Das Leben des eigenen Tiers. */
+  get life(): Life {
+    return this.r.life;
   }
 
-  /** Wie stark sich das Bewährte über die Zeit bis zum nächsten Zeitalter fortsetzt. */
-  driftFactor(i = this.r.epoch) {
-    const ep = EPOCHS[i], next = EPOCHS[i + 1];
-    if (!next) return 1;
-    return 0.9 + 0.5 * Math.log10(1 + (ep.to - next.from) / 1e6);
+  /** Wie weit das eigene Tier gewachsen und gealtert ist. */
+  get lifeK(): LifeK {
+    return lifeK(this.r.life.age);
+  }
+
+  /** Zeit vergeht für das eigene Tier (Sekunden aktiven Lebens – wer nicht spielt, altert nicht). */
+  ageBy(dt: number) {
+    this.r.life.age += dt;
+  }
+
+  /** Ein Gelege, an dem dieses Tier beteiligt ist: selbst gelegt oder (fremd gelegt und) befruchtet. */
+  addClutch(c: Omit<Clutch, 'id'>): Clutch {
+    const L = this.r.life;
+    const cl: Clutch = { ...c, id: L.nextClutch++ };
+    L.clutches.push(cl);
+    this.save();
+    return cl;
+  }
+
+  /** Das eigene Gelege wird befruchtet (von einem Männchen deiner Art). */
+  fertilize(id: number, partner: Clutch['partner']) {
+    const c = this.r.life.clutches.find((x) => x.id === id);
+    if (!c) return;
+    c.fert = true;
+    c.partner = partner;
+    this.save();
+  }
+
+  /** Gelaicht: Das kostet Kraft (Magen, siehe SPAWN) – und vor dem nächsten Mal vergeht eine Weile. */
+  markSpawn() {
+    const L = this.r.life;
+    L.spawns += 1;
+    L.lastSpawn = L.age;
+    this.save();
+  }
+
+  /** Ein Gelege ist fort (gefressen, verdorben). */
+  dropClutch(id: number) {
+    const L = this.r.life;
+    L.clutches = L.clutches.filter((c) => c.id !== id);
+    this.save();
+  }
+
+  /** Unbefruchtete Gelege verderben nach einer Weile (Weltzeit). */
+  decayClutches(now = Date.now()) {
+    const L = this.r.life;
+    const keep = L.clutches.filter((c) => c.fert || now - c.at < SPAWN.decay * 1000);
+    if (keep.length === L.clutches.length) return false;
+    L.clutches = keep;
+    this.save();
+    return true;
+  }
+
+  /** Das Gelege, aus dem die nächste Generation schlüpft: das jüngste befruchtete. */
+  heir(): Clutch | undefined {
+    const cs = this.data.run?.life.clutches ?? [];
+    for (let i = cs.length - 1; i >= 0; i--) if (cs[i].fert) return cs[i];
+    return undefined;
   }
 
   /**
-   * Das Zeitalter ist überstanden: mögliche Nachkommen, je einer für jede Evolutionsplatte (der Schwarmfisch nur, wenn deine
-   * Gruppe auf deinen Ruf kommt) – welcher die Linie weiterführt, wählt man gleich danach. Was unabhängig von der Platte
-   * geschieht, ist bei allen gleich:
-   *   – Was im Zeitalter Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich über die Jahrmillionen fort.
+   * Die nächste Generation – angepasst an die Spielweise, ohne Wahl. Alles baut auf dem Stand vom Ende dieses Lebens auf:
+   *   – Was im Leben Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich zum Teil fort (INHERIT.carry).
    *   – Die Bewegung formt die Flossen (moveGrowth).
    *   – Körpergröße: Der Lebensraum, in dem man am aktivsten war, zieht den Wuchs nach oben (Tiefe) bzw. unten (flach,
    *     bewachsen); größer heißt auch massiger.
    *   – Körperrobustheit: Überstandene Angriffe machen die Schuppen robuster – gefährliche zählen mehr.
-   *   – Ernährung: Der Anteil von Fleisch und Pflanzen an der aufgenommenen Energie verschiebt die Kost, Schritt für Schritt;
-   *     wer fast nur Fleisch frisst, holt aus Pflanzen bald deutlich weniger heraus (und umgekehrt).
-   * Dazu kommt die Platte selbst: Sie bekommt Punkte – je besser die Spielweise zu ihr passte, desto mehr – und der Körper
-   * verschiebt sich um das, was diese Punkte an Ausprägung dazubringen. Alles baut auf dem Stand vom Ende des Zeitalters auf;
-   * jeder Nachkomme ist eine vollständige Fassung der Merkmale (nichts wird doppelt angewendet).
+   *   – Ernährung: Der Anteil von Fleisch und Pflanzen an der aufgenommenen Energie verschiebt die Kost, Schritt für Schritt.
+   *   – Jede Evolutionsplatte wächst, je nachdem wie gut die Spielweise zu ihr passte (INHERIT.gain × Passung) – wer viel
+   *     stößt, bekommt Nachkommen mit härterem Kopf, wer viel beißt, ein stärkeres Gebiss, wer jagt, einen schnelleren Körper.
+   *   – Der Partner gibt etwas von seinem Aussehen mit (INHERIT.partner); Geschlecht und Zeichnung sind neu gewürfelt.
    */
-  evolve(eaten: { meat: number; plant: number }, style: PlayStyle): Offspring[] {
+  inherit(eaten: { meat: number; plant: number }, style: PlayStyle, partner?: Clutch['partner']): Heir {
     const run = this.r;
     const start = full(this.snap?.traits ?? run.traits);
     const end = full(run.traits);
-    const k = this.driftFactor();
-    const base = full({ ...end });
-    for (const key of AMP) base[key] = clamp(end[key] + Math.max(0, end[key] - start[key]) * k, 0, 1);
-    // Färbung und Flossen, die sich im Zeitalter verschoben haben (Licht, Verstecke), setzen sich fort
-    for (const g of ['light', 'fin', 'crest'] as const) base[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
-    // Die Bewegung dieses Zeitalters formt die Flossen – jetzt, bei der Verwandlung, und nur dann
+    const k = INHERIT.carry;
+    const lived = Math.max(60, run.life.age);
+    const t = full({ ...end });
+    for (const key of AMP) t[key] = clamp(end[key] + Math.max(0, end[key] - start[key]) * k, 0, 1);
+    // Färbung und Flossen, die sich im Leben verschoben haben (Licht, Verstecke), setzen sich fort
+    for (const g of ['light', 'fin', 'crest'] as const) t[g] = clamp(end[g] + (end[g] - start[g]) * k * 0.8, -1, 1);
     const mv = moveGrowth(style);
-    base.fUp = clamp(end.fUp + mv.up, 0, 1);
-    base.fDown = clamp(end.fDown + mv.down, 0, 1);
-    base.fSide = clamp(end.fSide + mv.side, 0, 1);
-    base.fTail = clamp(end.fTail + mv.tail, 0, 1);
-    // Körpergröße aus dem Lebensraum: knapp die Hälfte des Weges je Generation – über mehrere Zeitalter wird es deutlich
-    const hab = habitatPull(style.hab, this.epoch.seconds);
+    t.fUp = clamp(end.fUp + mv.up, 0, 1);
+    t.fDown = clamp(end.fDown + mv.down, 0, 1);
+    t.fSide = clamp(end.fSide + mv.side, 0, 1);
+    t.fTail = clamp(end.fTail + mv.tail, 0, 1);
+    // Körpergröße aus dem Lebensraum: knapp die Hälfte des Weges je Generation
+    const hab = habitatPull(style.hab, lived);
     if (hab) {
       const dg = (hab.target - end.growth) * 0.45 * hab.sure;
-      base.growth = clamp(end.growth + dg, GROWTH_MIN, 1);
-      base.girth = clamp(end.girth + 0.4 * dg, -1, 1);
+      t.growth = clamp(end.growth + dg, GROWTH_MIN, 1);
+      t.girth = clamp(end.girth + 0.4 * dg, -1, 1);
     }
     // Körperrobustheit aus überstandenen Angriffen (je robuster schon, desto weniger kommt dazu)
-    base.armor = clamp(end.armor + 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - end.armor), 0, 1);
+    t.armor = clamp(end.armor + 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - end.armor), 0, 1);
     // Ernährung aus der aufgenommenen Energie – höchstens 0,4 je Generation und nie ganz bis zum Äußersten
     const total = eaten.meat + eaten.plant;
     if (total > 0) {
       const target = clamp((2 * eaten.meat) / total - 1, -DIET_MAX, DIET_MAX);
-      const sure = Math.min(1, total / (0.4 * fedRef(this.epoch, this.stats().size)));
-      base.diet = clamp(end.diet + clamp(target - end.diet, -0.4, 0.4) * sure, -DIET_MAX, DIET_MAX);
+      const sure = Math.min(1, total / (0.4 * fedRef(lived, this.stats(run.cls, run.traits).size)));
+      t.diet = clamp(end.diet + clamp(target - end.diet, -0.4, 0.4) * sure, -DIET_MAX, DIET_MAX);
     }
+    // die Evolutionsplatten: jede so weit, wie die Spielweise zu ihr passte (den Schwarmfisch nur mit einer Gruppe)
     const fit = plateFit(style);
-    return this.platesOffered().map((id) => {
-      const t = full({ ...base });
-      // Auch ohne passende Erfolge entwickelt sich die gewählte Richtung – mit ihnen deutlich stärker
-      const n0 = t[id], n1 = Math.min(PLATE_MAX, n0 + 0.45 + 0.85 * fit[id]);
+    const plates = this.swarm?.callable && this.swarm.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
+    let line: PlateId | undefined;
+    let best = 0;
+    for (const id of plates) {
+      const n0 = t[id], n1 = Math.min(PLATE_MAX, n0 + INHERIT.gain * fit[id]);
       const f = plateLevel(n1) - plateLevel(n0);
       for (const [key, d] of Object.entries(PLATE_D[id]) as [keyof Traits, number][]) {
         const [lo, hi] = range(key);
         t[key] = clamp(t[key] + d * f, lo, hi);
       }
       t[id] = n1;
-      return { traits: t, sex: run.sex, seed: run.seed, plate: id, fit: fit[id] };
-    });
+      if (f > best) {
+        best = f;
+        line = id;
+      }
+    }
+    // der Partner: ein wenig von seinem Aussehen (nicht von Größe, Kost, Robustheit oder den Platten)
+    if (partner) {
+      const p = full({ ...partner.traits });
+      for (const key of BLEND_KEYS) {
+        const [lo, hi] = range(key);
+        t[key] = clamp(t[key] + (p[key] - t[key]) * INHERIT.partner, lo, hi);
+      }
+    }
+    return {
+      traits: t,
+      sex: Math.random() < 0.5 ? 1 : 2,
+      seed: Math.floor(Math.random() * 100000),
+      fit,
+      line: best > 0.04 ? line : undefined,
+    };
   }
 
-  /** Die Platten, zwischen denen man wählt: den Schwarmfisch erst, wenn eine Gruppe da ist, die auf deinen Ruf kommt. */
-  platesOffered(): PlateId[] {
-    const s = this.swarm;
-    return s?.callable && s.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
-  }
-
-  /** Die Wahl steht: Dieser Nachkomme führt die Linie weiter (er ersetzt den vorläufigen, nichts kommt doppelt dazu). */
-  chooseOffspring(o: Offspring) {
+  /**
+   * Die nächste Generation übernimmt: Das eigene Tier ist (nach dem Laichen) gestorben – du spielst als Jungtier aus seinem
+   * Gelege weiter. Was die Linie weiß (Orte, Muscheln, Aufträge, Gruppe), bleibt; Alter, Magen und Spielweise beginnen neu.
+   */
+  succeed(c: Clutch, h: Heir) {
     const run = this.r;
-    run.traits = full({ ...o.traits });
-    run.sex = o.sex;
-    run.seed = o.seed;
+    run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
+    if (run.history.length > 24) run.history.splice(1, 1);
+    run.traits = full({ ...h.traits });
+    run.sex = h.sex;
+    run.seed = h.seed;
+    run.aggression *= 0.5;
+    run.infamy *= 0.8;
+    run.kin = 0;
+    this.newGeneration(run);
+    run.life = newLife(run.life.gen + 1);
+    const p = run.prog;
+    p.place = c.place;
+    p.from = undefined;
+    p.edge = undefined;
+    p.at = { x: c.x, y: c.y };
+    p.hp = undefined;
+    p.sat = undefined;
+    p.eaten = { meat: 0, plant: 0 };
+    p.train = newStyle();
+    if (!p.seen.includes(c.place)) p.seen.push(c.place);
+    if (!p.known.includes(c.place)) p.known.push(c.place);
     if (this.checkRamUnlock()) run.ramNew = true;
+    this.snap = null;
     this.save();
   }
 
@@ -1110,10 +1219,10 @@ class GameState {
     r.aggression = Math.max(0, r.aggression - 0.006 * dt);
   }
 
-  /** Zu Beginn eines Zeitalters: Stand merken (für "einst/heute") und speichern. */
-  beginEpoch() {
+  /** Zu Beginn eines Lebens: Stand merken (für "einst/heute" und das Aussehen) und speichern. */
+  beginLife() {
     const r = this.r;
-    // nur zu Beginn des Zeitalters – beim Wechsel zwischen Orten bleibt der Stand von damals
+    // nur zu Beginn des Lebens – beim Wechsel zwischen Orten bleibt der Stand von damals
     if (!this.snap) this.snap = { traits: { ...r.traits }, aggression: r.aggression, infamy: r.infamy };
     this.save();
   }
@@ -1146,7 +1255,7 @@ class GameState {
     const run = this.r;
     const p = run.prog;
     if (id !== p.place) {
-      p.elapsed += TRAVEL_SECONDS;
+      run.life.age += TRAVEL_SECONDS;
       const st = this.stats();
       if (p.sat !== undefined) p.sat = Math.max(0.01, p.sat - hungerRate(st.size, 0.8, st.upkeep) * TRAVEL_SECONDS * 0.6);
     }
@@ -1233,81 +1342,12 @@ class GameState {
     run.swarm.out = [];
   }
 
-  /** Das Zeitalter ist vorbei und du lebst noch: Die Linie zieht weiter. */
-  surviveEpoch(_kinAlive: number, social?: number, pick?: Offspring, repeat = false): SurviveResult {
-    const run = this.r;
-    const i = run.epoch;
-    const ep = EPOCHS[i];
-    if (social !== undefined) run.social = clamp(social, 0.15, 0.9);
-    if (repeat) {
-      // Der Endgegner lebt noch: Die Linie bleibt in diesem Zeitalter – eine weitere Generation
-      run.round = (run.round ?? 0) + 1;
-      run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
-      if (run.history.length > 24) run.history.splice(1, 1);
-      run.kin = 0;
-      this.newGeneration(run);
-      run.aggression *= 0.5;
-      run.infamy *= 0.8;
-      run.prog = newProg(i);
-      const res: SurviveResult = { epoch: ep, next: ep, node: run.node, drift: { before: { ...run.traits }, after: { ...run.traits } }, repeat: true };
-      if (pick) {
-        run.traits = full({ ...pick.traits });
-        run.sex = pick.sex;
-        run.seed = pick.seed;
-        res.drift!.after = { ...run.traits };
-        if (this.checkRamUnlock()) run.ramNew = true;
-      }
-      this.snap = null;
-      this.save();
-      return res;
-    }
-    run.round = 0;
-    const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
-    const n = this.node(parent, i, run.cls, run.traits, run.id, true);
-    run.node = n.id;
-    run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: i });
-    if (run.history.length > 24) run.history.splice(1, 1);
-    this.data.deepest = Math.max(this.data.deepest, i);
-    run.kin = 0;
-    this.newGeneration(run);
-    run.aggression *= 0.5;
-    run.infamy *= 0.8;
-    const next = EPOCHS[i + 1];
-    const res: SurviveResult = { epoch: ep, next, node: n.id, drift: { before: { ...run.traits }, after: { ...run.traits } } };
-    if (next && pick) {
-      // Vorerst führt der Nachkomme die Linie weiter, der am besten zur Spielweise passt – bis die Wahl im
-      // Generationen-Bildschirm ihn ersetzt (chooseOffspring)
-      run.traits = full({ ...pick.traits });
-      run.sex = pick.sex;
-      run.seed = pick.seed;
-      res.drift!.after = { ...run.traits };
-      if (this.checkRamUnlock()) run.ramNew = true;
-    }
-    if (!next) {
-      n.present = (n.present ?? 0) + 1;
-      this.data.lastEnd = n.id;
-      this.ghost = run;
-      this.data.run = null;
-      res.finished = true;
-    } else {
-      run.epoch = i + 1;
-      run.prog = newProg(run.epoch);
-      if (next.cls !== run.cls) {
-        res.transition = { from: run.cls, to: next.cls };
-        run.cls = next.cls;
-      }
-    }
-    this.snap = null;
-    this.save();
-    return res;
-  }
-
   /** Das Tier ist gestorben: Die Linie endet hier. Gibt den Knoten des Astendes zurück. */
   extinct(frac: number, cause: string): string {
     const run = this.r;
     const parent = this.data.nodes[run.node] ?? this.data.nodes.root;
     const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false);
-    leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id };
+    leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.life.gen };
     this.data.lastEnd = leaf.id;
     this.data.deepest = Math.max(this.data.deepest, run.epoch);
     this.ghost = run;

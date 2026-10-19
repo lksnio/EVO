@@ -79,6 +79,8 @@ export class Roe {
   /** wann es schlüpft (Spielzeit in ms), unendlich = nie */
   hatchAt = Infinity;
   hatched = false;
+  /** Laich deiner Art aus dem Laichfluss (dein eigenes Gelege bzw. eins, das du befruchten kannst): Man frisst es nicht */
+  spared = false;
 
   constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly species: string, readonly tone: number, units = 4, readonly own = false) {
     this.max = units;

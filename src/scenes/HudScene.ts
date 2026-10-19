@@ -6,6 +6,8 @@ import type { LevelScene } from './LevelScene';
 import type { Kin } from '../objects/Kin';
 import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
+import { LIFE, WORLD } from '../data/life';
+import { worldYears } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { STAT_COUNT } from '../data/tablet';
 import { SPECIES } from '../data/species';
@@ -26,10 +28,10 @@ export class HudScene extends Phaser.Scene {
   private edgeV!: Phaser.GameObjects.Image;
   private hungerV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
-  /** Neuer Aquapendium-Eintrag: ein schmales Schild oben links, das sanft einblendet */
+  /** Neuer Aquapendium-Eintrag (oder eine Meldung zum Leben): ein schmales Schild oben links, das sanft einblendet */
   private dexC!: Phaser.GameObjects.Container;
   private dexGlow!: Phaser.GameObjects.Image;
-  private dexQueue: string[] = [];
+  private dexQueue: { head: string; name: string }[] = [];
   /** gerade läuft ein Kino-Moment (schwarze Balken) */
   private cineOn = false;
   private dexBusy = false;
@@ -56,7 +58,9 @@ export class HudScene extends Phaser.Scene {
   private tabletGlow?: Phaser.GameObjects.Image;
   private clockText!: Phaser.GameObjects.Text;
   private fuse!: Phaser.GameObjects.Graphics;
-  private fuseProg = 0;
+  /** Lebenslinie: wie weit das Leben des eigenen Tiers ist (0 … 1), ob es ausgewachsen ist und ob ein Nachkomme wartet */
+  private lifeFrac = 0;
+  private heir = false;
   /** Antwort im Gespräch (ja oder nein) */
   private choiceC?: Phaser.GameObjects.Container;
 
@@ -79,7 +83,8 @@ export class HudScene extends Phaser.Scene {
     this.food = 1;
     this.hidden = false;
     this.hurtA = this.hungerA = this.hideA = this.pulse = 0;
-    this.fuseProg = 0;
+    this.lifeFrac = 0;
+    this.heir = false;
     this.beatAt = 0;
   }
 
@@ -97,14 +102,14 @@ export class HudScene extends Phaser.Scene {
     this.bossName = title(this, 0, -18, '', 22, '#d8b070').setOrigin(0.5);
     this.bossBar = this.add.graphics();
     this.bossC.add([this.bossBar, this.bossName]);
-    // Die Uhr des Zeitalters: Name der Zeit, Jahresangabe und eine dünne Zündschnur
+    // Die Weltzeit (für alle gleich): Name der Zeit, Jahresangabe – darunter die Lebenslinie des eigenen Tiers
     const clockBg = this.add.graphics();
     clockBg.fillStyle(0x050403, 0.55);
     clockBg.fillRoundedRect(W / 2 - 200, 8, 400, 70, 12);
     title(this, W / 2, 26, ep.name.toUpperCase(), 18, UI.ochre).setOrigin(0.5).setLetterSpacing(3);
-    const span = game.epochSpan();
-    this.clockText = text(this, W / 2, 50, yearsAgo(span.from, (span.from - span.to) / ep.seconds / 10), 21, UI.bone).setOrigin(0.5);
+    this.clockText = text(this, W / 2, 50, yearsAgo(worldYears(ep.from, ep.to), WORLD.yearsPerSecond * 60), 21, UI.bone).setOrigin(0.5);
     this.fuse = this.add.graphics();
+    this.lifeFrac = game.run ? game.life.age / LIFE.span : 0;
     this.drawFuse();
     // Ein neues Tier im Aquapendium: ein kleines Schild oben links
     this.dexQueue = [];
@@ -146,23 +151,32 @@ export class HudScene extends Phaser.Scene {
       this.food = food;
       this.hidden = hidden;
     };
-    const onClock = (years: number, prog: number, step: number) => {
+    const onClock = (years: number, step: number) => {
       const t = yearsAgo(years, step);
       if (t !== this.clockText.text) this.clockText.setText(t);
-      if (Math.abs(prog - this.fuseProg) > 0.0015) {
-        this.fuseProg = prog;
+    };
+    const onLife = (frac: number, _stage: string, heir: boolean) => {
+      if (Math.abs(frac - this.lifeFrac) > 0.0015 || heir !== this.heir) {
+        this.lifeFrac = frac;
+        this.heir = heir;
         this.drawFuse();
       }
+    };
+    const onNotice = (head: string, name: string) => {
+      this.dexQueue.push({ head, name });
+      this.nextDex();
     };
     const onRam = () => this.ramUnlocked();
     const onBoss = (name: string, f: number) => this.drawBoss(name, f);
     const onShell = () => this.updateGlow();
     const onDex = (ids: string[]) => {
-      for (const id of ids) if (SPECIES[id]) this.dexQueue.push(id);
+      for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEUER AQUAPENDIUM-EINTRAG', name: SPECIES[id].name });
       this.nextDex();
     };
     bus.on('dex', onDex);
     bus.on('clock', onClock);
+    bus.on('life', onLife);
+    bus.on('notice', onNotice);
     bus.on('boss', onBoss);
     bus.on('vitals', onVitals);
     bus.on('ramUnlocked', onRam);
@@ -184,23 +198,46 @@ export class HudScene extends Phaser.Scene {
       bus.off('ramUnlocked', onRam);
       bus.off('boss', onBoss);
       bus.off('clock', onClock);
+      bus.off('life', onLife);
+      bus.off('notice', onNotice);
       bus.off('dex', onDex);
       bus.off('shell', onShell);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
   }
 
-  /** Die Zündschnur: Wie viel vom Zeitalter noch vor dir liegt. */
+  /**
+   * Die Lebenslinie: Wie weit das Leben des eigenen Tiers ist – erst das Heranwachsen (kühl), dann die besten Jahre (Ocker),
+   * am Ende das Alter (rostrot). Der Punkt zeigt, wo es gerade steht; er leuchtet warm, sobald ein befruchtetes Gelege wartet.
+   */
   private drawFuse() {
     const g = this.fuse;
     const x0 = W / 2 - 170, w = 340, y = 70;
+    const m = LIFE.mature / LIFE.span, o = LIFE.old / LIFE.span;
+    const f = Math.min(1, Math.max(0, this.lifeFrac));
     g.clear();
     g.fillStyle(0x2a2420, 1);
     g.fillRect(x0, y, w, 3);
-    g.fillStyle(0xc8913c, 0.9);
-    g.fillRect(x0, y, w * this.fuseProg, 3);
-    g.fillStyle(0xffe0a0, 1);
-    g.fillCircle(x0 + w * this.fuseProg, y + 1.5, 3);
+    const seg = (a: number, b: number, c: number) => {
+      const e = Math.min(b, f);
+      if (e > a) {
+        g.fillStyle(c, 0.9);
+        g.fillRect(x0 + w * a, y, w * (e - a), 3);
+      }
+    };
+    seg(0, m, 0x6fa8a0);
+    seg(m, o, 0xc8913c);
+    seg(o, 1, 0xa4503a);
+    // Marken: ausgewachsen, alt
+    g.fillStyle(0x8a7a60, 0.8);
+    g.fillRect(x0 + w * m - 0.5, y - 2, 1, 7);
+    g.fillRect(x0 + w * o - 0.5, y - 2, 1, 7);
+    if (this.heir) {
+      g.fillStyle(0xffe2a0, 0.35);
+      g.fillCircle(x0 + w * f, y + 1.5, 7);
+    }
+    g.fillStyle(this.heir ? 0xfff0c0 : 0xffe0a0, 1);
+    g.fillCircle(x0 + w * f, y + 1.5, 3);
   }
 
   /** Der Knopf der Steintafel leuchtet, solange es dort etwas Neues zu sehen gibt. */
@@ -377,8 +414,8 @@ export class HudScene extends Phaser.Scene {
       {
         ctx: { cls: game.cls, traits: game.traits, hp: p.hp, sat: p.satiety },
         morph: p.morph(),
-        elapsed: lvl.elapsed,
         placeName: this.placeName,
+        life: lvl.lifeStatus(),
         kin: kin.length,
         group: game.swarm?.members.length ?? 0,
       },
@@ -393,12 +430,11 @@ export class HudScene extends Phaser.Scene {
    */
   private nextDex() {
     if (this.dexBusy || this.cineOn || !this.dexQueue.length) return;
-    const id = this.dexQueue.shift()!;
-    const name = SPECIES[id]?.name ?? '';
+    const { head: headText, name } = this.dexQueue.shift()!;
     this.dexBusy = true;
     const c = this.dexC;
     c.removeAll(true);
-    const head = text(this, 74, 13, 'NEUER AQUAPENDIUM-EINTRAG', 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(3);
+    const head = text(this, 74, 13, headText.toUpperCase(), 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(3);
     const nm = title(this, 74, 31, name, 22, UI.bone).setOrigin(0, 0);
     const w = Math.round(Math.max(312, 74 + Math.max(head.width, nm.width) + 28)), h = 66;
     const g = this.add.graphics();
@@ -524,15 +560,24 @@ export class HudScene extends Phaser.Scene {
     c.add(text(this, W / 2 - 190, 518, CLASSES[m.cls].name, 20, UI.boneDim).setOrigin(0.5));
 
     const bx = W / 2 + 170;
-    const b1 = new Button(this, bx, 270, 'Weiter', { w: 300, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
-    const b3 = new Button(this, bx, 340, 'Steuerung', { w: 300, onClick: () => this.showControls() });
-    const b2 = new Button(this, bx, 410, 'Aufgeben', { w: 300, icon: 'ic_skull', onClick: () => this.abort() });
+    // Wartet ein befruchtetes Gelege, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
+    const heir = !!game.heir();
+    const y0 = heir ? 252 : 270, step = heir ? 62 : 70;
+    const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
+    const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, onClick: () => this.showControls() });
+    const items = [b1, b3];
+    if (heir) items.push(new Button(this, bx, y0 + step * 2, 'Leben weitergeben', { w: 300, icon: 'ic_swarm', onClick: () => this.handOver() }));
+    const b2 = new Button(this, bx, y0 + step * items.length, 'Aufgeben', { w: 300, icon: 'ic_skull', onClick: () => this.abort() });
+    items.push(b2);
     this.giveUp = b2;
     this.giveUpArmed = false;
-    c.add([b1, b3, b2]);
-    c.add(text(this, bx, 462, 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.', 17, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
+    c.add(items);
+    const note = heir
+      ? 'Weitergeben: Du spielst als Jungtier aus deinem Gelege weiter.\nAufgeben: Die Linie stirbt aus.'
+      : 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.';
+    c.add(text(this, bx, y0 + step * items.length + 48, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
     this.pauseC = c;
-    this.pauseNav = new MenuNav(this, [b1, b3, b2]);
+    this.pauseNav = new MenuNav(this, items);
   }
 
   /** Die Seite "Steuerung" in der Rast. */
@@ -542,7 +587,7 @@ export class HudScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
     c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 180, 22, 35);
+    controlsList(this, c, W / 2 + 30, 172, 21, 31);
     c.add(text(this, W / 2, 548, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
     const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
     c.add(back);
@@ -569,6 +614,12 @@ export class HudScene extends Phaser.Scene {
     this.scene.resume('Level');
   }
 
+  /** Das Leben an die Nachkommen weitergeben: Das Tier stirbt friedlich, die nächste Generation schlüpft. */
+  private handOver() {
+    this.resumeGame();
+    bus.emit('handOver');
+  }
+
   /** Erst nachfragen – Aufgeben beendet das Spiel. */
   private abort() {
     if (!this.giveUpArmed) {
@@ -593,6 +644,41 @@ export class HudScene extends Phaser.Scene {
     this.touchBtn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
     if (game.canRam) this.ramButton();
     this.talkButton();
+    this.spawnButton();
+  }
+
+  /** Der Knopf zum Laichen: erscheint nur, wenn man gerade laichen kann – gedrückt halten, bis der Ring voll ist. */
+  private spawnButton() {
+    const x = 1066, y = 292, r = 42;
+    const g = this.add.graphics().setDepth(5);
+    const draw = (down: boolean) => {
+      g.clear();
+      g.fillStyle(0x0b0a09, down ? 0.55 : 0.4);
+      g.fillCircle(x, y, r);
+      g.lineStyle(2.5, 0xffe0a0, down ? 0.9 : 0.6);
+      g.strokeCircle(x, y, r);
+    };
+    draw(false);
+    const t = text(this, x, y, 'Laichen', 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
+    const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
+    const all = [g, t];
+    for (const o of all) o.setAlpha(0);
+    z.input!.enabled = false;
+    const set = (v: boolean) => {
+      touch.spawn = v;
+      draw(v);
+      if (v) audio.unlock();
+    };
+    z.on('pointerdown', () => set(true));
+    z.on('pointerup', () => set(false));
+    z.on('pointerout', () => set(false));
+    const onAble = (on: boolean) => {
+      this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
+      z.input!.enabled = on;
+      if (!on) set(false);
+    };
+    bus.on('spawnable', onAble);
+    this.events.once('shutdown', () => bus.off('spawnable', onAble));
   }
 
   /** Der Knopf zum Ansprechen: erscheint nur, wenn ein Artgenosse in der Nähe ist, der etwas zu erzählen hat. */

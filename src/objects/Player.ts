@@ -495,6 +495,14 @@ export class Player {
     }
   }
 
+  /** Das Leben endet ohne Gewalt (Altersschwäche, das Leben an die Nachkommen weitergeben). */
+  expire(cause: string) {
+    if (this.dead) return;
+    this.lastCause = cause;
+    this.hp = 0;
+    this.die();
+  }
+
   private die() {
     this.dead = true;
     this.body.setVelocity(0, this.water ? -30 : -260);

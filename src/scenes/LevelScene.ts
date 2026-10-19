@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, fedRef, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Member, type Offspring, type PlateId, type PlayStyle, type Traits } from '../state/GameState';
+import { bus, FOOD, game, hungerRate, kcalOf, newStyle, ZERO_TRAITS, type Member, type PlateId, type PlayStyle, type Sex } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
+import { LIFE, WORLD } from '../data/life';
+import { cyclePhase, diesOfAge, lifeK, SPAWN_BLOCK, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type Gate, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
@@ -22,6 +24,7 @@ import { Kin, type KinWorld } from '../objects/Kin';
 import { Quest } from '../objects/Quest';
 import { HuntQuest } from '../objects/HuntQuest';
 import { SwarmCtl } from '../objects/Swarm';
+import { SpawnCtl } from '../objects/Spawning';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -33,7 +36,6 @@ type PImg = Phaser.Physics.Arcade.Image;
 const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
 
 
-/** Daten für den Generationen-Bildschirm nach einem überlebten Zeitalter. */
 /** Bildschirmfeste Ebenen müssen beim Herauszoomen größer sein, damit sie das ganze Bild füllen. */
 const Z = LEVEL_ZOOM;
 /** Beim Ausruhen heilt der Körper nur bis zu diesem Anteil der Lebenskraft */
@@ -42,32 +44,24 @@ const REST_HEAL_CAP = 0.75;
 const HEAL_BITE = 0.17;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
 
-export interface SurvivedData {
+/** Daten für den Bildschirm beim Generationswechsel: Wer starb, wer schlüpft – und was sich verändert hat. */
+export interface SuccessionData {
   epoch: number;
-  before: Traits;
-  traits: Traits;
-  cls: Morph['cls'];
-  look: { hue: number; seed: number; sex: number };
-  kinAlive: number;
-  kinLooks: Morph[];
-  transition?: { from: Morph['cls']; to: Morph['cls'] };
-  /** Merkmale nach den Jahrmillionen bis zum nächsten Zeitalter (der gewählte Nachkomme) */
-  drifted?: Traits;
-  /** die drei möglichen Nachkommen – je einer für jede Evolutionsplatte (leer, wenn die Linie hier endet) */
-  offspring?: Offspring[];
-  /** die gewählte Evolutionsplatte (vorläufig die, die am besten zur Spielweise passte) */
+  /** woran das Tier starb (bzw. dass es sein Leben weitergab) */
+  cause: string;
+  /** die Generation, die gerade zu Ende ging */
+  gen: number;
+  /** so sah es aus (ausgewachsen, am Ende seines Lebens) */
+  parent: Morph;
+  /** so wird der Nachkomme aussehen, wenn er ausgewachsen ist – und so klein schlüpft er */
+  child: Morph;
+  hatchling: Morph;
+  sex: Sex;
+  /** wie gut die Spielweise zu jeder Evolutionsplatte passte – und die Richtung, die am deutlichsten wurde */
+  fit: Record<PlateId, number>;
   line?: PlateId;
-  /** in diesem Zeitalter gefressen (kcal) */
-  eaten?: { meat: number; plant: number; need: number };
-  /** Endgegner noch nicht besiegt: das Zeitalter wird wiederholt */
-  repeat?: boolean;
-  /** Name des Endgegners (falls es einen gab) */
-  boss?: string;
-  bossBeaten?: boolean;
-  /** Jahre vor heute am Ende dieser Runde */
-  years?: number;
-  finished?: boolean;
-  node: string;
+  /** Weltzeit (Jahre vor heute) */
+  years: number;
 }
 
 /** Geröll vor einer Höhle im Level: Bild, Risse, Hitbox – und wann es zuletzt getroffen wurde. */
@@ -104,7 +98,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   cover: Rect[] = [];
   ended = false;
   /** gelebte Sekunden in diesem Zeitalter */
-  elapsed = 0;
+  /** wie weit der wiederkehrende Ablauf des Zeitalters (Ereignisse) schon war, als zuletzt geschaut wurde (0 … 1) */
+  private phase = 0;
+  /** Lebensabschnitt beim letzten Blick (für die Meldung, wenn ein neuer beginnt) */
+  private stage: Stage = 'jung';
+  private oldWarned = false;
+  /** Laichen im Laichfluss */
+  spawning?: SpawnCtl;
   controls!: Controls;
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   /** alle festen Körper, nach 40-Pixel-Streifen geordnet (für solidAt) */
@@ -136,7 +136,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private wasInCover = false;
   private coverFront: Phaser.GameObjects.Image[][] = [];
   private curCover = -1;
-  private timeline: { def: EventDef; done: boolean; i: number }[] = [];
+  private timeline: EventDef[] = [];
   /** wann das nächste größere Tier durchs Bild zieht */
   private nextPasser = 0;
   private kinDef!: SpeciesDef;
@@ -184,12 +184,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** in diesem Zeitalter gefressen (Sättigungs-Einheiten) */
   eatenMeat = 0;
   eatenPlant = 0;
-  /** so viel frisst ein Tier, das gut über die Runden kommt (Maß für die Vielfalt des Nachwuchses) */
-  needUnits = 0;
   /** der Endgegner dieser Region (falls er schon da ist) */
   private bossA?: Animal;
-  private bossBeaten = false;
-  private span = { from: 0, to: 0 };
   /** bis dahin gilt ein Angriff als Überraschungsangriff (aus dem Versteck heraus) */
   private ambushUntil = 0;
   /** Teemo-Prinzip: Wer in seinem Versteck (Gras bei grüner, Dunkelheit bei schwarzer Farbe) 1,5 s still hält, ist bereit */
@@ -262,7 +258,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.lava = [];
     this.shots = [];
     this.ended = false;
-    this.elapsed = prog.elapsed;
     this.darkness = undefined;
     this.ramHit = new Map();
     this.dbg = undefined;
@@ -270,7 +265,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.wasInCover = false;
     this.coverFront = [];
     this.curCover = -1;
-    this.timeline = this.ep.events.map((def, i) => ({ def, done: prog.events.includes(i), i }));
+    // Die Ereignisse des Zeitalters kehren in der Weltzeit immer wieder – für alle zugleich (der Endgegner nicht)
+    this.timeline = this.ep.events.filter((e) => e.kind !== 'boss');
+    this.phase = cyclePhase(this.ep.seconds);
+    this.stage = stageOf(game.life.age);
+    this.oldWarned = game.life.age > LIFE.span - 90;
     this.nextPasser = 0;
     this.bloomUntil = this.stormUntil = 0;
     this.stormK = 0;
@@ -297,9 +296,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swayList = [];
     this.eatenMeat = prog.eaten.meat;
     this.eatenPlant = prog.eaten.plant;
-    this.needUnits = 0;
     this.bossA = undefined;
-    this.bossBeaten = prog.boss === 2;
     this.ambushUntil = 0;
     this.primedUntil = 0;
     this.stillT = 0;
@@ -325,9 +322,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   create() {
     fadeIn(this, 900);
-    game.beginEpoch();
+    game.beginLife();
     const ep = this.ep;
-    const L = (this.L = generateLevel(ep, game.run?.id ?? 0, this.place, game.prog.from, game.prog.edge));
+    // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
+    const L = (this.L = generateLevel(ep, WORLD.seed, this.place, game.prog.from, game.prog.edge));
     this.water = L.mode === 'water';
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
@@ -402,7 +400,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
-    this.player = new Player(this, L.start.x, L.start.y, this.water);
+    // ein neues Leben beginnt dort, wo sein Gelege liegt (einmalig)
+    const born = game.prog.at;
+    if (born) game.prog.at = undefined;
+    this.player = new Player(this, born ? born.x : L.start.x, born ? born.y - 40 : L.start.y, this.water);
     this.stamG = this.add.graphics().setDepth(DEPTH.fx + 2);
     this.stamA = 0;
     // von einem Ort zum nächsten bleibt man, wie man war: Kraft, Magen und Artgenossen
@@ -426,8 +427,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
     this.faunaCount = L.spawns.length;
-    this.needUnits = fedRef(ep, this.player.stats.size);
-    this.span = game.epochSpan(this.epochIdx);
+    // Laichen (im Laichfluss)
+    this.spawning = new SpawnCtl(this);
     // Muscheln, die noch nicht gefunden sind
     for (const sh of L.shells) if (!game.hasShell(sh.id)) this.shells.push(new Shell(this, sh.x, sh.y, sh.id));
     this.buildGates();
@@ -485,6 +486,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.setDeadzone(90, 70);
 
     this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name });
+    // wer gerade schlüpft, sieht seine Geschwister ausschwärmen
+    if (born) this.time.delayedCall(450, () => !this.ended && this.spawning?.hatched());
     audio.music(ep.music);
     // im Wasser rauscht leise das Meer; Zeitlupe aus einem abgebrochenen Kino-Moment zurücksetzen
     audio.musicLevel(1, 0.3);
@@ -509,14 +512,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Ein Endgegner, der noch lebt, folgt dir von Ort zu Ort
     const bossEv = ep.events.find((e) => e.kind === 'boss');
     if (bossEv && pr.boss === 1) this.time.delayedCall(2600, () => !this.ended && this.spawnBoss(bossEv.species!));
-    // Der Weg über die Karte hat die letzten Sekunden gekostet
-    if (this.elapsed >= ep.seconds) this.time.delayedCall(1600, () => !this.ended && this.complete());
 
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
+    // das Leben an die Nachkommen weitergeben (aus der Rast; nur mit einem befruchteten Gelege)
+    const onHandOver = () => !this.ended && game.heir() && this.player.expire('Lebensende – an die Nachkommen weitergegeben');
+    bus.on('handOver', onHandOver);
     this.events.on('player-dead', () => this.onDeath());
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
+      bus.off('handOver', onHandOver);
       this.events.off('player-dead');
     });
   }
@@ -1130,7 +1135,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Eine kleine Gruppe deiner eigenen Art – fast gleich, aber nicht ganz. */
   private spawnKin() {
-    const st = game.stats();
+    // Artgenossen sind ausgewachsen – auch wenn das eigene Tier noch ein Jungtier ist
+    const st = game.stats(game.cls, game.traits);
     const d = game.traits.diet;
     const diet = d > 0.3 ? 'meat' : 'plant';
     this.kinDef = {
@@ -1614,12 +1620,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       audio.sfx('boom');
     }
     if (a === this.bossA && !this.ended) {
-      this.bossBeaten = true;
       game.prog.boss = 2;
       bus.emit('boss', a.def.name, 0);
       this.cameras.main.flash(700, 255, 230, 180);
       audio.sfx('victory');
-      this.time.delayedCall(3200, () => !this.ended && !this.player.dead && this.complete());
     }
   }
 
@@ -1710,7 +1714,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       return;
     }
     for (const rr of this.roes) {
-      if (rr.units <= 0 || rr.hatched || !overlaps(rect, rr.rect)) continue;
+      if (rr.units <= 0 || rr.hatched || rr.spared || !overlaps(rect, rr.rect)) continue;
       const gain = Math.min(FOOD.roe.sat * st.digestMeat, p.maxSat - p.satiety);
       if (p.eat(gain, 'meat')) {
         this.floatNum(rr.x, rr.y - 48, gain, 'roe');
@@ -1911,6 +1915,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.hunt?.update(time, delta);
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
+    this.spawning?.update(time, dt);
     this.drawStamina(p, dt);
     for (const a of [...this.animals]) {
       try {
@@ -1969,7 +1974,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
 
     if (!p.dead && !this.ended) {
-      this.elapsed += dt;
+      // das eigene Tier lebt: Es wächst heran und altert (nur, solange man spielt)
+      game.ageBy(dt);
+      this.lifeStep();
       this.clock(time);
       this.interact(time, dt);
       this.shellStep(time);
@@ -1979,7 +1986,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.spotStep(time);
       this.restock(time);
       this.huntMood(time);
-      if (this.elapsed >= this.ep.seconds) this.complete();
     }
 
     // Geschosse (Druckwellen, Steinschlag, Feuerregen)
@@ -2002,7 +2008,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const allies = this.animals.filter((a) => a.ally).length;
       const vis = this.animals.filter((a) => a.visitor).length;
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Zeit ${this.elapsed.toFixed(0)}/${this.ep.seconds}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Sätt ${p.satiety.toFixed(0)}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${LIFE.span} (${STAGE_NAME[stageOf(game.life.age)]})  Gen ${game.life.gen}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
           `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
@@ -2035,17 +2041,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     g.setVisible(true).setPosition(e.x, e.y).setScale(sc, blink ? 0.08 : sc).setAlpha(0.9);
   }
 
-  /** Die Uhr des Zeitalters – und was zu welcher Zeit geschieht. Sichtbar ist sie oben im Bild (HUD). */
+  /**
+   * Was zu welcher Zeit geschieht: Die Ereignisse des Zeitalters (Durchzügler, Blüte …) kehren in der Weltzeit immer wieder
+   * (alle ep.seconds Sekunden) – für alle Spieler zugleich. Die Jahre stehen oben im Bild (HUD).
+   */
   private clock(_time: number) {
-    const prog = clamp(this.elapsed / this.ep.seconds, 0, 1);
+    const ph = cyclePhase(this.ep.seconds);
+    const last = this.phase;
+    this.phase = ph;
+    // überschritten seit dem letzten Blick (auch über den Beginn eines neuen Durchgangs hinweg)
+    const passed = (at: number) => (ph >= last ? at > last && at <= ph : at > last || at <= ph);
     for (const e of this.timeline) {
-      if (!e.done && prog >= e.def.at) {
-        // im stillen Fluss am Start tauchen noch keine Durchzügler auf
-        if (e.def.kind === 'predator' && this.L.riverEnd && this.player.x < this.L.riverEnd + 800) continue;
-        e.done = true;
-        game.prog.events.push(e.i);
-        this.trigger(e.def);
-      }
+      if (!passed(e.at)) continue;
+      // im stillen Fluss am Start tauchen keine Durchzügler auf
+      if (e.kind === 'predator' && this.L.riverEnd && this.player.x < this.L.riverEnd + 800) continue;
+      this.trigger(e);
     }
     // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im stillen Fluss am Start)
     const out = !this.L.riverEnd || this.player.x > this.L.riverEnd + 800;
@@ -2092,7 +2102,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private tryCine() {
     const p = this.player;
-    if (this.elapsed / this.ep.seconds > 0.55) {
+    if (cyclePhase(this.ep.seconds) > 0.55) {
       this.cineWanted = false;
       return;
     }
@@ -2516,10 +2526,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (time > this.vitalsAt) {
       this.vitalsAt = time + 150;
       bus.emit('vitals', p.hp / p.stats.maxHp, p.satiety / p.maxSat, p.hidden);
-      // die Uhr oben: die Jahre laufen mit der Zeit des Zeitalters rückwärts
-      const frac = clamp(this.elapsed / this.ep.seconds, 0, 1);
-      const spanY = this.span.from - this.span.to;
-      bus.emit('clock', this.span.from - spanY * frac, frac, spanY / this.ep.seconds / 10);
+      // oben: die Weltzeit (für alle gleich) und darunter die Lebenslinie des eigenen Tiers
+      bus.emit('clock', worldYears(this.ep.from, this.ep.to), WORLD.yearsPerSecond * 60);
+      bus.emit('life', game.life.age / LIFE.span, stageOf(game.life.age), !!game.heir());
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }
@@ -2644,7 +2653,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // wer von deiner Gruppe bei dir ist, kommt mit – mit der Lebenskraft, die er gerade hat
     this.swarm?.storeAll();
     game.leavePlace({
-      elapsed: this.elapsed,
       hp: p.hp,
       sat: p.satiety,
       kin: this.animals.filter((a) => a instanceof Kin && !a.dead).length,
@@ -2672,61 +2680,104 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- Ende
 
-  /** Die Zeit ist um, und du lebst noch. */
-  private complete() {
+  /**
+   * Der Lauf des Lebens: Beginnt ein neuer Abschnitt (heranwachsend, ausgewachsen, alt), gibt es eine kurze Meldung;
+   * am Ende stirbt das Tier an Altersschwäche.
+   */
+  private lifeStep() {
+    const age = game.life.age;
+    const st = stageOf(age);
+    if (st !== this.stage) {
+      this.stage = st;
+      if (st === 'heran') bus.emit('notice', 'Neuer Lebensabschnitt', 'Heranwachsend');
+      else if (st === 'adult') {
+        bus.emit('notice', 'Ausgewachsen', 'Zum Laichen zurück in den Laichfluss');
+        audio.sfx('evolve');
+      } else if (st === 'alt') bus.emit('notice', 'Alt geworden', 'Die Kräfte lassen nach');
+      // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
+      this.player.refresh(false, false);
+    }
+    if (!this.oldWarned && age > LIFE.span - 90) {
+      this.oldWarned = true;
+      bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.heir() ? 'Deine Nachkommen warten im Laichfluss' : 'Noch kein befruchtetes Gelege');
+    }
+    if (diesOfAge(age)) this.player.expire('Altersschwäche');
+  }
+
+  /** Was gerade über das Leben zu sagen ist (Steintafel): Lebensabschnitt, Laichen, Gelege. */
+  lifeStatus(): { stage: string; spawn: string } {
+    const life = game.life;
+    const st = stageOf(life.age);
+    const left = Math.max(0, LIFE.mature - life.age);
+    const stage = st === 'jung' || st === 'heran' ? `${STAGE_NAME[st]} – ausgewachsen in ${Math.ceil(left / 60)} Min.` : STAGE_NAME[st];
+    const fert = life.clutches.filter((c) => c.fert).length;
+    const open = life.clutches.length - fert;
+    const block = this.spawning?.block ?? null;
+    const spawn = fert
+      ? `${fert > 1 ? `${fert} befruchtete Gelege` : 'Ein befruchtetes Gelege'} – deine Linie geht weiter`
+      : open
+        ? 'Gelege wartet auf ein Männchen'
+        : block === null
+          ? 'Jetzt laichen: L halten'
+          : `Laichen: ${SPAWN_BLOCK[block]}`;
+    return { stage, spawn };
+  }
+
+  /** Ein Artgenosse (kein Mitglied deiner Gruppe) – z. B. ein Partner beim Laichen. */
+  spawnKinAt(i: number, x: number, y: number): Kin {
+    const genes = game.kinTraits(i);
+    const d = game.traits.diet;
+    const k = new Kin(this, this.kinDef, x, y, game.morph({ traits: genes.traits, fierce: 0, seed: genes.seed, sex: genes.sex }), game.run?.social ?? 0.55);
+    k.genes = genes;
+    k.omni = d >= -0.3 && d <= 0.3;
+    this.animals.push(k);
+    return k;
+  }
+
+  /** Ein kurzes Funkeln. */
+  glitter(x: number, y: number, n: number) {
+    this.sparkle.explode(n, x, y);
+  }
+
+  /**
+   * Das eigene Tier ist gestorben – nach dem Laichen ist das kein Ende: Aus dem jüngsten befruchteten Gelege schlüpft die
+   * nächste Generation. Sie ist an die Spielweise angepasst (keine Wahl) und muss erst heranwachsen.
+   */
+  private succession(cause: string, wait: number) {
     if (this.ended) return;
+    const heir = game.heir();
+    if (!heir) return this.endLine(cause, wait);
     this.ended = true;
-    // Gibt es hier einen Endgegner, geht es nur weiter, wenn er besiegt ist
-    const bossEv = this.ep.events.find((e) => e.kind === 'boss');
-    const repeat = !!bossEv && !this.bossBeaten;
     const run = game.run!;
-    const kin = this.animals.filter((a): a is Kin => a instanceof Kin && !a.dead);
     this.train.hurt += this.player.takeEndured();
     this.swarm?.storeAll();
-    // die Überlebenden deiner Art: deine Gruppe (game.swarm), wo immer sie gerade ist
-    const pop = game.swarm?.members ?? [];
-    // Geht die Linie weiter, gibt es mögliche Nachkommen – je einer für jede Evolutionsplatte; gewählt wird im
-    // Generationen-Bildschirm. Bis dahin führt der die Linie weiter, der am besten zur Spielweise passte.
-    const last = !repeat && !EPOCHS[this.epochIdx + 1];
-    const offspring = last ? [] : game.evolve({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train);
-    const next = offspring.reduce<Offspring | undefined>((best, o) => (!best || o.fit > best.fit ? o : best), undefined);
-    const data: SurvivedData = {
+    const parent = { ...this.player.morph(), belly: 1, fierce: 0 };
+    const h = game.inherit({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train, heir.partner);
+    const look = { traits: h.traits, seed: h.seed, sex: h.sex, hue: run.hue, fierce: 0 };
+    const data: SuccessionData = {
       epoch: this.epochIdx,
-      before: game.startTraits(),
-      traits: { ...game.traits },
-      cls: game.cls,
-      look: { hue: run.hue, seed: run.seed, sex: run.sex },
-      kinAlive: pop.length,
-      kinLooks: pop.slice(0, 3).map((m) => game.kinMorph(m.id)),
-      node: '',
+      cause,
+      gen: game.life.gen,
+      parent,
+      child: game.morph(look),
+      hatchling: game.morph({ ...look, life: lifeK(0) }),
+      sex: h.sex,
+      fit: h.fit,
+      line: h.line,
+      years: worldYears(this.ep.from, this.ep.to),
     };
-    const social = kin.length ? kin.reduce((sum, k) => sum + k.loyalty, 0) / kin.length : undefined;
-    const eaten = { meat: this.kcal(this.eatenMeat), plant: this.kcal(this.eatenPlant), need: this.kcal(this.needUnits) };
-    const res = game.surviveEpoch(kin.length, social, next, repeat);
-    data.offspring = offspring;
-    data.line = next?.plate;
-    data.eaten = eaten;
-    data.repeat = repeat;
-    data.boss = bossEv ? SPECIES[bossEv.species!]?.name : undefined;
-    data.bossBeaten = this.bossBeaten;
-    data.years = this.span.to;
-    data.transition = res.transition;
-    if (res.drift && !res.finished) data.drifted = res.drift.after;
-    data.finished = res.finished;
-    data.node = res.node;
-    audio.sfx('portal');
-    this.player.body.setVelocity(0, 0);
-    this.cameras.main.fadeOut(1800, 230, 214, 180);
-    this.time.delayedCall(1900, () => {
+    game.succeed(heir, h);
+    audio.music(null);
+    this.time.delayedCall(wait, () => {
       this.scene.stop('Hud');
-      this.scene.start('Generation', data);
+      fadeTo(this, 'Generation', data, 1200);
     });
   }
 
-  /** Das Tier ist tot – das Spiel ist vorbei, die Linie stirbt aus. */
+  /** Das Tier ist tot. Wer ein befruchtetes Gelege hinterlässt, lebt darin weiter – sonst stirbt die Linie aus. */
   private onDeath() {
     if (this.ended) return;
-    this.endLine(this.player.lastCause, 2600);
+    this.succession(this.player.lastCause, 2600);
   }
 
   private abort() {
@@ -2736,8 +2787,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   private endLine(cause: string, wait: number) {
     this.ended = true;
-    const frac = clamp(this.elapsed / this.ep.seconds, 0, 1);
-    const years = this.span.from - (this.span.from - this.span.to) * frac;
+    const years = worldYears(this.ep.from, this.ep.to);
+    const frac = clamp((this.ep.from - years) / (this.ep.from - this.ep.to), 0, 1);
     const morph = this.player.morph();
     const leaf = game.extinct(frac, cause);
     audio.music(null);

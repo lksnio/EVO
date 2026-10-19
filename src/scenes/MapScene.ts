@@ -6,6 +6,7 @@ import { PALEO } from '../data/paleo';
 import { placesOf, type PlaceDef } from '../data/world';
 import { STAT_COUNT } from '../data/tablet';
 import { game } from '../state/GameState';
+import { STAGE_NAME, stageOf, worldYears } from '../sim/life';
 import { MAP_BOX, mapPos } from '../art/mapArt';
 import { FogMap, mapFrame, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
@@ -419,8 +420,8 @@ export class MapScene extends Phaser.Scene {
       {
         ctx: { cls: game.cls, traits: game.traits, hp: prog.hp, sat: prog.sat },
         morph: game.morph(),
-        elapsed: prog.elapsed,
         placeName: this.cur.name,
+        life: { stage: STAGE_NAME[stageOf(game.life.age)], spawn: game.heir() ? 'Ein befruchtetes Gelege wartet im Laichfluss' : 'Gelaicht wird im Laichfluss' },
         kin: prog.kin ?? game.run?.kin ?? 0,
       },
       () => this.toggleTablet(),
@@ -472,7 +473,7 @@ export class MapScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
     c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
     c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 180, 22, 35);
+    controlsList(this, c, W / 2 + 30, 172, 21, 31);
     const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
     c.add(back);
     if (this.restNav) this.restNav.enabled = false;
@@ -487,10 +488,9 @@ export class MapScene extends Phaser.Scene {
   private giveUp() {
     if (this.leaving) return;
     this.leaving = true;
-    const prog = game.prog;
-    const frac = Math.max(0, Math.min(1, prog.elapsed / this.ep.seconds));
-    const span = game.epochSpan();
-    const years = span.from - (span.from - span.to) * frac;
+    const ep = this.ep ?? EPOCHS[0];
+    const years = worldYears(ep.from, ep.to);
+    const frac = Math.max(0, Math.min(1, (ep.from - years) / (ep.from - ep.to)));
     const morph = game.morph();
     const leaf = game.extinct(frac, 'Aufgegeben');
     audio.music(null);

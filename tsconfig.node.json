@@ -1,0 +1,9 @@
+{
+  // Tests und Konfiguration laufen in Node (Vitest, Vite) – geprüft mit den Typen von Node.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["tests", "vite.config.ts", "vitest.config.ts"],
+  "exclude": []
+}

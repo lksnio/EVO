@@ -3,23 +3,63 @@
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
 
-Du beginnst als winziger, schwacher Urfisch im Urozean – einer von wenigen deiner Art. Jedes
-**Zeitalter** ist ein fester Zeitraum der Erdgeschichte, und wer bis zum Ende des Zeitraums
-überlebt, dessen Linie zieht ins nächste Zeitalter weiter. Es gibt keine Punkte. Es geht **nur ums
-Überleben – egal wie**. Am Ende des Devons herrscht ein Gigant, der Panzerfisch *Dunkleosteus* –
-erst wer ihn besiegt, kommt weiter.
+Du schlüpfst als winziger, schwacher Urfisch im **Laichfluss** – einer von wenigen deiner Art. Du
+**wächst heran**, und sobald du ausgewachsen bist, kehrst du in den Fluss zurück und **laichst**. Wer
+gelaicht hat, darf sterben, ohne zu verlieren: Aus dem Gelege schlüpft die **nächste Generation**, und du
+spielst als ihr Jungtier weiter – angepasst an das, wie du gelebt hast. Es gibt keine Punkte und keine
+Abschnitte mehr: Die **Weltzeit läuft für alle gleich weiter**. Es geht **nur ums Überleben – und ums
+Weitergeben**.
 
-**Das hier ist eine Demo der Fischzeit:** Sie umfasst Ordovizium, Silur und Devon und endet mit
-„Demo beendet“. Alles, was danach kommen sollte (Land, Reptilien, Säuger), ist vorerst gestrichen –
-zuerst wird das Fischreich ausgebaut.
+**EVO wird ein persistentes Online-Spiel:** eine Welt, die weiterläuft, in der mehrere Spieler einander
+sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere bleiben). Der erste Schritt
+dahin, ein Server, auf dem sich zwei Spieler sehen, ist in Arbeit.
+Die Welt steht derzeit im **Ordovizium**; Silur und Devon sind vorbereitet, aber noch nicht erreichbar.
 
-**Stirbst du, ist das Spiel vorbei.** Deine Linie stirbt aus – und bleibt als Ast im
+**Stirbst du ohne befruchtetes Gelege, stirbt deine Linie aus** – und bleibt als Ast im
 **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
 > Fan-Projekt, inspiriert von *E.V.O.: Search for Eden* (SNES, 1992). Alle Grafiken, Level und Töne
 > werden im Browser erzeugt – es werden keine Original-Inhalte verwendet.
 
 **Online spielen:** https://lksnio.github.io/EVO/
+
+## Ein Leben – und die nächste Generation
+
+- **Heranwachsen:** Jedes Leben beginnt als **Jungtier** mit 40 % der ausgewachsenen Größe. Der Fisch wächst schnell, dann
+  immer langsamer – nach **8 Minuten** Spielzeit ist er **ausgewachsen** (92 %) und nähert sich danach weiter der vollen Größe.
+  Mit der Größe wachsen Lebenskraft, Biss, Stoß und Magen; ein Jungtier ist dafür etwas flinker. Ab etwa **22 Minuten** wird
+  er **alt** (langsamer, schneller müde, weniger Lebenskraft), nach **30 Minuten** stirbt er an Altersschwäche. Gezählt wird
+  nur die Zeit, in der man spielt – wer offline ist, altert nicht. Neue Lebensabschnitte melden sich oben links.
+- **Laichen (Taste L halten, am Handy der Knopf „Laichen“):** Ausgewachsen, satt genug (gut die Hälfte des Magens) und im
+  **Laichfluss** (dem Startort, flussaufwärts der Mündung):
+  - **Als Weibchen** schwimmst du dicht über den Grund und hältst L – über dir füllt sich ein Ring, dann liegt dein
+    **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
+    **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm).
+  - **Als Männchen** bist du bereit, sobald du im Laichfluss bist: Ein **Weibchen deiner Art** kommt und legt ein Gelege
+    ein Stück vor dir. Schwimm hin – über dem Gelege erscheint das Zeichen L – und halte L, um es zu befruchten.
+  - Laichen kostet Kraft aus dem Magen (Weibchen mehr als Männchen); danach dauert es gut zwei Minuten, bis es wieder geht.
+    Wer mehrmals laicht, hat mehrere Gelege – die **jüngste befruchtete** führt die Linie weiter.
+  - Ein **unbefruchtetes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein Gelege
+    auch, wenn du den Fluss verlässt.
+  - Was noch fehlt („noch nicht ausgewachsen“, „zu hungrig“, „nur im Laichfluss“ …), steht auf der Steintafel (C).
+- **Der Generationswechsel:** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder weil du es in der Rast (Esc)
+  mit **„Leben weitergeben“** selbst beendest –, schlüpft aus deinem jüngsten befruchteten Gelege die nächste Generation.
+  Ein Bildschirm zeigt das Tier, das starb, daneben den Nachkommen (ausgewachsen und so klein, wie er schlüpft), die
+  deutlichste Veränderung in einem Satz und **deine Spielweise** (ein bis drei Punkte je Richtung). Mit „Schlüpfen“ geht
+  es im Laichfluss weiter – dort, wo das Gelege lag; die Geschwister schwärmen aus. Was die Linie weiß (Orte, Muscheln,
+  Aufträge, deine Gruppe), bleibt; Alter, Magen und Spielweise beginnen neu. Ohne befruchtetes Gelege stirbt die Linie aus.
+- **Keine Wahl, sondern Anpassung:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten mehr zur
+  Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte; was im Leben
+  Stück für Stück gewachsen ist (Tarnung, Bodenkontakt, Flossen …), setzt sich zum Teil fort; Größe, Robustheit und Kost
+  passen sich an wie bisher (siehe unten). Der **Partner** gibt etwas von seinem Aussehen mit, und das Geschlecht des
+  Nachkommen entscheidet der Zufall.
+- **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die
+  12 Millionen Jahre des Ordoviziums dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
+  Stürme …) kehren darin immer wieder – für alle zugleich. Oben im Bild stehen die Jahre, darunter die **Lebenslinie**
+  deines Tiers (mit Marken bei „ausgewachsen“ und „alt“; sie leuchtet warm, sobald ein befruchtetes Gelege wartet).
+- **Eine feste Welt:** Jeder Ort sieht für alle Spieler und in jedem Leben gleich aus (eine feste Weltsaat) – egal, von
+  wo man ankommt.
+- Alle Zahlen stehen an einer Stelle: `src/data/life.ts` (`WORLD`, `LIFE`, `SPAWN`, `INHERIT`).
 
 ## So spielt sich EVO
 
@@ -113,9 +153,10 @@ zuerst wird das Fischreich ausgebaut.
     Verhalten in `src/objects/Swarm.ts`. Sonst gibt es weiterhin keine Artgenossen, die frei umherschwimmen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
-  - **Der Startort** ist ein **Fluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden – **keine
-    anderen Tiere**, nur ein paar Pflanzen. Der Fluss fällt zum Meer hin ab, erst hinter der Mündung (im offenen Meer)
-    wartet das Leben. Auch die ersten Räuber lassen dich im Fluss in Ruhe.
+  - **Der Startort** ist ein **Fluss**, der **Laichfluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am
+    Boden – **keine anderen Tiere**, nur ein paar Pflanzen. Der Fluss fällt zum Meer hin ab, erst hinter der Mündung (im
+    offenen Meer) wartet das Leben. Auch die ersten Räuber lassen dich im Fluss in Ruhe. Ausgewachsen kehrst du hierher
+    zurück, um zu laichen.
   - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
   - **Trübe Orte** (Trübe Bucht, Sandfeld, Schlickebene …) sind **Hügelketten** oder flache Sandebenen – man sieht
@@ -218,11 +259,11 @@ zuerst wird das Fischreich ausgebaut.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
-- **Wachsen von Generation zu Generation:** Körper und Kampfwerte verändern sich **nicht mitten im Zeitalter**,
-  sondern erst beim **Generationswechsel** danach – dann aber deutlich, und die Merkmale bauen über mehrere Zeitalter
-  aufeinander auf. Was sich ändert, bestimmen die gewählte **Evolutionsplatte** (siehe unten) und drei Anpassungen, die
-  unabhängig davon geschehen: **Körpergröße** (Lebensraum), **Körperrobustheit** (überstandene Angriffe) und
-  **Ernährung** (gefressene Energie).
+- **Wachsen von Generation zu Generation:** Im Leben wächst dein Tier nur heran (und altert); die **Art** verändert sich
+  erst beim **Generationswechsel** – dann aber deutlich, und die Merkmale bauen über viele Generationen aufeinander auf. Was
+  sich ändert, bestimmen deine Spielweise (die **Evolutionsrichtungen**, siehe unten) und drei Anpassungen, die unabhängig
+  davon geschehen: **Körpergröße** (Lebensraum), **Körperrobustheit** (überstandene Angriffe) und **Ernährung** (gefressene
+  Energie).
 - **Kompromisse:** Alles hat seinen Preis. Ein **starkes Gebiss** macht **langsamer** und **schneller müde**; ein harter
   Schädel ebenso. Masse und Schuppenpanzer kosten **Tempo** und machen **hungriger**. Schlanke Verfolger sind schnell und
   halten länger durch, halten aber weniger aus und stoßen schwächer. Das steht (verdeckt) hinter dem Aussehen – die Tafel
@@ -261,11 +302,9 @@ zuerst wird das Fischreich ausgebaut.
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus. Auch **große Tiere töten nicht nur**, sondern
   **fressen ihre Beute**: Ein Räuber, der etwas erlegt hat, schwimmt zum Fleisch, senkt den Kopf und frisst Bissen für Bissen –
   mit sichtbarem Nicken, Kauen und einem Ruck bei jedem Happen (bis er satt ist oder etwas ihn stört).
-- **Herrscher des Devons:** Kurz vor Schluss des letzten Zeitalters erscheint der Endgegner –
-  *Dunkleosteus*, mit Lebensbalken unten im Bild. Er folgt dir von Ort zu Ort. Überlebst du, ohne
-  ihn zu besiegen, bleibt deine Linie im Devon: eine neue Generation, etwas später, etwas stärker.
-  Man spielt das Zeitalter also mehrmals und entwickelt sich weiter – anfangs frisst man nur die
-  kleinen Fische, später größere. Erst wer den Herrscher besiegt, beendet die Demo.
+- **Herrscher des Devons:** Im Devon wartet der Endgegner – *Dunkleosteus*, mit Lebensbalken unten im Bild; einmal
+  aufgetaucht, folgt er dir von Ort zu Ort. Solange die Welt im Ordovizium steht, ist er nicht zu erreichen (wie er in der
+  durchgehenden Weltzeit auftaucht, ist noch offen).
 - **Überraschungsangriff:** Wer aus Dickicht, Höhle, Felsspalte oder gut getarnt angreift (das Tier
   ist dann leicht durchsichtig), trifft mit dem ersten Biss oder Stoß zwei- bis dreifach und betäubt.
 - **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Ordovizium ein
@@ -306,28 +345,26 @@ zuerst wird das Fischreich ausgebaut.
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
-- **Drei Evolutionsplatten – nach jedem Zeitalter wählst du:** Am Ende jedes Zeitalters (und jeder weiteren Generation im
-  Devon) stehen drei Steinplatten wie die Tafel (Taste C) zur Wahl. Jede zeigt oben den Nachkommen, wie er aussähe, darunter
-  seine Werte. Die Wahl bestimmt, wohin sich die nächste Generation entwickelt:
+- **Vier Evolutionsrichtungen – deine Spielweise entscheidet:** Beim Generationswechsel wählst du nichts; die Nachkommen
+  entwickeln sich in die Richtungen, die zu deinem Leben passten (meist eine Mischung, oft mit einer deutlichen):
   - **Stoßfisch** – wendiger (große Seitenflossen, kürzerer Körper) und eine ausgeprägte **Kopfplatte** (ein Knochenschild
     über Stirn und Schnauze), kräftiger Stoß; dafür etwas langsamer und schneller müde, das Gebiss bleibt, wie es ist.
   - **Beißfisch** – mehr Kraft und ein **starkes Gebiss**: tieferer Kiefer, mehr und längere Zähne, Reißzähne, ein Kaumuskel
     an der Wange; dafür langsamer und schneller müde.
   - **Verfolgungsfisch** – schneller und ausdauernder: **länglicher**, schlanker Körper, große Schwanzflosse, spitze Schnauze;
     dafür weniger Lebenskraft, ein schwacher Stoß und schwerfälligeres Wenden.
-  - **Schwarmfisch** (als vierte Platte, sobald deine Gruppe auf deinen Ruf kommt) – silbrig, schlanker, mit hellem und
+  - **Schwarmfisch** (erst, sobald deine Gruppe auf deinen Ruf kommt) – silbrig, schlanker, mit hellem und
     dunklem Band an der Flanke: Deine Gruppe wird **stärker** (ihr Biss bis zu drei Viertel von deinem), **größer** (mehr kommen
     auf deinen Ruf) und wächst schneller durch geteilte Beute; dafür hast du selbst weniger Lebenskraft – allein bist du
     verletzlicher, und die Beute wird geteilt.
-  **Wie stark** sich die Platte ausprägt, bestimmt die Spielweise des Zeitalters (auf der Platte bei „Ausprägung“ in ein bis
-  drei Fischen): erfolgreiche **Stöße** und mit dem Stoß erlegte Gegner für den Stoßfisch, erfolgreiche **Bisse** und erlegte
-  Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit Tempo für den Verfolgungsfisch,
-  **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
-  Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Vorgewählt ist die Platte, die am
-  besten passte – wählen darfst du jede. Die Platten sammeln Punkte und bauen über die Zeitalter aufeinander auf; wer
-  wechselt, bekommt Mischformen. Keine ist überall die beste.
+  **Wie stark** sich eine Richtung ausprägt, bestimmt die Spielweise des Lebens (beim Generationswechsel unter „Deine
+  Spielweise“ in ein bis drei Punkten): erfolgreiche **Stöße** und mit dem Stoß erlegte Gegner für den Stoßfisch,
+  erfolgreiche **Bisse** und erlegte Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit
+  Tempo für den Verfolgungsfisch, **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
+  Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Die Richtungen bauen über die
+  Generationen aufeinander auf; wer anders lebt, bekommt Mischformen. Keine ist überall die beste.
 - **Drei Anpassungen, unabhängig von der Platte:**
-  - **Körpergröße** aus dem **Lebensraum**: Es zählt, wo du im Zeitalter am **aktivsten** warst (schwimmen, fressen, kämpfen –
+  - **Körpergröße** aus dem **Lebensraum**: Es zählt, wo du im Leben am **aktivsten** warst (schwimmen, fressen, kämpfen –
     bloßes Treiben kaum). Flache, bewachsene Orte machen kleiner, trübe etwas größer, die Tiefe und erst recht der Abgrund
     deutlich größer (in tiefen Orten zählt nur, wer auch hinabschwimmt). Größere Fische sind massiger, brauchen mehr Nahrung,
     werden langsamer und schwerfälliger – und fallen früher auf, kleine Beute entkommt ihnen leichter.
@@ -337,37 +374,36 @@ zuerst wird das Fischreich ausgebaut.
   - **Ernährung** aus der **gefressenen Energie**: Der Anteil von Fleisch und Pflanzen verschiebt die Kost Schritt für
     Schritt (höchstens ein gutes Stück je Generation, nie ganz bis zum Äußersten). Wer zu 90 % Fleisch frisst, dem liefern
     Pflanzen schon in der nächsten Generation spürbar, in der übernächsten **deutlich weniger Energie** – und umgekehrt.
-  Nach der Wahl siehst du dein Tier „einst“ und „heute“; was sich verändert, zeigt der Sprung über die Jahrmillionen.
+  Beim Generationswechsel siehst du dein Tier und seinen Nachkommen nebeneinander.
 - **Die Steintafel (Taste C):** Eine **gebrochene, vermooste Steinplatte** mit Rissen und eingemeißelten
   Runen – anfangs ist alles überwuchert; die Zeilen sitzen auf leicht versetzten Platten.
   Jede **Muschel**, die du findest, legt eine Zeile frei: zuerst der **Nahrungsbedarf** (die erste
   Muschel liegt im ersten Gewässer direkt vor dir), später Gewicht, Körpertemperatur, **Färbung** (aus den Höhlen), Gebiss,
   Länge, Lebenskraft, Schädel bzw. Panzerkopf, **Schuppen** (Robustheit), Kost (mit dem, was die andere Kost noch nährt),
-  Tarnung, Wuchs, **Tempo**, **Wendigkeit**, **Ausdauer**, Bodenkontakt, Zusammenhalt und Nerven. Auf den
-  **Evolutionsplatten** gilt dasselbe: Freigelegte Werte stehen da, mit einem Pfeil, ob sie mehr oder weniger würden (grün
-  besser, rot schlechter); was noch unter Moos liegt, bleibt verborgen – nur der Pfeil schimmert durch.
+  Tarnung, Wuchs, **Tempo**, **Wendigkeit**, **Ausdauer**, Bodenkontakt, Zusammenhalt und Nerven.
   Alles, was man trainieren kann, wird in **ein bis drei Fischen** gewertet: einer für „ein
   bisschen“, zwei für mehr, drei für stark. Die Muscheln sind schlichte Spiralmuscheln in Creme und Rosa. Sie sind selten – sie liegen in Höhlen, Felsspalten
   und weit draußen am Grund, in der Tiefe am weitesten weg. Rechts neben der Tafel siehst du dein
-  Tier und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
+  Tier, die **Generation**, das Geschlecht, den **Lebensabschnitt** (als Jungtier: wann es ausgewachsen ist), was zum
+  **Laichen** noch fehlt bzw. ob ein befruchtetes Gelege wartet, und deine Muscheln. Den Hunger sieht man sonst nirgends im Spiel; die **Zeit** läuft oben im Bild. Das meiste
   andere an deinem Tier bleibt verborgen – es zeigt sich nur in dem, was es tut.
-- **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen prägen die gewählte Platte aus; Bodenkontakt (sich am
+- **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
   aussehen und was sie können.
 - **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme wühlen das Wasser auf, Futter
-  sprießt.
-- **Zwischen den Zeitaltern** wählst du die Platte, siehst dein Tier „einst“ und „heute“, dann vergehen Jahrmillionen –
-  und was sich bewährt hat (Tarnung, Bodenkontakt …), setzt sich in dieser Zeit fort: je mehr Jahre, desto deutlicher. Das
-  **Aussehen** und die Werte verwandeln sich dabei **nur einmal pro Zeitalter** – nicht mitten im Spiel und nicht doppelt.
+  sprießt – immer wieder, nach der Weltzeit für alle zugleich.
+- **Von Generation zu Generation** setzt sich fort, was sich bewährt hat (Tarnung, Bodenkontakt …). Das **Aussehen** der
+  Art verwandelt sich **nur beim Generationswechsel** – im Leben wächst das Tier nur heran.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
 - **Keine Spoiler:** Zeitalter, die noch niemand erreicht hat, bleiben im Stammbaum und in der
   Zeitleiste Fragezeichen.
 
-Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Zeit** (Name des
-Zeitalters, „vor 470.000.000 Jahren“ – die Jahre zählen mit der Zeit rückwärts – und die Zündschnur), unten (nur wenn er auftaucht) der
-Lebensbalken des Herrschers. **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
+Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
+Zeitalters, „vor 469.800.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
+Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Oben links erscheinen kurze Meldungen zum Leben
+(neuer Lebensabschnitt, Gelege abgelegt bzw. befruchtet, geschlüpft). **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
 wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
 nicht – was man über ein Tier wissen will, steht im Aquapendium. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung, Hunger und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst (eingefallene Flanken, Narben, Blick …). Schwer verletzt färben
@@ -391,11 +427,11 @@ Generationswechsel – als Wert sieht man nichts davon:
 
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
-| wählt den **Stoßfisch** | eine **Kopfplatte** (Knochenschild über Stirn und Schnauze), einen härteren Schädel, große Seitenflossen, einen kurzen, stumpfen Kopf, stahlgraue Farben: kräftiger Stoß, wendiger, weniger eigener Schaden – etwas langsamer, schneller müde |
+| lebt als **Stoßfisch** | eine **Kopfplatte** (Knochenschild über Stirn und Schnauze), einen härteren Schädel, große Seitenflossen, einen kurzen, stumpfen Kopf, stahlgraue Farben: kräftiger Stoß, wendiger, weniger eigener Schaden – etwas langsamer, schneller müde |
 | … und stößt dabei oft und erfolgreich (Taste R), erlegt damit Tiere | eine deutlichere Ausprägung – Erfolge gegen Stärkere zählen ein Vielfaches |
-| wählt den **Beißfisch** | einen tieferen Kiefer, mehr und längere Zähne, **Reißzähne**, einen Kaumuskel, bronzene Farben: viel mehr Beißkraft – langsamer, schneller müde (wer Pflanzen frisst, hat stumpfe Zähne und keine Reißzähne) |
+| lebt als **Beißfisch** | einen tieferen Kiefer, mehr und längere Zähne, **Reißzähne**, einen Kaumuskel, bronzene Farben: viel mehr Beißkraft – langsamer, schneller müde (wer Pflanzen frisst, hat stumpfe Zähne und keine Reißzähne) |
 | … und beißt oft und erfolgreich, erlegt Beute | eine deutlichere Ausprägung |
-| wählt den **Verfolgungsfisch** | einen längeren, schlankeren, flinken Körper, eine große Schwanzflosse, eine spitze Schnauze, blaugraue Farben: schneller, ausdauernder – weniger Lebenskraft, schwächerer Stoß, wendet träger |
+| lebt als **Verfolgungsfisch** | einen längeren, schlankeren, flinken Körper, eine große Schwanzflosse, eine spitze Schnauze, blaugraue Farben: schneller, ausdauernder – weniger Lebenskraft, schwächerer Stoß, wendet träger |
 | … und holt Flüchtende ein, jagt, schwimmt viel und schnell (gegen Strömungen doppelt) | eine deutlichere Ausprägung – je länger und schneller die Beute floh, desto mehr |
 | ist am **aktivsten** in flachen, bewachsenen Orten · in trüben · in der Tiefe · im Abgrund | kleiner · etwas größer · deutlich größer · noch größer – mit der Größe massiger, hungriger, langsamer und schwerfälliger |
 | übersteht viele Treffer (schwere zählen mehr) | robustere **Schuppen**, später einen **Schuppenpanzer** mit Knochenschilden: weniger Schaden, mehr Lebenskraft – langsamer, hungriger |
@@ -403,7 +439,7 @@ Generationswechsel – als Wert sieht man nichts davon:
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, einen schlankeren Körper, mehr Tempo, größere Augen |
 | liegt oft still am Boden | sandig braun-graue Farben |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
-| wählt den **Schwarmfisch** (erst, wenn deine Gruppe auf deinen Ruf kommt) | silbrig, schlank, mit Band an der Flanke: mehr **Zusammenhalt** – die Gruppe kommt größer, beißt kräftiger und wächst schneller – weniger eigene Lebenskraft |
+| lebt als **Schwarmfisch** (erst, wenn deine Gruppe auf deinen Ruf kommt) | silbrig, schlank, mit Band an der Flanke: mehr **Zusammenhalt** – die Gruppe kommt größer, beißt kräftiger und wächst schneller – weniger eigene Lebenskraft |
 | … und jagt oft mit der Gruppe und lässt sie mitfressen | eine deutlichere Ausprägung – gegen Starke mehr |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
@@ -420,13 +456,12 @@ werden schneller wütend. Wer mit Artgenossen und Verbündeten unterwegs ist, wi
 Jeder Artgenosse hat eine verborgene **Treue**. Sie steigt, wenn er von deiner Beute mitfrisst oder
 mit dir grast, und sinkt, wenn er hungrig zusehen muss, wie du alles allein frisst (oder wenn du
 ihn beißt). Treue Artgenossen jagen mit, verteidigen dich und verstecken sich mit dir; untreue
-bleiben auf Abstand und gehen schließlich. Die durchschnittliche Treue der Überlebenden bestimmt,
-wie zutraulich die Gruppe im nächsten Zeitalter beginnt. Wer aus deiner Gruppe verärgert abzieht, verlässt sie für immer.
+bleiben auf Abstand und gehen schließlich. Wer aus deiner Gruppe verärgert abzieht, verlässt sie für immer.
 
-Zwischen den Zeitaltern wird verstärkt, was im Hintergrund dazugekommen ist (Tarnung, Bodenkontakt …) – umso stärker,
-je mehr Jahrmillionen vergehen (Faktor etwa 0,9 bis 1,8). Die Artgenossen tragen dasselbe weiter,
-jeder mit eigener Abweichung. Die Nachkommen auf den Platten (drei, mit deiner Gruppe vier) unterscheiden sich nur in der Platte; Größe,
-Robustheit und Kost sind bei allen gleich – gewählt wird einer, nichts kommt doppelt dazu.
+Beim Generationswechsel geht von dem, was im Leben im Hintergrund dazugekommen ist (Tarnung, Bodenkontakt, Flossen …),
+gut die Hälfte auf die Nachkommen über (`INHERIT.carry`). Jede Evolutionsrichtung wächst um `INHERIT.gain` × ihre Passung
+zur Spielweise (0 bis 1). Größe, Robustheit und Kost passen sich an wie oben. Vom Partner kommen 15 % seines Aussehens
+(Farben, Länge, Flossen – keine Kampfwerte). Die Artgenossen tragen dasselbe weiter, jeder mit eigener Abweichung.
 Im Stammbaum werden Linien nach Körperform, vorherrschender Platte und Kost zusammengefasst –
 daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch).
 </details>
@@ -446,15 +481,16 @@ nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der R
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Steintafel: Werte, Hunger, Muscheln |
-| Esc / P | Rast (Pause) mit Steuerung |
+| L (halten) | laichen – ausgewachsen, satt genug, im Laichfluss: Weibchen dicht am Grund, Männchen an einem frischen Gelege |
+| C | Steintafel: Werte, Hunger, Lebensabschnitt, Laichen, Muscheln |
+| Esc / P | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
 | M | Ton an/aus |
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
 ## Entwickeln
 
-Voraussetzung: [Node.js](https://nodejs.org) 20 oder neuer.
+Voraussetzung: [Node.js](https://nodejs.org) 22 oder neuer.
 
 ```bash
 npm install
@@ -466,7 +502,8 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 | `npm run dev` | Startet den Entwicklungsserver |
 | `npm run build` | Typprüfung + Produktions-Build nach `dist/` |
 | `npm run preview` | Zeigt den fertigen Build lokal an |
-| `npm run typecheck` | Nur TypeScript prüfen |
+| `npm run typecheck` | Nur TypeScript prüfen (Spiel, Tests und Konfiguration) |
+| `npm test` | Tests der Spiellogik ohne Browser (Vitest, `tests/`): Weltgenerator, Lebenszyklus, Vererbung |
 
 **Entwickler-Modus:** `?debug` an die Adresse hängen (z. B. `http://localhost:8080/?debug`) – im Level
 werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
@@ -504,10 +541,12 @@ src/
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Muscheln; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
+│   ├── life.ts          Welt und Leben: Weltsaat und Weltzeit (WORLD), Wachsen und Altern (LIFE), Laichen (SPAWN), Vererbung (INHERIT)
 │   └── tablet.ts        die Zeilen der Steintafel und wie sie berechnet werden
-├── state/GameState.ts   Leben (Lauf), verborgene Merkmale, Ruf, Stammbaum, Speichern
+├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
+├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
 ├── level/
-│   ├── LevelGen.ts      erzeugt jeden Ort (bei jedem Leben etwas anders, aber immer derselbe Ort)
+│   ├── LevelGen.ts      erzeugt jeden Ort – für alle Spieler und in jedem Leben gleich (feste Weltsaat), ohne Phaser
 │   └── terrain.ts       der Meeresboden: glatte Höhenlinie, Zonen aus Sand/Fels/Schlamm, Felsbrocken, Bögen, Hitboxen
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
 │   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
@@ -522,16 +561,18 @@ src/
 │   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole und Titelbild
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)
+├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Steintafel (tablet.ts, tabletScreen.ts)
-└── scenes/              Titel, Intro, Level, Karte, HUD, Generationen, Stammbaum, Demo-Ende
+└── scenes/              Titel, Intro, Level, Karte, HUD, Generationswechsel, Stammbaum, Demo-Ende
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Ereignis-Bus
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
 
 ### Ideen für später
 
-- [ ] Fortpflanzung im Level (Partnerwahl unter den Artgenossen)
+- [ ] Andere Spieler als Partner beim Laichen (heute kommt ein Artgenosse der KI)
 - [ ] Weitere Orte, Tiere und Zeitalter im Fischreich
 - [ ] Gamepad-Steuerung
 - [ ] Echte Zeichnungen/Sprites (z. B. von OpenGameArt oder Kenney) statt gemalter Canvas-Grafik

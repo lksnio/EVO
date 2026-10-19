@@ -10,6 +10,7 @@ const PAGES = [
   'Vor 470 Millionen Jahren ist die Erde fast nur Wasser.',
   'Im Dunkel der Urmeere regt sich das erste Leben.',
   'Du bist ein kleiner Urfisch.\nEiner von wenigen deiner Art.',
+  'Wachse heran. Kehre zum Laichen in den Fluss zurück –\nund lebe in deinen Nachkommen weiter.',
 ];
 
 export class IntroScene extends Phaser.Scene {

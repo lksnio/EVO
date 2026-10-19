@@ -44,6 +44,13 @@ export class Kin extends Animal {
   slot = 0;
   /** fortgeschickt: schwimmt davon und verlässt den Ort (lebend) */
   homeward = false;
+  /** wohin er fortschwimmt (1 rechts, -1 links; 0 = zum näheren Rand) – aus dem Laichfluss geht es immer ins Meer */
+  homeDir = 0;
+  /**
+   * Eine kleine Aufgabe (beim Laichen): zu einer Stelle schwimmen, dort stay Sekunden bleiben – dann done(). Solange er eine
+   * Aufgabe hat, kümmert er sich um nichts anderes.
+   */
+  task?: { x: number; y: number; stay: number; t: number; done: () => void };
   private offY: number;
   private calledAt = -1e9;
   private dying = false;
@@ -206,7 +213,6 @@ export class Kin extends Animal {
   // ------------------------------------------------------------------ Verhalten
 
   protected think(time: number, dt: number) {
-    void dt;
     const W = this.world;
     const p = W.player;
     this.attacking = false;
@@ -215,13 +221,16 @@ export class Kin extends Animal {
 
     // Geht eigene Wege (oder ist fortgeschickt): zum fernen Rand und fort
     if (this.leaving || this.homeward) {
-      const edge = this.x < (W.physics.world.bounds.width / 2) ? 10 : W.physics.world.bounds.width - 10;
+      const wide = W.physics.world.bounds.width;
+      const edge = this.homeDir ? (this.homeDir < 0 ? 10 : wide - 10) : this.x < wide / 2 ? 10 : wide - 10;
       this.go('wander');
       this.moveTo(edge, this.y, this.def.speed * 0.9, true);
       // fort erst, wenn er nicht mehr zu sehen ist (nie vor deinen Augen)
       if (Math.abs(this.x - edge) < 40 && !W.inView?.(this)) this.leave();
       return;
     }
+    // eine Aufgabe (Laichen): hinschwimmen, verweilen, erledigen
+    if (this.task) return this.taskStep(dt);
 
     // Verärgert: einmal zubeißen, dann davon
     if (time < this.angryUntil && !p.dead) {
@@ -303,6 +312,23 @@ export class Kin extends Animal {
     if (this.escort && !p.dead) return this.escortStep();
     // sonst: im eigenen Revier umherstreifen
     this.wander(time);
+  }
+
+  private taskStep(dt: number) {
+    const k = this.task!;
+    const d = Math.hypot(k.x - this.x, k.y - this.y);
+    if (d > 24) {
+      this.go('follow');
+      this.moveTo(k.x, k.y, this.def.speed * (d > 300 ? 1.2 : 0.7));
+      return;
+    }
+    this.go('idle');
+    this.halt();
+    k.t += dt;
+    if (k.t >= k.stay) {
+      this.task = undefined;
+      k.done();
+    }
   }
 
   /** Locker hinterher: jeder an seinem Platz hinter dir, mal etwas höher, mal tiefer – wer zurückfällt, schließt zügig auf. */

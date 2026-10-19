@@ -7,7 +7,7 @@ export type Sfx =
   | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
   | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
-  | 'thud' | 'crumble' | 'blub';
+  | 'thud' | 'crumble' | 'blub' | 'laich';
 
 interface ToneOpts {
   f: number;
@@ -649,6 +649,15 @@ export class AudioEngine {
         this.noise({ d: 0.7, v: 0.42, filter: 900, f2: 160 });
         for (let i = 0; i < 6; i++) this.noise({ d: 0.12, v: 0.12, filter: 1400 + Math.random() * 1600, type: 'bandpass', q: 2.5, t: 0.15 + i * 0.09 + Math.random() * 0.05 });
         break;
+      case 'laich': {
+        // ein Gelege wird abgelegt: eine perlende Kette kleiner Bläschen, darunter ein weicher, warmer Ton
+        this.tone({ f: 196, f2: 220, d: 0.9, type: 'sine', v: 0.05, a: 0.12 });
+        for (let i = 0; i < 7; i++) {
+          const f = 420 + Math.random() * 380;
+          this.tone({ f, f2: f * 1.8, d: 0.06, type: 'sine', v: 0.05, a: 0.004, t: i * 0.07 + Math.random() * 0.03 });
+        }
+        break;
+      }
       case 'blub': {
         // ein Blubbern beim Sprechen: kurze, aufsteigende Bläschen
         const f = 260 + Math.random() * 160;

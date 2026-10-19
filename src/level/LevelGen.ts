@@ -206,7 +206,7 @@ function makeGround(hp: number[], cols: number): Ground {
   };
 }
 
-function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, startCol: number, minCol = 4) {
+function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, arrCols: number[], minCol = 4) {
   const def = place.def;
   const heights = G.heights;
   const cols = heights.length;
@@ -265,12 +265,13 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
     const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : Math.max(1, Math.round(9 / avgHerd)), Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
     const c0 = Math.max(4, minCol), c1 = cols - 5;
     for (let g = 0; g < count; g++) {
-      // Räuber nicht direkt neben dem Ankunftsplatz
+      // Räuber nicht direkt neben einem Ankunftsplatz
       const keep = danger ? 20 : 8;
+      const near = (c: number) => arrCols.some((a) => Math.abs(c - a) < keep);
       // Im Trichter sammeln sich die großen Jäger in der Mitte, ganz unten
       const pickCol = () => (vee && hunter && sizeK > 1 && r() < 0.7 ? Math.round(cols / 2 + (r() - 0.5) * cols * 0.45) : rint(r, c0, c1));
       let cx = pickCol();
-      for (let k = 0; k < 12 && Math.abs(cx - startCol) < keep; k++) cx = pickCol();
+      for (let k = 0; k < 12 && near(cx); k++) cx = pickCol();
       put(id, cx, hunter && place.deep > 0);
     }
   }
@@ -283,7 +284,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
  * Fischlaich: Am Start liegt deine eigene Brut im Fluss. Überall im Meer kleben außerdem Gelege der Bewohner am Boden,
  * und die Eltern wachen in der Nähe. Wer daran frisst, wird von ihnen (wenn sie es mitbekommen) angegriffen.
  */
-function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: number, arrCol: number, riverEndCol: number) {
+function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: number, arrCols: number[], riverEndCol: number) {
   const heights = G.heights;
   const cols = heights.length;
   const rocky = (c: number) => L.solids.some((q) => (c + 0.5) * T > q.x - 50 && (c + 0.5) * T < q.x + q.w + 50) || L.fore.some((f) => Math.abs((c + 0.5) * T - f.x) < f.rx);
@@ -319,7 +320,7 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
     // gefährliche Eltern kommen seltener vor
     if (d.role === 'predator' && r() > 0.45) continue;
     const c = nearFlat(Math.round(sp.x / T) + rint(r, -6, 6), 8);
-    if (c < 0 || c < riverEndCol + 40 || heights[c] > 32 || Math.abs(c - arrCol) < 16 || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
+    if (c < 0 || c < riverEndCol + 40 || heights[c] > 32 || arrCols.some((a) => Math.abs(c - a) < 16) || L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 6 * T)) continue;
     // nicht in den Durchgängen
     if (L.gates.some((g) => g.kind === 'floor' && (c + 0.5) * T > g.x - 3 * T && (c + 0.5) * T < g.x + g.w + 3 * T)) continue;
     const idx = L.roe.length;
@@ -410,8 +411,21 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
   addCurrents(L, r, cols, G.heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
   addGates(L, ep, place, r, cols, G, startCol);
-  // Wer durch einen Durchgang kommt, taucht dort auf – Räuber halten Abstand zu dieser Stelle
-  // (Wer über den Rand hereinschwimmt, taucht am Gegenrand auf – auf derselben Höhe, soweit es dort Wasser gibt)
+  // Die Welt ist für alle gleich – egal, von wo man kommt. Deshalb bleibt an jedem möglichen Ankunftsplatz Platz: am Start,
+  // an jedem Durchgang und an beiden Rändern (Felsen, Räuber, Gelege und Dickicht halten dort Abstand).
+  const arrCols = [startCol, ...L.gates.map((g) => Math.floor(g.arrive.x / T)), 9, cols - 10];
+  // Felsen und Kiesel – nicht dort, wo man ankommt
+  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T])], riverEndCol);
+  placeMats(L, place, r, G, riverEndCol);
+  dressGround(L, ep, place, r, G, riverEndCol);
+  placeShells(L, ep, place, r, G, startCol);
+  // am Start (im Fluss) ist es still: Tiere gibt es erst weiter draußen im Meer
+  placeFauna(L, ep, place, r, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
+  placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
+  // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
+  L.cover = L.cover.filter((c) => (c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T) && arrCols.every((a) => c.x > (a + 9) * T || c.x + c.w < (a - 9) * T));
+  // Wo man selbst ankommt (das Einzige, was davon abhängt, von wo man kommt): am Durchgang, durch den man kam – oder, wer über
+  // den Rand hereinschwimmt, am Gegenrand auf derselben Höhe (soweit es dort Wasser gibt)
   let arrive = from ? L.gates.find((g) => g.to === from)?.arrive : undefined;
   if (edge) {
     const col = edge.side === 'left' ? cols - 10 : 9;
@@ -419,19 +433,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, from?: string, edge?: E
     const top = L.surfaceY + 120, bot = Math.max(top + 10, floorY - 130);
     arrive = { x: (col + 0.5) * T, y: clampN(L.surfaceY + edge.frac * (floorY - L.surfaceY), top, bot) };
   }
-  const arrCol = arrive ? Math.floor(arrive.x / T) : startCol;
-  // Felsen und Kiesel – nicht dort, wo man ankommt
-  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], [(arrCol - 9) * T, (arrCol + 9) * T]], riverEndCol);
-  placeMats(L, place, r, G, riverEndCol);
-  dressGround(L, ep, place, r, G, riverEndCol);
-  placeShells(L, ep, place, r, G, startCol);
-  // am Start (im Fluss) ist es still: Tiere gibt es erst weiter draußen im Meer
-  placeFauna(L, ep, place, r, G, arrCol, riverEndCol ? riverEndCol + 12 : 4);
-  placeRoe(L, place, r, G, startCol, arrCol, riverEndCol);
   if (arrive) L.start = { x: arrive.x, y: arrive.y };
-  // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
-  const ac = arrive ? Math.floor(arrive.x / T) : startCol;
-  L.cover = L.cover.filter((c) => (c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T) && (c.x > (ac + 9) * T || c.x + c.w < (ac - 9) * T));
   // keine Tiere im Fels (Felsen, Platten, Bögen) und nicht im Boden
   for (const sp of L.spawns) {
     const crawl = SPECIES[sp.id]?.crawl;

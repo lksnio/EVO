@@ -380,6 +380,7 @@ export class TreeScene extends Phaser.Scene {
       const ep = EPOCHS[n.epoch];
       const years = ep.from - (ep.from - ep.to) * n.dead.frac;
       lines.push(`Ausgestorben im ${ep.name},`, `${yearsAgo(years, 1e4)}.`, `Ursache: ${n.dead.cause}`);
+      if (n.dead.gens && n.dead.gens > 1) lines.push(`nach ${n.dead.gens} Generationen`);
     } else {
       const ep = EPOCHS[n.epoch];
       lines.push(`Überlebte das ${ep.name}`, `(bis ${shortYears(ep.to)} vor heute).`);
@@ -413,9 +414,12 @@ export class TreeScene extends Phaser.Scene {
     const t1 = title(this, W / 2, 150, 'Deine Linie ist ausgestorben.', 42, '#c8473a').setOrigin(0.5).setAlpha(0);
     const t2 = text(this, W / 2, 460, `${ep.name} · ${yearsAgo(d.years, 1e4)}`, 22, UI.bone).setOrigin(0.5).setAlpha(0);
     const t3 = text(this, W / 2, 496, `Ursache: ${d.cause}`, 19, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    c.add([t1, t2, t3]);
+    // die Linie endet, weil kein befruchtetes Gelege da war, aus dem die nächste Generation hätte schlüpfen können
+    const t4 = text(this, W / 2, 532, 'Kein befruchtetes Gelege – niemand führt die Linie weiter.', 17, UI.boneDim).setOrigin(0.5).setAlpha(0);
+    c.add([t1, t2, t3, t4]);
     this.tweens.add({ targets: t1, alpha: 1, duration: 1200 });
     this.tweens.add({ targets: [t2, t3], alpha: 1, duration: 1000, delay: 1100 });
+    this.tweens.add({ targets: t4, alpha: 0.85, duration: 1000, delay: 1900 });
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
     this.input.keyboard!.once('keydown', () => this.closeOverlay());
