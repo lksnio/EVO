@@ -62,12 +62,12 @@ class EggCard extends Phaser.GameObjects.Container {
     this.ring = scene.add.rectangle(0, 40, 250, 330, 0x1a2014, 0.82).setStrokeStyle(2, 0x6a5638, 0.9);
     this.egg = scene.add.image(0, -60, eggTexture(scene)).setScale(0.9);
     this.add([this.ring, this.egg]);
+    // wie die Übersicht: der erste Pederpes hat überall 10
+    const vals = game.eggShown(e);
     GENES.forEach((g, i) => {
-      const v = e.genes[g];
-      // wie die Übersicht: der erste Pederpes hat überall 10
-      const shown = Math.round(10 * (1 + 2 * v));
+      const shown = vals[g];
       const y0 = 30 + i * 46;
-      const top = best[g] > 0 && Math.abs(v - best[g]) < 1e-6;
+      const top = best[g] > 10 && shown === best[g];
       this.add(text(scene, -104, y0 - 12, GENE_NAME[g], 17, top ? UI.ochre : UI.boneDim));
       this.add(text(scene, 104, y0 - 12, `${shown}`, 18, top ? UI.ochre : UI.bone).setOrigin(1, 0));
       this.add(scene.add.rectangle(-104, y0 + 14, 208, 6, 0x0b0c0d, 0.9).setOrigin(0, 0.5));
@@ -133,7 +133,10 @@ export class ClutchScene extends Phaser.Scene {
     text(this, W / 2, 112, sub, 19, UI.boneDim).setOrigin(0.5);
     const eggs = game.eggOffer();
     const best = { jaw: 0, limb: 0, grip: 0, armor: 0 } as Record<Gene, number>;
-    for (const e of eggs) for (const g of GENES) best[g] = Math.max(best[g], e.genes[g]);
+    for (const e of eggs) {
+      const v = game.eggShown(e);
+      for (const g of GENES) best[g] = Math.max(best[g], v[g]);
+    }
     const same = eggs.every((e) => GENES.every((g) => e.genes[g] === eggs[0].genes[g]));
     // die Start-Eier sind alle gleich: dann gibt es nichts zu wählen
     const list = same ? eggs.slice(0, 1) : eggs;

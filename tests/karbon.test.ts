@@ -75,6 +75,18 @@ describe('Karbon im Spielstand', () => {
     expect(s2.landSpeed).toBeLessThan(s0.landSpeed);
   });
 
+  it('Übersicht und Eier messen sich am ersten Pederpes: Er hat überall 10', () => {
+    game.newRun(K);
+    game.metamorphose();
+    const v = game.shown();
+    expect([v.bite, v.legs, v.grip, v.scales]).toEqual([10, 10, 10, 10]);
+    expect(game.eggShown(game.eggOffer()[0])).toEqual({ jaw: 10, limb: 10, grip: 10, armor: 10 });
+    const e = game.eggShown({ genes: { jaw: 0.3, limb: 0.2, grip: 0, armor: 0.1 } });
+    expect(e.jaw).toBeGreaterThan(10);
+    expect(e.limb).toBe(14);
+    expect(e.grip).toBe(10);
+  });
+
   it('die Segen der großen Muschel überdauern im Karbon das Aussterben', () => {
     game.newRun(K);
     for (let i = 0; i < 7; i++) game.addShell();

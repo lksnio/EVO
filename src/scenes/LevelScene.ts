@@ -102,6 +102,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private raidT = new Map<Animal, number>();
   private awayT = { t: 0 };
   private rhizodusSent = false;
+  /** Karbon: von dieser Seite (−1 links, +1 rechts) kommen die Räuber ans Nest – und dorthin ziehen sie satt wieder ab */
+  private raidFar = 1;
   animals: Animal[] = [];
   /** Schwärme und Rudel: Gruppen-Nr. → Mitglieder */
   private herds = new Map<number, Animal[]>();
@@ -2311,7 +2313,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       // das eigene Tier lebt: Es wächst heran und altert (nur, solange man spielt)
       game.ageBy(dt);
       this.lifeStep();
-      this.broodStep(this.time.now, dt);
+      this.broodStep(time, dt);
       this.clock(time);
       this.interact(time, dt);
       this.shellStep(time);
@@ -3171,8 +3173,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Räuber am Nest fressen Eier – wer die Tiere nicht selbst rechnet, sieht nur ihre Stellvertreter: Jeder Räuber dicht am Nest frisst
     const nx = this.nest.x, ny = this.nest.y;
+    let gone: Animal[] | undefined;
     for (const a of this.animals) {
       if (a.dead || a.kin || a.ally) continue;
+      if (!a.raid && a.raidAte > 0) {
+        // satt abgezogen: weit genug fort und nicht mehr zu sehen – dann ist er fort
+        if (Math.abs(a.x - nx) > 700 && !this.seen(a, 60)) (gone ??= []).push(a);
+        continue;
+      }
       const ghost = (a as { ghost?: boolean }).ghost;
       if (!a.raid && !(ghost && (a.role === 'predator' || a.role === 'apex'))) continue;
       if (Math.hypot(a.x - nx, a.y - ny) > BROOD.raidReach + a.displayWidth * 0.3) continue;
@@ -3193,9 +3201,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (a.raid && (a.raidAte >= BROOD.raidFull || b.eggs <= 0)) {
         // satt: Er zieht ab
         a.raid = null;
-        a.leaveDir = a.x < L.width / 2 ? -1 : 1;
+        a.leaveDir = this.raidFar;
       }
       if (b.eggs <= 0) bus.emit('notice', 'DAS NEST IST LEER', 'Überlebe, bis das neue Gelege kommt – sonst stirbt deine Art aus.');
+    }
+    for (const a of gone ?? []) {
+      this.removeAnimal(a);
+      a.vanish();
     }
     this.nest.show(b.eggs, b.laid);
   }
@@ -3216,6 +3228,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const L = this.L, sea = L.surfaceY;
     const f = 1 - b.left / BROOD.danger;
     const pool = ['megalichthys', 'crassigyrinus', ...(f > 0.3 ? ['strepsodus'] : [])];
+    // Die Räuber kommen aus demselben Wasser, in dem das Nest liegt (Inseln trennen die Tümpel) – vom fernen Ende her
+    const wet = (c: number) => (L.ground[c] ?? 0) > sea + TILE;
+    const nc = clamp(Math.floor(nest.x / TILE), 0, L.ground.length - 1);
+    let c0 = nc, c1 = nc;
+    while (c0 > 0 && wet(c0 - 1)) c0--;
+    while (c1 < L.ground.length - 1 && wet(c1 + 1)) c1++;
+    const far = c1 - nc >= nc - c0 ? 1 : -1;
+    this.raidFar = far;
+    const raidCol = (i: number) => {
+      const end = far > 0 ? c1 : c0;
+      let col = end - far * (1 + ((i * 2 + Math.floor(Math.random() * 3)) % 7));
+      col = clamp(col, c0, c1);
+      // lieber etwas tieferes Wasser
+      for (let k = 0; k < 6 && L.ground[col] < sea + 3 * TILE && col !== nc; k++) col -= far;
+      return col;
+    };
     const [lo, hi] = BROOD.waveSize;
     const n = lo + Math.floor(Math.random() * (hi - lo + 1)) + (f > 0.6 ? 1 : 0);
     for (let i = 0; i < n; i++) {
@@ -3224,12 +3252,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         id = 'rhizodus';
         this.rhizodusSent = true;
       }
-      // aus dem tiefen Wasser am rechten Rand (dort, wo Wasser ist)
-      let col = L.ground.length - 3 - Math.floor(Math.random() * 6);
-      while (col > 0 && L.ground[col] < sea + 3 * TILE) col--;
+      const col = raidCol(i);
       const x = (col + 0.5) * TILE, gy = L.ground[col];
-      const y = clamp(sea + (gy - sea) * (0.35 + Math.random() * 0.3), sea + 60, gy - 60);
-      const a = this.spawnAnimal(id, x - i * 70, y);
+      const y = clamp(sea + (gy - sea) * (0.35 + Math.random() * 0.3), sea + 50, Math.max(sea + 50, gy - 50));
+      const a = this.spawnAnimal(id, x, y);
       a.raid = { x: nest.x, y: nest.y };
       a.hunger = 1;
       a.home = { x: nest.x, y: nest.y - 60 };

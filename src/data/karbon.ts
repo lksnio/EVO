@@ -40,7 +40,7 @@ export const BROOD = {
   /** … und frisst dabei so viele Eier (kleine Räuber … große) */
   raidEggs: [2, 5] as [number, number],
   /** so viele Eier frisst ein Räuber höchstens, dann zieht er satt ab */
-  raidFull: 16,
+  raidFull: 12,
   /** so nah (Bildpunkte) muss ein Räuber am Nest sein, um zu fressen */
   raidReach: 90,
   /** nach der Metamorphose heilt jede Einheit Nahrung so viel (Anteil der Lebenskraft) */

@@ -48,10 +48,23 @@ describe('Weltgenerator', () => {
   });
 });
 
+const slopeDeg = (hp: number[], i: number) => (Math.atan(Math.abs(hp[i + 1] - hp[i]) / STEP) * 180) / Math.PI;
+
+/** die steilste Stelle am Fuß des Felsens (das untere Fünftel seiner Höhe) */
+function steepFoot(L: ReturnType<typeof generateLevel>) {
+  const hp = L.terrain.hp;
+  const h = L.surfaceY - Math.min(...hp);
+  let m = 0;
+  for (let i = 0; i < hp.length - 1; i++) {
+    const above = L.surfaceY - hp[i];
+    if (above > 10 && above < h * 0.18) m = Math.max(m, slopeDeg(hp, i));
+  }
+  return m;
+}
+
 describe('Karbon: Land über dem Wasser', () => {
   const kb = EPOCHS[epochIndex('karbon')];
   const places = placesOf(kb);
-  const slopeDeg = (hp: number[], i: number) => (Math.atan(Math.abs(hp[i + 1] - hp[i]) / STEP) * 180) / Math.PI;
 
   it('jeder Ort hat Wasser und Land – das Land ragt über die Wasserlinie', () => {
     for (const place of places) {
@@ -75,6 +88,14 @@ describe('Karbon: Land über dem Wasser', () => {
     }
     // Landtiere stehen an Land
     for (const s of L.spawns.filter((q) => SPECIES[q.id].land)) expect(s.y).toBeLessThan(L.surfaceY);
+    // Das Nest liegt in einem Tümpel, der ins tiefe Wasser reicht – Inseln trennen die Tümpel, und die Räuber müssen aus
+    // demselben Wasser kommen. Der Tümpel ist so lang, dass sie außer Sicht auftauchen.
+    const wet = (c: number) => L.ground[c] > L.surfaceY + 40;
+    let c0 = Math.floor(L.nest!.x / 40), c1 = c0;
+    while (c0 > 0 && wet(c0 - 1)) c0--;
+    while (c1 < L.ground.length - 1 && wet(c1 + 1)) c1++;
+    expect(Math.max(c1 * 40 - L.nest!.x, L.nest!.x - c0 * 40)).toBeGreaterThan(900);
+    expect(Math.max(...L.ground.slice(c0, c1 + 1)) - L.surfaceY).toBeGreaterThan(150);
   });
 
   it('der steile Fels: ein hoher Gipfel, dessen Hänge oben deutlich steiler sind als unten', () => {
@@ -94,6 +115,7 @@ describe('Karbon: Land über dem Wasser', () => {
     expect(steepTop).toBeGreaterThan(50);
     expect(steepLow).toBeLessThan(40);
     // Pederpes mit Grundwerten kommt unten hinauf, aber nicht bis zum Gipfel
+    expect(maxSlope(0, 0)).toBeGreaterThan(steepFoot(L));
     expect(maxSlope(0, 0)).toBeLessThan(steepTop);
     expect(maxSlope(0.8, 0.8)).toBeGreaterThan(steepTop);
   });

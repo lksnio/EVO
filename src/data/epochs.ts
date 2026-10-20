@@ -4,8 +4,9 @@ import type { ClassId } from './classes';
 // Die Zeitalter (Epochen). Jedes ist eine eigene Welt – ein fester Zeitraum der Erdgeschichte, in dem eine Uhr von "from"
 // bis "to" läuft (Jahre vor heute). Man lebt immer in einem Zeitalter: Jede Linie beginnt dort mit dessen Urahn und
 // entwickelt sich über Generationen – im Mehrspieler treffen sich alle, die dasselbe Zeitalter gewählt haben.
-// Sieben stehen zur Wahl: Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen. Spielbar ist vorerst nur das Devon, die
-// anderen ruhen noch („im Gestein“). Ordovizium und Silur sind verborgen (ihre Tiere, Orte und Karten bleiben für später).
+// Sieben stehen zur Wahl: Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen. Spielbar sind vorerst das Devon und das
+// Karbon (mit Gelege und Generationen, siehe data/karbon.ts), die anderen ruhen noch („im Gestein“). Ordovizium und Silur
+// sind verborgen (ihre Tiere, Orte und Karten bleiben für später).
 // Die Reihenfolge ist Teil des Spielstands (Nummern): Nummer 0 war früher das Ordovizium – ältere Spielstände leben deshalb
 // im Devon weiter. Neue Zeitalter kommen ans Ende.
 // ---------------------------------------------------------------------------

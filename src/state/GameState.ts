@@ -10,7 +10,7 @@ import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '
 import { KTRAIN } from '../data/karbon';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
-  type Brood, type Egg,
+  type Brood, type Egg, type Gene,
 } from '../sim/brood';
 
 // ---------------------------------------------------------------------------
@@ -742,6 +742,8 @@ class GameState {
   /** Gewicht und Werte des ersten Fischs (Bezug für die Laich-Schwelle und den Grundwert der Nachkommen) */
   private g0?: number;
   private s0?: Stats;
+  /** Karbon: der erste Pederpes (ausgewachsen, ohne Merkmale) – an ihm messen sich Gebiss und die Eier */
+  private a0?: Stats;
 
   load(slot?: string | null) {
     const s = (slot ?? '').replace(/[^a-z0-9_-]/gi, '').slice(0, 16);
@@ -1188,6 +1190,7 @@ class GameState {
   forgetBaseline() {
     this.g0 = undefined;
     this.s0 = undefined;
+    this.a0 = undefined;
   }
 
   /** Gewicht des ausgewachsenen eigenen Tiers im Verhältnis zum ersten Fisch (dem Urfisch an der Wurzel). */
@@ -1903,7 +1906,8 @@ class GameState {
    */
   shown(ups: Ups = this.ups) {
     const st = this.stats(this.r.cls, undefined, this.lifeK, ups);
-    const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    // im Karbon misst sich das Gebiss am ersten Pederpes, sonst am ersten Fisch
+    const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT));
     const t = this.r.traits;
     const sw = this.swarm;
     const n = sw ? Math.min(sw.members.length, this.swarmCap()) : 0;
@@ -1924,6 +1928,15 @@ class GameState {
       legs: Math.round(10 * (1 + 2 * (t.limb ?? 0))),
       grip: Math.round(10 * (1 + 2 * (t.grip ?? 0))),
     };
+  }
+
+  /** Karbon: was ein Ei verspricht – die Werte des ausgewachsenen Tiers, so wie die Übersicht sie zeigt. */
+  eggShown(e: Egg): Record<Gene, number> {
+    const g = e.genes;
+    const st = this.stats('amphibian', full({ jaw: g.jaw, limb: g.limb, grip: g.grip, armor: g.armor }), ADULT);
+    const a0 = (this.a0 ??= this.stats('amphibian', ZERO, ADULT));
+    const ten = (v: number) => Math.round(10 * (1 + 2 * v));
+    return { jaw: Math.round((10 * st.bite) / a0.bite), limb: ten(g.limb), grip: ten(g.grip), armor: ten(g.armor) };
   }
 
   /** Wie viele Muscheln man in der Übersicht schon gesehen hat. */

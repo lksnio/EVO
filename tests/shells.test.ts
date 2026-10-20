@@ -100,9 +100,9 @@ describe('Muscheln', () => {
     expect(v.scales).toBe(10);
     expect(v.stam).toBe(30);
     // die Vorschau der großen Muschel: was ein Segen brächte
-    expect(game.shown({ hp: 0, stam: 0, sight: 1 }).sight).toBe(25);
-    expect(game.shown({ hp: 0, stam: 1, sight: 0 }).stam).toBeGreaterThan(v.stam);
-    expect(game.shown({ hp: 4, stam: 0, sight: 0 }).hpMax).toBeGreaterThan(v.hpMax);
+    expect(game.shown({ hp: 0, stam: 0, sight: 1, oxy: 0 }).sight).toBe(25);
+    expect(game.shown({ hp: 0, stam: 1, sight: 0, oxy: 0 }).stam).toBeGreaterThan(v.stam);
+    expect(game.shown({ hp: 4, stam: 0, sight: 0, oxy: 0 }).hpMax).toBeGreaterThan(v.hpMax);
   });
 });
 

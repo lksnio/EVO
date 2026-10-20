@@ -424,16 +424,16 @@ export class Player {
         const deg = (k: number) => (Math.atan(Math.abs(k)) * 180) / Math.PI;
         const k = this.host.groundSlope(this.x);
         const here = deg(k);
-        // erschöpft hält man sich nur noch an flachen Hängen
-        const max = this.exhausted ? CLIMB.steep : this.stats.slope;
+        const max = this.stats.slope;
         const uphill = dir !== 0 && -dir * k > 0;
         if (here > max + 2) {
           // zu steil: Man rutscht ab, bergab
           this.slipping = true;
           vxWant = Math.sign(k) * walk * 0.9;
         } else if (uphill) {
+          // erschöpft hält man sich am Hang fest, kommt aber erst wieder hinauf, wenn die Kraft zurück ist
           const ahead = this.host.groundSlope(this.x + dir * (b.halfWidth + 6));
-          if (-dir * ahead > 0 && deg(ahead) > max) vxWant = 0;
+          if (-dir * ahead > 0 && deg(ahead) > (this.exhausted ? CLIMB.steep : max)) vxWant = 0;
           else if (here > CLIMB.steep) {
             // klettern: kostet Ausdauer (ein Schuppenpanzer mehr) und stärkt den Griff der Nachkommen
             this.climbing = true;

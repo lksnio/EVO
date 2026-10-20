@@ -812,11 +812,12 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   let floor = (c: number) => F + Math.sin(c * 0.17) * 0.6 + Math.sin(c * 0.05 + 1) * 0.8;
   const isle = (c: number, w: number, above: number, slope: number) => hills.push({ c, w, top: S - above, slope });
   if (shape === 'nest') {
-    // links ein hohes Ufer (dort geht es nicht weiter), davor flaches Wasser mit dem Nest, zwei flache Inseln; rechts tiefer
-    floor = (c: number) => (c < 60 ? S + 3 : S + 3 + (place.deep - 3) * Math.min(1, (c - 60) / 25)) + Math.sin(c * 0.3) * 0.25;
+    // links ein hohes Ufer (dort geht es nicht weiter), davor flaches Wasser mit dem Nest; nach rechts wird der Tümpel tiefer
+    // (von dort kommen die Räuber), dann zwei flache Inseln
+    floor = (c: number) => (c < 32 ? S + 3 : S + 3 + (place.deep - 3) * Math.min(1, (c - 32) / 18)) + Math.sin(c * 0.3) * 0.25;
     hills.push({ c: -6, w: 8, top: S - 4, slope: 24 });
-    isle(48, 5, 1.6, 20);
-    isle(84, 7, 2.6, 22);
+    isle(66, 5, 2, 20);
+    isle(98, 6, 2.6, 22);
   } else if (shape === 'shore') {
     // lange Landstücke, dazwischen Wasserläufe: hier lernt man laufen
     let c = 6 + r() * 6;
@@ -848,9 +849,11 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     hills.push({ c: -4, w: 6, top: S - 2, slope: 26 });
     hills.push({ c: cols + 4, w: 6, top: S - 2, slope: 26 });
   } else if (shape === 'peak') {
-    // der steile Fels: aus flachem Wasser ragt ein Berg, dessen Hänge nach oben immer steiler werden – bis zum Gipfel
+    // der steile Fels: aus flachem Wasser ragt ein Berg, dessen Hänge nach oben immer steiler werden – bis zum Gipfel. Unten
+    // kommt jeder Pederpes ein Stück hinauf (dort übt er das Klettern), weiter oben nur, wer kräftige Beine und Griff geerbt hat.
     const top = 3;
-    hills.push({ c: mid, w: 1.6, top, slope: 22, steps: [[0, 30], [(S - top) * 0.3, 40], [(S - top) * 0.55, 48], [(S - top) * 0.78, 57]] });
+    const up = S - top;
+    hills.push({ c: mid, w: 1.6, top, slope: 22, steps: [[0, 22], [up * 0.2, 32], [up * 0.4, 41], [up * 0.6, 49], [up * 0.8, 57]] });
     // ein paar flache Inselchen davor zum Ausruhen
     isle(14, 3, 1, 20);
     isle(cols - 14, 3, 1, 20);
@@ -946,10 +949,12 @@ function dressSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
   const LAND = ['fern', 'horsetail', 'fern', 'tallgrass', 'horsetail', 'stump', 'mushroom', 'reed'];
   const SHALLOW = ['reed', 'horsetail', 'reed', 'tallgrass'];
   const steep = (x: number) => G.flat(x - 20, x + 20) > 26;
+  // rund ums Nest bleibt der Grund frei, damit man das Gelege gut sieht
+  const byNest = (x: number) => !!L.nest && Math.abs(x - L.nest.x) < 120;
   for (let c = 0; c < cols; c += rint(r, 1, 2)) {
     const x = (c + 0.25 + r() * 0.5) * T;
     const gy = G.at(x);
-    if (steep(x)) continue;
+    if (steep(x) || byNest(x)) continue;
     if (isLand(x)) {
       if (r() < 0.75) L.decor.push({ k: pick(r, LAND), x, y: gy + 6 });
     } else if (gy < sea + 2.5 * T) {
@@ -966,7 +971,7 @@ function dressSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
     for (let i = 0; i < cnt; i++) {
       for (let t = 0; t < 4; t++) {
         const x = (x0 + 1 + r() * (n - 2)) * T;
-        if (G.flat(x - 24, x + 24) > 30) continue;
+        if (G.flat(x - 24, x + 24) > 30 || byNest(x)) continue;
         L.plants.push({ x, y: G.at(x) + 4, v: plantVariant(r) });
         break;
       }
@@ -981,7 +986,8 @@ function dressSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
         if (G.at(px) < sea + 2 * T) wet = false;
       }
       const ch = Math.min(rint(r, 4, 6), Math.floor((low - sea) / T) - 1);
-      if (wet && ch >= 3 && G.flat(cx * T, (cx + cw) * T) < 80) L.cover.push({ x: cx * T, y: low - ch * T, w: cw * T, h: ch * T });
+      const hidesNest = !!L.nest && L.nest.x > cx * T - 80 && L.nest.x < (cx + cw) * T + 80;
+      if (wet && ch >= 3 && !hidesNest && G.flat(cx * T, (cx + cw) * T) < 80) L.cover.push({ x: cx * T, y: low - ch * T, w: cw * T, h: ch * T });
     }
     x0 += n;
   }

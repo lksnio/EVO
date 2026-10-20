@@ -16,8 +16,9 @@ steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrs
 Gespielt wird in **sieben Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Devon**, **Karbon**,
 **Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** – jedes ist eine eigene Welt mit eigener Linie, eigenem
 Stammbaum-Ast und eigenem Teil in der Chronik des Lebens; im Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben.
-Spielbar ist vorerst nur das **Devon** – dort beginnt jedes Leben; die anderen ruhen noch „im Gestein“ (siehe
-[Zeitalter wählen](#zeitalter-wählen)).
+Spielbar sind vorerst das **Devon** – dort beginnt jedes Leben – und das **Karbon** mit *Pederpes*, Gelege und
+Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)); die anderen ruhen noch „im Gestein“
+(siehe [Zeitalter wählen](#zeitalter-wählen)).
 
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
@@ -57,7 +58,7 @@ Ammonit für „noch im Gestein“). Wer mit der Maus auf ein anderes Bild fähr
   Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm *Moythomasia* zieht vorbei. Darunter **Weiterleben** (bzw.
   **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die jetzige endet dann). Wer aufbricht, hört einen tiefen Sog
   und einen weiten Chor, das Bild öffnet sich ganz, und man taucht hinein.
-- **II · Karbon** – *Die Kohlewälder*: Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
+- **II · Karbon** – *Die Kohlewälder* (spielbar): Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
   den Stämmen hindurch und atmen dabei, fahles Licht fällt schräg herein, Sporen treiben, das stille Wasser glänzt matt
   (die Riesenlibelle des Bildes bleibt, wo sie ist).
 - **III · Perm** – *Das Reich der Segelrücken*: Hinter den Palmfarnen **glüht die Sonne im Dunst**, warme Strahlen fallen
@@ -68,7 +69,7 @@ Ammonit für „noch im Gestein“). Wer mit der Maus auf ein anderes Bild fähr
   Gesteinsschichten mit einem **eingemeißelten Fossil** (Ammonit, Plesiosaurier, Hai), feiner Staub rieselt, und in ihren
   **Rissen glimmt Glut**: Bald bricht sie auf. Titel, Zeile und Text stehen schon.
 
-Alle Zeitalter außer dem Devon **ruhen noch im Gestein**: Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen;
+Alle Zeitalter außer Devon und Karbon **ruhen noch im Gestein**: Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen;
 wählt man eines an, kehrt die **Farbe zum großen Teil zurück**, Maserung und Risse treten zurück, und ein Lichtstreif
 streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein Ammonit-Zeichen und „Noch im Gestein“.
 Ein Klick darauf: Stein reibt über Stein, die Glut in den Rissen flackert auf – es rührt sich (noch) nichts.
@@ -81,9 +82,63 @@ Paläogen kommen dorthin und in `LOOK` in `src/scenes/EraScene.ts`, wo auch steh
 **Die Reihenfolge ist Teil des Spielstands** (Nummern): Nummer 0 war früher das Ordovizium und ist jetzt das Devon –
 ältere Spielstände leben deshalb im Devon weiter. **Ordovizium und Silur sind verborgen** (`hidden`): Ihre Tiere, Orte
 und Karten bleiben im Spiel (auch das Ordovizium-Bild `ordovizium.webp`), sie erscheinen nur nirgends. Für die
-**Kreidezeit** gibt es 15 Tiere mit Steckbrief; ihre Orte und ihre Karte fehlen noch. Karbon, Perm, Trias, Jura und
+**Kreidezeit** gibt es 15 Tiere mit Steckbrief; ihre Orte und ihre Karte fehlen noch. Perm, Trias, Jura und
 Paläogen haben bisher nur Name, Zeitraum, Zeile und Text (`later(...)` in `src/data/epochs.ts`). Spielbar wird ein
-Zeitalter mit `playable: true`.
+Zeitalter mit `playable: true`; `brood: true` gibt ihm den Ablauf des Karbons (Gelege statt Laichen), `meta: 'oxy'`
+setzt Sauerstoff statt Sicht an die große Muschel.
+
+## Das Karbon: Gelege, Metamorphose, Generationen
+
+Das **Unterkarbon** (vor etwa 348 Millionen Jahren) ist das zweite spielbare Zeitalter. Man lebt als ***Pederpes*** –
+einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen an einer Stelle in `src/data/karbon.ts`
+(`BROOD`, `OXYGEN`, `CLIMB`, `KTRAIN`), die Rechnung dazu ohne Phaser und mit Tests in `src/sim/brood.ts`.
+
+- **Die Welt:** eine zusammenhängende Wasser- und Sumpfwelt mit flachen Ufern und vielen Inseln über dem Wasser – der
+  Brutsumpf, das Farnufer, die Inseln, das Moor, die Schlammbank, die Lagune, der Rhizodus-See, die Rinne, die Küste und
+  **der Steile Fels**. Über der Wasserlinie läuft man (mit Schwerkraft), darunter schwimmt man; an der Wasserlinie geht
+  es mit einem Satz ans Ufer. An Land leben Tausendfüßer, Urinsekten und Trigonotarbiden (kleine Beute) und der
+  Lungenskorpion *Pulmonoscorpius*, im Wasser *Elonichthys*, *Acanthodes*, Garnelen (*Tealliocaris*), Pfeilschwanzkrebse
+  (*Bellinurus*), der Lungenfisch *Ctenodus* und der Seeskorpion *Hibbertopterus*; die Räuber sind die Fleischflosser
+  *Megalichthys* und *Strepsodus*, der Vierfüßer *Crassigyrinus* und – im See und ganz selten am Nest – der riesige
+  *Rhizodus*. Inseln trennen die Gewässer: Fische bleiben in ihrem Tümpel, nur Pederpes geht über Land.
+- **Lebenskraft, Ausdauer, Sauerstoff:** Sauerstoff ersetzt im Karbon die Sicht. An Land sinkt er stetig (fünf
+  Bläschen neben dem Tier, ausgewachsen reicht er 26 Sekunden, Larven mit Kiemen nur gut die Hälfte), im Wasser füllt er
+  sich wieder; leer **trocknet das Tier aus** und nimmt Schaden. Ausdauer kosten Spurt, Bisse und vor allem **Klettern**.
+  Die große Muschel bietet Lebenskraft, Ausdauer und Sauerstoff (+15 % je Segen) mit der **gemeinsamen Kostenfolge**
+  1, 2, 4, 8 … – im Karbon bleiben die Segen auch nach dem Aussterben.
+- **Das Startgelege:** Jede Linie beginnt mit **100 Eiern** im Brutsumpf – alle mit Grundwerten. Man schlüpft als
+  kleine **Larve mit Kiemen**. Was man frisst (Pflanzen, kleine Fische, Gliederfüßer), ist **Nahrung**: Mit 24 Nahrung
+  kommt die **Metamorphose** (die Kiemen schwinden, das Tier wird groß). Bis dahin greift kein großer Räuber an – nur wer
+  angegriffen wird, wehrt sich.
+- **Die Gefahr:** Ab der Metamorphose läuft die Zeit bis zum neuen Gelege (5 Minuten, im HUD unter der Jahreszahl), und
+  **Räuber kommen in Wellen ans Nest** – aus dem Wasser, in dem das Nest liegt, vom fernen Ende her, später größere. Am
+  Nest fressen sie Eier, bis sie satt sind, und ziehen wieder ab; wer in ihrer Nähe ist, wird zuerst angegriffen. Wer das
+  Nest verlässt (in einen anderen Ort), verliert alle 4 Sekunden ein Ei – „das Nest ist ungeschützt!“. Fressen ist jetzt
+  keine Nahrung mehr, sondern **heilt**.
+- **Tod und Ei-Wahl:** Stirbt man, solange Eier im Nest liegen, **wählt man eines von drei Eiern**: Jedes zeigt Gebiss,
+  Beine, Griff und Schuppen so, wie die Übersicht sie zeigt (der erste Pederpes hat überall 10, die besten Werte leuchten
+  ocker). Das Ei schlüpft am Nest – in der Gefahr gleich ausgewachsen –, und man spielt als dieses Tier weiter.
+- **Die nächste Generation:** Wer die Zeit übersteht, legt ein **neues Gelege mit 100 Eiern** (auch wenn das alte leer
+  war). Es trägt, was die Generation **getan** hat:
+  - **Gebiss** – erlegte kleine Beute (Gliederfüßer, kleine Fische),
+  - **Beine** – an Land gelaufene Strecke,
+  - **Griff** – an steilen Hängen erklommene Höhe,
+  - **Schuppen** – überstandener Schaden (Räuber am Nest, Bisse an Land, Austrocknen).
+
+  Jede Richtung wächst je Generation um höchstens etwa 0,1 (mit abnehmendem Ertrag), die Eier streuen um ±0,05. Die
+  Übersicht (C) zeigt unter „Diese Generation“, wie viel schon trainiert ist.
+- **Aussterben:** Tot und keine Eier mehr – die Art stirbt aus. Die nächste Linie beginnt bei Generation 0 mit
+  Grundwerten; die Segen der großen Muschel bleiben.
+- **Kompromisse:** Beine und Griff lassen steilere Hänge zu (28° + 26° × Beine + 22° × Griff) und machen an Land
+  schneller, bremsen aber beim Schwimmen. Schuppen schützen, machen an Land etwas langsamer und **das Klettern teurer**.
+  Ist ein Hang zu steil, kommt man nicht weiter oder rutscht ab; erschöpft hält man sich fest und klettert erst weiter,
+  wenn die Kraft zurück ist.
+- **Das Ziel:** Auf dem **Steilen Fels** wartet der Gipfel. Unten kommt jeder Pederpes ein Stück hinauf (dort übt er
+  das Klettern), nach oben wird es immer steiler – erst eine Linie mit kräftigen Beinen und gutem Griff kommt hinauf. Wie
+  viel es braucht, verrät das Spiel nicht. Oben ist das Zeitalter gemeistert.
+- **Zu zweit:** Jeder Spieler hat sein eigenes Jungtier und sein eigenes Gelege. Die Rollen entstehen aus dem
+  Verhalten: Wer läuft und klettert, vererbt Beine und Griff (schnell an Land, verletzlich im Wasser); wer am Nest
+  kämpft, vererbt Schuppen (geschützt, aber schwer am Hang).
 
 ## Ein Leben – und die nächste Generation
 
@@ -529,6 +584,10 @@ Zeitalter mit `playable: true`.
     „Amboss“ und die Fleischflosser *Eusthenopteron*, *Holoptychius*, *Tiktaalik* und *Hyneria* (ganz selten). Als
     Durchzügler kommt der Riesen-Seeskorpion *Pterygotus* dazu, und der Herrscher *Dunkleosteus* rast früh im Zeitalter
     einmal vorbei. Die Häufigkeiten stehen in `src/data/epochs.ts`.
+  - **Karbon** (spielbar, als *Pederpes*) – am häufigsten *Elonichthys*, dazu *Acanthodes*, Garnelen, Pfeilschwanzkrebse,
+    der Lungenfisch *Ctenodus*, an Land Tausendfüßer, Urinsekten und Trigonotarbiden; seltener der Seeskorpion
+    *Hibbertopterus*, der Lungenskorpion *Pulmonoscorpius*, die Jäger *Megalichthys*, *Crassigyrinus*, *Strepsodus* und
+    *Stethacanthus*; im Rhizodus-See wartet *Rhizodus* (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)).
   - **Kreidezeit** (ruht noch) – das Westliche Binnenmeer: *Apsopelix* (Schwärme), der harmlose Riese *Gillicus*, Ammoniten
     und *Baculites*, der „Säbelzahnhering“ *Enchodus*, *Protosphyraena* mit Schwertschnauze, *Xiphactinus*, die Haie
     *Squalicorax* und *Cretoxyrhina*, die Riesenschildkröte *Archelon*, der langhalsige Plesiosaurier *Elasmosaurus* und die
@@ -981,10 +1040,12 @@ src/
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
 │   ├── life.ts          Welt und Leben: Weltsaat und Weltzeit (WORLD), Wachsen und Altern (LIFE), Laichen (SPAWN), Vererbung (INHERIT), Sonstiges (MISC)
+│   ├── karbon.ts        das Karbon: Gelege und Gefahr (BROOD), Sauerstoff (OXYGEN), Klettern (CLIMB), Evolution durch Verhalten (KTRAIN)
 │   └── tuning.ts        die Entwickler-Einstellung: alle Balancing-Werte mit Standard, Speichern, Export/Import
 ├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
 ├── sim/sight.ts         die Sicht unter Wasser als reine Rechnung (Blickfeld nach vorn, kleiner Kreis nach hinten, Verschwimmen)
 ├── sim/bite.ts          der Biss der Jäger: Ablauf (ausholen, vorschnellen, zuschnappen, erholen) und seine Streuung
+├── sim/brood.ts         das Karbon als reine Rechnung: Gelege, Nahrung und Metamorphose, Eier zur Wahl, Vererbung aus dem Training, Hänge, Sauerstoff
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
 ├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern)
 ├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts
@@ -1007,11 +1068,11 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
-tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
@@ -1020,11 +1081,17 @@ tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.p
 
 Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festgelegt – bitte später noch einmal ansehen:
 
-- [ ] **Zeitalter:** Zur Wahl stehen sieben (Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen); spielbar ist nur das
-      Devon, dort beginnt jedes Leben. Jedes Zeitalter ist eine eigene Welt mit eigener Linie – man bleibt in seinem
+- [ ] **Zeitalter:** Zur Wahl stehen sieben (Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen); spielbar sind das
+      Devon (dort beginnt jedes Leben) und das Karbon. Jedes Zeitalter ist eine eigene Welt mit eigener Linie – man bleibt in seinem
       Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl läuft in etwa 30 Tagen bis zum Ende des Zeitalters und
       bleibt dann stehen. Das Devon beginnt vorerst mit dem Urfisch; die Kreidezeit behält vorerst ihr bisheriges Bild,
       Trias, Jura und Paläogen warten auf ihre Bilder (Steintafel). Ordovizium und Silur sind verborgen.
+- [ ] **Karbon:** Jeder Spieler hat sein eigenes Gelege (ein gemeinsames Nest im Mehrspieler fehlt noch; beim Gast
+      fressen die Stellvertreter der Räuber am Nest mit). Ein Ei, das in der Gefahr schlüpft, ist gleich ausgewachsen;
+      das neue Gelege kommt von selbst nach 5 Minuten; drei Eier stehen zur Wahl (die Start-Eier sind gleich, dann nur
+      eines). Die Segen der großen Muschel überdauern im Karbon das Aussterben. Der Gipfel braucht etwa Beine und Griff je
+      0,6 (gut fünf Generationen mit viel Training). *Rhizodus* kommt höchstens einmal, spät, ans Nest. Alle Werte in
+      `src/data/karbon.ts`.
 - [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
 - [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
