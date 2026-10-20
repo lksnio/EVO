@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SHELLS, STAMINA } from '../src/data/life';
 import { game, nextBlessing, shellChance, staminaMax } from '../src/state/GameState';
+import { phases } from '../src/sim/life';
 
 // Muscheln fallen selten von erlegter Beute; bei 8, 16, 32, 64 … Muscheln segnet die große Muschel mit mehr Ausdauer.
 
@@ -70,5 +71,20 @@ describe('ältere Spielstände mit festen Muscheln', () => {
     expect(game.shells).toBe(3);
     expect(game.blessings).toBe(0);
     expect(game.staminaMax).toBe(1);
+  });
+
+  it('das Alter bleibt beim Laden, wie es war – nur wer nach heutiger Rechnung schon am Ende wäre, ist wieder alt', () => {
+    game.resetAll();
+    game.newRun(0);
+    const P = phases(1);
+    const save = (age: number) => {
+      const d = JSON.parse(JSON.stringify(game.data));
+      d.run.life.age = age;
+      store.set('evo-save-v3', JSON.stringify(d));
+      game.load();
+      return game.life.age;
+    };
+    expect(save(P.mature + 100)).toBe(P.mature + 100);
+    expect(save(P.span + 50)).toBe(P.old);
   });
 });

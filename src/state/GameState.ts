@@ -705,8 +705,9 @@ class GameState {
           r.life.clutches ??= [];
           // ältere Spielstände zählen die Nahrung nicht: so viel, wie ein Tier bis zu diesem Alter etwa frisst
           r.life.fed ??= Math.round(r.life.age * 0.4);
-          // Leben sind kürzer geworden: Wer schon über die Laichzeit hinaus war, steht wieder an ihrem Anfang
-          if (r.life.age > phases(r.life.gen).mature + 30) r.life.age = phases(r.life.gen).mature;
+          // Leben sind kürzer geworden: Wer nach heutiger Rechnung schon am Ende wäre, ist wieder alt (und kann noch laichen)
+          // – sonst bleibt das Alter, wie es war
+          if (r.life.age > phases(r.life.gen).span - 20) r.life.age = phases(r.life.gen).old;
           // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
           if (r.prog.boss === 1) r.prog.boss = 0;
           r.prog.known ??= [...r.prog.seen];
