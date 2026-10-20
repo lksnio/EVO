@@ -126,9 +126,9 @@ Zeitalter mit `playable: true`.
 - **Laichen (Taste E in der Grundbelegung – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, **genug
   gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
   eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
-  - Ist Laichzeit, steht es leise oben im Bild unter der Lebenslinie, mit einem kurzen Hinweis, was noch fehlt („im
-    Laichfluss“, „am Grund“, „noch 7 Nahrung“) – auch nach dem ersten Laichen, damit man weiß, wie viel bis zum nächsten
-    Mal fehlt. Geht es gerade, schimmert die Zeile.
+  - **In dem Moment, in dem dein Tier ausgewachsen ist**, steht einmal kurz unter der Lebenslinie, dass Laichzeit ist und was
+    noch fehlt („Laichzeit · noch 18 Nahrung“) – dann geht es langsam wieder weg. Nur ein Hinweis; eine dauernde Anzeige
+    gibt es nicht (wann es geht, zeigt das Zeichen „E“).
   - **Das Zeichen „E“** (wie das „F“ zum Ansprechen) erscheint über dem Laich, sobald du nah genug bist und es geht – dann
     E drücken (ein kurzer Druck reicht). Am Handy steht dort „···“, und der Biss-Knopf heißt „Laichen“.
   - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
@@ -448,7 +448,9 @@ Zeitalter mit `playable: true`.
   deutlich. **Wie weit man sieht, hängt an drei Dingen:**
   - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Segen in Sicht gibt **5 %** mehr (100 % hieße bis zum
     Bildrand). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite) – zu Beginn gut drei Fischlängen klar.
-  - **an der Wasserqualität:** Der **Laichfluss** hat **sehr klares Wasser** – dort sieht man am weitesten, und durch das
+  - **an der Wasserqualität:** Der **Laichfluss** hat **sehr klares Wasser** – man sieht es ihm an: Das Wasser ist dort
+    heller und kühl hellblau, mit kräftigeren Lichtbahnen, glitzernden Schwebeteilchen und einem hellen Dunst statt Trübe.
+    Dort sieht man am weitesten, und durch das
     Wasser hindurch auch den **Hintergrund und die Fische in der Ferne** gut. Der **Korallengarten** ist noch recht klar,
     aber schon etwas weniger (man merkt es an der Sicht). In **trüben Orten** (Delta, Schlammbank) sieht man deutlich
     weniger weit und kaum etwas vom Hintergrund; in der Tiefe ist das Wasser klar, aber dunkel.
@@ -580,7 +582,7 @@ Zeitalter mit `playable: true`.
     Schritt (höchstens ein gutes Stück je Generation, nie ganz bis zum Äußersten). Wer zu 90 % Fleisch frisst, dem liefern
     Pflanzen schon in der nächsten Generation spürbar, in der übernächsten **deutlich weniger Energie** – und umgekehrt.
 - **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
-  mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform, Zeitalter und Ort.
+  mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform und Zeitalter.
   Darunter groß die **drei übergreifenden Werte**, die die große Muschel segnet: **Lebenskraft** als Zahl, gerade und
   höchstens („20/50“), **Sicht** (20 zu Beginn) und **Ausdauer** (30 bei einem Kreis und normalem Körperbau – so viele
   Zehntelsekunden reicht ein Spurt). Darunter, auf einer Reihe kleiner Tafeln, Waffen und Schutz: **Gebiss** (Bissstärke),
@@ -594,7 +596,9 @@ Zeitalter mit `playable: true`.
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
-- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte. **Oben: Grünzeug gegen Fleisch** – links ein
+- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte. Unter „Beute“ steht der Ort, an dem du bist – **im
+  Startgebiet** (dort lebt sonst kein Tier) steht „**Gesamt**“, und die Karte zeigt **alle Orte zusammen**. (Oben im Bogen
+  steht der Ort nicht mehr – nur Körperform und Zeitalter.) **Oben: Grünzeug gegen Fleisch** – links ein
   kleines Pflänzchen, rechts ein Stück Fleisch (die Keule aus dem Spiel), dazwischen ein **Balken**, links grün, rechts rot,
   geteilt nach dem Anteil, darunter die Prozente (nach dem Nährwert des Gefressenen; Eier zählen als Fleisch). **Darunter
   die drei Tiere**, die deine Linie **an diesem Ort** am häufigsten gefressen hat – mit Platz 1, 2, 3, je einem **kleinen
@@ -705,26 +709,36 @@ daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für
 
 ## Die Musik des Ozeans
 
-Im Spiel gibt es keine Musikstücke, die sich wiederholen: Der Ozean klingt live (`src/audio/OceanScore.ts`) – tiefe,
-langsam wandernde Klangflächen ohne klares Dur oder Moll, ein Grundton, den man mehr spürt als hört, der Atem des Wassers,
-ferne Rufe unbekannter Tiere, aufsteigende Blasen, körnige Spuren unsichtbaren Lebens, ein dunkler Hall wie ein Raum ohne
-Wände. Die Welt nimmt keinen Anteil – sie läuft einfach weiter.
+Ein instrumentaler Soundtrack, der live entsteht (`src/audio/OceanScore.ts`) und deshalb **nahtlos endlos** läuft, ohne sich
+zu wiederholen: **minimalistische, organische elektronische Ambient-Musik** für einen urzeitlichen, fremdartigen Ozean –
+weit, geheimnisvoll, lebendig, still schön, mit unterschwelliger Unruhe und dem Gefühl verletzlicher Existenz. Keine Stimmen,
+kein durchgehender Beat, keine heroischen Melodien, keine epische Orchestrierung, keine Trommeln, keine Schreckeffekte – und
+viel Raum für die Geräusche des Wassers, die das Spiel selbst spielt.
 
-- **Das Motiv:** vier Töne – D, F, E, As (eine kleine Terz hinauf, einen Halbton zurück, einen Tritonus hinab, ohne
-  Auflösung). Es taucht selten und leise aus den Flächen auf (eine Fläche gleitet vorher zu seinem Grundton), oft nur als
-  Bruchstück, gläsern, mit einem Schatten eine Oktave tiefer. In der Tiefe klingt es stumpf und eine Oktave tiefer, unter
-  Gefahr zusammengezogen und metallisch.
-- **Erkunden:** spärlich, viel Raum für die Geräusche des Spiels; nahe der Oberfläche ein kaum hörbarer, heller Schimmer.
-- **Tiefe:** Höhen und Melodisches treten zurück; Druck, dumpfe Resonanzen, ein Ächzen wie von nachgebender Welt – und lange
-  Momente fast völliger Stille.
-- **Ein großer Räuber kommt näher:** unregelmäßige tiefe Pulse (manchmal doppelt, nie im Takt), ein reibender, dunkler Klang
-  aus kleiner Sekunde und Tritonus, Dissonanzen, die anschwellen und abbrechen. Je näher und je mehr er dich jagt, desto
-  dichter. Kein Wechsel zu Jagdmusik.
-- **Ein Artgenosse stirbt:** Die Klanglandschaft bricht für einen Moment fast ganz zusammen; nur eine tiefe Resonanz und die
-  ersten beiden Töne des Motivs hallen nach, brüchig, etwas zu tief. Dann kehrt die Welt zurück.
-- **Danach:** Die Spannung klingt langsam aus (sie kommt schneller, als sie geht).
+- **Das Tonmaterial** ist die **Obertonreihe eines tiefen D** (36,7 Hz): Alle Töne sind Vielfache davon. Flächen und
+  Glastöne klingen dadurch wie natürliche Resonanzen eines Körpers – vertraut und doch fremd (der 7., 11. und 13. Teilton
+  liegen zwischen den Tasten eines Klaviers).
+- **Es beginnt beinahe lautlos:** erst nur der Grund (ein Ton, den man mehr spürt als hört, und der Atem des Wassers), dann
+  kommen nach und nach die **Klangflächen** – drei Stimmen, die sehr langsam zwischen offenen, schwebenden Klängen wandern,
+  jede atmet für sich und schweigt manchmal ganz –, die **fließenden Resonanzen** (Rauschen, das in schmalen Bändern auf
+  Obertönen singt und langsam gleitet) und **ferne, gläserne Töne**, weit weg im Raum.
+- **Motive:** wenige prägnante Folgen aus **drei, vier Tönen** – kleine Schritte, ein unerwarteter Sprung, nie aufgelöst. Sie
+  tauchen selten auf, oft nur als Bruchstück, manchmal eine Oktave tiefer und mit einem fernen Echo; eine Stimme der Flächen
+  gleitet vorher zu ihrem ersten Ton.
+- **Pulse:** weiche, **unregelmäßige** Stöße in der Tiefe, wie ein fremdes Herz – in Ruhe kaum zu hören.
+- **Gefahr:** Kommt ein großer Räuber näher, entsteht **allmählich rhythmische Spannung**: Die Pulse werden dichter und
+  regelmäßiger, ein **gedämpftes Ostinato** aus wenigen gezupften Tönen in ungeraden Gruppen (3 + 2 + 2) setzt ein – erst
+  vereinzelt, dann dichter und heller –, die Flächen beginnen zu zittern, ein dunkler, reibender Klang schwillt an, enge
+  Dissonanzen steigen auf und vergehen. Ist die Gefahr vorüber, **gleitet alles langsam zurück in die Stille** (die
+  Spannung kommt allmählich und geht noch langsamer).
+- **Tiefe:** Höhen und Melodisches treten zurück, die Glastöne werden dumpf und tiefer, Druck, tiefe Resonanzen und ein Ächzen
+  wie von nachgebender Welt treten hervor – und lange Momente fast völliger Stille.
+- **Ein Artgenosse stirbt:** Die Klanglandschaft bricht für einen Moment fast ganz zusammen; nur eine tiefe Resonanz und zwei
+  Töne eines Motivs hallen nach, brüchig, etwas zu tief. Dann kehrt die Welt zurück.
 
-Titelbild und der Einschnitt zwischen zwei Leben nutzen dieselbe Klanglandschaft, ruhiger und mit dem Motiv etwas öfter.
+Titelbild und der Einschnitt zwischen zwei Leben nutzen dieselbe Klanglandschaft, ruhiger, ohne Gefahr und mit den Motiven
+etwas öfter. Eine Hörprobe lässt sich im Browser rendern: `OceanScore` in einem `OfflineAudioContext` anlegen, Stimmung setzen
+(`set({ threat, depth })`), `tick(t)` in kleinen Schritten bis zum Ende aufrufen, dann `startRendering()`.
 
 ### Klänge der Bedienung
 
@@ -979,7 +993,7 @@ src/
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
+├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
@@ -998,6 +1012,8 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl läuft in etwa 30 Tagen bis zum Ende des Zeitalters und
       bleibt dann stehen. Das Devon beginnt vorerst mit dem Urfisch; die Kreidezeit behält vorerst ihr bisheriges Bild,
       Trias, Jura und Paläogen warten auf ihre Bilder (Steintafel). Ordovizium und Silur sind verborgen.
+- [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
+      Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
 - [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
       Räuber-Ereignisse und der Herrscher bleiben draußen.
 - [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen

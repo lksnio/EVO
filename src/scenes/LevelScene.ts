@@ -369,7 +369,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cameras.main.setBackgroundColor('#020304');
 
     // Hintergrund mit Nebel
-    const [far, mid, fog] = levelBackgrounds(this, L.theme, L.variant);
+    // im Startgebiet ist das Wasser sauber: heller, klar und hellblau
+    const clean = this.place.kind === 'start';
+    const [far, mid, fog] = levelBackgrounds(this, L.theme, L.variant, clean);
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
@@ -514,8 +516,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
-    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, 1), DEPTH.cover + 1, VW / 2) : undefined;
-    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(0.55);
+    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2) : undefined;
+    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.place.kind === 'start' ? 0.32 : 0.55);
+    // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
+    if (this.place.kind === 'start' && this.water) {
+      this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
+    }
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
     // Ein Riese naht: das Bild wird dunkler und kälter
@@ -3009,10 +3015,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const age = game.life.age, gen = game.life.gen;
     const st = stageOf(age, gen);
     if (st !== this.stage) {
-      const was = this.stage;
       this.stage = st;
-      // nur die Laichzeit wird gemeldet (leise) – Heranwachsen und Altern merkt man am Tier
-      if (st === 'adult' && was === 'heran') bus.emit('notice', 'Ausgewachsen', 'Laichzeit');
+      // Heranwachsen und Altern merkt man am Tier; den Hinweis auf die Laichzeit gibt es einmal kurz unter der Lebenslinie
+      // (SpawnCtl.tell)
       // ein Jungtier wird größer: Werte gleich, Gestalt beim nächsten ruhigen Moment
       this.player.refresh(false, false);
     }

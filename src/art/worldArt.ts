@@ -165,6 +165,12 @@ const SKY: Record<Theme, [string, string, string]> = {
   eden: ['#1c1810', '#6a5026', '#14120a'],
 };
 
+/**
+ * Sauberes Wasser (das Startgebiet, der Laichfluss): heller, klar und hellblau – mehr Licht von oben, hellere Fernen, ein
+ * leichter, kühler Dunst statt Trübe.
+ */
+const CLEAN = { sky: ['#5fb3c2', '#2a7686', '#123d48'] as [string, string, string], fog: 0x3f8f9c, ridge: ['rgba(34,92,104,.62)', 'rgba(22,66,76,.8)'], weed: 'rgba(16,52,58,.78)', ground: 'rgba(12,40,44,.9)' };
+
 const FOG: Record<Theme, number> = {
   ozean: 0x1c4048,
   sumpf: 0x4a5236,
@@ -173,7 +179,7 @@ const FOG: Record<Theme, number> = {
   eden: 0x5a4a2a,
 };
 
-function farBg(ctx: Ctx, theme: Theme, v: BgVariant) {
+function farBg(ctx: Ctx, theme: Theme, v: BgVariant, clean = false) {
   const r = mulberry32(theme.length * 99 + v.length * 7);
   if (v === 'cave') {
     const warm = theme === 'sumpf';
@@ -207,19 +213,20 @@ function farBg(ctx: Ctx, theme: Theme, v: BgVariant) {
     grainAll(ctx, W, H, 0.3);
     return;
   }
-  const [c0, c1, c2] = SKY[theme];
+  const [c0, c1, c2] = clean && theme === 'ozean' ? CLEAN.sky : SKY[theme];
   const dark = v === 'dark';
   ctx.fillStyle = vgrad(ctx, 0, H, dark ? [[0, '#06111a'], [0.5, '#03080b'], [1, '#010203']] : [[0, c0], [0.6, c1], [1, c2]]);
   ctx.fillRect(0, 0, W, H);
-  const fog = FOG[theme];
+  const fog = clean ? CLEAN.fog : FOG[theme];
   switch (theme) {
     case 'ozean': {
-      if (!dark) rays(ctx, r, 7, 'rgba(160,220,210,A)', 0.07);
+      // sauberes Wasser: kräftigere Lichtbahnen, hellere Fernen, glitzernde Schwebeteilchen
+      if (!dark) rays(ctx, r, clean ? 9 : 7, clean ? 'rgba(220,250,245,A)' : 'rgba(160,220,210,A)', clean ? 0.13 : 0.07);
       else specks(ctx, r, 120, (rr) => `rgba(${rr() > 0.5 ? '90,240,210' : '120,180,255'},${0.15 + rr() * 0.55})`, 0, H, 1.4);
-      ridge(ctx, r, H - 200, 140, 6, dark ? 'rgba(4,12,16,.95)' : 'rgba(10,28,34,.85)');
+      ridge(ctx, r, H - 200, 140, 6, dark ? 'rgba(4,12,16,.95)' : clean ? CLEAN.ridge[0] : 'rgba(10,28,34,.85)');
       fogBand(ctx, H - 300, 200, dark ? 0x061216 : fog, 0.5);
-      ridge(ctx, r, H - 110, 110, 8, dark ? 'rgba(2,6,8,.97)' : 'rgba(6,18,22,.92)');
-      specks(ctx, r, 160, (rr) => `rgba(200,220,210,${0.05 + rr() * 0.15})`, 0, H, 1);
+      ridge(ctx, r, H - 110, 110, 8, dark ? 'rgba(2,6,8,.97)' : clean ? CLEAN.ridge[1] : 'rgba(6,18,22,.92)');
+      specks(ctx, r, clean ? 260 : 160, (rr) => `rgba(${clean ? '225,245,250' : '200,220,210'},${0.05 + rr() * (clean ? 0.25 : 0.15)})`, 0, H, 1);
       break;
     }
     case 'sumpf': {
@@ -324,7 +331,7 @@ function farBg(ctx: Ctx, theme: Theme, v: BgVariant) {
   grainAll(ctx, W, H, 0.3);
 }
 
-function midBg(ctx: Ctx, theme: Theme, v: BgVariant) {
+function midBg(ctx: Ctx, theme: Theme, v: BgVariant, clean = false) {
   const r = mulberry32(theme.length * 7 + 3 + v.length);
   const ground = (c: string) => ridge(ctx, r, H - 30, 50, 9, c, 0.25);
   if (v === 'cave') {
@@ -345,7 +352,7 @@ function midBg(ctx: Ctx, theme: Theme, v: BgVariant) {
   }
   switch (theme) {
     case 'ozean': {
-      const col = v === 'dark' ? 'rgba(2,6,8,.95)' : 'rgba(5,16,16,.92)';
+      const col = v === 'dark' ? 'rgba(2,6,8,.95)' : clean ? CLEAN.weed : 'rgba(5,16,16,.92)';
       for (let i = 0; i < 18; i++) {
         const x = r() * W, ht = 200 + r() * 380;
         wrapX(W, x, 50, (xx) => {
@@ -362,7 +369,7 @@ function midBg(ctx: Ctx, theme: Theme, v: BgVariant) {
           }
         });
       }
-      ground(v === 'dark' ? 'rgba(1,3,4,.98)' : 'rgba(4,12,12,.96)');
+      ground(v === 'dark' ? 'rgba(1,3,4,.98)' : clean ? CLEAN.ground : 'rgba(4,12,12,.96)');
       break;
     }
     case 'sumpf': {
@@ -429,13 +436,15 @@ function midBg(ctx: Ctx, theme: Theme, v: BgVariant) {
   }
 }
 
-export function levelBackgrounds(scene: Phaser.Scene, theme: Theme, v: BgVariant): [string, string, string] {
-  const far = tex(scene, `bgf2_${theme}_${v}`, W, H, (ctx) => farBg(ctx, theme, v));
-  const mid = tex(scene, `bgm2_${theme}_${v}`, W, H, (ctx) => midBg(ctx, theme, v));
+export function levelBackgrounds(scene: Phaser.Scene, theme: Theme, v: BgVariant, clean = false): [string, string, string] {
+  clean &&= v === 'normal';
+  const c = clean ? '_c' : '';
+  const far = tex(scene, `bgf2_${theme}_${v}${c}`, W, H, (ctx) => farBg(ctx, theme, v, clean));
+  const mid = tex(scene, `bgm2_${theme}_${v}${c}`, W, H, (ctx) => midBg(ctx, theme, v, clean));
   // Nebel: nur waagerecht gekachelt, nach oben weich auslaufend (keine harte Kante)
   const FH = Math.round(H * 0.65);
-  const fog = tex(scene, `fog2_${theme}_${v}`, 512, FH, (ctx) => {
-    const col = v === 'cave' ? (theme === 'sumpf' ? 0x241c14 : 0x1a2a3a) : v === 'dark' ? 0x0a1a20 : FOG[theme];
+  const fog = tex(scene, `fog2_${theme}_${v}${c}`, 512, FH, (ctx) => {
+    const col = v === 'cave' ? (theme === 'sumpf' ? 0x241c14 : 0x1a2a3a) : v === 'dark' ? 0x0a1a20 : clean ? CLEAN.fog : FOG[theme];
     ctx.fillStyle = css(col);
     ctx.fillRect(0, 0, 512, FH);
     ctx.globalCompositeOperation = 'destination-in';
@@ -456,15 +465,16 @@ export function levelBackgrounds(scene: Phaser.Scene, theme: Theme, v: BgVariant
  * Hintergrund (oben heller, in der Tiefe dunkler), mit leichten Schwebewolken, aber ohne Felsrücken und Lichtstrahlen. Fast
  * deckend (alpha): Vom Grund bleibt ein Hauch zu ahnen.
  */
-export function murkTexture(scene: Phaser.Scene, theme: Theme, v: BgVariant, alpha: number): string {
-  return tex(scene, `murk_${theme}_${v}_${Math.round(alpha * 100)}`, W / 2, H / 2, (ctx) => {
+export function murkTexture(scene: Phaser.Scene, theme: Theme, v: BgVariant, alpha: number, clean = false): string {
+  clean &&= v === 'normal' && theme === 'ozean';
+  return tex(scene, `murk_${theme}_${v}_${Math.round(alpha * 100)}${clean ? '_c' : ''}`, W / 2, H / 2, (ctx) => {
     const w = W / 2, h = H / 2;
-    const [c0, c1, c2] = SKY[theme];
+    const [c0, c1, c2] = clean ? CLEAN.sky : SKY[theme];
     const stops: [number, string][] = v === 'cave'
       ? theme === 'sumpf' ? [[0, '#100c08'], [0.6, '#16110b'], [1, '#050403']] : [[0, '#0a1622'], [0.6, '#0e1c2a'], [1, '#03070c']]
       : v === 'dark' ? [[0, '#06111a'], [0.5, '#03080b'], [1, '#010203']]
         // in der Tiefe nicht schwarz, sondern dunkles, trübes Wasser: unten in Richtung der Farbe des Nebels
-        : [[0, c0], [0.6, css(mix(parseInt(c1.slice(1), 16), FOG[theme], 0.3))], [1, css(mix(parseInt(c2.slice(1), 16), FOG[theme], 0.5))]];
+        : [[0, c0], [0.6, css(mix(parseInt(c1.slice(1), 16), clean ? CLEAN.fog : FOG[theme], 0.3))], [1, css(mix(parseInt(c2.slice(1), 16), clean ? CLEAN.fog : FOG[theme], 0.5))]];
     ctx.fillStyle = vgrad(ctx, 0, h, stops);
     ctx.fillRect(0, 0, w, h);
     // Schwebeteilchen: ein leiser, wolkiger Schleier in der Farbe des Nebels

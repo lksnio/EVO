@@ -46,7 +46,8 @@ const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
  *     Weibchen und legt in deiner Nähe. Zur Laichzeit schimmert befruchtbarer Laich warm – nah genug, schimmert er stärker.
  *   – Weibchen legen ihren Laich dicht am Grund ab; kurz darauf kommt ein Männchen deiner Art und befruchtet ihn.
  * Ein befruchtetes Gelege bleibt im Spielstand: Stirbt dein Tier, schlüpft daraus die nächste Generation (LevelScene).
- * Was gerade fehlt (oder dass es jetzt geht), steht oben im Bild unter der Lebenslinie (Ereignis 'spawnTime').
+ * Wird das Tier ausgewachsen, steht einmal kurz oben im Bild unter der Lebenslinie, dass Laichzeit ist und was noch fehlt
+ * (Ereignis 'spawnHint') – dann geht es wieder weg; danach zeigt nur noch das Zeichen „E“, wann es geht.
  */
 export class SpawnCtl {
   private broods: Brood[] = [];
@@ -54,8 +55,8 @@ export class SpawnCtl {
   /** Männchen: der befruchtbare Laich in Reichweite */
   private target?: Brood;
   private t = 0;
-  /** zuletzt oben im Bild gezeigt */
-  private said = '';
+  /** war das Tier schon ausgewachsen, als man zuletzt nachsah (nur beim Erwachsenwerden kommt der Hinweis) */
+  private wasAdult?: boolean;
   /** Weibchen, bereit: ein warmer Schimmer am Grund unter ihr */
   private nest?: Phaser.GameObjects.Image;
   /** das Zeichen „E“: Jetzt kann gelaicht werden (über dem Laich in Reichweite bzw. über einem Weibchen am Grund) */
@@ -221,8 +222,13 @@ export class SpawnCtl {
    */
   private tell(male: boolean, eats = false) {
     const life = game.life;
+    const adult = isAdult(life.age, life.gen);
+    // nur in dem Moment, in dem das Tier ausgewachsen ist (nicht, wer schon ausgewachsen hierher kam)
+    const now = adult && this.wasAdult === false;
+    this.wasAdult = adult;
+    if (!now) return;
     let msg = '';
-    if (isAdult(life.age, life.gen)) {
+    {
       const b = this.block;
       msg = b === null ? (male || !eats ? 'Laichzeit' : 'Laichzeit · ein Stück weiter')
         : b === 'gelege' ? 'Laichzeit'
@@ -231,9 +237,7 @@ export class SpawnCtl {
         : b === 'nahrung' ? `Laichzeit · noch ${Math.max(1, Math.ceil(this.base - life.fed))} Nahrung`
         : '';
     }
-    if (msg === this.said) return;
-    this.said = msg;
-    bus.emit('spawnTime', msg, this.block === null && !eats);
+    bus.emit('spawnHint', msg || 'Laichzeit');
   }
 
   /** Befruchtbarer Laich schimmert warm, solange Laichzeit ist – der in Reichweite stärker. */
@@ -453,7 +457,6 @@ export class SpawnCtl {
     for (const f of this.fry) f.v.destroy();
     this.fry = [];
     bus.emit('spawnable', false);
-    bus.emit('spawnTime', '', false);
   }
 
 }

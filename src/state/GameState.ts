@@ -1638,19 +1638,32 @@ class GameState {
     at[kind] += units;
   }
 
-  /** Wie viel Grünzeug und wie viel Fleisch deine Linie an einem Ort gefressen hat – als Anteil (0 … 1; ohne alles: null). */
-  dietAt(place = this.data.run?.prog.place ?? ''): { plant: number; meat: number } | null {
-    const at = this.data.run?.diet?.[place];
-    const total = (at?.plant ?? 0) + (at?.meat ?? 0);
-    return at && total > 0 ? { plant: at.plant / total, meat: at.meat / total } : null;
+  /**
+   * Wie viel Grünzeug und wie viel Fleisch deine Linie an einem Ort gefressen hat – als Anteil (0 … 1; ohne alles: null).
+   * place = null: an allen Orten zusammen.
+   */
+  dietAt(place: string | null = this.data.run?.prog.place ?? ''): { plant: number; meat: number } | null {
+    const all = this.data.run?.diet ?? {};
+    let plant = 0, meat = 0;
+    for (const [id, at] of Object.entries(all)) {
+      if (place !== null && id !== place) continue;
+      plant += at.plant;
+      meat += at.meat;
+    }
+    const total = plant + meat;
+    return total > 0 ? { plant: plant / total, meat: meat / total } : null;
   }
 
   /**
    * Die Tiere, die deine Linie an einem Ort am häufigsten gefressen hat (höchstens n): Art, wie viele, und ihr Anteil an allen
-   * dort gefressenen Tieren (0 … 1). Dazu, wie viele es dort insgesamt waren.
+   * dort gefressenen Tieren (0 … 1). Dazu, wie viele es dort insgesamt waren. place = null: an allen Orten zusammen.
    */
-  topPrey(place = this.data.run?.prog.place ?? '', n = 3): { top: { id: string; count: number; share: number }[]; total: number } {
-    const at = this.data.run?.prey?.[place] ?? {};
+  topPrey(place: string | null = this.data.run?.prog.place ?? '', n = 3): { top: { id: string; count: number; share: number }[]; total: number } {
+    const at: Record<string, number> = {};
+    for (const [id, m] of Object.entries(this.data.run?.prey ?? {})) {
+      if (place !== null && id !== place) continue;
+      for (const [sp, k] of Object.entries(m)) at[sp] = (at[sp] ?? 0) + k;
+    }
     const total = Object.values(at).reduce((a, b) => a + b, 0);
     const top = Object.entries(at)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))

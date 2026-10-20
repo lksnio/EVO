@@ -17,6 +17,8 @@ export interface OverviewData {
   /** Lebenskraft gerade und höchstens */
   hp: number;
   hpMax: number;
+  /** im Startgebiet (dort leben keine anderen Tiere): Die Beute zeigt alle Orte zusammen */
+  overall?: boolean;
 }
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -93,7 +95,7 @@ export class Overview {
     const ep = game.epoch;
     // Kopf: der Name der Linie, darunter Körperform, Zeitalter und Ort
     c.add(title(scene, mid, y0 + 46, game.currentName, 30).setOrigin(0.5));
-    c.add(text(scene, mid, y0 + 78, `${CLASSES[game.cls].name} · ${ep.name} · ${d.placeName}`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
+    c.add(text(scene, mid, y0 + 78, `${CLASSES[game.cls].name} · ${ep.name}`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
     rule(g, x0 + 70, x0 + w - 70, y0 + 102);
 
     const caps = (x: number, y: number, str: string, size = 13, col = UI.ochre) =>
@@ -215,7 +217,8 @@ export class Overview {
    * ein Pflänzchen, rechts ein Stück Fleisch, dazwischen ein Balken: grün der Anteil der Pflanzen, rot der des Fleischs).
    * Darunter die Tiere, die sie hier am häufigsten gefressen hat – die drei häufigsten, je als kleines Sinnbild mit ihrem
    * Anteil an allen hier gefressenen Tieren (jedes Tier zählt einmal, gleich wie viele Brocken). An einem anderen Ort stehen
-   * andere Zahlen; eine neue Linie beginnt leer. Gibt die Höhe der Karte zurück.
+   * andere Zahlen; im Startgebiet (dort lebt sonst niemand) alle Orte zusammen („Gesamt“). Eine neue Linie beginnt leer.
+   * Gibt die Höhe der Karte zurück.
    */
   private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number) {
     const c = this.c;
@@ -225,11 +228,13 @@ export class Overview {
     const cx = x + w / 2;
     c.add(scene.add.text(cx, y + 38, 'BEUTE', { fontFamily: TITLE_FONT, fontSize: '15px', color: UI.ochre, fontStyle: '700', resolution: 2 })
       .setOrigin(0.5).setLetterSpacing(5));
-    c.add(text(scene, cx, y + 60, d.placeName, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
+    // der Ort, an dem man ist – im Startgebiet (dort lebt sonst niemand) alle Orte zusammen
+    const place = d.overall ? null : undefined;
+    c.add(text(scene, cx, y + 60, d.overall ? 'Gesamt' : d.placeName, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
     rule(g, x + 30, x + w - 30, y + 78, 0.3);
 
     // Grünzeug gegen Fleisch
-    const diet = game.dietAt();
+    const diet = game.dietAt(place);
     const by = y + 100, bx0 = x + 54, bx1 = x + w - 54, bw = bx1 - bx0;
     c.add(scene.add.image(x + 33, by, dietIcon(scene, 'plant')).setDisplaySize(28, 28).setAlpha(diet ? 1 : 0.4));
     const meat = scene.add.image(x + w - 33, by, dietIcon(scene, 'meat')).setAlpha(diet ? 1 : 0.4);
@@ -258,7 +263,7 @@ export class Overview {
     g.lineBetween(x + 30, top - 4, x + w - 30, top - 4);
 
     // die drei häufigsten Tiere
-    const { top: best } = game.topPrey();
+    const { top: best } = game.topPrey(place);
     for (let i = 0; i < 3; i++) {
       const ry = top + rowH * i + rowH / 2;
       const e = best[i];

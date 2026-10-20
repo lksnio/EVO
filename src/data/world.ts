@@ -117,7 +117,8 @@ const ROLES: Record<Role, RoleDef> = {
 function zoneFor(kind: PlaceKind, name: string, veils: { lush: number; murky: number }, mul?: RoleDef['mul'], light = 1): ZoneDef {
   const [pl, cv, pr, hn] = mul ?? [1, 1, 1, 1];
   switch (kind) {
-    case 'start': return zone(name, 0, 0, 1, 1, 1, 1, 1, 1, 0);
+    // sauberes, helles Wasser: mehr Licht von oben
+    case 'start': return zone(name, 0, 0, 0.7, 1.35 * light, 1, 1, 1, 1, 0);
     case 'lush': return zone(name, veils.lush, 0.18, 1.1, 1.15 * light, 2.3 * pl, 1.8 * cv, 1.5 * pr, 0.4 * hn, 1);
     case 'murky': return zone(name, veils.murky, 0.36, 1.9, 0.55 * light, 1.2 * pl, 1.5 * cv, 1.2 * pr, 0.5 * hn, 1);
     case 'deep': return zone(name, 0x061424, 0.26, 0.6, 0.65 * light, 0.5 * pl, 0.6 * cv, 0.9 * pr, 1.8 * hn, 2);

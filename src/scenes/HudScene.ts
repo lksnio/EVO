@@ -281,23 +281,19 @@ export class HudScene extends Phaser.Scene {
   }
 
   /**
-   * Laichzeit: unter der Lebenslinie, klein und warm – dass es Zeit ist und was noch fehlt (zurück in den Laichfluss, zum
-   * schimmernden Laich …). Geht es gerade, schimmert die Zeile leise.
+   * Laichzeit: In dem Moment, in dem das Tier ausgewachsen ist, steht unter der Lebenslinie einmal kurz, klein und warm, dass
+   * Laichzeit ist und was noch fehlt („Laichzeit · noch 18 Nahrung“) – dann geht es langsam wieder weg. Nur ein Hinweis.
    */
   private spawnTimeUi() {
     const t = text(this, W / 2, 86, '', 15, UI.ochre, { stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 0).setAlpha(0);
-    const show = (msg: string, now: boolean) => {
+    const show = (msg: string) => {
       this.tweens.killTweensOf(t);
-      if (!msg) {
-        this.tweens.add({ targets: t, alpha: 0, duration: 500 });
-        return;
-      }
-      t.setText(msg).setColor(now ? '#e8c07a' : UI.ochre);
-      this.tweens.add({ targets: t, alpha: 0.75, duration: 500 });
-      if (now) this.tweens.add({ targets: t, alpha: 0.45, yoyo: true, repeat: -1, duration: 1100, delay: 500, ease: 'Sine.inOut' });
+      t.setText(msg).setAlpha(0).setY(80);
+      this.tweens.add({ targets: t, alpha: 0.85, y: 86, duration: 900, ease: 'Sine.out' });
+      this.tweens.add({ targets: t, alpha: 0, delay: 5200, duration: 2600, ease: 'Sine.inOut' });
     };
-    bus.on('spawnTime', show);
-    this.events.once('shutdown', () => bus.off('spawnTime', show));
+    bus.on('spawnHint', show);
+    this.events.once('shutdown', () => bus.off('spawnHint', show));
   }
 
   /** Der Knopf der Übersicht leuchtet leise, solange dort eine neue Muschel zu sehen ist. */
@@ -498,7 +494,7 @@ export class HudScene extends Phaser.Scene {
     audio.sfx('select');
     this.scene.pause('Level');
     const kin = lvl.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
-    this.overview = new Overview(this, { morph: lvl.player.morph(), placeName: this.placeName, kin: kin.length, hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: lvl.player.morph(), placeName: this.placeName, kin: kin.length, hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp, overall: lvl.place.kind === 'start' }, () => this.toggleOverview());
   }
 
   /**

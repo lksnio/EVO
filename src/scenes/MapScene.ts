@@ -535,7 +535,7 @@ export class MapScene extends Phaser.Scene {
     }
     if (this.rest || this.leaving) return;
     audio.sfx('select');
-    this.overview = new Overview(this, { morph: game.morph(), placeName: this.cur.name, kin: game.prog.kin ?? game.run?.kin ?? 0, ...this.hpNow() }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: game.morph(), placeName: this.cur.name, kin: game.prog.kin ?? game.run?.kin ?? 0, ...this.hpNow(), overall: this.cur.kind === 'start' }, () => this.toggleOverview());
   }
 
   private toggleRest() {
