@@ -203,6 +203,8 @@ export interface EpochProg {
   links: string[];
   /** über den Rand hereingeschwommen: über welche Seite man den anderen Ort verlassen hat und wie tief man war */
   edge?: { side: 'left' | 'right'; frac: number };
+  /** zum Hauptmenü gegangen: Hier geht es weiter, wenn man wiederkommt (einmalig) */
+  resume?: { x: number; y: number };
   /** Hier beginnt das Leben (ein neues Jungtier schlüpft aus seinem Gelege) – gilt nur einmal */
   at?: { x: number; y: number };
   /** Endgegner: 0 noch nicht da, 1 lebt, 2 besiegt */

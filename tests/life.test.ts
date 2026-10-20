@@ -53,7 +53,9 @@ describe('Lebenszyklus', () => {
     expect(spawnBlock({ ...ok, age: phases(1).mature })).toBeNull();
     expect(spawnBlock({ ...ok, age: phases(1).old + 30 })).toBeNull();
     expect(spawnBlock({ ...ok, age: phases(1).span - 2 })).toBeNull();
-    expect(spawnBlock({ ...ok, lastSpawn: ok.age - 10 })).toBe('pause');
+    expect(spawnBlock({ ...ok, lastSpawn: ok.age - 3 })).toBe('pause');
+    // gleich danach wieder (fressen gehen, wiederkommen, nochmal laichen)
+    expect(spawnBlock({ ...ok, lastSpawn: ok.age - SPAWN.cooldown })).toBeNull();
     expect(spawnBlock({ ...ok, inGrounds: false })).toBe('ort');
     expect(spawnBlock({ ...ok, atGround: false })).toBe('grund');
     expect(spawnBlock({ ...ok, atGround: false, male: true })).toBe('gelege');

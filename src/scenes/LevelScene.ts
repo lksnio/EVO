@@ -39,6 +39,8 @@ const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 
 
 
 /** Bildschirmfeste Ebenen müssen beim Herauszoomen größer sein, damit sie das ganze Bild füllen. */
+/** so viele Sekunden dauert es, bis man aus dem Spiel ins Hauptmenü kommt */
+const QUIT_SECONDS = 5;
 const Z = LEVEL_ZOOM;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
 /** So viel näher ist die Kamera beim frisch geschlüpften Jungtier (mit dem Wachsen zieht sie zurück) */
@@ -172,6 +174,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** die große Muschel (nur im Laichfluss) – und bis wann gerade gebetet wird */
   shrine?: Shrine;
   private prayUntil = 0;
+  /** zum Hauptmenü: so viele Sekunden noch (< 0: niemand will gehen) */
+  private quitLeft = -1;
   private shrineNear = false;
   /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
   private deepDark?: Phaser.GameObjects.Image;
@@ -421,7 +425,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // ein neues Leben beginnt dort, wo sein Gelege liegt (einmalig)
     const born = game.prog.at;
     if (born) game.prog.at = undefined;
-    this.player = new Player(this, born ? born.x : L.start.x, born ? born.y - 40 : L.start.y, this.water);
+    // … und wer zum Hauptmenü gegangen war, kommt genau dort wieder an, wo er war (einmalig)
+    const back = born ? undefined : game.prog.resume;
+    game.prog.resume = undefined;
+    this.player = new Player(this, born ? born.x : back ? back.x : L.start.x, born ? born.y - 40 : back ? back.y : L.start.y, this.water);
     // über allem im Bild (auch über der Dunkelheit der Tiefe), wie eine Anzeige
     this.stamG = this.add.graphics().setDepth(DEPTH.text - 1);
     this.stamA = 0;
@@ -555,10 +562,26 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // das Leben an die Nachkommen weitergeben (aus der Rast; nur mit einem befruchteten Gelege)
     const onHandOver = () => !this.ended && game.heir() && this.passAway('Lebensende – an die Nachkommen weitergegeben');
     bus.on('handOver', onHandOver);
+    // zum Hauptmenü (aus der Rast): erst nach fünf Sekunden – so entkommt niemand einer brenzligen Lage
+    this.quitLeft = -1;
+    const onQuit = () => {
+      if (this.ended || this.player.dead) return;
+      this.quitLeft = QUIT_SECONDS;
+      bus.emit('quitCount', QUIT_SECONDS);
+    };
+    const onQuitCancel = () => {
+      if (this.quitLeft < 0) return;
+      this.quitLeft = -1;
+      bus.emit('quitCount', -1);
+    };
+    bus.on('quit', onQuit);
+    bus.on('quitCancel', onQuitCancel);
     this.events.on('player-dead', () => this.onDeath());
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
       bus.off('handOver', onHandOver);
+      bus.off('quit', onQuit);
+      bus.off('quitCancel', onQuitCancel);
       this.events.off('player-dead');
     });
   }
@@ -2073,6 +2096,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.quest?.update(time, delta);
     this.hunt?.update(time, delta);
     this.shrineStep(time, dt);
+    this.quitStep(dt);
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
     this.spawning?.update(time, dt);
@@ -2769,6 +2793,33 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.scene.stop('Hud');
       this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to, edge, newPlace, newLink });
     });
+  }
+
+  /** Der Countdown zum Hauptmenü läuft (nur solange gespielt wird – die Rast hält ihn an). */
+  private quitStep(dt: number) {
+    if (this.quitLeft < 0) return;
+    if (this.ended || this.player.dead) {
+      this.quitLeft = -1;
+      bus.emit('quitCount', -1);
+      return;
+    }
+    const before = Math.ceil(this.quitLeft);
+    this.quitLeft -= dt;
+    if (Math.ceil(this.quitLeft) !== before && this.quitLeft > 0) bus.emit('quitCount', Math.max(0, Math.ceil(this.quitLeft)));
+    if (this.quitLeft <= 0) this.quitToTitle();
+  }
+
+  /** Zum Hauptmenü: Alles wird gemerkt – auch, wo man gerade ist; beim Weiterleben geht es genau dort weiter. */
+  private quitToTitle() {
+    if (this.ended) return;
+    this.ended = true;
+    this.quitLeft = -1;
+    this.saveProgress();
+    game.leavePlace({ resume: { x: Math.round(this.player.x), y: Math.round(this.player.y) } });
+    this.player.body.setVelocity(0, 0);
+    audio.music(null);
+    this.scene.stop('Hud');
+    fadeTo(this, 'Title', {}, 900);
   }
 
   /** Zustand für den nächsten Ort bzw. die Karte festhalten. */

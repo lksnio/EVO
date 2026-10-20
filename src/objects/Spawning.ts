@@ -227,8 +227,8 @@ export class SpawnCtl {
       msg = b === null ? (male || !eats ? 'Laichzeit' : 'Laichzeit · ein Stück weiter')
         : b === 'gelege' ? 'Laichzeit'
         : b === 'grund' ? 'Laichzeit · am Grund'
-        : b === 'ort' ? (game.young ? '' : 'Laichzeit · im Laichfluss')
-        : b === 'nahrung' ? (game.young ? '' : 'Laichzeit · noch fressen')
+        : b === 'ort' ? 'Laichzeit · im Laichfluss'
+        : b === 'nahrung' ? `Laichzeit · noch ${Math.max(1, Math.ceil(this.base - life.fed))} Nahrung`
         : '';
     }
     if (msg === this.said) return;

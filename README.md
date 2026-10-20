@@ -111,7 +111,7 @@ Zeitalter mit `playable: true`.
 - **Nachkommen aus Nahrung – sie sind deine Leben:** Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein
   Nachkomme. Beim ersten Fisch sind es **20**. **Beim Laichen** wird aus der gesammelten Nahrung Nachwuchs – je 20 einer,
   der Rest bleibt für das nächste Mal. **Mehrmals laichen zählt zusammen:** 50 gefressen und gelaicht ergibt 2 Nachkommen
-  (10 bleiben übrig); wer später noch 10 frisst und wieder laicht, hat 3 – höchstens 12 in einem Leben. **Weiter entwickelte
+  (10 bleiben übrig); wer später noch 10 frisst und wieder laicht, hat 3 – höchstens 24 in einem Leben. **Weiter entwickelte
   Nachfahren brauchen etwas mehr:** Jedes Prozent, um das dein ausgewachsenes Tier besser ist als der erste Fisch (Biss, Stoß,
   Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 2 % größer. Ein um 25 %
   stärkerer Biss heißt also 30 je Nachkomme, dazu 10 % schneller 34; die zweite Generation braucht meist 24–30.
@@ -127,7 +127,8 @@ Zeitalter mit `playable: true`.
   gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
   eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
   - Ist Laichzeit, steht es leise oben im Bild unter der Lebenslinie, mit einem kurzen Hinweis, was noch fehlt („im
-    Laichfluss“, „am Grund“, „noch fressen“). Geht es gerade, schimmert die Zeile.
+    Laichfluss“, „am Grund“, „noch 7 Nahrung“) – auch nach dem ersten Laichen, damit man weiß, wie viel bis zum nächsten
+    Mal fehlt. Geht es gerade, schimmert die Zeile.
   - **Das Zeichen „E“** (wie das „F“ zum Ansprechen) erscheint über dem Laich, sobald du nah genug bist und es geht – dann
     E drücken (ein kurzer Druck reicht). Am Handy steht dort „···“, und der Biss-Knopf heißt „Laichen“.
   - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
@@ -138,8 +139,10 @@ Zeitalter mit `playable: true`.
     **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
     **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm). Liegt vor deinem Maul gerade etwas Fressbares,
     frisst du mit E wie immer.
-  - Nach dem Laichen dauert es eine halbe Minute, bis es wieder geht. Wer mehrmals laicht, hat mehrere Gelege – ihre
-    Nachkommen zählen zusammen, das **jüngste befruchtete** führt die Linie weiter.
+  - **Öfter laichen:** Laichen, fressen gehen, wiederkommen und noch einmal laichen – so oft man will, bis kurz vor dem
+    Tod. Nach dem Laichen dauert es nur ein paar Sekunden (8), bis es wieder geht, sobald genug Nahrung für einen weiteren
+    Nachkommen gesammelt ist; ein neues Weibchen kommt schon nach 15 Sekunden. Wer mehrmals laicht, hat mehrere Gelege –
+    ihre Nachkommen zählen zusammen (höchstens 24), das **jüngste befruchtete** führt die Linie weiter.
   - Ein **unbefruchtetes eigenes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein
     Gelege auch, wenn du den Fluss verlässt.
 - **Einschlafen und Aufwachen:** Am Ende seines Lebens wird dein Tier langsamer, dann still – es schließt die Augen und
@@ -706,8 +709,15 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: beten |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Name, Körper, Leben, Nachwuchs, Muscheln |
-| P (und immer Esc) | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
+| P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
+
+**Zum Hauptmenü (und später weiterspielen):** In der Rast gibt es den Knopf **„Hauptmenü“**. Danach läuft das Spiel noch
+**5 Sekunden** weiter – oben in der Mitte zählt ein Schild herunter („Zum Hauptmenü in 5 …“) –, damit man so keiner
+schwierigen Lage (einem Räuber, einem Kampf) entkommt. Esc, die Rast-Taste oder ein Tipp auf das Schild bricht ab; stirbt
+das Tier in dieser Zeit, zählt der Tod. Dann wird alles gespeichert, auch **die Stelle, an der man gerade ist**: Mit
+„Weiterleben“ im Titelbild kommt man **genau dort** wieder an (`quitStep`/`quitToTitle` in `src/scenes/LevelScene.ts`,
+`EpochProg.resume` in `src/state/GameState.ts`).
 
 **In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
 **Im Stammbaum:** ← → geht von Knoten zu Knoten. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.

@@ -70,9 +70,9 @@ export const SPAWN = {
    */
   perGain: 2,
   /** höchstens so viele Nachkommen in einem Leben */
-  maxYoung: 12,
-  /** nach dem Laichen frühestens wieder nach so vielen Sekunden aktiven Lebens */
-  cooldown: 30,
+  maxYoung: 24,
+  /** nach dem Laichen frühestens wieder nach so vielen Sekunden aktiven Lebens – fressen gehen, wiederkommen, wieder laichen */
+  cooldown: 8,
   /** so nah (Bildpunkte) muss man über dem Grund sein */
   ground: 80,
   /** so nah (Bildpunkte) muss ein Männchen an einem Gelege sein (großzügig – die Strömung im Fluss treibt einen ab) */
@@ -80,9 +80,9 @@ export const SPAWN = {
   /** ein Männchen deiner Art kommt so viele Sekunden nach dem Ablegen (von … bis) */
   maleDelay: [3, 6] as [number, number],
   /** ein Weibchen deiner Art legt Laich, wenn ein Männchen bereit im Laichfluss ist – so viele Sekunden danach (von … bis) */
-  femaleDelay: [5, 10] as [number, number],
+  femaleDelay: [2, 5] as [number, number],
   /** und danach frühestens wieder so viele Sekunden später */
-  femaleEvery: 60,
+  femaleEvery: 15,
   /** unbefruchtete Gelege verderben nach so vielen Sekunden Weltzeit */
   decay: 240,
   /** Eier je Gelege (so viel Nahrung steckt darin, wenn es jemand frisst) */

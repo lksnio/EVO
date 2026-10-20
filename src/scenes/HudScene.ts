@@ -55,6 +55,8 @@ export class HudScene extends Phaser.Scene {
   private bossBar!: Phaser.GameObjects.Graphics;
   private bossShown = false;
   private overview?: Overview;
+  /** der Weg ins Hauptmenü läuft gerade (die Sekunden zählen herunter) */
+  private quitting = false;
   private overviewGlow?: Phaser.GameObjects.Image;
   private clockText!: Phaser.GameObjects.Text;
   private fuse!: Phaser.GameObjects.Graphics;
@@ -157,6 +159,9 @@ export class HudScene extends Phaser.Scene {
 
     const isTouch = (this.isTouch = this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
     if (isTouch) this.touchControls(ep.habitat === 'water');
+
+    this.quitting = false;
+    this.quitUi();
 
     const kb = this.input.keyboard!;
     // Esc ist fest; Rast und Übersicht liegen auf den Tasten der Belegung (die Seite „Steuerung“ fängt ihre Tasten selbst)
@@ -588,6 +593,11 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Rast (Pause)
 
   togglePause() {
+    // läuft der Weg ins Hauptmenü, bricht die Rast-Taste (oder der Knopf) ihn nur ab
+    if (this.quitting) {
+      bus.emit('quitCancel');
+      return;
+    }
     const lvl = this.scene.get('Level') as unknown as { ended?: boolean };
     if (this.overview) this.toggleOverview();
     if (this.pauseC) {
@@ -614,12 +624,14 @@ export class HudScene extends Phaser.Scene {
     const bx = W / 2 + 170;
     // Wartet ein befruchtetes Gelege, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
     const heir = !!game.heir();
-    const y0 = heir ? 252 : 270, step = heir ? 62 : 70;
-    const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
-    const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, onClick: () => this.showControls() });
-    const items = [b1, b3];
-    if (heir) items.push(new Button(this, bx, y0 + step * 2, 'Leben weitergeben', { w: 300, icon: 'ic_swarm', onClick: () => this.handOver() }));
-    const b2 = new Button(this, bx, y0 + step * items.length, 'Aufgeben', { w: 300, icon: 'ic_skull', onClick: () => this.abort() });
+    const y0 = heir ? 236 : 252, step = heir ? 58 : 66, h = heir ? 50 : 54;
+    const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, h, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
+    const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, h, onClick: () => this.showControls() });
+    // Zum Hauptmenü: Das Spiel läuft noch 5 Sekunden weiter (so entkommt man keiner Gefahr), dann geht es genau hier weiter
+    const b4 = new Button(this, bx, y0 + step * 2, 'Hauptmenü', { w: 300, h, icon: 'ic_home', onClick: () => this.quit() });
+    const items = [b1, b3, b4];
+    if (heir) items.push(new Button(this, bx, y0 + step * 3, 'Leben weitergeben', { w: 300, h, icon: 'ic_swarm', onClick: () => this.handOver() }));
+    const b2 = new Button(this, bx, y0 + step * items.length, 'Aufgeben', { w: 300, h, icon: 'ic_skull', onClick: () => this.abort() });
     items.push(b2);
     this.giveUp = b2;
     this.giveUpArmed = false;
@@ -627,7 +639,7 @@ export class HudScene extends Phaser.Scene {
     const note = heir
       ? 'Weitergeben: Du spielst als Jungtier aus deinem Gelege weiter.\nAufgeben: Die Linie stirbt aus.'
       : 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.';
-    c.add(text(this, bx, y0 + step * items.length + 48, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
+    c.add(text(this, bx, y0 + step * (items.length - 1) + 50, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
     this.pauseC = c;
     this.pauseNav = new MenuNav(this, items);
   }
@@ -651,6 +663,43 @@ export class HudScene extends Phaser.Scene {
     if (this.pauseNav) this.pauseNav.enabled = false;
     this.pauseNav = undefined;
     this.scene.resume('Level');
+  }
+
+  /** Zum Hauptmenü: Die Rast schließt, das Spiel läuft noch ein paar Sekunden weiter (LevelScene.quitStep), dann geht es ins Menü. */
+  private quit() {
+    this.resumeGame();
+    bus.emit('quit');
+  }
+
+  /**
+   * Der Weg ins Hauptmenü läuft: mitten oben ein Schild mit den Sekunden, die noch bleiben. Esc (oder ein Tipp darauf) bricht ab.
+   * n < 0: abgebrochen oder vorbei.
+   */
+  private quitUi() {
+    const c = this.add.container(W / 2, 150).setDepth(9).setAlpha(0);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x050403, 0.72);
+    bg.fillRoundedRect(-190, -34, 380, 68, 12);
+    bg.lineStyle(1.5, 0xd8b070, 0.5);
+    bg.strokeRoundedRect(-190, -34, 380, 68, 12);
+    const head = title(this, 0, -10, '', 22, UI.ochre).setOrigin(0.5);
+    const sub = text(this, 0, 16, this.isTouch ? 'Tippen: abbrechen' : 'Esc: abbrechen', 15, UI.boneDim).setOrigin(0.5);
+    c.add([bg, head, sub]);
+    c.setSize(380, 68).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.quitting && bus.emit('quitCancel'));
+    const onCount = (n: number) => {
+      this.tweens.killTweensOf(c);
+      this.quitting = n >= 0;
+      if (n < 0) {
+        this.tweens.add({ targets: c, alpha: 0, duration: 300 });
+        return;
+      }
+      head.setText(`Zum Hauptmenü in ${n} …`);
+      c.setAlpha(1).setScale(1.06);
+      this.tweens.add({ targets: c, scale: 1, duration: 260, ease: 'Sine.out' });
+      audio.sfx('select');
+    };
+    bus.on('quitCount', onCount);
+    this.events.once('shutdown', () => bus.off('quitCount', onCount));
   }
 
   /** Das Leben an die Nachkommen weitergeben: Das Tier stirbt friedlich, die nächste Generation schlüpft. */
