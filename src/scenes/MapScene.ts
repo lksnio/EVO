@@ -515,7 +515,7 @@ export class MapScene extends Phaser.Scene {
     const g = this.glow;
     if (!g) return;
     this.tweens.killTweensOf(g);
-    if (game.shells.length <= game.seenRows) return g.setAlpha(0);
+    if (game.shells <= game.seenRows) return g.setAlpha(0);
     g.setAlpha(0.06);
     this.tweens.add({ targets: g, alpha: 0.22, yoyo: true, repeat: -1, duration: 1600, ease: 'Sine.inOut' });
   }

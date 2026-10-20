@@ -10,6 +10,8 @@ export type Sfx =
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
   | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
   | 'thud' | 'crumble' | 'blub' | 'laich'
+  // Muscheln: eine fällt von erlegter Beute, die große Muschel segnet – oder schweigt
+  | 'drop' | 'pray' | 'silent'
   // Bedienung: Überfahren, Bestätigen, Blättern, Zeitalter wählen und betreten
   | 'hover' | 'confirm' | 'open' | 'page' | 'tab' | 'era' | 'epoch' | 'stone';
 
@@ -541,6 +543,27 @@ export class AudioEngine {
         this.tone({ f: 880, d: 2.4, type: 'sine', v: 0.008, a: 0.6, t: 0.5, wet: 1 });
         break;
       }
+      case 'drop':
+        // eine Muschel fällt von der Beute: ein heller Schimmer, der kurz nachklingt
+        [[1568, 0], [2093, 0.06]].forEach(([f, t]) => this.tone({ f, d: 0.9, type: 'sine', v: 0.05, a: 0.004, t, wet: 0.8 }));
+        this.noise({ d: 0.35, v: 0.02, a: 0.01, filter: 6000, f2: 9000, type: 'highpass', wet: 0.6 });
+        break;
+      case 'pray': {
+        // die große Muschel segnet: ein tiefes Summen, ein Chor, der sich öffnet, und oben ein perlender Klang
+        this.tone({ f: 55, d: 4.2, type: 'sine', v: 0.16, a: 1.2, wet: 0.5 });
+        const chord = [110, 164.8, 220, 277.2, 329.6, 440];
+        chord.forEach((f, i) => {
+          for (const dt of [-6, 6]) this.tone({ f, d: 4.4, type: 'sawtooth', v: 0.012 - i * 0.0012, a: 1.1 + i * 0.12, filter: 800 + i * 220, q: 2, detune: dt, wet: 0.9, t: 0.2 });
+        });
+        [[1318.5, 1.4], [1760, 1.62], [2217.5, 1.84], [2637, 2.06]].forEach(([f, t]) => this.tone({ f, d: 1.8, type: 'sine', v: 0.03, a: 0.01, t, wet: 1 }));
+        this.noise({ d: 3, v: 0.03, a: 1.2, filter: 1800, f2: 5200, type: 'bandpass', q: 0.6, wet: 0.9, t: 0.3 });
+        break;
+      }
+      case 'silent':
+        // die große Muschel schweigt: ein leiser, hohler Ton, der gleich verklingt
+        this.tone({ f: 196, f2: 185, d: 1.2, type: 'sine', v: 0.06, a: 0.15, wet: 0.8 });
+        this.tone({ f: 293.7, d: 0.9, type: 'sine', v: 0.025, a: 0.2, t: 0.12, wet: 0.9 });
+        break;
       case 'stone':
         // noch im Gestein: Stein reibt über Stein, ein dumpfer Schlag – es rührt sich nichts
         this.noise({ d: 0.42, v: 0.11, a: 0.02, filter: 520, f2: 180, q: 0.9, wet: 0.35 });

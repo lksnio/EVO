@@ -1,7 +1,7 @@
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
-import { SHAPE_OF, shellId, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
+import { SHAPE_OF, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
 import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
@@ -81,8 +81,8 @@ export interface LevelData {
   ground: number[];
   /** der Ort (ein Gebiet über die ganze Breite) */
   zones: Zone[];
-  /** Muscheln: Kennung und Lage */
-  shells: { id: string; x: number; y: number }[];
+  /** die große Muschel (nur im Startgebiet): Hier betet man um mehr Ausdauer */
+  shrine?: { x: number; y: number };
   /** Kachelspalte, in der man ankommt */
   startCol: number;
   /** Strömungen im Wasser (dir: Richtung, -1 oder 1) */
@@ -147,7 +147,6 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     start: { x: 0, y: 0 },
     ground: [],
     zones: [],
-    shells: [],
     startCol: 0,
     currents: [],
     crevices: [],
@@ -404,15 +403,19 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   // und an beiden Rändern (Felsen, Räuber, Gelege und Dickicht halten dort Abstand).
   const arrCols = [startCol, 9, cols - 10];
   // Felsen und Kiesel – nicht dort, wo man ankommt
-  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T])], riverEndCol);
+  const shrine = shrineCol(L, place, G, startCol);
+  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T]), ...(shrine >= 0 ? [[(shrine - 9) * T, (shrine + 9) * T] as [number, number]] : [])], riverEndCol);
   placeMats(L, place, r, G, riverEndCol);
   dressGround(L, ep, place, r, G, riverEndCol);
-  placeShells(L, ep, place, r, G, startCol);
+  placeShrine(L, G, startCol, shrine);
   // am Start ist es still: Tiere gibt es erst in den anderen Orten (siehe PlaceDef.safe)
   placeFauna(L, ep, place, r, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
   placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => (c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T) && arrCols.every((a) => c.x > (a + 9) * T || c.x + c.w < (a - 9) * T));
+  // … und vor der großen Muschel kein Dickicht, das sie verdeckt
+  const sx = L.shrine?.x;
+  if (sx !== undefined) L.cover = L.cover.filter((c) => c.x > sx + 150 || c.x + c.w < sx - 150);
   // Wo man selbst ankommt (das Einzige, was davon abhängt, von wo man kommt): wer über den Rand hereinschwimmt, am Gegenrand
   // auf derselben Höhe (soweit es dort Wasser gibt)
   if (edge) {
@@ -703,40 +706,34 @@ function addCurrents(L: LevelData, r: Rng, cols: number, heights: Heights, start
 }
 
 /**
- * Muscheln: Die erste liegt im ersten Gewässer direkt vor dir auf dem Grund. Die anderen sind
- * versteckt – in Höhlen, in Felsspalten oder weit draußen am Grund, in der Tiefe am weitesten weg.
+ * Die große Muschel: Im Startgebiet liegt sie ein Stück vor dem Platz, an dem man schlüpft, auf möglichst ebenem Grund –
+ * dort betet man um mehr Ausdauer. Gewählt wird ihr Platz vor den Felsen (die halten Abstand), gesetzt danach.
  */
-function placeShells(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, startCol: number) {
+function shrineCol(L: LevelData, place: PlaceDef, G: Ground, startCol: number) {
+  if (place.kind !== 'start') return -1;
   const cols = G.heights.length;
-  const spots: { x: number; y: number }[] = [];
-  for (const c of L.caves) spots.push({ x: c.x + c.w * (0.3 + r() * 0.4), y: c.y + c.h - 14 });
-  for (const c of L.crevices) spots.push({ x: c.x + c.w * (0.3 + r() * 0.4), y: c.y + c.h - 12 });
-  // weit draußen am Grund: nur dort, wo der Boden eben ist (reicht das nicht, nimmt man auch Hänge)
-  for (let k = 0; k < 400 && (spots.length < 10 || (k >= 60 && spots.length < place.shells + 1)); k++) {
-    const col = rint(r, 6, cols - 8);
-    if (Math.abs(col - startCol) < 24) continue;
-    if (G.flat((col - 1) * T, (col + 2) * T) > (k < 60 ? 10 : k < 150 ? 24 : k < 250 ? 60 : 400)) continue;
-    const x = (col + 0.5) * T, y = G.at((col + 0.5) * T) - 14;
-    if (L.solids.some((s) => x > s.x - 40 && x < s.x + s.w + 40 && y > s.y - 60 && y < s.y + s.h + 20) || L.fore.some((f) => Math.abs(x - f.x) < f.rx)) continue;
-    spots.push({ x, y });
-  }
-  // sortieren: draußen, tief unten zuletzt – so liegen die Muscheln in Tiefen weiter weg
-  // im Startgebiet liegt die erste Muschel direkt vor dir
-  const tutorial = place.kind === 'start';
-  for (let k = 0; k < place.shells; k++) {
-    let at: { x: number; y: number } | undefined;
-    if (k === 0 && tutorial) {
-      // Du beginnst knapp über dem Grund – und direkt vor dir schimmert etwas
-      at = { x: (startCol + 4.5) * T, y: G.at((startCol + 4.5) * T) - 14 };
-      L.start.y = Math.max(L.surfaceY + 160, G.at((startCol + 0.5) * T) - 190);
+  let best = -1, bestScore = Infinity;
+  for (let col = startCol + 12; col < Math.min(cols - 10, startCol + 36); col++) {
+    const x = (col + 0.5) * T;
+    if (L.caves.some((c) => x > c.x - 4 * T && x < c.x + c.w + 4 * T) || L.crevices.some((c) => x > c.x - 4 * T && x < c.x + c.w + 4 * T)) continue;
+    // möglichst eben und nicht zu weit weg
+    const score = G.flat((col - 3) * T, (col + 4) * T) + (col - startCol) * 0.5;
+    if (score < bestScore) {
+      bestScore = score;
+      best = col;
     }
-    else {
-      // die erste Muschel liegt in der Höhle (hinter dem Geröll), sonst irgendwo
-      const i = k === 0 && L.caves.length ? 0 : Math.floor(r() * spots.length);
-      at = spots.splice(i, 1)[0];
-    }
-    if (at) L.shells.push({ id: shellId(ep.id, place.id, k), x: at.x, y: at.y });
   }
+  return best >= 0 ? best : Math.min(cols - 10, startCol + 16);
+}
+
+function placeShrine(L: LevelData, G: Ground, startCol: number, col: number) {
+  if (col < 0) return;
+  // am Start beginnt man knapp über dem Grund
+  L.start.y = Math.max(L.surfaceY + 160, G.at((startCol + 0.5) * T) - 190);
+  const x = (col + 0.5) * T;
+  L.shrine = { x, y: G.at(x) };
+  // davor wächst nichts, das sie verdeckt
+  L.plants = L.plants.filter((p) => Math.abs(p.x - x) > 110);
 }
 
 /** Wie man in einen Ort gekommen ist, wenn man über den Rand eines anderen hinausgeschwommen ist (side = dort verlassene Seite). */

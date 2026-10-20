@@ -68,7 +68,7 @@ export class EndingScene extends Phaser.Scene {
       this.tweens.add({ targets: t, alpha: 1, duration: 1200, delay: 2000 + i * 1900 });
     });
     const runs = game.data.runs;
-    const shells = game.shells.length;
+    const shells = game.shells;
     const stats = text(this, W / 2, 360, `${path.length} Zeitalter überlebt  ·  ${shells} ${shells === 1 ? 'Muschel' : 'Muscheln'}  ·  ${runs} ${runs === 1 ? 'Versuch' : 'Versuche'} bis hierher`, 20, UI.boneDim, { stroke: '#050403', strokeThickness: 4 })
       .setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: stats, alpha: 1, duration: 1000, delay: 9800 });

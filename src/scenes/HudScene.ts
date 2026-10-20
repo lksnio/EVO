@@ -285,7 +285,7 @@ export class HudScene extends Phaser.Scene {
   private updateGlow() {
     const g = this.overviewGlow;
     if (!g) return;
-    const fresh = game.shells.length > game.seenRows;
+    const fresh = game.shells > game.seenRows;
     this.tweens.killTweensOf(g);
     if (!fresh) {
       g.setAlpha(0);
@@ -708,7 +708,9 @@ export class HudScene extends Phaser.Scene {
       audio.unlock();
       this.time.delayedCall(200, () => (touch.talk = false));
     });
-    const onTalk = (on: boolean) => {
+    // am Handy: „Reden“ – an der großen Muschel „Beten“
+    const onTalk = (on: boolean, label = 'Reden') => {
+      if (on) t.setText(label);
       this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
       z.input!.enabled = on;
       if (!on) touch.talk = false;

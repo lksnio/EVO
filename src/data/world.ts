@@ -1,4 +1,4 @@
-import { EPOCHS, type EpochDef } from './epochs';
+import type { EpochDef } from './epochs';
 import { PALEO } from './paleo';
 
 // ---------------------------------------------------------------------------
@@ -59,8 +59,6 @@ export interface PlaceDef {
   deep: number;
   /** Breite im Verhältnis zur Breite des Zeitalters */
   wide: number;
-  /** wie viele Muscheln hier liegen (die erste liegt im ersten Gewässer direkt vor dir) */
-  shells: number;
   /** hier lebt einer der ganz Großen */
   apex?: boolean;
   /** Form des Geländes (sonst nach Art des Ortes) */
@@ -89,7 +87,6 @@ interface RoleDef {
   links: Role[];
   deep: number;
   wide: number;
-  shells: number;
   caves: CaveKind[];
   sun: number;
   safe?: boolean;
@@ -104,16 +101,16 @@ interface RoleDef {
  */
 const ROLES: Record<Role, RoleDef> = {
   // das Startgebiet: klein, nur der Laichfluss und seine Mündung – und sicher (siehe PlaceDef.safe)
-  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 1.25, shells: 0, caves: [], sun: 4, safe: true },
-  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
-  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
-  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
-  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], deep: 6, wide: 3.2, shells: 1, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
-  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], deep: 60, wide: 2.8, shells: 2, caves: [], sun: 3 },
-  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], deep: 42, wide: 3, shells: 1, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
-  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], deep: 70, wide: 2.6, shells: 2, caves: ['b'], sun: 2 },
-  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], deep: 80, wide: 2.6, shells: 2, caves: [], sun: 2, apex: true },
-  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], deep: 90, wide: 2.4, shells: 2, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
+  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 1.25, caves: [], sun: 4, safe: true },
+  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
+  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
+  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, caves: [], sun: 3 },
+  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], deep: 6, wide: 3.2, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
+  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], deep: 60, wide: 2.8, caves: [], sun: 3 },
+  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], deep: 42, wide: 3, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
+  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], deep: 70, wide: 2.6, caves: ['b'], sun: 2 },
+  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], deep: 80, wide: 2.6, caves: [], sun: 2, apex: true },
+  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], deep: 90, wide: 2.4, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
 };
 
 /** Zone nach Art des Ortes. veils = Farbe des Schleiers für bewachsene und trübe Orte. */
@@ -129,27 +126,27 @@ function zoneFor(kind: PlaceKind, name: string, veils: { lush: number; murky: nu
 }
 
 /** Orte, Namen und Farben je Zeitalter. */
-const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number; startShells: number }> = {
+const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number }> = {
   ordovizium: {
     names: {
       start: ['lagune', 'Der Laichfluss'], lush1: ['tang', 'Tangwiese'], lush2: ['schwamm', 'Schwammgarten'], murky1: ['bucht', 'Trübe Bucht'], murky2: ['sandfeld', 'Sandfeld'],
       deep1: ['kante', 'Tiefe Kante'], deep2: ['klippe', 'Klippenhang'], deep3: ['spalt', 'Der Spalt'], abyss1: ['abgrund', 'Der Abgrund'], abyss2: ['tiefsee', 'Schwarze Tiefe'],
     },
-    veils: { lush: 0x1a4a2c, murky: 0x2e3a1c }, light: 1, hunters: 1, startShells: 1,
+    veils: { lush: 0x1a4a2c, murky: 0x2e3a1c }, light: 1, hunters: 1,
   },
   silur: {
     names: {
       start: ['kelp', 'Kelpmündung'], lush1: ['dickicht', 'Tangdickicht'], lush2: ['teppich', 'Algenteppich'], murky1: ['schlick', 'Schlickebene'], murky2: ['nebel', 'Nebelbank'],
       deep1: ['graben', 'Dunkler Graben'], deep2: ['hang', 'Schroffer Hang'], deep3: ['schlund', 'Der Schlund'], abyss1: ['tiefe', 'Die Tiefe'], abyss2: ['nacht', 'Ewige Nacht'],
     },
-    veils: { lush: 0x1a4a2a, murky: 0x2a2e1c }, light: 0.95, hunters: 1.05, startShells: 0,
+    veils: { lush: 0x1a4a2a, murky: 0x2a2e1c }, light: 0.95, hunters: 1.05,
   },
   devon: {
     names: {
       start: ['riff', 'Der Laichfluss'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
       deep1: ['wand', 'Steilwand'], deep2: ['terrasse', 'Terrassenhang'], deep3: ['kluft', 'Die Kluft'], abyss1: ['maul', 'Das Maul der Tiefe'], abyss2: ['grund', 'Der Letzte Grund'],
     },
-    veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1, startShells: 1,
+    veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1,
   },
 };
 
@@ -165,7 +162,7 @@ function buildPlaces(epId: string): PlaceDef[] {
     const [x, y] = PALEO[epId].nodes[r];
     return {
       id, name, kind: d.kind, x, y, links: d.links.map(idOf), def,
-      deep: d.deep, wide: d.wide, shells: r === 'start' ? spec.startShells : d.shells, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe,
+      deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe,
     };
   });
 }
@@ -204,9 +201,3 @@ export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left'
   cand.sort((a, b) => a.y - b.y);
   return cand[Math.min(cand.length - 1, Math.floor(Math.max(0, Math.min(0.999, frac)) * cand.length))];
 }
-
-/** Alle Muscheln eines Zeitalters: Kennung "zeitalter:ort:nr". */
-export const shellId = (ep: string, place: string, k: number) => `${ep}:${place}:${k}`;
-
-/** Wie viele Muscheln es insgesamt zu finden gibt. */
-export const SHELLS_TOTAL = EPOCHS.reduce((n, e) => n + placesOf(e).reduce((m, p) => m + p.shells, 0), 0);

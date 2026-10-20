@@ -12,7 +12,7 @@ const shape = (L: ReturnType<typeof generateLevel>) => ({
   spawns: L.spawns,
   plants: L.plants,
   caves: L.caves.map((c) => [c.x, c.y, c.w, c.h]),
-  shells: L.shells,
+  shrine: L.shrine,
 });
 
 describe('Weltgenerator', () => {

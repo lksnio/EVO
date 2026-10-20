@@ -5,6 +5,7 @@ import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { STAGE_NAME, stageOf } from '../sim/life';
+import { STAMINA } from '../data/life';
 import { text, title } from './ui';
 
 export interface OverviewData {
@@ -113,6 +114,8 @@ export class Overview {
     row(colL, (y += 32), 'Gewicht', weight(m.g));
     row(colL, (y += 32), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
     row(colL, (y += 32), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
+    // wie viel Ausdauer dein Tier hat: ein Kreis – und für jeden Segen der großen Muschel ein Stück mehr
+    row(colL, (y += 32), 'Ausdauer', circles(game.staminaMax));
 
     // ---- rechts: Leben, Nachwuchs, Funde
     y = y0 + 152;
@@ -122,7 +125,7 @@ export class Overview {
     row(colR, (y += 32), 'Lebensabschnitt', STAGE_NAME[stageOf(life.age, life.gen)]);
 
     // was gefressen wurde, wird beim Laichen zu Nachwuchs (siehe SPAWN)
-    y += 50;
+    y += 44;
     head(colR, y, 'NACHWUCHS');
     row(colR, (y += 36), 'Nahrung', nf(Math.floor(life.fed)));
     row(colR, (y += 32), 'Je Nachkomme', nf(game.broodBase));
@@ -130,10 +133,12 @@ export class Overview {
     const sib = run?.siblings?.n ?? 0;
     if (sib > 0) row(colR, (y += 32), 'Geschwister im Gelege', nf(sib));
 
-    y += 50;
-    head(colR, y, 'FUNDE');
-    const shells = game.shells.length;
-    const sv = row(colR, (y += 36), 'Muscheln', `× ${shells}`);
+    y += 44;
+    head(colR, y, 'MUSCHELN');
+    const shells = game.shells;
+    // daneben, wann die große Muschel im Laichfluss wieder segnet (jeder Segen gibt mehr Ausdauer)
+    const next = game.staminaMax >= STAMINA.max ? '' : game.canPray ? '   ·   Segen bereit' : `   ·   Segen bei ${nf(game.nextBlessing)}`;
+    const sv = row(colR, (y += 36), 'Muscheln', `× ${shells}${next}`);
     const icon = scene.add.image(sv.x - sv.width - 8, y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(20, 22);
     if (!shells) icon.setTint(0x000000).setAlpha(0.35);
     c.add(icon);
@@ -163,4 +168,11 @@ export class Overview {
     if (tw) for (const o of [this.c, ...this.c.list]) tw.killTweensOf(o);
     this.c.destroy();
   }
+}
+
+/** „1 Kreis“, „1½ Kreise“, „2 Kreise“ … */
+function circles(n: number) {
+  const whole = Math.floor(n + 1e-6), half = n - whole > 0.25;
+  const s = `${whole || ''}${half ? '½' : ''}` || '0';
+  return `${s} ${n === 1 ? 'Kreis' : 'Kreise'}`;
 }

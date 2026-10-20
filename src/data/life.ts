@@ -136,3 +136,31 @@ export const MISC = {
   /** so viele Sekunden Leben kostet ein Weg über die Karte */
   travel: 7,
 };
+
+/**
+ * Muscheln: Man findet sie bei erlegten Tieren – selten. Wie selten, hängt davon ab, wie stark das Tier im Vergleich zu dir
+ * war: ein ebenbürtiges in etwa jedem hundertsten Fall (1 %), ein doppelt so starkes doppelt so oft, schwache Beute halb so
+ * oft. Muscheln sammeln sich bei deiner Linie; wer genug hat, betet an der großen Muschel im Laichfluss (siehe STAMINA).
+ */
+export const SHELLS = {
+  /** Wahrscheinlichkeit je erlegtem Tier, das so stark ist wie du */
+  chance: 0.01,
+  /** das Verhältnis seiner Stärke zu deiner zählt – begrenzt auf diesen Bereich */
+  relMin: 0.5,
+  relMax: 2,
+  /** die Schwellen für den Segen: 16, 256, 4096 … Muscheln (Potenzen dieser Zahl) */
+  base: 16,
+};
+
+/**
+ * Ausdauer – wie in Breath of the Wild ein Kreis neben dem Tier. Ein Kreis hat jedes Tier; jeder Segen der großen Muschel
+ * gibt ein Stück dazu (außen ein weiterer Ring). Wie schnell sie schwindet, hängt am Körper (schwere Tiere ermüden schneller).
+ */
+export const STAMINA = {
+  /** so viel bringt ein Segen (Anteil eines Kreises) */
+  perBlessing: 0.5,
+  /** höchstens so viele Kreise */
+  max: 3,
+  /** ein voller Spurt mit einem Kreis dauert so viele Sekunden (bei normalem Körperbau) */
+  sprint: 3,
+};

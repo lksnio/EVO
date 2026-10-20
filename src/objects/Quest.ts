@@ -310,6 +310,11 @@ export class Quest {
   }
   private eater?: Animal;
   private nearShown = false;
+
+  /** Steht man gerade nah genug, um den Artgenossen anzusprechen? */
+  get near() {
+    return this.nearShown;
+  }
   private touchMode: boolean;
   private wantAdvance = false;
   private offs: (() => void)[] = [];

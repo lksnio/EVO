@@ -6,6 +6,7 @@ import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
 import { approach, clamp, type Rect } from '../util/math';
 import { DEPTH } from '../config';
+import { STAMINA } from '../data/life';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect, momentum?: number): void;
@@ -29,12 +30,20 @@ export class Player {
   view: CreatureView;
   stats!: Stats;
   hp = 1;
-  stamina = 1;
+  /**
+   * Ausdauer in Kreisen (wie in Breath of the Wild): höchstens game.staminaMax – ein Kreis, und für jeden Segen der großen
+   * Muschel ein Stück mehr. Wie schnell sie schwindet, hängt am Körper (stats.endurance: Schwere ermüden schneller).
+   */
+  stamina = game.staminaMax;
+  /** wann zuletzt Ausdauer verbraucht wurde (erst kurz danach füllt sich der Kreis wieder) */
+  private usedAt = -1e9;
+  /** wann die große Muschel zuletzt gesegnet hat (der Kreis wächst sichtbar um ein Stück) */
+  grewAt = -1e9;
   /** am Lebensende: Es wird langsamer (1 = wie immer … 0 = steht still) */
   fade = 1;
   /** Einschlafen am Ende des Lebens: seit wann (Spielzeit in ms, < 0: wach) – nach der Uhr der Szene, wie das Abblenden */
   private sleepAt = -1;
-  /** erschöpft: lahm unterwegs, kein Spurt und kein Rammen, bis wieder etwas Kraft da ist */
+  /** erschöpft: lahm unterwegs, kein Spurt und kein Rammen, bis der Kreis wieder ganz voll ist (er ist dann rot) */
   exhausted = false;
   /** lässt sich ruhig treiben bzw. liegt still und sammelt Kraft (und heilt ein wenig) */
   resting = false;
@@ -107,6 +116,18 @@ export class Player {
     this.view.setDepth(DEPTH.player);
     this.refresh(true);
     this.lastSafe = { x, y };
+  }
+
+  /** die größte Ausdauer (in Kreisen) */
+  get staminaMax() {
+    return game.staminaMax;
+  }
+
+  /** Die große Muschel hat gesegnet: Der Kreis wächst, und er ist voll. */
+  blessed() {
+    this.grewAt = this.host.time.now;
+    this.stamina = this.staminaMax;
+    this.exhausted = false;
   }
 
   get body() {
@@ -228,22 +249,27 @@ export class Player {
     // Sprint: hält je nach Körperbau kürzer oder länger
     const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
     this.sprinting = wantSprint && !this.exhausted && this.stamina > 0.05;
+    const max = this.staminaMax;
     // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
     this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : 0.9));
-    // Kraft: der Spurt zehrt sie auf, beim Schwimmen kehrt sie nur langsam zurück, beim Treiben rasch
+    // Ausdauer: Der Spurt zehrt sie auf (ein Kreis reicht STAMINA.sprint Sekunden, schwere Tiere kürzer). Kurz nach dem
+    // Verbrauch füllt sich der Kreis wieder – beim Schwimmen langsam, beim Treiben rasch. Ganz leer ist man erschöpft:
+    // Dann füllt er sich rot, und erst wenn er voll ist, geht es wieder (wie in Breath of the Wild).
     const refill = this.stats.recover;
-    this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (3 * en) : this.resting ? dt * refill / 5 : dt * refill / 14), 0, 1);
+    if (this.sprinting) this.usedAt = time;
+    const regen = time - this.usedAt < 550 ? 0 : this.exhausted || this.resting ? refill / 5 : refill / 14;
+    this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (STAMINA.sprint * en) : dt * regen), 0, max);
     if (!this.exhausted && this.stamina <= 0.02) {
       this.exhausted = true;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 4, this.water ? 0xffffff : 0xcfd8dc);
-    } else if (this.exhausted && this.stamina >= 0.35) this.exhausted = false;
+    } else if (this.exhausted && this.stamina >= max - 0.001) this.exhausted = false;
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
     // am Lebensende: langsamer
     const starving = this.fade;
     const boosted = time < this.boostUntil;
     if (boosted) {
-      this.stamina = Math.min(1, this.stamina + dt * 0.6);
+      this.stamina = Math.min(max, this.stamina + dt * 0.6 * max);
       this.exhausted = false;
     }
     const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
@@ -349,6 +375,7 @@ export class Player {
         const k = clamp(this.dashAge / CHARGE_MS, 0, 1);
         this.dashV = this.dashV0 + (this.dashPeak - this.dashV0) * Math.pow(k, 1.5);
         this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / CHARGE_MS);
+        this.usedAt = time;
         // wer R loslässt (oder keine Kraft mehr hat), nutzt den Schwung, den er bis dahin hat
         if (k >= 1 || (!c.held.ram && this.dashAge > 220) || this.exhausted) this.dash = 'glide';
         // nach oben/unten lässt sich der Stoß noch lenken
@@ -382,6 +409,7 @@ export class Player {
       this.bitAt = time;
       // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
       this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
+      this.usedAt = time;
       this.view.bite();
       audio.sfx('bite', game.traits.jaw);
       const m = this.momentum;
@@ -390,11 +418,12 @@ export class Player {
     this.view.headTilt = this.dash === 'charge' ? 0.3 : this.dash === 'glide' ? 0.42 : this.sprinting ? 0.18 : 0;
 
     // Atem und Erschöpfung sichtbar machen
-    if ((this.stamina < 0.25 || this.exhausted) && time > this.breath) {
+    const low = this.stamina / max;
+    if ((low < 0.25 || this.exhausted) && time > this.breath) {
       this.breath = time + 500;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
     }
-    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.exhausted ? 0.3 : this.stamina < 0.2 ? 0.2 : 0) + (1 - this.fade) * 0.6, 0, 1);
+    this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.exhausted ? 0.3 : low < 0.2 ? 0.2 : 0) + (1 - this.fade) * 0.6, 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: AnimMode = 'idle';

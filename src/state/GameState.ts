@@ -5,7 +5,7 @@ import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
-import { INHERIT, LIFE, MISC, SPAWN } from '../data/life';
+import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
@@ -336,8 +336,10 @@ export interface Run {
   life: Life;
   /** die Geschwister, die noch im Gelege warten (deine übrigen Leben) */
   siblings?: Siblings;
-  /** gefundene Muscheln */
-  shells: string[];
+  /** gefundene Muscheln (sie fallen selten von erlegten Tieren – siehe SHELLS) */
+  shells: number;
+  /** so oft hat die große Muschel deine Linie gesegnet: Jeder Segen gibt mehr Ausdauer (siehe STAMINA) */
+  blessings?: number;
   /** so viele Muscheln hat man in der Übersicht schon gesehen (der Knopf leuchtet, solange eine neue dazukam) */
   seenRows: number;
   history: Ancestor[];
@@ -715,8 +717,11 @@ class GameState {
           // ältere Spielstände kennen nur Orte, keine Wege: Wer zwei benachbarte Orte kennt, kennt auch den Weg dazwischen
           r.prog.links ??= placesOf(EPOCHS[r.epoch]).flatMap((p) =>
             r.prog.known.includes(p.id) ? p.links.filter((q) => q > p.id && r.prog.known.includes(q)).map((q) => linkKey(p.id, q)) : []);
-          r.shells ??= [];
-          r.seenRows ??= r.shells.length;
+          // früher lagen Muscheln fest an ihren Orten (eine Liste ihrer Kennungen) – heute zählt nur, wie viele es sind
+          const sh = r.shells as unknown;
+          r.shells = Array.isArray(sh) ? sh.length : typeof sh === 'number' ? sh : 0;
+          r.seenRows = Math.min(r.seenRows ?? r.shells, r.shells);
+          r.blessings ??= 0;
           r.traits = migrate(r.traits);
           for (const a of r.history) a.traits = migrate(a.traits);
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
@@ -873,7 +878,8 @@ class GameState {
       canRam: true,
       prog: newProg(epoch),
       life: newLife(1),
-      shells: [],
+      shells: 0,
+      blessings: 0,
       seenRows: 0,
       history: [],
     };
@@ -1566,20 +1572,45 @@ class GameState {
     return (this.r.prog.links ?? []).includes(linkKey(a, b));
   }
 
-  get shells(): string[] {
+  /** Wie viele Muscheln deine Linie gesammelt hat. */
+  get shells(): number {
     return this.r.shells;
   }
 
-  hasShell(id: string) {
-    return this.r.shells.includes(id);
+  /** Eine Muschel gefunden. Gibt zurück, wie viele es jetzt sind. */
+  addShell() {
+    const run = this.r;
+    run.shells += 1;
+    this.save();
+    return run.shells;
   }
 
-  /** Eine Muschel gefunden. */
-  collectShell(id: string) {
-    const run = this.r;
-    if (!run.shells.includes(id)) run.shells.push(id);
+  /** So oft hat die große Muschel deine Linie schon gesegnet. */
+  get blessings() {
+    return this.r.blessings ?? 0;
+  }
+
+  /** So viele Muscheln braucht der nächste Segen (16, 256, 4096 …). */
+  get nextBlessing() {
+    return Math.pow(SHELLS.base, this.blessings + 1);
+  }
+
+  /** Genug Muscheln für den nächsten Segen – und noch Platz für mehr Ausdauer? */
+  get canPray() {
+    return this.r.shells >= this.nextBlessing && this.staminaMax < STAMINA.max;
+  }
+
+  /** An der großen Muschel beten: Ist es so weit, segnet sie deine Linie mit mehr Ausdauer. Gibt zurück, ob sie es tat. */
+  pray() {
+    if (!this.canPray) return false;
+    this.r.blessings = this.blessings + 1;
     this.save();
-    return run.shells.length;
+    return true;
+  }
+
+  /** Die größte Ausdauer deines Tiers, in Kreisen: einer – und für jeden Segen ein Stück mehr. */
+  get staminaMax() {
+    return staminaMax(this.data.run?.blessings ?? 0);
   }
 
   /** Wie viele Muscheln man in der Übersicht schon gesehen hat. */
@@ -1679,3 +1710,16 @@ class GameState {
 }
 
 export const game = new GameState();
+
+/** Die größte Ausdauer (in Kreisen) nach so vielen Segen. */
+export function staminaMax(blessings: number) {
+  return Math.min(STAMINA.max, 1 + Math.max(0, blessings) * STAMINA.perBlessing);
+}
+
+/**
+ * Wie wahrscheinlich ein erlegtes Tier eine Muschel hinterlässt – nach seiner Stärke im Vergleich zu deiner (rel = seine
+ * Stärke / deine): ebenbürtig SHELLS.chance, stärker öfter, schwächer seltener (begrenzt auf relMin … relMax).
+ */
+export function shellChance(rel: number) {
+  return SHELLS.chance * clamp(rel, SHELLS.relMin, SHELLS.relMax);
+}
