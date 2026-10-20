@@ -85,8 +85,10 @@ export class BackSea {
     private kind: PlaceKind,
     private surfaceY: number,
     dim: boolean,
+    /** im sicheren Startgebiet: Dort lebt außer der eigenen Art kein Tier – auch in der Ferne zieht keines vorbei */
+    calm = false,
   ) {
-    this.buildPool(ep);
+    if (!calm) this.buildPool(ep);
     if (!this.pool.length) {
       this.enabled = false;
       return;

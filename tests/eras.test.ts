@@ -4,29 +4,34 @@ import { SECTIONS } from '../src/data/aquapendium';
 import { SPECIES } from '../src/data/species';
 import { game, rootId, type Clutch, type Traits } from '../src/state/GameState';
 
-// Drei Zeitalter zur Wahl (Ordovizium, Devon, Kreidezeit) – jedes eine eigene Welt mit eigener Linie und eigenem Stammbaum.
+// Sieben Zeitalter zur Wahl (Devon bis Paläogen) – jedes eine eigene Welt mit eigener Linie und eigenem Stammbaum.
 
 /** Die nächste Generation schlüpft – mit diesen Merkmalen (wie nach dem Laichen). */
 function nextGen(t: Partial<Traits>) {
-  const c: Clutch = { id: 1, place: 'lagune', x: 100, y: 100, at: Date.now(), fert: true, role: 'father' };
+  const c: Clutch = { id: 1, place: 'riff', x: 100, y: 100, at: Date.now(), fert: true, role: 'father' };
   game.succeed(c, { traits: { ...game.traits, ...t }, sex: 1, seed: 3, fit: { st: 0, bs: 0, vf: 0, sw: 0 } });
 }
 
 describe('Zeitalter', () => {
-  it('drei zur Wahl, nur das Ordovizium ist schon spielbar', () => {
-    expect(ERAS.map((e) => e.ep.id)).toEqual(['ordovizium', 'devon', 'kreide']);
-    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['ordovizium']);
+  it('sieben zur Wahl, nur das Devon ist schon spielbar', () => {
+    expect(ERAS.map((e) => e.ep.id)).toEqual(['devon', 'karbon', 'perm', 'trias', 'jura', 'kreide', 'palaeogen']);
+    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['devon']);
     expect(isPlayable(0)).toBe(true);
     for (const { i } of ERAS.slice(1)) expect(isPlayable(i)).toBe(false);
-    // die Reihenfolge ist Teil des Spielstands: das Ordovizium bleibt Nummer 0
-    expect(EPOCHS[0].id).toBe('ordovizium');
-    expect(inEra(EPOCHS[0])).toBe('im Ordovizium');
-    expect(ofEra(ERAS[2].ep)).toBe('der Kreidezeit');
+    // die Reihenfolge ist Teil des Spielstands: Nummer 0 (früher das Ordovizium) ist heute das Devon
+    expect(EPOCHS[0].id).toBe('devon');
+    // die Zeiträume schließen lückenlos aneinander an
+    ERAS.slice(1).forEach((e, k) => expect(e.ep.period[0]).toBe(ERAS[k].ep.period[1]));
+    expect(inEra(EPOCHS[0])).toBe('im Devon');
+    expect(ofEra(ERAS[3].ep)).toBe('der Trias');
+    expect(inEra(ERAS[5].ep)).toBe('in der Kreidezeit');
   });
 
   it('jedes Zeitalter hat seinen Teil im Aquapendium – und jedes Tier dort einen Steckbrief', () => {
-    expect(SECTIONS.map((s) => s.ep.id)).toEqual(['ordovizium', 'devon', 'kreide']);
-    for (const s of SECTIONS) {
+    expect(SECTIONS.map((s) => s.ep.id)).toEqual(ERAS.map((e) => e.ep.id));
+    const filled = SECTIONS.filter((s) => s.entries.length);
+    expect(filled.map((s) => s.ep.id)).toEqual(['devon', 'kreide']);
+    for (const s of filled) {
       expect(s.entries.length).toBeGreaterThan(8);
       s.entries.forEach((e, k) => {
         expect(SPECIES[e.id]).toBeDefined();
@@ -35,9 +40,9 @@ describe('Zeitalter', () => {
         expect(e.latin).not.toBe(e.def.name);
       });
     }
-    const ids = (k: number) => SECTIONS[k].entries.map((e) => e.id);
-    expect(ids(1)).toContain('dunkleosteus');
-    for (const id of ['mosasaurus', 'elasmosaurus', 'archelon', 'ammonit', 'cretoxyrhina']) expect(ids(2)).toContain(id);
+    const ids = (id: string) => SECTIONS.find((s) => s.ep.id === id)!.entries.map((e) => e.id);
+    for (const id of ['dunkleosteus', 'thelodus', 'pteraspis', 'drepanaspis']) expect(ids('devon')).toContain(id);
+    for (const id of ['mosasaurus', 'elasmosaurus', 'archelon', 'ammonit', 'cretoxyrhina']) expect(ids('kreide')).toContain(id);
   });
 });
 
@@ -77,8 +82,8 @@ describe('Stammbaum je Zeitalter', () => {
 });
 
 describe('eine Linie je Zeitalter', () => {
-  // Das Devon ist noch nicht spielbar – für diesen Test schon
-  const devon = EPOCHS.findIndex((e) => e.id === 'devon');
+  // Ein zweites spielbares Zeitalter gibt es noch nicht – für diesen Test wird das (verborgene) Ordovizium eines: Es hat Orte
+  const devon = EPOCHS.findIndex((e) => e.id === 'ordovizium');
   beforeEach(() => {
     EPOCHS[devon].playable = true;
     game.resetAll();
@@ -102,9 +107,9 @@ describe('eine Linie je Zeitalter', () => {
   });
 
   it('in ruhende Zeitalter kann man nicht wechseln', () => {
-    EPOCHS[devon].playable = undefined;
+    const karbon = EPOCHS.findIndex((e) => e.id === 'karbon');
     const a = game.newRun(0);
-    game.enterEpoch(devon);
+    game.enterEpoch(karbon);
     expect(game.run).toBe(a);
     expect(game.chosenEpoch).toBe(0);
   });
@@ -124,13 +129,13 @@ describe('ältere Spielstände', () => {
     delete (globalThis as { localStorage?: unknown }).localStorage;
   });
 
-  it('der alte Urahn wird der des Ordoviziums, Astenden kennen ihre Generation, Äste über Zeitalter hinweg fallen weg', () => {
+  it('der alte Urahn wird der des ersten Zeitalters, Astenden kennen ihre Generation, Äste über Zeitalter hinweg fallen weg', () => {
     game.resetAll();
     const old = JSON.parse(JSON.stringify(game.data));
     const T = old.nodes.root.traits;
     old.nodes.root = { ...old.nodes.root, epoch: -1, sig: 'root', gen: undefined, children: ['n1', 'n2'] };
     old.nodes.n1 = { id: 'n1', parent: 'root', epoch: 0, cls: 'fish', traits: T, hue: 0, seed: 1, sig: 'x', children: [], runs: 1, last: 1, dead: { frac: 0.4, cause: 'Gefressen', run: 1, gens: 5 } };
-    // früher konnte eine Linie ein Zeitalter überleben: Dieser Ast führte ins Devon
+    // früher konnte eine Linie ein Zeitalter überleben: Dieser Ast führte ins nächste
     old.nodes.n2 = { id: 'n2', parent: 'root', epoch: 0, cls: 'fish', traits: T, hue: 0, seed: 1, sig: 'y', children: ['n3'], runs: 1, last: 2 };
     old.nodes.n3 = { id: 'n3', parent: 'n2', epoch: 2, cls: 'fish', traits: T, hue: 0, seed: 1, sig: 'z', children: [], runs: 1, last: 2 };
     old.runs = 2;

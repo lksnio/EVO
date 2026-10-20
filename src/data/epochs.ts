@@ -1,12 +1,13 @@
 import type { ClassId } from './classes';
 
 // ---------------------------------------------------------------------------
-// Die Zeitalter. Jedes ist eine eigene Welt – ein fester Zeitraum der Erdgeschichte, in dem eine Uhr von "from" bis "to"
-// läuft (Jahre vor heute). Man lebt immer in einem Zeitalter: Jede Linie beginnt dort mit dessen Urahn und entwickelt sich
-// über Generationen – im Mehrspieler treffen sich alle, die dasselbe Zeitalter gewählt haben.
-// Gewählt wird im Titelbild („Zeitalter“). Spielbar ist vorerst nur das Ordovizium; Devon und Kreidezeit ruhen noch
-// („im Gestein“), ihre Tiere stehen aber schon im Aquapendium. Die Reihenfolge ist Teil des Spielstands (Nummern) –
-// neue Zeitalter kommen deshalb ans Ende oder ersetzen ein verborgenes.
+// Die Zeitalter (Epochen). Jedes ist eine eigene Welt – ein fester Zeitraum der Erdgeschichte, in dem eine Uhr von "from"
+// bis "to" läuft (Jahre vor heute). Man lebt immer in einem Zeitalter: Jede Linie beginnt dort mit dessen Urahn und
+// entwickelt sich über Generationen – im Mehrspieler treffen sich alle, die dasselbe Zeitalter gewählt haben.
+// Sieben stehen zur Wahl: Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen. Spielbar ist vorerst nur das Devon, die
+// anderen ruhen noch („im Gestein“). Ordovizium und Silur sind verborgen (ihre Tiere, Orte und Karten bleiben für später).
+// Die Reihenfolge ist Teil des Spielstands (Nummern): Nummer 0 war früher das Ordovizium – ältere Spielstände leben deshalb
+// im Devon weiter. Neue Zeitalter kommen ans Ende.
 // ---------------------------------------------------------------------------
 
 export type Theme = 'ozean' | 'sumpf' | 'reptil' | 'eis' | 'eden';
@@ -39,6 +40,10 @@ export interface EpochDef {
   tagline: string;
   /** zwei, drei Sätze zur Welt dieses Zeitalters */
   blurb: string;
+  /** der ganze erdgeschichtliche Zeitraum (Millionen Jahre vor heute) – für die Auswahl und den Zeitstrom */
+  period: [number, number];
+  /** weiblich: „die Trias“, „die Kreidezeit“ (sonst „das Devon“, „der Jura“ …) */
+  fem?: boolean;
   /** Lebensraum */
   place: string;
   theme: Theme;
@@ -69,9 +74,73 @@ export interface EpochDef {
 
 const M = 1e6;
 
+/** Ein Zeitalter, das noch ruht: Bild und Text stehen schon, seine Welt und seine Tiere folgen (die Zahlen sind Platzhalter). */
+function later(id: string, name: string, tagline: string, period: [number, number], blurb: string, place: string, theme: Theme, cls: ClassId, habitat: 'water' | 'land', fem = false): EpochDef {
+  return {
+    id, name, tagline, period, blurb, place, theme, cls, habitat, fem,
+    from: period[0] * M, to: period[1] * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.8, cover: 0.5,
+    fauna: [], passers: [], events: [],
+  };
+}
+
 export const EPOCHS: EpochDef[] = [
+  // ---------------------------------------------------------------- I. Devon – hier beginnt alles
   {
-    id: 'ordovizium', name: 'Ordovizium', playable: true, tagline: 'Die ersten Fische',
+    id: 'devon', name: 'Devon', playable: true, tagline: 'Das Zeitalter der Fische', period: [419, 359],
+    blurb: 'Riffe aus Korallen und Schwämmen säumen die Küsten. Panzerfische, frühe Haie und Fleischflosser ringen um die Vorherrschaft – über allen thront Dunkleosteus.',
+    place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
+    from: 383 * M, to: 371 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.85, cover: 0.55,
+    // viel kleine Beute, wenige Jäger (die meisten in der Tiefe) – das erste Zeitalter soll man überleben können
+    fauna: [
+      ['moythomasia', 9], ['acanthodes', 5], ['thelodus', 4], ['kieferlos', 4], ['cheiracanthus', 3.5], ['drepanaspis', 3], ['dipterus', 2.5],
+      ['cephalaspis', 2], ['pteraspis', 2], ['trilobit', 3], ['dalmanites', 1.5],
+      ['bothriolepis', 1.6], ['pterichthyodes', 1.4], ['climatius', 0.8], ['qualle', 1],
+      ['conodont', 0.8], ['osteolepis', 0.4], ['cheirolepis', 0.4], ['orthoceras', 0.4], ['coccosteus', 0.35], ['seeskorpion', 0.2],
+      ['cladoselache', 0.25], ['rolfosteus', 0.25], ['eusthenopteron', 0.2], ['stethacanthus', 0.15], ['holoptychius', 0.12], ['tiktaalik', 0.12], ['hyneria', 0.08],
+    ],
+    passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 1.5], ['rolfosteus', 1.5], ['eusthenopteron', 1.5], ['holoptychius', 1], ['pterygotus', 0.6], ['hyneria', 0.5]],
+    events: [
+      { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true },
+      { at: 0.32, kind: 'predator', species: 'dunkleosteus' },
+      { at: 0.72, kind: 'bloom' },
+    ],
+  },
+  // ---------------------------------------------------------------- II.–VII. ruhen noch: Bild und Text stehen, Welt und Tiere folgen
+  later('karbon', 'Karbon', 'Die Kohlewälder', [359, 299],
+    'Dampfende Sumpfwälder aus Schuppenbäumen und Riesenschachtelhalmen. Libellen so groß wie Möwen schwirren durch den Nebel, und die ersten Amphibien kriechen ans Ufer.',
+    'Kohlesumpf', 'sumpf', 'amphibian', 'land'),
+  later('perm', 'Perm', 'Das Reich der Segelrücken', [299, 252],
+    'Alle Kontinente sind zu Pangäa verschmolzen. Im trockenen Land herrschen Segelechsen wie Dimetrodon – die fernen Vorfahren der Säugetiere. Am Ende steht das größte Massensterben der Erdgeschichte.',
+    'Pangäa', 'reptil', 'reptile', 'land'),
+  later('trias', 'Trias', 'Die ersten Dinosaurier', [252, 201],
+    'Nach dem großen Sterben erholt sich das Leben. In der heißen Pangäa erscheinen die ersten Dinosaurier, im Meer jagen Fischechsen, und die ersten Säugetiere huschen durch die Nacht.',
+    'Pangäa', 'reptil', 'reptile', 'land', true),
+  later('jura', 'Jura', 'Das Zeitalter der Giganten', [201, 145],
+    'Pangäa bricht auseinander. Riesige Langhalssaurier ziehen durch Farnwälder, Flugsaurier segeln über Lagunen, und im Meer jagen Plesiosaurier.',
+    'Lagunen und Farnwälder', 'reptil', 'reptile', 'land'),
+  // die späte Kreidezeit: das Westliche Binnenmeer, das Nordamerika teilte (die Zahlen sind vorläufig)
+  {
+    id: 'kreide', name: 'Kreidezeit', fem: true, tagline: 'Die Herrschaft der Meeresechsen', period: [145, 66],
+    blurb: 'Ein warmes Binnenmeer teilt Nordamerika. Mosasaurier und Plesiosaurier jagen, Riesenhaie ziehen ihre Bahnen, und Ammoniten treiben im Licht.',
+    place: 'Westliches Binnenmeer', theme: 'ozean', cls: 'fish', habitat: 'water',
+    from: 82 * M, to: 72 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 95, plants: 0.6, cover: 0.45,
+    fauna: [
+      ['apsopelix', 9], ['gillicus', 2.5], ['ammonit', 3], ['baculites', 2], ['enchodus', 1.2], ['protosphyraena', 0.6], ['squalicorax', 0.6],
+      ['qualle', 1], ['archelon', 0.4], ['xiphactinus', 0.4],
+    ],
+    passers: [['platecarpus', 3], ['elasmosaurus', 2], ['cretoxyrhina', 2], ['xiphactinus', 2], ['tylosaurus', 1]],
+    events: [
+      { at: 0.1, kind: 'predator', species: 'tylosaurus', fast: true },
+      { at: 0.45, kind: 'predator', species: 'mosasaurus' },
+      { at: 0.75, kind: 'bloom' },
+    ],
+  },
+  later('palaeogen', 'Paläogen', 'Die Zeit der Säugetiere', [66, 23],
+    'Die Dinosaurier sind verschwunden. Säugetiere erobern Land und Meer – die ersten Wale tasten sich ins Wasser, und Wälder bedecken die Erde bis an die Pole.',
+    'Urwälder und Küsten', 'eden', 'mammal', 'land'),
+  // ---------------------------------------------------------------- verborgen (für später)
+  {
+    id: 'ordovizium', name: 'Ordovizium', hidden: true, tagline: 'Die ersten Fische', period: [485, 443],
     blurb: 'Flache, warme Meere bedecken die Erde. Riesige Kopffüßer jagen im offenen Wasser, Trilobiten pflügen durch den Schlamm – und mittendrin schwimmen die ersten Fische, noch ohne Kiefer.',
     place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
@@ -86,9 +155,8 @@ export const EPOCHS: EpochDef[] = [
       { at: 0.72, kind: 'bloom' },
     ],
   },
-  // das Silur ist (noch) nicht zu sehen: Seine Tiere und Orte bleiben für später
   {
-    id: 'silur', name: 'Silur', hidden: true, tagline: 'Die ersten Kiefer',
+    id: 'silur', name: 'Silur', hidden: true, tagline: 'Die ersten Kiefer', period: [443, 419],
     blurb: 'Tangwälder wiegen sich in der Strömung. Die ersten Fische mit Kiefern jagen – und riesige Seeskorpione lauern am Grund.',
     place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
@@ -104,41 +172,6 @@ export const EPOCHS: EpochDef[] = [
       { at: 0.68, kind: 'storm', dur: 18 },
     ],
   },
-  {
-    id: 'devon', name: 'Devon', tagline: 'Das Zeitalter der Fische',
-    blurb: 'Riffe aus Korallen und Schwämmen säumen die Küsten. Panzerfische, frühe Haie und Fleischflosser ringen um die Vorherrschaft – über allen thront Dunkleosteus.',
-    place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
-    from: 382 * M, to: 372 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.75, cover: 0.55,
-    fauna: [
-      ['kieferlos', 2], ['cheiracanthus', 4.4], ['moythomasia', 10.5], ['acanthodes', 6.5], ['bothriolepis', 2], ['pterichthyodes', 1.8], ['cephalaspis', 1.4],
-      ['drepanaspis', 3], ['dipterus', 3], ['trilobit', 2], ['dalmanites', 1.6], ['coccosteus', 0.7], ['osteolepis', 0.6], ['cheirolepis', 0.6],
-      ['cladoselache', 0.9], ['stethacanthus', 0.5], ['rolfosteus', 0.7], ['eusthenopteron', 0.6], ['tiktaalik', 0.4], ['holoptychius', 0.4], ['hyneria', 0.3],
-      ['orthoceras', 0.6], ['seeskorpion', 0.3],
-    ],
-    passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 2], ['rolfosteus', 2], ['eusthenopteron', 2], ['holoptychius', 1.5], ['hyneria', 0.6], ['dunkleosteus', 0.5]],
-    events: [
-      { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true },
-      { at: 0.3, kind: 'predator', species: 'dunkleosteus' },
-      { at: 0.8, kind: 'boss', species: 'dunkleosteus' },
-    ],
-  },
-  // die späte Kreidezeit: das Westliche Binnenmeer, das Nordamerika teilte (noch nicht spielbar – die Zahlen sind vorläufig)
-  {
-    id: 'kreide', name: 'Kreidezeit', tagline: 'Die Herrschaft der Meeresechsen',
-    blurb: 'Ein warmes Binnenmeer teilt Nordamerika. Mosasaurier und Plesiosaurier jagen, Riesenhaie ziehen ihre Bahnen, und Ammoniten treiben im Licht.',
-    place: 'Westliches Binnenmeer', theme: 'ozean', cls: 'fish', habitat: 'water',
-    from: 82 * M, to: 72 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 95, plants: 0.6, cover: 0.45,
-    fauna: [
-      ['apsopelix', 9], ['gillicus', 2.5], ['ammonit', 3], ['baculites', 2], ['enchodus', 1.2], ['protosphyraena', 0.6], ['squalicorax', 0.6],
-      ['qualle', 1], ['archelon', 0.4], ['xiphactinus', 0.4],
-    ],
-    passers: [['platecarpus', 3], ['elasmosaurus', 2], ['cretoxyrhina', 2], ['xiphactinus', 2], ['tylosaurus', 1]],
-    events: [
-      { at: 0.1, kind: 'predator', species: 'tylosaurus', fast: true },
-      { at: 0.45, kind: 'predator', species: 'mosasaurus' },
-      { at: 0.75, kind: 'bloom' },
-    ],
-  },
 ];
 
 /** Die Zeitalter, die man sieht (Auswahl, Aquapendium, Stammbaum) – in der Reihenfolge der Erdgeschichte, mit ihrer Nummer. */
@@ -147,10 +180,10 @@ export const ERAS: { i: number; ep: EpochDef }[] = EPOCHS.map((ep, i) => ({ i, e
 /** Kann man in diesem Zeitalter (Nummer) leben? */
 export const isPlayable = (i: number) => !!EPOCHS[i]?.playable;
 
-/** „im Ordovizium“, „im Devon“, „in der Kreidezeit“ */
-export const inEra = (ep: EpochDef) => (ep.name.endsWith('zeit') ? `in der ${ep.name}` : `im ${ep.name}`);
-/** „des Ordoviziums“, „des Devons“, „der Kreidezeit“ */
-export const ofEra = (ep: EpochDef) => (ep.name.endsWith('zeit') ? `der ${ep.name}` : `des ${ep.name}s`);
+/** „im Devon“, „in der Trias“, „in der Kreidezeit“ */
+export const inEra = (ep: EpochDef) => (ep.fem ? `in der ${ep.name}` : `im ${ep.name}`);
+/** „des Devons“, „der Trias“, „der Kreidezeit“ */
+export const ofEra = (ep: EpochDef) => (ep.fem ? `der ${ep.name}` : `des ${ep.name}s`);
 
 export const epochIndex = (id: string) => EPOCHS.findIndex((e) => e.id === id);
 

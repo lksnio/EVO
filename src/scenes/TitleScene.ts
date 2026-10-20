@@ -8,7 +8,9 @@ import { STAGE_NAME, stageOf, worldYears } from '../sim/life';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { tex, vgrad } from '../util/canvas';
 import { clamp } from '../util/math';
-import { MenuNav, controlsList, fadeIn, fadeTo, soundIcon, text, type NavItem } from '../ui/ui';
+import { MenuNav, fadeIn, fadeTo, soundIcon, text, type NavItem } from '../ui/ui';
+import { openKeys } from '../ui/keysPanel';
+import { capture } from '../state/keymap';
 import { continueLife } from './flow';
 import { changedCount } from '../data/tuning';
 import { openDevConfig } from '../ui/devConfig';
@@ -208,7 +210,7 @@ export class TitleScene extends Phaser.Scene {
     this.world();
     this.life();
     this.ui(k);
-    this.input.keyboard!.on('keydown-ESC', () => this.closeOverlay());
+    this.input.keyboard!.on('keydown-ESC', () => !capture.on && this.closeOverlay());
   }
 
   // ---------------------------------------------------------------- die Welt
@@ -501,34 +503,16 @@ export class TitleScene extends Phaser.Scene {
     continueLife(this);
   }
 
-  /** Eine schlichte Tafel über dem Bild – dunkel, ein feiner Rand, die Überschrift wie „Living World“. */
-  private sheet(w: number, h: number, head: string) {
+  /** Die Seite "Steuerung": Tasten ansehen und neu belegen. */
+  private showHelp() {
     this.closeOverlay();
-    const c = this.add.container(0, 0).setDepth(100);
-    const x = (W - w) / 2, y = (H - h) / 2;
-    const shade = this.add.rectangle(0, 0, W, H, 0x010304, 0.72).setOrigin(0).setInteractive();
-    const g = this.add.graphics();
-    g.fillStyle(0x05090a, 0.95);
-    g.fillRoundedRect(x, y, w, h, 8);
-    g.lineStyle(1, 0xc8913c, 0.35);
-    g.strokeRoundedRect(x + 0.5, y + 0.5, w - 1, h - 1, 8);
-    g.lineStyle(1, 0xc8913c, 0.55);
-    g.lineBetween(W / 2 - 54, y + 70, W / 2 + 54, y + 70);
-    const t = this.add.text(W / 2, y + 44, head, { fontFamily: TITLE_FONT, fontSize: '18px', color: UI.ochre, fontStyle: '700', resolution: 2 })
-      .setOrigin(0.5).setLetterSpacing(10);
-    c.add([shade, g, t]);
-    c.setAlpha(0);
-    this.tweens.add({ targets: c, alpha: 1, duration: 220 });
+    const c = openKeys(this, 100, () => {
+      if (this.overlay !== c) return;
+      this.overlay = undefined;
+      if (this.nav) this.nav.enabled = true;
+    });
     this.overlay = c;
     if (this.nav) this.nav.enabled = false;
-    return { c, x, y, shade };
-  }
-
-  private showHelp() {
-    const { c, y, shade } = this.sheet(900, 560, 'STEUERUNG');
-    shade.on('pointerdown', () => this.closeOverlay());
-    controlsList(this, c, W / 2 + 10, y + 100, 20, 34);
-    c.add(text(this, W / 2, y + 522, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm  ·  Esc: zurück', 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
   }
 
   private closeOverlay() {

@@ -8,10 +8,11 @@ import type { Animal } from './Animal';
 import { Kin } from './Kin';
 import { Bubble, Mouth, Prompt } from './Quest';
 import type { LevelScene } from '../scenes/LevelScene';
+import { keyLabel, matches } from '../state/keymap';
 
 // Der Auftrag „Die gemeinsame Jagd“ (Daten und Zielzahlen: data/quests.ts, JAGD). Nachdem der Gefährte gefressen wurde, wartet
 // im selben Ort eine kleine Gruppe Überlebender deiner Art – echte Artgenossen mit ihrem gewohnten Verhalten. Einer erzählt von
-// einem Schwarm Sacabambaspis und fragt, ob du mitjagst. Sagst du ja, folgt dir die Gruppe; der Schwarm (kräftige Tiere, die
+// einem Schwarm Drepanaspis und fragt, ob du mitjagst. Sagst du ja, folgt dir die Gruppe; der Schwarm (kräftige Tiere, die
 // sich mit einem Gegenstoß wehren und fliehen) zieht ein Stück entfernt. Gejagt wird mit den üblichen Mitteln: Greifst du an,
 // helfen die Artgenossen mit. Sind genug erlegt und du warst selbst dabei, erklärt dir einer der Überlebenden, wie du die
 // Gruppe künftig rufen kannst. Wer dabei stirbt, fehlt der Gruppe für immer (game.swarm).
@@ -93,23 +94,18 @@ export class HuntQuest {
     };
     const onPick = (i: number) => this.choosing && this.pick(i);
     const left = move(-1), right = move(1);
-    kb?.on('keydown-F', adv);
-    kb?.on('keydown-ENTER', adv);
-    kb?.on('keydown-SPACE', adv);
-    kb?.on('keydown-LEFT', left);
-    kb?.on('keydown-A', left);
-    kb?.on('keydown-RIGHT', right);
-    kb?.on('keydown-D', right);
+    // weiter: Ansprechen, Eingabe oder Leertaste; wählen: Pfeiltasten, A/D oder die Schwimmtasten der Belegung
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.keyCode;
+      if (k === 37 || k === 65 || matches('left', e)) left();
+      else if (k === 39 || k === 68 || matches('right', e)) right();
+      else if (k === 13 || k === 32 || matches('talk', e)) adv();
+    };
+    kb?.on('keydown', onKey);
     host.input.on('pointerdown', tap);
     bus.on('choicePick', onPick);
     this.offs.push(() => {
-      kb?.off('keydown-F', adv);
-      kb?.off('keydown-ENTER', adv);
-      kb?.off('keydown-SPACE', adv);
-      kb?.off('keydown-LEFT', left);
-      kb?.off('keydown-A', left);
-      kb?.off('keydown-RIGHT', right);
-      kb?.off('keydown-D', right);
+      kb?.off('keydown', onKey);
       host.input.off('pointerdown', tap);
       bus.off('choicePick', onPick);
     });
@@ -175,7 +171,7 @@ export class HuntQuest {
     this.prompt = new Prompt(h, this.touchMode);
   }
 
-  /** Der Schwarm Sacabambaspis: kräftige Tiere (sie wehren sich), die in ihrem Revier bleiben. Erlegte kommen nicht wieder. */
+  /** Der Schwarm Drepanaspis: kräftige Tiere (sie wehren sich), die in ihrem Revier bleiben. Erlegte kommen nicht wieder. */
   private spawnSchool(count?: number) {
     const h = this.host, st = this.state;
     const n = count ?? Math.max(JAGD.kills - st.kills, JAGD.school - st.kills, 1);
@@ -439,7 +435,7 @@ export class HuntQuest {
     const present = (h.swarm?.present ?? []).filter((k) => !k.dead).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
     this.speaker = present[0];
     if (!this.speaker) return h.swarm?.emit();
-    const ruf = this.touchMode ? 'mit dem Knopf oben rechts' : 'mit der Taste S';
+    const ruf = this.touchMode ? 'mit dem Knopf oben rechts' : `mit der Taste ${keyLabel('call')}`;
     this.begin(JAGD.lines.success.map((l) => l.replace('{ruf}', ruf)), false);
   }
 

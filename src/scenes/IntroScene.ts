@@ -7,9 +7,9 @@ import { CreatureView } from '../objects/CreatureView';
 import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 
 const PAGES = [
-  'Vor 470 Millionen Jahren ist die Erde fast nur Wasser.',
-  'Im Dunkel der Urmeere regt sich das erste Leben.',
-  'Du bist ein kleiner Urfisch.\nEiner von wenigen deiner Art.',
+  'Vor 380 Millionen Jahren, im Devon, wimmeln die Meere vor Fischen.',
+  'Gepanzerte Riesen jagen in der Tiefe, an den Küsten wachsen Riffe.',
+  'Du bist ein kleiner Urfisch – geschlüpft in einem stillen Fluss.\nEiner von wenigen deiner Art.',
   'Wachse heran. Kehre zum Laichen in den Fluss zurück –\nund lebe in deinen Nachkommen weiter.',
 ];
 

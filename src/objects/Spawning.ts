@@ -74,7 +74,7 @@ export class SpawnCtl {
 
   constructor(private host: LevelScene) {
     this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
-    this.prompt = new Prompt(host, this.touchMode, 'E');
+    this.prompt = new Prompt(host, this.touchMode, 'bite');
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
     // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen
     game.decayClutches();

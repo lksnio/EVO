@@ -196,6 +196,8 @@ function makeGround(hp: number[], cols: number): Ground {
 }
 
 function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, arrCols: number[], minCol = 4) {
+  // im sicheren Startgebiet lebt außer der eigenen Art kein Tier
+  if (place.safe) return;
   const def = place.def;
   const heights = G.heights;
   const cols = heights.length;
@@ -293,7 +295,8 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
       if (c >= 0 && !L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 3 * T)) L.roe.push(spot(c, 1, 'own', true));
     }
   }
-  // Gelege der Bewohner (Hazards wie Quallen laichen nicht, die Herrscher ziehen nur durch)
+  // Gelege der Bewohner (Hazards wie Quallen laichen nicht, die Herrscher ziehen nur durch) – im sicheren Startgebiet keine
+  if (place.safe) return;
   const pool = L.spawns.filter((s) => {
     const d = SPECIES[s.id];
     return d && d.role !== 'hazard' && d.role !== 'apex' && !d.boss && d.power < 16 && s.guard === undefined;
@@ -405,7 +408,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   placeMats(L, place, r, G, riverEndCol);
   dressGround(L, ep, place, r, G, riverEndCol);
   placeShells(L, ep, place, r, G, startCol);
-  // am Start (im Fluss) ist es still: Tiere gibt es erst weiter draußen im Meer
+  // am Start ist es still: Tiere gibt es erst in den anderen Orten (siehe PlaceDef.safe)
   placeFauna(L, ep, place, r, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
   placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
@@ -718,7 +721,8 @@ function placeShells(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
     spots.push({ x, y });
   }
   // sortieren: draußen, tief unten zuletzt – so liegen die Muscheln in Tiefen weiter weg
-  const tutorial = ep.id === 'ordovizium' && place.kind === 'start';
+  // im Startgebiet liegt die erste Muschel direkt vor dir
+  const tutorial = place.kind === 'start';
   for (let k = 0; k < place.shells; k++) {
     let at: { x: number; y: number } | undefined;
     if (k === 0 && tutorial) {

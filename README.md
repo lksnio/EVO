@@ -13,10 +13,11 @@ Weitergeben**.
 **EVO wird ein persistentes Online-Spiel:** eine Welt, die weiterläuft, in der mehrere Spieler einander
 sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere bleiben). Der erste Schritt
 steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
-Gespielt wird in **Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Ordovizium**, **Devon** und
-**Kreidezeit** – jedes ist eine eigene Welt mit eigener Linie, eigenem Stammbaum und eigenem Teil im Aquapendium; im
-Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben. Spielbar ist vorerst nur das **Ordovizium**,
-Devon und Kreidezeit ruhen noch „im Gestein“ (siehe [Zeitalter wählen](#zeitalter-wählen)).
+Gespielt wird in **sieben Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Devon**, **Karbon**,
+**Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** – jedes ist eine eigene Welt mit eigener Linie, eigenem
+Stammbaum und eigenem Teil im Aquapendium; im Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben.
+Spielbar ist vorerst nur das **Devon** – dort beginnt jedes Leben; die anderen ruhen noch „im Gestein“ (siehe
+[Zeitalter wählen](#zeitalter-wählen)).
 
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
@@ -38,32 +39,43 @@ und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie 
 
 ## Zeitalter wählen
 
-Unter „Zeitalter“ (bzw. „Leben beginnen“) stehen die drei Zeitalter nebeneinander – drei Bilder, so hoch wie der
-Bildschirm. Das gewählte öffnet sich weit, die anderen bleiben schmale Streifen; wer mit der Maus darüberfährt (oder ← →
-drückt), öffnet ein anderes. In jedem Bild **lebt das Wasser**: Licht fällt von oben und atmet, ein Lichtnetz spielt auf dem
-Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm zieht in der Ferne vorbei, und ganz langsam kommt man näher –
-das geöffnete Bild folgt dazu ein Stück der Maus. Unten stehen Nummer und Name des Zeitalters, eine Zeile und ein paar
-Sätze zu seiner Welt, die Weltzeit und deine Linie dort.
+Unter „Zeitalter“ (bzw. „Leben beginnen“) stehen die **sieben Zeitalter** nebeneinander – sieben Bilder, so hoch wie der
+Bildschirm. Das gewählte öffnet sich weit, die anderen bleiben schmale Streifen **wie Buchrücken**: oben der Zeitraum
+(„359 – 299 Mio. J.“), der Name senkrecht, unten die römische Nummer und der Stand (Generation, „spielbar“ oder ein
+Ammonit für „noch im Gestein“). Wer mit der Maus auf ein anderes Bild fährt (oder ← → drückt), öffnet es. Jedes Bild
+**lebt**, und ganz langsam kommt man näher – das geöffnete folgt dazu ein Stück der Maus:
 
-- **Ordovizium** – *Die ersten Fische*: **Weiterleben** (bzw. **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die
-  jetzige endet dann). Wer aufbricht, hört einen tiefen Sog und einen weiten Chor, das Bild öffnet sich ganz, und man
-  taucht hinein.
-- **Devon** – *Das Zeitalter der Fische* – und **Kreidezeit** – *Die Herrschaft der Meeresechsen*: Sie **ruhen noch im
-  Gestein**. Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen; wählt man eines an, schimmert ein wenig Farbe
-  durch, und ein Lichtstreif streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein
-  Ammonit-Zeichen und „Noch im Gestein – Diese Welt ruht noch im Fels, bald bricht sie auf.“ Ein Klick darauf: Stein reibt
-  über Stein, es rührt sich (noch) nichts.
+- **I · Devon** – *Das Zeitalter der Fische* (spielbar): Licht fällt von oben und atmet, ein Lichtnetz spielt auf dem
+  Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm *Moythomasia* zieht vorbei. Darunter **Weiterleben** (bzw.
+  **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die jetzige endet dann). Wer aufbricht, hört einen tiefen Sog
+  und einen weiten Chor, das Bild öffnet sich ganz, und man taucht hinein.
+- **II · Karbon** – *Die Kohlewälder*: Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
+  den Stämmen hindurch und atmen dabei, fahles Licht fällt schräg herein, Sporen treiben, das stille Wasser glänzt matt –
+  und eine **Riesenlibelle** schwirrt in trägen Schleifen durchs Bild.
+- **III · Perm** – *Das Reich der Segelrücken*: Hinter den Palmfarnen **glüht die Sonne im Dunst**, warme Strahlen fallen
+  schräg, goldener Staub steigt auf, ein Dunstband zieht am Horizont, vorn **wiegt sich ein Farn** im Wind, in der Ferne
+  eine Libelle.
+- **VI · Kreidezeit** – *Die Herrschaft der Meeresechsen*: das Meer wie im Devon, mit einem Schwarm *Apsopelix*.
+- **IV · Trias**, **V · Jura**, **VII · Paläogen**: Ihre Bilder fehlen noch – dort steht eine **dunkle Steintafel** aus
+  Gesteinsschichten mit einem **eingemeißelten Fossil** (Ammonit, Plesiosaurier, Hai), feiner Staub rieselt, und in ihren
+  **Rissen glimmt Glut**: Bald bricht sie auf. Titel, Zeile und Text stehen schon.
+
+Alle Zeitalter außer dem Devon **ruhen noch im Gestein**: Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen;
+wählt man eines an, kehrt die **Farbe zum großen Teil zurück**, Maserung und Risse treten zurück, und ein Lichtstreif
+streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein Ammonit-Zeichen und „Noch im Gestein“.
+Ein Klick darauf: Stein reibt über Stein, die Glut in den Rissen flackert auf – es rührt sich (noch) nichts.
 
 Jedes Zeitalter hat **seine eigene Linie**: Wer das Zeitalter wechselt, lässt seine Linie dort ruhen und findet sie bei der
 Rückkehr wieder (`enterEpoch`, `runIn` in `src/state/GameState.ts`) – das wird wichtig, sobald mehr als ein Zeitalter
-spielbar ist. Die Bilder liegen in `src/assets/eras/`, die Szene in `src/scenes/EraScene.ts`.
+spielbar ist. Die Bilder liegen in `src/assets/eras/` (Devon, Karbon, Perm, Kreidezeit – neue Bilder für Trias, Jura und
+Paläogen kommen dorthin und in `LOOK` in `src/scenes/EraScene.ts`, wo auch steht, wie sie leben: Meer, Sumpf oder Land).
 
-**Vorbereitet für später:** Alle **Devon-Tiere** sind noch da – die Arten mit Werten und Zeichnung in
-`src/data/species.ts` und `src/art/speciesArt.ts`, das Zeitalter mit seinen Tieren, Durchzüglern und Dunkleosteus in
-`src/data/epochs.ts`, seine zehn Orte und seine Karte in `src/data/world.ts` und `src/data/paleo.json`. Für die
-**Kreidezeit** gibt es 15 Tiere (vier neue Körperformen: Mosasaurier, Plesiosaurier, Riesenschildkröte, Ammonit) mit
-Steckbrief; ihre Orte und ihre Karte fehlen noch. Das **Silur** ist verborgen (`hidden`), seine Tiere, Orte und Karte
-bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/epochs.ts`.
+**Die Reihenfolge ist Teil des Spielstands** (Nummern): Nummer 0 war früher das Ordovizium und ist jetzt das Devon –
+ältere Spielstände leben deshalb im Devon weiter. **Ordovizium und Silur sind verborgen** (`hidden`): Ihre Tiere, Orte
+und Karten bleiben im Spiel (auch das Ordovizium-Bild `ordovizium.webp`), sie erscheinen nur nirgends. Für die
+**Kreidezeit** gibt es 15 Tiere mit Steckbrief; ihre Orte und ihre Karte fehlen noch. Karbon, Perm, Trias, Jura und
+Paläogen haben bisher nur Name, Zeitraum, Zeile und Text (`later(...)` in `src/data/epochs.ts`). Spielbar wird ein
+Zeitalter mit `playable: true`.
 
 ## Ein Leben – und die nächste Generation
 
@@ -102,7 +114,7 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
 - **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
   Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
   eines (`SPAWN.alwaysMale` in `src/data/life.ts`, auch in der Entwickler-Einstellung).
-- **Laichen (Taste E – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, **genug
+- **Laichen (Taste E in der Grundbelegung – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, **genug
   gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
   eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
   - Ist Laichzeit, steht es leise oben im Bild unter der Lebenslinie, mit einem kurzen Hinweis, was noch fehlt („im
@@ -137,7 +149,7 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
   Größe, Robustheit und Kost passen sich an (siehe unten). Der **Partner** gibt etwas von seinem Aussehen mit. Merklich wird
   es über mehrere Generationen.
 - **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die
-  12 Millionen Jahre des Ordoviziums dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
+  12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
   Stürme …) kehren darin immer wieder – für alle zugleich. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
   rückwärts –, darunter die **Lebenslinie** deines Tiers (mit Marken bei „ausgewachsen“ und „alt“; sie leuchtet warm, sobald
   ein befruchtetes Gelege wartet).
@@ -190,8 +202,8 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
     weiter – nicht jeder Räuber will gleich alles fressen. Gereizt werden sie, wenn man sie **angreift**, ihnen **zu nah**
     kommt, **vor ihnen herumrast** oder **länger in ihrer Nähe bleibt**; manche sind schneller reizbar als andere. Erst dann
     verfolgen sie den Spieler. Und sie sind **öfter zu sehen**: Räuber ruhen kürzer und seltener am Grund, streifen weiter
-    umher, und alle halbe Minute etwa zieht ein größeres Tier des Zeitalters durchs Bild (Ordovizium z. B. Orthoceras,
-    Megalograptus, selten Cameroceras; Silur Entelognathus, Seeskorpione; Devon Haie, Panzerfische, Fleischflosser).
+    umher, und alle halbe Minute etwa zieht ein größeres Tier des Zeitalters durchs Bild (im Devon Haie, Panzerfische,
+    Fleischflosser und der Seeskorpion *Pterygotus*; im verborgenen Ordovizium Orthoceras, Megalograptus, Cameroceras).
   - **Jeder Angriff ist zu sehen:** Alle Tiere holen vor dem Biss sichtbar aus (sie spannen sich und
     glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
@@ -199,35 +211,36 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
   - …oder eine Mischung davon.
 - **Deine Art – selten, und sie geben Aufträge:** Artgenossen (fast wie du, mit kleinen Abweichungen) sind **sehr selten**.
   Meist ist man allein; wer einem begegnet, trifft ihn bei einem **Auftrag** (`src/data/quests.ts`, `src/objects/Quest.ts`).
-  Über einem Artgenossen, der etwas zu erzählen hat, erscheint in der Nähe ein kleines Zeichen **F**: Mit **F** (oder Eingabe;
+  Über einem Artgenossen, der etwas zu erzählen hat, erscheint in der Nähe ein kleines Zeichen **F** (bzw. die Taste, die
+  „Ansprechen“ in der [Steuerung](#steuerung) hat): Mit **F** (oder Eingabe;
   am Handy mit dem Knopf „Reden“) **spricht man ihn an**. Dann rückt die Kamera an beide Tiere heran (schwarze Balken wie beim
   Riesen im Hintergrund), er spricht in **Sprechblasen** (Text erscheint Buchstabe für Buchstabe, **F**/Eingabe/Antippen geht
   weiter) – dabei bewegt sich sein **Maul** in Silben, aus dem Maul steigen **Bläschen** auf, und es **blubbert** leise.
   Räuber ringsum ziehen ab, und solange gesprochen wird (und noch einen Augenblick danach), **greift in der Nähe niemand an** –
   weder dich noch deinen Gesprächspartner. Das eigene Tier bleibt an seinem Platz.
-  - **Auftrag „Der Gefährte“ (Ordovizium):** Nach dem Start kann man ein wenig erkunden – **nach links geht es nicht hinaus**
+  - **Auftrag „Der Gefährte“ (Devon):** Nach dem Start kann man ein wenig erkunden – **nach links geht es nicht hinaus**
     (dort entspringt der Fluss, das Ufer steigt bis zur Wasseroberfläche), nur nach rechts. Weiter rechts, im offenen Meer hinter
     der Mündung, wartet ein Artgenosse. Er erzählt von einem **Ort ohne Räuber, dafür mit Pflanzen überall** – ein sicherer Ort,
     an dem man es sich gut gehen lassen kann –, will dorthin aufbrechen, bittet, ihn zu begleiten, und **schwimmt voraus**
-    (er wartet im nächsten Ort, der Tangwiese). Schwimmt man rechts hinaus, **trifft man ihn dort sofort**; ein kurzes zweites
+    (er wartet im nächsten Ort, dem Korallengarten). Schwimmt man rechts hinaus, **trifft man ihn dort sofort**; ein kurzes zweites
     Gespräch, dann sagt er: „Warte … hörst du das?“ – beide schauen sich um, es grollt, und **ein großes Tier, das in diese Zeit
-    passt** (im Ordovizium ein Riesenkopffüßer), kommt heran, **frisst ihn** und schwimmt davon. Das Tier lässt sich in
-    `quests.ts` je Zeitalter einstellen (Silur z. B. Pterygotus, Devon Dunkleosteus); der Auftrag ist bisher nur für das
-    Ordovizium eingetragen. Der Stand des Auftrags (0 offen, 1 vorausgeschwommen, 2 erledigt) wird im Spielstand gespeichert.
-  - **Auftrag „Die gemeinsame Jagd“ (Ordovizium, nach dem Gefährten):** Im Ort, in dem der Gefährte gefressen wurde, wartet
+    passt** (im Devon *Dunkleosteus*), kommt heran, **frisst ihn** und schwimmt davon. Das Tier lässt sich in
+    `quests.ts` je Zeitalter einstellen; der Auftrag ist bisher nur für das Devon eingetragen. Der Stand des Auftrags (0 offen, 1 vorausgeschwommen, 2 erledigt) wird im Spielstand gespeichert.
+  - **Auftrag „Die gemeinsame Jagd“ (Devon, nach dem Gefährten):** Im Ort, in dem der Gefährte gefressen wurde, wartet
     danach eine kleine Gruppe von **vier bis fünf Überlebenden deiner Art** – echte Artgenossen mit ihrem gewohnten Verhalten.
-    Einen von ihnen kann man ansprechen: Er erzählt von einem **Schwarm Sacabambaspis** ganz in der Nähe und fragt, ob du
+    Einen von ihnen kann man ansprechen: Er erzählt von einem **Schwarm Drepanaspis** ganz in der Nähe (flache, gepanzerte
+    Weidegänger am Grund) und fragt, ob du
     mitjagst (**Ja/Nein** mit ← →, bestätigen mit F/Eingabe – oder antippen). Wer ablehnt, spielt ganz normal weiter; die
     Gruppe wartet, man kann es sich später anders überlegen. Wer zusagt, wird von der Gruppe begleitet; der Schwarm (etwa fünf
-    kräftige Sacabambaspis, die sich mit einem Gegenstoß wehren und fliehen) zieht ein Stück entfernt. Gejagt wird mit den
+    kräftige Drepanaspis, die sich mit einem Gegenstoß wehren und fliehen) zieht ein Stück entfernt. Gejagt wird mit den
     üblichen Mitteln – keine Vorgaben, kein Locken: Greifst du an, helfen die Artgenossen mit ihrer gewohnten KI mit. **Ziel:
-    drei Sacabambaspis erlegen** (deine und die Risse der Gruppe zählen), du musst aber **selbst mitgejagt** haben. Ziel und
-    Fortschritt stehen oben links in einem Schild („Sacabambaspis erlegt: 1 von 3“, wie viele deiner Gruppe noch leben, wohin der
+    drei Drepanaspis erlegen** (deine und die Risse der Gruppe zählen), du musst aber **selbst mitgejagt** haben. Ziel und
+    Fortschritt stehen oben links in einem Schild („Drepanaspis erlegt: 1 von 3“, wie viele deiner Gruppe noch leben, wohin der
     Schwarm zieht). Erlegte Tiere werden ganz normal zu Fleisch. Fehlen Tiere, sammelt sich der Schwarm nach ein paar Sekunden neu.
     Der Stand (0 offen, 1 abgelehnt, 2 Jagd läuft, 3 geschafft), die Zahl der Risse und deine Gruppe werden gespeichert – ein
     Ortswechsel setzt nichts zurück, und wer dich begleitet, kommt mit. Alle Texte und Zielzahlen stehen zentral in
     `src/data/quests.ts` (`JAGD`), der Ablauf in `src/objects/HuntQuest.ts`.
-  - **Deine Gruppe – der Schwarm (Taste S, am Handy der Knopf mit den drei Fischen oben rechts):** Nach der Jagd erklärt dir
+  - **Deine Gruppe – der Schwarm (Taste S in der Grundbelegung, am Handy der Knopf mit den drei Fischen oben rechts):** Nach der Jagd erklärt dir
     einer der Überlebenden, dass du sie **rufen** kannst. Wer überlebt hat, gehört fortan zu deiner Gruppe (die Zahl am Knopf).
     Auf deinen Ruf schwimmen sie von außerhalb des Bildes herbei, **folgen dir locker** und **helfen, sobald du angreifst**.
     Noch einmal S schickt sie fort (sie leben weiter; danach kann man ein paar Sekunden nicht rufen). Jeder von ihnen hat **so
@@ -238,10 +251,12 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
     Verhalten in `src/objects/Swarm.ts`. Sonst gibt es weiterhin keine Artgenossen, die frei umherschwimmen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
-  - **Der Startort** ist ein **Fluss**, der **Laichfluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am
-    Boden – **keine anderen Tiere**, nur ein paar Pflanzen. Der Fluss fällt zum Meer hin ab, erst hinter der Mündung (im
-    offenen Meer) wartet das Leben. Auch die ersten Räuber lassen dich im Fluss in Ruhe. Ausgewachsen kehrst du hierher
-    zurück, um zu laichen.
+  - **Der Startort** ist ein **Fluss**, der **Laichfluss** – **klein** (gut ein Drittel so breit wie früher) und **ganz
+    sicher**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden. Außer deiner eigenen Art (Mitspieler,
+    Geschwister, Partner, die Artgenossen der Aufträge) lebt hier **kein Tier** – keine Bewohner, keine Durchzügler, keine
+    Räuber-Ereignisse, kein Gelege fremder Arten, nicht einmal in der Ferne im Hintergrund; Pflanzen und Plankton gibt es
+    trotzdem (`PlaceDef.safe` in `src/data/world.ts`). Der Fluss fällt zum Meer hin ab, erst hinter der Mündung – in den
+    anderen Orten – wartet das Leben. Ausgewachsen kehrst du hierher zurück, um zu laichen.
   - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
   - **Trübe Orte** (Trübe Bucht, Sandfeld, Schlickebene …) sind **Hügelketten** oder flache Sandebenen – man sieht
@@ -270,7 +285,7 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
     sich ein neues Ziel auf der anderen Seite und merken sich die Wand (Nahrung dahinter wird eine Weile nicht angesteuert);
     in einer Sackgasse bleiben sie ruhig stehen, statt zwischen links und rechts zu zappeln.
   - **Farbhöhlen sind selten und verschüttet:** Nur **zwei Orte im ganzen Zeitalter** haben eine – eine
-    **grüne** in einem trüben Ort (im Ordovizium das Sandfeld; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
+    **grüne** in einem trüben Ort (im Devon die Schlammbank; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
     Ankunftsplatz und ist mit **losem Geröll** zugeschüttet (heller als der Fels, Steine mit Lücken dazwischen). Ein
     **kräftiger Stoß** (R, mit vollem Anlauf) bricht es auf – allein schafft das erst ein harter Kopf (Stoßfisch) oder ein
     großer, massiger Körper, sonst **im Schwarm**: Jeder Artgenosse, der dich gerade begleitet, stößt mit (mit drei
@@ -337,9 +352,12 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
   Ruhe, **schlüpft** der der Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben
   seltener bei ihrem Gelege.
 - **Das Aquapendium** (im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere, in
-  **drei Teilen – einer je Zeitalter** (Ordovizium 12, Devon 24, Kreidezeit 15 Tiere; wer in mehreren Zeitaltern lebt,
-  steht in jedem Teil). Oben am Buch stecken drei **Lesezeichen**; jeder Teil beginnt mit seinem Inhalt (wie viel davon
-  gefunden ist, und bei ruhenden Zeitaltern: „Dieses Zeitalter ruht noch im Gestein“). Links das Bild, rechts der Steckbrief
+  **sieben Teilen – einer je Zeitalter** (Devon 30, Kreidezeit 15 Tiere; wer in mehreren Zeitaltern lebt, steht in jedem
+  Teil). Oben am Buch stecken sieben **Lesezeichen** (das des aufgeschlagenen Teils ist hell wie das Pergament; ein Klick
+  darauf führt zu seinem Inhalt, das Haus-Zeichen oben links zurück zum Titelbild); jeder Teil beginnt mit seinem Inhalt
+  (wie viel davon gefunden ist, und bei ruhenden Zeitaltern: „Dieses Zeitalter ruht noch im Gestein“). Teile, deren Tiere
+  noch fehlen (Karbon, Perm, Trias, Jura, Paläogen), zeigen statt der Zahl den Abdruck eines Ammoniten und rechts ein
+  angelegtes, noch leeres Verzeichnis. Links das Bild, rechts der Steckbrief
   mit Zeitalter, Lebenszeit („vor ca. 450 Mio. Jahren“), ungefährer
   Länge, Rolle, Nahrung, Lebensweise (Einzelgänger, Schwarm, Rudel), Lebensraum und den **Werten aus dem Spiel**
   (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
@@ -347,8 +365,8 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
   **Schild** herein (dunkle Fläche, feine ochrefarbene Linien, ein Ammonit im Ring, darunter in kleinen Buchstaben
   „NEUER AQUAPENDIUM-EINTRAG“ und der Name des Tieres), das Zeichen leuchtet kurz auf, dazu ein leises Rascheln und zwei
   zarte Töne. Kommen mehrere Einträge zusammen, erscheinen sie nacheinander. Das bleibt über alle Leben erhalten. Blättern mit
-  ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen) – durch alle drei Teile hindurch; **1 2 3**, **Tab** oder die
-  Lesezeichen springen zu einem Teil, **I** oder „Inhalt“ zum Inhalt des aufgeschlagenen, Esc zurück.
+  ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen) – durch alle Teile hindurch; **1 bis 7**, **Tab** oder die
+  Lesezeichen springen zu einem Teil, **I** zum Inhalt des aufgeschlagenen, Esc zurück.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
   usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
@@ -394,12 +412,12 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
   **fressen ihre Beute**: Ein Räuber, der etwas erlegt hat, schwimmt zum Fleisch, senkt den Kopf und frisst Bissen für Bissen –
   mit sichtbarem Nicken, Kauen und einem Ruck bei jedem Happen (bis er satt ist oder etwas ihn stört).
 - **Herrscher des Devons:** Im Devon wartet der Endgegner – *Dunkleosteus*, mit Lebensbalken unten im Bild; einmal
-  aufgetaucht, folgt er dir von Ort zu Ort. Solange die Welt im Ordovizium steht, ist er nicht zu erreichen (wie er in der
-  durchgehenden Weltzeit auftaucht, ist noch offen).
+  aufgetaucht, folgt er dir von Ort zu Ort (nie ins sichere Startgebiet). Wie er in der durchgehenden Weltzeit auftaucht,
+  ist noch offen.
 - **Überraschungsangriff:** Wer aus Dickicht, Höhle, Felsspalte oder gut getarnt angreift (das Tier
   ist dann leicht durchsichtig), trifft mit dem ersten Biss oder Stoß zwei- bis dreifach und betäubt.
-- **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Ordovizium ein
-  Riesenkopffüßer, im Silur *Pterygotus*, im Devon *Dunkleosteus*. Vorher wird das Wasser dunkler,
+- **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Devon *Dunkleosteus* (im verborgenen
+  Ordovizium ein Riesenkopffüßer, im Silur *Pterygotus*). Vorher wird das Wasser dunkler,
   es grollt, das Herz klopft, und die kleinen Fische fliehen: Zeit, sich zu verstecken. Selten
   streifen auch große Jäger wie *Megalograptus*, *Cladoselache* oder *Hyneria* umher. Wen ein Riese
   reißt, von dem bleibt meist etwas übrig …
@@ -409,16 +427,20 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
 - **Tiere ihrer Zeit:** Jedes Zeitalter hat **seine eigenen Fische** (und ihre Nachbarn), jede Art lebt in ihrer
   Wasserschicht und an den Orten, die zu ihr passen – mit eigenem Verhalten. **Jeder Ort hat außerdem seine eigene
   Mischung**: Manche Arten fehlen dort fast ganz, andere sind besonders häufig. Es gibt gut zwei Dutzend Arten:
-  - **Ordovizium** – die ersten Wirbeltiere: *Arandaspis*, *Astraspis*, *Eriptychius*, *Sacabambaspis* und andere gepanzerte
+  - **Ordovizium** (vorerst verborgen) – die ersten Wirbeltiere: *Arandaspis*, *Astraspis*, *Eriptychius*, *Sacabambaspis* und andere gepanzerte
     Kieferlose, der aalartige *Conodont* (ein kleiner Jäger), Trilobiten (*Isotelus*), Quallen und Orthoceras. Seeskorpione
     sind hier selten.
   - **Silur** (vorerst verborgen) – *Pteraspis* (Panzerkopf mit Schnabel), *Thelodus* und *Lasanius* (Schwarmfische), der
     aalartige *Jamoytius*, *Birkenia*, *Cephalaspis*, der wehrhafte Stachelhai *Climatius* und *Entelognathus*, einer der
     ersten Kieferfische (ein gepanzerter Jäger).
-  - **Devon** – das Zeitalter der Fische: *Moythomasia*, *Acanthodes* (Schwärme), *Cheiracanthus*, die Lungenfische
-    *Dipterus*, *Drepanaspis*, *Bothriolepis* und *Pterichthyodes* (Panzerfische mit Ruderarmen), die Jäger *Coccosteus*,
-    *Osteolepis*, *Cheirolepis*, *Cladoselache*, der Hai *Stethacanthus* mit seinem „Amboss“, *Rolfosteus*, die
-    Fleischflosser *Eusthenopteron*, *Holoptychius* und *Tiktaalik* – dazu der Herrscher *Dunkleosteus* (ruht noch).
+  - **Devon** (spielbar – hier beginnt jedes Leben) – das Zeitalter der Fische, jetzt mit allem, was bereitstand:
+    Schwärme aus *Moythomasia* (am häufigsten), *Acanthodes* und *Thelodus*, kieferlose Panzerfische (*Drepanaspis*,
+    *Cephalaspis*, *Pteraspis* …), *Cheiracanthus*, der Lungenfisch *Dipterus*, *Bothriolepis* und *Pterichthyodes*
+    (Panzerfische mit Ruderarmen), Trilobiten, Quallen, Conodonten und Orthoceras; seltener die Jäger *Coccosteus*,
+    *Osteolepis*, *Cheirolepis*, *Climatius*, Seeskorpione, *Cladoselache*, *Rolfosteus*, der Hai *Stethacanthus* mit seinem
+    „Amboss“ und die Fleischflosser *Eusthenopteron*, *Holoptychius*, *Tiktaalik* und *Hyneria* (ganz selten). Als
+    Durchzügler kommt der Riesen-Seeskorpion *Pterygotus* dazu, und der Herrscher *Dunkleosteus* rast früh im Zeitalter
+    einmal vorbei. Die Häufigkeiten stehen in `src/data/epochs.ts`.
   - **Kreidezeit** (ruht noch) – das Westliche Binnenmeer: *Apsopelix* (Schwärme), der harmlose Riese *Gillicus*, Ammoniten
     und *Baculites*, der „Säbelzahnhering“ *Enchodus*, *Protosphyraena* mit Schwertschnauze, *Xiphactinus*, die Haie
     *Squalicorax* und *Cretoxyrhina*, die Riesenschildkröte *Archelon*, der langhalsige Plesiosaurier *Elasmosaurus* und die
@@ -503,7 +525,7 @@ bleiben im Spiel. Spielbar wird ein Zeitalter mit `playable: true` in `src/data/
 - **Keine Spoiler:** Zeitalter, die noch ruhen, zeigen im Stammbaum nur ihren Urahn – im Gestein.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
-Zeitalters, „vor 469.800.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
+Zeitalters, „vor 382.438.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
 Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Oben links erscheinen wenige, kurze Meldungen zum
 Leben (Laichzeit, Gelege abgelegt bzw. befruchtet). **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
 wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
@@ -519,8 +541,9 @@ unten – **Generation für Generation** (links stehen die Generationen). Wo sic
 Ausgestorbene Zweige enden mit einem Schädel (mit Ursache und Generation), die **lebende Linie leuchtet** an ihrem Ende, und
 entlang deines Weges schwimmen kleine Porträts. Der Baum ist vorher nicht festgelegt, er entsteht nur durch das Spielen.
 
-Oben läuft der **Zeitstrom** der Erdgeschichte – vom Ordovizium bis zur Kreidezeit, dazwischen leise Silur, Karbon, Perm,
-Trias und Jura. Die drei Zeitalter sind helle Fenster darin (anklicken oder ← → wechselt den Baum); vom gewählten Fenster
+Oben läuft der **Zeitstrom** der Erdgeschichte – vor 424 bis vor 18 Millionen Jahren, darin lückenlos die sieben
+Zeitalter als Fenster nach ihrem echten Zeitraum (hell das spielbare, leise die ruhenden; anklicken oder ← → wechselt den
+Baum); vom gewählten Fenster
 führen zwei feine Linien hinunter zum Baum, und in den Urahn läuft von oben ein gestrichelter Stamm: Jeder Baum ist ein
 **Ausschnitt aus dem einen großen Baum des Lebens**. Ruhende Zeitalter zeigen nur ihren Urahn – im Gestein. Rechts die
 Tafel zum gewählten Knoten und **Weiterleben** bzw. **Leben beginnen** im gezeigten Zeitalter.
@@ -616,28 +639,38 @@ Platte heller, mit der Tastatur gewählt glüht sie leise (`Button` in `src/ui/u
 
 ## Steuerung
 
-Die rechte Hand liegt auf den Pfeiltasten, die linke auf **Q W E R**. Im Spiel wird die Steuerung
-nicht eingeblendet – sie steht im Titelbild unter „Steuerung“ und in der Rast (Esc).
+**Die Tasten lassen sich frei belegen:** im Titelbild unter „Steuerung“ und in der Rast (Esc) – im Spiel wie auf der
+Karte. Dort steht jede Handlung mit **zwei Tasten** (Haupt- und Zweittaste): eine anklicken (oder mit den Pfeiltasten
+anwählen und Eingabe drücken), dann die neue Taste drücken. **Entf** (oder ein Rechtsklick) leert sie, **Esc** bricht ab.
+Gehört die Taste schon einer anderen Handlung, wechselt sie hierher – unten steht dann, wem sie genommen wurde.
+**Grundbelegung** stellt alles wieder her. Die Belegung gilt sofort (auch mitten im Spiel), wird im Browser gespeichert
+(`evo-keys-v1`, unabhängig vom Spielstand) und überall verwendet: die Zeichen über dem Kopf („E“ zum Laichen, „F“ zum
+Ansprechen) zeigen die eigene Taste, ebenso der Übersicht-Knopf oben rechts und die Hinweise in den Aufträgen. **Esc** ist
+fest (Rast, zurück); in Menüs wählen immer auch die Pfeiltasten und Eingabe. Code: `src/state/keymap.ts` (Belegung),
+`src/ui/keysPanel.ts` (die Seite), `src/objects/Controls.ts` (liest sie im Spiel).
+
+Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf **Q W E R**:
 
 | Taste | Aktion |
 | --- | --- |
 | ← → ↑ ↓ | schwimmen |
-| Leertaste | auftauchen |
-| E (auch Q oder J) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund) |
+| Leertaste (auch ↑) | auftauchen |
+| E (auch Q) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund) |
 | W (auch Shift) | sprinten (kostet Kraft) |
 | (nichts tun) | ausruhen: sich treiben lassen, Kraft und Lebenskraft kehren zurück (langsam schwimmen heilt auch, nur langsamer) |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Name, Körper, Leben, Nachwuchs, Muscheln |
-| Esc / P | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
+| P (und immer Esc) | Rast (Pause) mit Steuerung – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet |
 | M | Ton an/aus |
 
 **In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
-**Im Stammbaum:** ← → wechselt das Zeitalter. **Im Aquapendium:** 1 2 3 oder Tab wechseln den Teil.
+**Im Stammbaum:** ← → wechselt das Zeitalter. **Im Aquapendium:** 1 bis 7 oder Tab wechseln den Teil.
 
-**Auf der Karte:** Pfeiltasten (oder antippen) wählen ein anderes Ziel, Eingabe (auch Leertaste oder E) schwimmt los, C
-öffnet die Übersicht, Esc die Rast. Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden von selbst in den Nachbarort.
+**Auf der Karte:** Pfeiltasten (oder die Schwimmtasten der Belegung, oder antippen) wählen ein anderes Ziel, Eingabe,
+Leertaste, Beißen oder Ansprechen schwimmt los, die Übersicht-Taste öffnet die Übersicht, Esc (oder die Rast-Taste) die
+Rast. Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden von selbst in den Nachbarort.
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
@@ -672,7 +705,7 @@ steht in `src/data/tuning.ts`, die Seite in `src/ui/devConfig.ts`.
 EVO wird ein persistentes Online-Spiel mit einem **autoritativen Server** ([Colyseus](https://colyseus.io) 0.18, TypeScript).
 Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen einander schwimmen.**
 
-- **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `0/lagune`);
+- **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `0/riff`);
   wer ihn verlässt, verschwindet dort und erscheint im nächsten. Die Orte sehen für alle gleich aus (feste Weltsaat).
 - **Die anderen Spieler** schwimmen als ihr eigener Fisch – mit ihrem Aussehen, ihrer Größe (Jungtier oder ausgewachsen),
   Bissen und Stößen – und ihrem **Namen** darüber. Ihre Lage kommt etwa 20 Mal je Sekunde an und wird geglättet
@@ -848,10 +881,13 @@ tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.p
 
 Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festgelegt – bitte später noch einmal ansehen:
 
-- [ ] **Zeitalter:** Zur Wahl stehen Ordovizium, Devon und Kreidezeit; spielbar ist nur das Ordovizium. Jedes Zeitalter ist
-      eine eigene Welt mit eigener Linie – man bleibt in seinem Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl
-      läuft in etwa 30 Tagen bis zum Ende des Zeitalters und bleibt dann stehen. Für Devon und Kreidezeit fehlen noch die
-      Starttiere (vorerst ein Urfisch), für die Kreidezeit dazu Orte und Karte; das Silur ist verborgen.
+- [ ] **Zeitalter:** Zur Wahl stehen sieben (Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen); spielbar ist nur das
+      Devon, dort beginnt jedes Leben. Jedes Zeitalter ist eine eigene Welt mit eigener Linie – man bleibt in seinem
+      Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl läuft in etwa 30 Tagen bis zum Ende des Zeitalters und
+      bleibt dann stehen. Das Devon beginnt vorerst mit dem Urfisch; die Kreidezeit behält vorerst ihr bisheriges Bild,
+      Trias, Jura und Paläogen warten auf ihre Bilder (Steintafel). Ordovizium und Silur sind verborgen.
+- [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
+      Räuber-Ereignisse und der Herrscher bleiben draußen.
 - [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.

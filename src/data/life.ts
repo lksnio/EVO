@@ -7,7 +7,7 @@ export const WORLD = {
   seed: 'evo-welt-1',
   /** Beginn der Weltzeit (UTC). Ab hier laufen die Jahre – für alle gleich (später zählt die Uhr des Servers). */
   start: Date.UTC(2026, 9, 19),
-  /** So viele Jahre vergehen je echter Sekunde: Die 12 Millionen Jahre des Ordoviziums dauern etwa 30 Tage. */
+  /** So viele Jahre vergehen je echter Sekunde: Die 12 Millionen Jahre des Devons (383 bis 371 Millionen Jahre vor heute) dauern etwa 30 Tage. */
   yearsPerSecond: 12e6 / (30 * 86400),
 };
 

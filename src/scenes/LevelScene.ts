@@ -369,7 +369,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const [id] of ep.fauna) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     for (const e of ep.events) if (e.species && SPECIES[e.species]) makeSpeciesTextures(this, SPECIES[e.species]);
     // Fische in der Ferne (in mehreren Tiefenstufen) – kein Teil des Spiels, nur das Bild eines Meeres
-    this.backSea = this.water && L.surfaceY > 0 ? new BackSea(this, { x: VX, y: VY, w: VW, h: VH }, ep, this.place.id, this.place.kind, L.surfaceY, L.variant !== 'normal') : undefined;
+    this.backSea = this.water && L.surfaceY > 0 ? new BackSea(this, { x: VX, y: VY, w: VW, h: VH }, ep, this.place.id, this.place.kind, L.surfaceY, L.variant !== 'normal', !!this.place.safe) : undefined;
     for (const p of L.plants) {
       // fest auf den Boden setzen (nicht über eine Kante ragen lassen)
       const hw = (this.textures.get(foodKey(L.theme, 0, p.v)).getSourceImage().width as number) / 2;
@@ -529,7 +529,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Ein Endgegner, der noch lebt, folgt dir von Ort zu Ort
     const bossEv = ep.events.find((e) => e.kind === 'boss');
-    if (bossEv && pr.boss === 1) this.time.delayedCall(2600, () => !this.ended && this.spawnBoss(bossEv.species!));
+    if (bossEv && pr.boss === 1 && !this.place.safe) this.time.delayedCall(2600, () => !this.ended && this.spawnBoss(bossEv.species!));
 
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
@@ -2145,14 +2145,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const fresh = step * this.ep.seconds < 3;
     // überschritten seit dem letzten Blick
     const passed = (at: number) => fresh && (ph >= last ? at > last && at <= ph : at > last || at <= ph);
+    const safe = !!this.place.safe;
     for (const e of this.timeline) {
       if (!passed(e.at)) continue;
-      // im stillen Fluss am Start tauchen keine Durchzügler auf
-      if (e.kind === 'predator' && this.L.riverEnd && this.player.x < this.L.riverEnd + 800) continue;
+      // im sicheren Startgebiet (und im stillen Fluss) tauchen keine Durchzügler auf
+      if (e.kind === 'predator' && (safe || (this.L.riverEnd && this.player.x < this.L.riverEnd + 800))) continue;
       this.trigger(e);
     }
-    // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im stillen Fluss am Start)
-    const out = !this.L.riverEnd || this.player.x > this.L.riverEnd + 800;
+    // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im sicheren Startgebiet und nicht im stillen Fluss)
+    const out = !safe && (!this.L.riverEnd || this.player.x > this.L.riverEnd + 800);
     if (out && !this.player.dead) {
       if (!this.nextPasser) this.nextPasser = this.time.now + 9000 + Math.random() * 8000;
       else if (this.time.now > this.nextPasser) {
@@ -2351,7 +2352,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Neue Tiere wandern ein, wenn der Lebensraum leerer wird. */
   private migrate(time: number) {
-    if (time < this.nextMigrate || !this.authority) return;
+    // ins sichere Startgebiet wandert niemand ein
+    if (time < this.nextMigrate || !this.authority || this.place.safe) return;
     this.nextMigrate = time + 15000;
     const resident = this.animals.filter((a) => !a.dead && !a.kin && !a.visitor).length;
     // Auch die Tiere hier ziehen weiter: Manche schwimmen zum Rand und verlassen das Gewässer

@@ -23,9 +23,9 @@ export interface QuestDef {
 export const QUESTS: QuestDef[] = [
   {
     id: 'gefaehrte',
-    epoch: 'ordovizium',
-    // ein Riesenkopffüßer (Cameroceras): das große Raubtier des Ordoviziums
-    eater: 'cameroceras',
+    epoch: 'devon',
+    // Dunkleosteus: der Schrecken des Devons (er frisst den Gefährten und zieht dann weiter)
+    eater: 'dunkleosteus',
     first: [
       'Du siehst aus wie ich … Ich dachte schon, ich wäre der Einzige hier.',
       'Ich habe von einem Ort gehört, an dem keine Räuber lauern.',
@@ -45,20 +45,20 @@ export const questOf = (epochId: string): QuestDef | undefined => QUESTS.find((q
 
 /**
  * „Die gemeinsame Jagd“: Nachdem der Gefährte gefressen wurde, trifft man im selben Ort eine kleine Gruppe Überlebender deiner
- * Art. Einer erzählt von einem Schwarm Sacabambaspis in der Nähe – sie wollen gemeinsam jagen. Wer mitmacht, jagt mit ihnen
+ * Art. Einer erzählt von einem Schwarm Drepanaspis in der Nähe – sie wollen gemeinsam jagen. Wer mitmacht, jagt mit ihnen
  * (mit den gewohnten Mitteln: Biss, Stoß, die Artgenossen helfen mit, die Beute wehrt sich und flieht). Sind genug erlegt – und
  * du hast selbst mitgejagt –, erklärt dir einer der Überlebenden, wie du die Gruppe später rufen kannst (siehe SWARM).
  * Schritte: 0 noch nicht angesprochen · 1 abgelehnt (die Gruppe wartet) · 2 die Jagd läuft · 3 geschafft
  */
 export const JAGD = {
   id: 'jagd',
-  epoch: 'ordovizium',
+  epoch: 'devon',
   /** erst danach (und im Ort, in dem er gefressen wurde) wartet die Gruppe */
   after: 'gefaehrte',
   /** so viele Artgenossen gehören zur Gruppe (von … bis) */
   group: [4, 5] as [number, number],
   /** die Beute: ein Schwarm dieser Art … */
-  prey: 'sacabambaspis',
+  prey: 'drepanaspis',
   /** … aus so vielen Tieren – kräftige Exemplare (Größe von … bis), die sich mit einem Gegenstoß wehren */
   school: 5,
   size: [1.15, 1.3] as [number, number],
@@ -72,10 +72,10 @@ export const JAGD = {
     first: [
       'Noch einer von uns! Du lebst – so wie wir. Wir haben uns versteckt, als das große Tier kam.',
       'Wir sind nicht mehr viele. Wer hier allein bleibt, den frisst früher oder später etwas.',
-      'Nicht weit von hier zieht ein Schwarm Sacabambaspis. Gepanzert und wehrhaft – aber einer allein macht uns alle satt.',
+      'Nicht weit von hier weidet ein Schwarm Drepanaspis am Grund. Flach und gepanzert – aber einer allein macht uns alle satt.',
       'Allein traut sich keiner von uns heran. Zusammen schaffen wir es.',
     ],
-    again: ['Da bist du ja wieder. Die Sacabambaspis sind noch in der Nähe.'],
+    again: ['Da bist du ja wieder. Die Drepanaspis sind noch in der Nähe.'],
     ask: 'Jagst du mit uns?',
     yes: 'Ich jage mit',
     no: 'Lieber nicht',
@@ -95,7 +95,7 @@ export const JAGD = {
   /** Anzeige während der Jagd */
   hud: {
     title: 'Die gemeinsame Jagd',
-    goal: 'Sacabambaspis erlegt: {n} von {k}',
+    goal: 'Drepanaspis erlegt: {n} von {k}',
     group: 'Deine Gruppe: {a} von {g}',
     join: 'Du musst selbst mitjagen – greif einen an!',
     where: 'Der Schwarm zieht {dir} von dir.',

@@ -12,7 +12,9 @@ import { SPECIES } from '../data/species';
 import { tapped, touch } from '../objects/Controls';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
-import { Button, MenuNav, controlsList, panel, soundButton, text, title } from '../ui/ui';
+import { Button, MenuNav, panel, soundButton, text, title } from '../ui/ui';
+import { openKeys } from '../ui/keysPanel';
+import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
 import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
 
@@ -41,6 +43,8 @@ export class HudScene extends Phaser.Scene {
   private beatAt = 0;
   private pauseC?: Phaser.GameObjects.Container;
   private pauseNav?: MenuNav;
+  /** die Seite „Steuerung“ (über der Rast) */
+  private keys?: Phaser.GameObjects.Container;
   private portrait?: CreatureView;
   private giveUp?: Button;
   private giveUpArmed = false;
@@ -119,7 +123,9 @@ export class HudScene extends Phaser.Scene {
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.togglePause() }).setAlpha(0.75);
     // Die Übersicht über das eigene Tier: Der Knopf leuchtet leise, wenn eine neue Muschel gefunden wurde.
     this.overviewGlow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0);
-    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleOverview() }).setAlpha(0.75);
+    const ovB = new Button(this, W - 156, 38, keyLabel('overview'), { w: 50, h: 50, size: keyLabel('overview').length > 2 ? 14 : 22, onClick: () => this.toggleOverview() }).setAlpha(0.75);
+    const offKeys = onKeysChanged(() => ovB.setLabel(keyLabel('overview')));
+    this.events.once('shutdown', offKeys);
     soundButton(this, W - 40, 38, 50).setAlpha(0.75);
     this.updateGlow();
     this.swarmUi();
@@ -153,9 +159,13 @@ export class HudScene extends Phaser.Scene {
     if (isTouch) this.touchControls(ep.habitat === 'water');
 
     const kb = this.input.keyboard!;
-    kb.on('keydown-ESC', () => (this.overview ? this.toggleOverview() : this.togglePause()));
-    kb.on('keydown-P', () => this.togglePause());
-    kb.on('keydown-C', () => this.toggleOverview());
+    // Esc ist fest; Rast und Übersicht liegen auf den Tasten der Belegung (die Seite „Steuerung“ fängt ihre Tasten selbst)
+    kb.on('keydown-ESC', () => !capture.on && !this.keys && (this.overview ? this.toggleOverview() : this.togglePause()));
+    kb.on('keydown', (e: KeyboardEvent) => {
+      if (this.keys) return;
+      if (matches('pause', e)) this.togglePause();
+      else if (matches('overview', e)) this.toggleOverview();
+    });
 
     const onVitals = (hp: number, hidden: boolean) => {
       this.hp = hp;
@@ -622,27 +632,14 @@ export class HudScene extends Phaser.Scene {
     this.pauseNav = new MenuNav(this, items);
   }
 
-  /** Die Seite "Steuerung" in der Rast. */
+  /** Die Seite "Steuerung" in der Rast: Tasten ansehen und neu belegen. */
   private showControls() {
-    if (!this.pauseC) return;
-    const c = this.add.container(0, 0).setDepth(55);
-    c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
-    c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
-    c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 172, 21, 31);
-    c.add(text(this, W / 2, 548, 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.', 16, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
-    const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
-    c.add(back);
+    if (!this.pauseC || this.keys) return;
     if (this.pauseNav) this.pauseNav.enabled = false;
-    const nav = new MenuNav(this, [back]);
-    const close = () => {
-      nav.enabled = false;
-      c.destroy();
-      this.input.keyboard!.off('keydown-ESC', onEsc);
+    this.keys = openKeys(this, 55, () => {
+      this.keys = undefined;
       if (this.pauseNav) this.pauseNav.enabled = true;
-    };
-    const onEsc = () => close();
-    this.input.keyboard!.on('keydown-ESC', onEsc);
+    });
   }
 
   private resumeGame() {

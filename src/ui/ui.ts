@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FONT, TITLE_FONT, UI } from '../config';
 import { audio, type Sfx } from '../audio/Audio';
 import { tex, type Ctx } from '../util/canvas';
+import { capture } from '../state/keymap';
 
 export function text(
   scene: Phaser.Scene,
@@ -47,29 +48,6 @@ export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: n
   g.lineStyle(1, 0xffffff, 0.05);
   g.strokeRoundedRect(x + 4, y + 4, w - 8, h - 8, Math.max(2, radius - 3));
   return g;
-}
-
-/** Die Tasten des Spiels – für die Seite "Steuerung" (Titelbild und Rast). */
-export const CONTROL_ROWS: [string, string][] = [
-  ['← ↑ → ↓', 'Schwimmen'],
-  ['E  (auch Q oder J)', 'Beißen und Fressen – zur Laichzeit: laichen'],
-  ['W  (auch Shift)', 'Sprinten – kostet Kraft'],
-  ['R', 'Stoß – Anlauf nehmen, dann den Schwung nutzen'],
-  ['F  (auch Eingabe)', 'Ansprechen – und im Gespräch weiter'],
-  ['S', 'Deine Gruppe rufen bzw. fortschicken'],
-  ['Leertaste', 'Auftauchen'],
-  ['(nichts tun)', 'Ausruhen – sich treiben lassen'],
-  ['C', 'Übersicht über dein Tier'],
-  ['Esc  oder  P', 'Rast (Pause)'],
-  ['M', 'Ton an/aus'],
-];
-
-/** Zeichnet die Steuerung als Liste in einen Container. */
-export function controlsList(scene: Phaser.Scene, c: Phaser.GameObjects.Container, cx: number, y0: number, size = 22, step = 36) {
-  CONTROL_ROWS.forEach(([k, v], i) => {
-    c.add(text(scene, cx - 330, y0 + i * step, k, size, UI.ochre, { fontStyle: '700' }));
-    c.add(text(scene, cx - 20, y0 + i * step, v, size, UI.bone));
-  });
 }
 
 export interface ButtonOpts {
@@ -345,7 +323,7 @@ export class MenuNav {
     private onBack?: () => void,
   ) {
     const kb = scene.input.keyboard!;
-    const move = (d: number) => () => this.enabled && this.move(d);
+    const move = (d: number) => () => this.enabled && !capture.on && this.move(d);
     kb.on('keydown-UP', move(-cols));
     kb.on('keydown-DOWN', move(cols));
     kb.on('keydown-W', move(-cols));
@@ -354,10 +332,10 @@ export class MenuNav {
     kb.on('keydown-RIGHT', move(1));
     kb.on('keydown-A', move(-1));
     kb.on('keydown-D', move(1));
-    const act = () => this.enabled && this.items[this.idx]?.click();
+    const act = () => this.enabled && !capture.on && this.items[this.idx]?.click();
     kb.on('keydown-ENTER', act);
     kb.on('keydown-SPACE', act);
-    if (onBack) kb.on('keydown-ESC', () => this.enabled && this.onBack?.());
+    if (onBack) kb.on('keydown-ESC', () => this.enabled && !capture.on && this.onBack?.());
     this.focus(0);
   }
 

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { W, H, FONT, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { game } from '../state/GameState';
+import { ofEra } from '../data/epochs';
 import { MAXES, DIET_TEXT, LAYER_TEXT, ROLE_TEXT, SECTIONS, herdText, lengthText, placesText, type Entry } from '../data/aquapendium';
 import { makeSpeciesPortrait } from '../art/speciesArt';
 import { tex, type Ctx } from '../util/canvas';
@@ -10,8 +11,8 @@ import { Button, fadeIn, fadeTo } from '../ui/ui';
 
 // ---------------------------------------------------------------------------
 // Das Aquapendium – ein Buch mit einer Seite für jedes Tier der Urmeere. Außerhalb des Spiels, wie der Stammbaum.
-// Es hat drei Teile, einen je Zeitalter (oben als Lesezeichen); jeder beginnt mit seinem Inhalt. Links das Bild, rechts der
-// Steckbrief. Wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen Umriss.
+// Es hat sieben Teile, einen je Zeitalter (oben als Lesezeichen); jeder beginnt mit seinem Inhalt. Links das Bild, rechts der
+// Steckbrief. Teile ruhender Zeitalter ohne Tiere sind noch leer – ihr Inhalt sagt es. Wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen Umriss.
 // Eigene Bilder: PNG/WebP/JPG mit dem Namen der Art (z. B. "pteraspis.png") in src/assets/aquapendium/ ablegen.
 // ---------------------------------------------------------------------------
 
@@ -35,12 +36,14 @@ interface Page {
 }
 const PAGES: Page[] = SECTIONS.flatMap((s, k) => [{ sec: k }, ...s.entries.map((entry) => ({ sec: k, entry }))]);
 const firstPage = (sec: number) => Math.max(0, PAGES.findIndex((p) => p.sec === sec));
-const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+const ORDINAL = ['ERSTER', 'ZWEITER', 'DRITTER', 'VIERTER', 'FÜNFTER', 'SECHSTER', 'SIEBTER', 'ACHTER', 'NEUNTER'];
+const DIGITS = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
 
 // Buchmaße
 const PX = 88, PY = 58, PW = 548, PH = 612;
 /** die Lesezeichen oben am Buch */
-const TAB = { w: 176, h: 34, gap: 10, y: PY - 30 };
+const TAB = { w: 144, h: 34, gap: 6, y: PY - 30 };
 const LEFT = PX, RIGHT = PX + PW + 8;
 const FRAME = { x: 44, y: 64, w: 460, h: 370 };
 
@@ -80,8 +83,8 @@ export class AquapendiumScene extends Phaser.Scene {
 
     this.prev = new Button(this, 40, H / 2, '‹', { w: 52, h: 96, size: 40, onClick: () => this.flip(-1), sound: null });
     this.next = new Button(this, W - 40, H / 2, '›', { w: 52, h: 96, size: 40, onClick: () => this.flip(1), sound: null });
-    new Button(this, 120, 26, 'Titelbild', { w: 180, h: 34, size: 15, icon: 'ic_home', sound: 'back', onClick: () => fadeTo(this, 'Title') });
-    new Button(this, W - 120, 26, 'Inhalt', { w: 180, h: 34, size: 15, sound: 'tab', onClick: () => this.go(firstPage(PAGES[this.page].sec)) });
+    // zurück zum Titelbild (zum Inhalt eines Teils führt sein Lesezeichen)
+    new Button(this, 40, 30, '', { w: 40, h: 40, size: 15, icon: 'ic_home', iconOnly: true, sound: 'back', onClick: () => fadeTo(this, 'Title') });
     this.makeTabs();
 
     const kb = this.input.keyboard!;
@@ -89,8 +92,8 @@ export class AquapendiumScene extends Phaser.Scene {
     for (const k of ['RIGHT', 'D', 'PAGE_DOWN', 'SPACE']) kb.on(`keydown-${k}`, () => this.flip(1));
     for (const k of ['HOME', 'I']) kb.on(`keydown-${k}`, () => this.go(firstPage(PAGES[this.page].sec)));
     kb.on('keydown-END', () => this.go(PAGES.length - 1));
-    // die Teile des Buches: 1, 2, 3 bzw. Tab springt zum nächsten
-    SECTIONS.forEach((_s, k) => kb.on(`keydown-${['ONE', 'TWO', 'THREE', 'FOUR'][k]}`, () => this.go(firstPage(k), 'tab')));
+    // die Teile des Buches: 1 bis 7 bzw. Tab springt zum nächsten
+    SECTIONS.forEach((_s, k) => kb.on(`keydown-${DIGITS[k]}`, () => this.go(firstPage(k), 'tab')));
     kb.on('keydown-TAB', (e: KeyboardEvent) => {
       e.preventDefault();
       this.go(firstPage((PAGES[this.page].sec + 1) % SECTIONS.length), 'tab');
@@ -152,9 +155,9 @@ export class AquapendiumScene extends Phaser.Scene {
     SECTIONS.forEach((sec, k) => {
       const x = W / 2 - total / 2 + k * (TAB.w + TAB.gap);
       const g = this.add.graphics();
-      const t = this.add.text(x + TAB.w / 2, TAB.y + TAB.h / 2 + 1, `${ROMAN[k]} · ${sec.ep.name.toUpperCase()}`, {
-        fontFamily: TITLE_FONT, fontSize: '13px', color: '#e8d6ac', fontStyle: '700', resolution: 2,
-      }).setOrigin(0.5).setLetterSpacing(3);
+      const t = this.add.text(x + TAB.w / 2, TAB.y + TAB.h / 2 + 1, sec.ep.name.toUpperCase(), {
+        fontFamily: TITLE_FONT, fontSize: '12px', color: '#e8d6ac', fontStyle: '700', resolution: 2,
+      }).setOrigin(0.5).setLetterSpacing(2);
       const hit = this.add.zone(x, TAB.y, TAB.w, TAB.h + 6).setOrigin(0).setInteractive({ useHandCursor: true });
       hit.on('pointerover', () => {
         if (PAGES[this.page].sec !== k) {
@@ -321,9 +324,10 @@ export class AquapendiumScene extends Phaser.Scene {
     this.head(c, LEFT + PW / 2, PY + 70, 'AQUAPENDIUM', 34, INK_SOFT).setOrigin(0.5).setLetterSpacing(3);
     this.ink(c, LEFT + PW / 2, PY + 108, 'Das Buch der Urmeere', 20, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     this.rule(c, LEFT + 80, PY + 140, PW - 160);
-    this.ink(c, LEFT + PW / 2, PY + 178, `${['ERSTER', 'ZWEITER', 'DRITTER', 'VIERTER'][k]} TEIL`, 15, INK_RED, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4);
+    this.ink(c, LEFT + PW / 2, PY + 178, `${ORDINAL[k]} TEIL`, 15, INK_RED, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4);
     this.head(c, LEFT + PW / 2, PY + 222, sec.ep.name.toUpperCase(), 46).setOrigin(0.5).setLetterSpacing(4);
-    this.ink(c, LEFT + PW / 2, PY + 270, `${sec.ep.tagline} · vor ${Math.round(sec.ep.from / 1e6)} bis ${Math.round(sec.ep.to / 1e6)} Mio. Jahren`, 19, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.ink(c, LEFT + PW / 2, PY + 270, `${sec.ep.tagline} · vor ${sec.ep.period[0]} bis ${sec.ep.period[1]} Mio. Jahren`, 19, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    if (!n) return this.blank(c, k);
     const big = this.add.text(LEFT + PW / 2, PY + 370, `${seen}`, { fontFamily: TITLE_FONT, fontSize: '96px', color: INK, fontStyle: '700', resolution: 2 }).setOrigin(0.5);
     c.add(big);
     this.ink(c, LEFT + PW / 2, PY + 440, `von ${n} Tieren gefunden`, 22, INK_SOFT).setOrigin(0.5);
@@ -370,6 +374,44 @@ export class AquapendiumScene extends Phaser.Scene {
       hit.on('pointerup', () => this.go(PAGES.findIndex((p) => p.sec === k && p.entry === e)));
       c.add(hit);
     });
+  }
+
+  /** Ein Teil ohne Tiere (noch): ein Ammonit im Stein statt der Zahl, rechts ein leeres Verzeichnis. */
+  private blank(c: Phaser.GameObjects.Container, k: number) {
+    const g = this.add.graphics();
+    const cx = LEFT + PW / 2, cy = PY + 392;
+    // der Abdruck eines Ammoniten: eine Spirale mit Rippen
+    const spiral = (th: number) => 3 + th * 6.2;
+    g.lineStyle(3, 0x2a1a0e, 0.55);
+    g.beginPath();
+    for (let i = 0; i <= 160; i++) {
+      const th = (i / 160) * Math.PI * 2 * 2.6, r = spiral(th);
+      const x = cx + Math.cos(th - 1.2) * r, y = cy + Math.sin(th - 1.2) * r;
+      if (i) g.lineTo(x, y);
+      else g.moveTo(x, y);
+    }
+    g.strokePath();
+    g.lineStyle(1.6, 0x2a1a0e, 0.4);
+    for (let i = 0; i < 26; i++) {
+      const th = 3 + (i / 26) * Math.PI * 2 * 1.6, r0 = spiral(th - Math.PI * 2), r1 = spiral(th);
+      if (r0 < 4) continue;
+      g.lineBetween(cx + Math.cos(th - 1.2) * r0, cy + Math.sin(th - 1.2) * r0, cx + Math.cos(th - 1.2) * r1, cy + Math.sin(th - 1.2) * r1);
+    }
+    c.add(g);
+    this.ink(c, cx, PY + 500, 'Dieses Zeitalter ruht noch im Gestein.\nSeine Tiere zeigen sich, sobald es erwacht.', 17, INK_RED, { fontStyle: 'italic', align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
+    // rechte Seite: das Verzeichnis ist angelegt, aber noch leer
+    this.head(c, RIGHT + PW / 2, PY + 36, 'Inhalt', 28).setOrigin(0.5);
+    this.rule(c, RIGHT + 60, PY + 62, PW - 120);
+    const lines = this.add.graphics();
+    for (let i = 0; i < 12; i++) {
+      const y = PY + 112 + i * 36;
+      lines.fillStyle(0x2a1a0e, 0.22);
+      for (let x = RIGHT + 120; x < RIGHT + PW - 110; x += 9) lines.fillCircle(x, y, 1.1);
+      lines.fillStyle(0x2a1a0e, 0.16);
+      lines.fillCircle(RIGHT + 102, y, 4);
+    }
+    c.add(lines);
+    this.ink(c, RIGHT + PW / 2, PY + PH - 92, `Die Seiten ${ofEra(SECTIONS[k].ep)} sind noch nicht beschrieben.`, 17, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
   }
 
   // ---------------------------------------------------------------- Eine Tierseite

@@ -588,7 +588,7 @@ export function sigOf(cls: ClassId, tIn: Partial<Traits>) {
   return `${cls}:${plateSig(t)}:${diet}:${t.coat}`;
 }
 
-/** Die Wurzel des Stammbaums eines Zeitalters (das Ordovizium hat die alte Wurzel „root“). */
+/** Die Wurzel des Stammbaums eines Zeitalters (das erste – heute das Devon – hat die alte Wurzel „root“). */
 export const rootId = (epoch: number) => (epoch === 0 ? 'root' : `root:${EPOCHS[epoch]?.id ?? epoch}`);
 
 /** Der Urahn eines Zeitalters: Mit ihm beginnt dort jede Linie. */
@@ -686,8 +686,8 @@ class GameState {
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
-        // Früher hing alles an einem Urahn vor dem Ordovizium – heute hat jedes Zeitalter seinen eigenen; das Ordovizium
-        // übernimmt den alten. Astenden kennen ihre Generation (ältere Spielstände: so viele, wie die Linie lebte)
+        // Früher hing alles an einem Urahn vor dem ersten Zeitalter – heute hat jedes Zeitalter seinen eigenen; das erste
+        // (Nummer 0, früher das Ordovizium, heute das Devon) übernimmt den alten. Astenden kennen ihre Generation (ältere Spielstände: so viele, wie die Linie lebte)
         const root = this.data.nodes.root;
         if (root && (root.epoch < 0 || root.gen === undefined)) Object.assign(root, { epoch: 0, gen: 0, sig: sigOf(root.cls, ZERO) });
         for (const n of Object.values(this.data.nodes)) if (n.parent !== null) n.gen ??= n.dead?.gens ?? 1;
@@ -737,7 +737,7 @@ class GameState {
   private prune() {
     const d = this.data;
     const bad = new Set<string>();
-    for (const n of Object.values(d.nodes)) if (n.epoch >= EPOCHS.length || n.cls !== 'fish') bad.add(n.id);
+    for (const n of Object.values(d.nodes)) if (n.epoch >= EPOCHS.length || n.cls !== EPOCHS[n.epoch].cls) bad.add(n.id);
     // Jeder Stammbaum gehört zu einem Zeitalter: Äste, die früher von einem Zeitalter ins nächste führten, fallen weg – samt
     // allem, was daran hing
     for (let grew = true; grew; ) {
@@ -757,7 +757,7 @@ class GameState {
       if (d.lastEnd && !d.nodes[d.lastEnd]) d.lastEnd = null;
     }
     d.deepest = Math.min(d.deepest, EPOCHS.length - 1);
-    const ok = (r: Run) => isPlayable(r.epoch) && r.cls === 'fish' && !!d.nodes[r.node];
+    const ok = (r: Run) => isPlayable(r.epoch) && r.cls === EPOCHS[r.epoch].cls && !!d.nodes[r.node];
     if (d.run && !ok(d.run)) d.run = null;
     // Linien in Zeitaltern, in denen man (noch) nicht leben kann, ruhen nicht weiter
     for (const [k, r] of Object.entries(d.parked ?? {})) if (!ok(r) || Number(k) !== r.epoch || r.epoch === d.run?.epoch) delete d.parked![k];

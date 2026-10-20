@@ -26,11 +26,8 @@ type TreeData =
 /** Der Baumbereich */
 const AX = 196, AW = 724, TOP = 196, BOT = 660;
 const PANEL_X = 944;
-/** der Zeitstrom: von vor 490 bis vor 60 Millionen Jahren */
-const STREAM = { y: 96, from: 490, to: 60 };
-/** die wirklichen Zeiträume der Zeitalter (Millionen Jahre) – und was dazwischen liegt */
-const PERIOD: Record<string, [number, number]> = { ordovizium: [485, 443], silur: [443, 419], devon: [419, 359], kreide: [145, 66] };
-const GAPS: [string, number][] = [['Silur', 431], ['Karbon', 329], ['Perm', 275], ['Trias', 226], ['Jura', 173]];
+/** der Zeitstrom: von vor 424 bis vor 18 Millionen Jahren – die sieben Zeitalter liegen lückenlos darin */
+const STREAM = { y: 96, from: 424, to: 18 };
 
 const CLS_COLOR: Record<ClassId, number> = {
   fish: 0x6f9e98,
@@ -422,9 +419,9 @@ export class TreeScene extends Phaser.Scene {
   // ---------------------------------------------------------------- der Zeitstrom
 
   /**
-   * Der Zeitstrom: die Erdgeschichte vom Ordovizium bis zur Kreidezeit als feine Linie. Die spielbaren Zeitalter sind helle
-   * Fenster darin (anwählbar), dazwischen liegen leise die Zeiten, die (noch) niemand spielt. Vom gewählten Fenster führen
-   * zwei Linien hinunter zum Baum: Er ist ein Ausschnitt aus dem einen großen Baum des Lebens.
+   * Der Zeitstrom: die Erdgeschichte vom Devon bis ins Paläogen als feine Linie, darin die sieben Zeitalter als Fenster
+   * (anwählbar) – hell die spielbaren, leise die, die noch im Gestein ruhen. Vom gewählten Fenster führen zwei Linien
+   * hinunter zum Baum: Er ist ein Ausschnitt aus dem einen großen Baum des Lebens.
    */
   private drawStream() {
     const c = this.stream;
@@ -435,14 +432,11 @@ export class TreeScene extends Phaser.Scene {
     // die Linie: zwischen den Fenstern nur gepunktet
     g.fillStyle(0xe6dcc4, 0.22);
     for (let x = AX; x <= AX + AW; x += 6) g.fillCircle(x, y, 1);
-    for (const [name, ma] of GAPS) {
-      c.add(text(this, streamX(ma), y + 14, name, 12, UI.boneDim).setOrigin(0.5, 0).setAlpha(0.45));
-    }
     for (const { i, ep } of ERAS) {
-      const [a, b] = PERIOD[ep.id] ?? [ep.from / 1e6, ep.to / 1e6];
+      const [a, b] = ep.period;
       const x0 = streamX(a), x1 = streamX(b), on = i === this.era;
-      g.fillStyle(on ? 0xd9a24c : 0xe6dcc4, on ? 0.95 : ep.playable ? 0.45 : 0.25);
-      g.fillRoundedRect(x0, y - 4, x1 - x0, 8, 4);
+      g.fillStyle(on ? 0xd9a24c : 0xe6dcc4, on ? 0.95 : ep.playable ? 0.45 : 0.22);
+      g.fillRoundedRect(x0 + 2, y - 4, x1 - x0 - 4, 8, 4);
       if (on) {
         // vom Fenster hinunter zum Baum
         g.lineStyle(1, 0xd9a24c, 0.22);
@@ -452,8 +446,8 @@ export class TreeScene extends Phaser.Scene {
         g.lineBetween(AX - 6, TOP - 52, AX + AW + 6, TOP - 52);
       }
       const label = this.add.text((x0 + x1) / 2, y - 22, ep.name.toUpperCase(), {
-        fontFamily: TITLE_FONT, fontSize: '12px', color: on ? '#e6b25a' : ep.playable ? UI.bone : UI.boneDim, fontStyle: '700', resolution: 2,
-      }).setOrigin(0.5).setLetterSpacing(3).setAlpha(on ? 1 : 0.7);
+        fontFamily: TITLE_FONT, fontSize: '11px', color: on ? '#e6b25a' : ep.playable ? UI.bone : UI.boneDim, fontStyle: '700', resolution: 2,
+      }).setOrigin(0.5).setLetterSpacing(1.5).setAlpha(on ? 1 : 0.7);
       c.add(label);
       if (on) {
         const tag = text(this, (x0 + x1) / 2, y + 30, `${ep.tagline}${ep.playable ? '' : ' · noch im Gestein'}`, 14, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5, 0).setAlpha(0.8);
@@ -462,7 +456,7 @@ export class TreeScene extends Phaser.Scene {
         c.add(tag);
       }
       // anwählbar: Fenster und Name
-      const zone = this.add.zone(Math.min(x0, (x0 + x1) / 2 - 60), y - 34, Math.max(x1 - x0, 120), 46).setOrigin(0).setInteractive({ useHandCursor: true });
+      const zone = this.add.zone(x0, y - 34, x1 - x0, 46).setOrigin(0).setInteractive({ useHandCursor: true });
       zone.on('pointerover', () => {
         if (!on) {
           label.setAlpha(1).setColor('#f2e4c4');

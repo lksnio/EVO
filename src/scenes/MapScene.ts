@@ -9,7 +9,9 @@ import { worldYears } from '../sim/life';
 import { MAP_BOX, mapPos } from '../art/mapArt';
 import { FogMap, mapFrame, MAP_LABELS, routePoints } from '../art/paleoArt';
 import { CreatureView } from '../objects/CreatureView';
-import { Button, MenuNav, controlsList, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
+import { Button, MenuNav, fadeIn, fadeTo, panel, soundButton, text, title } from '../ui/ui';
+import { openKeys } from '../ui/keysPanel';
+import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
 import { Overview } from '../ui/overview';
 
 /** Halbmesser des Punktes eines Ortes (die Karte ist weit herausgezoomt: alles ist klein) */
@@ -49,6 +51,8 @@ export class MapScene extends Phaser.Scene {
   private overview?: Overview;
   private rest?: Phaser.GameObjects.Container;
   private restNav?: MenuNav;
+  /** die Seite „Steuerung“ (über der Rast) */
+  private keys?: Phaser.GameObjects.Container;
   private glow?: Phaser.GameObjects.Image;
   private leaving = false;
   private toId?: string;
@@ -166,19 +170,27 @@ export class MapScene extends Phaser.Scene {
     // Knöpfe oben rechts (wie im Level)
     new Button(this, W - 98, 38, '', { w: 50, h: 50, icon: 'ic_pause', iconOnly: true, onClick: () => this.toggleRest() }).setAlpha(0.8).setDepth(20);
     this.glow = this.add.image(W - 156, 38, 'glow').setTint(0xffe4a8).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 130).setAlpha(0).setDepth(19);
-    new Button(this, W - 156, 38, 'C', { w: 50, h: 50, onClick: () => this.toggleOverview() }).setAlpha(0.8).setDepth(20);
+    const ovB = new Button(this, W - 156, 38, keyLabel('overview'), { w: 50, h: 50, size: keyLabel('overview').length > 2 ? 14 : 22, onClick: () => this.toggleOverview() }).setAlpha(0.8).setDepth(20);
+    const offKeys = onKeysChanged(() => ovB.setLabel(keyLabel('overview')));
+    this.events.once('shutdown', offKeys);
     soundButton(this, W - 40, 38, 50).setAlpha(0.8).setDepth(20);
     this.updateGlow();
 
     const kb = this.input.keyboard!;
-    for (const k of ['ENTER', 'SPACE', 'E', 'Q', 'J']) kb.on(`keydown-${k}`, () => !this.blocked() && this.go(this.focus));
-    kb.on('keydown-LEFT', () => this.pick(-1, 0));
-    kb.on('keydown-RIGHT', () => this.pick(1, 0));
-    kb.on('keydown-UP', () => this.pick(0, -1));
-    kb.on('keydown-DOWN', () => this.pick(0, 1));
-    kb.on('keydown-C', () => this.toggleOverview());
-    kb.on('keydown-ESC', () => (this.overview ? this.toggleOverview() : this.toggleRest()));
-    kb.on('keydown-P', () => this.toggleRest());
+    // wählen mit den Pfeiltasten (oder den Schwimmtasten der Belegung), losschwimmen mit Eingabe, Leertaste, Beißen oder Ansprechen
+    kb.on('keydown', (e: KeyboardEvent) => {
+      if (this.keys || capture.on) return;
+      const k = e.keyCode;
+      if (k === 13 || k === 32 || matches('bite', e) || matches('talk', e)) {
+        if (!this.blocked()) this.go(this.focus);
+      } else if (k === 37 || matches('left', e)) this.pick(-1, 0);
+      else if (k === 39 || matches('right', e)) this.pick(1, 0);
+      else if (k === 38 || matches('up', e)) this.pick(0, -1);
+      else if (k === 40 || matches('down', e)) this.pick(0, 1);
+      else if (matches('overview', e)) this.toggleOverview();
+      else if (matches('pause', e)) this.toggleRest();
+    });
+    kb.on('keydown-ESC', () => !capture.on && !this.keys && (this.overview ? this.toggleOverview() : this.toggleRest()));
     this.time.delayedCall(700, () => this.reveal());
   }
 
@@ -559,22 +571,14 @@ export class MapScene extends Phaser.Scene {
     this.restNav = undefined;
   }
 
+  /** Die Seite "Steuerung" in der Rast: Tasten ansehen und neu belegen. */
   private showControls() {
-    if (!this.rest) return;
-    const c = this.add.container(0, 0).setDepth(55);
-    c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.88).setOrigin(0).setInteractive());
-    c.add(panel(this, W / 2 - 420, 70, 840, 580, 0.97));
-    c.add(title(this, W / 2, 124, 'Steuerung', 40).setOrigin(0.5));
-    controlsList(this, c, W / 2 + 30, 172, 21, 31);
-    const back = new Button(this, W / 2, 604, 'Zurück', { w: 240, h: 48, onClick: () => close() });
-    c.add(back);
+    if (!this.rest || this.keys) return;
     if (this.restNav) this.restNav.enabled = false;
-    const nav = new MenuNav(this, [back]);
-    const close = () => {
-      nav.enabled = false;
-      c.destroy();
+    this.keys = openKeys(this, 55, () => {
+      this.keys = undefined;
       if (this.restNav) this.restNav.enabled = true;
-    };
+    });
   }
 
   private giveUp() {

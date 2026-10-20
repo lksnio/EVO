@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { capture, keysOf, onKeysChanged } from '../state/keymap';
 
 /** Zustand der Bildschirm-Knöpfe (Touch), wird vom HUD gesetzt. */
 export const touch = {
@@ -28,7 +29,7 @@ export const tapped: Partial<Record<Action, boolean>> = {};
  * vergisst ihn dann). Gehaltene Tasten wiederholen sich dabei nicht.
  */
 export class Controls {
-  private keys: Record<Action, Phaser.Input.Keyboard.Key[]>;
+  private keys!: Record<Action, Phaser.Input.Keyboard.Key[]>;
   private prev: Record<Action, boolean> = { left: false, right: false, up: false, down: false, jump: false, bite: false, sprint: false, ram: false, talk: false, call: false };
   held: Record<Action, boolean> = { ...this.prev };
   pressed: Record<Action, boolean> = { ...this.prev };
@@ -37,28 +38,21 @@ export class Controls {
 
   constructor(scene: Phaser.Scene) {
     const kb = scene.input.keyboard!;
-    const K = Phaser.Input.Keyboard.KeyCodes;
-    const k = (...codes: number[]) => codes.map((c) => kb.addKey(c, true, false));
-    this.keys = {
-      // Pfeiltasten schwimmen, die linke Hand liegt auf Q W E R
-      left: k(K.LEFT),
-      right: k(K.RIGHT),
-      up: k(K.UP),
-      down: k(K.DOWN),
-      jump: k(K.SPACE, K.UP),
-      bite: k(K.E, K.Q, K.J),
-      sprint: k(K.W, K.SHIFT),
-      ram: k(K.R),
-      // Ansprechen: wer nah genug bei einem Artgenossen ist, der etwas zu erzählen hat
-      talk: k(K.F, K.ENTER),
-      // deine Gruppe rufen bzw. fortschicken (sobald sie auf deinen Ruf kommt)
-      call: k(K.S),
+    // die Tasten kommen aus der Belegung (frei wählbar auf der Seite „Steuerung“); auch die Tasten für „nach oben“ lassen auftauchen
+    const bind = () => {
+      const k = (codes: readonly number[]) => codes.map((c) => kb.addKey(c, true, false));
+      this.keys = Object.fromEntries((Object.keys(touch) as Action[]).map((a) => [a, k(a === 'jump' ? [...keysOf('jump'), ...keysOf('up')] : keysOf(a))])) as Record<Action, Phaser.Input.Keyboard.Key[]>;
     };
+    bind();
+    const off = onKeysChanged(bind);
     const onDown = (e: KeyboardEvent) => {
-      if (!e.repeat) this.hit.add(e.keyCode);
+      if (!e.repeat && !capture.on) this.hit.add(e.keyCode);
     };
     kb.on('keydown', onDown);
-    scene.events.once('shutdown', () => kb.off('keydown', onDown));
+    scene.events.once('shutdown', () => {
+      kb.off('keydown', onDown);
+      off();
+    });
   }
 
   /** Gerade gesperrt (Gespräch, Szene): Was gedrückt wurde, verfällt – es soll danach nicht nachträglich wirken. */

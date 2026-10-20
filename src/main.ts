@@ -24,6 +24,7 @@ import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
 import { AquapendiumScene } from './scenes/AquapendiumScene';
 import { EraScene } from './scenes/EraScene';
+import { matches } from './state/keymap';
 
 async function start() {
   // Schriften laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
@@ -57,8 +58,9 @@ async function start() {
   window.addEventListener('pointerdown', unlock);
   window.addEventListener('keydown', unlock);
   window.addEventListener('touchstart', unlock);
+  // Ton an/aus – auf der Taste der Belegung (Grundbelegung: M)
   window.addEventListener('keydown', (e) => {
-    if ((e.key === 'm' || e.key === 'M') && !e.repeat) toggleMute();
+    if (matches('mute', e) && !e.repeat) toggleMute();
   });
 
   const g = new Phaser.Game({

@@ -69,6 +69,11 @@ export interface PlaceDef {
   caves: CaveKind[];
   /** wie viele Stellen an der Oberfläche Licht hereinlassen */
   sun: number;
+  /**
+   * sicher: Außer der eigenen Art lebt hier kein Tier (keine Bewohner, keine Durchzügler, keine Gelege fremder Arten) –
+   * das Startgebiet, klein und still; Pflanzen wachsen trotzdem
+   */
+  safe?: boolean;
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
@@ -87,6 +92,7 @@ interface RoleDef {
   shells: number;
   caves: CaveKind[];
   sun: number;
+  safe?: boolean;
   /** Feinabstimmung der Gebiets-Faktoren: Pflanzen, Dickicht, Beute, Jäger */
   mul?: [number, number, number, number];
   apex?: boolean;
@@ -97,7 +103,8 @@ interface RoleDef {
  * hinüberschwimmt, sieht den Ort und den Weg danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
  */
 const ROLES: Record<Role, RoleDef> = {
-  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 3.4, shells: 0, caves: [], sun: 5 },
+  // das Startgebiet: klein, nur der Laichfluss und seine Mündung – und sicher (siehe PlaceDef.safe)
+  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 1.25, shells: 0, caves: [], sun: 4, safe: true },
   lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, shells: 1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
   lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, shells: 1, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
   murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, shells: 1, caves: [], sun: 3 },
@@ -139,10 +146,10 @@ const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veil
   },
   devon: {
     names: {
-      start: ['riff', 'Riffmündung'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
+      start: ['riff', 'Der Laichfluss'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
       deep1: ['wand', 'Steilwand'], deep2: ['terrasse', 'Terrassenhang'], deep3: ['kluft', 'Die Kluft'], abyss1: ['maul', 'Das Maul der Tiefe'], abyss2: ['grund', 'Der Letzte Grund'],
     },
-    veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1.1, startShells: 0,
+    veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1, startShells: 1,
   },
 };
 
@@ -158,7 +165,7 @@ function buildPlaces(epId: string): PlaceDef[] {
     const [x, y] = PALEO[epId].nodes[r];
     return {
       id, name, kind: d.kind, x, y, links: d.links.map(idOf), def,
-      deep: d.deep, wide: d.wide, shells: r === 'start' ? spec.startShells : d.shells, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun,
+      deep: d.deep, wide: d.wide, shells: r === 'start' ? spec.startShells : d.shells, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe,
     };
   });
 }

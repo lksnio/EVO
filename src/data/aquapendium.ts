@@ -3,8 +3,8 @@ import { SPECIES, type Role, type SpeciesDef } from './species';
 import type { PlaceKind } from './world';
 
 // ---------------------------------------------------------------------------
-// Das Aquapendium: ein Buch mit einer Seite für jedes Tier der Urmeere, in drei Teilen – einer je Zeitalter (Ordovizium,
-// Devon, Kreidezeit). Alle Seiten gibt es von Anfang an – wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen
+// Das Aquapendium: ein Buch mit einer Seite für jedes Tier der Urmeere, in sieben Teilen – einer je Zeitalter (Devon bis
+// Paläogen; Teile ruhender Zeitalter, deren Tiere noch fehlen, sind leer). Alle Seiten gibt es von Anfang an – wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen
 // Umriss. Hier stehen die Angaben zu jedem Tier: wie es in der
 // Wirklichkeit hieß, wie groß es etwa war und wann es lebte, dazu ein paar Worte. Die Werte (Lebenskraft, Biss …) sind
 // die aus dem Spiel. Alle Größen und Zeiten sind grobe Näherungen – bei vielen Urtieren weiß man es nicht genauer.
@@ -130,7 +130,7 @@ function build(ep: EpochDef): Entry[] {
   return ids.map((id, i) => entry(id, i + 1));
 }
 
-/** Das Buch in drei Teilen – einer je Zeitalter, in der Reihenfolge der Erdgeschichte. */
+/** Das Buch in sieben Teilen – einer je Zeitalter, in der Reihenfolge der Erdgeschichte. */
 export const SECTIONS: Section[] = ERAS.map(({ i, ep }) => ({ epoch: i, ep, entries: build(ep) }));
 
 /** Alle Tiere des Buches (jedes nur einmal – manche leben in mehreren Zeitaltern). */
