@@ -515,9 +515,15 @@ export class MapScene extends Phaser.Scene {
     const g = this.glow;
     if (!g) return;
     this.tweens.killTweensOf(g);
-    if (game.shells <= game.seenRows) return g.setAlpha(0);
+    if (game.shells <= game.seenShells) return g.setAlpha(0);
     g.setAlpha(0.06);
     this.tweens.add({ targets: g, alpha: 0.22, yoyo: true, repeat: -1, duration: 1600, ease: 'Sine.inOut' });
+  }
+
+  /** Lebenskraft auf der Karte: so viel, wie man beim Verlassen des letzten Ortes hatte (sonst die volle). */
+  private hpNow() {
+    const hpMax = game.stats().maxHp;
+    return { hp: Math.min(hpMax, game.prog.hp ?? hpMax), hpMax };
   }
 
   private toggleOverview() {
@@ -529,7 +535,7 @@ export class MapScene extends Phaser.Scene {
     }
     if (this.rest || this.leaving) return;
     audio.sfx('select');
-    this.overview = new Overview(this, { morph: game.morph(), placeName: this.cur.name, kin: game.prog.kin ?? game.run?.kin ?? 0 }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: game.morph(), placeName: this.cur.name, kin: game.prog.kin ?? game.run?.kin ?? 0, ...this.hpNow() }, () => this.toggleOverview());
   }
 
   private toggleRest() {

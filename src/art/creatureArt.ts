@@ -73,6 +73,12 @@ export interface Morph {
   fDown?: number;
   fSide?: number;
   fTail?: number;
+  /**
+   * Segen der großen Muschel (nur das eigene Tier): in Sicht – größere Augen mit kräftigerer Iris und hellerem Lichtreflex; in
+   * Ausdauer – größere, kräftigere Flossen (die Lebenskraft macht den Körper größer, das steckt schon in size)
+   */
+  eye?: number;
+  stamUp?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -116,12 +122,14 @@ export function quantize(m: Morph): Morph {
     fDown: q(m.fDown ?? 0, 0.1),
     fSide: q(m.fSide ?? 0, 0.1),
     fTail: q(m.fTail ?? 0, 0.1),
+    eye: Math.round(m.eye ?? 0),
+    stamUp: Math.round(m.stamUp ?? 0),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp].join('_');
 }
 
 interface Pal {
@@ -221,7 +229,16 @@ interface Geo {
   hg: HeadGeo;
 }
 
+/** Wie viel größer die Augen je Segen in Sicht werden – und die Flossen je Segen in Ausdauer. */
+const EYE_UP = 0.035, FIN_UP = 0.07;
+
 function geo(m: Morph): Geo {
+  const g = geoOf(m);
+  g.hg.er *= 1 + EYE_UP * (m.eye ?? 0);
+  return g;
+}
+
+function geoOf(m: Morph): Geo {
   const st = m.stealth, jaw = m.jaw, sk = m.skull;
   // Körperbau: länger gestreckt bzw. massiger
   const lk = 1 + 0.42 * (m.len ?? 0);
@@ -332,8 +349,10 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   // Rückenflosse / Rückenkamm hinter dem Körper
   if (m.cls === 'fish') {
     // Rückenflosse (crest) und Afterflosse (fin) – bei jeder Linie etwas anders groß
-    const k = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0));
-    const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0));
+    // die Segen in Ausdauer machen alle Flossen größer
+    const su = 1 + FIN_UP * (m.stamUp ?? 0);
+    const k = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0)) * su;
+    const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0)) * su;
     ctx.beginPath();
     ctx.moveTo(bw * 0.16, -bh * 0.5);
     ctx.bezierCurveTo(bw * 0.06, -bh * 0.5 - 12 * k, -bw * 0.06, -bh * 0.55 - 13 * k, -bw * 0.16, -bh * 0.52 - 10 * k);
@@ -804,7 +823,8 @@ function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
     ctx.lineWidth = 1;
     ctx.stroke();
   }
-  eye(ctx, hg.ex, hg.ey, hg.er, P.eye, { slit: m.cls === 'reptile' || m.cls === 'amphibian', lid: 0.15 + m.fierce * 0.45 });
+  // wer von der großen Muschel in Sicht gesegnet wurde, hat einen wacheren Blick: kräftigere Iris, hellerer Lichtreflex
+  eye(ctx, hg.ex, hg.ey, hg.er, P.eye, { slit: m.cls === 'reptile' || m.cls === 'amphibian', lid: (0.15 + m.fierce * 0.45) * (1 - 0.5 * keenOf(m)), keen: keenOf(m) });
   // Augenwulst wächst mit dem Schädel
   if (sk > 0.15 && m.cls !== 'fish') {
     ctx.beginPath();
@@ -980,7 +1000,7 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
 function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
   const st = m.stealth;
   if (m.cls === 'fish') {
-    const sw = 1 + 0.35 * (m.swift ?? 0), tw = m.tail ?? 0, ft = m.fTail ?? 0;
+    const sw = (1 + 0.35 * (m.swift ?? 0)) * (1 + 0.8 * FIN_UP * (m.stamUp ?? 0)), tw = m.tail ?? 0, ft = m.fTail ?? 0;
     const lobe = (16 + 16 * st) * sw * (1 + 0.28 * tw) * (1 + 0.3 * ft), fork = 3 + 11 * st + 6 * ft, spread = (13 + 9 * st) * sw * (1 + 0.65 * tw) * (1 + 0.5 * ft);
     ctx.beginPath();
     ctx.moveTo(-4, -4);
@@ -1187,7 +1207,7 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
     return;
   }
   // Seitenflossen: wer oft die Richtung gewechselt hat, bekommt größere
-  const k = (1 + 0.5 * m.stealth) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.95 * (m.fSide ?? 0));
+  const k = (1 + 0.5 * m.stealth) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.95 * (m.fSide ?? 0)) * (1 + FIN_UP * (m.stamUp ?? 0));
   ctx.beginPath();
   ctx.moveTo(1, -2.5);
   ctx.quadraticCurveTo(-5 * k, 9 * k, -14 * k, 10 * k);
@@ -1208,6 +1228,9 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
 // Texturen
 
 export const CREATURE_RES = 2;
+
+/** Wie wach der Blick ist (0 … 1): nach den Segen in Sicht. */
+const keenOf = (m: Morph) => Math.min(1, (m.eye ?? 0) / 10);
 
 export interface PartTex {
   key: string;

@@ -5,7 +5,7 @@ import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
-import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA } from '../data/life';
+import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 
 // ---------------------------------------------------------------------------
@@ -176,6 +176,8 @@ export interface Stats {
   agility: number;
   /** Nahrungsbedarf über die Größe hinaus (1 = normal): ein massiger Körper und ein Schuppenpanzer wollen versorgt sein */
   upkeep: number;
+  /** Rückstoß bei Treffern (1 = normal): Ein Schuppenpanzer hält dagegen */
+  knock: number;
 }
 
 /** 1 = männlich, 2 = weiblich */
@@ -338,12 +340,17 @@ export interface Run {
   life: Life;
   /** die Geschwister, die noch im Gelege warten (deine übrigen Leben) */
   siblings?: Siblings;
-  /** gefundene Muscheln (sie fallen selten von erlegten Tieren – siehe SHELLS) */
-  shells: number;
-  /** so oft hat die große Muschel deine Linie gesegnet: Jeder Segen gibt mehr Ausdauer (siehe STAMINA) */
+  /**
+   * Die Segen der großen Muschel für diese Linie: so oft in Lebenskraft, Ausdauer und Sicht (siehe UPGRADES). Die Muscheln selbst
+   * gehören nicht der Linie, sondern dir (SaveData.shells) – beginnt eine neue Linie, sind sie wieder frei.
+   */
+  ups?: Ups;
+  /** der Hinweis auf die Muscheln, die an der großen Muschel warten, kam schon (einmal je Linie) */
+  upHint?: boolean;
+  /** ältere Spielstände: Muscheln und Segen hingen an der Linie (beim Laden übernommen) */
+  shells?: unknown;
   blessings?: number;
-  /** so viele Muscheln hat man in der Übersicht schon gesehen (der Knopf leuchtet, solange eine neue dazukam) */
-  seenRows: number;
+  seenRows?: number;
   history: Ancestor[];
   /** die Gruppe deiner Art (entsteht beim Treffen in „Die gemeinsame Jagd“) – sie überdauert Orte und Zeitalter */
   swarm?: Swarm;
@@ -379,6 +386,12 @@ export interface Swarm {
 }
 
 export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
+
+/** Wofür die große Muschel segnet: Lebenskraft, Ausdauer, Sicht. */
+export type UpKey = 'hp' | 'stam' | 'sight';
+export type Ups = Record<UpKey, number>;
+export const UP_KEYS: UpKey[] = ['hp', 'stam', 'sight'];
+const noUps = (): Ups => ({ hp: 0, stam: 0, sight: 0 });
 
 export interface TreeNode {
   id: string;
@@ -422,6 +435,10 @@ export interface SaveData {
   epoch?: number;
   /** die Linien der anderen Zeitalter: Sie ruhen, solange man anderswo lebt (Nummer des Zeitalters → Lauf) */
   parked?: Record<string, Run>;
+  /** alle je gefundenen Muscheln – sie bleiben über alle Läufe (weil sie so selten sind); verteilt werden sie je Linie */
+  shells?: number;
+  /** so viele Muscheln hat man in der Übersicht schon gesehen (der Knopf leuchtet, solange eine neue dazukam) */
+  seenShells?: number;
 }
 
 const KEY = 'evo-save-v3';
@@ -688,6 +705,18 @@ class GameState {
         const d = JSON.parse(raw) as Partial<SaveData>;
         const f = fresh();
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
+        // früher gehörten die Muscheln der Linie – heute dir: alle, die deine Linien gefunden haben, zusammen
+        if (typeof d.shells !== 'number') {
+          let n = 0, seen = 0;
+          for (const r of [d.run, ...Object.values(d.parked ?? {})]) {
+            const sh = r?.shells;
+            const k = Array.isArray(sh) ? sh.length : typeof sh === 'number' ? sh : 0;
+            n += k;
+            seen += Math.min(k, r?.seenRows ?? k);
+          }
+          this.data.shells = n;
+          this.data.seenShells = seen;
+        }
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
         // Früher hing alles an einem Urahn vor dem ersten Zeitalter – heute hat jedes Zeitalter seinen eigenen; das erste
@@ -720,11 +749,11 @@ class GameState {
           // ältere Spielstände kennen nur Orte, keine Wege: Wer zwei benachbarte Orte kennt, kennt auch den Weg dazwischen
           r.prog.links ??= placesOf(EPOCHS[r.epoch]).flatMap((p) =>
             r.prog.known.includes(p.id) ? p.links.filter((q) => q > p.id && r.prog.known.includes(q)).map((q) => linkKey(p.id, q)) : []);
-          // früher lagen Muscheln fest an ihren Orten (eine Liste ihrer Kennungen) – heute zählt nur, wie viele es sind
-          const sh = r.shells as unknown;
-          r.shells = Array.isArray(sh) ? sh.length : typeof sh === 'number' ? sh : 0;
-          r.seenRows = Math.min(r.seenRows ?? r.shells, r.shells);
-          r.blessings ??= 0;
+          // früher segnete die große Muschel nur die Ausdauer (und die Muscheln gehörten der Linie): Die Segen bleiben
+          r.ups ??= { ...noUps(), stam: r.blessings ?? 0 };
+          delete r.shells;
+          delete r.blessings;
+          delete r.seenRows;
           r.traits = migrate(r.traits);
           for (const a of r.history) a.traits = migrate(a.traits);
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
@@ -881,9 +910,8 @@ class GameState {
       canRam: true,
       prog: newProg(epoch),
       life: newLife(1),
-      shells: 0,
-      blessings: 0,
-      seenRows: 0,
+      // die Muscheln sind wieder frei: An der großen Muschel werden sie für diese Linie neu verteilt
+      ups: noUps(),
       history: [],
     };
     d.run = run;
@@ -902,8 +930,12 @@ class GameState {
    * gewachsen ist, und so alt, wie es ist; übergebene Merkmale gelten für ein ausgewachsenes Tier (life: ADULT), sofern
    * nichts anderes angegeben ist.
    */
-  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK): Stats {
+  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK, own: boolean | Ups = !traits): Stats {
     const t = traits ?? this.r.traits;
+    // die Segen der großen Muschel gelten nur für das eigene Tier (own: die eigenen – oder diese, für eine Vorschau)
+    const ups = own === true ? this.ups : own || null;
+    const hpBoost = ups ? 1 + UPGRADES.hp * ups.hp : 1;
+    const sizeBoost = ups ? 1 + UPGRADES.hpSize * ups.hp : 1;
     const k = life ?? (traits ? ADULT : this.lifeK);
     const b = CLASSES[cls].base;
     // Die ausgewachsene Größe kommt aus dem Wuchs (dem Lebensraum der Vorfahren); ein Jungtier ist davon erst ein Teil
@@ -928,7 +960,8 @@ class GameState {
     const school = plateLevel(t.sw ?? 0);
     return {
       // Jungtiere sind verletzlich, aber nicht ganz so sehr, wie ihre Größe vermuten ließe; im Alter lässt die Kraft nach
-      maxHp: Math.max(3, Math.round(b.hp * Math.pow(adult, 1.3) * Math.pow(k.grow, 0.8) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old))),
+      // dazu die Segen der großen Muschel in Lebenskraft (nur beim eigenen Tier)
+      maxHp: Math.max(3, Math.round(b.hp * Math.pow(adult, 1.3) * Math.pow(k.grow, 0.8) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old) * hpBoost)),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
@@ -936,7 +969,8 @@ class GameState {
       speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1)
         * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0) - 0.1 * armor) * (1 - LIFE.oldSpeed * k.old),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
-      size,
+      // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
+      size: size * sizeBoost,
       defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor, 0.35, 1.1),
       groundSpeed: 0.7 + 0.6 * limb,
       power: bite * 0.6 + ram * 0.4,
@@ -955,6 +989,8 @@ class GameState {
       // kleine, kurze Fische wenden schnell, große und lange schwerfällig
       agility: clamp(1 + 1.1 * (t.fSide ?? 0) - 0.14 * (t.len ?? 0) - 0.22 * (size - 0.8), 0.6, 2.4),
       upkeep: 1 + 0.3 * armor + 0.15 * Math.max(0, girth),
+      // Schuppenpanzer: Treffer werfen einen weniger weit zurück
+      knock: clamp(1 - 0.55 * armor - 0.15 * plates, 0.35, 1),
     };
   }
 
@@ -966,7 +1002,7 @@ class GameState {
     const t = o.traits ?? run?.traits ?? ZERO;
     return {
       cls,
-      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
+      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK), !o.traits).size,
       jaw: t.jaw,
       skull: t.skull,
       stealth: t.stealth,
@@ -996,6 +1032,9 @@ class GameState {
       fDown: t.fDown ?? 0,
       fSide: t.fSide ?? 0,
       fTail: t.fTail ?? 0,
+      // die Segen der großen Muschel sieht man nur dem eigenen Tier an: größere Augen (Sicht), größere Flossen (Ausdauer)
+      eye: o.traits ? 0 : this.ups.sight,
+      stamUp: o.traits ? 0 : this.ups.stam,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? (run.life.fierce ?? this.fear()) : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -1059,9 +1098,9 @@ class GameState {
   }
 
   /** Länge (cm) und Gewicht (g) eines Tiers (ausgewachsen, sofern nichts anderes angegeben ist). */
-  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits, life: LifeK = ADULT) {
+  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits, life: LifeK = ADULT, own = false) {
     const b = BODY[cls];
-    const size = this.stats(cls, t, life).size;
+    const size = this.stats(cls, t, life, own).size;
     const cm = b.cm * size * (1 + 0.15 * (t.len ?? 0));
     const g = b.g * Math.pow(cm, 3) * (1 + 0.35 * (t.girth ?? 0) - 0.08 * (t.len ?? 0)) * (0.9 + 0.2 * t.growth);
     return { cm, g };
@@ -1575,54 +1614,109 @@ class GameState {
     return (this.r.prog.links ?? []).includes(linkKey(a, b));
   }
 
-  /** Wie viele Muscheln deine Linie gesammelt hat. */
+  /** Wie viele Muscheln du je gefunden hast (sie bleiben über alle Läufe). */
   get shells(): number {
-    return this.r.shells;
+    return this.data.shells ?? 0;
   }
 
   /** Eine Muschel gefunden. Gibt zurück, wie viele es jetzt sind. */
   addShell() {
-    const run = this.r;
-    run.shells += 1;
+    this.data.shells = this.shells + 1;
     this.save();
-    return run.shells;
+    return this.data.shells;
   }
 
-  /** So oft hat die große Muschel deine Linie schon gesegnet. */
-  get blessings() {
-    return this.r.blessings ?? 0;
+  /** Die Segen der großen Muschel für die laufende Linie. */
+  get ups(): Ups {
+    return { ...noUps(), ...(this.data.run ?? this.ghost)?.ups };
   }
 
-  /** So viele Muscheln braucht der nächste Segen (8, 16, 32, 64 …). */
-  get nextBlessing() {
-    return nextBlessing(this.blessings);
+  /** So viele Segen hat die laufende Linie – zusammen, gleich wofür. */
+  get upCount() {
+    const u = this.ups;
+    return u.hp + u.stam + u.sight;
   }
 
-  /** Genug Muscheln für den nächsten Segen – und noch Platz für mehr Ausdauer? */
-  get canPray() {
-    return this.r.shells >= this.nextBlessing && this.staminaMax < STAMINA.max;
+  /** So viele Muscheln hat die laufende Linie schon verteilt. */
+  get shellsSpent() {
+    return upSpent(this.upCount);
   }
 
-  /** An der großen Muschel beten: Ist es so weit, segnet sie deine Linie mit mehr Ausdauer. Gibt zurück, ob sie es tat. */
-  pray() {
-    if (!this.canPray) return false;
-    this.r.blessings = this.blessings + 1;
+  /** So viele Muscheln sind noch frei. */
+  get shellsFree() {
+    return Math.max(0, this.shells - this.shellsSpent);
+  }
+
+  /** So viele Muscheln kostet der nächste Segen (1, 2, 4, 8 … – gleich, wofür). */
+  get upCost() {
+    return upCost(this.upCount);
+  }
+
+  /** Ist diese Richtung schon so stark, wie sie werden kann? */
+  upMaxed(k: UpKey) {
+    const u = this.ups;
+    return k === 'stam' ? staminaMax(u.stam) >= STAMINA.max : k === 'sight' ? sightOf(u.sight) >= UPGRADES.sightMax : false;
+  }
+
+  /** Reichen die freien Muscheln für einen Segen in diese Richtung (bzw. in irgendeine)? */
+  canUp(k?: UpKey): boolean {
+    if (!this.data.run) return false;
+    if (!k) return UP_KEYS.some((q) => this.canUp(q));
+    return this.shellsFree >= this.upCost && !this.upMaxed(k);
+  }
+
+  /** An der großen Muschel: Sie segnet deine Linie in dieser Richtung. Gibt zurück, ob sie es tat. */
+  buyUp(k: UpKey) {
+    if (!this.canUp(k)) return false;
+    const run = this.data.run!;
+    run.ups = { ...this.ups, [k]: this.ups[k] + 1 };
     this.save();
     return true;
   }
 
-  /** Die größte Ausdauer deines Tiers, in Kreisen: einer – und für jeden Segen ein Stück mehr. */
+  /** Die größte Ausdauer deines Tiers, in Kreisen: einer – und für jeden Segen in Ausdauer ein Stück mehr. */
   get staminaMax() {
-    return staminaMax(this.data.run?.blessings ?? 0);
+    return staminaMax(this.ups.stam);
+  }
+
+  /** Wie weit dein Tier sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, je Segen in Sicht mehr. */
+  get sight() {
+    return sightOf(this.ups.sight);
+  }
+
+  /**
+   * Die Werte des eigenen Tiers, wie die Übersicht sie zeigt – ganze Zahlen, so wie es gerade ist (ein Jungtier ist noch
+   * schwächer). Gebiss und Schädel messen sich am ersten Fisch, ausgewachsen: Er hat je 10. ups: für eine Vorschau (die große
+   * Muschel zeigt, was ein Segen brächte).
+   */
+  shown(ups: Ups = this.ups) {
+    const st = this.stats(this.r.cls, undefined, this.lifeK, ups);
+    const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const t = this.r.traits;
+    const sw = this.swarm;
+    const n = sw ? Math.min(sw.members.length, this.swarmCap()) : 0;
+    return {
+      hpMax: st.maxHp,
+      /** wie weit du siehst: Anteil des ganzen Bildes vor dir (in Prozent) */
+      sight: Math.round(100 * sightOf(ups.sight)),
+      /** so lange reicht die Kraft für einen Spurt (in Zehntelsekunden: ein Kreis, normaler Körperbau → 30) */
+      stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
+      bite: Math.round((10 * st.bite) / s0.bite),
+      skull: Math.round((10 * st.ram) / s0.ram),
+      /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
+      swarm: Math.round(10 * n * this.swarmStrength()),
+      /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */
+      scales: Math.round(10 * (1 + 2 * (t.armor ?? 0))),
+    };
   }
 
   /** Wie viele Muscheln man in der Übersicht schon gesehen hat. */
-  get seenRows() {
-    return this.r.seenRows;
+  get seenShells() {
+    return Math.min(this.shells, this.data.seenShells ?? 0);
   }
 
-  set seenRows(n: number) {
-    this.r.seenRows = n;
+  set seenShells(n: number) {
+    this.data.seenShells = n;
     this.save();
   }
 
@@ -1714,9 +1808,14 @@ class GameState {
 
 export const game = new GameState();
 
-/** Die größte Ausdauer (in Kreisen) nach so vielen Segen. */
-export function staminaMax(blessings: number) {
-  return Math.min(STAMINA.max, 1 + Math.max(0, blessings) * STAMINA.perBlessing);
+/** Die größte Ausdauer (in Kreisen) nach so vielen Segen in Ausdauer. */
+export function staminaMax(n: number) {
+  return Math.min(STAMINA.max, 1 + Math.max(0, n) * STAMINA.perBlessing);
+}
+
+/** Die Sicht (Anteil des ganzen Bildes vor dir) nach so vielen Segen in Sicht: 20 %, 25 %, 30 % … bis 100 %. */
+export function sightOf(n: number) {
+  return Math.min(UPGRADES.sightMax, UPGRADES.sight + Math.max(0, n) * UPGRADES.sightPer);
 }
 
 /**
@@ -1727,7 +1826,14 @@ export function shellChance(rel: number) {
   return SHELLS.chance * clamp(rel, SHELLS.relMin, SHELLS.relMax);
 }
 
-/** So viele Muscheln braucht der Segen nach so vielen Segen: 8, 16, 32, 64 … */
-export function nextBlessing(blessings: number) {
-  return Math.round(SHELLS.first * Math.pow(SHELLS.factor, Math.max(0, blessings)));
+/** So viele Muscheln kostet der Segen nach so vielen Segen (gleich, wofür): 1, 2, 4, 8 … */
+export function upCost(n: number) {
+  return Math.round(UPGRADES.first * Math.pow(UPGRADES.factor, Math.max(0, n)));
+}
+
+/** So viele Muscheln kosten so viele Segen zusammen: 0, 1, 3, 7, 15 … */
+export function upSpent(n: number) {
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += upCost(i);
+  return sum;
 }

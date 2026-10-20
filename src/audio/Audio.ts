@@ -625,10 +625,13 @@ export class AudioEngine {
         this.tone({ f: 72, f2: 54, d: 0.9, type: 'sawtooth', v: 0.1, a: 0.12, filter: 260, q: 4 });
         this.tone({ f: 60, f2: 80, d: 0.7, type: 'sawtooth', v: 0.07, a: 0.2, filter: 220, q: 3, t: 0.35 });
         break;
-      case 'heart':
-        this.tone({ f: 62, f2: 42, d: 0.14, type: 'sine', v: 0.45, a: 0.004 });
-        this.tone({ f: 58, f2: 40, d: 0.14, type: 'sine', v: 0.3, a: 0.004, t: 0.2 });
+      case 'heart': {
+        // k: wie viel Angst (0 … 1) – leise bei einem kleinen Jäger, laut und dumpf, wenn ein großer jagt und man fast tot ist
+        const h = k > 0 ? 0.2 + 0.8 * k : 1;
+        this.tone({ f: 62, f2: 42, d: 0.14, type: 'sine', v: 0.45 * h, a: 0.004 });
+        this.tone({ f: 58, f2: 40, d: 0.14, type: 'sine', v: 0.3 * h, a: 0.004, t: 0.2 });
         break;
+      }
       case 'rustle':
         this.noise({ d: 0.35, v: 0.09, a: 0.08, filter: 3200, f2: 1800, type: 'bandpass', q: 0.8 });
         break;

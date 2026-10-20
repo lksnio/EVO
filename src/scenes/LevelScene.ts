@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Member, type PlayStyle } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Member, type PlayStyle, type UpKey } from '../state/GameState';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -10,7 +10,7 @@ import { cyclePhase, diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type St
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type LevelData, type Zone } from '../level/LevelGen';
 import { groundAt, zoneAt as matAt } from '../level/terrain';
-import { coverTextures, foodKey, groundTextures, levelBackgrounds, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
@@ -28,9 +28,12 @@ import { SpawnCtl } from '../objects/Spawning';
 import { NetSync, netWanted } from '../net/NetSync';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
+import { Sight } from '../objects/Sight';
+import { SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
+import { mix as mixColor } from '../util/color';
 import { rrect, tex } from '../util/canvas';
 
 type PImg = Phaser.Physics.Arcade.Image;
@@ -179,6 +182,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private shrineNear = false;
   /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
   private deepDark?: Phaser.GameObjects.Image;
+  /** die Sicht unter Wasser: trübes Wasser überall, wohin der Fisch nicht blickt (siehe objects/Sight.ts) */
+  private sight?: Sight;
+  /** wann das Herz das nächste Mal schlägt (es schlägt nur, wenn dich etwas jagt) */
+  private beatAt = 0;
   private deepK = 0;
   private deepBeatAt = 0;
   private deepRumbleAt = 0;
@@ -460,6 +467,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawning = new SpawnCtl(this);
     // die große Muschel: Hier betet man um mehr Ausdauer
     if (L.shrine) this.shrine = new Shrine(this, L.shrine.x, L.shrine.y, this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
+    // eine neue Linie: Deine Muscheln (sie bleiben dir) warten darauf, an der großen Muschel neu verteilt zu werden
+    if (this.shrine && game.canUp() && game.upCount === 0 && game.run && !game.run.upHint) {
+      game.run.upHint = true;
+      const free = game.shellsFree;
+      this.time.delayedCall(waking ? 9000 : 2500, () => !this.ended && bus.emit('notice', 'DIE GROSSE MUSCHEL', `${free} ${free === 1 ? 'Muschel wartet' : 'Muscheln warten'} darauf, verteilt zu werden.`));
+    }
 
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
@@ -498,6 +511,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.place.kind === 'deep' || this.place.kind === 'abyss') {
       this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z);
     }
+    // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
+    // unter den Schattenrissen ganz vorn)
+    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, SIGHT.murk), { x: VX, y: VY, w: VW, h: VH }, DEPTH.cover + 1, VW / 2) : undefined;
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(0.55);
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
@@ -576,12 +592,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     };
     bus.on('quit', onQuit);
     bus.on('quitCancel', onQuitCancel);
+    // an der großen Muschel gewählt (HUD): Sie segnet in dieser Richtung
+    const onBless = (k: UpKey) => this.bless(k);
+    bus.on('shrineBless', onBless);
     this.events.on('player-dead', () => this.onDeath());
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
       bus.off('handOver', onHandOver);
       bus.off('quit', onQuit);
       bus.off('quitCancel', onQuitCancel);
+      bus.off('shrineBless', onBless);
       this.events.off('player-dead');
     });
   }
@@ -897,7 +917,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dreadAt = now;
     this.dreadK = Math.max(this.dreadK, 0.6);
     audio.sfx('rumble');
-    for (let i = 0; i < 4; i++) this.time.delayedCall(300 + i * 650, () => !this.ended && audio.sfx('heart'));
+    for (let i = 0; i < 4; i++) this.time.delayedCall(300 + i * 650, () => !this.ended && audio.sfx('heart', 0.8));
     const p = this.player;
     for (const a of this.animals) {
       if (a.dead || a.kin || a.role !== 'prey') continue;
@@ -2102,6 +2122,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawning?.update(time, dt);
     this.net?.update();
     this.drawStamina(p, dt);
+    this.sightStep(dt);
+    this.heartStep(time);
     for (const a of [...this.animals]) {
       try {
         a.tick(time, dt);
@@ -2730,6 +2752,67 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
+  // ---------------------------------------------------------------- Sicht
+
+  /**
+   * Was man sieht: Das Blickfeld folgt dem Fisch und schaut, wohin er schwimmt. Tiere im trüben Wasser sind nicht da, weiter
+   * heran erscheinen sie als dunkler Umriss, und erst nah im Blick sieht man sie deutlich.
+   */
+  private sightStep(dt: number) {
+    const sg = this.sight;
+    if (!sg) return;
+    const p = this.player;
+    const rot = p.view.rotation;
+    // in Szenen mit der Kamera lichtet sich das Wasser (dort soll man sehen, was geschieht)
+    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, !!this.cine && !this.cine.released);
+    for (const a of this.animals) {
+      if (a.dead) continue;
+      const kin = a instanceof Kin;
+      const obj: { setAlpha(v: number): unknown } = kin ? a.view : a;
+      // wer gerade ein- oder ausgeblendet wird (Durchzügler, Sterbende), bleibt dabei
+      if (this.tweens.isTweening(obj)) continue;
+      const c = sg.clarityAt(p.x, p.y, a.x, a.y, Math.min(140, a.displayWidth * 0.35));
+      a.vis = c;
+      // ganz in der Trübe: nicht zu sehen; dann ein Umriss, der langsam deutlicher wird
+      obj.setAlpha(clamp(c / 0.2, 0, 1));
+      if (kin) continue;
+      const sil = 1 - clamp((c - 0.15) / 0.55, 0, 1);
+      if (sil > 0.02) {
+        a.setTint(mixColor(0xffffff, 0x14262a, sil));
+        a.fogTint = true;
+      } else if (a.fogTint) {
+        a.clearTint();
+        a.fogTint = false;
+      }
+    }
+  }
+
+  /**
+   * Herzklopfen: Es schlägt, solange dich ein Tier jagt – oft eines, das man im trüben Wasser gar nicht sieht. Je größer und
+   * stärker der Jäger, desto lauter und schneller (ein kleiner Fisch macht kaum Angst), und je näher man dem Tod ist, desto
+   * mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch einen jagt.
+   */
+  private heartStep(time: number) {
+    const p = this.player;
+    if (p.dead || this.ended || time < this.beatAt) return;
+    let fear = 0;
+    const mine = Math.max(0.1, this.playerPower());
+    for (const a of this.animals) {
+      if (a.dead || a.kin || a.ally || a.target !== p) continue;
+      if (!(a.st === 'hunt' || a.attacking || a.aggroUntil > time)) continue;
+      if (Math.hypot(a.x - p.x, a.y - p.y) > 1500) continue;
+      // wie stark der Jäger ist, im Vergleich zu dir: ebenbürtig macht schon Angst, doppelt so stark sehr
+      const rel = (a.def.power * a.sz) / mine;
+      fear = Math.max(fear, clamp(0.12 + 0.45 * rel, 0.12, 1));
+    }
+    if (fear <= 0) return;
+    const low = 1 - clamp(p.hp / Math.max(1, p.stats.maxHp), 0, 1);
+    const k = clamp(fear * (0.5 + 0.5 * low * low + 0.25 * low), 0, 1);
+    this.beatAt = time + 980 - 520 * k;
+    audio.sfx('heart', k);
+    bus.emit('heartbeat', k);
+  }
+
   // ---------------------------------------------------------------- Tiefe
 
   /**
@@ -2850,8 +2933,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.puff(sh.x, sh.y - 16, 6, 0xf0dccc);
     this.sparkle.explode(5, sh.x, sh.y - 20);
     bus.emit('shell', n);
-    const full = game.staminaMax >= STAMINA.max;
-    bus.emit('notice', 'MUSCHEL GEFUNDEN', full ? `${n} Muscheln` : game.canPray ? `${n} Muscheln – genug für einen Segen der großen Muschel` : `${n} von ${game.nextBlessing} bis zum nächsten Segen`);
+    // die Muscheln bleiben dir (über alle Läufe); verteilt werden sie an der großen Muschel
+    const free = game.shellsFree;
+    bus.emit('notice', 'MUSCHEL GEFUNDEN', game.canUp() ? `${free} frei – genug für einen Segen der großen Muschel` : `${free} frei · der nächste Segen kostet ${game.upCost}`);
   }
 
   /** Eine Muschel fällt von erlegter Beute: Sie sinkt zu Boden und funkelt. */
@@ -2865,41 +2949,44 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   // ---------------------------------------------------------------- die große Muschel
 
-  /** Wer an der großen Muschel die Taste fürs Ansprechen drückt, betet. */
+  /** Wer an der großen Muschel die Taste fürs Ansprechen drückt, tritt vor sie: Dort verteilt man seine Muscheln (im HUD). */
   private shrineStep(time: number, dt: number) {
     const sh = this.shrine;
     if (!sh) return;
     const p = this.player;
-    const can = !p.dead && !this.ended && !this.cineActive && !this.quest?.near && !this.quest?.busy && time > this.prayUntil;
+    const can = !p.dead && !this.ended && !this.cineActive && !this.quest?.near && !this.quest?.busy && time > this.prayUntil && this.quitLeft < 0;
     sh.update(dt, p.x, p.y, can, time);
     if (sh.near !== this.shrineNear) {
       this.shrineNear = sh.near;
       bus.emit('talk', sh.near, 'Beten');
     }
-    if (sh.near && (this.controls.pressed.talk || touch.talk)) this.pray(time);
+    if (sh.near && (this.controls.pressed.talk || touch.talk)) {
+      this.controls.clear();
+      p.facing = sh.x >= p.x ? 1 : -1;
+      bus.emit('shrineOpen');
+    }
   }
 
-  /** Beten: Ist ein Segen bereit, segnet die Muschel deine Linie mit mehr Ausdauer – sonst schweigt sie. */
-  private pray(time: number) {
-    const sh = this.shrine!;
+  /** Die große Muschel segnet deine Linie – in der Richtung, die du gewählt hast (Lebenskraft, Ausdauer oder Sicht). */
+  private bless(k: UpKey) {
+    const sh = this.shrine;
     const p = this.player;
-    const blessed = game.pray();
-    this.prayUntil = time + (blessed ? 3800 : 700);
-    if (blessed) this.stamHold = time + 2300;
-    audio.sfx(blessed ? 'pray' : 'silent');
-    sh.pray(p.x, p.y, blessed);
-    if (!blessed) {
-      const full = game.staminaMax >= STAMINA.max;
-      bus.emit('notice', 'DIE GROSSE MUSCHEL SCHWEIGT', full ? 'Deine Ausdauer ist so groß, wie sie werden kann.' : `${game.shells} von ${game.nextBlessing} Muscheln für den nächsten Segen`);
+    if (!sh || p.dead || this.ended || !game.buyUp(k)) {
+      audio.sfx('silent');
       return;
     }
+    const time = this.time.now;
+    this.prayUntil = time + 3800;
+    if (k === 'stam') this.stamHold = time + 2300;
+    audio.sfx('pray');
+    sh.pray(p.x, p.y, true);
     p.facing = sh.x >= p.x ? 1 : -1;
-    // erst strömt das Licht in dein Tier – dann wächst der Kreis um ein Stück, und er ist voll
+    // erst strömt das Licht in dein Tier – dann wächst es: der Körper, der Ausdauerkreis oder der Blick
     this.time.delayedCall(2300, () => {
       if (p.dead) return;
-      p.blessed();
+      p.blessed(k);
       this.cameras.main.flash(500, 255, 236, 200);
-      bus.emit('notice', 'SEGEN DER GROSSEN MUSCHEL', 'Deine Ausdauer wächst.');
+      bus.emit('notice', 'SEGEN DER GROSSEN MUSCHEL', k === 'hp' ? 'Deine Lebenskraft wächst.' : k === 'stam' ? 'Deine Ausdauer wächst.' : 'Dein Blick reicht weiter.');
     });
   }
 

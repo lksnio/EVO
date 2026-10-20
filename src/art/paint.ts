@@ -1,5 +1,5 @@
 import { newCanvas, type Ctx, ell } from '../util/canvas';
-import { css, shade } from '../util/color';
+import { css, mix, shade } from '../util/color';
 
 // ---------------------------------------------------------------------------
 // Malwerkzeuge für den dunklen, organischen Stil:
@@ -251,7 +251,10 @@ export function innerShade(ctx: Ctx, clip: () => void, line: () => void, color: 
 }
 
 /** Ein Tierauge: wenig Weiß, dunkle Iris, kleiner Glanzpunkt. */
-export function eye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: { slit?: boolean; lid?: number; glow?: boolean } = {}) {
+export function eye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: { slit?: boolean; lid?: number; glow?: boolean; keen?: number } = {}) {
+  // keen (0 … 1): ein wacher, scharfer Blick – die Iris leuchtet kräftiger, ein heller Ring um die Pupille, der Lichtreflex
+  // wird größer und bekommt einen zweiten, kleinen Glanzpunkt
+  const kn = Math.max(0, Math.min(1, o.keen ?? 0));
   ell(ctx, x, y + r * 0.1, r * 1.45, r * 1.3);
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.fill();
@@ -263,19 +266,34 @@ export function eye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: 
     ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
   }
   ell(ctx, x, y, r, r);
+  const ir = kn > 0 ? mix(iris, 0xf4c24a, 0.35 * kn) : iris;
   const g = ctx.createRadialGradient(x - r * 0.2, y - r * 0.3, r * 0.1, x, y, r);
-  g.addColorStop(0, css(shade(iris, 0.35)));
-  g.addColorStop(0.55, css(iris));
-  g.addColorStop(1, css(shade(iris, -0.6)));
+  g.addColorStop(0, css(shade(ir, 0.35 + 0.3 * kn)));
+  g.addColorStop(0.55, css(ir));
+  g.addColorStop(1, css(shade(ir, -0.6 - 0.15 * kn)));
   ctx.fillStyle = g;
   ctx.fill();
+  if (kn > 0) {
+    // ein heller Ring in der Iris, wie ein Lichtkranz um die Pupille
+    ctx.beginPath();
+    ctx.arc(x + r * 0.08, y, r * 0.66, 0, Math.PI * 2);
+    ctx.strokeStyle = css(shade(ir, 0.6), 0.25 + 0.45 * kn);
+    ctx.lineWidth = r * (0.1 + 0.08 * kn);
+    ctx.stroke();
+  }
   if (o.slit) ell(ctx, x + r * 0.05, y, r * 0.2, r * 0.82);
   else ell(ctx, x + r * 0.1, y, r * 0.48, r * 0.48);
   ctx.fillStyle = '#050403';
   ctx.fill();
-  ell(ctx, x - r * 0.38, y - r * 0.38, r * 0.24, r * 0.18);
-  ctx.fillStyle = 'rgba(255,250,235,0.9)';
+  const hr = 1 + 0.4 * kn;
+  ell(ctx, x - r * 0.38, y - r * 0.38, r * 0.24 * hr, r * 0.18 * hr);
+  ctx.fillStyle = `rgba(255,250,235,${0.9 + 0.1 * kn})`;
   ctx.fill();
+  if (kn > 0.15) {
+    ell(ctx, x + r * 0.34, y + r * 0.3, r * 0.1 * hr, r * 0.08 * hr);
+    ctx.fillStyle = `rgba(255,252,240,${0.4 + 0.45 * kn})`;
+    ctx.fill();
+  }
   if (o.lid && o.lid > 0) {
     // schweres Oberlid: grimmiger Blick
     ctx.save();

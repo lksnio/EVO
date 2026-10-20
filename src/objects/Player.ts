@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
-import { game, type Stats } from '../state/GameState';
+import { game, type Stats, type UpKey } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
@@ -123,11 +123,19 @@ export class Player {
     return game.staminaMax;
   }
 
-  /** Die große Muschel hat gesegnet: Der Kreis wächst, und er ist voll. */
-  blessed() {
-    this.grewAt = this.host.time.now;
-    this.stamina = this.staminaMax;
-    this.exhausted = false;
+  /**
+   * Die große Muschel hat gesegnet: Ausdauer – der Kreis wächst, und er ist voll; Lebenskraft – der Körper wird etwas größer, und
+   * sie ist ganz wieder da; Sicht – die Augen werden größer (der Blick reicht weiter, siehe LevelScene.sightStep).
+   */
+  blessed(k: UpKey = 'stam') {
+    if (k === 'stam') {
+      this.grewAt = this.host.time.now;
+      this.stamina = this.staminaMax;
+      this.exhausted = false;
+      return;
+    }
+    this.refresh(false, true);
+    if (k === 'hp') this.hp = this.stats.maxHp;
   }
 
   get body() {
@@ -482,9 +490,11 @@ export class Player {
     const ratio = clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
     this.lastHurt = now;
     this.invulnUntil = now + 800;
-    this.knockUntil = now + 220 + 420 * ratio;
+    // ein Schuppenpanzer hält dagegen: Man wird weniger weit zurückgeworfen und fängt sich schneller
+    const kb = this.stats.knock;
+    this.knockUntil = now + (220 + 420 * ratio) * (0.4 + 0.6 * kb);
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
-    this.body.setVelocity(s * (300 + 520 * ratio), this.water ? -60 - 120 * ratio : -260);
+    this.body.setVelocity(s * (300 + 520 * ratio) * kb, (this.water ? -60 - 120 * ratio : -260) * (this.water ? kb : 1));
     this.view.flash(0xff5040);
     this.host.time.delayedCall(120 + 160 * ratio, () => this.view.flash(null));
     this.host.bleed(this.x, this.y, 5 + Math.round(ratio * 16));
@@ -500,8 +510,9 @@ export class Player {
   recoil(fromX: number, selfDmg: number, k = 1) {
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
     if (k > 0.3) {
-      this.body.setVelocity(s * 220 * k, this.water ? -40 * k : -200 * k);
-      this.knockUntil = this.host.time.now + 200 * k;
+      const kb = this.stats.knock;
+      this.body.setVelocity(s * 220 * k * kb, this.water ? -40 * k * kb : -200 * k);
+      this.knockUntil = this.host.time.now + 200 * k * (0.4 + 0.6 * kb);
     } else this.body.setVelocityX(this.body.velocity.x * 0.6);
     if (selfDmg > 0.1) {
       const d = selfDmg * this.stats.defense;

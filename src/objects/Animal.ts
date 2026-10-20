@@ -137,6 +137,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   netId = 0;
   /** gerade im Dickicht versteckt */
   hiddenNow = false;
+  /** wie deutlich der Spieler dieses Tier sieht (0 = nur Wasser … 1 = klar; siehe LevelScene.sightStep) */
+  vis = 1;
+  /** gerade als Umriss im trüben Wasser gefärbt */
+  fogTint = false;
   /** zieht nur durch (Ereignis) */
   visitor: Visitor | null = null;
   /** Endgegner der Region: bleibt, bis er besiegt ist, und sucht dich */
@@ -1858,6 +1862,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** Hinweis auf einen Angriff, der dich trifft: Ausrufezeichen, Blasen, Knurren. */
   protected cueAttack(big: boolean) {
     const sc = this.scene;
+    // im trüben Wasser sieht man den Angreifer nicht kommen – man hört ihn nur
+    if (this.vis < 0.25) {
+      audio.sfx(big ? 'growl' : 'warn');
+      return;
+    }
     const t = sc.add.text(this.x, this.y - this.displayHeight * 0.55 - 18, '!', { fontFamily: 'Cinzel, serif', fontSize: big ? '58px' : '44px', color: '#e0412e', fontStyle: '700', stroke: '#1a0604', strokeThickness: 7 })
       .setOrigin(0.5).setDepth(DEPTH.text);
     sc.tweens.add({ targets: t, y: t.y - 26, scale: { from: 0.6, to: 1.15 }, duration: 260, ease: 'Back.out' });

@@ -451,6 +451,37 @@ export function levelBackgrounds(scene: Phaser.Scene, theme: Theme, v: BgVariant
   return [far, mid, fog];
 }
 
+/**
+ * Trübes Wasser für die Sicht (siehe objects/Sight.ts): wo man nichts mehr sieht, ist nur Wasser – in denselben Farben wie der
+ * Hintergrund (oben heller, in der Tiefe dunkler), mit leichten Schwebewolken, aber ohne Felsrücken und Lichtstrahlen. Fast
+ * deckend (alpha): Vom Grund bleibt ein Hauch zu ahnen.
+ */
+export function murkTexture(scene: Phaser.Scene, theme: Theme, v: BgVariant, alpha: number): string {
+  return tex(scene, `murk_${theme}_${v}_${Math.round(alpha * 100)}`, W / 2, H / 2, (ctx) => {
+    const w = W / 2, h = H / 2;
+    const [c0, c1, c2] = SKY[theme];
+    const stops: [number, string][] = v === 'cave'
+      ? theme === 'sumpf' ? [[0, '#100c08'], [0.6, '#16110b'], [1, '#050403']] : [[0, '#0a1622'], [0.6, '#0e1c2a'], [1, '#03070c']]
+      : v === 'dark' ? [[0, '#06111a'], [0.5, '#03080b'], [1, '#010203']]
+        // in der Tiefe nicht schwarz, sondern dunkles, trübes Wasser: unten in Richtung der Farbe des Nebels
+        : [[0, c0], [0.6, css(mix(parseInt(c1.slice(1), 16), FOG[theme], 0.3))], [1, css(mix(parseInt(c2.slice(1), 16), FOG[theme], 0.5))]];
+    ctx.fillStyle = vgrad(ctx, 0, h, stops);
+    ctx.fillRect(0, 0, w, h);
+    // Schwebeteilchen: ein leiser, wolkiger Schleier in der Farbe des Nebels
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = ctx.createPattern(noiseTex('cloud'), 'repeat')!;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    // fast deckend
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Boden, Plattformen, Fallen
 

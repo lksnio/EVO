@@ -141,7 +141,7 @@ export const MISC = {
 /**
  * Muscheln: Man findet sie bei erlegten Tieren – selten. Wie selten, hängt davon ab, wie stark das Tier im Vergleich zu dir
  * war: ein ebenbürtiges in etwa jedem hundertsten Fall (1 %), ein doppelt so starkes doppelt so oft, schwache Beute halb so
- * oft. Muscheln sammeln sich bei deiner Linie; wer genug hat, betet an der großen Muschel im Laichfluss (siehe STAMINA).
+ * oft. Weil sie so selten sind, gehören sie dir und nicht deiner Linie: Sie bleiben über alle Läufe hinweg (siehe UPGRADES).
  */
 export const SHELLS = {
   /** Wahrscheinlichkeit je erlegtem Tier, das so stark ist wie du */
@@ -149,10 +149,28 @@ export const SHELLS = {
   /** das Verhältnis seiner Stärke zu deiner zählt – begrenzt auf diesen Bereich */
   relMin: 0.5,
   relMax: 2,
-  /** die Schwellen für den Segen: Der erste kommt bei so vielen Muscheln … */
-  first: 8,
-  /** … jeder weitere bei so viel mal so vielen: 8, 16, 32, 64 … */
+};
+
+/**
+ * Die Segen der großen Muschel im Laichfluss: Dort verteilt man seine Muscheln auf Lebenskraft, Ausdauer und Sicht. Der erste
+ * Segen kostet eine Muschel, jeder weitere doppelt so viele wie der vorige – gleich, wofür: 1, 2, 4, 8 … Die Segen gelten für
+ * die ganze Linie (über alle Generationen); beginnt eine neue Linie, sind alle Muscheln wieder frei und werden neu verteilt.
+ */
+export const UPGRADES = {
+  /** der erste Segen kostet so viele Muscheln … */
+  first: 1,
+  /** … jeder weitere so viel mal so viele wie der vorige */
   factor: 2,
+  /** Lebenskraft: so viel mehr je Segen (Anteil) – und der Körper wird ein wenig größer */
+  hp: 0.025,
+  /** so viel größer wird der Körper je Segen in Lebenskraft (Anteil) */
+  hpSize: 0.012,
+  /** Sicht (Anteil des ganzen Bildes vor dir): zu Beginn … */
+  sight: 0.2,
+  /** … und so viel mehr je Segen … */
+  sightPer: 0.05,
+  /** … höchstens so viel (das ganze Bild) */
+  sightMax: 1,
 };
 
 /**
@@ -160,7 +178,7 @@ export const SHELLS = {
  * gibt ein Stück dazu (außen ein weiterer Ring). Wie schnell sie schwindet, hängt am Körper (schwere Tiere ermüden schneller).
  */
 export const STAMINA = {
-  /** so viel bringt ein Segen (Anteil eines Kreises): ein Viertel – nach acht Segen (bei 1024 Muscheln) sind es drei Kreise */
+  /** so viel bringt ein Segen (Anteil eines Kreises): ein Viertel – nach acht Segen in Ausdauer sind es drei Kreise */
   perBlessing: 0.25,
   /** höchstens so viele Kreise */
   max: 3,

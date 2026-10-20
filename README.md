@@ -277,8 +277,7 @@ Zeitalter mit `playable: true`.
   - **Tiefe Orte** (Tiefe Kante, Klippenhang, Dunkler Graben, Steilwand) fallen in einem **V-förmigen Trichter** oder
     zerklüfteten Hängen immer weiter ab, die **Abgründe** als **Schacht zwischen zwei Rändern**. Dort gibt es
     **kaum Fische, aber sehr starke, große Tiere**. Je tiefer du schwimmst, desto **trüber und dunkler** wird es:
-    Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das Meer rauscht, dein Herz schlägt, und
-    manchmal grollt es in der Ferne.
+    Um dich bleibt nur ein kleiner Lichtkreis, die Musik verklingt, das Meer rauscht, und manchmal grollt es in der Ferne.
   - **Licht fällt nur stellenweise** ins Wasser – dazwischen liegt Schatten. Es gibt keine Felstürme, die den Weg
     versperren.
   - **Der Meeresboden** ist **glatt statt stufig**: eine weiche Höhenlinie mit sanften Hügeln und Mulden. **Sandflächen**
@@ -400,8 +399,8 @@ Zeitalter mit `playable: true`.
   Uhrzeigersinn von zwölf Uhr aus, füllt sich kurz danach wieder, leuchtet auf, wenn er voll ist, und blendet aus. Wird es
   knapp, **blinkt** er rot. Ist er ganz leer, ist dein Tier **erschöpft**: Der Kreis wird **rot**, es geht nur noch lahm
   voran, ohne Spurt und Stoß – erst wenn er sich (rot) **ganz** gefüllt hat, ist es vorbei. Jedes Tier hat **einen Kreis**;
-  **mehr Ausdauer gibt es nur von der großen Muschel** (siehe unten): Jeder Segen legt außen ein Stück Ring an (ein
-  Viertelkreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. Der Kreis ist klein und dezent –
+  **mehr Ausdauer gibt es nur von der großen Muschel** (siehe unten): Jeder Segen in Ausdauer legt außen ein Stück Ring an
+  (ein Viertelkreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. Der Kreis ist klein und dezent –
   ein schmaler, leicht durchscheinender Ring dicht neben dem Tier. **Wie schnell** die Ausdauer
   schwindet, hängt am Körper: Schwere, gepanzerte Tiere und starke Kiefer ermüden schneller, schlanke Verfolger halten länger
   durch (ein Kreis reicht bei normalem Körperbau drei Sekunden Spurt). Beim normalen Schwimmen füllt sich der Kreis nur
@@ -411,21 +410,49 @@ Zeitalter mit `playable: true`.
   halbes – nicht gleich nach einem Treffer, nicht im Spurt oder Stoß, im Alter langsamer. Schneller geht es mit
   **Heilkräutern** (hellgrün mit rosa Blüten, goldener Schimmer; eines heilt 40 %) – manche Pflanzen heilen also,
   **Fleisch heilt nicht**, es nährt nur die Brut.
-- **Muscheln farmen:** Muscheln liegen nicht mehr fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
+- **Muscheln farmen:** Muscheln liegen nicht fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
   du erlegt hast oder an deren Tod du beteiligt warst). Wie selten, hängt davon ab, **wie stark das Tier im Vergleich zu dir
   war**: ein ebenbürtiges in etwa **1 %** der Fälle, ein doppelt so starkes (größeres) in **2 %**, schwache Beute halb so
   oft – wer stärker wird, findet bei kleinen Tieren also seltener eine. Die Muschel sinkt funkelnd zu Boden, ein heller Ton
-  klingt; wer sie berührt, nimmt sie mit (oben links steht, wie viele es sind und wie viele bis zum nächsten Segen fehlen).
-  Muscheln gehören zu deiner **Linie** (sie überdauern die Generationen, nicht das Aussterben).
-- **Die große Muschel – beten:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige Fächermuschel**,
-  perlmuttfarben, mit einer leise glühenden **Perle** davor, Lichtfunken steigen auf, von oben fällt ein Lichtschacht. Wer
-  davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), **betet**: Hat deine Linie genug Muscheln – **8, dann 16,
-  32, 64** … (jedes Mal doppelt so viele) –, **segnet** sie dich: Ein Chor schwillt an, Lichtfunken strömen von der
-  Perle in dein Tier, Ringe aus Licht gehen von ihr aus, und **dein Ausdauerkreis wächst** sichtbar um ein Stück. Die
-  Muscheln bleiben dabei (es zählt, wie viele man hat). Ist ein Segen bereit, **ruft** die Perle: Alle paar Sekunden geht
-  ein Ring aus Licht von ihr aus. Reicht es noch nicht, **schweigt** sie (ein leiser, hohler Ton – „7 von 8 Muscheln für
-  den nächsten Segen“). Nach acht Segen (bei 1024 Muscheln) hat dein Tier drei Kreise – mehr gibt es nicht. Alle Zahlen stehen in `SHELLS` und `STAMINA` (`src/data/life.ts`) und in der
-  [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln und Ausdauer“); die Muschel in `src/objects/Shrine.ts`.
+  klingt; wer sie berührt, nimmt sie mit (oben links steht, wie viele frei sind und was der nächste Segen kostet).
+  **Weil sie so selten sind, gehören die Muscheln dir – nicht deiner Linie:** Sie bleiben über **alle Läufe** hinweg, auch
+  wenn deine Linie ausstirbt.
+- **Die große Muschel – Muscheln verteilen:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
+  Fächermuschel**, perlmuttfarben, mit einer leise glühenden **Perle** davor, Lichtfunken steigen auf, von oben fällt ein
+  Lichtschacht. Wer davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
+  viele Muscheln **frei** sind, und **drei Richtungen**, in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
+  danach („27 → 28“):
+  - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird etwas größer**.
+  - **Ausdauer:** ein Viertelkreis mehr (höchstens drei Kreise) – und die **Flossen werden größer und kräftiger**.
+  - **Sicht:** von **20 %** aus je Segen **5 %** mehr (höchstens 100 %, siehe „Sicht“ unten) – und die **Augen werden
+    größer**, die Iris leuchtet kräftiger, mit hellem Ring und einem zweiten, kleinen Lichtreflex.
+
+  **Was ein Segen kostet:** Der erste **1 Muschel**, jeder weitere **doppelt so viele** wie der vorige – **gleich, in welche
+  Richtung**: 1, 2, 4, 8, 16 … (sieben Segen kosten zusammen 127 Muscheln). Wählen mit ← → (oder Klick), Eingabe segnet,
+  Esc geht. Dann strömt Licht von der Perle in dein Tier, Ringe aus Licht gehen von ihr aus, und es wächst sichtbar: der
+  Körper (und die Lebenskraft ist ganz wieder da), der Ausdauerkreis oder der Blick. Die Segen gelten für die **ganze
+  Linie** (über alle Generationen). **Beginnt eine neue Linie** (nach dem Aussterben oder bei einem Neustart), sind **alle
+  Muscheln wieder frei** und man verteilt sie neu – gleich beim Schlüpfen, denn die große Muschel steht im Laichfluss
+  (eine Meldung erinnert daran). Ist ein Segen bereit, **ruft** die Perle: Alle paar Sekunden geht ein Ring aus Licht von
+  ihr aus. Alle Zahlen stehen in `SHELLS`, `UPGRADES` und `STAMINA` (`src/data/life.ts`) und in der
+  [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
+  das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
+- **Sicht unter Wasser:** Ein Fisch sieht **vor allem dorthin, wohin er schwimmt** – nach vorn weit, zu den Seiten weniger,
+  nach hinten nur ein **kleiner Kreis** um ihn herum (damit man einen Jäger knapp hinter sich noch bemerkt). Alles andere
+  auf dem Bildschirm ist **Wasser** – nicht schwarz, sondern trübes Wasser in den Farben des Ortes (oben heller, in der Tiefe
+  dunkler), vom Grund ist nur ein Hauch zu ahnen. Dazwischen verschwimmt es weich: **Tiere in der Ferne sind erst gar
+  nicht da, dann ein blasser, verschwommener Umriss**, und erst beim Näherkommen werden sie deutlich. Das Blickfeld dreht
+  sich weich mit, wenn der Fisch wendet oder auf- und abtaucht. **Die Sicht** ist der Anteil des ganzen Bildes vor dir, den
+  man klar sieht: **100 %** hieße bis zum Bildrand, zu Beginn sind es **20 %** (gut zwei, drei Fischlängen klar, dahinter
+  Umrisse), jeder Segen in Sicht gibt **5 %** mehr. Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man
+  hört es nur. In Szenen mit der Kamera (Aufträge) lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Code:
+  `src/sim/sight.ts` (die Rechnung), `src/objects/Sight.ts` (das Wasser über dem Bild), `LevelScene.sightStep` (die Tiere).
+- **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
+  richtig sieht. **Je größer und stärker der Jäger** im Vergleich zu dir, desto **lauter und schneller** (ein kleiner Fisch
+  macht kaum Angst), und **je näher du dem Tod bist**, desto mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch
+  einen jagt. Mit jedem Schlag pochen die roten Bildränder einer Verletzung mit (`LevelScene.heartStep`).
+- **Panzerung (Schuppen):** Ein Schuppenpanzer macht **langsamer**, dafür wirft dich ein Treffer **weniger weit zurück** –
+  und man fängt sich schneller (bei vollem Panzer etwa halb so weit).
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
   mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
   spannen sich vor dem Angriff an und glühen auf, schnellen mit einer Spur vor, und wer sie anbeißt,
@@ -541,11 +568,15 @@ Zeitalter mit `playable: true`.
     Pflanzen schon in der nächsten Generation spürbar, in der übernächsten **deutlich weniger Energie** – und umgekehrt.
 - **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
   mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform, Zeitalter und Ort.
-  Links dein Tier und sein **Körper** (Länge, Gewicht, Färbung, Kost, Ausdauer), rechts das **Leben** (Generation, Geschlecht,
-  Lebensabschnitt), der **Nachwuchs** (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende
-  Geschwister), die **Muscheln** (als **eine Muschel mit „× 12“**, daneben, bei wie vielen der nächste Segen wartet) und
-  deine Gruppe; unter dem Körper steht, wie viele **Kreise Ausdauer** dein Tier hat. **Kampfwerte stehen hier
-  nicht** – wie kräftig dein Tier beißt oder wie schnell es ist, merkt man beim Spielen. Die Muscheln sind klein und
+  Darunter groß die **drei übergreifenden Werte**, die die große Muschel segnet: **Lebenskraft** als Zahl, gerade und
+  höchstens („20/50“), **Sicht** (20 zu Beginn) und **Ausdauer** (30 bei einem Kreis und normalem Körperbau – so viele
+  Zehntelsekunden reicht ein Spurt). Darunter, auf einer Reihe kleiner Tafeln, Waffen und Schutz: **Gebiss** (Bissstärke),
+  **Schädel** (Stoßstärke), **Schwarm** (deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft) und
+  **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
+  **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
+  Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht, Lebensabschnitt, deine Gruppe), der **Nachwuchs**
+  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister) und die **Muscheln** (als **eine
+  Muschel mit „× 12“**, daneben, wie viele frei sind – und „Segen bereit“, wenn es für einen reicht). Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
@@ -564,11 +595,12 @@ Zeitalter mit `playable: true`.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
 Zeitalters, „vor 382.438.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
-Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Oben links erscheinen wenige, kurze Meldungen zum
+Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Wie weit man sieht, zeigt das Wasser selbst (siehe
+„Sicht unter Wasser“). Oben links erscheinen wenige, kurze Meldungen zum
 Leben (Laichzeit, Gelege abgelegt bzw. befruchtet). **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
 wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
 nicht – was man über ein Tier wissen will, steht in der Chronik des Lebens. Nur wenn Ausdauer verbraucht wird, erscheint neben dem Tier der grüne Ausdauerkreis. Verletzung und Verstecktsein zeigen sich am Bildrand,
-am Herzschlag und am Tier selbst. Schwer verletzt färben
+am Herzschlag (er schlägt, wenn dich etwas jagt) und am Tier selbst. Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
@@ -706,9 +738,9 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | W (auch Shift) | sprinten (kostet Ausdauer) |
 | (nichts tun) | ausruhen: sich treiben lassen, Ausdauer und Lebenskraft kehren zurück (langsam schwimmen heilt auch, nur langsamer) |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
-| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: beten |
+| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Übersicht: Name, Körper, Leben, Nachwuchs, Muscheln |
+| C | Übersicht: Lebenskraft, Sicht, Ausdauer; Gebiss, Schädel, Schwarm, Schuppen; Körper, Leben, Nachwuchs, Muscheln |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 
@@ -900,6 +932,7 @@ src/
 │   ├── life.ts          Welt und Leben: Weltsaat und Weltzeit (WORLD), Wachsen und Altern (LIFE), Laichen (SPAWN), Vererbung (INHERIT), Sonstiges (MISC)
 │   └── tuning.ts        die Entwickler-Einstellung: alle Balancing-Werte mit Standard, Speichern, Export/Import
 ├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
+├── sim/sight.ts         die Sicht unter Wasser als reine Rechnung (Blickfeld nach vorn, kleiner Kreis nach hinten, Verschwimmen)
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
 ├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern)
 ├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts
@@ -922,7 +955,7 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: generative Schichten für Erkunden, Tiefe, Gefahr und Verlust, das Motiv
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
 └── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
@@ -942,11 +975,12 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       Trias, Jura und Paläogen warten auf ihre Bilder (Steintafel). Ordovizium und Silur sind verborgen.
 - [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
       Räuber-Ereignisse und der Herrscher bleiben draußen.
-- [ ] **Muscheln und Segen:** Muscheln gehören zur Linie – sie überdauern die Generationen, gehen aber mit dem Aussterben
-      verloren (wie alles andere). Beim Beten werden sie nicht verbraucht; es zählt, wie viele man hat (8, 16, 32, 64 …).
-      Jeder Segen gibt einen Viertelkreis. Die Chance richtet sich nach der Stärke der Beute im Vergleich zu dir (1 %
-      ebenbürtig, bis 2 % bei doppelt so starker, 0,5 % bei schwacher). Bei 1 % braucht der erste Segen grob 500 bis 800
-      erlegte Tiere – bitte beim Spielen ansehen.
+- [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen
+      Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür; eine neue
+      Linie verteilt neu. Die Chance richtet sich nach der Stärke der Beute (1 % ebenbürtig, bis 2 % bei doppelt so starker,
+      0,5 % bei schwacher) – bitte beim Spielen ansehen, ob das zu selten ist.
+- [ ] **Sicht:** 20 % zu Beginn sind bewusst knapp (gut zwei, drei Fischlängen klar). Bitte beim Spielen ansehen, ob das
+      Trübe zu dicht ist (`SIGHT.murk`, `SIGHT.fade` in `src/sim/sight.ts`).
 - [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.

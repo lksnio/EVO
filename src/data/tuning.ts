@@ -1,6 +1,6 @@
 import { CLASSES } from './classes';
 import { EPOCHS } from './epochs';
-import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA } from './life';
+import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
 import { JAGD, SWARM } from './quests';
 import { SPECIES } from './species';
 import { FOOD, game, meatOf } from '../state/GameState';
@@ -187,14 +187,18 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'muscheln',
-    title: 'Muscheln und Ausdauer',
-    note: 'Muscheln fallen selten von erlegten Tieren. Bei 8, 16, 32, 64 … Muscheln segnet die große Muschel im Laichfluss: mehr Ausdauer.',
+    title: 'Muscheln, Segen und Sicht',
+    note: 'Muscheln fallen selten von erlegten Tieren und bleiben über alle Läufe. An der großen Muschel im Laichfluss verteilt man sie je Linie auf Lebenskraft, Ausdauer und Sicht: 1, 2, 4, 8 … Muscheln je Segen.',
     params: [
       field(SHELLS, 'chance', 'SHELLS.chance', 'Muschel je Tier (Wahrscheinlichkeit)', { step: 0.001, max: 1, hint: 'Für ein Tier, das so stark ist wie du. Stärkere öfter, schwächere seltener (siehe unten).' }),
       field(SHELLS, 'relMin', 'SHELLS.relMin', 'Schwache Beute: höchstens so viel seltener (Faktor)', { step: 0.05, max: 1 }),
       field(SHELLS, 'relMax', 'SHELLS.relMax', 'Starke Beute: höchstens so viel öfter (Faktor)', { step: 0.1, min: 1 }),
-      field(SHELLS, 'first', 'SHELLS.first', 'Erster Segen bei so vielen Muscheln', { min: 1 }),
-      field(SHELLS, 'factor', 'SHELLS.factor', 'Jeder weitere Segen: so viel mal so viele', { step: 0.1, min: 1, hint: '8 und 2 → 8, 16, 32, 64 …' }),
+      field(UPGRADES, 'first', 'UPGRADES.first', 'Der erste Segen kostet so viele Muscheln', { min: 1 }),
+      field(UPGRADES, 'factor', 'UPGRADES.factor', 'Jeder weitere: so viel mal so viele', { step: 0.1, min: 1, hint: '1 und 2 → 1, 2, 4, 8 … (gleich, wofür)' }),
+      field(UPGRADES, 'hp', 'UPGRADES.hp', 'Lebenskraft je Segen (Anteil)', { step: 0.005, max: 1 }),
+      field(UPGRADES, 'hpSize', 'UPGRADES.hpSize', 'Größerer Körper je Segen in Lebenskraft (Anteil)', { step: 0.002, max: 0.2 }),
+      field(UPGRADES, 'sight', 'UPGRADES.sight', 'Sicht zu Beginn (Anteil des Bildes)', { step: 0.05, max: 1 }),
+      field(UPGRADES, 'sightPer', 'UPGRADES.sightPer', 'Sicht je Segen', { step: 0.01, max: 1 }),
       field(STAMINA, 'perBlessing', 'STAMINA.perBlessing', 'Ein Segen gibt (Anteil eines Kreises)', { step: 0.05, max: 2 }),
       field(STAMINA, 'max', 'STAMINA.max', 'Höchstens so viele Kreise', { min: 1, max: 3 }),
       field(STAMINA, 'sprint', 'STAMINA.sprint', 'Ein Kreis reicht für so viele Sekunden Spurt', { step: 0.1, min: 0.5 }),

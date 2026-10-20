@@ -142,7 +142,7 @@ export class Shrine {
     // das Zeichen schwebt über der Muschel
     this.prompt.update(dt, this.x, this.y - 76, this.near);
     // ein Segen liegt bereit: Die Perle ruft – alle paar Sekunden geht ein Ring aus Licht von ihr aus
-    if (game.canPray && time - this.callAt > 2600) {
+    if (game.canUp() && time - this.callAt > 2600) {
       this.callAt = time;
       const ring = this.scene.add.circle(this.x, this.y - 12, 14).setStrokeStyle(2, 0xffe2a8, 0.9).setDepth(DEPTH.pickups + 0.2);
       this.scene.tweens.add({ targets: ring, scale: 5, alpha: 0, duration: 1800, ease: 'Sine.out', onComplete: () => ring.destroy() });
