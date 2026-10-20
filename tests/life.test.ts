@@ -3,10 +3,10 @@ import { LIFE, SPAWN, WORLD } from '../src/data/life';
 import { broodBase, cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phases, spawnBlock, stageOf, worldYears, youngOf } from '../src/sim/life';
 
 describe('Lebenszyklus', () => {
-  it('die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch', () => {
-    expect(phases(1)).toMatchObject({ mature: 7 * 60, span: 11 * 60 });
-    expect(phases(2)).toMatchObject({ mature: 10 * 60, span: 15 * 60 });
-    expect(phases(4)).toMatchObject({ mature: 13 * 60, span: 19 * 60 });
+  it('die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch; ausgewachsen (und bereit zum Laichen) ist man früh', () => {
+    expect(phases(1)).toMatchObject({ mature: 3 * 60, span: 11 * 60 });
+    expect(phases(2)).toMatchObject({ mature: 4 * 60, span: 15 * 60 });
+    expect(phases(4)).toMatchObject({ mature: 5 * 60, span: 19 * 60 });
     // je mehr Generationen, desto kleiner der Zuwachs
     const d = (g: number) => phases(g + 1).span - phases(g).span;
     expect(d(1)).toBeGreaterThan(d(2));
@@ -49,6 +49,10 @@ describe('Lebenszyklus', () => {
     const ok = { age: phases(1).mature + 10, lastSpawn: -1e9, inGrounds: true, atGround: true };
     expect(spawnBlock(ok)).toBeNull();
     expect(spawnBlock({ ...ok, age: 10 })).toBe('jung');
+    // ab ausgewachsen – auch im Alter und bis kurz vor dem Tod
+    expect(spawnBlock({ ...ok, age: phases(1).mature })).toBeNull();
+    expect(spawnBlock({ ...ok, age: phases(1).old + 30 })).toBeNull();
+    expect(spawnBlock({ ...ok, age: phases(1).span - 2 })).toBeNull();
     expect(spawnBlock({ ...ok, lastSpawn: ok.age - 10 })).toBe('pause');
     expect(spawnBlock({ ...ok, inGrounds: false })).toBe('ort');
     expect(spawnBlock({ ...ok, atGround: false })).toBe('grund');

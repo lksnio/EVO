@@ -88,8 +88,9 @@ Zeitalter mit `playable: true`.
 ## Ein Leben – und die nächste Generation
 
 - **Heranwachsen:** Jedes Leben beginnt als **Jungtier** mit 40 % der ausgewachsenen Größe. Der Fisch wächst schnell, dann
-  immer langsamer – nach **7 Minuten** Spielzeit ist er **ausgewachsen** (92 %): **Laichzeit**. Danach lebt er noch etwa
-  **4 Minuten** – zum Laichen, Weiterschwimmen oder um gleich mit „Leben weitergeben“ zu gehen. In den letzten 40 % dieser
+  immer langsamer – schon nach **3 Minuten** Spielzeit ist er **ausgewachsen** (92 %): **Laichzeit**. Danach lebt er noch
+  etwa **8 Minuten** – und **laichen kann er die ganze Zeit, bis kurz vor dem Tod** (auch im Alter); oder er geht gleich mit
+  „Leben weitergeben“. In den letzten 40 % dieser
   Zeit ist er **alt** (langsamer, schneller müde, weniger Lebenskraft), in den letzten 40 Sekunden wird er spürbar langsamer,
   dann schläft er ein. Mit der Größe wachsen Lebenskraft, Biss und Stoß; ein Jungtier ist dafür etwas flinker. Gezählt wird
   nur die Zeit, in der man spielt – wer offline ist, altert nicht. Gemeldet wird nur die Laichzeit (leise, oben links).
@@ -97,8 +98,8 @@ Zeitalter mit `playable: true`.
   laufen, oben im Licht oder unten im Dunkeln schwimmen, durch eine Höhle tauchen, Treffer einstecken –, sammelt sich im
   Verborgenen und zeigt sich erst an seinen **Nachkommen**. Nirgends steht, was sich verändert hat: Man merkt es, wenn das
   nächste Tier heranwächst.
-- **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 7 + 4 Minuten, Generation 2 schon 10 + 5,
-  Generation 4 13 + 6, Generation 8 16 + 7, Generation 16 19 + 8 … Wer viel spielt, verändert sich so immer seltener und hat
+- **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 3 + 8 Minuten (bis zur Laichzeit + danach),
+  Generation 2 schon 4 + 11, Generation 4 5 + 14, Generation 8 6 + 17, Generation 16 7 + 20 … Wer viel spielt, verändert sich so immer seltener und hat
   Zeit, sich mit seinem Tier anzufreunden.
 - **Hunger gibt es nicht.** Man muss nicht fressen, um zu überleben, ist nie „satt“ und muss nirgends warten – Fressen nährt
   nur die **Brut**. Alles Gefressene (die kleinen Zahlen, die beim Fressen kurz aufsteigen) sammelt sich als **Nahrung** für
@@ -850,7 +851,7 @@ npm run dev      # Dev-Server mit Live-Reload auf http://localhost:8080
 werden die verborgenen Werte, Artgenossen, Verbündete und Durchzügler eingeblendet. Mit
 `?debug&gallery` gibt es eine Übersicht über viele Ausprägungen der Spielfigur und alle Tierarten
 (Leertaste blättert). `?touch` zeigt die Bildschirm-Knöpfe auch am PC. Mit `?debug` lässt **T** dein Tier eine Minute
-altern – so kommt man schnell zum Laichen (Laichzeit nach sieben Minuten) und zum Generationswechsel.
+altern – so kommt man schnell zum Laichen (Laichzeit nach drei Minuten) und zum Generationswechsel.
 
 **Mehrspieler-Adresszusätze:** `?name=Anna` (Name über dem Fisch, wird gemerkt), `?slot=2` (eigener Spielstand – für ein
 zweites Fenster im selben Browser), `?offline` (ohne Server spielen), `?server=http://…` (einen anderen Server benutzen).
@@ -962,8 +963,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Karte:** Wege entstehen nur durch Durchschwimmen; ohne eigene Wahl geht es nach 3,4 Sekunden in den Nachbarort.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
       eigene Tier verändert sich im Leben nicht (auch nicht durch eine Farbhöhle – die Farbe geht an die Nachkommen).
-- [ ] **Lebenstempo** (bestätigt): Generation 1 laicht nach 7 Minuten und lebt danach noch 4; Generation 2: 10 + 5; danach
-      logarithmisch länger (Generation 8: 16 + 7). Laich der Artgenossen im Startgebiet verdirbt nicht.
+- [ ] **Lebenstempo:** Generation 1 ist nach 3 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 8
+      Minuten); Generation 2: 4 + 11; danach logarithmisch länger (Generation 8: 6 + 17). Die ganze Lebensdauer ist dieselbe
+      wie zuvor (11, 15, 19, 23 Minuten). Laich der Artgenossen im Startgebiet verdirbt nicht.
 
 ### Ideen für später
 
