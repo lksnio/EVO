@@ -412,7 +412,7 @@ Zeitalter mit `playable: true`.
   **Fleisch heilt nicht**, es nährt nur die Brut.
 - **Muscheln farmen:** Muscheln liegen nicht fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
   du erlegt hast oder an deren Tod du beteiligt warst). Wie selten, hängt davon ab, **wie stark das Tier im Vergleich zu dir
-  war**: ein ebenbürtiges in etwa **1 %** der Fälle, ein doppelt so starkes (größeres) in **2 %**, schwache Beute halb so
+  war**: ein ebenbürtiges in **10 %** der Fälle, ein doppelt so starkes (größeres) in **20 %**, schwache Beute halb so
   oft – wer stärker wird, findet bei kleinen Tieren also seltener eine. Die Muschel sinkt funkelnd zu Boden, ein heller Ton
   klingt; wer sie berührt, nimmt sie mit (oben links steht, wie viele frei sind und was der nächste Segen kostet).
   **Weil sie so selten sind, gehören die Muscheln dir – nicht deiner Linie:** Sie bleiben über **alle Läufe** hinweg, auch
@@ -428,7 +428,8 @@ Zeitalter mit `playable: true`.
     größer**, die Iris leuchtet kräftiger, mit hellem Ring und einem zweiten, kleinen Lichtreflex.
 
   **Was ein Segen kostet:** Der erste **1 Muschel**, jeder weitere **doppelt so viele** wie der vorige – **gleich, in welche
-  Richtung**: 1, 2, 4, 8, 16 … (sieben Segen kosten zusammen 127 Muscheln). Wählen mit ← → (oder Klick), Eingabe segnet,
+  Richtung**: 1, 2, 4, 8, 16 … Vorerst gibt es **höchstens 10 Segen** je Linie: Der zehnte kostet 512 Muscheln, alle zehn
+  zusammen 1023 (`UPGRADES.max`). Das Fenster zeigt „Segen 3 von 10“. Wählen mit ← → (oder Klick), Eingabe segnet,
   Esc geht. Dann strömt Licht von der Perle in dein Tier, Ringe aus Licht gehen von ihr aus, und es wächst sichtbar: der
   Körper (und die Lebenskraft ist ganz wieder da), der Ausdauerkreis oder der Blick. Die Segen gelten für die **ganze
   Linie** (über alle Generationen). **Beginnt eine neue Linie** (nach dem Aussterben oder bei einem Neustart), sind **alle
@@ -437,22 +438,28 @@ Zeitalter mit `playable: true`.
   ihr aus. Alle Zahlen stehen in `SHELLS`, `UPGRADES` und `STAMINA` (`src/data/life.ts`) und in der
   [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
   das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
-- **Sicht unter Wasser:** Ein Fisch sieht **vor allem dorthin, wohin er schwimmt** – nach vorn weit, zu den Seiten weniger,
-  nach hinten nur ein **kleiner Kreis** um ihn herum (damit man einen Jäger knapp hinter sich noch bemerkt). Der Rand der
-  Sicht ist **kurz und deutlich** (weich, aber gut zu erkennen): Dahinter liegt **trübes Wasser** in den Farben des Ortes,
-  und **gleich am Rand beginnt es dunkel zu werden** – nach außen immer dunkler, bis fast schwarz. **Tiere** sind im
-  Trüben nicht zu sehen, am Rand erscheinen sie als **blasser, verschwommener Umriss**, im Blick deutlich. Das Blickfeld
-  dreht sich weich mit, wenn der Fisch wendet oder auf- und abtaucht. **Wie weit man sieht, hängt an drei Dingen:**
+- **Sicht unter Wasser:** Ein Fisch sieht vor allem dorthin, wohin er schwimmt – aber auch ein Stück hinter sich. Wie auf
+  einem **Zeitstrahl von 0 bis 10**: Steht der Fisch auf 5 und schaut Richtung 10, sieht er **4, 5, 6, 7**; dreht er sich
+  um, sieht er **3, 4, 5, 6**. Nach vorn reicht der Blick also **doppelt so weit wie nach hinten**. In der Fläche ist das ein
+  **runder klarer Bereich, dessen Mitte ein Stück vor dem Fisch liegt** – beim Umdrehen gleitet er weich auf die andere
+  Seite, und er sitzt immer genau am Fisch (auch wenn die Kamera nachzieht). Der Rand ist **kurz und deutlich**; dahinter
+  liegt **trübes Wasser** in den Farben des Ortes, und gleich am Rand beginnt es **dunkel** zu werden – nach außen immer
+  dunkler. **Tiere** sind im Trüben nicht zu sehen, am Rand erscheinen sie als blasser, verschwommener Umriss, im Blick
+  deutlich. **Wie weit man sieht, hängt an drei Dingen:**
   - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Segen in Sicht gibt **5 %** mehr (100 % hieße bis zum
     Bildrand). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite) – zu Beginn gut drei Fischlängen klar.
-  - **an der Wasserqualität:** In sauberem Wasser (Laichfluss) sieht man am weitesten, in bewachsenen Gärten etwas weniger,
-    in **trüben Orten** (Delta, Schlammbank) deutlich weniger, in der Tiefe ist das Wasser klar, aber dunkel.
-  - **an der Tiefe:** **Nah an der Oberfläche** reicht der Blick am weitesten, **je tiefer, desto weniger weit** – und in der
-    Tiefe hört die Sicht **plötzlicher auf** (der Rand wird steiler), und das **Schwarze kommt früher** und wird dichter.
+  - **an der Wasserqualität:** Der **Laichfluss** hat **sehr klares Wasser** – dort sieht man am weitesten, und durch das
+    Wasser hindurch auch den **Hintergrund und die Fische in der Ferne** gut. Der **Korallengarten** ist noch recht klar,
+    aber schon etwas weniger (man merkt es an der Sicht). In **trüben Orten** (Delta, Schlammbank) sieht man deutlich
+    weniger weit und kaum etwas vom Hintergrund; in der Tiefe ist das Wasser klar, aber dunkel.
+  - **an der Tiefe:** **Nah an der Oberfläche** reicht der Blick am weitesten (und in die Ferne sieht man dort am meisten),
+    **je tiefer, desto weniger weit** – und in der Tiefe hört die Sicht **plötzlicher auf** (der Rand wird steiler), und
+    das **Schwarze kommt früher** und wird dichter.
 
   Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. In Szenen mit der Kamera (Aufträge)
   lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
-  Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere.
+  Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere
+  und die Fische in der Ferne (`BackSea.see`).
 - **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
   richtig sieht. **Je größer und stärker der Jäger** im Vergleich zu dir, desto **lauter und schneller** (ein kleiner Fisch
   macht kaum Angst), und **je näher du dem Tod bist**, desto mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch
@@ -581,21 +588,24 @@ Zeitalter mit `playable: true`.
   **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
   Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht, Lebensabschnitt, deine Gruppe), der **Nachwuchs**
-  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister) und die **Muscheln** (als **eine
-  Muschel mit „× 12“** – wie viele du hast). Die Muscheln sind klein und
+  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister). Die **Muscheln** stehen rechts in
+  der Spalte der kleinen Karten: ein Muschel-Symbol mit „× 12“. Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
-- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte zeigt, **welche Tiere deine Linie an diesem Ort
-  am häufigsten gefressen hat** – die **drei häufigsten**, untereinander mit Platz 1, 2, 3, je mit einem **kleinen Sinnbild**
-  des Tiers (das Original verkleinert und vereinfacht: drei flache Farbtöne aus seiner Grundfarbe, dunkle Kontur, feiner
-  warmer Rand) und seinem **Anteil** an allen Tieren, die du hier gefressen hast („50 %“) – ohne absolute Zahlen. **Jedes
-  Tier zählt einmal** – auch ein großes, das in viele Fleischbrocken zerfällt; es zählt, sobald du den ersten Brocken davon
-  frisst (gleich, wer es erlegt hat). **An einem anderen Ort stehen andere Zahlen.** Die Beute gilt für den ganzen Lauf
-  (über alle Generationen deiner Linie); **beginnt eine neue Linie, ist alles wieder leer**. Unter der Karte ist Platz für
-  weitere. Code: `GameState.noteEaten`/`topPrey` (`Run.prey`), `Overview.preyCard` (`src/ui/overview.ts`), das Sinnbild
-  `preyIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt vorerst nur Beute, die in deinem eigenen Spiel erlegt wurde.
+- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte. **Oben: Grünzeug gegen Fleisch** – links ein
+  kleines Pflänzchen, rechts ein Stück Fleisch (die Keule aus dem Spiel), dazwischen ein **Balken**, links grün, rechts rot,
+  geteilt nach dem Anteil, darunter die Prozente (nach dem Nährwert des Gefressenen; Eier zählen als Fleisch). **Darunter
+  die drei Tiere**, die deine Linie **an diesem Ort** am häufigsten gefressen hat – mit Platz 1, 2, 3, je einem **kleinen
+  Sinnbild** (das Original verkleinert und vereinfacht: drei flache Farbtöne, dunkle Kontur, feiner warmer Rand) und
+  seinem **Anteil** an allen Tieren, die du hier gefressen hast – ohne absolute Zahlen. **Jedes Tier zählt einmal**, auch ein
+  großes mit vielen Brocken; es zählt, sobald du den ersten Brocken davon frisst (gleich, wer es erlegt hat). **An einem
+  anderen Ort stehen andere Zahlen.** Alles gilt für den ganzen Lauf (über alle Generationen deiner Linie); **beginnt eine
+  neue Linie, ist alles wieder leer**. Unter der Karte steht die Muschel-Karte; Platz für weitere ist da. Code:
+  `GameState.noteEaten`/`topPrey`/`noteFood`/`dietAt` (`Run.prey`, `Run.diet`), `Overview.preyCard`/`shellCard`
+  (`src/ui/overview.ts`), die Sinnbilder `preyIcon`/`dietIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt vorerst nur
+  Beute, die in deinem eigenen Spiel erlegt wurde.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
@@ -991,9 +1001,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
       Räuber-Ereignisse und der Herrscher bleiben draußen.
 - [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen
-      Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür; eine neue
-      Linie verteilt neu. Die Chance richtet sich nach der Stärke der Beute (1 % ebenbürtig, bis 2 % bei doppelt so starker,
-      0,5 % bei schwacher) – bitte beim Spielen ansehen, ob das zu selten ist.
+      Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür, höchstens
+      10 Segen (der zehnte kostet 512, zusammen 1023); eine neue Linie verteilt neu. Die Chance richtet sich nach der Stärke
+      der Beute (10 % ebenbürtig, bis 20 % bei doppelt so starker, 5 % bei schwacher).
 - [ ] **Sicht:** Sie hängt an der Sicht des Tiers, der Wasserqualität und der Tiefe; der Rand ist kurz, dahinter wird es
       dunkel. Bitte beim Spielen ansehen, ob es zu dunkel oder zu eng ist (`SIGHT` in `src/sim/sight.ts`: `front0`, `fade`,
       `water`, `depth`, `dark`, `darkSpread`).

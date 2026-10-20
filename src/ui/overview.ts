@@ -5,7 +5,7 @@ import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { SPECIES } from '../data/species';
-import { preyIcon } from '../art/speciesArt';
+import { dietIcon, preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
 import { text, title } from './ui';
 
@@ -83,7 +83,10 @@ export class Overview {
     c.add(g);
     // die Bühne (dahinter kein Klick: Nur außerhalb schließt es)
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
-    this.preyCard(scene, g, d, x0 + w + 16, y0, W - 24 - (x0 + w + 16));
+    // rechts daneben eine Spalte kleiner Karten: die Beute, darunter die Muscheln
+    const sx = x0 + w + 16, sw = W - 24 - sx;
+    const ph = this.preyCard(scene, g, d, sx, y0, sw);
+    this.shellCard(scene, g, sx, y0 + ph + 14, sw);
 
     const run = game.run;
     const life = game.life;
@@ -200,20 +203,6 @@ export class Overview {
     const sib = run?.siblings?.n ?? 0;
     if (sib > 0) row(colR, (y += 28), 'Geschwister im Gelege', nf(sib));
 
-    y += 40;
-    head(colR, y, 'MUSCHELN');
-    const shells = game.shells;
-    const sv = row(colR, (y += 32), 'Muscheln', `× ${shells}`);
-    const icon = scene.add.image(sv.x - sv.width - 8, y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(18, 20);
-    if (!shells) icon.setTint(0x000000).setAlpha(0.35);
-    c.add(icon);
-    // neu gefunden: Die Zahl leuchtet einmal warm auf
-    if (shells > game.seenShells) {
-      sv.setColor('#f0c878');
-      scene.tweens.add({ targets: sv, alpha: 0.55, yoyo: true, repeat: 2, duration: 520, ease: 'Sine.inOut', onComplete: () => sv.active && sv.setColor(UI.bone) });
-      game.seenShells = shells;
-    }
-
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 
     // sanft einblenden
@@ -222,13 +211,15 @@ export class Overview {
   }
 
   /**
-   * Die Beute – eine kleine Karte: Welche Tiere deine Linie an diesem Ort am häufigsten gefressen hat, die drei häufigsten,
-   * je als kleines Sinnbild mit ihrem Anteil an allem, was du hier gefressen hast. Jedes Tier zählt einmal (gleich, wie viele
-   * Brocken). An einem anderen Ort stehen andere Zahlen; eine neue Linie beginnt leer.
+   * Die Beute – eine kleine Karte: oben, wie viel Grünzeug und wie viel Fleisch deine Linie an diesem Ort gefressen hat (links
+   * ein Pflänzchen, rechts ein Stück Fleisch, dazwischen ein Balken: grün der Anteil der Pflanzen, rot der des Fleischs).
+   * Darunter die Tiere, die sie hier am häufigsten gefressen hat – die drei häufigsten, je als kleines Sinnbild mit ihrem
+   * Anteil an allen hier gefressenen Tieren (jedes Tier zählt einmal, gleich wie viele Brocken). An einem anderen Ort stehen
+   * andere Zahlen; eine neue Linie beginnt leer. Gibt die Höhe der Karte zurück.
    */
   private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number) {
     const c = this.c;
-    const rowH = 48, top = y + 92, h = top - y + rowH * 3 + 18;
+    const rowH = 46, top = y + 140, h = top - y + rowH * 3 + 14;
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
     const cx = x + w / 2;
@@ -236,13 +227,44 @@ export class Overview {
       .setOrigin(0.5).setLetterSpacing(5));
     c.add(text(scene, cx, y + 60, d.placeName, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
     rule(g, x + 30, x + w - 30, y + 78, 0.3);
+
+    // Grünzeug gegen Fleisch
+    const diet = game.dietAt();
+    const by = y + 100, bx0 = x + 54, bx1 = x + w - 54, bw = bx1 - bx0;
+    c.add(scene.add.image(x + 33, by, dietIcon(scene, 'plant')).setDisplaySize(28, 28).setAlpha(diet ? 1 : 0.4));
+    const meat = scene.add.image(x + w - 33, by, dietIcon(scene, 'meat')).setAlpha(diet ? 1 : 0.4);
+    meat.setScale(Math.min(32 / meat.width, 26 / meat.height));
+    c.add(meat);
+    g.fillStyle(0x000000, 0.45);
+    g.fillRoundedRect(bx0 - 1, by - 4.5, bw + 2, 9, 4.5);
+    if (diet) {
+      const split = bx0 + bw * diet.plant;
+      if (diet.plant > 0.005) {
+        g.fillStyle(0x6f9a48, 1);
+        g.fillRoundedRect(bx0, by - 3.5, Math.max(7, split - bx0), 7, { tl: 3.5, bl: 3.5, tr: diet.meat > 0.005 ? 0 : 3.5, br: diet.meat > 0.005 ? 0 : 3.5 });
+      }
+      if (diet.meat > 0.005) {
+        g.fillStyle(0xa8402e, 1);
+        g.fillRoundedRect(split, by - 3.5, Math.max(7, bx1 - split), 7, { tl: diet.plant > 0.005 ? 0 : 3.5, bl: diet.plant > 0.005 ? 0 : 3.5, tr: 3.5, br: 3.5 });
+      }
+      // ein Hauch Licht oben auf dem Balken
+      g.fillStyle(0xffffff, 0.12);
+      g.fillRect(bx0 + 3, by - 3, bw - 6, 2);
+    }
+    const pct = (f: number | undefined) => (f === undefined ? '—' : `${Math.round(f * 100)} %`);
+    c.add(text(scene, bx0, by + 18, pct(diet?.plant), 13, '#a8c878').setOrigin(0, 0.5).setAlpha(diet ? 0.95 : 0.4));
+    c.add(text(scene, bx1, by + 18, pct(diet?.meat), 13, '#e0806c').setOrigin(1, 0.5).setAlpha(diet ? 0.95 : 0.4));
+    g.lineStyle(1, 0xc8913c, 0.16);
+    g.lineBetween(x + 30, top - 4, x + w - 30, top - 4);
+
+    // die drei häufigsten Tiere
     const { top: best } = game.topPrey();
     for (let i = 0; i < 3; i++) {
       const ry = top + rowH * i + rowH / 2;
       const e = best[i];
       const def = e ? SPECIES[e.id] : undefined;
       if (i > 0) {
-        g.lineStyle(1, 0xc8913c, 0.12);
+        g.lineStyle(1, 0xc8913c, 0.1);
         g.lineBetween(x + 30, top + rowH * i, x + w - 30, top + rowH * i);
       }
       c.add(title(scene, x + 36, ry, String(i + 1), 18, def ? UI.ochre : UI.boneDim).setOrigin(0.5).setAlpha(def ? 0.9 : 0.35));
@@ -252,6 +274,28 @@ export class Overview {
       }
       c.add(scene.add.image(x + 112, ry, preyIcon(scene, def, 92, 36)).setScale(0.5));
       c.add(title(scene, x + w - 32, ry, `${Math.round(e.share * 100)} %`, 20, UI.bone).setOrigin(1, 0.5));
+    }
+    return h;
+  }
+
+  /** Die Muscheln – eine kleine Karte: das Muschel-Symbol und wie viele du hast. Eine neu gefundene lässt die Zahl aufleuchten. */
+  private shellCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
+    const c = this.c, h = 62;
+    frame(g, x, y, w, h);
+    c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
+    const shells = game.shells;
+    const n = title(scene, 0, y + h / 2, `× ${shells}`, 22, UI.bone).setOrigin(0, 0.5);
+    const icon = scene.add.image(0, y + h / 2, 'shell').setOrigin(0, 0.5).setDisplaySize(22, 24);
+    if (!shells) icon.setTint(0x000000).setAlpha(0.35);
+    // Symbol und Zahl zusammen mittig
+    const tw = 22 + 10 + n.width;
+    icon.setX(x + w / 2 - tw / 2);
+    n.setX(icon.x + 32);
+    c.add([icon, n]);
+    if (shells > game.seenShells) {
+      n.setColor('#f0c878');
+      scene.tweens.add({ targets: n, alpha: 0.55, yoyo: true, repeat: 2, duration: 520, ease: 'Sine.inOut', onComplete: () => n.active && n.setColor(UI.bone) });
+      game.seenShells = shells;
     }
   }
 

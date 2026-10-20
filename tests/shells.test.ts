@@ -9,12 +9,26 @@ import { phases } from '../src/sim/life';
 describe('Muscheln', () => {
   beforeEach(() => game.resetAll());
 
-  it('fallen selten – ebenbürtige Beute 1 %, doppelt so starke 2 %, schwache halb so oft', () => {
-    expect(SHELLS.chance).toBe(0.01);
-    expect(shellChance(1)).toBeCloseTo(0.01);
-    expect(shellChance(2)).toBeCloseTo(0.02);
-    expect(shellChance(9)).toBeCloseTo(0.02);
-    expect(shellChance(0.1)).toBeCloseTo(0.005);
+  it('fallen von erlegter Beute – ebenbürtige 10 %, doppelt so starke 20 %, schwache halb so oft', () => {
+    expect(SHELLS.chance).toBe(0.1);
+    expect(shellChance(1)).toBeCloseTo(0.1);
+    expect(shellChance(2)).toBeCloseTo(0.2);
+    expect(shellChance(9)).toBeCloseTo(0.2);
+    expect(shellChance(0.1)).toBeCloseTo(0.05);
+  });
+
+  it('höchstens zehn Segen je Linie: der zehnte kostet 512, zusammen 1023 Muscheln', () => {
+    expect(UPGRADES.max).toBe(10);
+    expect(upCost(9)).toBe(512);
+    expect(upSpent(10)).toBe(1023);
+    game.newRun(0);
+    for (let i = 0; i < 2000; i++) game.addShell();
+    let n = 0;
+    while (game.buyUp((['hp', 'sight', 'stam'] as const)[n % 3])) n++;
+    expect(n).toBe(10);
+    expect(game.upCount).toBe(10);
+    expect(game.shellsFree).toBe(2000 - 1023);
+    expect(game.canUp()).toBe(false);
   });
 
   it('jeder Segen kostet doppelt so viel wie der vorige, gleich wofür: 1, 2, 4, 8 …', () => {

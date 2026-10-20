@@ -352,6 +352,8 @@ export interface Run {
    * aus mehreren Fleischbrocken bestand. Gilt über alle Generationen der Linie; eine neue Linie beginnt leer.
    */
   prey?: Record<string, Record<string, number>>;
+  /** wie viel Grünzeug und wie viel Fleisch deine Linie je Ort gefressen hat (Nahrung, nach ihrem Nährwert) */
+  diet?: Record<string, { plant: number; meat: number }>;
   /** ältere Spielstände: Muscheln und Segen hingen an der Linie (beim Laden übernommen) */
   shells?: unknown;
   blessings?: number;
@@ -1628,6 +1630,21 @@ class GameState {
     this.save();
   }
 
+  /** Gefressen (Pflanze bzw. Fleisch, Eier zählen als Fleisch): Es zählt für den Ort, an dem man gerade ist. */
+  noteFood(kind: 'plant' | 'meat', units: number) {
+    const r = this.data.run;
+    if (!r || !(units > 0)) return;
+    const at = ((r.diet ??= {})[r.prog.place] ??= { plant: 0, meat: 0 });
+    at[kind] += units;
+  }
+
+  /** Wie viel Grünzeug und wie viel Fleisch deine Linie an einem Ort gefressen hat – als Anteil (0 … 1; ohne alles: null). */
+  dietAt(place = this.data.run?.prog.place ?? ''): { plant: number; meat: number } | null {
+    const at = this.data.run?.diet?.[place];
+    const total = (at?.plant ?? 0) + (at?.meat ?? 0);
+    return at && total > 0 ? { plant: at.plant / total, meat: at.meat / total } : null;
+  }
+
   /**
    * Die Tiere, die deine Linie an einem Ort am häufigsten gefressen hat (höchstens n): Art, wie viele, und ihr Anteil an allen
    * dort gefressenen Tieren (0 … 1). Dazu, wie viele es dort insgesamt waren.
@@ -1690,7 +1707,7 @@ class GameState {
   canUp(k?: UpKey): boolean {
     if (!this.data.run) return false;
     if (!k) return UP_KEYS.some((q) => this.canUp(q));
-    return this.shellsFree >= this.upCost && !this.upMaxed(k);
+    return this.upCount < UPGRADES.max && this.shellsFree >= this.upCost && !this.upMaxed(k);
   }
 
   /** An der großen Muschel: Sie segnet deine Linie in dieser Richtung. Gibt zurück, ob sie es tat. */

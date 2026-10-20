@@ -620,9 +620,9 @@ export class HudScene extends Phaser.Scene {
     c.add(this.add.image(W / 2, y0 + 58, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(420, 120).setAlpha(0.16));
     c.add(title(this, W / 2, y0 + 56, 'Die große Muschel', 40).setOrigin(0.5));
 
-    const free = game.shellsFree, total = game.shells, cost = game.upCost;
+    const free = game.shellsFree, total = game.shells, cost = game.upCost, done = game.upCount, all = done >= UPGRADES.max;
     const mus = (n: number) => `${n} ${n === 1 ? 'Muschel' : 'Muscheln'}`;
-    const info = text(this, W / 2 + 14, y0 + 102, `${free} frei  ·  ${total} gefunden  ·  der nächste Segen kostet ${mus(cost)}`, 18, UI.boneDim).setOrigin(0.5);
+    const info = text(this, W / 2 + 14, y0 + 102, `${free} frei  ·  ${total} gefunden  ·  Segen ${done} von ${UPGRADES.max}${all ? '' : `  ·  der nächste kostet ${mus(cost)}`}`, 18, UI.boneDim).setOrigin(0.5);
     c.add(info);
     c.add(this.add.image(info.x - info.width / 2 - 10, info.y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(18, 20));
 
@@ -642,11 +642,11 @@ export class HudScene extends Phaser.Scene {
       g.lineStyle(1, 0xc8913c, 0.22);
       g.strokeRoundedRect(cx - 128, top, 256, 262, 10);
       c.add(g);
-      const maxed = game.upMaxed(col.k);
+      const maxed = game.upMaxed(col.k) || all;
       const next = col.val(game.shown({ ...ups, [col.k]: ups[col.k] + 1 }));
       c.add(text(this, cx, top + 30, col.name.toUpperCase(), 14, UI.ochre, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4));
       c.add(title(this, cx, top + 84, maxed ? String(col.val(now)) : `${col.val(now)}  →  ${next}`, 34, UI.bone).setOrigin(0.5));
-      c.add(text(this, cx, top + 132, maxed ? 'so stark, wie es geht' : col.what, 15, UI.boneDim).setOrigin(0.5));
+      c.add(text(this, cx, top + 132, game.upMaxed(col.k) ? 'so stark, wie es geht' : col.what, 15, UI.boneDim).setOrigin(0.5));
       c.add(text(this, cx, top + 160, ups[col.k] ? `${ups[col.k]}× gesegnet` : 'noch nicht gesegnet', 14, UI.boneDim).setOrigin(0.5).setAlpha(0.7));
       const b = new Button(this, cx, top + 216, col.name, { w: 220, h: 50, color: UI.ochreN, onClick: () => this.pickShrine(col.k) });
       b.setDisabled(maxed || free < cost);
@@ -654,7 +654,9 @@ export class HudScene extends Phaser.Scene {
       c.add(b);
     });
     const note = !total
-      ? 'Noch keine Muscheln. Sie fallen selten von erlegten Tieren – von starken öfter als von schwachen.'
+      ? 'Noch keine Muscheln. Sie fallen von erlegten Tieren – von starken öfter als von schwachen.'
+      : all
+        ? `Deine Linie hat alle ${UPGRADES.max} Segen. Beginnt eine neue, sind alle Muscheln wieder frei.`
       : free < cost
         ? `Für den nächsten Segen fehlen noch ${mus(cost - free)}.`
         : 'Die Segen gelten für deine ganze Linie. Beginnt eine neue, sind alle Muscheln wieder frei.';

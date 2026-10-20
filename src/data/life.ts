@@ -139,13 +139,13 @@ export const MISC = {
 };
 
 /**
- * Muscheln: Man findet sie bei erlegten Tieren – selten. Wie selten, hängt davon ab, wie stark das Tier im Vergleich zu dir
- * war: ein ebenbürtiges in etwa jedem hundertsten Fall (1 %), ein doppelt so starkes doppelt so oft, schwache Beute halb so
- * oft. Weil sie so selten sind, gehören sie dir und nicht deiner Linie: Sie bleiben über alle Läufe hinweg (siehe UPGRADES).
+ * Muscheln: Man findet sie bei erlegten Tieren. Wie oft, hängt davon ab, wie stark das Tier im Vergleich zu dir war: ein
+ * ebenbürtiges in jedem zehnten Fall (10 %), ein doppelt so starkes doppelt so oft, schwache Beute halb so oft. Sie gehören
+ * dir und nicht deiner Linie: Sie bleiben über alle Läufe hinweg (siehe UPGRADES).
  */
 export const SHELLS = {
   /** Wahrscheinlichkeit je erlegtem Tier, das so stark ist wie du */
-  chance: 0.01,
+  chance: 0.1,
   /** das Verhältnis seiner Stärke zu deiner zählt – begrenzt auf diesen Bereich */
   relMin: 0.5,
   relMax: 2,
@@ -153,10 +153,13 @@ export const SHELLS = {
 
 /**
  * Die Segen der großen Muschel im Laichfluss: Dort verteilt man seine Muscheln auf Lebenskraft, Ausdauer und Sicht. Der erste
- * Segen kostet eine Muschel, jeder weitere doppelt so viele wie der vorige – gleich, wofür: 1, 2, 4, 8 … Die Segen gelten für
- * die ganze Linie (über alle Generationen); beginnt eine neue Linie, sind alle Muscheln wieder frei und werden neu verteilt.
+ * Segen kostet eine Muschel, jeder weitere doppelt so viele wie der vorige – gleich, wofür: 1, 2, 4, 8 … bis 512 für den
+ * zehnten (vorerst gibt es höchstens zehn Segen je Linie, zusammen 1023 Muscheln). Die Segen gelten für die ganze Linie (über
+ * alle Generationen); beginnt eine neue Linie, sind alle Muscheln wieder frei und werden neu verteilt.
  */
 export const UPGRADES = {
+  /** so viele Segen gibt es höchstens je Linie (gleich, wofür) */
+  max: 10,
   /** der erste Segen kostet so viele Muscheln … */
   first: 1,
   /** … jeder weitere so viel mal so viele wie der vorige */

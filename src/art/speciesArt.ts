@@ -1342,3 +1342,104 @@ export function preyIcon(scene: Phaser.Scene, def: SpeciesDef, w = 92, h = 36) {
   scene.textures.addCanvas(key, out);
   return key;
 }
+
+/**
+ * Kleine Sinnbilder für die Kost, im Stil der Beute-Sinnbilder (flache Farbtöne, dunkle Kontur): ein Pflänzchen (drei Blätter
+ * an einem Stiel) und ein Stück Fleisch (rot, mit hellem Fettrand und einem Knochenende). Gibt den Schlüssel der Textur zurück.
+ */
+export function dietIcon(scene: Phaser.Scene, kind: 'plant' | 'meat') {
+  // das Fleisch sieht aus wie im Spiel: die Keule mit Knochen (gibt es sie schon, wird sie genommen)
+  if (kind === 'meat' && scene.textures.exists('meat_2')) return 'meat_2';
+  const key = `diet_${kind}`;
+  if (scene.textures.exists(key)) return key;
+  const S = 64;
+  const [c, ctx] = newCanvas(S, S);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  const outline = (draw: () => void, fill: string, w = 3.2) => {
+    draw();
+    ctx.strokeStyle = '#0d0b09';
+    ctx.lineWidth = w;
+    ctx.stroke();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+  if (kind === 'plant') {
+    // ein Keimling: kräftiger Stiel, zwei breite Blätter, oben ein kleines drittes
+    ctx.scale(S / 64, S / 64);
+    ctx.beginPath();
+    ctx.moveTo(32, 60);
+    ctx.quadraticCurveTo(29, 42, 33, 22);
+    ctx.strokeStyle = '#0d0b09';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.strokeStyle = '#5e8a3c';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    const leaf = (x: number, y: number, tx: number, ty: number, wd: number, col: string, vein: string) => {
+      const a = Math.atan2(ty - y, tx - x), nx = -Math.sin(a) * wd, ny = Math.cos(a) * wd;
+      const path = () => {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.bezierCurveTo(x + (tx - x) * 0.3 + nx, y + (ty - y) * 0.3 + ny, x + (tx - x) * 0.8 + nx * 0.6, y + (ty - y) * 0.8 + ny * 0.6, tx, ty);
+        ctx.bezierCurveTo(x + (tx - x) * 0.8 - nx * 0.6, y + (ty - y) * 0.8 - ny * 0.6, x + (tx - x) * 0.3 - nx, y + (ty - y) * 0.3 - ny, x, y);
+        ctx.closePath();
+      };
+      outline(path, col, 4);
+      ctx.beginPath();
+      ctx.moveTo(x + (tx - x) * 0.12, y + (ty - y) * 0.12);
+      ctx.lineTo(x + (tx - x) * 0.82, y + (ty - y) * 0.82);
+      ctx.strokeStyle = vein;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    };
+    leaf(31, 40, 6, 30, 9, '#6f9a48', 'rgba(210,235,170,0.55)');
+    leaf(32, 32, 58, 20, 9, '#82b456', 'rgba(220,240,180,0.6)');
+    leaf(33, 23, 36, 4, 5.5, '#a4cc72', 'rgba(235,248,200,0.6)');
+  } else {
+    ctx.scale(S / 48, S / 48);
+    // Knochenende
+    outline(() => {
+      ctx.beginPath();
+      ctx.ellipse(38, 13, 5.5, 4.5, 0.6, 0, Math.PI * 2);
+      ctx.ellipse(42, 18, 4.5, 4, 0.6, 0, Math.PI * 2);
+    }, '#ece0c4');
+    outline(() => {
+      ctx.beginPath();
+      ctx.moveTo(30, 22);
+      ctx.lineTo(37, 15);
+      ctx.lineTo(40, 18);
+      ctx.lineTo(33, 25);
+      ctx.closePath();
+    }, '#ece0c4', 2.6);
+    // das Fleisch: ein runder, rotbrauner Brocken mit hellem Fettrand
+    outline(() => {
+      ctx.beginPath();
+      ctx.moveTo(8, 30);
+      ctx.bezierCurveTo(6, 18, 18, 12, 28, 17);
+      ctx.bezierCurveTo(37, 21, 38, 33, 31, 39);
+      ctx.bezierCurveTo(23, 45, 10, 42, 8, 30);
+      ctx.closePath();
+    }, '#a8402e');
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(8, 30);
+    ctx.bezierCurveTo(6, 18, 18, 12, 28, 17);
+    ctx.bezierCurveTo(37, 21, 38, 33, 31, 39);
+    ctx.bezierCurveTo(23, 45, 10, 42, 8, 30);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = '#7a2a20';
+    ctx.beginPath();
+    ctx.ellipse(18, 36, 14, 7, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#f0d8c0';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(21, 28, 9, Math.PI * 1.05, Math.PI * 1.75);
+    ctx.stroke();
+    ctx.restore();
+  }
+  scene.textures.addCanvas(key, c);
+  return key;
+}

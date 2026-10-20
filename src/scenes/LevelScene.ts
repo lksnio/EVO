@@ -29,7 +29,7 @@ import { NetSync, netWanted } from '../net/NetSync';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
-import { depthOf, SIGHT } from '../sim/sight';
+import { clearness, depthOf, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -514,7 +514,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
-    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, SIGHT.murk), { x: VX, y: VY, w: VW, h: VH }, DEPTH.cover + 1, VW / 2) : undefined;
+    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, 1), DEPTH.cover + 1, VW / 2) : undefined;
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(0.55);
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
@@ -2050,6 +2050,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (kind === 'meat') this.eatenMeat += units;
     else this.eatenPlant += units;
     game.addEaten(kind, units);
+    // für die Beute in der Übersicht: Grünzeug oder Fleisch, an diesem Ort
+    game.noteFood(kind, units);
     this.useHere(0.4);
   }
 
@@ -2768,15 +2770,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const rot = p.view.rotation;
     // in Szenen mit der Kamera lichtet sich das Wasser (dort soll man sehen, was geschieht)
     // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
-    const water = SIGHT.water[this.place.kind] ?? 1;
-    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, depthOf(p.y - this.L.surfaceY), !!this.cine && !this.cine.released);
+    const water = SIGHT.water[this.place.kind] ?? 1, deep = depthOf(p.y - this.L.surfaceY);
+    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep, !!this.cine && !this.cine.released);
+    // die Fische in der Ferne: In klarem Wasser dicht unter der Oberfläche sieht man sie gut, im Trüben und in der Tiefe kaum
+    if (this.backSea) this.backSea.see += (clearness(water, deep) - this.backSea.see) * Math.min(1, dt * 1.5);
     for (const a of this.animals) {
       if (a.dead) continue;
       const kin = a instanceof Kin;
       const obj: { setAlpha(v: number): unknown } = kin ? a.view : a;
       // wer gerade ein- oder ausgeblendet wird (Durchzügler, Sterbende), bleibt dabei
       if (this.tweens.isTweening(obj)) continue;
-      const c = sg.clarityAt(p.x, p.y, a.x, a.y, Math.min(140, a.displayWidth * 0.35));
+      const c = sg.clarityAt(a.x, a.y, Math.min(140, a.displayWidth * 0.35));
       a.vis = c;
       // ganz in der Trübe: nicht zu sehen; dann ein Umriss, der langsam deutlicher wird
       obj.setAlpha(clamp(c / 0.2, 0, 1));

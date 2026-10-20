@@ -189,11 +189,12 @@ export const GROUPS: Group[] = [
   {
     id: 'muscheln',
     title: 'Muscheln, Segen und Sicht',
-    note: 'Muscheln fallen selten von erlegten Tieren und bleiben über alle Läufe. An der großen Muschel im Laichfluss verteilt man sie je Linie auf Lebenskraft, Ausdauer und Sicht: 1, 2, 4, 8 … Muscheln je Segen.',
+    note: 'Muscheln fallen von erlegten Tieren (10 % bei ebenbürtigen) und bleiben über alle Läufe. An der großen Muschel im Laichfluss verteilt man sie je Linie auf Lebenskraft, Ausdauer und Sicht: 1, 2, 4, 8 … Muscheln je Segen.',
     params: [
       field(SHELLS, 'chance', 'SHELLS.chance', 'Muschel je Tier (Wahrscheinlichkeit)', { step: 0.001, max: 1, hint: 'Für ein Tier, das so stark ist wie du. Stärkere öfter, schwächere seltener (siehe unten).' }),
       field(SHELLS, 'relMin', 'SHELLS.relMin', 'Schwache Beute: höchstens so viel seltener (Faktor)', { step: 0.05, max: 1 }),
       field(SHELLS, 'relMax', 'SHELLS.relMax', 'Starke Beute: höchstens so viel öfter (Faktor)', { step: 0.1, min: 1 }),
+      field(UPGRADES, 'max', 'UPGRADES.max', 'Höchstens so viele Segen je Linie', { min: 0, max: 30 }),
       field(UPGRADES, 'first', 'UPGRADES.first', 'Der erste Segen kostet so viele Muscheln', { min: 1 }),
       field(UPGRADES, 'factor', 'UPGRADES.factor', 'Jeder weitere: so viel mal so viele', { step: 0.1, min: 1, hint: '1 und 2 → 1, 2, 4, 8 … (gleich, wofür)' }),
       field(UPGRADES, 'hp', 'UPGRADES.hp', 'Lebenskraft je Segen (Anteil)', { step: 0.005, max: 1 }),

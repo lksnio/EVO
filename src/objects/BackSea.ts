@@ -196,6 +196,9 @@ export class BackSea {
   }
 
   /** quiet: 0..1 – im stillen Fluss am Start gibt es (noch) keine Fische in der Ferne */
+  /** wie gut man durch das Wasser in die Ferne sieht (0 … 1) – in klarem Wasser dicht unter der Oberfläche gut, sonst kaum */
+  see = 1;
+
   update(time: number, dt: number, deepK: number, quiet = 0) {
     if (!this.enabled) return;
     void time;
@@ -208,7 +211,7 @@ export class BackSea {
     const v = this.view;
     const b = this.band();
     const surfaceScreen = this.surfaceY - cam.scrollY;
-    const fade = (1 - 0.82 * deepK) * (1 - quiet);
+    const fade = (1 - 0.82 * deepK) * (1 - quiet) * this.see;
 
     // ab und zu zieht ein ganz großer Fisch durch die Ferne (nie mehr als einer zugleich)
     this.bigAt -= dt * 1000;
