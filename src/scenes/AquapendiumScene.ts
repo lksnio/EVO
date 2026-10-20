@@ -10,7 +10,7 @@ import { clamp, mulberry32 } from '../util/math';
 import { Button, fadeIn, fadeTo } from '../ui/ui';
 
 // ---------------------------------------------------------------------------
-// Das Aquapendium – ein Buch mit einer Seite für jedes Tier der Urmeere. Außerhalb des Spiels, wie der Stammbaum.
+// Die Chronik des Lebens (im Code noch „Aquapendium“) – ein Buch mit einer Seite für jedes Tier der Urzeit. Außerhalb des Spiels, wie der Stammbaum.
 // Es hat sieben Teile, einen je Zeitalter (oben als Lesezeichen); jeder beginnt mit seinem Inhalt. Links das Bild, rechts der
 // Steckbrief. Teile ruhender Zeitalter ohne Tiere sind noch leer – ihr Inhalt sagt es. Wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen Umriss.
 // Eigene Bilder: PNG/WebP/JPG mit dem Namen der Art (z. B. "pteraspis.png") in src/assets/aquapendium/ ablegen.
@@ -321,8 +321,8 @@ export class AquapendiumScene extends Phaser.Scene {
     const seen = list.filter((e) => game.hasSeen(e.id)).length;
     const n = list.length;
     // linke Seite: das Buch, der Teil und wie viel davon gefunden ist
-    this.head(c, LEFT + PW / 2, PY + 70, 'AQUAPENDIUM', 34, INK_SOFT).setOrigin(0.5).setLetterSpacing(3);
-    this.ink(c, LEFT + PW / 2, PY + 108, 'Das Buch der Urmeere', 20, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.head(c, LEFT + PW / 2, PY + 70, 'CHRONIK DES LEBENS', 32, INK_SOFT).setOrigin(0.5).setLetterSpacing(3);
+    this.ink(c, LEFT + PW / 2, PY + 108, 'Alle Tiere der Urzeit', 20, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     this.rule(c, LEFT + 80, PY + 140, PW - 160);
     this.ink(c, LEFT + PW / 2, PY + 178, `${ORDINAL[k]} TEIL`, 15, INK_RED, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4);
     this.head(c, LEFT + PW / 2, PY + 222, sec.ep.name.toUpperCase(), 46).setOrigin(0.5).setLetterSpacing(4);

@@ -34,7 +34,7 @@ export interface EpochDef {
   name: string;
   /** spielbar: Nur hier kann man ein Leben beginnen – die anderen ruhen noch „im Gestein“ */
   playable?: boolean;
-  /** (noch) nicht zu sehen – weder in der Auswahl noch im Aquapendium oder im Stammbaum (Daten für später) */
+  /** (noch) nicht zu sehen – weder in der Auswahl noch in der Chronik des Lebens oder im Stammbaum (Daten für später) */
   hidden?: boolean;
   /** eine Zeile in der Auswahl der Zeitalter */
   tagline: string;
@@ -174,7 +174,7 @@ export const EPOCHS: EpochDef[] = [
   },
 ];
 
-/** Die Zeitalter, die man sieht (Auswahl, Aquapendium, Stammbaum) – in der Reihenfolge der Erdgeschichte, mit ihrer Nummer. */
+/** Die Zeitalter, die man sieht (Auswahl, Chronik des Lebens, Stammbaum) – in der Reihenfolge der Erdgeschichte, mit ihrer Nummer. */
 export const ERAS: { i: number; ep: EpochDef }[] = EPOCHS.map((ep, i) => ({ i, ep })).filter((e) => !e.ep.hidden);
 
 /** Kann man in diesem Zeitalter (Nummer) leben? */

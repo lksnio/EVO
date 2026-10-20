@@ -1261,7 +1261,7 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   });
 }
 
-/** Ein Tier groß und scharf gemalt – für die Seiten des Aquapendiums. Gibt den Schlüssel der Textur zurück. */
+/** Ein Tier groß und scharf gemalt – für die Seiten der Chronik des Lebens. Gibt den Schlüssel der Textur zurück. */
 export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target = 430) {
   const key = `aqp_${def.id}`;
   if (scene.textures.exists(key)) return key;

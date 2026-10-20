@@ -28,7 +28,7 @@ export class HudScene extends Phaser.Scene {
   private hurtV!: Phaser.GameObjects.Image;
   private edgeV!: Phaser.GameObjects.Image;
   private hideV!: Phaser.GameObjects.Image;
-  /** Neuer Aquapendium-Eintrag (oder eine Meldung zum Leben): ein schmales Schild oben links, das sanft einblendet */
+  /** Neuer Eintrag in der Chronik (oder eine Meldung zum Leben): ein schmales Schild oben links, das sanft einblendet */
   private dexC!: Phaser.GameObjects.Container;
   private dexGlow!: Phaser.GameObjects.Image;
   private dexQueue: { head: string; name: string }[] = [];
@@ -113,7 +113,7 @@ export class HudScene extends Phaser.Scene {
     this.spawnTimeUi();
     this.lifeFrac = game.run ? game.life.age / phases(game.life.gen).span : 0;
     this.drawFuse();
-    // Ein neues Tier im Aquapendium: ein kleines Schild oben links
+    // Ein neues Tier in der Chronik des Lebens: ein kleines Schild oben links
     this.dexQueue = [];
     this.cineOn = false;
     this.dexBusy = false;
@@ -190,7 +190,7 @@ export class HudScene extends Phaser.Scene {
     const onBoss = (name: string, f: number) => this.drawBoss(name, f);
     const onShell = () => this.updateGlow();
     const onDex = (ids: string[]) => {
-      for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEUER AQUAPENDIUM-EINTRAG', name: SPECIES[id].name });
+      for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEU IN DER CHRONIK DES LEBENS', name: SPECIES[id].name });
       this.nextDex();
     };
     bus.on('dex', onDex);
@@ -208,7 +208,7 @@ export class HudScene extends Phaser.Scene {
       this.cineOn = on;
       this.tweens.add({ targets: bars[0], y: on ? 0 : -barH, duration: 900, ease: 'Sine.inOut' });
       this.tweens.add({ targets: bars[1], y: on ? H - barH : H, duration: 900, ease: 'Sine.inOut' });
-      // neue Aquapendium-Einträge warten, bis die Balken wieder weg sind
+      // neue Einträge der Chronik warten, bis die Balken wieder weg sind
       if (!on) this.time.delayedCall(900, () => this.nextDex());
     };
     bus.on('cine', onCine);
@@ -371,7 +371,7 @@ export class HudScene extends Phaser.Scene {
     this.events.once('shutdown', () => bus.off('swarm', show));
   }
 
-  /** Der laufende Auftrag: Titel, Ziel und Fortschritt in einem Schild oben links (wie die Aquapendium-Einträge). */
+  /** Der laufende Auftrag: Titel, Ziel und Fortschritt in einem Schild oben links (wie die Einträge der Chronik). */
   private questUi() {
     const c = this.add.container(22, 100).setAlpha(0).setDepth(7);
     let shown = false;
@@ -482,8 +482,8 @@ export class HudScene extends Phaser.Scene {
   }
 
   /**
-   * Ein neuer Eintrag im Aquapendium: Ein schmales Schild gleitet oben links herein – dunkle Fläche, feine ochrefarbene Linien,
-   * links eine kleine Ammonitenspirale, daneben in kleinen Buchstaben „Neuer Aquapendium-Eintrag“ und darunter der Name.
+   * Ein neuer Eintrag in der Chronik des Lebens: Ein schmales Schild gleitet oben links herein – dunkle Fläche, feine ochrefarbene Linien,
+   * links eine kleine Ammonitenspirale, daneben in kleinen Buchstaben „Neu in der Chronik des Lebens“ und darunter der Name.
    * Mehrere Einträge kommen nacheinander.
    */
   private nextDex() {

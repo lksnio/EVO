@@ -15,19 +15,24 @@ sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere ble
 steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
 Gespielt wird in **sieben Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Devon**, **Karbon**,
 **Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** – jedes ist eine eigene Welt mit eigener Linie, eigenem
-Stammbaum und eigenem Teil im Aquapendium; im Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben.
+Stammbaum-Ast und eigenem Teil in der Chronik des Lebens; im Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben.
 Spielbar ist vorerst nur das **Devon** – dort beginnt jedes Leben; die anderen ruhen noch „im Gestein“ (siehe
 [Zeitalter wählen](#zeitalter-wählen)).
 
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
+**Das Logo** spielt mit dem Namen: **EVO** und **L¡VING** stehen auf einer Höhe, darunter weit gesperrt **WORLD** zwischen
+zwei feinen Linien. Das i in LIVING steht **auf dem Kopf** – oben der Schaft, unten sein Punkt als kleine, leise glimmende
+Raute –, so liest man beides: *EVO LIVING WORLD* und *EVOLVING WORLD*. Das Logo atmet sich beim Start ins Bild, ab und zu
+streicht ein Glanz über die Buchstaben (gezeichnet in `drawLogo` in `src/scenes/TitleScene.ts`).
+
 **Das Titelbild** zeigt eine Höhle am Grund des Urmeers: Rechts liegt das **versteinerte Skelett eines Urfisches** im
 Sand, nach links läuft das Bild weich ins Dunkel aus – dort stehen Titel und Menü (Pfeiltasten und Eingabe oder die Maus).
 Von oben fällt ein **Lichtstrahl** herein und malt ein Lichtnetz auf den Grund, Schwebeteilchen treiben, aus einer Spalte
 steigen Blasen, vorn wiegen sich Algen, in der Ferne zieht ab und zu ein Schwarm vorbei. Ganz langsam kommt die Kamera
 näher und weicht wieder zurück. Das Menü: **Weiterleben**, **Zeitalter** (für das erste Leben „Leben beginnen“),
-**Stammbaum**, **Aquapendium**, **Steuerung** – die angewählte Zeile leuchtet warm auf, rückt ein, davor erscheint eine feine
+**Stammbaum**, **Chronik des Lebens**, **Steuerung** – die angewählte Zeile leuchtet warm auf, rückt ein, davor erscheint eine feine
 Linie mit einer kleinen Raute, und ein Glanz streicht einmal über die Buchstaben. Unten links stehen das gewählte Zeitalter
 und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie und ihre Generation (das Bild:
 `src/assets/title/fossil.webp`).
@@ -50,8 +55,8 @@ Ammonit für „noch im Gestein“). Wer mit der Maus auf ein anderes Bild fähr
   **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die jetzige endet dann). Wer aufbricht, hört einen tiefen Sog
   und einen weiten Chor, das Bild öffnet sich ganz, und man taucht hinein.
 - **II · Karbon** – *Die Kohlewälder*: Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
-  den Stämmen hindurch und atmen dabei, fahles Licht fällt schräg herein, Sporen treiben, das stille Wasser glänzt matt –
-  und eine **Riesenlibelle** schwirrt in trägen Schleifen durchs Bild.
+  den Stämmen hindurch und atmen dabei, fahles Licht fällt schräg herein, Sporen treiben, das stille Wasser glänzt matt
+  (die Riesenlibelle des Bildes bleibt, wo sie ist).
 - **III · Perm** – *Das Reich der Segelrücken*: Hinter den Palmfarnen **glüht die Sonne im Dunst**, warme Strahlen fallen
   schräg, goldener Staub steigt auf, ein Dunstband zieht am Horizont, vorn **wiegt sich ein Farn** im Wind, in der Ferne
   eine Libelle.
@@ -351,7 +356,8 @@ Zeitalter mit `playable: true`.
   wer sich versteckt, fällt nur aus nächster Nähe auf), **werden sie aggressiv** und greifen dich an. Lässt du den Laich in
   Ruhe, **schlüpft** der der Beute- und Wächterarten mit der Zeit zu kleinen Jungtieren. Die Eltern der großen Räuber bleiben
   seltener bei ihrem Gelege.
-- **Das Aquapendium** (im Titelbild, wie der Stammbaum): ein **Buch** mit einer Seite für **jedes Tier** der Urmeere, in
+- **Die Chronik des Lebens** (früher „Aquapendium“ – es sind ja nicht nur Meerestiere; im Titelbild, wie der Stammbaum):
+  ein **Buch** mit einer Seite für **jedes Tier** der Urzeit, in
   **sieben Teilen – einer je Zeitalter** (Devon 30, Kreidezeit 15 Tiere; wer in mehreren Zeitaltern lebt, steht in jedem
   Teil). Oben am Buch stecken sieben **Lesezeichen** (das des aufgeschlagenen Teils ist hell wie das Pergament; ein Klick
   darauf führt zu seinem Inhalt, das Haus-Zeichen oben links zurück zum Titelbild); jeder Teil beginnt mit seinem Inhalt
@@ -363,12 +369,13 @@ Zeitalter mit `playable: true`.
   (Lebenskraft, Biss, Stärke, Tempo, Sinne), dazu ein paar Sätze zum echten Tier. **Alle Seiten sind von Anfang an da** –
   Tiere, die du noch nie gesehen hast, zeigen nur ihren **schwarzen Umriss** und Fragezeichen. Sobald du einem neuen Tier **nah genug** kommst, wird seine Seite gefüllt – oben links gleitet ein schmales
   **Schild** herein (dunkle Fläche, feine ochrefarbene Linien, ein Ammonit im Ring, darunter in kleinen Buchstaben
-  „NEUER AQUAPENDIUM-EINTRAG“ und der Name des Tieres), das Zeichen leuchtet kurz auf, dazu ein leises Rascheln und zwei
+  „NEU IN DER CHRONIK DES LEBENS“ und der Name des Tieres), das Zeichen leuchtet kurz auf, dazu ein leises Rascheln und zwei
   zarte Töne. Kommen mehrere Einträge zusammen, erscheinen sie nacheinander. Das bleibt über alle Leben erhalten. Blättern mit
   ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen) – durch alle Teile hindurch; **1 bis 7**, **Tab** oder die
   Lesezeichen springen zu einem Teil, **I** zum Inhalt des aufgeschlagenen, Esc zurück.
   Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
-  usw. nach `src/assets/aquapendium/` (siehe dort die README) und werden automatisch eingebunden. Größen und Zeiten der
+  usw. nach `src/assets/aquapendium/` (siehe dort die README; im Code heißt die Chronik weiter „Aquapendium“) und werden
+  automatisch eingebunden. Größen und Zeiten der
   Urtiere sind grobe Näherungen.
 - **Wachsen von Generation zu Generation:** Im Leben wächst dein Tier nur heran (und altert); die **Art** verändert sich
   erst beim **Generationswechsel** – sanft, **nie zu stark** auf einmal, und die Merkmale bauen über viele Generationen
@@ -522,32 +529,41 @@ Zeitalter mit `playable: true`.
   die Fähigkeiten der Art verändern sich **nur beim Generationswechsel** – im Leben wächst das Tier nur heran.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
-- **Keine Spoiler:** Zeitalter, die noch ruhen, zeigen im Stammbaum nur ihren Urahn – im Gestein.
+- **Keine Spoiler:** Zeitalter, die noch ruhen, zeigen im Stammbaum nur ihren ausgegrauten Ast – im Gestein.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
 Zeitalters, „vor 382.438.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
 Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Oben links erscheinen wenige, kurze Meldungen zum
 Leben (Laichzeit, Gelege abgelegt bzw. befruchtet). **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
 wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
-nicht – was man über ein Tier wissen will, steht im Aquapendium. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung und Verstecktsein zeigen sich am Bildrand,
+nicht – was man über ein Tier wissen will, steht in der Chronik des Lebens. Nur wenn die Kraft schwindet, erscheint kurz ein dünner Balken am Fisch. Verletzung und Verstecktsein zeigen sich am Bildrand,
 am Herzschlag und am Tier selbst. Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
 
-**Jedes Zeitalter hat seinen eigenen Baum.** Alle Linien eines Zeitalters beginnen bei seinem **Urahn** und wachsen nach
-unten – **Generation für Generation** (links stehen die Generationen). Wo sich eine Linie zu einer **neuen Art** entwickelt
-(eine andere Richtung, eine andere Kost, eine Farbe), teilt sich der Ast; Linien, die sich gleichen, teilen ihn sich.
-Ausgestorbene Zweige enden mit einem Schädel (mit Ursache und Generation), die **lebende Linie leuchtet** an ihrem Ende, und
-entlang deines Weges schwimmen kleine Porträts. Der Baum ist vorher nicht festgelegt, er entsteht nur durch das Spielen.
+**Ein Baum für alle sieben Zeitalter – und er zeigt nur deine jetzige Linie.** Von oben nach unten läuft die Zeit am
+**Stamm** entlang (davor und danach läuft er gestrichelt aus: Das Leben ging vorher schon weiter und geht danach weiter).
+Am Stamm sitzen sieben kleine Rauten, je Zeitalter eine, daneben Nummer, Name und Zeitraum („I · DEVON, vor 419–359 Mio.
+Jahren“). Von jeder Raute geht ein **Ast** ab – **versetzt wie die Stäbe eines Fächers**: Das Devon setzt ganz oben an und
+zeigt weit nach links, jedes spätere Zeitalter setzt ein Stück tiefer an und zeigt steiler nach unten, das Paläogen schon
+nach rechts unten.
 
-Oben läuft der **Zeitstrom** der Erdgeschichte – vor 424 bis vor 18 Millionen Jahren, darin lückenlos die sieben
-Zeitalter als Fenster nach ihrem echten Zeitraum (hell das spielbare, leise die ruhenden; anklicken oder ← → wechselt den
-Baum); vom gewählten Fenster
-führen zwei feine Linien hinunter zum Baum, und in den Urahn läuft von oben ein gestrichelter Stamm: Jeder Baum ist ein
-**Ausschnitt aus dem einen großen Baum des Lebens**. Ruhende Zeitalter zeigen nur ihren Urahn – im Gestein. Rechts die
-Tafel zum gewählten Knoten und **Weiterleben** bzw. **Leben beginnen** im gezeigten Zeitalter.
-Oben rechts im Stammbaum lässt er sich zurücksetzen (zweimal klicken – das löscht alle Äste und das laufende Spiel).
+**Dein Weg** ist ein heller Strang auf seinem Ast: vom Urahn am Stamm bis zu deiner jetzigen Generation, die am Ende
+leuchtet (dort schwimmt dein Tier). Mit jeder Generation wird er länger (zwölf Generationen füllen den halben Ast; länger
+als sein Ast wird er nie). Wo deine Linie eine **neue Art** wurde, sitzt ein Knoten mit einem kleinen Bild der Art. Was
+(noch) nicht gespielt ist, steht **ausgegraut** da – die Äste gepunktet bis an ihr Ende: die Möglichkeit des Fächers.
+Zwischen und neben den Ästen **verzweigen sich leise die übrigen Linien des Lebens** – feine Zweige vom Stamm und von jedem
+Ast: Alles ist ein Baum.
+
+**Generationen und Arten stehen rechts**, sobald man etwas berührt (Maus oder ← →): ein Abschnitt des Strangs zeigt seine
+Art und „Generation 4 bis 7 · 4 Generationen im Devon“, das leuchtende Ende „Deine Linie lebt · Generation 10“, der Ansatz
+am Stamm den Urahn, ein leerer Ast sein Zeitalter (Zeitraum, „noch im Gestein“).
+
+**Stirbt deine Linie aus,** siehst du nach der Meldung noch einmal ihren Strang mit dem Schädel am Ende – dann zerfällt er
+von seinem Ende her zu Staub, und übrig bleibt nur der **Urahn**: Mit ihm beginnt das nächste Leben (vorerst; die alten
+Äste bleiben im Spielstand gespeichert, werden aber nicht mehr gezeigt). Rechts unten **Weiterleben** bzw. **Leben
+beginnen**, oben rechts lässt sich alles zurücksetzen (zweimal klicken).
 
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
@@ -666,7 +682,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | M | Ton an/aus |
 
 **In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
-**Im Stammbaum:** ← → wechselt das Zeitalter. **Im Aquapendium:** 1 bis 7 oder Tab wechseln den Teil.
+**Im Stammbaum:** ← → geht von Knoten zu Knoten. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.
 
 **Auf der Karte:** Pfeiltasten (oder die Schwimmtasten der Belegung, oder antippen) wählen ein anderes Ziel, Eingabe,
 Leertaste, Beißen oder Ansprechen schwimmt los, die Übersicht-Taste öffnet die Übersicht, Esc (oder die Rast-Taste) die
@@ -871,8 +887,8 @@ src/
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Aquapendium, Demo-Ende
-tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Zeitalter (Linien, Stammbäume, Aquapendium), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```

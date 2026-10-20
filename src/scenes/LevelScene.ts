@@ -1504,7 +1504,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Aus der Liste nehmen – ohne die Liste zu ersetzen (die Kollision hängt an genau diesem Array). */
-  /** Tiere, denen man nahe kommt, bekommen ihre Seite im Aquapendium. */
+  /** Tiere, denen man nahe kommt, bekommen ihre Seite in der Chronik des Lebens. */
   private spotStep(time: number) {
     if (time < this.spotAt) return;
     this.spotAt = time + 500;

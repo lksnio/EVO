@@ -3,7 +3,7 @@ import { SPECIES, type Role, type SpeciesDef } from './species';
 import type { PlaceKind } from './world';
 
 // ---------------------------------------------------------------------------
-// Das Aquapendium: ein Buch mit einer Seite für jedes Tier der Urmeere, in sieben Teilen – einer je Zeitalter (Devon bis
+// Die Chronik des Lebens (im Code „Chronik des Lebens“): ein Buch mit einer Seite für jedes Tier der Urmeere, in sieben Teilen – einer je Zeitalter (Devon bis
 // Paläogen; Teile ruhender Zeitalter, deren Tiere noch fehlen, sind leer). Alle Seiten gibt es von Anfang an – wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen
 // Umriss. Hier stehen die Angaben zu jedem Tier: wie es in der
 // Wirklichkeit hieß, wie groß es etwa war und wann es lebte, dazu ein paar Worte. Die Werte (Lebenskraft, Biss …) sind

@@ -20,7 +20,7 @@ import kreideUrl from '../assets/eras/kreide.webp';
 // Die Wahl des Zeitalters: sieben Bilder nebeneinander, so hoch wie der Bildschirm – das gewählte öffnet sich weit, die
 // anderen bleiben schmale Streifen (wie Buchrücken: Name senkrecht, oben der Zeitraum, unten die Nummer). Jedes Bild lebt:
 // Im Meer fällt Licht von oben, ein Lichtnetz spielt am Grund, ein Schwarm zieht vorbei; im Kohlesumpf treiben Nebelbänke
-// und Sporen, eine Riesenlibelle schwirrt; im Perm glüht die Sonne im Dunst, goldener Staub steigt, ein Farn wiegt sich.
+// und Sporen (die Libelle gehört dort zum Bild); im Perm glüht die Sonne im Dunst, goldener Staub steigt, ein Farn wiegt sich.
 // Zeitalter, in denen man noch nicht leben kann, ruhen „im Gestein“: grau, mit feinen Rissen – angewählt kehrt etwas Farbe
 // zurück, und Licht streicht über den Stein. Wo das Bild noch fehlt, steht eine dunkle Steintafel mit einem eingemeißelten
 // Fossil, und in ihren Rissen glimmt es: Bald bricht sie auf.
@@ -60,7 +60,7 @@ interface Look {
 
 const LOOK: Record<string, Look> = {
   devon: { kind: 'water', url: devonUrl, focus: [0.7, 0.56], light: 0.22, tilt: 0.2, tint: 0xcfe6ff, floor: 0.74, school: 'moythomasia', schoolY: 0.12, schoolTint: 0x24476a },
-  karbon: { kind: 'swamp', url: karbonUrl, focus: [0.66, 0.55], light: 0.36, tilt: 0.12, tint: 0xe6f2d4, mist: [0.27, 0.43, 0.56, 0.8], fly: [0.7, 0.2, 1.05] },
+  karbon: { kind: 'swamp', url: karbonUrl, focus: [0.66, 0.55], light: 0.36, tilt: 0.12, tint: 0xe6f2d4, mist: [0.27, 0.43, 0.56, 0.8] },
   perm: { kind: 'land', url: permUrl, focus: [0.36, 0.42], light: 0.6, tilt: 0.5, tint: 0xffdcaa, mist: [0.36, 0.52], sun: [0.58, 0.2], fly: [0.3, 0.14, 0.62] },
   trias: { kind: 'stone', focus: [0.5, 0.5], light: 0.4, tilt: 0.2, tint: 0xffd9a8, relic: 'ammonit' },
   jura: { kind: 'stone', focus: [0.46, 0.5], light: 0.4, tilt: 0.2, tint: 0xffd9a8, relic: 'elasmosaurus' },
@@ -643,7 +643,7 @@ export class EraScene extends Phaser.Scene {
     }
   }
 
-  /** Der Kohlesumpf: Nebel zieht zwischen den Stämmen, Sporen treiben im fahlen Licht, das Wasser glänzt. */
+  /** Der Kohlesumpf: Nebel zieht zwischen den Stämmen, Sporen treiben im fahlen Licht, das Wasser glänzt (die Libelle im Bild bleibt still). */
   private swamp(p: Panel, add: <T extends Phaser.GameObjects.GameObject>(o: T) => T) {
     const L = p.look;
     this.rays(p, add, p.ox + p.dw * L.light, p.top - 20, p.dh * 0.8, 0.7);

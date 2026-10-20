@@ -412,7 +412,7 @@ export interface SaveData {
   lastEnd: string | null;
   /** tiefstes je erreichte Zeitalter – was darunter liegt, bleibt ein Fragezeichen */
   deepest: number;
-  /** Tiere, die man schon gesehen hat (Aquapendium) */
+  /** Tiere, die man schon gesehen hat (Chronik des Lebens) */
   seen: string[];
   /** das gewählte Zeitalter (dort lebt die laufende Linie bzw. beginnt die nächste) */
   epoch?: number;
@@ -1659,7 +1659,7 @@ class GameState {
     return out;
   }
 
-  /** Ein Tier ist dir begegnet: Es bekommt seine Seite im Aquapendium. Gibt true zurück, wenn es neu war. */
+  /** Ein Tier ist dir begegnet: Es bekommt seine Seite in der Chronik des Lebens. Gibt true zurück, wenn es neu war. */
   markSeen(id: string) {
     if (this.data.seen.includes(id)) return false;
     this.data.seen.push(id);
