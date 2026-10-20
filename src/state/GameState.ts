@@ -1590,9 +1590,9 @@ class GameState {
     return this.r.blessings ?? 0;
   }
 
-  /** So viele Muscheln braucht der nächste Segen (16, 256, 4096 …). */
+  /** So viele Muscheln braucht der nächste Segen (8, 16, 32, 64 …). */
   get nextBlessing() {
-    return Math.pow(SHELLS.base, this.blessings + 1);
+    return nextBlessing(this.blessings);
   }
 
   /** Genug Muscheln für den nächsten Segen – und noch Platz für mehr Ausdauer? */
@@ -1722,4 +1722,9 @@ export function staminaMax(blessings: number) {
  */
 export function shellChance(rel: number) {
   return SHELLS.chance * clamp(rel, SHELLS.relMin, SHELLS.relMax);
+}
+
+/** So viele Muscheln braucht der Segen nach so vielen Segen: 8, 16, 32, 64 … */
+export function nextBlessing(blessings: number) {
+  return Math.round(SHELLS.first * Math.pow(SHELLS.factor, Math.max(0, blessings)));
 }

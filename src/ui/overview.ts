@@ -170,9 +170,9 @@ export class Overview {
   }
 }
 
-/** „1 Kreis“, „1½ Kreise“, „2 Kreise“ … */
+/** „1 Kreis“, „1¼ Kreise“, „1½ Kreise“, „2 Kreise“ … */
 function circles(n: number) {
-  const whole = Math.floor(n + 1e-6), half = n - whole > 0.25;
-  const s = `${whole || ''}${half ? '½' : ''}` || '0';
+  const whole = Math.floor(n + 1e-6), part = Math.round((n - whole) * 4);
+  const s = `${whole || ''}${['', '¼', '½', '¾'][part] ?? ''}` || '0';
   return `${s} ${n === 1 ? 'Kreis' : 'Kreise'}`;
 }

@@ -396,8 +396,9 @@ Zeitalter mit `playable: true`.
   Uhrzeigersinn von zwölf Uhr aus, füllt sich kurz danach wieder, leuchtet auf, wenn er voll ist, und blendet aus. Wird es
   knapp, **blinkt** er rot. Ist er ganz leer, ist dein Tier **erschöpft**: Der Kreis wird **rot**, es geht nur noch lahm
   voran, ohne Spurt und Stoß – erst wenn er sich (rot) **ganz** gefüllt hat, ist es vorbei. Jedes Tier hat **einen Kreis**;
-  **mehr Ausdauer gibt es nur von der großen Muschel** (siehe unten): Jeder Segen legt außen einen weiteren Ring an (ein
-  halber Kreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. **Wie schnell** die Ausdauer
+  **mehr Ausdauer gibt es nur von der großen Muschel** (siehe unten): Jeder Segen legt außen ein Stück Ring an (ein
+  Viertelkreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. Der Kreis ist klein und dezent –
+  ein schmaler, leicht durchscheinender Ring dicht neben dem Tier. **Wie schnell** die Ausdauer
   schwindet, hängt am Körper: Schwere, gepanzerte Tiere und starke Kiefer ermüden schneller, schlanke Verfolger halten länger
   durch (ein Kreis reicht bei normalem Körperbau drei Sekunden Spurt). Beim normalen Schwimmen füllt sich der Kreis nur
   langsam; **ausruhen** geht schneller: nichts tun und sich **vom Wasser treiben lassen** (man steht dabei nie ganz still,
@@ -414,12 +415,12 @@ Zeitalter mit `playable: true`.
   Muscheln gehören zu deiner **Linie** (sie überdauern die Generationen, nicht das Aussterben).
 - **Die große Muschel – beten:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige Fächermuschel**,
   perlmuttfarben, mit einer leise glühenden **Perle** davor, Lichtfunken steigen auf, von oben fällt ein Lichtschacht. Wer
-  davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), **betet**: Hat deine Linie genug Muscheln – **16, dann 256,
-  dann 4096** … (Potenzen von 16, logarithmisch) –, **segnet** sie dich: Ein Chor schwillt an, Lichtfunken strömen von der
+  davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), **betet**: Hat deine Linie genug Muscheln – **8, dann 16,
+  32, 64** … (jedes Mal doppelt so viele) –, **segnet** sie dich: Ein Chor schwillt an, Lichtfunken strömen von der
   Perle in dein Tier, Ringe aus Licht gehen von ihr aus, und **dein Ausdauerkreis wächst** sichtbar um ein Stück. Die
   Muscheln bleiben dabei (es zählt, wie viele man hat). Ist ein Segen bereit, **ruft** die Perle: Alle paar Sekunden geht
-  ein Ring aus Licht von ihr aus. Reicht es noch nicht, **schweigt** sie (ein leiser, hohler Ton – „15 von 16 Muscheln für
-  den nächsten Segen“). Alle Zahlen stehen in `SHELLS` und `STAMINA` (`src/data/life.ts`) und in der
+  ein Ring aus Licht von ihr aus. Reicht es noch nicht, **schweigt** sie (ein leiser, hohler Ton – „7 von 8 Muscheln für
+  den nächsten Segen“). Nach acht Segen (bei 1024 Muscheln) hat dein Tier drei Kreise – mehr gibt es nicht. Alle Zahlen stehen in `SHELLS` und `STAMINA` (`src/data/life.ts`) und in der
   [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln und Ausdauer“); die Muschel in `src/objects/Shrine.ts`.
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
   mehr Schaden an** – zwei, drei Treffer können reichen. Dafür wehren sie sich **sichtbar**: Sie
@@ -931,9 +932,10 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
       Räuber-Ereignisse und der Herrscher bleiben draußen.
 - [ ] **Muscheln und Segen:** Muscheln gehören zur Linie – sie überdauern die Generationen, gehen aber mit dem Aussterben
-      verloren (wie alles andere). Beim Beten werden sie nicht verbraucht; es zählt, wie viele man hat (16, 256, 4096 …). Die
-      Chance richtet sich nach der Stärke der Beute im Vergleich zu dir (1 % ebenbürtig, bis 2 % bei doppelt so starker,
-      0,5 % bei schwacher). Bei 1 % braucht der erste Segen grob 1000 bis 1600 erlegte Tiere – bitte beim Spielen ansehen.
+      verloren (wie alles andere). Beim Beten werden sie nicht verbraucht; es zählt, wie viele man hat (8, 16, 32, 64 …).
+      Jeder Segen gibt einen Viertelkreis. Die Chance richtet sich nach der Stärke der Beute im Vergleich zu dir (1 %
+      ebenbürtig, bis 2 % bei doppelt so starker, 0,5 % bei schwacher). Bei 1 % braucht der erste Segen grob 500 bis 800
+      erlegte Tiere – bitte beim Spielen ansehen.
 - [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.

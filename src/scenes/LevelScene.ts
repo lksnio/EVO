@@ -1909,13 +1909,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.stamA < 0.02) return;
     // gleich groß auf dem Bildschirm, egal wie nah die Kamera ist
     const z = this.cameras.main.zoom;
-    const R = 13 / z, T = 6 / z, gap = 3 / z;
-    const cx = p.x + p.rect.width / 2 + 22 / z, cy = p.y - p.rect.height / 2 - 16 / z;
-    const a = this.stamA, top = -Math.PI / 2;
+    // klein und dezent: ein schmaler Ring, etwas durchscheinend
+    const R = 8.5 / z, T = 3.4 / z, gap = 2 / z;
+    const cx = p.x + p.rect.width / 2 + 16 / z, cy = p.y - p.rect.height / 2 - 10 / z;
+    const a = this.stamA * 0.85, top = -Math.PI / 2;
     const low = !p.exhausted && v / max < 0.25;
     const blink = low && Math.floor(now / 160) % 2 === 0;
-    const col = p.exhausted ? 0xd9402e : blink ? 0xf05a3c : 0x6edb4e;
-    const lite = p.exhausted ? 0xff8a6a : 0xc4ff9a;
+    const col = p.exhausted ? 0xcf4a36 : blink ? 0xe2604a : 0x84d465;
+    const lite = p.exhausted ? 0xff9a7e : 0xd6ffbc;
     const arc = (r: number, f: number, w: number, c: number, al: number) => {
       if (f <= 0.001) return;
       g.lineStyle(w, c, al);
@@ -1923,29 +1924,29 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       g.arc(cx, cy, r, top, top + Math.PI * 2 * Math.min(1, f), false);
       g.strokePath();
     };
-    const pulse = 1 + this.stamPulse * 0.25;
+    const pulse = 1 + this.stamPulse * 0.18;
     for (let k = 0; k < 3; k++) {
       const cap = clamp(this.stamMax - k, 0, 1);
       if (cap <= 0) break;
       const r = (R + k * (T + gap)) * (k === 0 ? pulse : 1);
       const f = clamp(v - k, 0, cap);
       // die Spur: dunkel, mit feinem Rand
-      arc(r, cap, T + 2.4 / z, 0x050806, 0.6 * a);
-      arc(r, cap, T, 0x1c2a1a, 0.55 * a);
-      // die Füllung, innen ein heller Glanz
-      arc(r, f, T, col, 0.95 * a);
-      arc(r - T * 0.22, f, T * 0.28, lite, 0.45 * a);
+      arc(r, cap, T + 1.6 / z, 0x050806, 0.45 * a);
+      arc(r, cap, T, 0x1c2a1a, 0.4 * a);
+      // die Füllung, innen ein feiner heller Glanz
+      arc(r, f, T, col, 0.85 * a);
+      arc(r - T * 0.2, f, T * 0.25, lite, 0.3 * a);
       // außen: die Stücke der Segen als feine Kerben
       if (k > 0) {
         for (let s = STAMINA.perBlessing; s < cap - 0.01; s += STAMINA.perBlessing) {
           const ang = top + Math.PI * 2 * s;
-          g.lineStyle(1.6 / z, 0x050806, 0.8 * a);
+          g.lineStyle(1.2 / z, 0x050806, 0.7 * a);
           g.lineBetween(cx + Math.cos(ang) * (r - T / 2), cy + Math.sin(ang) * (r - T / 2), cx + Math.cos(ang) * (r + T / 2), cy + Math.sin(ang) * (r + T / 2));
         }
       }
     }
     // eben voll geworden: ein heller Ring, der kurz aufleuchtet
-    if (this.stamPulse > 0) arc(R * pulse, 1, T * 0.6, 0xf2ffe0, this.stamPulse * 0.8 * a);
+    if (this.stamPulse > 0) arc(R * pulse, 1, T * 0.6, 0xf2ffe0, this.stamPulse * 0.6 * a);
   }
 
   /** Jemand frisst am Gelege: Eltern, die es mitbekommen, greifen an. */

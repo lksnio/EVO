@@ -188,12 +188,13 @@ export const GROUPS: Group[] = [
   {
     id: 'muscheln',
     title: 'Muscheln und Ausdauer',
-    note: 'Muscheln fallen selten von erlegten Tieren. Bei 16, 256, 4096 … Muscheln segnet die große Muschel im Laichfluss: mehr Ausdauer.',
+    note: 'Muscheln fallen selten von erlegten Tieren. Bei 8, 16, 32, 64 … Muscheln segnet die große Muschel im Laichfluss: mehr Ausdauer.',
     params: [
       field(SHELLS, 'chance', 'SHELLS.chance', 'Muschel je Tier (Wahrscheinlichkeit)', { step: 0.001, max: 1, hint: 'Für ein Tier, das so stark ist wie du. Stärkere öfter, schwächere seltener (siehe unten).' }),
       field(SHELLS, 'relMin', 'SHELLS.relMin', 'Schwache Beute: höchstens so viel seltener (Faktor)', { step: 0.05, max: 1 }),
       field(SHELLS, 'relMax', 'SHELLS.relMax', 'Starke Beute: höchstens so viel öfter (Faktor)', { step: 0.1, min: 1 }),
-      field(SHELLS, 'base', 'SHELLS.base', 'Segen bei Muscheln (hoch 1, 2, 3 …)', { min: 2, hint: '16 → 16, 256, 4096 …; 10 → 10, 100, 1000 …' }),
+      field(SHELLS, 'first', 'SHELLS.first', 'Erster Segen bei so vielen Muscheln', { min: 1 }),
+      field(SHELLS, 'factor', 'SHELLS.factor', 'Jeder weitere Segen: so viel mal so viele', { step: 0.1, min: 1, hint: '8 und 2 → 8, 16, 32, 64 …' }),
       field(STAMINA, 'perBlessing', 'STAMINA.perBlessing', 'Ein Segen gibt (Anteil eines Kreises)', { step: 0.05, max: 2 }),
       field(STAMINA, 'max', 'STAMINA.max', 'Höchstens so viele Kreise', { min: 1, max: 3 }),
       field(STAMINA, 'sprint', 'STAMINA.sprint', 'Ein Kreis reicht für so viele Sekunden Spurt', { step: 0.1, min: 0.5 }),

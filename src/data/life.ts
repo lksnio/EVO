@@ -148,8 +148,10 @@ export const SHELLS = {
   /** das Verhältnis seiner Stärke zu deiner zählt – begrenzt auf diesen Bereich */
   relMin: 0.5,
   relMax: 2,
-  /** die Schwellen für den Segen: 16, 256, 4096 … Muscheln (Potenzen dieser Zahl) */
-  base: 16,
+  /** die Schwellen für den Segen: Der erste kommt bei so vielen Muscheln … */
+  first: 8,
+  /** … jeder weitere bei so viel mal so vielen: 8, 16, 32, 64 … */
+  factor: 2,
 };
 
 /**
@@ -157,8 +159,8 @@ export const SHELLS = {
  * gibt ein Stück dazu (außen ein weiterer Ring). Wie schnell sie schwindet, hängt am Körper (schwere Tiere ermüden schneller).
  */
 export const STAMINA = {
-  /** so viel bringt ein Segen (Anteil eines Kreises) */
-  perBlessing: 0.5,
+  /** so viel bringt ein Segen (Anteil eines Kreises): ein Viertel – nach acht Segen (bei 1024 Muscheln) sind es drei Kreise */
+  perBlessing: 0.25,
   /** höchstens so viele Kreise */
   max: 3,
   /** ein voller Spurt mit einem Kreis dauert so viele Sekunden (bei normalem Körperbau) */

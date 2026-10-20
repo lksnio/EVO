@@ -732,8 +732,9 @@ function placeShrine(L: LevelData, G: Ground, startCol: number, col: number) {
   L.start.y = Math.max(L.surfaceY + 160, G.at((startCol + 0.5) * T) - 190);
   const x = (col + 0.5) * T;
   L.shrine = { x, y: G.at(x) };
-  // davor wächst nichts, das sie verdeckt
+  // davor wächst nichts, das sie verdeckt (keine Pflanzen, kein Korallenbewuchs)
   L.plants = L.plants.filter((p) => Math.abs(p.x - x) > 110);
+  L.decor = L.decor.filter((d) => Math.abs(d.x - x) > 100);
 }
 
 /** Wie man in einen Ort gekommen ist, wenn man über den Rand eines anderen hinausgeschwommen ist (side = dort verlassene Seite). */

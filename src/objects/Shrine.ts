@@ -6,7 +6,7 @@ import { Prompt } from './Quest';
 
 // ---------------------------------------------------------------------------
 // Die große Muschel im Laichfluss: eine riesige Fächermuschel, aufrecht im Sand, davor eine Perle, die leise glüht. Wer genug
-// Muscheln gesammelt hat (16, 256, 4096 …), betet hier – und sie segnet seine Linie mit mehr Ausdauer. Ist es so weit,
+// Muscheln gesammelt hat (8, 16, 32, 64 …), betet hier – und sie segnet seine Linie mit mehr Ausdauer. Ist es so weit,
 // ruft sie: Ringe aus Licht gehen von der Perle aus. Gebetet wird mit der Taste fürs Ansprechen (LevelScene.pray).
 // ---------------------------------------------------------------------------
 
@@ -114,10 +114,11 @@ export class Shrine {
   constructor(private scene: Phaser.Scene, readonly x: number, readonly y: number, touchMode: boolean) {
     shrineTextures(scene);
     // Schatten, Lichtschacht von oben, die Muschel, davor die Perle mit ihrem Glühen
-    scene.add.ellipse(x, y + 2, 230, 26, 0x000000, 0.28).setDepth(DEPTH.plants - 0.2);
+    scene.add.ellipse(x, y + 2, 230, 26, 0x000000, 0.28).setDepth(DEPTH.terrain + 0.4);
     this.ray = scene.add.image(x, y - 640, 'lightray').setOrigin(0.5, 0).setScale(1.6, 1.25).setTint(0xffe6c0)
       .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.16).setDepth(DEPTH.plants - 0.3);
-    scene.add.image(x, y + 10, 'shrine_shell').setOrigin(S.hx / S.w, S.hy / S.h).setScale(0.58).setDepth(DEPTH.plants - 0.1);
+    // vor den Pflanzen (sie wachsen hinter ihr), auf dem Grund stehend
+    scene.add.image(x, y + 4, 'shrine_shell').setOrigin(S.hx / S.w, S.hy / S.h).setScale(0.58).setDepth(DEPTH.terrain + 0.5);
     this.glow = scene.add.image(x, y - 12, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(150, 150).setAlpha(0.3).setDepth(DEPTH.pickups - 0.2);
     this.pearl = scene.add.image(x, y - 12, 'shrine_pearl').setScale(0.5).setDepth(DEPTH.pickups);
     scene.tweens.add({ targets: this.glow, alpha: 0.5, displayWidth: 180, displayHeight: 180, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });

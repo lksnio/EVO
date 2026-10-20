@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SHELLS, STAMINA } from '../src/data/life';
-import { game, shellChance, staminaMax } from '../src/state/GameState';
+import { game, nextBlessing, shellChance, staminaMax } from '../src/state/GameState';
 
-// Muscheln fallen selten von erlegter Beute; bei 16, 256, 4096 … Muscheln segnet die große Muschel mit mehr Ausdauer.
+// Muscheln fallen selten von erlegter Beute; bei 8, 16, 32, 64 … Muscheln segnet die große Muschel mit mehr Ausdauer.
 
 describe('Muscheln', () => {
   beforeEach(() => game.resetAll());
@@ -15,22 +15,26 @@ describe('Muscheln', () => {
     expect(shellChance(0.1)).toBeCloseTo(0.005);
   });
 
-  it('bei 16, 256, 4096 … Muscheln segnet die große Muschel: Jeder Segen gibt mehr Ausdauer', () => {
+  it('bei 8, 16, 32, 64 … Muscheln segnet die große Muschel: Jeder Segen gibt mehr Ausdauer', () => {
+    expect([0, 1, 2, 3, 4].map(nextBlessing)).toEqual([8, 16, 32, 64, 128]);
     game.newRun(0);
     expect(game.staminaMax).toBe(1);
-    expect(game.nextBlessing).toBe(16);
-    for (let i = 0; i < 15; i++) game.addShell();
+    expect(game.nextBlessing).toBe(8);
+    for (let i = 0; i < 7; i++) game.addShell();
     expect(game.canPray).toBe(false);
     expect(game.pray()).toBe(false);
-    expect(game.addShell()).toBe(16);
+    expect(game.addShell()).toBe(8);
     expect(game.canPray).toBe(true);
     expect(game.pray()).toBe(true);
     expect(game.blessings).toBe(1);
     expect(game.staminaMax).toBe(1 + STAMINA.perBlessing);
-    // die Muscheln bleiben – der nächste Segen wartet bei 256
-    expect(game.shells).toBe(16);
-    expect(game.nextBlessing).toBe(256);
+    // die Muscheln bleiben – der nächste Segen wartet bei 16
+    expect(game.shells).toBe(8);
+    expect(game.nextBlessing).toBe(16);
     expect(game.canPray).toBe(false);
+    for (let i = 0; i < 8; i++) game.addShell();
+    expect(game.pray()).toBe(true);
+    expect(game.nextBlessing).toBe(32);
   });
 
   it('die Ausdauer wächst nicht über ihr Höchstmaß', () => {
