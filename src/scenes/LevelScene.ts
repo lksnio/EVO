@@ -29,7 +29,7 @@ import { NetSync, netWanted } from '../net/NetSync';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
-import { SIGHT } from '../sim/sight';
+import { depthOf, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -508,7 +508,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (L.variant !== 'normal') {
       this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z).setDepth(DEPTH.dark);
     }
-    if (this.place.kind === 'deep' || this.place.kind === 'abyss') {
+    // in der Tiefe wird es dunkel – unter Wasser übernimmt das die Sicht (sie wird dort enger und dunkler, siehe sightStep)
+    if ((this.place.kind === 'deep' || this.place.kind === 'abyss') && !this.water) {
       this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z);
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
@@ -2766,7 +2767,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const p = this.player;
     const rot = p.view.rotation;
     // in Szenen mit der Kamera lichtet sich das Wasser (dort soll man sehen, was geschieht)
-    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, !!this.cine && !this.cine.released);
+    // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
+    const water = SIGHT.water[this.place.kind] ?? 1;
+    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, depthOf(p.y - this.L.surfaceY), !!this.cine && !this.cine.released);
     for (const a of this.animals) {
       if (a.dead) continue;
       const kin = a instanceof Kin;
@@ -2818,11 +2821,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- Tiefe
 
   /**
-   * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft, die Musik verklingt, das Meer
-   * rauscht, das Herz schlägt, und manchmal grollt es in der Ferne.
+   * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft (unter Wasser: die Sicht wird enger und dunkler),
+   * die Musik verklingt, das Meer rauscht, und manchmal grollt es in der Ferne.
    */
   private deepStep(time: number, dt: number) {
-    if (!this.deepDark) return;
+    if (this.place.kind !== 'deep' && this.place.kind !== 'abyss') return;
     const p = this.player;
     // die Dunkelheit wächst mit dem Anteil der Tiefe, den man schon hinabgeschwommen ist (die Orte sind verschieden tief)
     const frac = (p.y - this.L.surfaceY) / Math.max(400, this.L.height - this.L.surfaceY);
@@ -2830,7 +2833,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const target = clamp((frac - (abyss ? 0.23 : 0.38)) / (abyss ? 0.58 : 0.62), 0, 1);
     this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
     const k = this.deepK;
-    this.deepDark.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
+    this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
       // die Musik nimmt die Tiefe selbst (huntMood) – hier rauscht nur das Meer lauter

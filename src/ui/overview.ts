@@ -75,14 +75,15 @@ export class Overview {
     const c = (this.c = scene.add.container(0, 0).setDepth(60));
     c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0).setInteractive().on('pointerdown', onClose));
 
-    // links der Bogen deines Tiers, rechts daneben die Beute (was deine Linie an diesem Ort gefressen hat)
-    const x0 = 28, y0 = 14, w = 900, h = 692, mid = x0 + w / 2;
+    // links der Bogen deines Tiers, rechts daneben eine schmale Spalte kleiner Karten – vorerst die Beute (was deine Linie an
+    // diesem Ort gefressen hat)
+    const x0 = 24, y0 = 14, w = 952, h = 692, mid = x0 + w / 2;
     const g = scene.add.graphics();
     frame(g, x0, y0, w, h);
     c.add(g);
     // die Bühne (dahinter kein Klick: Nur außerhalb schließt es)
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
-    this.preyPanel(scene, g, d, x0 + w + 16, y0, W - 28 - (x0 + w + 16), h);
+    this.preyCard(scene, g, d, x0 + w + 16, y0, W - 24 - (x0 + w + 16));
 
     const run = game.run;
     const life = game.life;
@@ -202,9 +203,7 @@ export class Overview {
     y += 40;
     head(colR, y, 'MUSCHELN');
     const shells = game.shells;
-    // daneben, wie viele noch frei sind (verteilt werden sie an der großen Muschel im Laichfluss)
-    const free = game.shellsFree;
-    const sv = row(colR, (y += 32), 'Muscheln', `× ${shells}   ·   ${free} frei${game.canUp() ? ' – Segen bereit' : ''}`);
+    const sv = row(colR, (y += 32), 'Muscheln', `× ${shells}`);
     const icon = scene.add.image(sv.x - sv.width - 8, y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(18, 20);
     if (!shells) icon.setTint(0x000000).setAlpha(0.35);
     c.add(icon);
@@ -223,42 +222,37 @@ export class Overview {
   }
 
   /**
-   * Die Beute: Welche Tiere deine Linie an diesem Ort am häufigsten gefressen hat – die drei häufigsten, jedes als kleines
-   * Sinnbild, darunter ihr Anteil an allem, was du hier gefressen hast. Jedes Tier zählt einmal (gleich, wie viele Brocken).
-   * An einem anderen Ort stehen andere Zahlen; eine neue Linie beginnt leer.
+   * Die Beute – eine kleine Karte: Welche Tiere deine Linie an diesem Ort am häufigsten gefressen hat, die drei häufigsten,
+   * je als kleines Sinnbild mit ihrem Anteil an allem, was du hier gefressen hast. Jedes Tier zählt einmal (gleich, wie viele
+   * Brocken). An einem anderen Ort stehen andere Zahlen; eine neue Linie beginnt leer.
    */
-  private preyPanel(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number, h: number) {
+  private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number) {
     const c = this.c;
+    const rowH = 48, top = y + 92, h = top - y + rowH * 3 + 18;
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
     const cx = x + w / 2;
-    c.add(title(scene, cx, y + 46, 'Beute', 30).setOrigin(0.5));
-    c.add(text(scene, cx, y + 78, d.placeName, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
-    rule(g, x + 34, x + w - 34, y + 102);
-    const { top, total } = game.topPrey();
-    const slotH = 172, y1 = y + 122;
+    c.add(scene.add.text(cx, y + 38, 'BEUTE', { fontFamily: TITLE_FONT, fontSize: '15px', color: UI.ochre, fontStyle: '700', resolution: 2 })
+      .setOrigin(0.5).setLetterSpacing(5));
+    c.add(text(scene, cx, y + 60, d.placeName, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
+    rule(g, x + 30, x + w - 30, y + 78, 0.3);
+    const { top: best } = game.topPrey();
     for (let i = 0; i < 3; i++) {
-      const sy = y1 + i * slotH;
-      const e = top[i];
-      if (i > 0) {
-        g.lineStyle(1, 0xc8913c, 0.14);
-        g.lineBetween(x + 46, sy, x + w - 46, sy);
-      }
-      // der Platz: eine kleine Raute mit der Zahl
-      c.add(title(scene, x + 40, sy + 30, String(i + 1), 22, e ? UI.ochre : UI.boneDim).setOrigin(0.5).setAlpha(e ? 1 : 0.4));
+      const ry = top + rowH * i + rowH / 2;
+      const e = best[i];
       const def = e ? SPECIES[e.id] : undefined;
+      if (i > 0) {
+        g.lineStyle(1, 0xc8913c, 0.12);
+        g.lineBetween(x + 30, top + rowH * i, x + w - 30, top + rowH * i);
+      }
+      c.add(title(scene, x + 36, ry, String(i + 1), 18, def ? UI.ochre : UI.boneDim).setOrigin(0.5).setAlpha(def ? 0.9 : 0.35));
       if (!e || !def) {
-        c.add(text(scene, cx, sy + 72, '—', 26, UI.boneDim).setOrigin(0.5).setAlpha(0.35));
+        c.add(text(scene, x + 112, ry, '—', 18, UI.boneDim).setOrigin(0.5).setAlpha(0.3));
         continue;
       }
-      // ein warmer Schein hinter dem Sinnbild
-      c.add(scene.add.image(cx, sy + 62, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(220, 90).setAlpha(0.07));
-      const icon = scene.add.image(cx, sy + 62, preyIcon(scene, def)).setScale(0.5);
-      c.add(icon);
-      c.add(title(scene, cx, sy + 122, `${Math.round(e.share * 100)} %`, 30, UI.bone).setOrigin(0.5));
-      c.add(text(scene, cx, sy + 150, `${e.count} ${e.count === 1 ? 'Tier' : 'Tiere'}`, 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
+      c.add(scene.add.image(x + 112, ry, preyIcon(scene, def, 92, 36)).setScale(0.5));
+      c.add(title(scene, x + w - 32, ry, `${Math.round(e.share * 100)} %`, 20, UI.bone).setOrigin(1, 0.5));
     }
-    c.add(text(scene, cx, y + h - 34, total ? `hier insgesamt ${total} ${total === 1 ? 'Tier' : 'Tiere'} gefressen` : 'hier noch kein Tier gefressen', 14, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.7));
   }
 
   update(dt: number) {

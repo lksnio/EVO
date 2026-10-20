@@ -1,6 +1,7 @@
 import { CLASSES } from './classes';
 import { EPOCHS } from './epochs';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
+import { SIGHT } from '../sim/sight';
 import { JAGD, SWARM } from './quests';
 import { SPECIES } from './species';
 import { FOOD, game, meatOf } from '../state/GameState';
@@ -199,6 +200,11 @@ export const GROUPS: Group[] = [
       field(UPGRADES, 'hpSize', 'UPGRADES.hpSize', 'Größerer Körper je Segen in Lebenskraft (Anteil)', { step: 0.002, max: 0.2 }),
       field(UPGRADES, 'sight', 'UPGRADES.sight', 'Sicht zu Beginn (Anteil des Bildes)', { step: 0.05, max: 1 }),
       field(UPGRADES, 'sightPer', 'UPGRADES.sightPer', 'Sicht je Segen', { step: 0.01, max: 1 }),
+      field(SIGHT, 'front0', 'SIGHT.front0', 'Sicht nach vorn: Grundstück (Anteil der Weite)', { step: 0.02, max: 1 }),
+      field(SIGHT, 'fade', 'SIGHT.fade', 'Rand der Sicht: so lang ist der Übergang (Anteil der Weite)', { step: 0.01, max: 1 }),
+      field(SIGHT, 'depth', 'SIGHT.depth', 'Ganz in der Tiefe reicht der Blick so weit (Faktor)', { step: 0.02, max: 1.5 }),
+      field(SIGHT, 'dark', 'SIGHT.dark', 'Hinter dem Rand so dunkel (nah an der Oberfläche)', { step: 0.05, max: 1 }),
+      field(SIGHT, 'darkDeep', 'SIGHT.darkDeep', 'Hinter dem Rand so dunkel (in der Tiefe)', { step: 0.05, max: 1 }),
       field(STAMINA, 'perBlessing', 'STAMINA.perBlessing', 'Ein Segen gibt (Anteil eines Kreises)', { step: 0.05, max: 2 }),
       field(STAMINA, 'max', 'STAMINA.max', 'Höchstens so viele Kreise', { min: 1, max: 3 }),
       field(STAMINA, 'sprint', 'STAMINA.sprint', 'Ein Kreis reicht für so viele Sekunden Spurt', { step: 0.1, min: 0.5 }),

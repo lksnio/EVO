@@ -1283,10 +1283,10 @@ export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target
  * Farbtöne aus seiner Grundfarbe (Schatten, Körper, Licht) statt aller Muster, dazu eine dunkle Kontur und ein feiner,
  * warmer Rand. w, h: höchstens so groß (Bildpunkte, doppelt so fein gezeichnet). Gibt den Schlüssel der Textur zurück.
  */
-export function preyIcon(scene: Phaser.Scene, def: SpeciesDef, w = 150, h = 70) {
-  const key = `prey_${def.id}`;
+export function preyIcon(scene: Phaser.Scene, def: SpeciesDef, w = 92, h = 36) {
+  const key = `prey_${def.id}_${w}x${h}`;
   if (scene.textures.exists(key)) return key;
-  const R = 2, pad = 4;
+  const R = 2, pad = 3;
   const src = scene.textures.get(makeSpeciesPortrait(scene, def, 220)).getSourceImage() as HTMLCanvasElement;
   const k = Math.min((w - 2 * pad) / src.width, (h - 2 * pad) / src.height);
   const iw = Math.max(1, Math.round(src.width * k * R)), ih = Math.max(1, Math.round(src.height * k * R));
@@ -1329,8 +1329,8 @@ export function preyIcon(scene: Phaser.Scene, def: SpeciesDef, w = 150, h = 70) 
   const ring = (c: HTMLCanvasElement, r: number) => {
     for (let a = 0; a < 16; a++) ctx.drawImage(c, Math.cos((a / 16) * Math.PI * 2) * r, Math.sin((a / 16) * Math.PI * 2) * r);
   };
-  ring(rim, 2.6 * R);
-  ring(line, 1.4 * R);
+  ring(rim, 2 * R);
+  ring(line, 1.1 * R);
   ctx.drawImage(body, 0, 0);
   // ein Hauch Licht von oben
   ctx.globalCompositeOperation = 'source-atop';

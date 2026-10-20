@@ -438,15 +438,21 @@ Zeitalter mit `playable: true`.
   [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
   das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
 - **Sicht unter Wasser:** Ein Fisch sieht **vor allem dorthin, wohin er schwimmt** – nach vorn weit, zu den Seiten weniger,
-  nach hinten nur ein **kleiner Kreis** um ihn herum (damit man einen Jäger knapp hinter sich noch bemerkt). Alles andere
-  auf dem Bildschirm ist **Wasser** – nicht schwarz, sondern trübes Wasser in den Farben des Ortes (oben heller, in der Tiefe
-  dunkler), vom Grund ist nur ein Hauch zu ahnen. Dazwischen verschwimmt es weich: **Tiere in der Ferne sind erst gar
-  nicht da, dann ein blasser, verschwommener Umriss**, und erst beim Näherkommen werden sie deutlich. Das Blickfeld dreht
-  sich weich mit, wenn der Fisch wendet oder auf- und abtaucht. **Die Sicht** ist der Anteil des ganzen Bildes vor dir, den
-  man klar sieht: **100 %** hieße bis zum Bildrand, zu Beginn sind es **20 %** (gut zwei, drei Fischlängen klar, dahinter
-  Umrisse), jeder Segen in Sicht gibt **5 %** mehr. Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man
-  hört es nur. In Szenen mit der Kamera (Aufträge) lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Code:
-  `src/sim/sight.ts` (die Rechnung), `src/objects/Sight.ts` (das Wasser über dem Bild), `LevelScene.sightStep` (die Tiere).
+  nach hinten nur ein **kleiner Kreis** um ihn herum (damit man einen Jäger knapp hinter sich noch bemerkt). Der Rand der
+  Sicht ist **kurz und deutlich** (weich, aber gut zu erkennen): Dahinter liegt **trübes Wasser** in den Farben des Ortes,
+  und **gleich am Rand beginnt es dunkel zu werden** – nach außen immer dunkler, bis fast schwarz. **Tiere** sind im
+  Trüben nicht zu sehen, am Rand erscheinen sie als **blasser, verschwommener Umriss**, im Blick deutlich. Das Blickfeld
+  dreht sich weich mit, wenn der Fisch wendet oder auf- und abtaucht. **Wie weit man sieht, hängt an drei Dingen:**
+  - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Segen in Sicht gibt **5 %** mehr (100 % hieße bis zum
+    Bildrand). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite) – zu Beginn gut drei Fischlängen klar.
+  - **an der Wasserqualität:** In sauberem Wasser (Laichfluss) sieht man am weitesten, in bewachsenen Gärten etwas weniger,
+    in **trüben Orten** (Delta, Schlammbank) deutlich weniger, in der Tiefe ist das Wasser klar, aber dunkel.
+  - **an der Tiefe:** **Nah an der Oberfläche** reicht der Blick am weitesten, **je tiefer, desto weniger weit** – und in der
+    Tiefe hört die Sicht **plötzlicher auf** (der Rand wird steiler), und das **Schwarze kommt früher** und wird dichter.
+
+  Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. In Szenen mit der Kamera (Aufträge)
+  lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
+  Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere.
 - **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
   richtig sieht. **Je größer und stärker der Jäger** im Vergleich zu dir, desto **lauter und schneller** (ein kleiner Fisch
   macht kaum Angst), und **je näher du dem Tod bist**, desto mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch
@@ -576,21 +582,20 @@ Zeitalter mit `playable: true`.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
   Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht, Lebensabschnitt, deine Gruppe), der **Nachwuchs**
   (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister) und die **Muscheln** (als **eine
-  Muschel mit „× 12“**, daneben, wie viele frei sind – und „Segen bereit“, wenn es für einen reicht). Die Muscheln sind klein und
+  Muschel mit „× 12“** – wie viele du hast). Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
-- **Die Beute (rechts neben der Übersicht):** Ein eigenes, schmales Fenster zeigt, **welche Tiere deine Linie an diesem
-  Ort am häufigsten gefressen hat** – die **drei häufigsten**, untereinander mit Platz 1, 2, 3. Statt des Namens steht dort
-  ein **kleines Sinnbild** des Tiers: das Original verkleinert und vereinfacht (drei flache Farbtöne aus seiner Grundfarbe,
-  dunkle Kontur, feiner warmer Rand). Darunter sein **Anteil** an allen Tieren, die du hier gefressen hast („53 %“), und
-  wie viele es waren. **Jedes Tier zählt einmal** – auch ein großes, das in viele Fleischbrocken zerfällt; es zählt, sobald
-  du den ersten Brocken davon frisst (gleich, wer es erlegt hat). **An einem anderen Ort stehen andere Zahlen** – sie
-  beziehen sich auf das, was du dort frisst. Die Beute gilt für den ganzen Lauf (über alle Generationen deiner Linie);
-  **beginnt eine neue Linie, ist alles wieder leer**. Code: `GameState.noteEaten`/`topPrey` (`Run.prey`),
-  `Overview.preyPanel` (`src/ui/overview.ts`), das Sinnbild `preyIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt
-  vorerst nur Beute, die in deinem eigenen Spiel erlegt wurde.
+- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte zeigt, **welche Tiere deine Linie an diesem Ort
+  am häufigsten gefressen hat** – die **drei häufigsten**, untereinander mit Platz 1, 2, 3, je mit einem **kleinen Sinnbild**
+  des Tiers (das Original verkleinert und vereinfacht: drei flache Farbtöne aus seiner Grundfarbe, dunkle Kontur, feiner
+  warmer Rand) und seinem **Anteil** an allen Tieren, die du hier gefressen hast („50 %“) – ohne absolute Zahlen. **Jedes
+  Tier zählt einmal** – auch ein großes, das in viele Fleischbrocken zerfällt; es zählt, sobald du den ersten Brocken davon
+  frisst (gleich, wer es erlegt hat). **An einem anderen Ort stehen andere Zahlen.** Die Beute gilt für den ganzen Lauf
+  (über alle Generationen deiner Linie); **beginnt eine neue Linie, ist alles wieder leer**. Unter der Karte ist Platz für
+  weitere. Code: `GameState.noteEaten`/`topPrey` (`Run.prey`), `Overview.preyCard` (`src/ui/overview.ts`), das Sinnbild
+  `preyIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt vorerst nur Beute, die in deinem eigenen Spiel erlegt wurde.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
@@ -989,8 +994,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür; eine neue
       Linie verteilt neu. Die Chance richtet sich nach der Stärke der Beute (1 % ebenbürtig, bis 2 % bei doppelt so starker,
       0,5 % bei schwacher) – bitte beim Spielen ansehen, ob das zu selten ist.
-- [ ] **Sicht:** 20 % zu Beginn sind bewusst knapp (gut zwei, drei Fischlängen klar). Bitte beim Spielen ansehen, ob das
-      Trübe zu dicht ist (`SIGHT.murk`, `SIGHT.fade` in `src/sim/sight.ts`).
+- [ ] **Sicht:** Sie hängt an der Sicht des Tiers, der Wasserqualität und der Tiefe; der Rand ist kurz, dahinter wird es
+      dunkel. Bitte beim Spielen ansehen, ob es zu dunkel oder zu eng ist (`SIGHT` in `src/sim/sight.ts`: `front0`, `fade`,
+      `water`, `depth`, `dark`, `darkSpread`).
 - [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.
