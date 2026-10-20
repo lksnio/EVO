@@ -95,6 +95,15 @@ export interface LevelData {
   roe: RoeSpot[];
   /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
   riverEnd?: number;
+  /**
+   * Land über dem Wasser (Karbon): Über der Wasserlinie (surfaceY) liegt Himmel, das Land ragt hinein – wer dort ist, läuft
+   * (siehe Player). land: die Abschnitte, in denen der Boden über der Wasserlinie liegt.
+   */
+  amphibious?: boolean;
+  land?: { x0: number; x1: number }[];
+  /** Karbon: das Nest mit dem Gelege (im Brutsumpf) und der Gipfel, den man erreichen will (auf dem steilen Fels) */
+  nest?: { x: number; y: number };
+  summit?: Rect;
 }
 
 /** Eine Höhle: Innenraum und die Farbe, die man darin annimmt (1 grün, 2 schwarz). */
@@ -747,5 +756,285 @@ export interface EdgeEntry {
 /** Ein Ort dieses Zeitalters – bei jedem Lauf etwas anders, aber immer derselbe für einen Lauf. */
 export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry): LevelData {
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
-  return genWater(ep, r, place, edge);
+  return place.sky ? genSwamp(ep, r, place, edge) : genWater(ep, r, place, edge);
+}
+
+// ---------------------------------------------------------------------------
+// Karbon: Land über dem Wasser. Über der Wasserlinie liegt Himmel; Ufer, Inseln und der steile Fels ragen hinein. Das Profil
+// entsteht aus Hügeln (Mitte, Plateau, Hangneigung in Grad) über einem Wassergrund – so lässt sich genau sagen, wie steil ein
+// Hang ist (das zählt: Wie steil man hinaufkommt, hängt an Beinen und Griff, siehe sim/brood.ts).
+
+/** Ein Hügel bzw. eine Insel: Mitte (Spalte), halbe Breite des Plateaus (Spalten), Höhe (Zeile der Oberkante) und die Hänge (Grad). */
+interface Hill {
+  c: number;
+  w: number;
+  top: number;
+  slope: number;
+  /** Hänge, die nach oben hin steiler werden: [Höhe über der Wasserlinie in Kacheln, Neigung in Grad] von unten nach oben */
+  steps?: [number, number][];
+}
+
+/**
+ * Die Zeile der Oberkante eines Hügels bei Spalte c. Mit steps wird der Hang nach oben hin steiler: Vom Plateau aus geht es in
+ * kleinen Schritten hinab, und die Neigung richtet sich nach der Höhe über der Wasserlinie (sea, Zeile).
+ */
+function hillRow(h: Hill, c: number, sea: number) {
+  const d = Math.abs(c - h.c) - h.w;
+  if (d <= 0) return h.top;
+  const tan = (deg: number) => Math.tan((deg * Math.PI) / 180);
+  if (!h.steps) return h.top + d * tan(h.slope);
+  let row = h.top;
+  const dd = 0.05;
+  for (let x = 0; x < d && row < sea + 40; x += dd) {
+    const above = sea - row;
+    let deg = h.slope;
+    for (const [hgt, a] of h.steps) if (above >= hgt) deg = a;
+    row += Math.min(dd, d - x) * tan(deg);
+  }
+  return row;
+}
+
+function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): LevelData {
+  const cols = Math.round(ep.len * place.wide);
+  const S = place.sky ?? 9;
+  const F = S + place.deep;
+  const rows = F + 4;
+  const L = base(ep, 'water', cols * T, rows * T);
+  L.surfaceY = S * T;
+  L.amphibious = true;
+  L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
+  const startCol = place.kind === 'start' ? 22 : Math.round(cols * 0.16);
+  L.startCol = startCol;
+  const shape = place.shape ?? 'shore';
+  const mid = cols / 2;
+  const hills: Hill[] = [];
+  // der Wassergrund: im Brutsumpf und im Moor flach, im See tief
+  let floor = (c: number) => F + Math.sin(c * 0.17) * 0.6 + Math.sin(c * 0.05 + 1) * 0.8;
+  const isle = (c: number, w: number, above: number, slope: number) => hills.push({ c, w, top: S - above, slope });
+  if (shape === 'nest') {
+    // links ein hohes Ufer (dort geht es nicht weiter), davor flaches Wasser mit dem Nest, zwei flache Inseln; rechts tiefer
+    floor = (c: number) => (c < 60 ? S + 3 : S + 3 + (place.deep - 3) * Math.min(1, (c - 60) / 25)) + Math.sin(c * 0.3) * 0.25;
+    hills.push({ c: -6, w: 8, top: S - 4, slope: 24 });
+    isle(48, 5, 1.6, 20);
+    isle(84, 7, 2.6, 22);
+  } else if (shape === 'shore') {
+    // lange Landstücke, dazwischen Wasserläufe: hier lernt man laufen
+    let c = 6 + r() * 6;
+    while (c < cols - 10) {
+      const w = 8 + r() * 14;
+      isle(c + w, w, 1 + r() * 1.6, 18 + r() * 10);
+      c += 2 * w + 10 + r() * 12;
+    }
+  } else if (shape === 'isles') {
+    // Inseln mit Hängen von 30 bis 48 Grad – hier lernt man klettern
+    let c = 10 + r() * 8;
+    while (c < cols - 12) {
+      const w = 2 + r() * 5;
+      const above = Math.min(S - 2, 3 + r() * (S - 5));
+      isle(c + w + 6, w, above, 30 + r() * 18);
+      c += 2 * w + 20 + r() * 16;
+    }
+  } else if (shape === 'marsh') {
+    floor = (c: number) => S + 3 + Math.sin(c * 0.21) * 0.5;
+    let c = 6 + r() * 4;
+    while (c < cols - 6) {
+      const w = 1 + r() * 4;
+      isle(c + w, w, 0.6 + r() * 1.2, 18 + r() * 12);
+      c += 2 * w + 6 + r() * 9;
+    }
+  } else if (shape === 'lake') {
+    // ein tiefer See zwischen zwei Ufern
+    floor = (c: number) => F - (F - S - 3) * Math.max(0, 1 - Math.min(c, cols - c) / 22) + Math.sin(c * 0.11) * 1.2;
+    hills.push({ c: -4, w: 6, top: S - 2, slope: 26 });
+    hills.push({ c: cols + 4, w: 6, top: S - 2, slope: 26 });
+  } else if (shape === 'peak') {
+    // der steile Fels: aus flachem Wasser ragt ein Berg, dessen Hänge nach oben immer steiler werden – bis zum Gipfel
+    const top = 3;
+    hills.push({ c: mid, w: 1.6, top, slope: 22, steps: [[0, 30], [(S - top) * 0.3, 40], [(S - top) * 0.55, 48], [(S - top) * 0.78, 57]] });
+    // ein paar flache Inselchen davor zum Ausruhen
+    isle(14, 3, 1, 20);
+    isle(cols - 14, 3, 1, 20);
+  }
+  const prof = (c: number) => {
+    let row = floor(c);
+    for (const h of hills) row = Math.min(row, hillRow(h, c, S));
+    return Math.max(1.5, row);
+  };
+  // die Höhenlinie: genau nach dem Profil (die Hänge sollen so steil sein, wie sie gedacht sind), nur leicht gewellt
+  const n = cols * 2;
+  const hp = new Array<number>(n);
+  const ph = r() * 6.28;
+  for (let i = 0; i < n; i++) {
+    const c = (i + 0.5) / 2;
+    const y = prof(c) * T;
+    // an Land und im Flachen kleine Unebenheiten, auf dem Berg kaum (dort zählt jede Neigung)
+    const wob = shape === 'peak' && y < S * T ? 1.5 : y < S * T ? 4 : 6;
+    hp[i] = Math.min((rows - 2) * T, y + wob * Math.sin(i * 0.37 + ph) + wob * 0.5 * Math.sin(i * 0.11 + ph * 2));
+  }
+  for (let pass = 0; pass < 2; pass++) {
+    const src = hp.slice();
+    for (let i = 1; i < n - 1; i++) hp[i] = (src[i - 1] + 2 * src[i] + src[i + 1]) / 4;
+  }
+  // nichts steiler als etwa 60°
+  const MAX = 34;
+  for (let i = 1; i < n; i++) hp[i] = hp[i - 1] + Math.max(-MAX, Math.min(MAX, hp[i] - hp[i - 1]));
+  for (let i = n - 2; i >= 0; i--) hp[i] = hp[i + 1] + Math.max(-MAX, Math.min(MAX, hp[i] - hp[i + 1]));
+  const zones = makeZones(r, cols * T, place.kind === 'start' ? 'murky' : place.kind, 0);
+  // der steile Fels ist aus Fels
+  if (shape === 'peak') for (const z of zones) if (z.x1 > (mid - 26) * T && z.x0 < (mid + 26) * T) z.kind = 'rock';
+  L.terrain = { hp, zones };
+  const G = makeGround(hp, cols);
+  // wo Land ist (der Boden über der Wasserlinie)
+  const sea = L.surfaceY;
+  let run: { x0: number; x1: number } | null = null;
+  for (let i = 0; i < n; i++) {
+    const x = i * STEP;
+    if (hp[i] < sea - 2) {
+      if (!run) run = { x0: x, x1: x + STEP };
+      else run.x1 = x + STEP;
+    } else if (run) {
+      L.land!.push(run);
+      run = null;
+    }
+    if (i === 0) L.land = [];
+  }
+  if (run) L.land!.push(run);
+  const isLand = (x: number) => G.at(x) < sea - 6;
+  // das Nest im Brutsumpf: im flachen Wasser am Grund, dort, wo man schlüpft
+  if (shape === 'nest') {
+    const nx = (startCol + 0.5) * T;
+    L.nest = { x: nx, y: G.at(nx) };
+  }
+  // der Gipfel: das Plateau ganz oben
+  if (shape === 'peak') {
+    const gx = mid * T, gy = G.at(gx);
+    L.summit = { x: gx - 2.2 * T, y: gy - 3 * T, w: 4.4 * T, h: 3 * T + 10 };
+  }
+  // Ankunft: im Wasser über dem Grund – am Rand dort, wo man herüberkam (an Land auf dem Boden)
+  const arrive = (col: number, frac = 0.4) => {
+    const x = (col + 0.5) * T, gy = G.at(x);
+    return isLand(x) ? { x, y: gy - 60 } : { x, y: clampN(sea + frac * (gy - sea), sea + 50, gy - 60) };
+  };
+  L.start = arrive(startCol, 0.5);
+  if (edge) L.start = arrive(edge.side === 'left' ? cols - 4 : 3, edge.frac);
+  const arrCols = [startCol, 3, cols - 4];
+  // Felsen (wenige, im Wasser) – nicht am Nest, nicht auf dem Berg
+  const shrine = shrineCol(L, place, G, startCol);
+  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T]),
+    ...(shrine >= 0 ? [[(shrine - 9) * T, (shrine + 9) * T] as [number, number]] : []), ...(shape === 'peak' ? [[(mid - 30) * T, (mid + 30) * T] as [number, number]] : [])], 0);
+  // keine Felsen an Land (dort liegen sie im Weg beim Klettern) und keine Felsen im Vordergrund
+  L.rocks = L.rocks.filter((k) => !isLand(k.x));
+  L.solids = L.solids.filter((q) => !isLand(q.x + q.w / 2));
+  L.fore = [];
+  dressSwamp(L, ep, place, r, G, isLand);
+  placeShrine(L, G, startCol, shrine);
+  if (L.shrine && isLand(L.shrine.x)) L.shrine.y = G.at(L.shrine.x);
+  L.start = edge ? L.start : arrive(startCol, 0.5);
+  placeFaunaSwamp(L, ep, place, r, G, arrCols, isLand);
+  // keine Tiere im Fels und nicht im Boden
+  for (const sp of L.spawns) sp.y = Math.min(sp.y, G.at(sp.x) - 24);
+  L.groundRects = groundRects(hp, rows * T);
+  L.ground = Array.from({ length: cols }, (_, c) => G.at((c + 0.5) * T));
+  return L;
+}
+
+/** Bewuchs im Sumpf: an Land Farne, Schachtelhalme und Stümpfe, im Flachen Schilf, unter Wasser Algen; dazu Futterpflanzen und Dickicht im Wasser. */
+function dressSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, isLand: (x: number) => boolean) {
+  const cols = G.heights.length;
+  const sea = L.surfaceY;
+  const zones = L.terrain.zones;
+  const LAND = ['fern', 'horsetail', 'fern', 'tallgrass', 'horsetail', 'stump', 'mushroom', 'reed'];
+  const SHALLOW = ['reed', 'horsetail', 'reed', 'tallgrass'];
+  const steep = (x: number) => G.flat(x - 20, x + 20) > 26;
+  for (let c = 0; c < cols; c += rint(r, 1, 2)) {
+    const x = (c + 0.25 + r() * 0.5) * T;
+    const gy = G.at(x);
+    if (steep(x)) continue;
+    if (isLand(x)) {
+      if (r() < 0.75) L.decor.push({ k: pick(r, LAND), x, y: gy + 6 });
+    } else if (gy < sea + 2.5 * T) {
+      if (r() < 0.5) L.decor.push({ k: pick(r, SHALLOW), x, y: gy + 6 });
+    } else if (r() < 0.6) {
+      const b = pickBio(r, place.kind === 'start' ? 'lush' : place.kind, ep.id, matAt(zones, x), false);
+      if (b) L.decor.push({ k: b.key, x, y: gy + 6 });
+    }
+  }
+  for (let x0 = 0; x0 < cols;) {
+    const n = rint(r, 5, 9);
+    const pl = ep.plants * place.def.plants;
+    const cnt = (r() < pl * 0.9 ? 1 : 0) + (r() < pl * 0.55 ? 1 : 0) + (r() < pl - 1 ? 1 : 0);
+    for (let i = 0; i < cnt; i++) {
+      for (let t = 0; t < 4; t++) {
+        const x = (x0 + 1 + r() * (n - 2)) * T;
+        if (G.flat(x - 24, x + 24) > 30) continue;
+        L.plants.push({ x, y: G.at(x) + 4, v: plantVariant(r) });
+        break;
+      }
+    }
+    // Dickicht nur im Wasser (an Land versteckt man sich nicht)
+    if (r() < ep.cover * place.def.cover * 0.6) {
+      const cw = rint(r, 3, Math.min(6, n));
+      const cx = x0 + rint(r, 0, n - cw);
+      let low = -Infinity, wet = true;
+      for (let px = cx * T; px <= (cx + cw) * T; px += STEP) {
+        low = Math.max(low, G.at(px));
+        if (G.at(px) < sea + 2 * T) wet = false;
+      }
+      const ch = Math.min(rint(r, 4, 6), Math.floor((low - sea) / T) - 1);
+      if (wet && ch >= 3 && G.flat(cx * T, (cx + cw) * T) < 80) L.cover.push({ x: cx * T, y: low - ch * T, w: cw * T, h: ch * T });
+    }
+    x0 += n;
+  }
+}
+
+/**
+ * Tiere im Sumpf: Landtiere (Tausendfüßer, Urinsekten, Skorpione) auf dem Land, Krabbler am Grund, Fische im Wasser. Im
+ * Brutsumpf leben nur kleine Tiere – die Räuber kommen erst nach der Metamorphose ans Nest (siehe LevelScene).
+ */
+function placeFaunaSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Ground, arrCols: number[], isLand: (x: number) => boolean) {
+  const cols = G.heights.length;
+  const sea = L.surfaceY;
+  const nest = place.kind === 'start';
+  let herdNo = 0;
+  const landCols: number[] = [], wetCols: number[] = [];
+  for (let c = 4; c < cols - 4; c++) {
+    const x = (c + 0.5) * T;
+    if (isLand(x)) {
+      if (G.flat(x - 30, x + 30) < 40) landCols.push(c);
+    } else if (G.at(x) > sea + 2.5 * T) wetCols.push(c);
+  }
+  const put = (id: string, pool: number[]) => {
+    const d = SPECIES[id];
+    if (!pool.length) return;
+    const n = d.herd ? rint(r, d.herd[0], d.herd[1]) : 1;
+    const herd = n > 1 ? herdNo++ : undefined;
+    const c0 = pool[Math.floor(r() * pool.length)];
+    for (let i = 0; i < n; i++) {
+      const col = clampN(Math.round(c0 + (i - n / 2) * 1.4 + r()), 1, cols - 2);
+      const x = (col + 0.5) * T, gy = G.at(x);
+      // Landtiere nur an Land, alle anderen nur dort, wo genug Wasser ist (ein Schwarm am Ufer verliert ein paar)
+      if (d.land ? !isLand(x) : gy < sea + 2 * T) continue;
+      const y = d.crawl ? gy - 24 : clampN(sea + 50 + r() * (gy - sea - 100), sea + 40, gy - 40);
+      L.spawns.push({ id, x, y, herd });
+    }
+  };
+  for (const [id, groups] of ep.fauna) {
+    const d = SPECIES[id];
+    if (!d) continue;
+    const hunter = d.role === 'predator' || d.role === 'apex';
+    if (nest && (hunter || d.role === 'defender')) continue;
+    const mul = (hunter ? place.def.hunters : d.role === 'prey' ? place.def.prey : 1);
+    const avgHerd = d.herd ? (d.herd[0] + d.herd[1]) / 2 : 1;
+    const want = (groups * mul * place.wide * 0.7) / avgHerd;
+    const count = Math.min(hunter ? Math.max(1, Math.round(9 / avgHerd)) : 99, Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
+    const pool = (d.land ? landCols : wetCols).filter((c) => !arrCols.some((a) => Math.abs(c - a) < (hunter ? 18 : 6)));
+    for (let g = 0; g < count; g++) put(id, pool);
+  }
+  // im tiefen See lebt einer der ganz Großen
+  const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
+  if (apex && place.apex && wetCols.length) {
+    let deepest = wetCols[0];
+    for (const c of wetCols) if (G.at((c + 0.5) * T) > G.at((deepest + 0.5) * T)) deepest = c;
+    L.spawns.push({ id: apex, x: (deepest + 0.5) * T, y: (sea + G.at((deepest + 0.5) * T)) / 2 });
+  }
 }

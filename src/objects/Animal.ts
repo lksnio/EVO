@@ -70,6 +70,10 @@ export interface World extends Phaser.Scene {
   tired(a: Animal): void;
   /** Höhe der Wasseroberfläche */
   surfaceY: number;
+  /** Karbon: Land über dem Wasser – Fische bleiben unter der Wasserlinie, Landtiere darüber */
+  amphibious?: boolean;
+  /** Karbon: Jugend vor der Metamorphose – große Räuber greifen dich (und das Nest) nicht an, außer du greifst sie an */
+  peace?(): boolean;
   /** Eine Höhe im freien, mittleren Wasser an dieser Stelle (dort, wo kein Boden und kein Dickicht im Weg ist). */
   openY(x: number): number;
   /** Alle Tiere einer Gruppe (Schwarm, Rudel). */
@@ -223,6 +227,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   private runSince = 0;
   /** zuletzt den Spieler gebissen */
   hitPlayerAt = -1e9;
+  /**
+   * Karbon: ein Räuber, der es auf das Gelege abgesehen hat – er schwimmt zum Nest und frisst dort Eier (das zählt das Level,
+   * siehe LevelScene.broodStep). Greift man ihn an, wehrt er sich eine Weile (raidFocusUntil) und macht dann weiter.
+   */
+  raid: { x: number; y: number } | null = null;
+  raidAte = 0;
+  raidFocusUntil = 0;
   /** zuletzt vom Spieler verletzt (für gemeinsame Beute) */
   hitByPlayerAt = -1e9;
   protected world: World;
@@ -479,6 +490,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     // ein Angriff läuft: ausholen, zuschnappen, erholen
     if (this.atk) {
       this.attackStep(time, dt);
+      if (this.world.amphibious) this.keepHabitat();
       this.setFlipX(this.dir < 0);
       return;
     }
@@ -488,6 +500,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.crouchStep(time);
     this.think(time, dt);
+    if (this.world.amphibious) this.keepHabitat();
     this.setFlipX(this.dir < 0);
     this.eatPose(time);
     this.alignGround(dt);
@@ -514,6 +527,29 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           break;
         }
       }
+    }
+  }
+
+  /**
+   * Karbon: Wer schwimmt, bleibt unter der Wasserlinie (er kann dir nicht an Land folgen); wer an Land lebt, kehrt am Ufer um.
+   */
+  protected keepHabitat() {
+    const sea = this.world.surfaceY, b = this.b;
+    if (this.swims) {
+      if (b.top < sea + 6) {
+        b.setVelocityY(Math.max(b.velocity.y, 70));
+        if (b.top < sea - 6) this.y += (sea + 6 - b.top) * 0.4;
+      }
+      return;
+    }
+    if (!this.def.land || this.dead) return;
+    // vor dem Ufer umkehren (dort fällt das Land ins Wasser ab)
+    const ahead = this.x + this.dir * (b.halfWidth + 18);
+    if (!this.world.solidAt(ahead, sea + 2) && this.world.time.now > this.turnAt) {
+      this.turnAt = this.world.time.now + 600;
+      this.dir *= -1;
+      this.wanderX = this.x + this.dir * 160;
+      b.setVelocityX(this.dir * Math.abs(b.velocity.x) * 0.5);
     }
   }
 
@@ -647,6 +683,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     } else if (role === 'predator' || role === 'apex') {
       let best: Target | null = null;
       let bd = Infinity;
+      const peace = !!W.peace?.() && !attackedByPlayer;
       // gejagt wird erst mit Hunger (der Endgegner und Durchzügler sind immer hungrig)
       const hungry = this.boss || !!this.visitor || this.hunger > (role === 'apex' ? 0.62 : 0.5);
       // Wer Aas in der Nähe hat, frisst lieber, als zu kämpfen
@@ -656,8 +693,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (best && best.def.power > d.power * 3) best = null;
       } else if (hungry && !scavenging) {
         const bold = this.hunger > 0.75 ? 1.4 : 1.15;
-        // den Spieler jagt ein Räuber nur, wenn er gereizt ist (oder der Endgegner bzw. ein angekündigter Jäger)
-        const provoked = time < this.aggroUntil || this.boss || !!this.visitor?.fast;
+        // den Spieler jagt ein Räuber nur, wenn er gereizt ist (oder der Endgegner bzw. ein angekündigter Jäger) – im Karbon
+        // vor der Metamorphose gar nicht
+        const provoked = !peace && (time < this.aggroUntil || this.boss || !!this.visitor?.fast);
         if (seen && provoked && (role === 'apex' || T < d.power * bold)) {
           best = p;
           bd = dp * 0.9;
@@ -681,7 +719,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
       // Gereizt: Wer einen großen Räuber anmacht (beißt, stößt oder ihm zu nah kommt), den verfolgt er –
       // bis man sich versteckt oder er die Spur verliert
-      if (time < this.aggroUntil && !p.dead && !this.ally) {
+      if (time < this.aggroUntil && !p.dead && !this.ally && !peace) {
         if (seen) this.aggroUntil = Math.max(this.aggroUntil, time + 2500);
         if (seen || (dp < 220 && !p.hidden)) best = p;
       }
@@ -858,6 +896,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.visitor) return this.thinkVisitor(time, dt);
     // Eltern am Gelege bleiben und beobachten – solange sie nicht gereizt sind oder jagen
     if (this.guardPost && role !== 'apex' && !this.kin && !this.ally && !this.target && time >= this.rageUntil && time >= this.aggroUntil && this.thinkGuard()) return;
+    // Karbon: Räuber am Gelege – sie fressen Eier, bis sie satt sind; wer sie angreift, bekommt es eine Weile mit ihnen zu tun
+    if (this.raid && !this.ally && !this.mv) {
+      const tg = this.target;
+      if (!(tg && !tg.dead && time < this.raidFocusUntil)) return this.raidStep(time);
+    }
     if (role === 'defender') return this.thinkDefender(time);
     if (role === 'apex') return this.thinkApex(time, dt);
 
@@ -1379,6 +1422,28 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (d < 300) this.startBite(tg, true);
       } else this.startMove(m, tg);
       this.nextMove = time + 1800 + Math.random() * 1800;
+    }
+  }
+
+  /**
+   * Zum Nest schwimmen und dort bleiben (gefressen wird im Level). Kommt ihm der Spieler zu nah, schnappt er nach ihm – sein Fressen
+   * verteidigt er.
+   */
+  protected raidStep(time: number) {
+    const r = this.raid!;
+    const p = this.pl;
+    if (!p.dead && this.dist(p) < 140 && this.seesPlayer) {
+      this.target = p;
+      this.raidFocusUntil = time + 2500;
+      return;
+    }
+    this.go('hunt');
+    const d = Math.hypot(r.x - this.x, r.y - 30 - this.y);
+    if (d > 70) this.moveTo(r.x, r.y - 30, this.def.speed * 1.1);
+    else {
+      this.halt();
+      this.dir = Math.sign(r.x - this.x) || this.dir;
+      this.eatingAt = time;
     }
   }
 
@@ -2090,6 +2155,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.fightBack(now);
     }
     if ((this.role === 'apex' || this.role === 'predator') && !(this.ally && this.isPlayer(from))) this.target = from;
+    // am Gelege: erst den Angreifer vertreiben, dann weiterfressen
+    if (this.raid) this.raidFocusUntil = now + 7000;
     // mittelgroße Pflanzenfresser wehren sich, statt zu fliehen – kleine fliehen (gegen dich wie gegen deine Artgenossen)
     const foe = this.isPlayer(from) || (from instanceof Animal && from.kin);
     if (this.role === 'prey' && foe && this.hp > this.maxHp * 0.35 && this.counters(from)) {

@@ -171,6 +171,12 @@ const SKY: Record<Theme, [string, string, string]> = {
  */
 const CLEAN = { sky: ['#5fb3c2', '#2a7686', '#123d48'] as [string, string, string], fog: 0x3f8f9c, ridge: ['rgba(34,92,104,.62)', 'rgba(22,66,76,.8)'], weed: 'rgba(16,52,58,.78)', ground: 'rgba(12,40,44,.9)' };
 
+/**
+ * Der Kohlesumpf bei Tag (Karbon, Land über dem Wasser): ein heller, dunstiger Himmel über dem Sumpf statt der Dunkelheit der
+ * alten Landzeitalter – die Schuppenbäume stehen als blasse Schatten im Nebel.
+ */
+const DAY_SWAMP = { sky: ['#a7b694', '#76885e', '#3a4630'] as [string, string, string], fog: 0x9aa884, far: 'rgba(70,86,58,.55)', near: 'rgba(44,56,36,.78)', mid: 'rgba(34,44,26,.86)', ground: 'rgba(30,38,22,.94)' };
+
 const FOG: Record<Theme, number> = {
   ozean: 0x1c4048,
   sumpf: 0x4a5236,
@@ -213,11 +219,12 @@ function farBg(ctx: Ctx, theme: Theme, v: BgVariant, clean = false) {
     grainAll(ctx, W, H, 0.3);
     return;
   }
-  const [c0, c1, c2] = clean && theme === 'ozean' ? CLEAN.sky : SKY[theme];
+  const day = clean && theme === 'sumpf';
+  const [c0, c1, c2] = clean && theme === 'ozean' ? CLEAN.sky : day ? DAY_SWAMP.sky : SKY[theme];
   const dark = v === 'dark';
   ctx.fillStyle = vgrad(ctx, 0, H, dark ? [[0, '#06111a'], [0.5, '#03080b'], [1, '#010203']] : [[0, c0], [0.6, c1], [1, c2]]);
   ctx.fillRect(0, 0, W, H);
-  const fog = clean ? CLEAN.fog : FOG[theme];
+  const fog = day ? DAY_SWAMP.fog : clean ? CLEAN.fog : FOG[theme];
   switch (theme) {
     case 'ozean': {
       // sauberes Wasser: kräftigere Lichtbahnen, hellere Fernen, glitzernde Schwebeteilchen
@@ -231,9 +238,9 @@ function farBg(ctx: Ctx, theme: Theme, v: BgVariant, clean = false) {
     }
     case 'sumpf': {
       fogBand(ctx, H * 0.35, H * 0.4, fog, 0.5);
-      for (let i = 0; i < 7; i++) scaleTree(ctx, (i + r()) * (W / 7), H - 120, 300 + r() * 160, 10 + r() * 6, 'rgba(28,36,22,.7)');
+      for (let i = 0; i < 7; i++) scaleTree(ctx, (i + r()) * (W / 7), H - 120, 300 + r() * 160, 10 + r() * 6, day ? DAY_SWAMP.far : 'rgba(28,36,22,.7)');
       fogBand(ctx, H * 0.5, H * 0.35, fog, 0.45);
-      for (let i = 0; i < 6; i++) scaleTree(ctx, (i + r()) * (W / 6), H - 40, 360 + r() * 200, 14 + r() * 8, 'rgba(14,18,10,.92)');
+      for (let i = 0; i < 6; i++) scaleTree(ctx, (i + r()) * (W / 6), H - 40, 360 + r() * 200, 14 + r() * 8, day ? DAY_SWAMP.near : 'rgba(14,18,10,.92)');
       fogBand(ctx, H * 0.7, H * 0.3, fog, 0.35);
       break;
     }
@@ -381,13 +388,13 @@ function midBg(ctx: Ctx, theme: Theme, v: BgVariant, clean = false) {
             ctx.beginPath();
             ctx.moveTo(xx, H - 30);
             ctx.quadraticCurveTo(xx + Math.cos(a) * 60 * s, H - 30 + Math.sin(a) * 100 * s, xx + Math.cos(a) * 110 * s, H - 30 + Math.sin(a) * 70 * s);
-            ctx.strokeStyle = 'rgba(8,12,6,.92)';
+            ctx.strokeStyle = clean ? DAY_SWAMP.mid : 'rgba(8,12,6,.92)';
             ctx.lineWidth = 8 * s;
             ctx.stroke();
           }
         });
       }
-      ground('rgba(6,8,4,.97)');
+      ground(clean ? DAY_SWAMP.ground : 'rgba(6,8,4,.97)');
       break;
     }
     case 'reptil': {
@@ -444,7 +451,7 @@ export function levelBackgrounds(scene: Phaser.Scene, theme: Theme, v: BgVariant
   // Nebel: nur waagerecht gekachelt, nach oben weich auslaufend (keine harte Kante)
   const FH = Math.round(H * 0.65);
   const fog = tex(scene, `fog2_${theme}_${v}${c}`, 512, FH, (ctx) => {
-    const col = v === 'cave' ? (theme === 'sumpf' ? 0x241c14 : 0x1a2a3a) : v === 'dark' ? 0x0a1a20 : clean ? CLEAN.fog : FOG[theme];
+    const col = v === 'cave' ? (theme === 'sumpf' ? 0x241c14 : 0x1a2a3a) : v === 'dark' ? 0x0a1a20 : clean ? (theme === 'sumpf' ? DAY_SWAMP.fog : CLEAN.fog) : FOG[theme];
     ctx.fillStyle = css(col);
     ctx.fillRect(0, 0, 512, FH);
     ctx.globalCompositeOperation = 'destination-in';

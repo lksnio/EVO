@@ -79,6 +79,9 @@ export interface Morph {
    */
   eye?: number;
   stamUp?: number;
+  /** Karbon: Griff (kräftigere Zehen und Krallen) und Kiemenbüschel des Jungtiers (Larve, bis zur Metamorphose) */
+  grip?: number;
+  gills?: number;
 }
 
 const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3);
@@ -124,12 +127,14 @@ export function quantize(m: Morph): Morph {
     fTail: q(m.fTail ?? 0, 0.1),
     eye: Math.round(m.eye ?? 0),
     stamUp: Math.round(m.stamUp ?? 0),
+    grip: q(m.grip ?? 0, 0.2),
+    gills: Math.round(m.gills ?? 0),
   };
 }
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
 }
 
 interface Pal {
@@ -642,6 +647,31 @@ function drawHead(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   const top = -H / 2;
   const sk = m.skull;
   const r = mulberry32(m.seed + 9);
+  // Karbon: Die Larve atmet mit Kiemenbüscheln hinter dem Kopf – federartige, rötliche Fäden (bis zur Metamorphose)
+  if (m.cls === 'amphibian' && m.gills) {
+    for (let i = 0; i < 3; i++) {
+      // sie stehen hinter dem Kopf nach oben und hinten ab (über dem Nacken, damit der Körper sie nicht verdeckt)
+      const y0 = top * 0.55 + i * H * 0.14, ang = -1.95 - i * 0.32, len = H * (1.4 - i * 0.15);
+      const ex = 3 + Math.cos(ang) * len, ey = y0 + Math.sin(ang) * len;
+      ctx.beginPath();
+      ctx.moveTo(3, y0);
+      ctx.quadraticCurveTo(ex * 0.5, y0 + (ey - y0) * 0.3 - 2, ex, ey);
+      ctx.strokeStyle = css(mix(P.base, 0xd4645a, 0.6));
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+      for (let k = 1; k <= 5; k++) {
+        const t = k / 6, px = 3 + (ex - 3) * t, py = y0 + (ey - y0) * t;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - 2.2, py - 2.6);
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + 1.4, py - 3);
+        ctx.strokeStyle = css(mix(P.base, 0xe88a7a, 0.6), 0.85);
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+      }
+    }
+  }
   // Hinter dem Kopf: Nackenschild (Echse), Ohren (Säuger)
   if (m.cls === 'reptile' && sk > 0.7) {
     const a = (sk - 0.7) / 0.3;
@@ -1120,14 +1150,25 @@ function drawLeg(ctx: Ctx, m: Morph, P: Pal, len: number, w: number) {
   skin(ctx, path, { outline: legLine, base: P.base, top: P.base, belly: shade(P.base, -0.2), y0: -6, y1: len, noise: 'mottle', noiseAlpha: 0.45, noiseScale: 0.28, seed: m.seed + 7, edge: P.dark, rim: 0.2 });
   // Fuß
   if (m.cls === 'amphibian') {
+    // Griff (Karbon): längere, gespreizte Zehen mit kleinen Krallen
+    const gr = m.grip ?? 0, toe = 6.5 * (1 + 0.6 * gr);
     for (let i = 0; i < 4; i++) {
-      const a = -0.5 + i * 0.35;
+      const a = -0.5 - 0.15 * gr + i * (0.35 + 0.1 * gr);
+      const tx = 1 + Math.cos(a) * toe, ty = len - 1.5 + Math.sin(a) * 2.5;
       ctx.beginPath();
       ctx.moveTo(1, len - 2.5);
-      ctx.lineTo(1 + Math.cos(a) * 6.5, len - 1.5 + Math.sin(a) * 2.5);
+      ctx.lineTo(tx, ty);
       ctx.strokeStyle = css(shade(P.base, -0.25));
       ctx.lineWidth = 2;
       ctx.stroke();
+      if (gr > 0.3) {
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(tx + Math.cos(a + 0.6) * 2.4 * gr, ty + 1.6 * gr);
+        ctx.strokeStyle = '#e6d8b4';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
     }
   } else if (hoof) {
     ctx.beginPath();

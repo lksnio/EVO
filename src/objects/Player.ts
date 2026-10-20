@@ -5,8 +5,10 @@ import { audio } from '../audio/Audio';
 import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
 import { approach, clamp, type Rect } from '../util/math';
-import { DEPTH } from '../config';
+import { DEPTH, GRAVITY } from '../config';
 import { STAMINA } from '../data/life';
+import { CLIMB } from '../data/karbon';
+import { breathe, climbCost } from '../sim/brood';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect, momentum?: number): void;
@@ -16,6 +18,12 @@ export interface PlayerHost extends Phaser.Scene {
   bleed(x: number, y: number, n: number): void;
   solidAt(x: number, y: number): boolean;
   surfaceY: number;
+  /**
+   * Land über dem Wasser (Karbon): Über der Wasserlinie läuft man (mit Schwerkraft), darunter schwimmt man. groundSlope gibt die
+   * Steigung des Bodens bei x zurück (dy/dx; positiv: nach rechts geht es bergab).
+   */
+  amphibious?: boolean;
+  groundSlope?(x: number): number;
 }
 
 type Body = Phaser.Physics.Arcade.Body;
@@ -105,13 +113,30 @@ export class Player {
   /** überstandene Treffer seit dem letzten Abruf, nach Schwere gewichtet (daraus werden robustere Schuppen der Nachkommen) */
   private endured = 0;
   private driftPh = Math.random() * 6.28;
+  /** Karbon: gerade im Wasser (sonst an Land) – mit etwas Spielraum an der Wasserlinie */
+  inWater = true;
+  /** Karbon: Sauerstoff (0 … 1): An Land sinkt er, im Wasser füllt er sich; leer trocknet das Tier aus */
+  oxygen = 1;
+  /** Karbon: wie viele Sekunden der volle Sauerstoff an Land reicht (vom Level gesetzt) */
+  oxygenSeconds = 26;
+  /** Karbon: gerade an einem Hang, der zu steil ist – man rutscht ab */
+  slipping = false;
+  /** Karbon: gerade am Klettern (steiler Hang, bergauf) */
+  climbing = false;
+  /** Karbon: Strecke an Land und erklommene Höhe seit dem letzten Abruf (Training der Beine und des Griffs) */
+  private landRun = 0;
+  private climbRun = 0;
+  /** überstandener Schaden seit dem letzten Abruf (in vollen Lebenskräften) – für die Schuppen der Nachkommen (Karbon) */
+  private hurtRun = 0;
+  private dryAt = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
     host.physics.add.existing(this.rect);
     const b = this.body;
     b.setCollideWorldBounds(true);
-    if (water) b.setAllowGravity(false);
+    if (water && !host.amphibious) b.setAllowGravity(false);
+    this.inWater = !host.amphibious || y > host.surfaceY;
     this.view = new CreatureView(host, x, y, this.morph());
     this.view.setDepth(DEPTH.player);
     this.refresh(true);
@@ -128,6 +153,12 @@ export class Player {
    * sie ist ganz wieder da; Sicht – die Augen werden größer (der Blick reicht weiter, siehe LevelScene.sightStep).
    */
   blessed(k: UpKey = 'stam') {
+    // Sauerstoff (Karbon): Der Vorrat reicht länger – und er ist voll
+    if (k === 'oxy') {
+      this.oxygen = 1;
+      this.oxygenSeconds = game.oxygenSeconds;
+      return;
+    }
     if (k === 'stam') {
       this.grewAt = this.host.time.now;
       this.stamina = this.staminaMax;
@@ -140,6 +171,32 @@ export class Player {
 
   get body() {
     return this.rect.body as Body;
+  }
+
+  /** Im Wasser? (Im Karbon wechselt das: über der Wasserlinie ist man an Land.) */
+  get wet() {
+    return this.host.amphibious ? this.inWater : this.water;
+  }
+
+  /** Strecke an Land seit dem letzten Abruf (Bildpunkte) – für die Beine der Nachkommen. */
+  takeLand() {
+    const n = this.landRun;
+    this.landRun = 0;
+    return n;
+  }
+
+  /** Überstandener Schaden seit dem letzten Abruf (in vollen Lebenskräften) – für die Schuppen der Nachkommen. */
+  takeHurtFrac() {
+    const n = this.hurtRun;
+    this.hurtRun = 0;
+    return n;
+  }
+
+  /** An steilen Hängen erklommene Höhe seit dem letzten Abruf (Bildpunkte) – für den Griff der Nachkommen. */
+  takeClimb() {
+    const n = this.climbRun;
+    this.climbRun = 0;
+    return n;
   }
 
   get x() {
@@ -213,7 +270,7 @@ export class Player {
       const oldBottom = this.rect.y + this.rect.height / 2;
       this.rect.setSize(w, h);
       this.body.setSize(w, h);
-      if (!this.water && !full) this.rect.y = oldBottom - h / 2;
+      if (!this.wet && !full) this.rect.y = oldBottom - h / 2;
     }
     this.offY = -(L.topY + L.footY) / 2;
     this.hp = full ? this.stats.maxHp : Math.min(this.stats.maxHp, ratio * this.stats.maxHp);
@@ -250,12 +307,25 @@ export class Player {
     const knocked = time < this.knockUntil;
     const dir = (c.held.right ? 1 : 0) - (c.held.left ? 1 : 0);
     const dyIn = (c.held.down ? 1 : 0) - (c.held.up || c.held.jump ? 1 : 0);
+    // Karbon: über der Wasserlinie läuft man (mit Schwerkraft), darunter schwimmt man – mit etwas Spielraum an der Linie
+    const amph = !!this.host.amphibious;
+    if (amph) {
+      const sea = this.host.surfaceY;
+      if (this.inWater && this.rect.y < sea - 6) this.inWater = false;
+      else if (!this.inWater && this.rect.y > sea + 10) {
+        this.inWater = true;
+        this.host.puff(this.x, sea, 5, 0xffffff);
+        audio.sfx('splash');
+      }
+      b.setGravityY(this.inWater ? 0 : GRAVITY);
+    }
+    const wet = this.wet;
     // Ausruhen: eine Weile nichts tun (nicht schwimmen, beißen, rammen) – im Wasser lässt man sich treiben
-    if (dir !== 0 || (this.water && dyIn !== 0) || c.held.sprint || c.held.bite || c.held.ram || c.pressed.jump || knocked) this.lastAct = time;
+    if (dir !== 0 || (wet && dyIn !== 0) || c.held.sprint || c.held.bite || c.held.ram || c.pressed.jump || knocked) this.lastAct = time;
     this.resting = time - this.lastAct > 650 && time - this.lastHurt > 1200;
     const en = this.stats.endurance;
     // Sprint: hält je nach Körperbau kürzer oder länger
-    const wantSprint = c.held.sprint && (dir !== 0 || (this.water && (c.held.up || c.held.down)));
+    const wantSprint = c.held.sprint && (dir !== 0 || (wet && (c.held.up || c.held.down)));
     this.sprinting = wantSprint && !this.exhausted && this.stamina > 0.05;
     const max = this.staminaMax;
     // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
@@ -269,7 +339,7 @@ export class Player {
     this.stamina = clamp(this.stamina + (this.sprinting ? -dt / (STAMINA.sprint * en) : dt * regen), 0, max);
     if (!this.exhausted && this.stamina <= 0.02) {
       this.exhausted = true;
-      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 4, this.water ? 0xffffff : 0xcfd8dc);
+      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 4, wet ? 0xffffff : 0xcfd8dc);
     } else if (this.exhausted && this.stamina >= max - 0.001) this.exhausted = false;
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
@@ -282,7 +352,9 @@ export class Player {
     }
     const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
 
-    if (this.water) {
+    this.slipping = false;
+    this.climbing = false;
+    if (wet) {
       const dy = dyIn;
       // Am Grund abstützen und entlanglaufen: kostet wenig Kraft; mit kräftigen Flossen geht es flott
       const floor = (b.blocked.down || b.touching.down) && dy >= 0;
@@ -325,7 +397,15 @@ export class Player {
         b.setVelocity(approach(b.velocity.x, vx + dvx, acc), approach(b.velocity.y, (dy / len) * sp * 0.9 * upDown + (dy ? 0 : 6) + dvy, acc));
         this.drifting = drift;
       }
-      if (this.rect.y - b.height / 2 < this.host.surfaceY + 4 && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
+      const atTop = this.rect.y - b.height / 2 < this.host.surfaceY + 4;
+      // Karbon: an der Wasserlinie geht es ans Ufer – ein Satz hinauf, wenn dort Land ist (oder mit Sprung aus dem Wasser)
+      const bank = amph && atTop && dir !== 0 && this.host.solidAt(this.x + dir * (b.halfWidth + 14), this.host.surfaceY + 6);
+      if (amph && atTop && !knocked && (bank || c.pressed.jump)) {
+        b.setVelocity(dir * Math.max(Math.abs(b.velocity.x), this.stats.landSpeed * 0.8), -this.stats.jump * (bank ? 0.8 : 0.7));
+        this.inWater = false;
+        b.setGravityY(GRAVITY);
+        this.host.puff(this.x, this.host.surfaceY, 4, 0xffffff);
+      } else if (atTop && b.velocity.y < 0) b.setVelocityY(Math.max(0, b.velocity.y));
       this.view.rotation = this.facing * clamp(b.velocity.y / (sp || 1), -1, 1) * 0.35;
       this.speed01 = Math.hypot(b.velocity.x, b.velocity.y) / this.stats.speed;
       // das Treiben zählt als ruhig (fürs Verstecken und Auffallen)
@@ -337,9 +417,37 @@ export class Player {
         if (!this.wasGround && b.velocity.y >= 0) this.host.puff(this.x, b.bottom, 3);
       }
       this.wasGround = onGround;
-      if (!knocked) b.setVelocityX(approach(b.velocity.x, dir * sp, (onGround ? 2600 : 1600) * dt));
+      // Karbon: an Land langsamer als im Wasser (kräftige Beine helfen) – und Hänge nur so steil, wie Beine und Griff es zulassen
+      const walk = amph ? this.stats.landSpeed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) : sp;
+      let vxWant = dir * walk;
+      if (amph && onGround && this.host.groundSlope) {
+        const deg = (k: number) => (Math.atan(Math.abs(k)) * 180) / Math.PI;
+        const k = this.host.groundSlope(this.x);
+        const here = deg(k);
+        // erschöpft hält man sich nur noch an flachen Hängen
+        const max = this.exhausted ? CLIMB.steep : this.stats.slope;
+        const uphill = dir !== 0 && -dir * k > 0;
+        if (here > max + 2) {
+          // zu steil: Man rutscht ab, bergab
+          this.slipping = true;
+          vxWant = Math.sign(k) * walk * 0.9;
+        } else if (uphill) {
+          const ahead = this.host.groundSlope(this.x + dir * (b.halfWidth + 6));
+          if (-dir * ahead > 0 && deg(ahead) > max) vxWant = 0;
+          else if (here > CLIMB.steep) {
+            // klettern: kostet Ausdauer (ein Schuppenpanzer mehr) und stärkt den Griff der Nachkommen
+            this.climbing = true;
+            this.stamina = Math.max(0, this.stamina - (dt * climbCost(here, max, game.traits.armor ?? 0)) / en);
+            this.usedAt = time;
+            this.climbRun += Math.abs(b.velocity.x) * dt * Math.tan((here * Math.PI) / 180);
+          }
+        }
+        if (!this.slipping) this.landRun += Math.abs(b.velocity.x) * dt;
+        this.view.rotation = clamp(Math.atan(k) * 0.6, -0.5, 0.5);
+      } else if (amph) this.view.rotation *= 0.9;
+      if (!knocked) b.setVelocityX(approach(b.velocity.x, vxWant, (onGround ? 2600 : 1600) * dt));
       if (dir) this.facing = dir;
-      if (c.pressed.jump) this.jumpBuf = time;
+      if (c.pressed.jump && !this.slipping) this.jumpBuf = time;
       if (time - this.jumpBuf < 130 && time - this.lastGround < 110 && !knocked) {
         b.setVelocityY(-this.stats.jump);
         this.jumpBuf = -1e9;
@@ -356,7 +464,7 @@ export class Player {
         const by = b.bottom + 6;
         if (this.host.solidAt(b.x - 30, by) && this.host.solidAt(b.right + 30, by)) this.lastSafe = { x: this.rect.x, y: this.rect.y };
       }
-      this.view.rotation = 0;
+      if (!amph) this.view.rotation = 0;
       this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
@@ -366,10 +474,10 @@ export class Player {
     if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
       this.dash = 'charge';
       this.dashAge = 0;
-      this.dashV0 = Math.max(this.stats.speed * 0.6, Math.hypot(b.velocity.x, this.water ? b.velocity.y : 0));
+      this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      this.dashPeak = this.stats.speed * 2.3 * this.fade;
-      const dy = this.water ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
+      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * 2.3 * this.fade;
+      const dy = wet ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
       const len = Math.hypot(this.facing, dy * 0.7) || 1;
       this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
       audio.sfx('charge');
@@ -387,7 +495,7 @@ export class Player {
         // wer R loslässt (oder keine Kraft mehr hat), nutzt den Schwung, den er bis dahin hat
         if (k >= 1 || (!c.held.ram && this.dashAge > 220) || this.exhausted) this.dash = 'glide';
         // nach oben/unten lässt sich der Stoß noch lenken
-        if (this.water) {
+        if (wet) {
           const want = ((c.held.down ? 1 : 0) - (c.held.up ? 1 : 0)) * 0.7;
           const ny = approach(this.ramDir.y, want / Math.hypot(this.facing, want), 1.6 * dt);
           this.ramDir = { x: this.facing * Math.sqrt(Math.max(0.01, 1 - ny * ny)), y: ny };
@@ -403,7 +511,7 @@ export class Player {
       }
     }
     if (this.dash !== 'none') {
-      if (this.water) b.setVelocity(this.ramDir.x * this.dashV, this.ramDir.y * this.dashV);
+      if (wet) b.setVelocity(this.ramDir.x * this.dashV, this.ramDir.y * this.dashV);
       else b.setVelocityX(this.ramDir.x * this.dashV);
       this.speed01 = this.dashV / this.stats.speed;
       if (Math.random() < (this.dash === 'glide' ? 0.35 : 0.2)) this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 1);
@@ -429,19 +537,40 @@ export class Player {
     const low = this.stamina / max;
     if ((low < 0.25 || this.exhausted) && time > this.breath) {
       this.breath = time + 500;
-      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, this.water ? 0xffffff : 0xcfd8dc);
+      this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 1, wet ? 0xffffff : 0xcfd8dc);
     }
+    // Karbon: an Land sinkt der Sauerstoff – ist er leer, trocknet das Tier aus
+    if (amph) this.breatheStep(time, dt);
     this.view.weary = clamp((1 - this.hp / this.stats.maxHp) * 0.7 + (this.exhausted ? 0.3 : low < 0.2 ? 0.2 : 0) + (1 - this.fade) * 0.6, 0, 1);
 
     const speed = Math.abs(b.velocity.x);
     let mode: AnimMode = 'idle';
-    if (this.water) mode = this.bottomWalk ? 'crawl' : 'swim';
+    if (wet) mode = this.bottomWalk ? 'crawl' : 'swim';
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
     // beim Anlauf schlägt der Schwanz immer kräftiger, im Gleiten liegt er ruhig
     const beat = this.dash === 'charge' ? 0.8 + 1.1 * clamp(this.dashAge / CHARGE_MS, 0, 1) : this.dash === 'glide' ? 0.12 : Math.min(1.3, this.speed01) + 0.3 * this.surge;
     this.syncView(dt, mode, beat);
     this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : this.ambush ? 0.62 : 1);
+  }
+
+  /** Sauerstoff (Karbon): an Land sinkt er, im Wasser füllt er sich; leer nimmt das Tier Schaden durch Austrocknung. */
+  private breatheStep(time: number, dt: number) {
+    const r = breathe(this.oxygen, dt, !this.inWater, this.oxygenSeconds);
+    this.oxygen = r.o;
+    if (r.dry <= 0 || this.shielded) return;
+    this.hp = Math.max(0, this.hp - r.dry * this.stats.maxHp);
+    // auch das Austrocknen an Land ist eine überstandene Gefahr
+    if (this.hp > 0) this.hurtRun += r.dry;
+    this.lastCause = 'Ausgetrocknet';
+    this.lastHurt = time;
+    if (time > this.dryAt) {
+      this.dryAt = time + 700;
+      this.view.flash(0xc8a070);
+      this.host.time.delayedCall(110, () => this.view.flash(null));
+      audio.sfx('hurt');
+    }
+    if (this.hp <= 0) this.die();
   }
 
   private syncView(dt: number, mode: AnimMode, s01: number) {
@@ -494,7 +623,7 @@ export class Player {
     const kb = this.stats.knock;
     this.knockUntil = now + (220 + 420 * ratio) * (0.4 + 0.6 * kb);
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
-    this.body.setVelocity(s * (300 + 520 * ratio) * kb, (this.water ? -60 - 120 * ratio : -260) * (this.water ? kb : 1));
+    this.body.setVelocity(s * (300 + 520 * ratio) * kb, (this.wet ? -60 - 120 * ratio : -260) * (this.wet ? kb : 1));
     this.view.flash(0xff5040);
     this.host.time.delayedCall(120 + 160 * ratio, () => this.view.flash(null));
     this.host.bleed(this.x, this.y, 5 + Math.round(ratio * 16));
@@ -502,7 +631,10 @@ export class Player {
     this.host.cameras.main.shake(130 + 320 * ratio, 0.007 + 0.022 * ratio);
     if (ratio > 0.25) this.host.cameras.main.flash(140 + 200 * ratio, 140, 10, 0);
     // Überstandene Treffer machen die Nachkommen robuster (das Tier selbst bleibt, wie es ist)
-    if (this.hp > 0) this.endured += 0.25 + 3 * ratio;
+    if (this.hp > 0) {
+      this.endured += 0.25 + 3 * ratio;
+      this.hurtRun += ratio;
+    }
     if (this.hp <= 0) this.die();
   }
 
@@ -511,14 +643,17 @@ export class Player {
     const s = Math.sign(this.rect.x - fromX) || -this.facing;
     if (k > 0.3) {
       const kb = this.stats.knock;
-      this.body.setVelocity(s * 220 * k * kb, this.water ? -40 * k * kb : -200 * k);
+      this.body.setVelocity(s * 220 * k * kb, this.wet ? -40 * k * kb : -200 * k);
       this.knockUntil = this.host.time.now + 200 * k * (0.4 + 0.6 * kb);
     } else this.body.setVelocityX(this.body.velocity.x * 0.6);
     if (selfDmg > 0.1) {
       const d = selfDmg * this.stats.defense;
       this.hp = Math.max(0, this.hp - d);
       // ein Zusammenprall mit etwas Größerem ist auch ein überstandener Kampf
-      if (this.hp > 0) this.endured += 0.1 + 2 * clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
+      if (this.hp > 0) {
+        this.endured += 0.1 + 2 * clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
+        this.hurtRun += clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
+      }
       this.lastHurt = this.host.time.now;
       this.lastCause = 'Beim Zusammenstoß verletzt';
       this.view.flash(0xffa080);
@@ -546,7 +681,7 @@ export class Player {
     const b = this.body;
     // ausgleiten und sanft absinken
     b.setVelocityX(b.velocity.x * Math.pow(0.2, dt));
-    if (this.water) b.setVelocityY(b.velocity.y + (12 - b.velocity.y) * Math.min(1, dt * 1.2));
+    if (this.wet) b.setVelocityY(b.velocity.y + (12 - b.velocity.y) * Math.min(1, dt * 1.2));
     this.view.still = k;
     this.view.weary = 1;
     this.view.headTilt = 0.1 * k;
@@ -565,7 +700,7 @@ export class Player {
 
   private die() {
     this.dead = true;
-    this.body.setVelocity(0, this.water ? -30 : -260);
+    this.body.setVelocity(0, this.wet ? -30 : -260);
     audio.sfx('death');
     this.host.tweens.add({ targets: this.view, angle: this.facing * 180, alpha: 0.5, duration: 1100, ease: 'Sine.in' });
     this.host.events.emit('player-dead');

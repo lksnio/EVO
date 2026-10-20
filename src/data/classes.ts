@@ -31,9 +31,10 @@ export const CLASSES: Record<ClassId, ClassDef> = {
   },
   amphibian: {
     id: 'amphibian',
-    name: 'Lurch',
+    name: 'Pederpes',
     habitat: 'land',
-    base: { hp: 52, bite: 7, ram: 7, speed: 190, jump: 560 },
+    // ein früher Vierfüßer (Pederpes): kräftig im Wasser, an Land noch schwerfällig – kleine Sprünge aufs Ufer
+    base: { hp: 52, bite: 7, ram: 6, speed: 190, jump: 430 },
     dawn: 'Deine Nachfahren kriechen aus dem Wasser.\nDie Flossen sind zu Beinen geworden.',
   },
   reptile: {

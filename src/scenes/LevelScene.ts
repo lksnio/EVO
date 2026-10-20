@@ -9,7 +9,7 @@ import { LIFE, MISC, STAMINA, WORLD } from '../data/life';
 import { cyclePhase, diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type LevelData, type Zone } from '../level/LevelGen';
-import { groundAt, zoneAt as matAt } from '../level/terrain';
+import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
@@ -29,6 +29,9 @@ import { NetSync, netWanted } from '../net/NetSync';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
+import { Nest } from '../objects/Nest';
+import { BROOD, OXYGEN } from '../data/karbon';
+import { eatEggs, tick as broodTick } from '../sim/brood';
 import { clearness, depthOf, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
@@ -87,6 +90,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   player!: Player;
   water = false;
   surfaceY = 0;
+  /** Karbon: Land über dem Wasser – über der Wasserlinie läuft man, darunter schwimmt man (siehe LevelData.amphibious) */
+  amphibious = false;
+  /** Karbon: das Gelege im Brutsumpf (nur dort zu sehen), die nächste Räuberwelle, wann zuletzt trainiert wurde */
+  private nest?: Nest;
+  private oxyG?: Phaser.GameObjects.Graphics;
+  private oxyA = 0;
+  private waveAt = 0;
+  private waves = 0;
+  private broodAt = 0;
+  private raidT = new Map<Animal, number>();
+  private awayT = { t: 0 };
+  private rhizodusSent = false;
   animals: Animal[] = [];
   /** Schwärme und Rudel: Gruppen-Nr. → Mitglieder */
   private herds = new Map<number, Animal[]>();
@@ -354,11 +369,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
     const L = (this.L = generateLevel(ep, WORLD.seed, this.place, game.prog.edge));
     this.water = L.mode === 'water';
+    this.amphibious = !!L.amphibious;
     this.surfaceY = L.surfaceY;
     this.cover = L.cover;
     const world = this.physics.world;
     world.gravity.y = this.water ? 0 : GRAVITY;
-    if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
+    // Karbon: Über der Wasserlinie ist Himmel – die Welt reicht bis oben
+    if (this.amphibious) world.setBounds(0, 0, L.width, L.height);
+    else if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
     // (nur der Startfluss ist links zu: Dort liegt die Quelle, es gibt keinen Weg hinaus)
@@ -370,7 +388,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Hintergrund mit Nebel
     // im Startgebiet ist das Wasser sauber: heller, klar und hellblau
-    const clean = this.place.kind === 'start';
+    // im Karbon (Land über dem Wasser) ein heller, dunstiger Tag über dem Sumpf
+    const clean = this.place.kind === 'start' || this.amphibious;
     const [far, mid, fog] = levelBackgrounds(this, L.theme, L.variant, clean);
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
@@ -385,8 +404,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     }
     this.buildDecor();
-    this.drift = this.water ? new Drift(this, L, driftCounts(this.place.kind, ep.id), this.place.kind === 'deep' || this.place.kind === 'abyss') : undefined;
-    if (this.water && L.surfaceY > 0) {
+    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id), this.place.kind === 'deep' || this.place.kind === 'abyss') : undefined;
+    if (this.amphibious) this.swampWater();
+    else if (this.water && L.surfaceY > 0) {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
       this.tweens.add({ targets: s, tilePositionX: 160, repeat: -1, duration: 5000 });
     }
@@ -396,7 +416,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const [id] of ep.fauna) if (SPECIES[id]) makeSpeciesTextures(this, SPECIES[id]);
     for (const e of ep.events) if (e.species && SPECIES[e.species]) makeSpeciesTextures(this, SPECIES[e.species]);
     // Fische in der Ferne (in mehreren Tiefenstufen) – kein Teil des Spiels, nur das Bild eines Meeres
-    this.backSea = this.water && L.surfaceY > 0 ? new BackSea(this, { x: VX, y: VY, w: VW, h: VH }, ep, this.place.id, this.place.kind, L.surfaceY, L.variant !== 'normal', !!this.place.safe) : undefined;
+    this.backSea = this.water && L.surfaceY > 0 && !this.amphibious ? new BackSea(this, { x: VX, y: VY, w: VW, h: VH }, ep, this.place.id, this.place.kind, L.surfaceY, L.variant !== 'normal', !!this.place.safe) : undefined;
     for (const p of L.plants) {
       // fest auf den Boden setzen (nicht über eine Kante ragen lassen)
       const hw = (this.textures.get(foodKey(L.theme, 0, p.v)).getSourceImage().width as number) / 2;
@@ -423,11 +443,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.buildCurrents();
     // Artgenossen verstecken sich auch in Höhlen und Felsspalten
     this.cover = [...L.cover, ...L.caves, ...L.crevices];
-    if (this.water && L.surfaceY > 0) {
+    if (this.water && L.surfaceY > 0 && !this.amphibious) {
       this.surfaceLight();
       this.depthShade();
     }
-    else if (!this.water && L.variant === 'normal') this.landLight();
+    else if ((!this.water || this.amphibious) && L.variant === 'normal') this.landLight();
 
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
@@ -448,6 +468,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // von einem Ort zum nächsten bleibt man, wie man war: Kraft und Artgenossen
     const pr = game.prog;
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
+    this.player.oxygenSeconds = game.oxygenSeconds;
     this.spawnKin();
     // Artgenossen sind selten und geben Aufträge: Wer einen hat, wartet an seiner Stelle (siehe objects/Quest.ts)
     this.quest = new Quest(this);
@@ -465,8 +486,23 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
     this.faunaCount = L.spawns.length;
-    // Laichen (im Laichfluss)
-    this.spawning = new SpawnCtl(this);
+    // Karbon: das Gelege im Brutsumpf – beim ersten Mal erfährt die Brut, wo genau es liegt
+    const brood = game.brood;
+    this.nest = undefined;
+    this.oxyG = undefined;
+    this.oxyA = 0;
+    this.raidT = new Map();
+    this.awayT = { t: 0 };
+    this.waves = 0;
+    this.rhizodusSent = false;
+    if (brood && L.nest && this.place.id === brood.nest.place) {
+      if (!brood.nest.x) brood.nest = { place: this.place.id, x: L.nest.x, y: L.nest.y };
+      this.nest = new Nest(this, brood.nest.x, brood.nest.y);
+      this.nest.show(brood.eggs, brood.laid);
+    }
+    this.waveAt = this.time.now + BROOD.firstWave * 1000;
+    // Laichen (im Laichfluss) – im Karbon gibt es stattdessen das Gelege (siehe broodStep)
+    this.spawning = ep.brood ? undefined : new SpawnCtl(this);
     // die große Muschel: Hier betet man um mehr Ausdauer
     if (L.shrine) this.shrine = new Shrine(this, L.shrine.x, L.shrine.y, this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
     // eine neue Linie: Deine Muscheln (sie bleiben dir) warten darauf, an der großen Muschel neu verteilt zu werden
@@ -516,10 +552,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
-    this.sight = this.water ? new Sight(this, murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2) : undefined;
+    this.sight = this.water && !this.amphibious ? new Sight(this, murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2) : undefined;
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.place.kind === 'start' ? 0.32 : 0.55);
     // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
-    if (this.place.kind === 'start' && this.water) {
+    if (this.place.kind === 'start' && this.water && !this.amphibious) {
       this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
     }
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
@@ -1088,6 +1124,46 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   // ---------------------------------------------------------------- Gebiete, Pflanzen, Sichtbarkeit
+
+  /**
+   * Karbon: das Wasser unter der Wasserlinie – ein trüber, grünbrauner Wasserkörper hinter allem (nach unten dunkler), ein
+   * leichter Schleier davor, der alles unter Wasser eintrübt, und die Wasseroberfläche nur dort, wo Wasser ist (nicht über dem Land).
+   */
+  private swampWater() {
+    const L = this.L;
+    const sea = L.surfaceY, depth = Math.max(200, L.height - sea);
+    if (!this.textures.exists('swampwater')) {
+      tex(this, 'swampwater', 4, 256, (ctx) => {
+        const g = ctx.createLinearGradient(0, 0, 0, 256);
+        g.addColorStop(0, 'rgba(70,96,62,0.86)');
+        g.addColorStop(0.25, 'rgba(38,58,40,0.93)');
+        g.addColorStop(1, 'rgba(8,16,12,0.98)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 4, 256);
+      });
+    }
+    this.add.image(0, sea, 'swampwater').setOrigin(0).setDisplaySize(L.width, depth + 200).setDepth(DEPTH.decoBack - 6);
+    this.add.rectangle(0, sea, L.width, depth + 200, 0x1a3424, 0.2).setOrigin(0).setDepth(DEPTH.fx - 1);
+    // die Oberfläche: nur über dem Wasser (zwischen den Landstücken)
+    const land = L.land ?? [];
+    let x = 0;
+    const spans: [number, number][] = [];
+    for (const l of land) {
+      if (l.x0 > x + 4) spans.push([x, l.x0]);
+      x = Math.max(x, l.x1);
+    }
+    if (x < L.width - 4) spans.push([x, L.width]);
+    for (const [x0, x1] of spans) {
+      const sfc = this.add.tileSprite(x0, sea - 14, x1 - x0, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront).setTint(0xc8dca0);
+      this.tweens.add({ targets: sfc, tilePositionX: 160, repeat: -1, duration: 5000 });
+    }
+  }
+
+  /** Karbon: Steigung des Bodens bei x (dy/dx – positiv: nach rechts geht es bergab). */
+  groundSlope(x: number) {
+    const hp = this.L.terrain.hp;
+    return (groundCurve(hp, x + 8) - groundCurve(hp, x - 8)) / 16;
+  }
 
   /** Das Gebiet an einer Stelle. */
   zoneAt(_x?: number): Zone {
@@ -1731,6 +1807,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.hunt?.died(a, byPlayer);
     // Beute, an der du beteiligt warst, gilt als deine
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
+    // Karbon: Jagd stärkt das Gebiss der Nachkommen – kleine Beute zählt einfach, ein erlegter Räuber doppelt
+    const br = game.brood;
+    if (br && ours && !this.ended) br.train.prey += a.role === 'prey' ? 1 : 2;
+    this.raidT.delete(a);
     // selten bleibt eine Muschel zurück – eher bei Tieren, die stark sind im Vergleich zu dir (SHELLS)
     if (ours && !this.ended && Math.random() < shellChance((a.def.power * a.sz) / Math.max(1, this.player.stats.power))) this.dropShell(a.x, a.y);
     const kill = new Kill(ours, a.def.id);
@@ -2001,6 +2081,34 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.stamPulse > 0) arc(R * pulse, 1, T * 0.6, 0xf2ffe0, this.stamPulse * 0.6 * a);
   }
 
+  /**
+   * Karbon: der Sauerstoff als kleine Blasenreihe links neben dem Tier – nur an Land oder solange er nicht voll ist. Jede Blase ist
+   * ein Fünftel; die angebrochene schrumpft, und wird es knapp, blinken sie rötlich.
+   */
+  private drawOxygen(p: Player, dt: number) {
+    const g = (this.oxyG ??= this.add.graphics().setDepth(DEPTH.text - 1));
+    const show = !p.dead && !this.ended && (!p.inWater || p.oxygen < 0.995);
+    this.oxyA = clamp(this.oxyA + (show ? dt * 5 : -dt * 2), 0, 1);
+    g.clear();
+    if (this.oxyA < 0.02) return;
+    const z = this.cameras.main.zoom;
+    const n = 5, r = 3.6 / z, gap = 2.4 / z;
+    const cx = p.x - p.rect.width / 2 - 14 / z, cy0 = p.y + p.rect.height / 2 - r;
+    const low = p.oxygen < OXYGEN.warn;
+    const blink = low && Math.floor(this.time.now / 180) % 2 === 0;
+    for (let i = 0; i < n; i++) {
+      const f = clamp(p.oxygen * n - i, 0, 1);
+      const cy = cy0 - i * (2 * r + gap);
+      g.lineStyle(1.1 / z, 0x050806, 0.5 * this.oxyA);
+      g.strokeCircle(cx, cy, r);
+      if (f <= 0) continue;
+      g.fillStyle(blink ? 0xe8806a : low ? 0xd8b0a0 : 0xbfe6f2, 0.85 * this.oxyA);
+      g.fillCircle(cx, cy, r * (0.35 + 0.65 * f));
+      g.fillStyle(0xffffff, 0.6 * this.oxyA);
+      g.fillCircle(cx - r * 0.3, cy - r * 0.3, r * 0.28 * f);
+    }
+  }
+
   /** Jemand frisst am Gelege: Eltern, die es mitbekommen, greifen an. */
   private roeBitten(rr: Roe) {
     if (rr.own) return;
@@ -2053,6 +2161,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Mitzählen, was gefressen wurde (aufgenommene Energie – sie bestimmt die Ernährung der nächsten Generation). */
   private ate(kind: 'meat' | 'plant', units: number) {
+    // Karbon: In der Jugend ist Fressen Nahrung (bis zur Metamorphose), danach heilt es
+    if (game.brood && !this.ended) {
+      const r = game.broodFeed(units);
+      if (r.heal > 0) this.player.heal(r.heal);
+      if (r.meta) this.metamorphosis();
+      else if (game.brood.phase === 'young') this.player.refresh(false, true);
+    }
     if (kind === 'meat') this.eatenMeat += units;
     else this.eatenPlant += units;
     game.addEaten(kind, units);
@@ -2133,6 +2248,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawning?.update(time, dt);
     this.net?.update();
     this.drawStamina(p, dt);
+    if (this.amphibious) this.drawOxygen(p, dt);
     this.sightStep(dt);
     this.heartStep(time);
     for (const a of [...this.animals]) {
@@ -2195,6 +2311,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       // das eigene Tier lebt: Es wächst heran und altert (nur, solange man spielt)
       game.ageBy(dt);
       this.lifeStep();
+      this.broodStep(this.time.now, dt);
       this.clock(time);
       this.interact(time, dt);
       this.shellStep(time);
@@ -3023,7 +3140,168 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * Der Lauf des Lebens: Beginnt ein neuer Abschnitt (heranwachsend, ausgewachsen, alt), gibt es eine kurze Meldung;
    * am Ende stirbt das Tier an Altersschwäche.
    */
+  /** Karbon: Jugend vor der Metamorphose – große Räuber greifen dich und das Nest nicht an (siehe Animal.sense). */
+  peace() {
+    return game.brood?.phase === 'young';
+  }
+
+  /**
+   * Karbon: das Gelege. Was die Generation tut, wird gezählt (Strecke an Land, Klettern, überstandener Schaden); nach der
+   * Metamorphose läuft die Zeit bis zum neuen Gelege, Räuber kommen in Wellen ans Nest und fressen Eier – fern vom Nest fressen
+   * sie ungestört. Auf dem steilen Fels wartet der Gipfel.
+   */
+  private broodStep(time: number, dt: number) {
+    const b = game.brood;
+    if (!b || this.ended) return;
+    const p = this.player, L = this.L;
+    if (time > this.broodAt) {
+      this.broodAt = time + 500;
+      this.flushTrain();
+      p.oxygenSeconds = game.oxygenSeconds;
+      if (L.summit && !game.run?.summit && !p.inWater && overlaps(p.hitRect(), L.summit)) return this.summitReached();
+    }
+    if (b.phase !== 'grown') return;
+    const away = this.place.id !== b.nest.place;
+    if (broodTick(b, dt, away, this.awayT)) return this.broodGeneration();
+    if (away || !this.nest) return;
+    // Räuberwellen (nur wer die Tiere rechnet, schickt sie los)
+    if (this.authority && time > this.waveAt) {
+      this.waveAt = time + (BROOD.waveEvery[0] + Math.random() * (BROOD.waveEvery[1] - BROOD.waveEvery[0])) * 1000;
+      this.raidWave();
+    }
+    // Räuber am Nest fressen Eier – wer die Tiere nicht selbst rechnet, sieht nur ihre Stellvertreter: Jeder Räuber dicht am Nest frisst
+    const nx = this.nest.x, ny = this.nest.y;
+    for (const a of this.animals) {
+      if (a.dead || a.kin || a.ally) continue;
+      const ghost = (a as { ghost?: boolean }).ghost;
+      if (!a.raid && !(ghost && (a.role === 'predator' || a.role === 'apex'))) continue;
+      if (Math.hypot(a.x - nx, a.y - ny) > BROOD.raidReach + a.displayWidth * 0.3) continue;
+      if (a.raid && a.target && !a.target.dead && time < a.raidFocusUntil) continue;
+      const t = (this.raidT.get(a) ?? 0) + dt;
+      if (t < BROOD.raidEvery) {
+        this.raidT.set(a, t);
+        continue;
+      }
+      this.raidT.set(a, 0);
+      const k = clamp((a.def.power - 10) / 20, 0, 1);
+      const n = eatEggs(b, BROOD.raidEggs[0] + (BROOD.raidEggs[1] - BROOD.raidEggs[0]) * k);
+      if (n <= 0) continue;
+      this.nest.hit();
+      this.puff(nx, ny - 14, 3 + n, 0xf0e0a0);
+      audio.sfx('crunch', k);
+      a.raidAte += n;
+      if (a.raid && (a.raidAte >= BROOD.raidFull || b.eggs <= 0)) {
+        // satt: Er zieht ab
+        a.raid = null;
+        a.leaveDir = a.x < L.width / 2 ? -1 : 1;
+      }
+      if (b.eggs <= 0) bus.emit('notice', 'DAS NEST IST LEER', 'Überlebe, bis das neue Gelege kommt – sonst stirbt deine Art aus.');
+    }
+    this.nest.show(b.eggs, b.laid);
+  }
+
+  /** Was die Generation seit dem letzten Mal getan hat, zählt für ihre Nachkommen (siehe sim/brood.ts, inheritGenes). */
+  private flushTrain() {
+    const b = game.brood;
+    if (!b) return;
+    b.train.land += this.player.takeLand();
+    b.train.climb += this.player.takeClimb();
+    b.train.hurt += this.player.takeHurtFrac();
+  }
+
+  /** Karbon: Räuber machen sich auf zum Nest – zu Beginn kleinere, später große Rhizodonten, ganz spät vielleicht Rhizodus selbst. */
+  private raidWave() {
+    const b = game.brood, nest = this.nest;
+    if (!b || !nest) return;
+    const L = this.L, sea = L.surfaceY;
+    const f = 1 - b.left / BROOD.danger;
+    const pool = ['megalichthys', 'crassigyrinus', ...(f > 0.3 ? ['strepsodus'] : [])];
+    const [lo, hi] = BROOD.waveSize;
+    const n = lo + Math.floor(Math.random() * (hi - lo + 1)) + (f > 0.6 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      let id = pool[Math.floor(Math.random() * pool.length)];
+      if (f > 0.7 && !this.rhizodusSent && Math.random() < 0.35) {
+        id = 'rhizodus';
+        this.rhizodusSent = true;
+      }
+      // aus dem tiefen Wasser am rechten Rand (dort, wo Wasser ist)
+      let col = L.ground.length - 3 - Math.floor(Math.random() * 6);
+      while (col > 0 && L.ground[col] < sea + 3 * TILE) col--;
+      const x = (col + 0.5) * TILE, gy = L.ground[col];
+      const y = clamp(sea + (gy - sea) * (0.35 + Math.random() * 0.3), sea + 60, gy - 60);
+      const a = this.spawnAnimal(id, x - i * 70, y);
+      a.raid = { x: nest.x, y: nest.y };
+      a.hunger = 1;
+      a.home = { x: nest.x, y: nest.y - 60 };
+    }
+    this.waves += 1;
+    if (this.waves === 1) bus.emit('notice', 'RÄUBER AM NEST', 'Sie wollen die Eier – verteidige das Gelege!');
+    audio.sfx('growl');
+  }
+
+  /** Karbon: genug gefressen – die Metamorphose. Die Kiemen schwinden, das Tier wird groß, und ab jetzt kommen die Räuber. */
+  private metamorphosis() {
+    game.metamorphose();
+    const p = this.player;
+    p.refresh(false, true);
+    p.hp = p.stats.maxHp;
+    p.oxygenSeconds = game.oxygenSeconds;
+    this.glitter(p.x, p.y, 26);
+    this.cameras.main.flash(500, 220, 230, 170);
+    audio.sfx('evolve');
+    this.waveAt = this.time.now + BROOD.firstWave * 1000;
+    bus.emit('notice', 'METAMORPHOSE', `Die Kiemen schwinden – jetzt kommen die Räuber. Überlebe ${Math.round(BROOD.danger / 60)} Minuten und schütze das Gelege.`);
+    game.save();
+  }
+
+  /** Karbon: gestorben – solange Eier im Nest liegen, schlüpft ein neues Tier (man wählt eines); sonst stirbt die Art aus. */
+  private broodDeath(cause: string, wait: number) {
+    if (this.ended) return;
+    this.flushTrain();
+    const b = game.brood!;
+    if (b.eggs <= 0) return this.endLine(cause, wait);
+    this.ended = true;
+    this.swarm?.storeAll();
+    game.save();
+    audio.music(null);
+    this.time.delayedCall(wait, () => this.exitTo('Clutch', { epoch: this.epochIdx, mode: 'death', cause }));
+  }
+
+  /** Karbon: Die Gefahr ist überstanden – ein neues Gelege, die nächste Generation (mit dem, was diese hervorgebracht hat). */
+  private broodGeneration() {
+    if (this.ended) return;
+    this.flushTrain();
+    const b = game.brood!;
+    this.ended = true;
+    bus.emit('notice', 'EIN NEUES GELEGE', `Generation ${b.gen} hat überlebt – ${BROOD.eggs} neue Eier.`);
+    this.glitter(this.player.x, this.player.y, 20);
+    audio.sfx('victory');
+    game.newClutch();
+    audio.music(null);
+    this.time.delayedCall(2800, () => this.exitTo('Clutch', { epoch: this.epochIdx, mode: 'gen' }));
+  }
+
+  /** Karbon: Der Gipfel des steilen Felsens ist erreicht – das Zeitalter ist gemeistert. */
+  private summitReached() {
+    if (!game.reachSummit()) return;
+    const p = this.player;
+    this.ended = true;
+    this.flushTrain();
+    this.glitter(p.x, p.y - 20, 40);
+    this.cameras.main.flash(900, 255, 240, 200);
+    audio.sfx('victory');
+    bus.emit('notice', 'DER GIPFEL', 'Deine Art hat den steilen Fels erklommen.');
+    const node = game.run!.node;
+    const morph = p.morph();
+    this.time.delayedCall(4200, () => this.exitTo('Ending', { node, morph, epoch: this.epochIdx }));
+  }
+
   private lifeStep() {
+    // Karbon: Das Leben bestimmt das Gelege (Jugend, Metamorphose, Gefahr) – niemand stirbt dort an Altersschwäche
+    if (game.brood) {
+      if (!this.cine && !this.quest?.zooming && !this.hunt?.zooming) this.cameras.main.setZoom(this.camZoom);
+      return;
+    }
     const age = game.life.age, gen = game.life.gen;
     const st = stageOf(age, gen);
     if (st !== this.stage) {
@@ -3091,6 +3369,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private succession(cause: string, wait: number) {
     if (this.ended) return;
+    if (game.brood) return this.broodDeath(cause, wait);
     // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
     this.spawning?.settle();
     const heir = game.heir();

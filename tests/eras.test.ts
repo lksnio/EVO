@@ -13,11 +13,11 @@ function nextGen(t: Partial<Traits>) {
 }
 
 describe('Zeitalter', () => {
-  it('sieben zur Wahl, nur das Devon ist schon spielbar', () => {
+  it('sieben zur Wahl, Devon und Karbon sind schon spielbar', () => {
     expect(ERAS.map((e) => e.ep.id)).toEqual(['devon', 'karbon', 'perm', 'trias', 'jura', 'kreide', 'palaeogen']);
-    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['devon']);
+    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['devon', 'karbon']);
     expect(isPlayable(0)).toBe(true);
-    for (const { i } of ERAS.slice(1)) expect(isPlayable(i)).toBe(false);
+    for (const { i } of ERAS.slice(2)) expect(isPlayable(i)).toBe(false);
     // die Reihenfolge ist Teil des Spielstands: Nummer 0 (früher das Ordovizium) ist heute das Devon
     expect(EPOCHS[0].id).toBe('devon');
     // die Zeiträume schließen lückenlos aneinander an
@@ -30,7 +30,7 @@ describe('Zeitalter', () => {
   it('jedes Zeitalter hat seinen Teil im Aquapendium – und jedes Tier dort einen Steckbrief', () => {
     expect(SECTIONS.map((s) => s.ep.id)).toEqual(ERAS.map((e) => e.ep.id));
     const filled = SECTIONS.filter((s) => s.entries.length);
-    expect(filled.map((s) => s.ep.id)).toEqual(['devon', 'kreide']);
+    expect(filled.map((s) => s.ep.id)).toEqual(['devon', 'karbon', 'kreide']);
     for (const s of filled) {
       expect(s.entries.length).toBeGreaterThan(8);
       s.entries.forEach((e, k) => {
@@ -43,6 +43,7 @@ describe('Zeitalter', () => {
     const ids = (id: string) => SECTIONS.find((s) => s.ep.id === id)!.entries.map((e) => e.id);
     for (const id of ['dunkleosteus', 'thelodus', 'pteraspis', 'drepanaspis']) expect(ids('devon')).toContain(id);
     for (const id of ['mosasaurus', 'elasmosaurus', 'archelon', 'ammonit', 'cretoxyrhina']) expect(ids('kreide')).toContain(id);
+    for (const id of ['rhizodus', 'strepsodus', 'tausendfuss', 'pulmonoscorpius', 'elonichthys']) expect(ids('karbon')).toContain(id);
   });
 });
 
@@ -107,9 +108,9 @@ describe('eine Linie je Zeitalter', () => {
   });
 
   it('in ruhende Zeitalter kann man nicht wechseln', () => {
-    const karbon = EPOCHS.findIndex((e) => e.id === 'karbon');
+    const perm = EPOCHS.findIndex((e) => e.id === 'perm');
     const a = game.newRun(0);
-    game.enterEpoch(karbon);
+    game.enterEpoch(perm);
     expect(game.run).toBe(a);
     expect(game.chosenEpoch).toBe(0);
   });

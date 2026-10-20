@@ -65,6 +65,13 @@ export interface EpochDef {
   dark?: boolean;
   kelp?: boolean;
   reef?: boolean;
+  /**
+   * Brutzyklus statt Laichen (Karbon): Man beginnt mit einem Gelege voller Eier, wächst bis zur Metamorphose heran, verteidigt
+   * danach das Nest, bis das neue Gelege kommt – die Eier sind die Leben (siehe data/karbon.ts, sim/brood.ts).
+   */
+  brood?: boolean;
+  /** das dritte Merkmal an der großen Muschel: Sicht (unter Wasser) oder Sauerstoff (an Land) */
+  meta?: 'sight' | 'oxy';
   /** Tiere: Art und Anzahl der Gruppen */
   fauna: [string, number][];
   /** größere Tiere, die hin und wieder durchs Bild ziehen (Art, Gewicht): meist friedlich – sie jagen kleine Fische und ziehen weiter */
@@ -106,9 +113,22 @@ export const EPOCHS: EpochDef[] = [
     ],
   },
   // ---------------------------------------------------------------- II.–VII. ruhen noch: Bild und Text stehen, Welt und Tiere folgen
-  later('karbon', 'Karbon', 'Die Kohlewälder', [359, 299],
-    'Dampfende Sumpfwälder aus Schuppenbäumen und Riesenschachtelhalmen. Libellen so groß wie Möwen schwirren durch den Nebel, und die ersten Amphibien kriechen ans Ufer.',
-    'Kohlesumpf', 'sumpf', 'amphibian', 'land'),
+  // ---------------------------------------------------------------- II. Karbon – an Land
+  // das Unterkarbon (vor etwa 348 Millionen Jahren): Man lebt als Pederpes, einer der ersten Vierfüßer. Statt zu laichen gibt es
+  // ein Gelege voller Eier – die Leben der Art (siehe data/karbon.ts). Räuber kommen nicht als Ereignis, sondern ans Nest.
+  {
+    id: 'karbon', name: 'Karbon', playable: true, brood: true, meta: 'oxy', tagline: 'Die Kohlewälder', period: [359, 299],
+    blurb: 'Dampfende Sümpfe zwischen Inseln und Ufern. Riesige Fleischflosser lauern im Wasser, Tausendfüßer und Skorpione kriechen durch die ersten Wälder – und die ersten Vierfüßer wagen sich ans Land.',
+    place: 'Kohlesumpf', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
+    from: 349 * M, to: 341 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.9, cover: 0.5,
+    fauna: [
+      ['elonichthys', 8], ['acanthodes', 4], ['tealliocaris', 3], ['bellinurus', 2.5], ['ctenodus', 1],
+      ['tausendfuss', 4.5], ['urinsekt', 4.5], ['trigonotarbid', 3], ['hibbertopterus', 0.5],
+      ['pulmonoscorpius', 0.5], ['megalichthys', 0.35], ['crassigyrinus', 0.3], ['strepsodus', 0.2], ['stethacanthus', 0.15],
+    ],
+    passers: [['megalichthys', 3], ['crassigyrinus', 2], ['strepsodus', 1.5], ['stethacanthus', 1]],
+    events: [{ at: 0.5, kind: 'predator', species: 'rhizodus' }],
+  },
   later('perm', 'Perm', 'Das Reich der Segelrücken', [299, 252],
     'Alle Kontinente sind zu Pangäa verschmolzen. Im trockenen Land herrschen Segelechsen wie Dimetrodon – die fernen Vorfahren der Säugetiere. Am Ende steht das größte Massensterben der Erdgeschichte.',
     'Pangäa', 'reptil', 'reptile', 'land'),

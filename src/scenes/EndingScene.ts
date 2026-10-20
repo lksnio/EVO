@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { game } from '../state/GameState';
+import { EPOCHS } from '../data/epochs';
 import { levelBackgrounds } from '../art/worldArt';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
@@ -14,17 +15,25 @@ const LINES = [
   'Das Fischreich wird weiter ausgebaut.',
 ];
 
+/** Karbon: Der Gipfel des steilen Felsens ist erreicht. */
+const KARBON_LINES = [
+  'Deine Art hat den steilen Fels erklommen.',
+  'Generationen sind gelaufen, geklettert, haben ihr Gelege verteidigt –',
+  'und jede hat ihre Nachfahren ein Stück weiter ans Land gebracht.',
+  'Das Karbon ist gemeistert.',
+];
+
 /** Die Demo endet, wenn die Fischzeit vorbei ist. */
 export class EndingScene extends Phaser.Scene {
   private hero!: CreatureView;
   private views: CreatureView[] = [];
-  private d!: { node: string; morph: Morph };
+  private d!: { node: string; morph: Morph; epoch?: number };
 
   constructor() {
     super('Ending');
   }
 
-  init(d: { node: string; morph: Morph }) {
+  init(d: { node: string; morph: Morph; epoch?: number }) {
     this.d = d;
     this.views = [];
   }
@@ -32,7 +41,8 @@ export class EndingScene extends Phaser.Scene {
   create() {
     fadeIn(this, 1400);
     audio.music('ending');
-    const [far, mid] = levelBackgrounds(this, 'ozean', 'normal');
+    const karbon = EPOCHS[this.d.epoch ?? -1]?.id === 'karbon';
+    const [far, mid] = levelBackgrounds(this, karbon ? 'sumpf' : 'ozean', 'normal');
     this.add.image(0, 0, far).setOrigin(0);
     this.add.image(0, 0, mid).setOrigin(0);
     // Das Licht wird langsam heller
@@ -61,15 +71,16 @@ export class EndingScene extends Phaser.Scene {
     this.hero.setY(this.hero.L.land ? 612 - this.hero.L.footY * 1.9 : 540);
     this.tweens.add({ targets: this.hero, x: W * 0.68, duration: 5200, ease: 'Sine.out' });
 
-    const head = title(this, W / 2, 86, 'Demo beendet', 68, '#f0e2c0').setOrigin(0.5).setAlpha(0);
+    const head = title(this, W / 2, 86, karbon ? 'Zeitalter gemeistert' : 'Demo beendet', 68, '#f0e2c0').setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: head, alpha: 1, duration: 1600, delay: 800 });
-    LINES.forEach((l, i) => {
+    (karbon ? KARBON_LINES : LINES).forEach((l, i) => {
       const t = text(this, W / 2, 168 + i * 44, l, 25, UI.bone, { stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5).setAlpha(0);
       this.tweens.add({ targets: t, alpha: 1, duration: 1200, delay: 2000 + i * 1900 });
     });
     const runs = game.data.runs;
     const shells = game.shells;
-    const stats = text(this, W / 2, 360, `${path.length} Zeitalter überlebt  ·  ${shells} ${shells === 1 ? 'Muschel' : 'Muscheln'}  ·  ${runs} ${runs === 1 ? 'Versuch' : 'Versuche'} bis hierher`, 20, UI.boneDim, { stroke: '#050403', strokeThickness: 4 })
+    const lived = karbon ? `Generation ${game.brood?.gen ?? 0}` : `${path.length} Zeitalter überlebt`;
+    const stats = text(this, W / 2, 360, `${lived}  ·  ${shells} ${shells === 1 ? 'Muschel' : 'Muscheln'}  ·  ${runs} ${runs === 1 ? 'Versuch' : 'Versuche'} bis hierher`, 20, UI.boneDim, { stroke: '#050403', strokeThickness: 4 })
       .setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: stats, alpha: 1, duration: 1000, delay: 9800 });
     this.time.delayedCall(10400, () => {

@@ -7,6 +7,7 @@ import { CreatureView } from '../objects/CreatureView';
 import { SPECIES } from '../data/species';
 import { dietIcon, preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
+import { BROOD } from '../data/karbon';
 import { text, title } from './ui';
 
 export interface OverviewData {
@@ -103,9 +104,11 @@ export class Overview {
 
     // ---- die drei großen Werte (sie segnet die große Muschel)
     const v = game.shown();
+    // im Karbon segnet die große Muschel Sauerstoff statt Sicht (Sekunden an Land)
+    const brood = game.brood;
     const big = [
       { label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
-      { label: 'SICHT', value: String(v.sight) },
+      brood ? { label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { label: 'SICHT', value: String(v.sight) },
       { label: 'AUSDAUER', value: String(v.stam) },
     ];
     big.forEach((b, i) => {
@@ -131,12 +134,20 @@ export class Overview {
     g.lineStyle(1, 0xc8913c, 0.28);
     g.lineBetween(x0 + 90, by - 6, x0 + w - 90, by - 6);
     g.lineBetween(x0 + 90, by + 60, x0 + w - 90, by + 60);
-    const small = [
-      { label: 'GEBISS', value: v.bite },
-      { label: 'SCHÄDEL', value: v.skull },
-      { label: 'SCHWARM', value: v.swarm },
-      { label: 'SCHUPPEN', value: v.scales },
-    ];
+    // im Karbon: was das Verhalten der Generationen formt – Gebiss, Beine, Griff, Schuppen
+    const small = brood
+      ? [
+          { label: 'GEBISS', value: v.bite },
+          { label: 'BEINE', value: v.legs },
+          { label: 'GRIFF', value: v.grip },
+          { label: 'SCHUPPEN', value: v.scales },
+        ]
+      : [
+          { label: 'GEBISS', value: v.bite },
+          { label: 'SCHÄDEL', value: v.skull },
+          { label: 'SCHWARM', value: v.swarm },
+          { label: 'SCHUPPEN', value: v.scales },
+        ];
     const step = (w - 180) / small.length;
     small.forEach((b, i) => {
       const cx = x0 + 90 + step * (i + 0.5);
@@ -186,8 +197,25 @@ export class Overview {
     row(colL, (y += 28), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
     row(colL, (y += 28), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
 
-    // ---- rechts: Leben, Nachwuchs, Funde
+    // ---- rechts: Leben, Nachwuchs, Funde (im Karbon: das Gelege)
     y = y0 + 334;
+    if (brood) {
+      head(colR, y, 'DAS GELEGE');
+      row(colR, (y += 32), 'Generation', String(brood.gen));
+      row(colR, (y += 28), 'Eier im Nest', nf(brood.eggs));
+      row(colR, (y += 28), 'Abschnitt', brood.phase === 'young' ? 'Larve' : 'Vierfüßer');
+      if (brood.phase === 'young') row(colR, (y += 28), 'Nahrung', `${nf(Math.floor(brood.food))} / ${nf(BROOD.food)}`);
+      else row(colR, (y += 28), 'Neues Gelege in', `${Math.floor(brood.left / 60)}:${`${Math.ceil(brood.left) % 60}`.padStart(2, '0')}`);
+      y += 40;
+      head(colR, y, 'DIESE GENERATION');
+      row(colR, (y += 32), 'Erlegte Beute', nf(Math.floor(brood.train.prey)));
+      row(colR, (y += 28), 'An Land gelaufen', `${nf(Math.round(brood.train.land / 40))} Schritte`);
+      row(colR, (y += 28), 'Geklettert', `${nf(Math.round(brood.train.climb / 40))} Schritte`);
+      c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
+      c.setAlpha(0).setY(6);
+      scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
+      return;
+    }
     head(colR, y, 'LEBEN');
     row(colR, (y += 32), 'Generation', String(life.gen));
     if (run) row(colR, (y += 28), 'Geschlecht', run.sex === 1 ? 'Männchen' : 'Weibchen');

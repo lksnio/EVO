@@ -89,6 +89,8 @@ export interface SpeciesDef {
   sprint?: number;
   /** Bewegt sich am Boden (Wasser: krabbelt) */
   crawl?: boolean;
+  /** lebt an Land (Karbon): kommt auf Inseln und Ufern vor und meidet das Wasser */
+  land?: boolean;
   hit?: [number, number];
   boss?: boolean;
   /** streift weit umher statt in der Nähe seines Reviers zu bleiben */
@@ -236,6 +238,28 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'pterygotus', name: 'Pterygotus', art: { t: 'bug', len: 210, h: 46, segs: 10, c: 0x4a2c1e, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'apex', diet: 'meat', habitat: 'water', hp: 150, dmg: 11, power: 20, speed: 118, sense: 380, meat: 8, boss: true, roam: true, hit: [0.8, 0.6] }),
     S({ id: 'hyneria', name: 'Hyneria', art: { t: 'fish', len: 210, h: 66, c: 0x4a4a30, belly: 0x9a9268, fin: 0x34341e, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 180, dmg: 12, power: 24, speed: 112, sense: 400, meat: 10, boss: true, roam: true, hit: [0.8, 0.65] }),
     // ---------------------------------------------------------------- Kreidezeit: das Westliche Binnenmeer (noch nicht spielbar – die Werte sind vorläufig)
+    // ---------------------------------------------------------------- Karbon (Unterkarbon, vor etwa 348 Millionen Jahren)
+    // Elonichthys: ein kleiner Strahlenflosser in Schwärmen – häufige Beute im Sumpf
+    S({ id: 'elonichthys', name: 'Elonichthys', art: { t: 'fish', len: 32, h: 10, c: 0x8a7c52, belly: 0xe2d6a8, fin: 0x5e5232, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.2, speed: 125, sense: 240, meat: 1, herd: [8, 14], sprint: 1.85 }),
+    // Tealliocaris: ein garnelenartiger Krebs am Grund flacher Gewässer
+    S({ id: 'tealliocaris', name: 'Tealliocaris', art: { t: 'bug', len: 30, h: 9, segs: 6, c: 0x9a6a4a, legs: 4, antenna: true, paddles: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 0.8, speed: 58, sense: 150, meat: 1, herd: [3, 6], crawl: true, sprint: 1.6 }),
+    // Bellinurus: ein Pfeilschwanzkrebs – gepanzert, langsam, am Grund
+    S({ id: 'bellinurus', name: 'Bellinurus', art: { t: 'trilo', len: 40, c: 0x6a5a3e }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.5, speed: 30, sense: 120, meat: 2, herd: [2, 4], crawl: true, sprint: 1.3 }),
+    // Ctenodus: ein großer Lungenfisch – friedlich, aber er beißt zu, wenn man ihn bedrängt
+    S({ id: 'ctenodus', name: 'Ctenodus', art: { t: 'fish', len: 92, h: 26, c: 0x5e5a3c, belly: 0xb2aa80, fin: 0x403c28, lobed: true, spots: true }, role: 'defender', diet: 'plant', habitat: 'water', hp: 30, dmg: 4, power: 6, speed: 62, sense: 220, meat: 4, hit: [0.8, 0.65] }),
+    // Hibbertopterus: ein riesiger Seeskorpion, der mit seinen Kämmen den Schlamm durchsiebt – er läuft sogar an Land
+    S({ id: 'hibbertopterus', name: 'Hibbertopterus', art: { t: 'bug', len: 150, h: 40, segs: 9, c: 0x5a3e2a, legs: 4, paddles: true, stinger: 'straight' }, role: 'defender', diet: 'plant', habitat: 'water', hp: 60, dmg: 6, power: 10, speed: 40, sense: 200, meat: 6, crawl: true, hit: [0.8, 0.6] }),
+    // an Land: Tausendfüßer, Urinsekten und kleine Spinnentiere – die Beute, die ans Ufer lockt
+    S({ id: 'tausendfuss', name: 'Tausendfüßer', art: { t: 'bug', len: 54, h: 9, segs: 14, c: 0x4a3426, legs: 12, antenna: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1, speed: 44, sense: 130, meat: 1, herd: [2, 4], crawl: true, land: true, sprint: 1.4 }),
+    S({ id: 'urinsekt', name: 'Urinsekt', art: { t: 'bug', len: 24, h: 7, segs: 5, c: 0x7a6a50, legs: 3, antenna: true, stinger: 'straight' }, role: 'prey', diet: 'plant', habitat: 'water', hp: 3, dmg: 0, power: 0.6, speed: 70, sense: 150, meat: 1, herd: [3, 6], crawl: true, land: true, sprint: 1.8 }),
+    S({ id: 'trigonotarbid', name: 'Trigonotarbid', art: { t: 'bug', len: 22, h: 10, segs: 3, c: 0x5c4434, legs: 4 }, role: 'prey', diet: 'meat', habitat: 'water', hp: 4, dmg: 0, power: 0.8, speed: 62, sense: 150, meat: 1, herd: [1, 3], crawl: true, land: true, sprint: 1.6 }),
+    // Pulmonoscorpius: ein Skorpion so lang wie ein Arm – an Land gefährlich
+    S({ id: 'pulmonoscorpius', name: 'Pulmonoscorpius', art: { t: 'bug', len: 76, h: 20, segs: 8, c: 0x3e2a1e, legs: 4, pincers: true, stinger: 'up' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 26, dmg: 6, power: 8, speed: 80, sense: 240, meat: 3, crawl: true, land: true, hit: [0.8, 0.6] }),
+    // die Räuber im Wasser: Megalichthys, die Rhizodonten Strepsodus und Rhizodus, und Crassigyrinus, ein Vierfüßer, der nie an Land ging
+    S({ id: 'megalichthys', name: 'Megalichthys', art: { t: 'fish', len: 118, h: 28, c: 0x6a5a34, belly: 0xc4b07c, fin: 0x4a3e22, lobed: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 50, dmg: 9, power: 12, speed: 120, sense: 320, meat: 5, roam: true, hit: [0.8, 0.6] }),
+    S({ id: 'crassigyrinus', name: 'Crassigyrinus', art: { t: 'mosa', len: 170, h: 30, c: 0x4e5238, belly: 0xa8a47c, fin: 0x343824 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 70, dmg: 11, power: 15, speed: 118, sense: 330, meat: 6, hit: [0.85, 0.6] }),
+    S({ id: 'strepsodus', name: 'Strepsodus', art: { t: 'fish', len: 172, h: 38, c: 0x56502e, belly: 0xb6a874, fin: 0x3c361e, lobed: true, teeth: true, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 90, dmg: 13, power: 18, speed: 112, sense: 360, meat: 7, roam: true, hit: [0.8, 0.6] }),
+    S({ id: 'rhizodus', name: 'Rhizodus', art: { t: 'fish', len: 300, h: 70, c: 0x4a4428, belly: 0x9e9266, fin: 0x302c18, lobed: true, teeth: true, spots: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 240, dmg: 20, power: 30, speed: 118, sense: 440, meat: 13, boss: true, roam: true, hit: [0.8, 0.62] }),
     // Apsopelix: ein kleiner, heringsartiger Schwarmfisch – Futter für alle
     S({ id: 'apsopelix', name: 'Apsopelix', art: { t: 'fish', len: 30, h: 10, c: 0x7a8a98, belly: 0xdce4ea, fin: 0x56626e, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.1, speed: 132, sense: 250, meat: 1, herd: [9, 16], sprint: 1.9,
       layer: 'open', where: { start: 1.3, lush: 1.2, murky: 0.9, deep: 0.3, abyss: 0 } }),

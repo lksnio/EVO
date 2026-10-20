@@ -32,8 +32,12 @@ const zone = (name: string, veil: number, veilA: number, fog: number, light: num
 /** Art des Ortes – bestimmt auch, wie er auf der Karte aussieht. */
 export type PlaceKind = 'start' | 'lush' | 'murky' | 'deep' | 'abyss';
 
-/** Form des Geländes: Mulde, flache Wiese, Hügelketten, Trichter (V) und Schacht mit Rändern. */
-export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well' | 'river';
+/**
+ * Form des Geländes: Mulde, flache Wiese, Hügelketten, Trichter (V) und Schacht mit Rändern. Im Karbon ragt das Land aus dem
+ * Wasser: der Brutsumpf (nest), lange Ufer (shore), Inseln mit Hängen (isles), viele flache Inselchen im Moor (marsh), ein
+ * tiefer See zwischen zwei Ufern (lake) und die steile Insel, deren Gipfel das Ziel ist (peak).
+ */
+export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well' | 'river' | 'nest' | 'shore' | 'isles' | 'marsh' | 'lake' | 'peak';
 
 /** Höhlen eines Ortes: g = grüne Höhle (färbt grün), b = schwarze Höhle. Die erste liegt nahe beim Ankunftsplatz. */
 export type CaveKind = 'g' | 'b';
@@ -72,6 +76,11 @@ export interface PlaceDef {
    * das Startgebiet, klein und still; Pflanzen wachsen trotzdem
    */
   safe?: boolean;
+  /**
+   * Land über dem Wasser (Karbon): so viele Kacheln Himmel liegen über der Wasserlinie – das Land ragt hinein. Dann ist deep
+   * die Tiefe des Wassers unter der Wasserlinie (in Kacheln).
+   */
+  sky?: number;
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
@@ -93,6 +102,8 @@ interface RoleDef {
   /** Feinabstimmung der Gebiets-Faktoren: Pflanzen, Dickicht, Beute, Jäger */
   mul?: [number, number, number, number];
   apex?: boolean;
+  /** Land über dem Wasser: Kacheln Himmel über der Wasserlinie (siehe PlaceDef.sky) */
+  sky?: number;
 }
 
 /**
@@ -127,7 +138,7 @@ function zoneFor(kind: PlaceKind, name: string, veils: { lush: number; murky: nu
 }
 
 /** Orte, Namen und Farben je Zeitalter. */
-const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number }> = {
+const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number; roles?: Partial<Record<Role, Partial<RoleDef>>> }> = {
   ordovizium: {
     names: {
       start: ['lagune', 'Der Laichfluss'], lush1: ['tang', 'Tangwiese'], lush2: ['schwamm', 'Schwammgarten'], murky1: ['bucht', 'Trübe Bucht'], murky2: ['sandfeld', 'Sandfeld'],
@@ -149,6 +160,26 @@ const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veil
     },
     veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1,
   },
+  // das Karbon: Sümpfe, Ufer und Inseln – das Land ragt aus dem Wasser, und ganz am Ende wartet der steile Fels
+  karbon: {
+    names: {
+      start: ['brut', 'Der Brutsumpf'], lush1: ['farn', 'Farnufer'], lush2: ['inseln', 'Schachtelhalm-Inseln'], murky1: ['moor', 'Torfmoor'], murky2: ['schlamm', 'Schlammbänke'],
+      deep1: ['lagune', 'Brackige Lagune'], deep2: ['see', 'Der Rhizodus-See'], deep3: ['rinne', 'Die Tiefe Rinne'], abyss1: ['fels', 'Der Steile Fels'], abyss2: ['kueste', 'Steilküste'],
+    },
+    veils: { lush: 0x2a3a18, murky: 0x34301a }, light: 0.9, hunters: 1,
+    roles: {
+      start: { shape: 'nest', deep: 6, wide: 1.4, safe: false, sky: 9 },
+      lush1: { shape: 'shore', deep: 6, wide: 2.6, sky: 9 },
+      lush2: { shape: 'isles', deep: 8, wide: 2.6, sky: 13 },
+      murky1: { shape: 'marsh', deep: 5, wide: 2.6, sky: 9 },
+      murky2: { shape: 'shore', deep: 7, wide: 2.8, sky: 9 },
+      deep1: { shape: 'lake', deep: 14, wide: 2.6, sky: 9 },
+      deep2: { shape: 'lake', deep: 22, wide: 2.8, sky: 9, apex: true },
+      deep3: { shape: 'lake', deep: 26, wide: 2.4, sky: 9 },
+      abyss1: { kind: 'lush', shape: 'peak', deep: 8, wide: 2.2, sky: 27, apex: false, mul: [1, 1, 1, 0.3] },
+      abyss2: { kind: 'murky', shape: 'isles', deep: 10, wide: 2.4, sky: 17, apex: false },
+    },
+  },
 };
 
 function buildPlaces(epId: string): PlaceDef[] {
@@ -156,14 +187,15 @@ function buildPlaces(epId: string): PlaceDef[] {
   const roles = Object.keys(ROLES) as Role[];
   const idOf = (r: Role) => spec.names[r][0];
   return roles.map((r) => {
-    const d = ROLES[r];
+    // ein Zeitalter kann seinen Orten eine eigene Gestalt geben (das Karbon: Ufer, Inseln, der steile Fels)
+    const d = { ...ROLES[r], ...spec.roles?.[r] };
     const [id, name] = spec.names[r];
     const def = zoneFor(d.kind, name, spec.veils, d.mul, spec.light);
     def.hunters *= spec.hunters;
     const [x, y] = PALEO[epId].nodes[r];
     return {
       id, name, kind: d.kind, x, y, links: d.links.map(idOf), def,
-      deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe,
+      deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe, sky: d.sky,
     };
   });
 }

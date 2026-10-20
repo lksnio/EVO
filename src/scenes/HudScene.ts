@@ -18,6 +18,7 @@ import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
 import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
 import { UPGRADES } from '../data/life';
+import { BROOD, OXYGEN } from '../data/karbon';
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -72,6 +73,9 @@ export class HudScene extends Phaser.Scene {
   private choiceC?: Phaser.GameObjects.Container;
   /** frisch geschlüpft: Die Anzeigen kommen erst, wenn das Tier aufgewacht ist */
   private wake = false;
+  /** Karbon: die Zeile unter der Brutlinie (Generation, Eier, Nahrung bzw. Zeit bis zum neuen Gelege) */
+  private broodText?: Phaser.GameObjects.Text;
+  private broodAt = 0;
 
   constructor() {
     super('Hud');
@@ -118,6 +122,9 @@ export class HudScene extends Phaser.Scene {
     this.fuse = this.add.graphics();
     this.spawnTimeUi();
     this.lifeFrac = game.run ? game.life.age / phases(game.life.gen).span : 0;
+    // Karbon: statt der Lebenslinie die Brut – Jugend bis zur Metamorphose, dann die Zeit bis zum neuen Gelege
+    this.broodText = game.brood ? text(this, W / 2, 84, '', 15, UI.bone, { stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 0) : undefined;
+    this.broodAt = 0;
     this.drawFuse();
     // Ein neues Tier in der Chronik des Lebens: ein kleines Schild oben links
     this.dexQueue = [];
@@ -252,6 +259,7 @@ export class HudScene extends Phaser.Scene {
   private drawFuse() {
     const g = this.fuse;
     const x0 = W / 2 - 170, w = 340, y = 70;
+    if (game.brood) return this.drawBrood();
     const P = phases(game.run ? game.life.gen : 1);
     const m = P.mature / P.span, o = P.old / P.span;
     const f = Math.min(1, Math.max(0, this.lifeFrac));
@@ -278,6 +286,43 @@ export class HudScene extends Phaser.Scene {
     }
     g.fillStyle(this.heir ? 0xfff0c0 : 0xffe0a0, 1);
     g.fillCircle(x0 + w * f, y + 1.5, 3);
+  }
+
+  /**
+   * Karbon: die Brutlinie. Links die Jugend (kühl, füllt sich mit der Nahrung bis zur Metamorphose), rechts die Gefahr (Ocker,
+   * am Ende rostrot – die Zeit bis zum neuen Gelege). Darunter: Generation, Eier im Nest, was noch fehlt.
+   */
+  private drawBrood() {
+    const b = game.brood!;
+    const g = this.fuse;
+    const x0 = W / 2 - 170, w = 340, y = 70, meta = 0.32;
+    const young = b.phase === 'young';
+    const f = young ? meta * Math.min(1, b.food / BROOD.food) : meta + (1 - meta) * (1 - b.left / BROOD.danger);
+    g.clear();
+    g.fillStyle(0x2a2420, 1);
+    g.fillRect(x0, y, w, 3);
+    g.fillStyle(0x6fa8a0, 0.9);
+    g.fillRect(x0, y, w * Math.min(f, meta), 3);
+    if (f > meta) {
+      g.fillStyle(f > 0.9 ? 0xa4503a : 0xc8913c, 0.9);
+      g.fillRect(x0 + w * meta, y, w * (f - meta), 3);
+    }
+    g.fillStyle(0x8a7a60, 0.8);
+    g.fillRect(x0 + w * meta - 0.5, y - 2, 1, 7);
+    g.fillStyle(0xffe0a0, 1);
+    g.fillCircle(x0 + w * f, y + 1.5, 3);
+    if (!this.broodText) return;
+    const eggs = `${b.eggs} ${b.eggs === 1 ? 'Ei' : 'Eier'}`;
+    let line: string;
+    if (young) line = `Generation ${b.gen}  ·  ${eggs}  ·  Nahrung ${Math.floor(b.food)}/${BROOD.food} bis zur Metamorphose`;
+    else {
+      const s = Math.ceil(b.left), mm = Math.floor(s / 60), ss = `${s % 60}`.padStart(2, '0');
+      const lvl = this.scene.get('Level') as LevelScene;
+      const away = lvl?.place && lvl.place.id !== b.nest.place;
+      line = `Generation ${b.gen}  ·  ${eggs}  ·  neues Gelege in ${mm}:${ss}${away ? '  ·  das Nest ist ungeschützt!' : ''}`;
+    }
+    if (line !== this.broodText.text) this.broodText.setText(line);
+    this.broodText.setColor(b.eggs <= 10 && !young ? '#e0806a' : UI.bone);
   }
 
   /**
@@ -589,6 +634,11 @@ export class HudScene extends Phaser.Scene {
 
     this.portrait?.animate(dt, this.portrait.L.land ? 'idle' : 'swim', 0.2);
     this.overview?.update(dt);
+    // Karbon: die Brutlinie viermal je Sekunde neu
+    if (game.brood && _time > this.broodAt) {
+      this.broodAt = _time + 250;
+      this.drawBrood();
+    }
   }
 
   /** Der Schädel ist hart genug: Ab jetzt kann man gezielt rammen (ein Ton, bei Touch erscheint der Knopf). */
@@ -627,7 +677,10 @@ export class HudScene extends Phaser.Scene {
     const cols: { k: UpKey; name: string; what: string; val: (v: ReturnType<typeof game.shown>) => number }[] = [
       { k: 'hp', name: 'Lebenskraft', what: `+${nf(UPGRADES.hp * 100, 1)} %  ·  ein größerer Körper`, val: (v) => v.hpMax },
       { k: 'stam', name: 'Ausdauer', what: '+¼ Kreis  ·  kräftigere Flossen', val: (v) => v.stam },
-      { k: 'sight', name: 'Sicht', what: `+${Math.round(UPGRADES.sightPer * 100)} %  ·  größere Augen`, val: (v) => v.sight },
+      // im Karbon: Sauerstoff statt Sicht – länger an Land, ohne auszutrocknen
+      game.upKeys.includes('oxy')
+        ? { k: 'oxy', name: 'Sauerstoff', what: `+${Math.round(OXYGEN.perUp * 100)} %  ·  länger an Land`, val: (v) => v.oxy }
+        : { k: 'sight', name: 'Sicht', what: `+${Math.round(UPGRADES.sightPer * 100)} %  ·  größere Augen`, val: (v) => v.sight },
     ];
     const items: Button[] = [];
     cols.forEach((col, i) => {
@@ -652,10 +705,12 @@ export class HudScene extends Phaser.Scene {
     const note = !total
       ? 'Noch keine Muscheln. Sie fallen von erlegten Tieren – von starken öfter als von schwachen.'
       : all
-        ? `Deine Linie hat alle ${UPGRADES.max} Segen. Beginnt eine neue, sind alle Muscheln wieder frei.`
+        ? `Deine Linie hat alle ${UPGRADES.max} Segen.${game.brood ? '' : ' Beginnt eine neue, sind alle Muscheln wieder frei.'}`
       : free < cost
         ? `Für den nächsten Segen fehlen noch ${mus(cost - free)}.`
-        : 'Die Segen gelten für deine ganze Linie. Beginnt eine neue, sind alle Muscheln wieder frei.';
+        : game.brood
+          ? 'Die Segen gelten für deine ganze Art – auch über das Aussterben hinaus.'
+          : 'Die Segen gelten für deine ganze Linie. Beginnt eine neue, sind alle Muscheln wieder frei.';
     c.add(text(this, W / 2, y0 + 440, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5));
     const go = new Button(this, W / 2, y0 + 482, 'Gehen', { w: 200, h: 42, size: 18, icon: 'ic_back', onClick: () => this.closeShrine() });
     items.push(go);

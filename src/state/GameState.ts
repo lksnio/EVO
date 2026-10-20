@@ -7,6 +7,11 @@ import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
+import { KTRAIN } from '../data/karbon';
+import {
+  feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
+  type Brood, type Egg,
+} from '../sim/brood';
 
 // ---------------------------------------------------------------------------
 // Spielstand.
@@ -66,6 +71,8 @@ export interface Traits {
   light: number;
   /** Bodenkontakt: stützende Flossen bzw. kräftige Beine */
   limb: number;
+  /** Griff (Karbon): Zehen und Krallen, die an steilen Hängen halten (0 … 1) – aus dem Klettern */
+  grip: number;
   /** Zusammenhalt (Schwarmfisch): Artgenossen helfen öfter, deine Gruppe wird größer und stärker (und will mitfressen) */
   pack: number;
   /** Flossengröße, Schwanzbreite, Rückenflosse/Kamm (-1 … +1) – ändern sich vor allem durch die Evolutionsplatten */
@@ -178,6 +185,9 @@ export interface Stats {
   upkeep: number;
   /** Rückstoß bei Treffern (1 = normal): Ein Schuppenpanzer hält dagegen */
   knock: number;
+  /** an Land (Karbon): Tempo beim Laufen und wie steil ein Hang höchstens sein darf (Grad) */
+  landSpeed: number;
+  slope: number;
 }
 
 /** 1 = männlich, 2 = weiblich */
@@ -363,6 +373,10 @@ export interface Run {
   swarm?: Swarm;
   /** Stand der gemeinsamen Jagd (Auftrag „jagd“) */
   hunt?: { kills: number; took: boolean; size: number };
+  /** Karbon: das Gelege – Jugend, Gefahr, die Eier als Leben, was die Generation getan hat (siehe sim/brood.ts) */
+  brood?: Brood;
+  /** Karbon: den steilen Gipfel erreicht – das Zeitalter ist gemeistert */
+  summit?: boolean;
 }
 
 /** Ein Artgenosse deiner Gruppe: eine feste Nummer (sie bestimmt sein Aussehen) und seine Lebenskraft (Anteil, 0 … 1). */
@@ -394,11 +408,11 @@ export interface Swarm {
 
 export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
 
-/** Wofür die große Muschel segnet: Lebenskraft, Ausdauer, Sicht. */
-export type UpKey = 'hp' | 'stam' | 'sight';
+/** Wofür die große Muschel segnet: Lebenskraft, Ausdauer und – je nach Zeitalter – Sicht (Devon) oder Sauerstoff (Karbon). */
+export type UpKey = 'hp' | 'stam' | 'sight' | 'oxy';
 export type Ups = Record<UpKey, number>;
-export const UP_KEYS: UpKey[] = ['hp', 'stam', 'sight'];
-const noUps = (): Ups => ({ hp: 0, stam: 0, sight: 0 });
+export const UP_KEYS: UpKey[] = ['hp', 'stam', 'sight', 'oxy'];
+const noUps = (): Ups => ({ hp: 0, stam: 0, sight: 0, oxy: 0 });
 
 export interface TreeNode {
   id: string;
@@ -446,12 +460,14 @@ export interface SaveData {
   shells?: number;
   /** so viele Muscheln hat man in der Übersicht schon gesehen (der Knopf leuchtet, solange eine neue dazukam) */
   seenShells?: number;
+  /** Segen, die das Aussterben überdauern (Zeitalter mit Brutzyklus, je Kennung des Zeitalters) */
+  keptUps?: Record<string, Ups>;
 }
 
 const KEY = 'evo-save-v3';
 /** Spielstand-Platz (?slot=…): Zwei Fenster im selben Browser spielen so zwei verschiedene Fische. */
 let slotKey = KEY;
-const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
+const ZERO: Traits = { jaw: 0, skull: 0, stealth: 0, growth: 0, diet: 0, scars: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, nerve: 0, tox: 0, fang: 0, light: 0, limb: 0, grip: 0, pack: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0 };
 export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 
 /** Was im Zeitalter Stück für Stück wächst, setzt sich über die Jahrmillionen fort (verstärkt). */
@@ -459,7 +475,7 @@ const AMP: TraitKey[] = ['stealth', 'green', 'sand', 'nerve', 'tox', 'limb'];
 /** Was ein Partner an die Nachkommen weitergibt: das Aussehen, nicht Größe, Kost, Robustheit oder die Evolutionsplatten. */
 const BLEND_KEYS: (keyof Traits)[] = ['stealth', 'green', 'sand', 'len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout', 'fUp', 'fDown', 'fSide', 'fTail'];
 /** Merkmale zwischen 0 und 1 (die übrigen reichen von -1 bis 1; Kopfplatte und Wuchs haben eigene Grenzen) */
-const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
+const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'grip', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
 const range = (k: keyof Traits): [number, number] => (k === 'spike' ? [-1, 0] : k === 'growth' ? [GROWTH_MIN, 1] : UNIT_KEYS.has(k) ? [0, 1] : [-1, 1]);
 
 
@@ -609,10 +625,28 @@ function fresh(): SaveData {
   };
 }
 
+/** Karbon: die Richtung, in die sich eine Linie am deutlichsten entwickelt hat (Gebiss, Beine, Griff, Schuppen) – oder keine. */
+export function karbonLine(t: Partial<Traits>): 'jaw' | 'limb' | 'grip' | 'armor' | undefined {
+  let best: 'jaw' | 'limb' | 'grip' | 'armor' | undefined;
+  let v = 0.12;
+  for (const k of ['jaw', 'limb', 'grip', 'armor'] as const) {
+    if ((t[k] ?? 0) > v) {
+      v = t[k] ?? 0;
+      best = k;
+    }
+  }
+  return best;
+}
+
 /** Grobe Einordnung einer Linie – gleiche Signatur im selben Zeitalter = derselbe Ast. */
 export function sigOf(cls: ClassId, tIn: Partial<Traits>) {
   const t = full(tIn);
   const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
+  // Pederpes: nach der stärksten Richtung und wie weit sie ist (in Vierteln)
+  if (cls === 'amphibian') {
+    const k = karbonLine(t);
+    return `${cls}:${k ? `${k}${Math.floor((t[k] ?? 0) * 4)}` : 'basal'}:${diet}:${t.coat}`;
+  }
   return `${cls}:${plateSig(t)}:${diet}:${t.coat}`;
 }
 
@@ -625,6 +659,7 @@ export function rootNode(epoch: number): TreeNode {
   return { id: rootId(epoch), parent: null, epoch, gen: 0, cls, traits: { ...ZERO }, hue: 0, seed: 1, sig: sigOf(cls, ZERO), children: [], runs: 0, last: 0 };
 }
 
+const KARBON_NAME = { jaw: 'Odonterpeton mordax', limb: 'Dromerpeton cursor', grip: 'Onycherpeton scansor', armor: 'Lepiderpeton loricatus' };
 const GENUS_ROOT: Record<ClassId, string> = { fish: 'ichthys', amphibian: 'batrachus', reptile: 'saurus', mammal: 'therium' };
 const GENUS_PRE: Record<string, string> = { basal: 'Prot', st: 'Placo', bs: 'Odont', vf: 'Drom', sw: 'Agel' };
 const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris', carn: 'carnivorus' };
@@ -634,6 +669,11 @@ export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'> & { pa
   if (n.parent === null || n.epoch < 0) return 'Der Urahn';
   const t = full(n.traits);
   const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
+  // Pederpes und seine Nachfahren: nach der Richtung, in die sie sich am deutlichsten entwickelt haben
+  if (n.cls === 'amphibian') {
+    const k = karbonLine(t);
+    return k ? KARBON_NAME[k] : 'Pederpes finneyae';
+  }
   const root = GENUS_ROOT[n.cls];
   const genus = GENUS_PRE[dominantPlate(t) ?? 'basal'] + (/^[aeiou]/.test(root) ? '' : 'o') + root;
   const color = t.coat === 1 ? 'viridis' : t.coat === 2 ? 'niger' : '';
@@ -899,9 +939,10 @@ class GameState {
     if (!isPlayable(epoch)) epoch = 0;
     d.runs += 1;
     const root = this.rootOf(epoch);
+    const ep = EPOCHS[epoch];
     const run: Run = {
       id: d.runs,
-      cls: 'fish',
+      cls: ep.cls === 'amphibian' ? 'amphibian' : 'fish',
       traits: { ...ZERO },
       aggression: 0,
       infamy: 0,
@@ -917,10 +958,13 @@ class GameState {
       canRam: true,
       prog: newProg(epoch),
       life: newLife(1),
-      // die Muscheln sind wieder frei: An der großen Muschel werden sie für diese Linie neu verteilt
-      ups: noUps(),
+      // die Muscheln sind wieder frei: An der großen Muschel werden sie für diese Linie neu verteilt – im Karbon bleiben die
+      // Segen über das Aussterben hinaus
+      ups: ep.brood ? { ...noUps(), ...d.keptUps?.[ep.id] } : noUps(),
       history: [],
     };
+    // Karbon: ein Gelege mit lauter Grundwerten im Brutsumpf (wo genau, weiß erst der Ort – siehe LevelScene)
+    if (ep.brood) run.brood = newBrood(0, noGenes(), { place: startPlace(ep).id, x: 0, y: 0 }, 1 + Math.floor(Math.random() * 1e6));
     d.run = run;
     d.epoch = epoch;
     this.ghost = null;
@@ -954,8 +998,13 @@ class GameState {
     // Körperrobustheit: robuste Schuppen bzw. ein Schuppenpanzer – unabhängig von der Kopfplatte
     const armor = t.armor ?? 0;
     const girth = t.girth ?? 0;
-    const land = CLASSES[cls].habitat === 'land';
+    // Pederpes (Karbon) lebt an Land und im Wasser: Beine und Griff bremsen beim Schwimmen, Beine machen an Land schneller,
+    // ein Schuppenpanzer an Land langsamer (die Zahlen in data/karbon.ts)
+    const amph = cls === 'amphibian';
+    const land = CLASSES[cls].habitat === 'land' && !amph;
     const limb = t.limb ?? 0;
+    const grip = t.grip ?? 0;
+    const swimMul = amph ? 1 - KTRAIN.swimLimb * limb - KTRAIN.swimGrip * grip : 1;
     // Jungtiere beißen und stoßen schwächer – aber nicht ganz so schwach, wie ihre Größe vermuten ließe
     const force = adult * Math.pow(k.grow, 0.6);
     const bite = b.bite * force * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
@@ -973,7 +1022,7 @@ class GameState {
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1)
+      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * swimMul
         * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0) - 0.1 * armor) * (1 - LIFE.oldSpeed * k.old),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
@@ -998,6 +1047,9 @@ class GameState {
       upkeep: 1 + 0.3 * armor + 0.15 * Math.max(0, girth),
       // Schuppenpanzer: Treffer werfen einen weniger weit zurück
       knock: clamp(1 - 0.55 * armor - 0.15 * plates, 0.35, 1),
+      // an Land: langsamer als im Wasser (ein Jungtier mit Kiemen kriecht nur), mit kräftigen Beinen schneller
+      landSpeed: b.speed * 0.62 * (1.12 - 0.14 * size) * (1 + KTRAIN.landLimb * limb) * (1 - KTRAIN.landArmor * armor) * (0.55 + 0.45 * clamp((k.grow - 0.4) / 0.6, 0, 1)),
+      slope: maxSlope(limb, grip),
     };
   }
 
@@ -1024,6 +1076,9 @@ class GameState {
       fang: t.fang ?? 0,
       light: t.light ?? 0,
       limb: t.limb ?? 0,
+      grip: t.grip ?? 0,
+      // Karbon: Das Jungtier ist eine Larve mit Kiemenbüscheln – bis zur Metamorphose
+      gills: !o.traits && run?.brood?.phase === 'young' ? 1 : 0,
       fin: t.fin ?? 0,
       tail: t.tail ?? 0,
       crest: t.crest ?? 0,
@@ -1079,6 +1134,7 @@ class GameState {
       fang: j(t.fang, 0.06),
       light: g(t.light ?? 0, 0.15),
       limb: j(t.limb ?? 0, 0.06),
+      grip: j(t.grip ?? 0, 0.06),
       pack: t.pack ?? 0,
       fin: g(t.fin ?? 0, 0.25),
       tail: g(t.tail ?? 0, 0.25),
@@ -1188,6 +1244,9 @@ class GameState {
 
   /** Wie weit das eigene Tier gewachsen und gealtert ist. */
   get lifeK(): LifeK {
+    // im Karbon wächst man mit der Nahrung bis zur Metamorphose (und altert nicht – das Gelege bestimmt das Leben)
+    const b = this.r.brood;
+    if (b) return { grow: growOf(b), old: 0 };
     return lifeK(this.r.life.age, this.r.life.gen);
   }
 
@@ -1412,6 +1471,90 @@ class GameState {
     if (this.checkRamUnlock()) run.ramNew = true;
     run.life.fierce = this.fear();
     this.save();
+  }
+
+  // ---------------------------------------------------------------- Karbon: das Gelege
+
+  /** Das Gelege (nur in Zeitaltern mit Brutzyklus, siehe sim/brood.ts). */
+  get brood(): Brood | undefined {
+    return this.data.run?.brood;
+  }
+
+  /** Die Eier, die gerade zur Wahl stehen (nach dem Tod bzw. beim neuen Gelege). */
+  eggOffer(): Egg[] {
+    const b = this.brood;
+    return b ? offer(b) : [];
+  }
+
+  /**
+   * Ein Ei schlüpft: Du spielst als dieses Tier weiter – am Nest im Brutsumpf. In der Jugend beginnt es als Larve, in der
+   * Gefahr holt es schnell auf (es ist gleich ein Vierfüßer). Was die Linie weiß (Orte, Muscheln), bleibt.
+   */
+  hatchEgg(egg: Egg) {
+    const run = this.r;
+    const b = run.brood;
+    if (!b) return;
+    const g = broodHatch(b, egg);
+    run.traits = full({ jaw: g.jaw, limb: g.limb, grip: g.grip, armor: g.armor, coat: run.traits.coat });
+    run.sex = newSex();
+    run.seed = Math.floor(Math.random() * 100000);
+    run.kin = 0;
+    run.life = newLife(b.gen);
+    run.life.fierce = this.fear();
+    const p = run.prog;
+    p.place = b.nest.place;
+    p.edge = undefined;
+    p.at = { x: b.nest.x, y: b.nest.y };
+    p.hp = undefined;
+    p.resume = undefined;
+    p.eaten = { meat: 0, plant: 0 };
+    p.train = newStyle();
+    if (!p.seen.includes(b.nest.place)) p.seen.push(b.nest.place);
+    if (!p.known.includes(b.nest.place)) p.known.push(b.nest.place);
+    this.save();
+  }
+
+  /** Gefressen (Karbon): in der Jugend Nahrung (meta: genug für die Metamorphose), danach Heilung (Anteil der Lebenskraft). */
+  broodFeed(units: number) {
+    const b = this.brood;
+    return b ? broodFeed(b, units) : { meta: false, heal: 0 };
+  }
+
+  /** Die Metamorphose: Ab jetzt ist das Tier ein Vierfüßer – und die Zeit bis zum neuen Gelege läuft. */
+  metamorphose() {
+    const b = this.brood;
+    if (!b || b.phase === 'grown') return;
+    metamorph(b);
+    this.save();
+  }
+
+  /**
+   * Die Gefahr ist überstanden: Das neue Gelege ist da – die nächste Generation, mit dem Erbgut, das das Verhalten dieser
+   * hervorgebracht hat (wieder voll mit Eiern). Im Stammbaum beginnt ein neuer Abschnitt, wenn sich die Art verändert hat.
+   */
+  newClutch(): Brood | undefined {
+    const run = this.r;
+    const b = run.brood;
+    if (!b) return undefined;
+    run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
+    if (run.history.length > 24) run.history.splice(1, 1);
+    const next = nextBrood(b);
+    run.brood = next;
+    const t = full({ ...run.traits, ...next.genes });
+    const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
+    if (sigOf(run.cls, t) !== at.sig) run.node = this.node(at, run.epoch, run.cls, t, run.id, true, next.gen).id;
+    this.save();
+    return next;
+  }
+
+  /** Den steilen Gipfel erreicht: Das Zeitalter ist gemeistert (einmal je Linie). Gibt true zurück, wenn es neu war. */
+  reachSummit() {
+    const run = this.r;
+    if (run.summit) return false;
+    run.summit = true;
+    this.data.deepest = Math.max(this.data.deepest, run.epoch);
+    this.save();
+    return true;
   }
 
   // ---------------------------------------------------------------- die eigene Gruppe (Schwarm)
@@ -1692,7 +1835,7 @@ class GameState {
   /** So viele Segen hat die laufende Linie – zusammen, gleich wofür. */
   get upCount() {
     const u = this.ups;
-    return u.hp + u.stam + u.sight;
+    return u.hp + u.stam + u.sight + u.oxy;
   }
 
   /** So viele Muscheln hat die laufende Linie schon verteilt. */
@@ -1719,7 +1862,7 @@ class GameState {
   /** Reichen die freien Muscheln für einen Segen in diese Richtung (bzw. in irgendeine)? */
   canUp(k?: UpKey): boolean {
     if (!this.data.run) return false;
-    if (!k) return UP_KEYS.some((q) => this.canUp(q));
+    if (!k) return this.upKeys.some((q) => this.canUp(q));
     return this.upCount < UPGRADES.max && this.shellsFree >= this.upCost && !this.upMaxed(k);
   }
 
@@ -1730,6 +1873,17 @@ class GameState {
     run.ups = { ...this.ups, [k]: this.ups[k] + 1 };
     this.save();
     return true;
+  }
+
+  /** Wofür die große Muschel in diesem Zeitalter segnet: Lebenskraft, Ausdauer und Sicht – im Karbon Sauerstoff statt Sicht. */
+  get upKeys(): UpKey[] {
+    const ep = EPOCHS[this.data.run?.epoch ?? this.chosenEpoch];
+    return ['hp', 'stam', ep?.meta === 'oxy' ? 'oxy' : 'sight'];
+  }
+
+  /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
+  get oxygenSeconds() {
+    return oxygenSeconds(this.ups.oxy, this.data.run?.brood?.phase === 'young');
   }
 
   /** Die größte Ausdauer deines Tiers, in Kreisen: einer – und für jeden Segen in Ausdauer ein Stück mehr. */
@@ -1765,6 +1919,10 @@ class GameState {
       swarm: Math.round(10 * n * this.swarmStrength()),
       /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */
       scales: Math.round(10 * (1 + 2 * (t.armor ?? 0))),
+      /** Karbon: so viele Sekunden reicht der Sauerstoff an Land (ausgewachsen); Beine und Griff (der erste Pederpes: je 10) */
+      oxy: Math.round(oxygenSeconds(ups.oxy, false)),
+      legs: Math.round(10 * (1 + 2 * (t.limb ?? 0))),
+      grip: Math.round(10 * (1 + 2 * (t.grip ?? 0))),
     };
   }
 
@@ -1823,9 +1981,12 @@ class GameState {
   /** Das Tier ist gestorben: Die Linie endet hier. Gibt den Knoten des Astendes zurück. */
   extinct(frac: number, cause: string): string {
     const run = this.r;
+    // im Karbon überdauern die Segen der großen Muschel das Aussterben
+    const ep = EPOCHS[run.epoch];
+    if (ep?.brood && run.ups) (this.data.keptUps ??= {})[ep.id] = { ...noUps(), ...run.ups };
     const parent = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
     const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false, run.life.gen);
-    leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.life.gen };
+    leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.brood ? run.brood.gen : run.life.gen };
     this.data.lastEnd = leaf.id;
     this.data.deepest = Math.max(this.data.deepest, run.epoch);
     this.ghost = run;

@@ -45,7 +45,7 @@ describe('Muscheln', () => {
     game.addShell();
     game.addShell();
     expect(game.buyUp('hp')).toBe(true);
-    expect(game.ups).toEqual({ hp: 1, stam: 0, sight: 1 });
+    expect(game.ups).toEqual({ hp: 1, stam: 0, sight: 1, oxy: 0 });
     expect(game.upCost).toBe(4);
     expect(game.shells).toBe(3);
     expect(game.shellsFree).toBe(0);
@@ -84,7 +84,7 @@ describe('Muscheln', () => {
     game.newRun(0);
     expect(game.shells).toBe(7);
     expect(game.shellsFree).toBe(7);
-    expect(game.ups).toEqual({ hp: 0, stam: 0, sight: 0 });
+    expect(game.ups).toEqual({ hp: 0, stam: 0, sight: 0, oxy: 0 });
     expect(game.staminaMax).toBe(1);
     expect(game.sight).toBeCloseTo(0.2);
   });
@@ -134,7 +134,7 @@ describe('ältere Spielstände', () => {
     game.load();
     expect(game.shells).toBe(9);
     expect(game.seenShells).toBe(8);
-    expect(game.ups).toEqual({ hp: 0, stam: 1, sight: 0 });
+    expect(game.ups).toEqual({ hp: 0, stam: 1, sight: 0, oxy: 0 });
     expect(game.shellsFree).toBe(8);
     expect(game.staminaMax).toBe(1 + STAMINA.perBlessing);
   });
