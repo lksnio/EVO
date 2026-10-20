@@ -6,7 +6,7 @@ export type Sfx =
   | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
-  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'heart' | 'rustle'
+  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'chomp' | 'heart' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
   | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
   | 'thud' | 'crumble' | 'blub' | 'laich'
@@ -650,6 +650,13 @@ export class AudioEngine {
       case 'squeal':
         this.tone({ f: 900, f2: 1300, d: 0.08, type: 'triangle', v: 0.08 });
         this.tone({ f: 1250, f2: 700, d: 0.14, type: 'triangle', v: 0.07, t: 0.08 });
+        break;
+      case 'chomp':
+        // ein Räuber schlägt die Kiefer zusammen: ein Schwall Wasser, dann ein harter, dumpfer Schlag – je größer, desto tiefer
+        this.noise({ d: 0.08, v: 0.14 + 0.08 * k, filter: 500, f2: 1400, type: 'bandpass', q: 1.2 });
+        this.tone({ t: 0.06, f: 150 - 70 * k, f2: 46 - 14 * k, d: 0.16 + 0.1 * k, type: 'sine', v: 0.32 + 0.2 * k, a: 0.002 });
+        this.noise({ t: 0.06, d: 0.04, v: 0.3 + 0.12 * k, filter: 2600 - 1200 * k, type: 'bandpass', q: 2.4 });
+        this.tone({ t: 0.06, f: 200 - 80 * k, f2: 70, d: 0.06, type: 'square', v: 0.07 + 0.05 * k, filter: 700 });
         break;
       case 'snarl':
         this.noise({ d: 0.4, v: 0.26, a: 0.04, filter: 420, type: 'bandpass', q: 4 });

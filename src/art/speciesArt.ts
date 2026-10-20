@@ -89,7 +89,7 @@ function finMembrane(ctx: Ctx, root0: P2, edge: P2[], root1: P2, col: number, lw
 }
 
 /** Ein Fisch – stromlinienförmig, mit durchscheinenden Flossen, Kiemendeckel, Seitenlinie und feinen Schuppen. */
-function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) {
+function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, mouth = true) {
   const { len, h, c } = p;
   const hw = len / 2, hh = h / 2;
   const lw = Math.max(0.8, len / 90);
@@ -419,9 +419,11 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes) 
     }
   }
 
-  // ---- Maul
+  // ---- Maul (ohne, wenn es gleich geöffnet gezeichnet wird – siehe openJaw)
   const my = ny + hh * 0.12;
-  if (placo) {
+  if (!mouth) {
+    // nichts: Zähne und Spalt kommen mit dem offenen Maul
+  } else if (placo) {
     // Knochenklingen: oben ein spitzer Haken, unten eine aufragende Kieferplatte – dazwischen der dunkle Schlund
     ctx.beginPath();
     ctx.moveTo(hw * 1.0, my - hh * 0.06);
@@ -818,7 +820,7 @@ function bezPts(p0: P2, p1: P2, p2: P2, p3: P2, n: number): P2[] {
  * eine Flosse ausläuft (beim Mosasaurus hoch und sichelförmig wie bei einem Hai). Der Kopf ist lang und flach, das Maul voller
  * kegelförmiger Zähne.
  */
-function drawMosa(ctx: Ctx, p: Extract<Art, { t: 'mosa' }>, f: number, E: Eyes) {
+function drawMosa(ctx: Ctx, p: Extract<Art, { t: 'mosa' }>, f: number, E: Eyes, mouth = true) {
   const hw = p.len / 2, h = p.h, c = p.c, D = dark(c);
   const lw = Math.max(1, p.len / 130);
   const tip = hw * (1 + 0.28 * (p.snout ?? 0));
@@ -884,19 +886,21 @@ function drawMosa(ctx: Ctx, p: Extract<Art, { t: 'mosa' }>, f: number, E: Eyes) 
 
   // ---- der Kopf: Maulspalte, Zähne, Auge, Nasenloch
   const mouthY = (x: number) => h * 0.04 + ((tip - x) / Math.max(1, tip - hw * 0.66)) * h * 0.05;
-  const n = Math.max(6, Math.round((tip - hw * 0.68) / (h * 0.09)));
+  const n = mouth ? Math.max(6, Math.round((tip - hw * 0.68) / (h * 0.09))) : 0;
   for (let i = 0; i < n; i++) {
     const x = tip * 0.955 - (i * (tip * 0.955 - hw * 0.7)) / Math.max(1, n - 1);
     const tl = h * (0.07 - 0.02 * (i / n));
     tooth(ctx, x, mouthY(x) - h * 0.01, h * 0.035, tl, 1, false, 0.1);
     if (i % 2 === 0) tooth(ctx, x - h * 0.03, mouthY(x) + h * 0.02, h * 0.03, tl * 0.8, -1, false, -0.1);
   }
-  ctx.beginPath();
-  ctx.moveTo(tip * 0.99, h * 0.03);
-  ctx.quadraticCurveTo(hw * 0.84, mouthY(hw * 0.84) + h * 0.01, hw * 0.66, h * 0.06);
-  ctx.strokeStyle = css(shade(c, -0.8), 0.85);
-  ctx.lineWidth = lw * 1.2;
-  ctx.stroke();
+  if (mouth) {
+    ctx.beginPath();
+    ctx.moveTo(tip * 0.99, h * 0.03);
+    ctx.quadraticCurveTo(hw * 0.84, mouthY(hw * 0.84) + h * 0.01, hw * 0.66, h * 0.06);
+    ctx.strokeStyle = css(shade(c, -0.8), 0.85);
+    ctx.lineWidth = lw * 1.2;
+    ctx.stroke();
+  }
   ell(ctx, tip * 0.92, -h * 0.08, h * 0.025, h * 0.015, -0.2);
   ctx.fillStyle = css(shade(c, -0.8), 0.8);
   ctx.fill();
@@ -1222,14 +1226,14 @@ function drawAmmo(ctx: Ctx, p: Extract<Art, { t: 'ammo' }>, f: number, E: Eyes) 
   eye(ctx, ex, ey, r * 0.11, E.iris, { glow: E.glow });
 }
 
-function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes) {
+function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes, mouth = true) {
   switch (art.t) {
-    case 'fish': return drawFish(ctx, art, f, E);
+    case 'fish': return drawFish(ctx, art, f, E, mouth);
     case 'jelly': return drawJelly(ctx, art, f);
     case 'trilo': return drawTrilo(ctx, art, f);
     case 'cone': return drawCone(ctx, art, f, E);
     case 'bug': return drawBug(ctx, art, f, E);
-    case 'mosa': return drawMosa(ctx, art, f, E);
+    case 'mosa': return drawMosa(ctx, art, f, E, mouth);
     case 'plesio': return drawPlesio(ctx, art, f, E);
     case 'turtle': return drawTurtle(ctx, art, f, E);
     case 'ammo': return drawAmmo(ctx, art, f, E);
@@ -1238,19 +1242,198 @@ function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes) {
 
 export const speciesKey = (id: string, f: number) => `sp_${id}_${f}`;
 
-/** Erzeugt beide Bewegungsphasen einer Art und die Animation dazu. */
+// ---------------------------------------------------------------------------
+// Das offene Maul. Jäger mit Kiefer (Fische, Meeresechsen) bekommen drei Bilder mehr: halb offen (Bild 2, beim Ausholen) und
+// weit aufgerissen (Bild 3 und 4, mit schlagendem Schwanz – beim Vorschnellen). Gezeichnet wird das Tier dafür ohne Maul; der
+// Unterkiefer wird ausgeschnitten und um das Kiefergelenk nach unten gedreht, dazwischen der dunkle Rachen, oben und unten
+// die Zähne (beim Panzerfisch Knochenklingen).
+
+/** Wie das Maul einer Art gebaut ist (in den Maßen ihrer Zeichnung, die Mitte des Tiers bei 0, 0). */
+interface JawShape {
+  /** Kiefergelenk */
+  hx: number;
+  hy: number;
+  /** vordere Ecke des Mauls (dort treffen sich die Lippen) */
+  ux: number;
+  uy: number;
+  /** bis dahin nach vorn gehört alles unter der Maulspalte zum Unterkiefer (beim Hai bleibt die Schnauze stehen) */
+  front: number;
+  /** Öffnung: halb und weit (Bogenmaß) */
+  half: number;
+  wide: number;
+  /** Zähne, Knochenklingen oder nur Kiefer */
+  kind: 'teeth' | 'blades' | 'gums';
+  /** Größe der Zähne (Breite, Länge) bzw. der Klingen */
+  tw: number;
+  tl: number;
+  lw: number;
+}
+
+function jawShape(art: Art): JawShape | null {
+  if (art.t === 'mosa') {
+    const hw = art.len / 2, h = art.h;
+    const tip = hw * (1 + 0.28 * (art.snout ?? 0));
+    return { hx: hw * 0.58, hy: h * 0.09, ux: tip * 0.99, uy: h * 0.03, front: tip * 1.08, half: 0.2, wide: 0.48, kind: 'teeth', tw: h * 0.045, tl: h * 0.09, lw: Math.max(1, art.len / 130) };
+  }
+  if (art.t !== 'fish' || art.jawless || art.arms) return null;
+  const hw = art.len / 2, hh = art.h / 2;
+  const lw = Math.max(0.8, art.len / 90);
+  const placo = !!(art.armor && art.teeth && !art.eyesFront);
+  const ny = art.shark ? -hh * 0.06 : placo ? hh * 0.18 : art.armor ? hh * 0.08 : hh * 0.04;
+  const my = ny + hh * 0.12;
+  if (art.shark) {
+    return { hx: hw * 0.5, hy: hh * 0.44, ux: hw * 0.88, uy: hh * 0.3, front: hw * 0.9, half: 0.34, wide: 0.78, kind: art.teeth ? 'teeth' : 'gums', tw: hh * 0.09, tl: hh * 0.2, lw };
+  }
+  if (art.armor) {
+    // Panzerfische: Knochenklingen statt Zähnen – beim Dunkleosteus wuchtig, sonst schlanker
+    return placo
+      ? { hx: hw * 0.44, hy: my + hh * 0.14, ux: hw * 1.02, uy: my - hh * 0.02, front: hw * 1.06, half: 0.3, wide: 0.66, kind: 'blades', tw: hh * 0.1, tl: hh * 0.38, lw }
+      : { hx: hw * 0.5, hy: my + hh * 0.08, ux: hw + 1, uy: my - hh * 0.03, front: hw * 1.04, half: 0.32, wide: 0.7, kind: 'blades', tw: hh * 0.08, tl: hh * 0.3, lw };
+  }
+  return { hx: hw * 0.5, hy: my + hh * 0.08, ux: hw, uy: my, front: hw * 1.04, half: 0.32, wide: 0.72, kind: art.teeth ? 'teeth' : 'gums', tw: hh * 0.11, tl: hh * 0.26, lw };
+}
+
+/** Eine Reihe Zähne entlang der Linie von (x0, y0) nach (x1, y1), Spitzen nach dir (1 = unten, -1 = oben); vorn die größten. */
+function toothRow(ctx: Ctx, j: JawShape, x0: number, y0: number, x1: number, y1: number, dir: number, offset = 0) {
+  const L = Math.hypot(x1 - x0, y1 - y0);
+  const n = Math.max(3, Math.min(11, Math.round(L / (j.tw * 1.55))));
+  for (let i = 0; i < n; i++) {
+    const t = (i + offset) / n;
+    if (t > 0.98) continue;
+    const big = i === 0 ? 1.35 : i === 2 ? 1.15 : 1;
+    const len = j.tl * big * (1 - 0.45 * t);
+    tooth(ctx, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, j.tw * (1 - 0.3 * t), len, dir, false, dir > 0 ? -0.2 : 0.2);
+  }
+}
+
+/** Knochenklingen: eine lange, scharfe Platte entlang der Kieferkante mit einem Haken vorn (dir: 1 = nach unten). */
+function boneBlade(ctx: Ctx, j: JawShape, dir: number) {
+  const L = j.ux - j.hx, x = j.ux, y = j.uy, d = dir, t = j.tl;
+  ctx.beginPath();
+  ctx.moveTo(x + j.lw * 0.8, y - d * t * 0.12);
+  ctx.quadraticCurveTo(x + j.lw, y + d * t * 0.55, x - L * 0.05, y + d * t);
+  ctx.lineTo(x - L * 0.14, y + d * t * 0.28);
+  ctx.lineTo(x - L * 0.24, y + d * t * 0.5);
+  ctx.lineTo(x - L * 0.34, y + d * t * 0.2);
+  ctx.lineTo(x - L * 0.44, y + d * t * 0.34);
+  ctx.lineTo(x - L * 0.6, y + d * t * 0.08);
+  ctx.lineTo(x - L * 0.62, y - d * t * 0.1);
+  ctx.closePath();
+  ctx.fillStyle = ivory(ctx, Math.min(y, y + d * t), Math.max(y, y + d * t), 1);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(30,20,10,0.75)';
+  ctx.lineWidth = j.lw * 0.8;
+  ctx.stroke();
+}
+
+/** Das Bild mit offenem Maul: src ist das Tier ohne Maul (W × H, Mitte bei W/2, H/2), th die Öffnung. */
+function openJaw(src: HTMLCanvasElement, j: JawShape, th: number) {
+  const W = src.width, H = src.height;
+  const [c, ctx] = newCanvas(W, H, true);
+  ctx.translate(W / 2, H / 2);
+  const k = (j.uy - j.hy) / (j.ux - j.hx);
+  const deep = Math.max(W, H);
+  const lower = () => {
+    ctx.beginPath();
+    ctx.moveTo(j.hx, j.hy);
+    ctx.lineTo(j.front, j.hy + k * (j.front - j.hx));
+    ctx.lineTo(j.front, j.hy + deep);
+    ctx.lineTo(j.hx, j.hy + deep);
+    ctx.closePath();
+  };
+  // der Kopf ohne Unterkiefer
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-W / 2, -H / 2, W, H);
+  ctx.moveTo(j.hx, j.hy);
+  ctx.lineTo(j.hx, j.hy + deep);
+  ctx.lineTo(j.front, j.hy + deep);
+  ctx.lineTo(j.front, j.hy + k * (j.front - j.hx));
+  ctx.closePath();
+  ctx.clip('evenodd');
+  ctx.drawImage(src, -W / 2, -H / 2);
+  ctx.restore();
+  // die Spitze des Unterkiefers, wenn er aufgeklappt ist
+  const ax = j.ux - j.hx, ay = j.uy - j.hy;
+  const lx = j.hx + ax * Math.cos(th) - ay * Math.sin(th), ly = j.hy + ax * Math.sin(th) + ay * Math.cos(th);
+  // der Rachen: dunkel, nach innen fast schwarz, an den Lippen ein wenig rot
+  ctx.beginPath();
+  ctx.moveTo(j.hx, j.hy);
+  ctx.lineTo(j.ux, j.uy);
+  ctx.quadraticCurveTo(j.hx + (j.ux - j.hx) * 0.72, (j.uy + ly) / 2, lx, ly);
+  ctx.closePath();
+  const g = ctx.createRadialGradient(j.hx, j.hy, 0, j.hx, j.hy, Math.hypot(ax, ay));
+  g.addColorStop(0, '#0a0303');
+  g.addColorStop(0.6, '#2a0b09');
+  g.addColorStop(1, '#5a1c16');
+  ctx.fillStyle = g;
+  ctx.fill();
+  // der Unterkiefer, um das Gelenk nach unten gedreht – mit seinen Zähnen
+  ctx.save();
+  ctx.translate(j.hx, j.hy);
+  ctx.rotate(th);
+  ctx.translate(-j.hx, -j.hy);
+  ctx.save();
+  lower();
+  ctx.clip();
+  ctx.drawImage(src, -W / 2, -H / 2);
+  // ein weicher Schatten an der Kante zum Hals (nur auf dem, was schon da ist)
+  const sg = ctx.createLinearGradient(j.hx, 0, j.hx + j.tw * 2.5, 0);
+  sg.addColorStop(0, 'rgba(0,0,0,0.35)');
+  sg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = sg;
+  ctx.fillRect(j.hx, j.hy, j.tw * 2.5, deep);
+  ctx.restore();
+  if (j.kind === 'teeth') toothRow(ctx, j, j.ux - j.tw * 0.9, j.uy + j.tw * 0.15, j.hx + ax * 0.2, j.hy + ay * 0.2, -1, 0.5);
+  else if (j.kind === 'blades') boneBlade(ctx, j, -1);
+  ctx.restore();
+  // die Lippe des Oberkiefers und seine Zähne
+  ctx.beginPath();
+  ctx.moveTo(j.ux, j.uy);
+  ctx.lineTo(j.hx, j.hy);
+  ctx.strokeStyle = 'rgba(20,6,4,0.7)';
+  ctx.lineWidth = j.lw;
+  ctx.stroke();
+  if (j.kind === 'teeth') toothRow(ctx, j, j.ux - j.tw * 0.4, j.uy - j.tw * 0.1, j.hx + ax * 0.15, j.hy + ay * 0.15, 1);
+  else if (j.kind === 'blades') boneBlade(ctx, j, 1);
+  return c;
+}
+
+/**
+ * Das Maul einer Art in ihren Bildern (Bildpunkte, von der Mitte des Bildes aus; Blick nach rechts): die Fläche, die ein Biss
+ * trifft (zwischen den weit offenen Kiefern und ein Stück davor), und wie viel höher die Bilder mit offenem Maul sind (e: oben
+ * und unten je so viel mehr).
+ */
+export interface Jaw {
+  bite: { x0: number; y0: number; x1: number; y1: number };
+  e: number;
+}
+
+const JAWS = new Map<string, Jaw>();
+
+/** Das Maul einer Art (nur Jäger mit Kiefer, sobald ihre Bilder gezeichnet sind) – sonst undefined. */
+export const jawOf = (id: string) => JAWS.get(id);
+
+/** Bilder mit offenem Maul: halb (2), weit (3, 4 – mit schlagendem Schwanz) und die Animation dazu. */
+export const JAW_HALF = 2;
+export const JAW_WIDE = 3;
+export const jawAnim = (id: string) => `jaw_${id}`;
+
+/** Erzeugt beide Bewegungsphasen einer Art und die Animation dazu (Jäger mit Kiefer auch die Bilder mit offenem Maul). */
 export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   if (scene.textures.exists(speciesKey(def.id, 0))) return;
   // große Tiere (Herrscher, Meeresechsen, Riesenhaie …) brauchen mehr Platz
   const big = !!def.boss || ((def.art as { len?: number }).len ?? 0) > 160;
   const W = big ? 900 : 380, H = big ? 760 : 320;
   const E = eyesFor(def.role);
-  const cs = [0, 1].map((f) => {
+  const draw = (f: number, mouth = true) => {
     const [c, ctx] = newCanvas(W, H, true);
     ctx.translate(W / 2, H / 2);
-    drawArt(ctx, def.art, f, E);
+    drawArt(ctx, def.art, f, E, mouth);
     return c;
-  });
+  };
+  const cs = [0, 1].map((f) => draw(f));
   const t = trimCanvases(cs);
   t.canvases.forEach((c, f) => scene.textures.addCanvas(speciesKey(def.id, f), c));
   scene.anims.create({
@@ -1258,6 +1441,48 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
     frames: [{ key: speciesKey(def.id, 0) }, { key: speciesKey(def.id, 1) }],
     frameRate: def.boss ? 5 : 6,
     repeat: -1,
+  });
+  const j = (def.role === 'predator' || def.role === 'apex') && def.habitat === 'water' ? jawShape(def.art) : null;
+  if (!j) return;
+  const bare = [draw(0, false), draw(1, false)];
+  const open = [openJaw(bare[0], j, j.half), openJaw(bare[0], j, j.wide), openJaw(bare[1], j, j.wide)];
+  // so viel höher werden die Bilder mit offenem Maul (oben und unten gleich viel, damit die Mitte bleibt): Über den Rand hinaus
+  // ragt nur der weit aufgeklappte Unterkiefer – gesucht wird also nur unter dem Maul, unterhalb des bisherigen Bildes
+  const x0 = Math.max(0, Math.floor(W / 2 + j.hx - (j.front - j.hx))), x1 = Math.min(W, Math.ceil(W / 2 + j.front + 4));
+  const y0 = t.y + t.h, rows = H - y0;
+  let e = 0;
+  if (rows > 0 && x1 > x0) {
+    const d = open[1].getContext('2d')!.getImageData(x0, y0, x1 - x0, rows).data;
+    const w = x1 - x0;
+    for (let y = rows - 1; y >= 0 && !e; y--) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 10) {
+          e = y + 1;
+          break;
+        }
+      }
+    }
+  }
+  e += 2;
+  open.forEach((c, i) => {
+    const [o, octx] = newCanvas(t.w, t.h + 2 * e);
+    octx.drawImage(c, t.x, t.y - e, t.w, t.h + 2 * e, 0, 0, t.w, t.h + 2 * e);
+    scene.textures.addCanvas(speciesKey(def.id, JAW_HALF + i), o);
+  });
+  scene.anims.create({
+    key: jawAnim(def.id),
+    frames: [{ key: speciesKey(def.id, JAW_WIDE) }, { key: speciesKey(def.id, JAW_WIDE + 1) }],
+    frameRate: 11,
+    repeat: -1,
+  });
+  // die Fläche, die ein Biss trifft – von der Mitte des Bildes aus (die Mitte der Zeichnung liegt dort, wo trimCanvases sie ließ)
+  const ox = W / 2 - t.x - t.w / 2, oy = H / 2 - t.y - t.h / 2;
+  const ax = j.ux - j.hx, ay = j.uy - j.hy;
+  const ly = j.hy + ax * Math.sin(j.wide) + ay * Math.cos(j.wide);
+  const reach = Math.hypot(ax, ay);
+  JAWS.set(def.id, {
+    bite: { x0: ox + j.hx + ax * 0.3, y0: oy + j.uy - reach * 0.22, x1: ox + Math.max(j.ux, j.front) + reach * 0.32, y1: oy + ly + reach * 0.06 },
+    e,
   });
 }
 

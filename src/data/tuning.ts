@@ -2,6 +2,7 @@ import { CLASSES } from './classes';
 import { EPOCHS } from './epochs';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
 import { SIGHT } from '../sim/sight';
+import { BITE } from '../sim/bite';
 import { JAGD, SWARM } from './quests';
 import { SPECIES } from './species';
 import { FOOD, game, meatOf } from '../state/GameState';
@@ -277,6 +278,26 @@ export const GROUPS: Group[] = [
       field(ANIMALS, 'dmg', 'ANIMALS.dmg', 'Biss ×', { step: 0.05 }),
       field(ANIMALS, 'speed', 'ANIMALS.speed', 'Tempo ×', { step: 0.05 }),
       field(ANIMALS, 'atkSpeed', 'ANIMALS.atkSpeed', 'Tempo beim Angriff ×', { step: 0.05 }),
+    ],
+  },
+  {
+    id: 'biss',
+    title: 'Biss der Jäger',
+    note: 'Rot werden (ausholen) → kurz schneller schwimmen (vorschnellen, Maul weit auf) → zuschnappen → erholen. Schaden nur im Maul.',
+    params: [
+      field(BITE, 'reach', 'BITE.reach', 'Setzt an, so weit vor dem Maul (Bildpunkte)', { step: 5 }),
+      field(BITE, 'wind', 'BITE.wind', 'Ausholen (Sekunden)', { step: 0.02 }),
+      field(BITE, 'windBig', 'BITE.windBig', '… große Räuber (Sekunden)', { step: 0.02 }),
+      field(BITE, 'dash', 'BITE.dash', 'Vorschnellen (Sekunden)', { step: 0.02 }),
+      field(BITE, 'long', 'BITE.long', 'Weiter Vorstoß der Großen: so viel länger', { step: 0.1 }),
+      field(BITE, 'speed', 'BITE.speed', 'Tempo beim Vorschnellen (× Angriffstempo)', { step: 0.1 }),
+      field(BITE, 'rec', 'BITE.rec', 'Erholen (Sekunden)', { step: 0.02 }),
+      field(BITE, 'rest', 'BITE.rest', 'Bis zum nächsten Biss (ms)', { step: 50 }),
+      field(BITE, 'restBig', 'BITE.restBig', '… große Räuber (ms)', { step: 50 }),
+      field(BITE, 'spread', 'BITE.spread', 'Streuung jeder Phase (±Anteil)', { step: 0.02, max: 0.6, hint: 'Jede Phase dauert zufällig so viel länger oder kürzer – damit man die Jäger nicht nach dem Takt ausspielen kann.' }),
+      field(BITE, 'quickChance', 'BITE.quickChance', 'So oft ein schneller Biss', { step: 0.05, max: 1, hint: 'Dann holt er nur quick × so lange aus.' }),
+      field(BITE, 'pauseChance', 'BITE.pauseChance', 'So oft eine längere Pause', { step: 0.05, max: 1, hint: 'Dann wartet er pauseMin … pauseMax ms länger bis zum nächsten Biss.' }),
+      field(BITE, 'aim', 'BITE.aim', 'Gelenkt nur am Anfang des Vorstoßes (Anteil)', { step: 0.05, max: 1, hint: 'Danach ist der Biss entschieden: Wer jetzt zur Seite schwimmt, entkommt.' }),
     ],
   },
   {

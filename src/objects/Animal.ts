@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import type { SpeciesDef } from '../data/species';
-import { speciesKey } from '../art/speciesArt';
+import { JAW_HALF, jawAnim, jawOf, speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
+import { BITE, bitePlan, biteRest, type BitePlan } from '../sim/bite';
 import { clamp, overlaps, type Rect } from '../util/math';
 import { Meat, type Plant } from './Food';
 
@@ -120,7 +121,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   seesPlayer = false;
   alerted = false;
   huntingPlayer = false;
-  /** bei einem Angriff gefährlich bei Berührung */
+  /** greift gerade an (schnellt vor, rammt) – gefährlich ist dabei nur das Maul bzw. der Kopf (siehe biteRect) */
   attacking = false;
   /** Vertrauen durch geteilte Beute (ab 1: Verbündeter) */
   bond = 0;
@@ -163,11 +164,17 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   calm = 0;
   /** Beute, die sich wehrt: beißt bis dahin zurück */
   protected defendUntil = 0;
-  /** Angriff: ausholen → zuschnappen → erholen */
-  protected atk: '' | 'wind' | 'strike' | 'recover' = '';
+  /** Angriff: ausholen (rot werden) → vorschnellen (das Maul weit auf) → zuschnappen → erholen; siehe sim/bite.ts */
+  protected atk: '' | 'wind' | 'dash' | 'snap' | 'recover' = '';
   protected atkT = 0;
   protected atkTarget: Target | null = null;
   protected atkDir = { x: 1, y: 0 };
+  /** wie dieser Biss abläuft (jedes Mal ein wenig anders) */
+  protected plan: BitePlan = { wind: 0.3, dash: 0.3, speed: 260, rec: 0.36 };
+  /** dieser Biss hat getroffen */
+  protected atkHit = false;
+  /** wie weit das Maul gerade offen ist (0 zu, 1 halb, 2 weit) */
+  private jawNow = 0;
   /** dieser Angriff hat schon gewarnt */
   protected warned = false;
   protected trailAt = 0;
@@ -237,6 +244,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected mv = '';
   protected mvT = 0;
   protected mvDir = { x: 1, y: 0 };
+  /** dieser große Angriff hat schon getroffen */
+  protected mvHit = false;
   protected nextMove = 0;
   protected weak = 1;
   protected roared = false;
@@ -761,7 +770,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.feast = { meat: m, until: time + 11000 };
     this.hunger = Math.max(this.hunger, 0.55);
     this.target = null;
-    this.atk = '';
+    if (this.atk) this.endAttack(time);
   }
 
   /** Die Mahlzeit: hinschwimmen, Kopf nach unten, Bissen für Bissen. Gibt true zurück, solange das Tier damit beschäftigt ist. */
@@ -1113,7 +1122,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (free) this.b.setVelocity(this.crDir.x * v, this.crDir.y * v);
       else this.b.setVelocityX(this.crDir.x * v);
       if (Math.random() < 0.4) W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 1);
-      if (!tg.dead && overlaps(this.hitRect(), tg.hitRect())) {
+      if (!tg.dead && overlaps(this.biteRect(), tg.hitRect())) {
         // kein Todesstoß: etwas Schaden, der nach der Stärke des Tieres geht (ein junger Fisch überlebt etliche davon)
         const dmg = clamp(this.def.power * this.sz * 0.5, 0.8, 3.5) * (time < this.rageUntil ? 1.5 : 1);
         if (this.isPlayer(tg)) {
@@ -1293,7 +1302,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (tg && this.stT < 0.25) this.dir = Math.sign(tg.x - this.x) || this.dir;
         if (this.swims) this.b.setVelocity(this.dir * this.atkSpeed * 3, 0);
         else this.b.setVelocityX(this.dir * this.atkSpeed * 3.2);
-        if (tg && !tg.dead && overlaps(this.hitRect(), tg.hitRect()) && time > this.biteReady) {
+        // getroffen wird nur, wer vor dem Kopf ist – bloßes Streifen tut nichts
+        if (tg && !tg.dead && overlaps(this.biteRect(), tg.hitRect()) && time > this.biteReady) {
           this.biteReady = time + 900;
           if (this.isPlayer(tg)) {
             tg.hurt(this.def.dmg * 1.3, this.x, this.def.name);
@@ -1362,9 +1372,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.tryBite(time, tg, this.role === 'apex' ? 1.2 : 1);
     const d = this.dist(tg);
     const moves = APEX_MOVES[this.def.id];
-    if (moves && time > this.nextMove && d < 460) {
+    if (moves && time > this.nextMove && d < 460 && !this.atk) {
       const m = moves[Math.floor(Math.random() * moves.length)];
-      if (m !== 'lunge' || d < 260) this.startMove(m, tg);
+      // der weite Vorstoß ist ein Biss aus größerer Entfernung: rot werden, lange vorschnellen, zuschnappen
+      if (m === 'lunge') {
+        if (d < 300) this.startBite(tg, true);
+      } else this.startMove(m, tg);
       this.nextMove = time + 1800 + Math.random() * 1800;
     }
   }
@@ -1434,20 +1447,40 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected startMove(m: string, tg: Target) {
     this.mv = m;
     this.mvT = 0;
+    this.mvHit = false;
     this.dir = Math.sign(tg.x - this.x) || this.dir;
     const dx = tg.x - this.x, dy = tg.y - this.y;
     const len = Math.hypot(dx, dy) || 1;
     this.mvDir = { x: dx / len, y: dy / len };
     if (m === 'roar') audio.sfx('roar');
-    if (m === 'charge' || m === 'lunge' || m === 'pounce') this.setTint(0xffb0a0);
+    if (m === 'charge' || m === 'pounce') this.setTint(0xffb0a0);
   }
 
   protected endMove() {
     this.mv = '';
     this.mvT = 0;
+    this.attacking = false;
     this.clearTint();
     this.setAngle(0);
     this.setScale(this.sz);
+    if (!this.atk) this.showJaw(0);
+  }
+
+  /**
+   * Ein großer Angriff hat getroffen (Ansturm, Sprung, Sturzflug): Schaden, und wer ein Maul hat, schnappt dabei zu. Gibt true
+   * zurück, wenn getroffen wurde.
+   */
+  protected moveHit(time: number, tg: Target | null) {
+    if (!tg || tg.dead || this.mvHit || !overlaps(this.biteRect(), tg.hitRect())) return false;
+    this.mvHit = true;
+    this.biteReady = Math.max(this.biteReady, time + 900);
+    const jaw = !!jawOf(this.def.id);
+    if (this.isPlayer(tg)) {
+      tg.hurt(this.def.dmg * 1.15, this.x, this.def.name);
+      this.hitPlayerAt = time;
+    } else (tg as Animal).hurt(this.def.dmg, this, jaw ? 'bite' : 'ram');
+    if (jaw) audio.sfx('chomp', clamp(this.def.power / 30, 0, 1));
+    return true;
   }
 
   protected apexMove(time: number, dt: number) {
@@ -1460,23 +1493,23 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const sp = this.atkSpeed;
     switch (this.mv) {
       case 'lunge':
-        if (t < 0.35) this.halt();
-        else if (t < 0.7) {
-          this.clearTint();
-          this.attacking = true;
-          if (this.swims || this.flies) b.setVelocity(this.mvDir.x * sp * 2.6, this.mvDir.y * sp * 2.6);
-          else b.setVelocityX(this.dir * sp * 2.6);
-          if (tg && !this.isPlayer(tg)) this.contactBite(time, tg);
-        } else this.endMove();
+        // ein weiter Biss (siehe huntTarget) – falls er doch einmal als Bewegung beginnt
+        this.endMove();
+        if (tg && !tg.dead) this.startBite(tg, true);
         break;
       case 'charge':
         if (t < 0.6) {
+          // rot werden und beben – das Maul geht schon halb auf
           this.halt();
           this.setScale(this.sz * (1 + Math.sin(t * 40) * 0.02), this.sz);
+          this.setTint(t > 0.3 ? 0xff7a66 : 0xffb0a0);
+          if (t > 0.3) this.showJaw(1);
         } else {
           this.clearTint();
           this.setScale(this.sz);
           this.attacking = true;
+          // mit weit aufgerissenem Maul hinterher
+          this.showJaw(2);
           if (this.swims) b.setVelocity(this.mvDir.x * sp * 3, this.mvDir.y * sp * 3);
           else b.setVelocityX(this.dir * sp * 3.2);
           if (Math.random() < 0.3) W.puff(this.x - this.dir * 50, b.bottom, 1);
@@ -1489,7 +1522,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
             b.setVelocity(-this.dir * 80, 0);
             this.endMove();
           } else if (t > 2.2) this.endMove();
-          if (tg && !this.isPlayer(tg) && !tg.dead && overlaps(this.hitRect(), tg.hitRect())) (tg as Animal).hurt(this.def.dmg, this, 'ram');
+          // getroffen wird nur, wer vor dem Maul (bzw. dem Kopf) ist – dann schnappt er zu und der Ansturm ist vorbei
+          else if (this.moveHit(time, tg)) {
+            if (jawOf(this.def.id) && tg) this.snapShut(tg, true);
+            this.endMove();
+          }
         }
         break;
       case 'pounce':
@@ -1504,6 +1541,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           this.mvDir.y = 99;
         } else {
           this.attacking = true;
+          this.moveHit(time, tg);
           if (t > 0.65 && this.onFloor) {
             W.puff(this.x, b.bottom, 6);
             W.cameras.main.shake(180, 0.006);
@@ -1524,11 +1562,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
           const len = Math.hypot(dx, dy) || 1;
           b.setVelocity((dx / len) * sp * 3, (dy / len) * sp * 3);
           this.dir = Math.sign(dx) || this.dir;
-          if (!this.isPlayer(tg)) this.contactBite(time, tg);
+          this.moveHit(time, tg);
         } else if (t < 3.2) {
           this.attacking = true;
           b.setVelocity(this.dir * sp * 2, 0);
-          if (!this.isPlayer(tg)) this.contactBite(time, tg);
+          this.moveHit(time, tg);
         } else this.endMove();
         break;
       }
@@ -1762,28 +1800,33 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   // ------------------------------------------------------------------ Kampf
 
-  /** Biss in Reichweite? */
   /**
-   * Angreifen: Erst holt das Tier sichtbar aus (man kann noch ausweichen), dann schnellt es vor und
-   * beißt zu. Nur der Biss selbst schadet – bloßes Berühren nicht.
+   * Angreifen, wenn das Ziel vor dem Maul ist und der letzte Biss lange genug her: erst rot werden und ausholen (man kann
+   * noch ausweichen), dann kurz schneller vorschnellen und zuschnappen. Nur der Biss selbst schadet – bloßes Berühren nicht.
    */
   protected tryBite(time: number, tg: Target, reach = 1) {
     if (this.atk || time < this.biteReady || tg.dead || time < this.tiredUntil) return false;
-    const b = this.b;
-    const w = (b.width * 0.5 + 46) * reach;
-    const r: Rect = this.dir > 0 ? { x: this.x, y: b.y - 12, w, h: b.height + 24 } : { x: this.x - w, y: b.y - 12, w, h: b.height + 24 };
+    // in Reichweite: ein kurzes Stück vor dem Maul (so weit, wie es gleich vorschnellt)
+    const m = this.biteRect();
+    const ext = BITE.reach * reach;
+    const r: Rect = { x: this.dir > 0 ? m.x : m.x - ext, y: m.y - 30, w: m.w + ext, h: m.h + 60 };
     if (!overlaps(r, tg.hitRect())) return false;
-    this.atk = 'wind';
-    this.atkT = 0;
-    this.atkTarget = tg;
+    this.startBite(tg);
     return true;
   }
 
-  /** Während eines großen Angriffs (Vorstoß, Sturzflug): Wer berührt wird, wird gebissen (den Spieler trifft es über die Berührung). */
-  protected contactBite(time: number, tg: Target) {
-    if (time < this.biteReady || tg.dead || !overlaps(this.hitRect(), tg.hitRect())) return;
-    this.biteReady = time + 900;
-    (tg as Animal).hurt(this.def.dmg, this, 'bite');
+  /** Ein Biss beginnt (long: der weite Vorstoß eines großen Räubers aus größerer Entfernung). */
+  protected startBite(tg: Target, long = false) {
+    this.atk = 'wind';
+    this.atkT = 0;
+    this.atkTarget = tg;
+    this.atkHit = false;
+    this.plan = bitePlan(this.atkSpeed, this.big, long);
+  }
+
+  /** ein großer Räuber (Spitzenräuber, Endgegner): holt länger aus, beißt wuchtiger */
+  protected get big() {
+    return this.role === 'apex' || !!this.def.boss;
   }
 
   /** Schaden eines Bisses (Pflanzenfresser, die sich wehren, beißen auch – nur schwächer). */
@@ -1796,67 +1839,168 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
+  /**
+   * Die Fläche, die ein Biss trifft (in der Welt): zwischen den weit offenen Kiefern und ein Stück davor – bei Tieren ohne
+   * gezeichnetes Maul (Kopffüßer, Seeskorpione, Verteidiger) der vordere Teil des Kopfes. Dreht sich mit dem Tier.
+   */
+  biteRect(): Rect {
+    const j = jawOf(this.def.id);
+    const f = this.dir < 0 ? -1 : 1;
+    if (!j) {
+      // ohne gezeichnetes Maul: das vordere Stück des Körpers und ein wenig davor
+      // (Stellvertreter im Mehrspieler haben keinen tätigen Körper: dort zählt das Bild)
+      const b = this.body as Body | null, live = !!b && b.enable;
+      const bw = live ? b.width : this.displayWidth * 0.8, bh = live ? b.height : this.displayHeight * 0.6;
+      const cx = live ? b.center.x : this.x, cy = live ? b.center.y : this.y;
+      const w = bw * 0.4 + 12, h = bh * 0.8;
+      return { x: cx + f * (bw * 0.1 + w / 2) - w / 2, y: cy - h / 2, w, h };
+    }
+    const box = j.bite;
+    const sx = Math.abs(this.scaleX), sy = Math.abs(this.scaleY);
+    const lx = ((box.x0 + box.x1) / 2) * sx * f, ly = ((box.y0 + box.y1) / 2) * sy;
+    const c = Math.cos(this.rotation), s = Math.sin(this.rotation);
+    const cx = this.x + lx * c - ly * s, cy = this.y + lx * s + ly * c;
+    const w = (box.x1 - box.x0) * sx, h = (box.y1 - box.y0) * sy;
+    return { x: cx - w / 2, y: cy - h / 2, w, h };
+  }
+
+  /** glüht gerade rot (holt aus, schnellt vor, stürmt an) – das sieht man auch im Trüben */
+  get glowing() {
+    return this.atk === 'wind' || this.atk === 'dash' || this.mv === 'charge' || this.mv === 'pounce';
+  }
+
+  /** Das Maul zeigen: 0 zu (Schwimmen), 1 halb offen (Ausholen), 2 weit aufgerissen (Vorschnellen). */
+  protected showJaw(k: 0 | 1 | 2) {
+    if (k === this.jawNow || !this.showsAttack || !this.active) return;
+    const j = jawOf(this.def.id);
+    if (!j) return;
+    this.jawNow = k;
+    const d = this.bodyDim, id = this.def.id;
+    // die Bilder mit offenem Maul sind oben und unten je e höher: der Körper bleibt, wo er ist
+    if (k === 0) {
+      this.play(`anim_${id}`);
+      this.b.setOffset(d.ox, d.oy);
+      return;
+    }
+    if (k === 1) {
+      this.anims.stop();
+      this.setTexture(speciesKey(id, JAW_HALF));
+    } else this.play(jawAnim(id));
+    this.b.setOffset(d.ox, d.oy + j.e);
+  }
+
   protected attackStep(time: number, dt: number) {
     const tg = this.atkTarget;
     this.atkT += dt;
-    const big = this.role === 'apex' || !!this.def.boss;
-    const WIND = big ? 0.45 : 0.28, STRIKE = 0.2, REC = 0.3;
+    const P = this.plan;
+    const big = this.big;
     if (!tg || tg.dead) return this.endAttack(time);
     const sx = this.sz, vis = this.showsAttack, free = this.swims || this.flies;
     if (this.atk === 'wind') {
-      // ausholen: zurückweichen, sich spannen, rötlich aufglühen
+      // ausholen: rot werden, sich spannen, kurz innehalten – das Maul geht halb auf
       this.dir = Math.sign(tg.x - this.x) || this.dir;
-      const k = Math.min(1, this.atkT / WIND);
+      const k = Math.min(1, this.atkT / P.wind);
       // Warnung, wenn es dich trifft: ein rotes Ausrufezeichen, Blasen und ein Knurren – jetzt ausweichen!
       if (!this.warned && this.isPlayer(tg) && (this.def.power >= 6 || this.role === 'defender')) {
         this.warned = true;
         this.cueAttack(big);
       }
-      if (free) this.b.setVelocity(-this.dir * 50 * k, this.b.velocity.y * 0.85);
+      // innehalten und ein wenig zurückweichen
+      const ease = Math.min(1, dt * 10), vb = this.b.velocity;
+      if (free) this.b.setVelocity(vb.x + (-this.dir * 40 * k - vb.x) * ease, vb.y * (1 - ease));
       else this.b.setVelocityX(-this.dir * 30 * k);
       if (vis) {
-        this.setScale(sx * (1 - 0.16 * k), sx * (1 + 0.1 * k));
-        if (free) this.setAngle(-this.dir * 10 * k);
-        this.setTint(k > 0.5 ? 0xff9a82 : 0xffb8a8);
+        this.setScale(sx * (1 - 0.12 * k), sx * (1 + 0.08 * k));
+        if (free) this.setAngle(this.dir * clamp(Math.atan2(tg.y - this.y, Math.abs(tg.x - this.x) + 1) * 57, -22, 22) * k * 0.6);
+        this.setTint(k < 0.35 ? 0xffb8a8 : k < 0.7 ? 0xff9480 : big ? 0xff5c48 : 0xff7460);
+        if (k > 0.45) this.showJaw(1);
       }
-      if (this.atkT >= WIND) {
-        this.atk = 'strike';
+      if (this.atkT >= P.wind) {
+        this.atk = 'dash';
         this.atkT = 0;
-        const dx = tg.x - this.x, dy = free ? tg.y - this.y : 0;
+        // gezielt wird mit dem Maul, nicht mit der Mitte des Körpers
+        const m = this.biteRect();
+        const dx = tg.x - (m.x + m.w / 2), dy = free ? tg.y - (m.y + m.h / 2) : 0;
         const l = Math.hypot(dx, dy) || 1;
         this.atkDir = { x: dx / l, y: dy / l };
+        if (Math.abs(this.atkDir.x) > 0.05) this.dir = Math.sign(this.atkDir.x);
         this.onStrike();
+        if (vis && this.vis > 0.25 && (big || this.isPlayer(tg))) audio.sfx('charge');
       }
-    } else if (this.atk === 'strike') {
-      // vorschnellen und zuschnappen – mit einer Blasenspur
-      const v = Math.max(this.atkSpeed * 2.6, 280) * (big ? 1.15 : 1);
-      if (this.world.time.now > this.trailAt) {
-        this.trailAt = this.world.time.now + 45;
-        this.world.puff(this.x - this.atkDir.x * this.displayWidth * 0.3, this.y, 1, 0xffffff);
+    } else if (this.atk === 'dash') {
+      // vorschnellen: kurz viel schneller, das Maul weit auf, mit einer Blasenspur
+      this.attacking = true;
+      const t = this.atkT / P.dash;
+      if (t < BITE.aim && free) {
+        // nur am Anfang wird nachgelenkt – danach ist der Biss entschieden
+        const m = this.biteRect();
+        const want = Math.atan2(tg.y - (m.y + m.h / 2), tg.x - (m.x + m.w / 2));
+        const cur = Math.atan2(this.atkDir.y, this.atkDir.x);
+        let d = want - cur;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        const a = cur + clamp(d, -BITE.turn * dt, BITE.turn * dt);
+        this.atkDir = { x: Math.cos(a), y: Math.sin(a) };
       }
+      if (Math.abs(this.atkDir.x) > 0.2) this.dir = Math.sign(this.atkDir.x);
+      const v = P.speed * (0.6 + 0.4 * Math.min(1, t / 0.3));
       if (free) this.b.setVelocity(this.atkDir.x * v, this.atkDir.y * v);
       else this.b.setVelocityX(this.atkDir.x * v);
-      if (vis) {
-        this.setScale(sx * 1.14, sx * 0.93);
-        if (free) this.setAngle(this.dir * 6);
-        this.clearTint();
+      if (time > this.trailAt) {
+        this.trailAt = time + 45;
+        this.world.puff(this.x - this.dir * this.displayWidth * 0.32, this.y, 1, 0xffffff);
       }
-      const b = this.b;
-      const w = b.width * 0.5 + 16;
-      const r: Rect = this.dir > 0 ? { x: this.x, y: b.y, w, h: b.height } : { x: this.x - w, y: b.y, w, h: b.height };
-      if (overlaps(r, tg.hitRect())) {
+      if (vis) {
+        this.showJaw(2);
+        this.setScale(sx * 1.08, sx * 0.95);
+        if (free) this.setAngle(this.dir * clamp(Math.atan2(this.atkDir.y, Math.abs(this.atkDir.x)) * 57, -28, 28));
+        this.setTint(t < 0.5 ? (big ? 0xff6a56 : 0xff8470) : 0xffb0a0);
+      }
+      // zuschnappen, sobald das Ziel zwischen den Kiefern ist – sonst am Ende ins Leere
+      if (overlaps(this.biteRect(), tg.hitRect())) {
         this.strikeHit(time, tg);
-        this.atk = 'recover';
-        this.atkT = 0;
-      } else if (this.atkT >= STRIKE) {
+        this.snapShut(tg, true);
+      } else if (this.atkT >= P.dash) this.snapShut(tg, false);
+    } else if (this.atk === 'snap') {
+      // die Kiefer schlagen zu: weit → halb → zu
+      this.attacking = false;
+      if (free) this.b.setVelocity(this.b.velocity.x * 0.88, this.b.velocity.y * 0.88);
+      else this.b.setVelocityX(this.b.velocity.x * 0.85);
+      if (vis) {
+        this.showJaw(this.atkT < 0.05 ? 1 : 0);
+        const k = 1 - Math.min(1, this.atkT / 0.12);
+        this.setScale(sx * (1 + 0.1 * k), sx * (1 - 0.06 * k));
+      }
+      if (this.atkT >= 0.12) {
         this.atk = 'recover';
         this.atkT = 0;
       }
     } else {
+      // erholen: ausgleiten, wieder ruhig werden (nach einem Fehlbiss etwas länger)
       this.halt();
-      if (vis) this.setScale(sx * (1 + 0.05 * (1 - this.atkT / REC)), sx);
-      if (this.atkT >= REC) this.endAttack(time);
+      const rec = P.rec * (this.atkHit ? 1 : 1.25);
+      if (vis) {
+        const k = Math.min(1, this.atkT / rec);
+        this.setScale(sx * (1 + 0.04 * (1 - k)), sx);
+        if (free) this.setAngle(this.angle * 0.85);
+        if (this.isTinted) this.clearTint();
+      }
+      if (this.atkT >= rec) this.endAttack(time);
     }
+  }
+
+  /** Die Kiefer schlagen zu (hit: es war etwas dazwischen). Danach erholt sich das Tier. */
+  protected snapShut(tg: Target, hit: boolean) {
+    this.atk = 'snap';
+    this.atkT = 0;
+    this.atkTarget = tg;
+    this.atkHit = hit;
+    this.attacking = false;
+    if (!this.showsAttack) return;
+    const k = clamp(this.def.power / 30, 0, 1);
+    // ins Leere: nur das harte Zusammenschlagen der Kiefer (leiser, wenn man es nicht sieht)
+    if (jawOf(this.def.id) && (hit || this.vis > 0.25)) audio.sfx('chomp', hit ? k : k * 0.5);
+    if (hit && this.isPlayer(tg) && this.def.power >= 15) this.world.cameras.main.shake(140, 0.004 + 0.004 * k);
   }
 
   /** Hinweis auf einen Angriff, der dich trifft: Ausrufezeichen, Blasen, Knurren. */
@@ -1879,12 +2023,15 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.warned = false;
     this.atk = '';
     this.atkTarget = null;
+    this.attacking = false;
     if (this.showsAttack) {
       this.setScale(this.sz);
       if (!this.mv) this.setAngle(0);
       this.clearTint();
+      this.showJaw(0);
     }
-    this.biteReady = time + (this.role === 'apex' ? 1100 : 850);
+    // bis zum nächsten Biss: mal kürzer, mal länger
+    this.biteReady = time + biteRest(this.big);
   }
 
   protected strikeHit(time: number, tg: Target) {
@@ -1896,7 +2043,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.onStrikeHit(tg);
   }
 
-  /** Augenblick des Zuschnappens (Artgenossen öffnen hier ihr Maul). */
+  /** Augenblick des Vorschnellens (Artgenossen öffnen hier ihr Maul). */
   protected onStrike() {}
 
   /** Der Biss hat getroffen. */

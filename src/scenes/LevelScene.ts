@@ -2681,9 +2681,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.curCover = ci;
     }
 
-    // Tiere berühren: Zusammenstöße, Angriffe, Nesseln (Artgenossen und Verbündete stören nicht)
+    // Tiere berühren: Zusammenstöße, Nesseln (Artgenossen und Verbündete stören nicht). Bisse und Rammstöße schaden nur über
+    // das Maul bzw. den Kopf – das rechnet jedes Tier bei seinem Angriff selbst (Animal.attackStep); bloßes Berühren tut nichts.
     for (const a of this.animals) {
       if (a.dead || a.kin || a.ally) continue;
+      // Stellvertreter im Mehrspieler rechnen nicht selbst: Wer gerade vorschnellt, beißt mit dem Maul
+      if (a.attacking && (a as { ghost?: boolean }).ghost && overlaps(pr, a.biteRect())) {
+        p.hurt(a.def.dmg * 1.15, a.x, a.def.name);
+        a.hitPlayerAt = time;
+        continue;
+      }
       const ar = a.hitRect();
       if (!overlaps(pr, ar)) continue;
       const v = p.body.velocity;
@@ -2696,8 +2703,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         this.collide(a, approach);
         continue;
       }
-      if (a.attacking || a.role === 'hazard') {
-        p.hurt(a.def.dmg * (a.attacking ? 1.15 : 1), a.x, a.def.name);
+      if (a.role === 'hazard') {
+        p.hurt(a.def.dmg, a.x, a.def.name);
         a.hitPlayerAt = time;
       }
     }
@@ -2791,6 +2798,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       // ganz in der Trübe: nicht zu sehen; dann ein Umriss, der langsam deutlicher wird
       obj.setAlpha(clamp(c / 0.2, 0, 1));
       if (kin) continue;
+      // wer zum Angriff rot aufglüht, bleibt rot – auch als Umriss im Trüben
+      if (a.glowing) {
+        a.fogTint = false;
+        continue;
+      }
       const sil = 1 - clamp((c - 0.15) / 0.55, 0, 1);
       if (sil > 0.02) {
         a.setTint(mixColor(0xffffff, 0x14262a, sil));

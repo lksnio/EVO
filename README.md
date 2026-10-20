@@ -218,6 +218,15 @@ Zeitalter mit `playable: true`.
     Fleischflosser und der Seeskorpion *Pterygotus*; im verborgenen Ordovizium Orthoceras, Megalograptus, Cameroceras).
   - **Jeder Angriff ist zu sehen:** Alle Tiere holen vor dem Biss sichtbar aus (sie spannen sich und
     glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen.
+  - **Die großen Fische beißen richtig zu** (`src/sim/bite.ts`, `Animal.attackStep`): Ein Jäger wird **rot** und spannt sich
+    (große mit einem roten **!** und einem Knurren), das **Maul geht halb auf** – dann schwimmt er **kurz viel schneller** auf
+    dich zu, das **Maul weit aufgerissen mit allen Zähnen** (beim Panzerfisch die Knochenklingen), und **schnappt zu**, sobald
+    etwas zwischen seinen Kiefern ist; sonst schlagen die Kiefer am Ende ins Leere. **Schaden nimmt nur, was im Maul landet** –
+    bloßes Berühren tut nichts, auch nicht im Vorbeischwimmen. Gelenkt wird nur am Anfang des Vorstoßes: Wer dann zur Seite
+    schwimmt, entkommt mit etwas Glück. Jeder Biss ist ein wenig anders (mal holt er kürzer aus und schnappt schneller zu, mal
+    wartet er länger bis zum nächsten) – nicht viel, aber genug, dass man sie nicht nach dem Takt ausspielen kann. Der weite
+    Vorstoß der Riesen ist derselbe Biss aus größerer Entfernung; beim **Ansturm** beben sie rot und stürmen mit offenem Maul
+    hinterher. Verteidiger und Beute, die zurückstößt, treffen nur mit dem Kopf.
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
@@ -814,6 +823,9 @@ mit **allen Zahlen, die das Gleichgewicht bestimmen** – jeweils mit dem einges
   Angesammeltes, Partner).
 - **Eigenes Tier:** Grundwerte des ersten Fischs (Lebenskraft, Biss, Stoß, Tempo).
 - **Alle Tiere:** Faktoren auf Lebenskraft, Biss, Tempo und Angriffstempo aller Arten.
+- **Biss der Jäger:** wie weit vor dem Maul ein Jäger ansetzt, wie lange er ausholt, vorschnellt und sich erholt, wie schnell er dabei
+  wird, die Pause bis zum nächsten Biss, wie sehr das alles streut (schnelle Bisse, längere Pausen) und wie lange er beim
+  Vorstoß noch nachlenkt (`BITE` in `src/sim/bite.ts`).
 - **Tiere einzeln:** eine Tabelle mit jeder Art – **wie viel Nahrung sie bringt**, Lebenskraft, Biss, Tempo und Stärke.
   Ohne eigenen Wert richtet sich die Nahrung nach der Lebenskraft (bei Größe 1).
 - **Gruppe und gemeinsame Jagd:** Größe der Gruppe, Angriffskraft der Artgenossen, Zielzahlen der Jagd.
@@ -972,6 +984,7 @@ src/
 │   └── tuning.ts        die Entwickler-Einstellung: alle Balancing-Werte mit Standard, Speichern, Export/Import
 ├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
 ├── sim/sight.ts         die Sicht unter Wasser als reine Rechnung (Blickfeld nach vorn, kleiner Kreis nach hinten, Verschwimmen)
+├── sim/bite.ts          der Biss der Jäger: Ablauf (ausholen, vorschnellen, zuschnappen, erholen) und seine Streuung
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
 ├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern)
 ├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts
@@ -981,7 +994,7 @@ src/
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
 │   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
-│   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten)
+│   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten); Jäger mit Kiefer auch mit halb und weit offenem Maul (`openJaw`, `jawOf`)
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
