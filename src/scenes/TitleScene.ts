@@ -56,84 +56,75 @@ function fadeTexture(scene: Phaser.Scene) {
   });
 }
 
-/** Die feine Linie unter dem Titel: ocker, nach rechts auslaufend. */
 /** Maße des Logos (in Bildpunkten des Bildschirms; gezeichnet doppelt so fein) */
-const LOGO = { w: 640, h: 150, size: 82, base: 118, space: 7, gap: 34, res: 2 };
+const LOGO = { w: 660, h: 150, size: 84, base: 118, space: 6, gap: 38, res: 2 };
+/** Abstände zwischen zwei Buchstaben, von Auge ausgeglichen (zum Grundabstand dazu) */
+const KERN: Record<string, number> = { EV: -3, VO: -5, LI: -3, IV: -1, VI: -2, IN: 0, NG: -1 };
 
 /**
- * Das Logo: EVO und L¡VING auf einer Zeile – das i steht auf dem Kopf, sein Punkt liegt unten als kleine Raute. So liest
- * man beides: „EVO LIVING“ und „EVOLVING“. Gezeichnet in eine Leinwand: Zeichen für Zeichen mit Abstand, das umgedrehte i
- * aus dem Schaft des I (oben abgeschnitten) und der Raute. mode „glyphs“: nur die Buchstaben, weiß (für den Glanz).
+ * Das Logo: EVO und LıVING auf einer Zeile. Das i hat keinen Punkt und keine Serifen – nur ein kurzer, schlichter Strich,
+ * kaum höher als die halbe Großbuchstabenhöhe. Man liest „EVO LIVING“ – und, weil das i so leise ist, auch „EVOLVING“.
+ * Gezeichnet in eine Leinwand: Zeichen für Zeichen, mit ausgeglichenen Abständen. mode „glyphs“: nur die Buchstaben, weiß
+ * (für den Glanz).
  */
-function drawLogo(ctx: Ctx, mode: 'color' | 'glyphs'): { w: number; dot: [number, number] } {
+function drawLogo(ctx: Ctx, mode: 'color' | 'glyphs'): { w: number } {
   const { size, base, space, gap } = LOGO;
   ctx.font = `400 ${size}px Cinzel, Georgia, serif`;
   ctx.textBaseline = 'alphabetic';
-  const cap = size * 0.7;
-  const fill = mode === 'glyphs' ? '#ffffff' : vgrad(ctx, base - cap, base + 4, [[0, '#f8f0dd'], [0.55, '#e2d1a8'], [1, '#b89a68']]);
+  const cap = ctx.measureText('E').actualBoundingBoxAscent || size * 0.7;
+  const fill = mode === 'glyphs' ? '#ffffff' : vgrad(ctx, base - cap, base + 2, [[0, '#fbf4e4'], [0.5, '#e8d8b2'], [1, '#bf9f6c']]);
   if (mode === 'color') {
-    ctx.shadowColor = 'rgba(0,0,0,.55)';
+    ctx.shadowColor = 'rgba(0,0,0,.6)';
     ctx.shadowOffsetY = 5;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 22;
   }
   ctx.fillStyle = fill;
-  let x = 4;
+  let x = 4, prev = '';
   const put = (ch: string) => {
+    x += KERN[prev + ch] ?? 0;
     ctx.fillText(ch, x, base);
     x += ctx.measureText(ch).width + space;
+    prev = ch;
   };
   for (const ch of 'EVO') put(ch);
   x += gap - space;
+  prev = '';
   put('L');
-  // das umgedrehte i: oben der Schaft (vom I, unten abgeschnitten), unten der Punkt
-  const iw = ctx.measureText('I').width;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x - 4, base - cap - 20, iw + 8, cap * 0.64 + 20);
-  ctx.clip();
-  ctx.fillText('I', x, base);
-  ctx.restore();
-  const cx = x + iw / 2, dy = base - cap * 0.1, r = size * 0.075;
-  if (mode === 'color') {
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 0;
-    ctx.shadowColor = 'rgba(232,170,80,.85)';
-    ctx.fillStyle = vgrad(ctx, dy - r, dy + r, [[0, '#ffd88c'], [1, '#c8873a']]);
-  }
-  ctx.beginPath();
-  ctx.moveTo(cx, dy - r);
-  ctx.lineTo(cx + r * 0.8, dy);
-  ctx.lineTo(cx, dy + r);
-  ctx.lineTo(cx - r * 0.8, dy);
-  ctx.closePath();
-  ctx.fill();
-  if (mode === 'color') {
-    ctx.shadowColor = 'rgba(0,0,0,.55)';
-    ctx.shadowOffsetY = 5;
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = fill;
-  }
-  x += iw + space;
+  // das i: ein schlichter Strich auf der Grundlinie – so breit wie der Schaft eines Buchstabens, ohne Punkt, ohne Serifen
+  x += KERN.LI;
+  const bw = size * 0.074, bh = cap * 0.58;
+  ctx.fillRect(x, base - bh, bw, bh);
+  x += bw + space + 4;
+  prev = 'I';
   for (const ch of 'VING') put(ch);
-  return { w: x - space, dot: [cx, dy] };
+  return { w: x - space };
 }
 
-/** Das Logo als Textur (farbig und als weiße Buchstaben für den Glanz) – dazu seine Breite und wo der Punkt des i liegt. */
+/** Das Logo als Textur (farbig und als weiße Buchstaben für den Glanz) – dazu seine Breite. */
 function logoTexture(scene: Phaser.Scene) {
   tex(scene, 'ttl_logo', LOGO.w, LOGO.h, (ctx) => void drawLogo(ctx, 'color'), LOGO.res);
   tex(scene, 'ttl_logo_glyphs', LOGO.w, LOGO.h, (ctx) => void drawLogo(ctx, 'glyphs'), LOGO.res);
   return drawLogo(newCanvas(LOGO.w, LOGO.h)[1], 'glyphs');
 }
 
-function ruleTexture(scene: Phaser.Scene) {
-  return tex(scene, 'ttl_rule', 380, 4, (ctx) => {
-    const g = ctx.createLinearGradient(0, 0, 380, 0);
-    g.addColorStop(0, 'rgba(200,145,60,.95)');
-    g.addColorStop(0.6, 'rgba(200,145,60,.45)');
-    g.addColorStop(1, 'rgba(200,145,60,0)');
+/** Die Linie neben WORLD: an ihrem inneren Ende eine kleine Raute, nach außen läuft sie aus. */
+function worldRuleTexture(scene: Phaser.Scene) {
+  return tex(scene, 'ttl_wrule', 150, 12, (ctx) => {
+    const g = ctx.createLinearGradient(12, 0, 150, 0);
+    g.addColorStop(0, 'rgba(214,160,74,.9)');
+    g.addColorStop(0.55, 'rgba(214,160,74,.35)');
+    g.addColorStop(1, 'rgba(214,160,74,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 1, 380, 2);
-  });
+    ctx.fillRect(12, 5.4, 138, 1.2);
+    ctx.fillStyle = 'rgba(226,176,92,1)';
+    ctx.beginPath();
+    ctx.moveTo(5, 2.5);
+    ctx.lineTo(8.5, 6);
+    ctx.lineTo(5, 9.5);
+    ctx.lineTo(1.5, 6);
+    ctx.closePath();
+    ctx.fill();
+  }, 2);
 }
 
 /** Das Zeichen vor einer angewählten Menüzeile: eine feine Linie, die aus dem Dunkel kommt und in einer kleinen Raute endet. */
@@ -384,9 +375,12 @@ export class TitleScene extends Phaser.Scene {
     const run = game.run;
     const X = 100;
 
-    // EVO L¡VING – schlank und hell, darunter weit gesperrt WORLD zwischen zwei feinen Linien (siehe drawLogo)
-    const { w: lw, dot } = logoTexture(this);
+    // EVO LıVING – schlank und hell, darunter weit gesperrt WORLD zwischen zwei feinen Linien (siehe drawLogo)
+    const { w: lw } = logoTexture(this);
     const LY = 66, LS = 1 / LOGO.res;
+    // hinter der Schrift ein weicher Schatten: Was vom Bild dahinter liegt (die Schwanzflosse), tritt zurück
+    const dusk = this.add.image(X + lw / 2 + 30, LY + 96, 'glow').setDisplaySize(lw * 1.9, 340).setTint(0x000000).setAlpha(0).setDepth(58);
+    this.tweens.add({ targets: dusk, alpha: 0.8, duration: 1600 * k, delay: 200 * k });
     const halo = this.add.image(X + lw / 2, LY + 92, 'glow').setScale(6.4, 2.2).setTint(0x9ccfc6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setDepth(59);
     const logo = this.add.image(X - 4, LY, 'ttl_logo').setOrigin(0).setScale(LS).setDepth(60);
     // der Glanz: dieselben Buchstaben noch einmal, aufhellend – nur ein schmales Band, das von links nach rechts wandert
@@ -419,20 +413,20 @@ export class TitleScene extends Phaser.Scene {
         this.tweens.add({ targets: sheen, p: 1.15, duration: 1500, ease: 'Sine.inOut', onUpdate: paint, onComplete: () => { sheen.p = -1; paint(); } });
       },
     });
-    // der Punkt des umgedrehten i glimmt leise – ein Lebensfunke
-    const spark = this.add.image(X - 4, LY, 'glow').setTint(0xffc46a).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(46, 46).setAlpha(0).setDepth(62);
-    spark.setPosition(X - 4 + dot[0], LY + dot[1]);
-    // darunter: WORLD, weit gesperrt, mittig unter der ersten Zeile, links und rechts eine feine Linie mit Raute
-    ruleTexture(this);
-    const WY = LY + LOGO.base + 44, mid = X - 4 + lw / 2;
+    // darunter: WORLD, weit gesperrt, genau mittig unter der ersten Zeile; links und rechts eine feine Linie mit Raute
+    worldRuleTexture(this);
+    const WY = LY + LOGO.base + 42, mid = X - 4 + 4 + lw / 2;
+    const SP = 20;
     const sub = this.add
-      .text(mid, WY, 'WORLD', { fontFamily: TITLE_FONT, fontSize: '24px', color: '#d9a24c', fontStyle: '700', resolution: 2 })
+      .text(mid, WY, 'WORLD', { fontFamily: TITLE_FONT, fontSize: '22px', color: '#d9a24c', fontStyle: '700', resolution: 2 })
       .setOrigin(0.5)
-      .setLetterSpacing(22)
+      .setLetterSpacing(SP)
       .setDepth(60);
-    const ruleL = this.add.image(mid - sub.width / 2 - 16, WY, 'ttl_rule').setOrigin(1, 0.5).setFlipX(true).setDepth(60).setDisplaySize(1, 3);
-    const ruleR = this.add.image(mid + sub.width / 2 + 16, WY, 'ttl_rule').setOrigin(0, 0.5).setDepth(60).setDisplaySize(1, 3);
-    const span = clamp((lw - sub.width) / 2 - 40, 40, 140);
+    const half = sub.width / 2;
+    const ruleL = this.add.image(mid - half - 20, WY, 'ttl_wrule').setOrigin(0, 0.5).setFlipX(true).setDepth(60).setScale(0.5).setAlpha(0);
+    ruleL.setOrigin(1, 0.5);
+    const ruleR = this.add.image(mid + half + 20, WY, 'ttl_wrule').setOrigin(0, 0.5).setDepth(60).setScale(0.5).setAlpha(0);
+    const span = clamp((lw - sub.width) / 2 - 30, 60, 150);
 
     // das Menü: weiterleben – oder ein Zeitalter wählen (für das erste Leben heißt das „Leben beginnen“)
     const entries: [string, () => void, Sfx][] = [];
@@ -477,12 +471,15 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: [logo, shine], y: LY, scale: LS, duration: 1900 * k, delay: 250 * k, ease: 'Cubic.out' });
     this.tweens.add({ targets: logo, alpha: 1, duration: 1700 * k, delay: 250 * k, ease: 'Cubic.out' });
     this.tweens.add({ targets: halo, alpha: 0.09, duration: 2400 * k, delay: 500 * k, onComplete: () => this.tweens.add({ targets: halo, alpha: 0.05, duration: 4200, yoyo: true, repeat: -1, ease: 'Sine.inOut' }) });
-    this.tweens.add({ targets: spark, alpha: 0.5, duration: 1200 * k, delay: 1400 * k, onComplete: () => this.tweens.add({ targets: spark, alpha: 0.2, scale: spark.scale * 0.8, duration: 1700, yoyo: true, repeat: -1, ease: 'Sine.inOut' }) });
-    for (const r of [ruleL, ruleR]) this.tweens.add({ targets: r, displayWidth: span, duration: 1000 * k, delay: 900 * k, ease: 'Cubic.out' });
+    // die Linien wachsen aus der Mitte nach außen, WORLD rückt zusammen
+    for (const r of [ruleL, ruleR]) {
+      r.setDisplaySize(8, 6);
+      this.tweens.add({ targets: r, displayWidth: span, alpha: 1, duration: 1100 * k, delay: 900 * k, ease: 'Cubic.out' });
+    }
     sub.setAlpha(0);
-    const subSp = { v: 40 };
+    const subSp = { v: 36 };
     this.tweens.add({ targets: sub, alpha: 1, duration: 1100 * k, delay: 1050 * k });
-    this.tweens.add({ targets: subSp, v: 22, duration: 1500 * k, delay: 1050 * k, ease: 'Cubic.out', onUpdate: () => sub.setLetterSpacing(subSp.v) });
+    this.tweens.add({ targets: subSp, v: SP, duration: 1500 * k, delay: 1050 * k, ease: 'Cubic.out', onUpdate: () => sub.setLetterSpacing(subSp.v) });
     items.forEach((it, i) => {
       it.setAlpha(0).setX(X - 14);
       this.tweens.add({ targets: it, alpha: 1, x: X, duration: 600 * k, delay: (1500 + i * 90) * k, ease: 'Cubic.out' });

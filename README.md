@@ -22,10 +22,13 @@ Spielbar ist vorerst nur das **Devon** – dort beginnt jedes Leben; die anderen
 **Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
-**Das Logo** spielt mit dem Namen: **EVO** und **L¡VING** stehen auf einer Höhe, darunter weit gesperrt **WORLD** zwischen
-zwei feinen Linien. Das i in LIVING steht **auf dem Kopf** – oben der Schaft, unten sein Punkt als kleine, leise glimmende
-Raute –, so liest man beides: *EVO LIVING WORLD* und *EVOLVING WORLD*. Das Logo atmet sich beim Start ins Bild, ab und zu
-streicht ein Glanz über die Buchstaben (gezeichnet in `drawLogo` in `src/scenes/TitleScene.ts`).
+**Das Logo** spielt mit dem Namen: **EVO** und **LıVING** stehen auf einer Höhe, darunter weit gesperrt **WORLD** zwischen
+zwei feinen Linien mit kleinen Rauten. Das i in LIVING hat **keinen Punkt und keine Serifen** – nur ein kurzer, schlichter
+Strich, kaum höher als die halbe Buchstabenhöhe. So liest man beides: *EVO LIVING WORLD* und, weil das i so leise ist,
+*EVOLVING WORLD*. Die Abstände zwischen den Buchstaben sind von Auge ausgeglichen; hinter der Schrift liegt ein weicher
+Schatten, damit das Bild dahinter zurücktritt. Das Logo atmet sich beim Start ins Bild, die Linien wachsen aus der Mitte,
+WORLD rückt zusammen, und ab und zu streicht ein Glanz über die Buchstaben (gezeichnet in `drawLogo` in
+`src/scenes/TitleScene.ts`).
 
 **Das Titelbild** zeigt eine Höhle am Grund des Urmeers: Rechts liegt das **versteinerte Skelett eines Urfisches** im
 Sand, nach links läuft das Bild weich ins Dunkel aus – dort stehen Titel und Menü (Pfeiltasten und Eingabe oder die Maus).
