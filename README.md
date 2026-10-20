@@ -581,6 +581,16 @@ Zeitalter mit `playable: true`.
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
+- **Die Beute (rechts neben der Übersicht):** Ein eigenes, schmales Fenster zeigt, **welche Tiere deine Linie an diesem
+  Ort am häufigsten gefressen hat** – die **drei häufigsten**, untereinander mit Platz 1, 2, 3. Statt des Namens steht dort
+  ein **kleines Sinnbild** des Tiers: das Original verkleinert und vereinfacht (drei flache Farbtöne aus seiner Grundfarbe,
+  dunkle Kontur, feiner warmer Rand). Darunter sein **Anteil** an allen Tieren, die du hier gefressen hast („53 %“), und
+  wie viele es waren. **Jedes Tier zählt einmal** – auch ein großes, das in viele Fleischbrocken zerfällt; es zählt, sobald
+  du den ersten Brocken davon frisst (gleich, wer es erlegt hat). **An einem anderen Ort stehen andere Zahlen** – sie
+  beziehen sich auf das, was du dort frisst. Die Beute gilt für den ganzen Lauf (über alle Generationen deiner Linie);
+  **beginnt eine neue Linie, ist alles wieder leer**. Code: `GameState.noteEaten`/`topPrey` (`Run.prey`),
+  `Overview.preyPanel` (`src/ui/overview.ts`), das Sinnbild `preyIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt
+  vorerst nur Beute, die in deinem eigenen Spiel erlegt wurde.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
@@ -740,7 +750,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Übersicht: Lebenskraft, Sicht, Ausdauer; Gebiss, Schädel, Schwarm, Schuppen; Körper, Leben, Nachwuchs, Muscheln |
+| C | Übersicht: Lebenskraft, Sicht, Ausdauer; Gebiss, Schädel, Schwarm, Schuppen; Körper, Leben, Nachwuchs, Muscheln – daneben die Beute an diesem Ort |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 

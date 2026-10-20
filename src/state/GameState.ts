@@ -347,6 +347,11 @@ export interface Run {
   ups?: Ups;
   /** der Hinweis auf die Muscheln, die an der großen Muschel warten, kam schon (einmal je Linie) */
   upHint?: boolean;
+  /**
+   * Was deine Linie gefressen hat – je Ort (Kennung des Ortes → Art → wie viele Tiere). Jedes Tier zählt einmal, auch wenn es
+   * aus mehreren Fleischbrocken bestand. Gilt über alle Generationen der Linie; eine neue Linie beginnt leer.
+   */
+  prey?: Record<string, Record<string, number>>;
   /** ältere Spielstände: Muscheln und Segen hingen an der Linie (beim Laden übernommen) */
   shells?: unknown;
   blessings?: number;
@@ -1612,6 +1617,29 @@ class GameState {
   /** Kennt man den Weg zwischen diesen beiden Orten? */
   hasLink(a: string, b: string) {
     return (this.r.prog.links ?? []).includes(linkKey(a, b));
+  }
+
+  /** Von einem Tier dieser Art gefressen (zum ersten Mal von diesem Tier): Es zählt für den Ort, an dem man gerade ist. */
+  noteEaten(species: string) {
+    const r = this.data.run;
+    if (!r) return;
+    const at = ((r.prey ??= {})[r.prog.place] ??= {});
+    at[species] = (at[species] ?? 0) + 1;
+    this.save();
+  }
+
+  /**
+   * Die Tiere, die deine Linie an einem Ort am häufigsten gefressen hat (höchstens n): Art, wie viele, und ihr Anteil an allen
+   * dort gefressenen Tieren (0 … 1). Dazu, wie viele es dort insgesamt waren.
+   */
+  topPrey(place = this.data.run?.prog.place ?? '', n = 3): { top: { id: string; count: number; share: number }[]; total: number } {
+    const at = this.data.run?.prey?.[place] ?? {};
+    const total = Object.values(at).reduce((a, b) => a + b, 0);
+    const top = Object.entries(at)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, n)
+      .map(([id, count]) => ({ id, count, share: total ? count / total : 0 }));
+    return { top, total };
   }
 
   /** Wie viele Muscheln du je gefunden hast (sie bleiben über alle Läufe). */

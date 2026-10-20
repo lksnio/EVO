@@ -1726,7 +1726,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
     // selten bleibt eine Muschel zurück – eher bei Tieren, die stark sind im Vergleich zu dir (SHELLS)
     if (ours && !this.ended && Math.random() < shellChance((a.def.power * a.sz) / Math.max(1, this.player.stats.power))) this.dropShell(a.x, a.y);
-    const kill = new Kill(ours);
+    const kill = new Kill(ours, a.def.id);
     for (const k of a.helpers) if (k instanceof Kin && !k.dead) kill.helpers.add(k);
     // gemeinsam erlegt: zählt für den Schwarmfisch (gegen Starke mehr)
     if (ours && kill.helpers.size) {
@@ -1861,6 +1861,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.floatNum(m.x, m.y - 16, got * dig, 'meat');
       this.ate('meat', got * FOOD.meat.kcal * dig);
       m.playerBites++;
+      // ein Tier zählt in der Beute-Statistik einmal – gleich, wie viele Brocken man davon frisst
+      if (!m.kill.playerAte && m.kill.species) game.noteEaten(m.kill.species);
       m.kill.playerAte = true;
       this.checkShare(m.kill);
       return;

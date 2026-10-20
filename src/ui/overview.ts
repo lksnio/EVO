@@ -4,6 +4,8 @@ import { CLASSES } from '../data/classes';
 import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
+import { SPECIES } from '../data/species';
+import { preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
 import { text, title } from './ui';
 
@@ -73,19 +75,21 @@ export class Overview {
     const c = (this.c = scene.add.container(0, 0).setDepth(60));
     c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0).setInteractive().on('pointerdown', onClose));
 
-    const x0 = 170, y0 = 14, w = W - 2 * x0, h = 692;
+    // links der Bogen deines Tiers, rechts daneben die Beute (was deine Linie an diesem Ort gefressen hat)
+    const x0 = 28, y0 = 14, w = 900, h = 692, mid = x0 + w / 2;
     const g = scene.add.graphics();
     frame(g, x0, y0, w, h);
     c.add(g);
     // die Bühne (dahinter kein Klick: Nur außerhalb schließt es)
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
+    this.preyPanel(scene, g, d, x0 + w + 16, y0, W - 28 - (x0 + w + 16), h);
 
     const run = game.run;
     const life = game.life;
     const ep = game.epoch;
     // Kopf: der Name der Linie, darunter Körperform, Zeitalter und Ort
-    c.add(title(scene, W / 2, y0 + 46, game.currentName, 30).setOrigin(0.5));
-    c.add(text(scene, W / 2, y0 + 78, `${CLASSES[game.cls].name} · ${ep.name} · ${d.placeName}`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
+    c.add(title(scene, mid, y0 + 46, game.currentName, 30).setOrigin(0.5));
+    c.add(text(scene, mid, y0 + 78, `${CLASSES[game.cls].name} · ${ep.name} · ${d.placeName}`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
     rule(g, x0 + 70, x0 + w - 70, y0 + 102);
 
     const caps = (x: number, y: number, str: string, size = 13, col = UI.ochre) =>
@@ -99,7 +103,7 @@ export class Overview {
       { label: 'AUSDAUER', value: String(v.stam) },
     ];
     big.forEach((b, i) => {
-      const cx = W / 2 + (i - 1) * 270;
+      const cx = mid + (i - 1) * 260;
       c.add(caps(cx, y0 + 128, b.label));
       const val = title(scene, cx, y0 + 168, b.value, 40, UI.bone).setOrigin(0.5);
       c.add(val);
@@ -111,7 +115,7 @@ export class Overview {
         of.setX(val.x + val.width / 2 + 4);
         c.add(of);
       }
-      if (i > 0) diamond(g, W / 2 + (i - 1.5) * 270, y0 + 152, 3.5, 0.55);
+      if (i > 0) diamond(g, mid + (i - 1.5) * 260, y0 + 152, 3.5, 0.55);
     });
 
     // ---- Waffen und Schutz: eine Reihe kleiner Tafeln
@@ -141,9 +145,9 @@ export class Overview {
 
     // zwischen den Spalten eine kaum sichtbare Linie
     g.lineStyle(1, 0xc8913c, 0.12);
-    g.lineBetween(W / 2, y0 + 322, W / 2, y0 + h - 40);
+    g.lineBetween(mid, y0 + 322, mid, y0 + h - 40);
 
-    const colL = x0 + 52, colR = W / 2 + 46, colW = w / 2 - 98;
+    const colL = x0 + 52, colR = mid + 46, colW = w / 2 - 98;
     const head = (x: number, y: number, str: string) => {
       const t = scene.add.text(x, y, str, { fontFamily: TITLE_FONT, fontSize: '14px', color: UI.ochre, fontStyle: '700', resolution: 2 })
         .setOrigin(0, 0.5).setLetterSpacing(4);
@@ -216,6 +220,45 @@ export class Overview {
     // sanft einblenden
     c.setAlpha(0).setY(6);
     scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
+  }
+
+  /**
+   * Die Beute: Welche Tiere deine Linie an diesem Ort am häufigsten gefressen hat – die drei häufigsten, jedes als kleines
+   * Sinnbild, darunter ihr Anteil an allem, was du hier gefressen hast. Jedes Tier zählt einmal (gleich, wie viele Brocken).
+   * An einem anderen Ort stehen andere Zahlen; eine neue Linie beginnt leer.
+   */
+  private preyPanel(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number, h: number) {
+    const c = this.c;
+    frame(g, x, y, w, h);
+    c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
+    const cx = x + w / 2;
+    c.add(title(scene, cx, y + 46, 'Beute', 30).setOrigin(0.5));
+    c.add(text(scene, cx, y + 78, d.placeName, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
+    rule(g, x + 34, x + w - 34, y + 102);
+    const { top, total } = game.topPrey();
+    const slotH = 172, y1 = y + 122;
+    for (let i = 0; i < 3; i++) {
+      const sy = y1 + i * slotH;
+      const e = top[i];
+      if (i > 0) {
+        g.lineStyle(1, 0xc8913c, 0.14);
+        g.lineBetween(x + 46, sy, x + w - 46, sy);
+      }
+      // der Platz: eine kleine Raute mit der Zahl
+      c.add(title(scene, x + 40, sy + 30, String(i + 1), 22, e ? UI.ochre : UI.boneDim).setOrigin(0.5).setAlpha(e ? 1 : 0.4));
+      const def = e ? SPECIES[e.id] : undefined;
+      if (!e || !def) {
+        c.add(text(scene, cx, sy + 72, '—', 26, UI.boneDim).setOrigin(0.5).setAlpha(0.35));
+        continue;
+      }
+      // ein warmer Schein hinter dem Sinnbild
+      c.add(scene.add.image(cx, sy + 62, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(220, 90).setAlpha(0.07));
+      const icon = scene.add.image(cx, sy + 62, preyIcon(scene, def)).setScale(0.5);
+      c.add(icon);
+      c.add(title(scene, cx, sy + 122, `${Math.round(e.share * 100)} %`, 30, UI.bone).setOrigin(0.5));
+      c.add(text(scene, cx, sy + 150, `${e.count} ${e.count === 1 ? 'Tier' : 'Tiere'}`, 15, UI.boneDim).setOrigin(0.5).setAlpha(0.8));
+    }
+    c.add(text(scene, cx, y + h - 34, total ? `hier insgesamt ${total} ${total === 1 ? 'Tier' : 'Tiere'} gefressen` : 'hier noch kein Tier gefressen', 14, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.7));
   }
 
   update(dt: number) {

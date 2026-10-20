@@ -1277,3 +1277,68 @@ export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target
   scene.textures.addCanvas(key, t.canvases[0]);
   return key;
 }
+
+/**
+ * Ein kleines Sinnbild eines Tiers (für die Beute in der Übersicht): das Original, verkleinert und vereinfacht – drei flache
+ * Farbtöne aus seiner Grundfarbe (Schatten, Körper, Licht) statt aller Muster, dazu eine dunkle Kontur und ein feiner,
+ * warmer Rand. w, h: höchstens so groß (Bildpunkte, doppelt so fein gezeichnet). Gibt den Schlüssel der Textur zurück.
+ */
+export function preyIcon(scene: Phaser.Scene, def: SpeciesDef, w = 150, h = 70) {
+  const key = `prey_${def.id}`;
+  if (scene.textures.exists(key)) return key;
+  const R = 2, pad = 4;
+  const src = scene.textures.get(makeSpeciesPortrait(scene, def, 220)).getSourceImage() as HTMLCanvasElement;
+  const k = Math.min((w - 2 * pad) / src.width, (h - 2 * pad) / src.height);
+  const iw = Math.max(1, Math.round(src.width * k * R)), ih = Math.max(1, Math.round(src.height * k * R));
+  const W = iw + 2 * pad * R, H = ih + 2 * pad * R;
+  // das Tier klein gemalt
+  const [body, bx] = newCanvas(W, H, true);
+  bx.imageSmoothingQuality = 'high';
+  bx.drawImage(src, pad * R, pad * R, iw, ih);
+  // drei Farbtöne: nach der Helligkeit jedes Bildpunkts, gemessen an der des ganzen Tiers (so hat jedes Tier alle drei)
+  const img = bx.getImageData(0, 0, W, H);
+  const d = img.data;
+  const lum: number[] = [];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40) lum.push(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]);
+  lum.sort((a, b) => a - b);
+  const q = (f: number) => lum[Math.min(lum.length - 1, Math.floor(lum.length * f))] ?? 0;
+  const t1 = q(0.3), t2 = q(0.78);
+  const base = (def.art as { c?: number }).c ?? 0x6a6a5a;
+  const tones = [shade(base, -0.5), shade(base, 0.08), mix(shade(base, 0.45), 0xf0e6d0, 0.25)];
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+    const c = tones[l < t1 ? 0 : l < t2 ? 1 : 2];
+    d[i] = (c >> 16) & 255;
+    d[i + 1] = (c >> 8) & 255;
+    d[i + 2] = c & 255;
+    d[i + 3] = d[i + 3] > 110 ? 255 : 0;
+  }
+  bx.putImageData(img, 0, 0);
+  // die Umrisse: dieselbe Gestalt, einfarbig
+  const tint = (col: string) => {
+    const [c, cx] = newCanvas(W, H);
+    cx.drawImage(body, 0, 0);
+    cx.globalCompositeOperation = 'source-in';
+    cx.fillStyle = col;
+    cx.fillRect(0, 0, W, H);
+    return c;
+  };
+  const rim = tint('rgba(200,145,60,0.55)'), line = tint('#0d0b09');
+  const [out, ctx] = newCanvas(W, H);
+  const ring = (c: HTMLCanvasElement, r: number) => {
+    for (let a = 0; a < 16; a++) ctx.drawImage(c, Math.cos((a / 16) * Math.PI * 2) * r, Math.sin((a / 16) * Math.PI * 2) * r);
+  };
+  ring(rim, 2.6 * R);
+  ring(line, 1.4 * R);
+  ctx.drawImage(body, 0, 0);
+  // ein Hauch Licht von oben
+  ctx.globalCompositeOperation = 'source-atop';
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(255,248,230,0.16)');
+  g.addColorStop(0.5, 'rgba(255,248,230,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  scene.textures.addCanvas(key, out);
+  return key;
+}
