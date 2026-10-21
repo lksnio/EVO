@@ -21,6 +21,7 @@ import { HudScene } from './scenes/HudScene';
 import { GenerationScene } from './scenes/GenerationScene';
 import { ClutchScene } from './scenes/ClutchScene';
 import { RoeScene } from './scenes/RoeScene';
+import { ExtinctScene } from './scenes/ExtinctScene';
 import { TreeScene } from './scenes/TreeScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
@@ -78,7 +79,7 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, MapScene, HudScene, GenerationScene, ClutchScene, RoeScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene],
+    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, MapScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene],
   });
 
   // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren

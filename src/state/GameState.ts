@@ -7,7 +7,7 @@ import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
-import { KTRAIN } from '../data/karbon';
+import { KTRAIN, OXYGEN } from '../data/karbon';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
   type Brood, type Egg, type Gene,
@@ -263,6 +263,8 @@ export interface Clutch {
   young?: number;
   /** seine Eier liegen schon auf dem Stapel der nächsten Generation (Run.next) */
   eggs?: boolean;
+  /** darin leuchtet ein goldenes Ei (siehe RoeEgg.gold) */
+  gold?: boolean;
 }
 
 /** Das Leben des eigenen Tiers: wie alt es ist (Sekunden aktiven Lebens), die wievielte Generation, seine Gelege. */
@@ -298,12 +300,19 @@ export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, l
  * gelaicht wurde. Gespeichert werden nur die Merkmale, die nicht 0 sind.
  */
 export interface RoeEgg {
+  /** Kennung (im Koop: dieselbe bei allen Spielern) */
+  id?: string;
   traits: Partial<Traits>;
   sex: Sex;
   seed: number;
   place: string;
   x: number;
   y: number;
+  /**
+   * Eine goldene Geburt (SPAWN.gold): Das Tier aus diesem Ei hat einen Segen mehr in dieser Richtung – so viel, wie der
+   * nächste Segen der großen Muschel bringen würde. Er gilt nur für dieses Tier, nicht für die Linie.
+   */
+  gold?: UpKey;
 }
 
 /** Wo die Eier liegen: bei den Geschwistern (deine Generation) oder im Laich für die nächste Generation. */
@@ -367,6 +376,16 @@ export interface Run {
   next?: RoeEgg[];
   /** ältere Spielstände: die Geschwister als Anzahl (beim Laden zu Eiern) */
   siblings?: { n: number; traits: Traits; place: string; x: number; y: number };
+  /**
+   * Koop: die Generation der gemeinsamen Art (des Laichs, den alle teilen – siehe net/Species.ts). Die Geschwister (pool)
+   * gehören zu ihr, der Laich (next) zur nächsten. Ist sie weiter als dein Tier, war ein Artgenosse schneller: Nach deinem
+   * Tod geht es nur noch dorthin.
+   */
+  coopGen?: number;
+  /** die Segen der großen Muschel in der Reihenfolge, in der sie gewählt wurden (für die Punktfolge in der Übersicht) */
+  upLog?: UpKey[];
+  /** Eine goldene Geburt: dieses Tier hat einen Segen mehr (key) – in der Punktfolge nach so vielen gekauften Segen (at) */
+  gold?: { key: UpKey; at: number };
   /**
    * Die Segen der großen Muschel für diese Linie: so oft in Lebenskraft, Ausdauer und Sicht (siehe UPGRADES). Die Muscheln selbst
    * gehören nicht der Linie, sondern dir (SaveData.shells) – beginnt eine neue Linie, sind sie wieder frei.
@@ -1359,6 +1378,15 @@ class GameState {
     return this.data.run?.pool ?? [];
   }
 
+  /**
+   * Die Generation der Geschwister (pool): deine eigene – im Koop die der gemeinsamen Art (sie kann schon weiter sein als
+   * dein Tier). Der Laich (roe) gehört zur nächsten.
+   */
+  get poolGen(): number {
+    const run = this.data.run;
+    return run ? Math.max(run.life.gen, run.coopGen ?? 0) : 1;
+  }
+
   /** Der Laich für die nächste Generation – von dir und deinen Geschwistern zusammen (siehe Run.next). */
   get roe(): RoeEgg[] {
     return this.data.run?.next ?? [];
@@ -1375,11 +1403,37 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      out.push({ traits: packTraits(this.varied(run.cls, h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y });
+      const e: RoeEgg = { id: eggId(), traits: packTraits(this.varied(run.cls, h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
+      // eine goldene Geburt: ein Segen mehr in einer Richtung, die noch wachsen kann
+      if (Math.random() < SPAWN.gold) {
+        const keys = this.upKeys.filter((k) => !this.upMaxed(k));
+        if (keys.length) e.gold = keys[Math.floor(Math.random() * keys.length)];
+      }
+      out.push(e);
     }
-    (run.next ??= []).push(...out);
+    if (out.some((e) => e.gold)) c.gold = true;
+    // die Eier gehören zur Generation nach deiner: Im Koop kann das schon die der Geschwister sein (ein Artgenosse war
+    // schneller) – oder eine vergangene, in die kein Weg mehr zurückführt
+    const g = run.life.gen + 1;
+    if (g === this.poolGen) (run.pool ??= []).push(...out);
+    else if (g > this.poolGen) (run.next ??= []).push(...out);
     this.save();
+    // im Koop: an die gemeinsame Art (net/Species.ts)
+    bus.emit('roeLaid', g, out);
     return out;
+  }
+
+  /**
+   * Koop: der gemeinsame Laich, wie ihn der Server meldet – er ersetzt den eigenen (die Geschwister der Generation gen und
+   * der Laich der nächsten).
+   */
+  syncShared(gen: number, pool: RoeEgg[], next: RoeEgg[]) {
+    const run = this.data.run;
+    if (!run || run.brood) return;
+    run.coopGen = gen;
+    run.pool = pool;
+    run.next = next;
+    this.save();
   }
 
   /**
@@ -1411,9 +1465,10 @@ class GameState {
    * Was ein Ei verspricht: die Werte des ausgewachsenen Tiers, so wie die Übersicht sie zeigt (mit den Segen der Linie).
    * Ohne Ei: das eigene Tier, ausgewachsen.
    */
-  roeShown(e?: { traits: Partial<Traits> }) {
+  roeShown(e?: { traits: Partial<Traits>; gold?: UpKey }) {
     const t = full(e ? e.traits : this.r.traits);
-    const ups = this.ups;
+    // ein Ei bringt die Segen der Linie mit – und, golden geboren, einen dazu (nicht den goldenen Segen deines Tiers)
+    const ups = e ? withGold(this.bought, e.gold) : this.ups;
     const st = this.stats(this.r.cls, t, ADULT, ups);
     const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
     return {
@@ -1535,28 +1590,64 @@ class GameState {
     const list = group === 'pool' ? run.pool : run.next;
     const egg = list?.[i];
     if (!list || !egg) return false;
+    const gen = group === 'pool' ? this.poolGen : this.poolGen + 1;
     list.splice(i, 1);
-    let gen = run.life.gen;
     if (group === 'next') {
-      gen += 1;
       run.pool = list;
       run.next = [];
+    }
+    this.hatchRoe(egg, gen);
+    return true;
+  }
+
+  /**
+   * Das Tier aus diesem Ei schlüpft – als Generation gen. Ist sie weiter als dein Tier, beginnt für dich eine neue
+   * Generation (im Stammbaum ein neuer Abschnitt, wenn sich die Art verändert hat). Den Stapel selbst ordnen hatch bzw.
+   * im Koop der Server.
+   */
+  hatchRoe(egg: RoeEgg, gen: number) {
+    const run = this.r;
+    const jump = gen > run.life.gen;
+    if (jump) {
       run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
       if (run.history.length > 24) run.history.splice(1, 1);
     }
     run.traits = full({ ...egg.traits });
     run.sex = egg.sex;
     run.seed = egg.seed;
+    // golden geboren: ein Segen mehr – nur für dieses Tier (in der Punktfolge nach den bisher gekauften)
+    run.gold = egg.gold ? { key: egg.gold, at: this.upLog.length } : undefined;
     // die Farbe einer Höhle ist weitergegeben: Mehr als einmal je Lauf gibt es sie nicht
     if (run.traits.coat) run.coatSet = true;
-    if (group === 'next') {
+    if (jump) {
       // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer
       // Abschnitt des Astes – gleichen sich zwei Linien, teilen sie ihn sich
       const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
       if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, gen).id;
     }
-    this.hatchAt(run, gen, egg);
-    return true;
+    this.hatchAt(run, Math.max(gen, run.life.gen), egg);
+  }
+
+  /**
+   * Wie sich die vererbten Fähigkeiten gegenüber der vorigen Generation verändert haben (ausgewachsen, beide mit deinen Segen): Gebiss,
+   * Schädel, Schuppen – im Karbon Gebiss, Beine, Griff, Schuppen. Ohne vorige Generation (der Urahn): nichts.
+   */
+  inheritedDelta(): Partial<Record<'bite' | 'skull' | 'scales' | 'legs' | 'grip', number>> | null {
+    const run = this.data.run;
+    const prev = run?.history[run.history.length - 1];
+    if (!run || !prev || prev.epoch !== run.epoch) return null;
+    const amph = run.cls === 'amphibian';
+    const base = amph ? this.stats('amphibian', ZERO, ADULT, false) : this.stats('fish', ZERO, ADULT, false);
+    // beide mit denselben Segen gemessen (deinen): So zählt nur, was vererbt wurde
+    const ups = this.ups;
+    const val = (tr: Partial<Traits>) => {
+      const t = full({ ...tr });
+      const st = this.stats(run.cls, t, ADULT, ups);
+      const ten = (v: number) => Math.round(10 * (1 + 2 * v));
+      return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), scales: ten(t.armor ?? 0), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
+    };
+    const a = val(run.traits), b = val(prev.traits);
+    return { bite: a.bite - b.bite, skull: a.skull - b.skull, scales: a.scales - b.scales, legs: a.legs - b.legs, grip: a.grip - b.grip };
   }
 
   /** Ein neues Tier schlüpft aus dem Gelege c: Alter, Nahrung und Spielweise beginnen neu – was die Linie weiß, bleibt. */
@@ -1936,15 +2027,42 @@ class GameState {
     return this.data.shells;
   }
 
-  /** Die Segen der großen Muschel für die laufende Linie. */
-  get ups(): Ups {
+  /** Die Segen, die die große Muschel der laufenden Linie gegeben hat (gekauft mit Muscheln). */
+  get bought(): Ups {
     return { ...noUps(), ...(this.data.run ?? this.ghost)?.ups };
   }
 
-  /** So viele Segen hat die laufende Linie – zusammen, gleich wofür. */
+  /** Die Segen deines Tiers: die der Linie – und, war es eine goldene Geburt, einer mehr in dieser Richtung. */
+  get ups(): Ups {
+    const r = this.data.run ?? this.ghost;
+    return withGold(this.bought, r?.gold?.key);
+  }
+
+  /** So viele Segen hat die laufende Linie gekauft – zusammen, gleich wofür (davon hängt der Preis des nächsten ab). */
   get upCount() {
-    const u = this.ups;
+    const u = this.bought;
     return u.hp + u.stam + u.sight + u.oxy;
+  }
+
+  /** Die gekauften Segen in ihrer Reihenfolge (ältere Spielstände kennen sie nicht: dann nach Richtung geordnet). */
+  get upLog(): UpKey[] {
+    const r = this.data.run ?? this.ghost;
+    const u = this.bought;
+    const log = r?.upLog ?? [];
+    const count = (k: UpKey) => log.filter((x) => x === k).length;
+    if (log.length === this.upCount && UP_KEYS.every((k) => count(k) === u[k])) return log;
+    return UP_KEYS.flatMap((k) => Array<UpKey>(u[k]).fill(k));
+  }
+
+  /**
+   * Die Punktfolge der Übersicht: jeder Segen in der Reihenfolge, in der er kam – die gekauften der Linie, dazwischen (an der
+   * Stelle der Geburt) der goldene deines Tiers.
+   */
+  get upTrail(): { key: UpKey; gold: boolean }[] {
+    const out = this.upLog.map((key) => ({ key, gold: false }));
+    const g = (this.data.run ?? this.ghost)?.gold;
+    if (g) out.splice(Math.min(g.at, out.length), 0, { key: g.key, gold: true });
+    return out;
   }
 
   /** So viele Muscheln hat die laufende Linie schon verteilt. */
@@ -1979,7 +2097,9 @@ class GameState {
   buyUp(k: UpKey) {
     if (!this.canUp(k)) return false;
     const run = this.data.run!;
-    run.ups = { ...this.ups, [k]: this.ups[k] + 1 };
+    const log = this.upLog;
+    run.ups = { ...this.bought, [k]: this.bought[k] + 1 };
+    run.upLog = [...log, k];
     this.save();
     return true;
   }
@@ -2162,6 +2282,25 @@ export function sightOf(n: number) {
  */
 export function shellChance(rel: number) {
   return SHELLS.chance * clamp(rel, SHELLS.relMin, SHELLS.relMax);
+}
+
+/** Segen und ein goldener dazu (wenn es einen gibt). */
+function withGold(u: Ups, gold?: UpKey): Ups {
+  return gold ? { ...u, [gold]: u[gold] + 1 } : u;
+}
+
+/** Was ein Segen in dieser Richtung bringt – für die goldene Geburt („+2,5 % Lebenskraft“). */
+export function upGain(k: UpKey): string {
+  const pc = (v: number) => `+${(v * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`;
+  return k === 'hp' ? `${pc(UPGRADES.hp)} Lebenskraft`
+    : k === 'stam' ? `${pc(STAMINA.perBlessing)} Ausdauer`
+    : k === 'sight' ? `${pc(UPGRADES.sightPer)} Sicht`
+    : `${pc(OXYGEN.perUp)} Sauerstoff`;
+}
+
+/** Eine Kennung für ein Ei (im Koop bei allen gleich). */
+function eggId() {
+  return `${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
 /** So viele Muscheln kostet der Segen nach so vielen Segen (gleich, wofür): 1, 2, 4, 8 … */

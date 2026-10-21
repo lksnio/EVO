@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT, DEPTH } from '../config';
 import { audio } from '../audio/Audio';
-import { game, type RoeEgg, type RoeGroup } from '../state/GameState';
+import { bus, game, upGain, type RoeEgg, type RoeGroup } from '../state/GameState';
 import { CreatureView } from '../objects/CreatureView';
+import { species } from '../net/Species';
 import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 import { tex } from '../util/canvas';
 import type { SuccessionData } from './LevelScene';
+import { speciesEnd } from './ExtinctScene';
 
 /**
  * Der Laich (Devon): Das eigene Tier ist gestorben – jetzt wählt man ein Ei, und das Tier daraus spielt man weiter.
@@ -13,7 +15,12 @@ import type { SuccessionData } from './LevelScene';
  *   – Nächste Generation: der Laich, den du und deine Geschwister gelegt habt. Wer daraus wählt, beginnt die nächste
  *     Generation – und kommt nie mehr zurück: Die übrigen Geschwister sind dann fort. Deshalb fragt die Szene noch einmal.
  * Jedes Ei zeigt, was in ihm steckt: das ausgewachsene Tier und seine Höchstwerte (Lebenskraft, Ausdauer, Gebiss, Stoß,
- * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist.
+ * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Goldene Eier leuchten: Das Tier daraus
+ * hat einen Segen mehr (nur dieses Tier).
+ *
+ * Im Koop ist der Laich der gemeinsame (net/Species.ts): Die Liste ändert sich, wenn ein Artgenosse ein Ei nimmt; ein Ei
+ * schlüpft erst, wenn der Server es zuteilt. Ist ein Artgenosse schon in der nächsten Generation, geht es nur noch dorthin.
+ * Liegt gar kein Laich mehr da, ist die Art ausgestorben – für alle.
  */
 export interface RoeData {
   epoch: number;
@@ -87,17 +94,21 @@ export class RoeScene extends Phaser.Scene {
   private going = false;
   private slots: Slot[] = [];
   private focus = -1;
+  /** die Generation deines Tiers, das gerade gestorben ist */
   private gen = 0;
   /** dein Tier, das gerade gestorben ist (ausgewachsen) – daran messen sich die Eier */
   private mine!: Shown;
   /** die besten Werte je Gruppe (sie leuchten ocker – wenn die Eier sich darin überhaupt unterscheiden) */
   private best: Record<RoeGroup, Shown> = { pool: none(), next: none() };
   private low: Record<RoeGroup, Shown> = { pool: none(), next: none() };
+  private layer?: Phaser.GameObjects.Container;
   private card!: Phaser.GameObjects.Container;
   private portrait?: CreatureView;
   private confirm?: Phaser.GameObjects.Container;
   private confirmBtns: Button[] = [];
   private confirmIdx = 0;
+  /** eine kurze Meldung über der Karte (ein Artgenosse war schneller …) */
+  private flashMsg?: Phaser.GameObjects.Text;
 
   constructor() {
     super('Roe');
@@ -111,6 +122,8 @@ export class RoeScene extends Phaser.Scene {
     this.confirm = undefined;
     this.confirmBtns = [];
     this.portrait = undefined;
+    this.layer = undefined;
+    this.flashMsg = undefined;
   }
 
   create() {
@@ -118,7 +131,7 @@ export class RoeScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#04070a');
     audio.music('generation');
     const run = game.run;
-    if (!run || (!game.pool.length && !game.roe.length)) {
+    if (!run) {
       fadeTo(this, 'Title', {}, 600);
       return;
     }
@@ -133,22 +146,10 @@ export class RoeScene extends Phaser.Scene {
       scale: { start: 0.3, end: 0 }, alpha: { start: 0, end: 0.4, ease: 'Sine.inOut' }, speedY: { min: -12, max: -3 }, tint: [0xd8e8f0, 0xf0e0b0],
     });
     this.add.text(W / 2, 44, 'DER LAICH', { fontFamily: TITLE_FONT, fontSize: '30px', color: UI.bone, resolution: 2 }).setOrigin(0.5).setLetterSpacing(8);
-    text(this, W / 2, 84, `${this.d.cause} – wähle ein Ei. Das Tier daraus spielst du weiter.`, 18, UI.boneDim).setOrigin(0.5);
-
+    const others = species.active ? species.others : [];
+    const shared = others.length ? `  ·  gemeinsamer Laich mit ${others.join(', ')}` : '';
+    text(this, W / 2, 84, `${this.d.cause} – wähle ein Ei. Das Tier daraus spielst du weiter.${shared}`, 18, UI.boneDim).setOrigin(0.5);
     roeTexture(this);
-    const pool = game.pool, roe = game.roe;
-    for (const [g, list] of [['pool', pool], ['next', roe]] as [RoeGroup, RoeEgg[]][]) {
-      const vs = list.map((e) => game.roeShown(e));
-      this.best[g] = spanOf(vs, Math.max);
-      this.low[g] = spanOf(vs, Math.min);
-    }
-    this.group('pool', 60, 128, pool,
-      `GESCHWISTER · GENERATION ${this.gen}`,
-      pool.length ? `${pool.length} ${pool.length === 1 ? 'Ei wartet' : 'Eier warten'} – du bleibst in Generation ${this.gen}` : this.gen <= 1 && !run.history.length ? 'Der Urfisch hat keine Geschwister.' : 'Keine Geschwister mehr.');
-    this.group('next', 60, 388, roe,
-      `NÄCHSTE GENERATION · GENERATION ${this.gen + 1}`,
-      roe.length ? `${roe.length} ${roe.length === 1 ? 'Ei' : 'Eier'} aus eurem Laich – kein Weg zurück zu Generation ${this.gen}` : `Kein Laich – in Generation ${this.gen} hat noch niemand gelaicht.`);
-
     this.card = this.add.container(1010, 380);
     text(this, W / 2, H - 26, '← → ↑ ↓ wählen  ·  E, Eingabe oder Antippen: Das Ei schlüpft.', 16, UI.boneDim).setOrigin(0.5);
 
@@ -167,17 +168,66 @@ export class RoeScene extends Phaser.Scene {
     kb.on('keydown-SPACE', act);
     kb.on('keydown-E', act);
     kb.on('keydown-ESC', () => this.closeConfirm());
-    // zu Beginn: das stärkste Ei der Geschwister (sonst des Laichs)
-    const start = this.slots.findIndex((s) => s.group === (pool.length ? 'pool' : 'next'));
+
+    // im Koop: Der gemeinsame Laich ändert sich (ein Artgenosse nimmt ein Ei, laicht, beginnt die nächste Generation)
+    const onChange = () => !this.going && this.build();
+    const onOver = (name: unknown) => this.extinct(String(name ?? ''));
+    bus.on('species', onChange);
+    bus.on('speciesOver', onOver);
+    this.events.once('shutdown', () => {
+      bus.off('species', onChange);
+      bus.off('speciesOver', onOver);
+    });
+    this.build();
+  }
+
+  /** Die beiden Gruppen (neu) aufbauen – der Fokus bleibt beim selben Ei, wenn es noch da ist. */
+  private build() {
+    const keep = this.slots[this.focus]?.egg.id;
+    this.layer?.destroy();
+    this.layer = this.add.container(0, 0);
+    this.slots = [];
+    this.focus = -1;
+    const pool = game.pool, roe = game.roe;
+    if (!pool.length && !roe.length) {
+      // nichts mehr da: im Koop ist die Art ausgestorben, allein endet die Linie
+      if (species.active) {
+        species.extinct(this.d.cause);
+        return this.extinct('');
+      }
+      return fadeTo(this, 'Title', {}, 600);
+    }
+    for (const [g, list] of [['pool', pool], ['next', roe]] as [RoeGroup, RoeEgg[]][]) {
+      const vs = list.map((e) => game.roeShown(e));
+      this.best[g] = spanOf(vs, Math.max);
+      this.low[g] = spanOf(vs, Math.min);
+    }
+    const pg = game.poolGen, own = this.gen, ahead = pg > own;
+    const run = game.run!;
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    this.group('pool', 60, 128, pool,
+      ahead ? `GENERATION ${pg} · DEIN ARTGENOSSE IST SCHON DORT` : `GESCHWISTER · GENERATION ${own}`,
+      ahead
+        ? `Generation ${own} gibt es nicht mehr – nur hier geht es weiter (${plural(pool.length, 'Ei', 'Eier')})`
+        : pool.length ? `${plural(pool.length, 'Ei wartet', 'Eier warten')} – du bleibst in Generation ${own}`
+        : own <= 1 && !run.history.length ? 'Der Urfisch hat keine Geschwister.' : 'Keine Geschwister mehr.',
+      ahead);
+    this.group('next', 60, 388, roe,
+      `NÄCHSTE GENERATION · GENERATION ${pg + 1}`,
+      roe.length ? `${plural(roe.length, 'Ei', 'Eier')} aus eurem Laich – kein Weg zurück zu Generation ${pg}` : `Kein Laich – in Generation ${pg} hat noch niemand gelaicht.`,
+      false);
+    const again = keep ? this.slots.findIndex((s) => s.egg.id === keep) : -1;
+    const start = again >= 0 ? again : this.slots.findIndex((s) => s.group === (pool.length ? 'pool' : 'next'));
     this.setFocus(Math.max(0, start));
   }
 
   /** Eine Gruppe: Überschrift, eine Zeile darunter, die Eier in bis zu zwei Reihen. */
-  private group(g: RoeGroup, x: number, y: number, eggs: RoeEgg[], head: string, sub: string) {
+  private group(g: RoeGroup, x: number, y: number, eggs: RoeEgg[], head: string, sub: string, warn: boolean) {
+    const L = this.layer!;
     const next = g === 'next';
-    this.add.rectangle(x - 16, y - 12, 720, 236, next ? 0x2a1a0c : 0x0e1a1e, next ? 0.55 : 0.5).setOrigin(0).setStrokeStyle(1, next ? 0x8a5a24 : 0x3a5058, 0.8);
-    text(this, x, y, head, 17, next ? UI.ochre : UI.bone).setLetterSpacing(2);
-    text(this, x, y + 26, sub, 15, eggs.length ? UI.boneDim : '#6c6454');
+    L.add(this.add.rectangle(x - 16, y - 12, 720, 236, next ? 0x2a1a0c : 0x0e1a1e, next ? 0.55 : 0.5).setOrigin(0).setStrokeStyle(1, next ? 0x8a5a24 : warn ? 0x8a5a24 : 0x3a5058, 0.8));
+    L.add(text(this, x, y, head, 17, next || warn ? UI.ochre : UI.bone).setLetterSpacing(2));
+    L.add(text(this, x, y + 26, sub, 15, eggs.length ? (warn ? '#e0b070' : UI.boneDim) : '#6c6454'));
     const max = PER_ROW * ROWS;
     // die stärksten zuerst (gemessen an deinem Tier) – passen nicht alle ins Bild, fehlen die schwächsten
     const score = (v: Shown) => STATS.reduce((a, [k]) => a + v[k] / Math.max(1, this.mine[k]), 0);
@@ -185,9 +235,22 @@ export class RoeScene extends Phaser.Scene {
     order.slice(0, max).forEach(({ egg, i, v }, pos) => {
       const ex = x + 22 + (pos % PER_ROW) * STEP;
       const ey = y + 90 + Math.floor(pos / PER_ROW) * 62;
-      const ring = this.add.circle(ex, ey, 25, 0x000000, 0).setStrokeStyle(2, next ? 0xc8913c : 0x8aa0a8, 0);
+      // ein goldenes Ei: ein warmer Hof dahinter, der atmet, und ein Funkeln
+      if (egg.gold) {
+        const halo = this.add.image(ex, ey, 'glow').setTint(0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(84, 84).setAlpha(0.55);
+        this.tweens.add({ targets: halo, alpha: 0.2, scale: halo.scale * 0.82, yoyo: true, repeat: -1, duration: 1000, ease: 'Sine.inOut' });
+        L.add(halo);
+      }
+      const ring = this.add.circle(ex, ey, 25, 0x000000, 0).setStrokeStyle(2, egg.gold ? 0xffd060 : next ? 0xc8913c : 0x8aa0a8, 0);
       const img = this.add.image(ex, ey, 'roe_pick').setScale(0.62);
-      if (next) img.setTint(0xffe2b0);
+      if (egg.gold) img.setTint(0xffd468);
+      else if (next) img.setTint(0xffe2b0);
+      L.add([ring, img]);
+      if (egg.gold) {
+        const spark = text(this, ex + 15, ey - 18, '✦', 13, '#fff0b8').setOrigin(0.5);
+        this.tweens.add({ targets: spark, alpha: 0.2, angle: 45, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.inOut' });
+        L.add(spark);
+      }
       const k = this.slots.length;
       img.setInteractive({ useHandCursor: true });
       img.on('pointerover', () => !this.confirm && this.setFocus(k));
@@ -199,7 +262,7 @@ export class RoeScene extends Phaser.Scene {
       this.tweens.add({ targets: img, y: ey - 3, yoyo: true, repeat: -1, duration: 1500 + Math.random() * 900, delay: Math.random() * 800, ease: 'Sine.inOut' });
       this.slots.push({ group: g, i, pos, egg, img, ring, v });
     });
-    if (eggs.length > max) text(this, x + 22 + PER_ROW * STEP - 30, y + 90 + 62 + 34, `+${eggs.length - max} schwächere`, 13, '#6c6454').setOrigin(1, 0.5);
+    if (eggs.length > max) L.add(text(this, x + 22 + PER_ROW * STEP - 30, y + 90 + 62 + 34, `+${eggs.length - max} schwächere`, 13, '#6c6454').setOrigin(1, 0.5));
   }
 
   /** Mit den Pfeilen: links/rechts in der Gruppe, hoch/runter in die andere Gruppe (an ähnlicher Stelle). */
@@ -241,13 +304,13 @@ export class RoeScene extends Phaser.Scene {
   private setFocus(k: number) {
     if (k === this.focus || !this.slots[k]) return;
     const prev = this.slots[this.focus];
-    if (prev) {
-      prev.ring.setStrokeStyle(2, prev.group === 'next' ? 0xc8913c : 0x8aa0a8, 0);
+    if (prev?.img.active) {
+      prev.ring.setStrokeStyle(2, prev.egg.gold ? 0xffd060 : prev.group === 'next' ? 0xc8913c : 0x8aa0a8, 0);
       prev.img.setScale(0.62);
     }
     this.focus = k;
     const s = this.slots[k];
-    s.ring.setStrokeStyle(2, s.group === 'next' ? 0xc8913c : 0x8aa0a8, 1);
+    s.ring.setStrokeStyle(2, s.egg.gold ? 0xffd060 : s.group === 'next' ? 0xc8913c : 0x8aa0a8, 1);
     s.img.setScale(0.76);
     this.showCard(s);
   }
@@ -259,33 +322,47 @@ export class RoeScene extends Phaser.Scene {
     this.portrait = undefined;
     const next = s.group === 'next';
     const list = next ? game.roe : game.pool;
-    const gen = next ? this.gen + 1 : this.gen;
-    c.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(2, next ? 0xc8913c : 0x4a5a5e, 0.9));
-    c.add(text(this, 0, -258, `${next ? 'NÄCHSTE GENERATION' : 'GESCHWISTER'} · EI ${s.pos + 1} VON ${list.length}`, 14, next ? UI.ochre : UI.boneDim).setOrigin(0.5).setLetterSpacing(2));
+    const pg = game.poolGen;
+    const gen = next ? pg + 1 : pg;
+    const gold = s.egg.gold;
+    c.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(2, gold ? 0xffc850 : next ? 0xc8913c : 0x4a5a5e, 0.9));
+    c.add(text(this, 0, -258, `${next ? 'NÄCHSTE GENERATION' : pg > this.gen ? 'GENERATION ' + pg : 'GESCHWISTER'} · EI ${s.pos + 1} VON ${list.length}`, 14, next ? UI.ochre : UI.boneDim).setOrigin(0.5).setLetterSpacing(2));
     c.add(text(this, 0, -234, `Generation ${gen}`, 20, UI.bone).setOrigin(0.5));
     // das Tier, das aus dem Ei schlüpft – ausgewachsen
-    c.add(this.add.image(0, -112, 'glow').setDisplaySize(300, 150).setTint(next ? 0xf0c880 : 0x9ac0c8).setAlpha(0.16).setBlendMode(Phaser.BlendModes.ADD));
+    c.add(this.add.image(0, -112, 'glow').setDisplaySize(300, 150).setTint(gold ? 0xffc850 : next ? 0xf0c880 : 0x9ac0c8).setAlpha(gold ? 0.3 : 0.16).setBlendMode(Phaser.BlendModes.ADD));
     const v = new CreatureView(this, 0, -130, game.roeMorph(s.egg), 1.25);
     v.setDepth(DEPTH.player);
     c.add(v);
     this.portrait = v;
-    c.add(text(this, -170, -60, 'ausgewachsen', 13, '#6c6454'));
+    if (gold) {
+      // die goldene Geburt: ein Band über dem Tier
+      c.add(this.add.rectangle(0, -196, 300, 26, 0x2a1c06, 0.9).setStrokeStyle(1, 0xffc850, 0.8));
+      c.add(text(this, 0, -196, `✦  GOLDENE GEBURT  ·  ${upGain(gold)}  ✦`, 13, '#ffd878', { fontStyle: '700' }).setOrigin(0.5));
+    }
+    c.add(text(this, -170, -60, gold ? 'ausgewachsen · mit dem goldenen Segen' : 'ausgewachsen', 13, gold ? '#b8964a' : '#6c6454'));
     c.add(text(this, 170, -60, 'dein Tier', 13, '#6c6454').setOrigin(1, 0));
     STATS.forEach(([k, name], j) => {
       const y = -32 + j * 34;
       const val = s.v[k], diff = val - this.mine[k];
       const top = val === this.best[s.group][k] && val > this.low[s.group][k];
-      c.add(text(this, -170, y, name, 17, top ? UI.ochre : UI.boneDim));
-      c.add(text(this, 70, y, `${val}`, 19, top ? UI.ochre : UI.bone).setOrigin(1, 0));
+      const golden = (gold === 'hp' && k === 'hp') || (gold === 'stam' && k === 'stam');
+      const col = golden ? '#ffd878' : top ? UI.ochre : undefined;
+      c.add(text(this, -170, y, name, 17, col ?? UI.boneDim));
+      c.add(text(this, 70, y, `${val}`, 19, col ?? UI.bone).setOrigin(1, 0));
       const dtxt = diff === 0 ? '±0' : diff > 0 ? `+${diff}` : `−${-diff}`;
       c.add(text(this, 170, y, dtxt, 16, diff > 0 ? '#9cc488' : diff < 0 ? '#c87a6a' : '#6c6454').setOrigin(1, 0));
     });
+    const own = this.gen;
+    const sibs = game.pool.length;
+    const also = species.active && species.others.length ? ` – auch für ${species.others.join(', ')}` : '';
     const note = next
-      ? game.pool.length
-        ? `Mit diesem Ei beginnt Generation ${gen}. Zu Generation ${this.gen} kommst du nie mehr zurück – ${game.pool.length === 1 ? 'das übrige Geschwister ist' : `die ${game.pool.length} übrigen Geschwister sind`} dann verloren.`
-        : `Mit diesem Ei beginnt Generation ${gen}. Generation ${this.gen} ist zu Ende – es gibt kein Zurück.`
-      : `Ein Geschwister: Du bleibst in Generation ${gen}${game.roe.length ? ' – euer Laich wartet weiter' : ''}.`;
-    c.add(text(this, 0, 196, note, 15, next ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
+      ? sibs
+        ? `Mit diesem Ei beginnt Generation ${gen}. Zu Generation ${pg} kommst du nie mehr zurück – ${sibs === 1 ? 'das übrige Geschwister ist' : `die ${sibs} übrigen Geschwister sind`} dann verloren${also}.`
+        : `Mit diesem Ei beginnt Generation ${gen}. Generation ${pg} ist zu Ende – es gibt kein Zurück.`
+      : pg > own
+        ? `Dein Artgenosse ist schon in Generation ${pg} – mit diesem Ei folgst du ihm. Zurück zu Generation ${own} führt kein Weg.`
+        : `Ein Geschwister: Du bleibst in Generation ${gen}${game.roe.length ? ' – euer Laich wartet weiter' : ''}.`;
+    c.add(text(this, 0, 196, note, 15, next || pg > own ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
   }
 
   update(_t: number, delta: number) {
@@ -298,19 +375,21 @@ export class RoeScene extends Phaser.Scene {
     const s = this.slots[this.focus];
     if (!s) return;
     if (s.group === 'next' && game.pool.length) return this.openConfirm(s);
-    this.hatch(s);
+    void this.hatch(s);
   }
 
   private openConfirm(s: Slot) {
     if (this.confirm) return;
     audio.sfx('click');
+    const pg = game.poolGen;
     const c = this.add.container(W / 2, H / 2).setDepth(50);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.72).setInteractive());
     c.add(this.add.rectangle(0, 0, 640, 300, 0x120c08, 0.96).setStrokeStyle(2, 0xa4322a, 0.9));
-    c.add(this.add.text(0, -104, `GENERATION ${this.gen} VERLASSEN?`, { fontFamily: TITLE_FONT, fontSize: '24px', color: UI.bone, resolution: 2 }).setOrigin(0.5).setLetterSpacing(4));
+    c.add(this.add.text(0, -104, `GENERATION ${pg} VERLASSEN?`, { fontFamily: TITLE_FONT, fontSize: '24px', color: UI.bone, resolution: 2 }).setOrigin(0.5).setLetterSpacing(4));
     const n = game.pool.length;
-    c.add(text(this, 0, -38, `Mit diesem Ei beginnt Generation ${this.gen + 1}. Du kommst nie mehr zu Generation ${this.gen} zurück – ${n === 1 ? 'das wartende Geschwister ist' : `die ${n} wartenden Geschwister sind`} dann für immer verloren.`, 17, '#e0b070', { wordWrap: { width: 560 }, align: 'center' }).setOrigin(0.5));
-    const yes = new Button(this, -130, 84, `Generation ${this.gen + 1} beginnen`, { w: 330, h: 50, size: 17, color: UI.bloodN, onClick: () => this.hatch(s) });
+    const also = species.active && species.others.length ? ` – auch für ${species.others.join(', ')}` : '';
+    c.add(text(this, 0, -38, `Mit diesem Ei beginnt Generation ${pg + 1}. Du kommst nie mehr zu Generation ${pg} zurück – ${n === 1 ? 'das wartende Geschwister ist' : `die ${n} wartenden Geschwister sind`} dann für immer verloren${also}.`, 17, '#e0b070', { wordWrap: { width: 560 }, align: 'center' }).setOrigin(0.5));
+    const yes = new Button(this, -130, 84, `Generation ${pg + 1} beginnen`, { w: 330, h: 50, size: 17, color: UI.bloodN, onClick: () => void this.hatch(s) });
     const no = new Button(this, 175, 84, 'Zurück', { w: 190, h: 50, size: 17, onClick: () => this.closeConfirm() });
     c.add([yes, no]);
     this.confirm = c;
@@ -327,17 +406,53 @@ export class RoeScene extends Phaser.Scene {
     this.confirmBtns = [];
   }
 
-  private hatch(s: Slot) {
+  /**
+   * Das Ei schlüpft. Allein sofort; im Koop erst, wenn der Server es zuteilt (ein Artgenosse könnte es gerade genommen
+   * haben). Beginnt damit für dich eine neue Generation, kommt der Einschnitt.
+   */
+  private async hatch(s: Slot) {
     if (this.going) return;
     this.going = true;
-    const next = s.group === 'next';
+    this.closeConfirm();
+    const before = game.life.gen;
+    if (species.active && s.egg.id) {
+      this.say('…', UI.boneDim);
+      const r = await species.pick(s.egg.id);
+      if (!this.scene.isActive()) return;
+      if (!r) {
+        this.going = false;
+        this.build();
+        this.say('Dieses Ei hat gerade ein Artgenosse genommen.', '#e0b070');
+        return;
+      }
+      game.hatchRoe(r.egg, r.gen);
+    } else if (!game.hatch(s.group, s.i)) {
+      this.going = false;
+      return;
+    }
     audio.sfx('laich');
-    game.hatch(s.group, s.i);
-    if (next) {
+    if (game.life.gen > before) {
       // die nächste Generation beginnt: der Einschnitt (Dunkelheit, die Generation, die Zeit)
       const data: SuccessionData = { epoch: this.d.epoch, cause: this.d.cause, gen: game.life.gen, years: this.d.years };
       fadeTo(this, 'Generation', data, 1000);
     } else fadeTo(this, 'Level', { epoch: this.d.epoch }, 1000);
+  }
+
+  /** Eine kurze Meldung über der Karte. */
+  private say(msg: string, color: string) {
+    this.flashMsg?.destroy();
+    const t = text(this, 1010, 84 + 30, msg, 15, color).setOrigin(0.5);
+    this.flashMsg = t;
+    this.tweens.add({ targets: t, alpha: 0, delay: 2600, duration: 800, onComplete: () => t.destroy() });
+  }
+
+  /** Die gemeinsame Art ist ausgestorben (by: wer zuletzt starb – leer: du). */
+  private extinct(by: string) {
+    if (this.going || !game.run) return;
+    this.going = true;
+    const others = species.others;
+    const data = speciesEnd(this.d.epoch, this.d.years, by, others, game.morph());
+    fadeTo(this, 'Extinct', data, 1200);
   }
 }
 

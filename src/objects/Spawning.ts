@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { DEPTH, TILE } from '../config';
 import { audio } from '../audio/Audio';
 import { SPAWN } from '../data/life';
-import { bus, game, type Clutch, type Sex, type Traits } from '../state/GameState';
+import { bus, game, upGain, type Clutch, type RoeEgg, type Sex, type Traits } from '../state/GameState';
 import { isAdult, spawnBlock, worldNow, youngOf, type SpawnBlock } from '../sim/life';
 import { clamp } from '../util/math';
 import { CreatureView } from './CreatureView';
@@ -28,6 +28,9 @@ interface Brood {
   male?: Kin;
   maleCalled?: boolean;
   glow?: Phaser.GameObjects.Image;
+  /** darin liegt ein goldenes Ei: ein goldener Schimmer und aufsteigende Funken */
+  gold?: Phaser.GameObjects.Image;
+  sparks?: Phaser.GameObjects.Particles.ParticleEmitter;
   /** befruchtbar und du bist bereit: Das Gelege schimmert warm (stärker, wenn du nah genug bist) */
   mark?: Phaser.GameObjects.Image;
   /** Laich der Artgenossen, der zum Ort gehört (im Startgebiet): verdirbt nicht */
@@ -35,6 +38,9 @@ interface Brood {
 }
 
 const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
+
+/** so färbt sich ein Gelege mit einem goldenen Ei */
+const GOLD_TINT = 0xffd468;
 
 /**
  * Laichen im Laichfluss (dem Startort, flussaufwärts der Mündung) – sobald das eigene Tier ausgewachsen ist (Laichzeit) und
@@ -249,7 +255,8 @@ export class SpawnCtl {
       if (!show) {
         if (b.mark?.visible) {
           b.mark.setVisible(false);
-          b.roe.img.clearTint();
+          if (b.gold) b.roe.img.setTint(GOLD_TINT);
+          else b.roe.img.clearTint();
         }
         continue;
       }
@@ -323,9 +330,9 @@ export class SpawnCtl {
     if (!b.clutch || b.clutch.fert) return;
     const partner = genes ?? game.kinTraits(this.kinIndex(1));
     game.fertilize(b.clutch.id, partner);
-    const n = game.layEggs(b.clutch, this.host.heirNow(partner)).length;
+    const eggs = game.layEggs(b.clutch, this.host.heirNow(partner));
     this.miltFx(b);
-    bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
+    this.told(b, eggs);
   }
 
   // ---------------------------------------------------------------- Männchen
@@ -375,9 +382,9 @@ export class SpawnCtl {
     b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner, young });
     b.mother = undefined;
     // die Eier kommen auf den Stapel der nächsten Generation – so, wie dein Tier jetzt ist
-    const n = game.layEggs(b.clutch, h.heirNow(partner)).length;
+    const eggs = game.layEggs(b.clutch, h.heirNow(partner));
     this.miltFx(b);
-    bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
+    this.told(b, eggs);
   }
 
   // ---------------------------------------------------------------- Gelege
@@ -392,7 +399,39 @@ export class SpawnCtl {
     const b: Brood = { roe, x, y, at, ...o };
     this.broods.push(b);
     if (b.clutch?.fert) this.glow(b);
+    if (b.clutch?.gold) this.goldFx(b, false);
     return b;
+  }
+
+  /** Befruchtet: Wie viele Eier im Laich liegen – und leuchtet eines golden, sieht und hört man es. */
+  private told(b: Brood, eggs: RoeEgg[]) {
+    const n = eggs.length, gold = eggs.filter((e) => e.gold);
+    if (!gold.length) {
+      bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
+      return;
+    }
+    this.goldFx(b, true);
+    bus.emit('notice', 'GOLDENE GEBURT', `Ein Ei leuchtet golden · ${upGain(gold[0].gold!)}${gold.length > 1 ? ` (und ${gold.length - 1} weiteres)` : ''}`);
+  }
+
+  /** Ein goldenes Ei im Gelege: ein goldener Schimmer, der atmet (frisch gelegt: ein Funkeln und ein heller Klang). */
+  private goldFx(b: Brood, fresh: boolean) {
+    const h = this.host;
+    if (!b.gold) {
+      const g = h.add.image(b.x, b.y - 18, 'glow').setTint(0xffb830).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(190, 120).setAlpha(0.75).setDepth(DEPTH.terrain + 1.5);
+      h.tweens.add({ targets: g, alpha: 0.35, scaleX: g.scaleX * 0.84, scaleY: g.scaleY * 0.84, yoyo: true, repeat: -1, duration: 1100, ease: 'Sine.inOut' });
+      b.gold = g;
+      b.roe.img.setTint(GOLD_TINT);
+      // goldene Funken steigen vom Gelege auf
+      b.sparks = h.add.particles(b.x, b.y - 14, 'p_dot', {
+        x: { min: -26, max: 26 }, lifespan: 1800, frequency: 140, speedY: { min: -38, max: -12 }, speedX: { min: -8, max: 8 },
+        scale: { start: 0.42, end: 0 }, alpha: { start: 1, end: 0 }, tint: [0xfff0b0, 0xffc040], blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(DEPTH.terrain + 1.6);
+    }
+    if (!fresh) return;
+    h.glitter(b.x, b.y - 22, 22);
+    h.cameras.main.flash(260, 255, 220, 140);
+    audio.sfx('shell');
   }
 
   /** Befruchtet: Das Gelege schimmert warm. */
@@ -432,6 +471,8 @@ export class SpawnCtl {
       this.broods = this.broods.filter((x) => x !== b);
       b.roe.vanish();
       b.glow?.destroy();
+      b.gold?.destroy();
+      b.sparks?.destroy();
       b.mark?.destroy();
       if (b.clutch) bus.emit('notice', 'Gelege verdorben', 'Es wurde nicht befruchtet.');
     }

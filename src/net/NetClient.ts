@@ -1,7 +1,8 @@
 import { Callbacks, Client, type Room } from '@colyseus/sdk';
-import { ZoneState, type NetFish } from './schema';
+import { SpeciesState, ZoneState, type NetFish } from './schema';
 import {
-  ZONE_ROOM,
+  SPECIES_ROOM, ZONE_ROOM,
+  type SpeciesAdvanced, type SpeciesJoin, type SpeciesOver, type SpeciesPicked,
   type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
   type SnapMsg, type WelcomeMsg,
 } from './protocol';
@@ -110,4 +111,25 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
       room.leave().catch(() => undefined);
     },
   };
+}
+
+/** Die gemeinsame Art (Koop): was ihr Raum meldet. */
+export interface SpeciesHandlers {
+  /** der gemeinsame Laich hat sich geändert */
+  change(): void;
+  picked(m: SpeciesPicked): void;
+  advanced(m: SpeciesAdvanced): void;
+  over(m: SpeciesOver): void;
+  closed(): void;
+}
+
+/** Den Raum der gemeinsamen Art eines Zeitalters betreten (siehe net/Species.ts). */
+export async function joinSpecies(url: string, opts: SpeciesJoin, h: SpeciesHandlers) {
+  const room: Room<unknown, SpeciesState> = await clientFor(url).joinOrCreate<SpeciesState>(SPECIES_ROOM, opts, SpeciesState);
+  room.onStateChange(() => h.change());
+  room.onMessage('picked', (m: SpeciesPicked) => h.picked(m));
+  room.onMessage('advanced', (m: SpeciesAdvanced) => h.advanced(m));
+  room.onMessage('extinct', (m: SpeciesOver) => h.over(m));
+  room.onLeave(() => h.closed());
+  return room;
 }

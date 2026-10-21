@@ -177,3 +177,65 @@ export function cleanName(v: unknown): string {
   const s = typeof v === 'string' ? v : '';
   return s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 18);
 }
+
+// ---------------------------------------------------------------- die gemeinsame Art (Koop)
+//
+// Alle Spieler eines Zeitalters teilen ihren Laich (ein Raum je Zeitalter, siehe server/SpeciesRoom.ts): Was einer laicht,
+// liegt für alle da; stirbt einer, wählt er ein Ei aus dem gemeinsamen Laich. Wählt jemand ein Ei der nächsten Generation,
+// beginnt sie für alle – die übrigen Geschwister sind fort, und wer noch lebt, kommt nach seinem Tod nur noch dorthin.
+// Liegt kein Laich mehr da, wenn jemand stirbt, ist die Art ausgestorben – für alle.
+
+/** Name des Raums der Art: einer je Zeitalter. */
+export const SPECIES_ROOM = 'species';
+
+/** so viele Eier hält der Laich einer Art höchstens (Geschwister und nächste Generation zusammen) */
+export const SPECIES_MAX_EGGS = 2000;
+
+/** Beim Betreten des Raums der Art. */
+export interface SpeciesJoin {
+  epoch: number;
+  name: string;
+}
+
+/**
+ * Client → Server, gleich nach dem Betreten: der eigene Laich (JSON je Ei) und die Generation der eigenen Geschwister. Gibt
+ * es die Art schon, kommen nur Eier dazu, die sie noch nicht kennt (und keine aus vergangenen Generationen).
+ */
+export interface SpeciesHello {
+  gen: number;
+  pool: string[];
+  next: string[];
+}
+
+/** Client → Server: gelaicht – Eier der Generation gen (die Generation des Elterntiers + 1). */
+export interface SpeciesLay {
+  gen: number;
+  eggs: string[];
+}
+
+/** Client → Server: Dieses Ei soll schlüpfen (req: eine Nummer, die in der Antwort zurückkommt). */
+export interface SpeciesPick {
+  id: string;
+  req: number;
+}
+
+/** Server → Client: die Antwort – das Ei (JSON) und als welche Generation es schlüpft; egg leer: schon fort. */
+export interface SpeciesPicked {
+  req: number;
+  egg: string;
+  gen: number;
+  group: 'pool' | 'next';
+}
+
+/** Server → alle: Ein Spieler hat die nächste Generation begonnen. */
+export interface SpeciesAdvanced {
+  name: string;
+  gen: number;
+}
+
+/** Client → Server → alle: Die Art ist ausgestorben (es lag kein Laich mehr da, als jemand starb). */
+export interface SpeciesOver {
+  name: string;
+  cause: string;
+  gen: number;
+}

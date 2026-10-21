@@ -1,6 +1,7 @@
 import { networkInterfaces } from 'node:os';
 import { defineRoom, defineServer } from 'colyseus';
-import { ZONE_ROOM } from '../net/protocol';
+import { SPECIES_ROOM, ZONE_ROOM } from '../net/protocol';
+import { SpeciesRoom } from './SpeciesRoom';
 import { ZoneRoom } from './ZoneRoom';
 
 /** Der gebaute Server (npm start) lauscht hier – beim Entwickeln (npm run dev) läuft er in Vite auf Port 8080. */
@@ -26,11 +27,12 @@ function announce() {
  * als eigenständiger Server (`npm run build`, dann `npm start`), der auch das Spiel ausliefert.
  *
  * Je Ort und Zeitalter gibt es einen Raum: joinOrCreate('zone', { zone: '0/lagune', … }) führt alle Spieler am selben Ort
- * zusammen (filterBy).
+ * zusammen (filterBy). Dazu je Zeitalter der Raum der gemeinsamen Art (der Laich aller Spieler, siehe SpeciesRoom).
  */
 export const server = defineServer({
   rooms: {
     [ZONE_ROOM]: defineRoom(ZoneRoom).filterBy(['zone']),
+    [SPECIES_ROOM]: defineRoom(SpeciesRoom).filterBy(['epoch']),
   },
   beforeListen: () => {
     if (!process.env.VITEST) announce();

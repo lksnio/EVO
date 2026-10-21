@@ -3,6 +3,8 @@ import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
 import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Clutch, type Member, type PlayStyle, type UpKey } from '../state/GameState';
 import type { RoeData } from './RoeScene';
+import { species } from '../net/Species';
+import { speciesEnd } from './ExtinctScene';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -590,6 +592,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Mehrspieler: diesen Ort auf dem Server betreten – die anderen Spieler hier erscheinen
     this.net = netWanted() ? new NetSync(this) : undefined;
+    // … und die gemeinsame Art: Der Laich gehört allen Spielern des Zeitalters (net/Species.ts)
+    if (this.net && !ep.brood) species.connect(this.epochIdx);
+    const onAdvanced = (name: unknown, gen: unknown) => {
+      if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
+      bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Nach deinem Tod geht es nur noch dort weiter.');
+    };
+    const onOver = (name: unknown) => this.speciesOver(String(name ?? ''));
+    bus.on('speciesAdvanced', onAdvanced);
+    bus.on('speciesOver', onOver);
+    this.events.once('shutdown', () => {
+      bus.off('speciesAdvanced', onAdvanced);
+      bus.off('speciesOver', onOver);
+    });
     audio.music(ep.music);
     // im Wasser rauscht leise das Meer; Zeitlupe aus einem abgebrochenen Kino-Moment zurücksetzen
     audio.musicLevel(1, 0.3);
@@ -3397,7 +3412,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (game.brood) return this.broodDeath(cause, wait);
     // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
     this.spawning?.settle();
-    if (!game.pool.length && !game.roe.length) return this.endLine(cause, wait);
+    if (!game.pool.length && !game.roe.length) {
+      // im Koop: kein Laich mehr für die ganze Art – sie ist ausgestorben, für alle
+      if (species.active) {
+        species.extinct(cause);
+        return this.speciesOver('', wait);
+      }
+      return this.endLine(cause, wait);
+    }
     this.ended = true;
     this.swarm?.storeAll();
     const data: RoeData = { epoch: this.epochIdx, cause, years: worldYears(this.ep.from, this.ep.to) };
@@ -3452,6 +3474,23 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private abort() {
     if (this.ended) return;
     this.endLine('Aufgegeben', 300);
+  }
+
+  /**
+   * Koop: Die gemeinsame Art ist ausgestorben – ein Artgenosse (by) starb, und es lag kein Laich mehr da (oder du selbst:
+   * by leer). Auch wer noch lebt, erfährt es: Das Leben endet, und es folgt der Abschied (ExtinctScene).
+   */
+  private speciesOver(by: string, wait = 1800) {
+    if (this.ended) return;
+    this.ended = true;
+    const data = speciesEnd(this.epochIdx, worldYears(this.ep.from, this.ep.to), by, species.others, this.player.morph());
+    audio.music(null);
+    // wer noch lebt: kurz die Nachricht im Bild, dann der Abschied
+    if (by && !this.player.dead) {
+      bus.emit('notice', 'DIE ART IST AUSGESTORBEN', `${by} starb – es lag kein Laich mehr da.`);
+      wait = Math.max(wait, 2600);
+    }
+    this.time.delayedCall(wait, () => this.exitTo('Extinct', data));
   }
 
   private endLine(cause: string, wait: number) {

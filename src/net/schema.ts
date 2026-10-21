@@ -73,3 +73,23 @@ export const ZoneState = schema(
   'ZoneState',
 );
 export type ZoneState = SchemaType<typeof ZoneState>;
+
+/**
+ * Die gemeinsame Art eines Zeitalters (Koop): der Laich, den alle Spieler teilen. Die Geschwister (pool) gehören zur
+ * Generation gen, der Laich (next) zur nächsten. Jedes Ei steht als JSON unter seiner Kennung (siehe GameState.RoeEgg).
+ */
+export const SpeciesState = schema(
+  {
+    epoch: t.uint8(),
+    /** die Generation der Geschwister (0: noch keine Art) */
+    gen: t.uint16(),
+    pool: t.map('string'),
+    next: t.map('string'),
+    /** wer mitspielt (Kennung → Name) */
+    members: t.map('string'),
+    /** ausgestorben: warum (sonst leer) */
+    over: t.string(),
+  },
+  'SpeciesState',
+);
+export type SpeciesState = SchemaType<typeof SpeciesState>;

@@ -11,7 +11,7 @@ import { Button, fadeIn, fadeTo, text, title } from '../ui/ui';
 import { continueLife, startNewLife } from './flow';
 
 type TreeData =
-  | { mode: 'extinct'; leaf: string; morph: Morph; epoch: number; cause: string; years: number }
+  | { mode: 'extinct'; leaf: string; morph: Morph; epoch: number; cause: string; years: number; quiet?: boolean }
   | { mode: 'present'; node: string; epoch?: number }
   | { mode?: 'view'; epoch?: number };
 
@@ -203,7 +203,11 @@ export class TreeScene extends Phaser.Scene {
     this.focusBtn(0);
 
     this.select(this.home0());
-    if (this.d.mode === 'extinct') this.extinctOverlay(this.d);
+    // (quiet: Den Abschied gab es schon – im Koop, als die gemeinsame Art ausstarb: dann zerfällt der Strang gleich)
+    if (this.d.mode === 'extinct') {
+      if (this.d.quiet) this.crumble(this.d);
+      else this.extinctOverlay(this.d);
+    }
     else this.reveal();
   }
 

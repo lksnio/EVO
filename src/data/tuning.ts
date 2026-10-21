@@ -185,6 +185,7 @@ export const GROUPS: Group[] = [
       field(SPAWN, 'femaleEvery', 'SPAWN.femaleEvery', 'Weibchen legt höchstens alle … Sekunden'),
       field(SPAWN, 'decay', 'SPAWN.decay', 'Unbefruchtetes Gelege verdirbt nach (Sekunden)'),
       field(SPAWN, 'eggs', 'SPAWN.eggs', 'Eier je Gelege'),
+      field(SPAWN, 'gold', 'SPAWN.gold', 'Goldene Geburt je Ei (Anteil)', { max: 1 }),
     ],
   },
   {

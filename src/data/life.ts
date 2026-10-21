@@ -87,6 +87,11 @@ export const SPAWN = {
   decay: 240,
   /** Eier je Gelege (so viel Nahrung steckt darin, wenn es jemand frisst) */
   eggs: 5,
+  /**
+   * So wahrscheinlich ist ein Ei golden (je Ei): Das Tier daraus hat einen Segen mehr in einer Richtung der großen Muschel –
+   * so viel, wie der nächste Segen bringen würde. Er gilt nur für dieses Tier, nicht für die Linie.
+   */
+  gold: 0.05,
 };
 
 /**

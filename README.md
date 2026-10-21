@@ -217,6 +217,12 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     ist und gelebt hat (siehe unten, „Anpassung“). Dazu streuen die Eier ein wenig (`INHERIT.vary`, 5,5 %): Hat dein Tier
     Gebiss 15 und viel gegen starke Gegner gebissen, haben seine Nachkommen etwa Gebiss 18 – das eine Ei 17, das andere
     19. Was die Linie nie entwickelt hat, streut nicht.
+  - **Goldene Geburt:** Jedes Ei leuchtet mit **5 %** Wahrscheinlichkeit golden (`SPAWN.gold`). Schon beim Laichen sieht man
+    es: Das Gelege färbt sich golden, goldene Funken steigen auf, „GOLDENE GEBURT · +25 % Ausdauer“. Das Tier aus einem
+    goldenen Ei hat **einen Segen mehr** in einer Richtung der großen Muschel – genau so viel, wie der nächste Segen
+    bringen würde (+2,5 % Lebenskraft, +25 % Ausdauer, +5 % Sicht, im Karbon +15 % Sauerstoff). Er gilt **nur für dieses
+    Tier**, nicht für die Linie, und macht den nächsten Segen nicht teurer. In der Laich-Wahl leuchtet das Ei golden, die
+    Karte trägt ein goldenes Band.
   - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – der Urfisch hat keine), unten
     der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Höchstwerte** (Lebenskraft,
     Ausdauer, Gebiss, Stoß, Tempo, Schuppen), daneben den Unterschied zu deinem Tier; die besten Werte einer Gruppe
@@ -225,6 +231,13 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     **nächsten Generation** wählt, beginnt sie – und **kommt nie mehr zurück**: Die übrigen Geschwister sind dann verloren,
     der übrige Laich sind die neuen Geschwister. Solange noch Geschwister warten, fragt das Spiel deshalb noch einmal
     („Generation 3 verlassen?“). Erst ohne Laich und ohne Geschwister stirbt die Linie aus.
+  - **Im Koop teilen alle denselben Laich** (siehe [Mehrspieler](#mehrspieler-prototyp)): Was einer laicht, liegt für alle
+    da, und man wählt aus der gemeinsamen Menge – ein Ei bekommt nur, wer zuerst kommt. **Geht einer in die nächste
+    Generation, kann der andere nach seinem Tod auch nur noch dorthin** (die Laich-Wahl sagt es: „Generation 2 · dein
+    Artgenosse ist schon dort“; im Spiel erscheint „Ben ist in Generation 2 – nach deinem Tod geht es nur noch dort
+    weiter“). Stirbt jemand und es liegt **kein Laich mehr** da, ist **die Art ausgestorben – für alle**: Ein eigener
+    Abschied („Die Art ist ausgestorben · Zu wenige Artgenossen“, die leeren Eihüllen, wer zuletzt starb, die Letzten ihrer
+    Art), danach der Stammbaum.
 - **Anpassung statt Platten:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten zur
   Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte – aber
   **sanft**: Wer fast nur beißt, beißt in der nächsten Generation etwa 15 % kräftiger; alle Richtungen zusammen wachsen kaum
@@ -674,8 +687,15 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
   Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht, Lebensabschnitt, deine Gruppe), der **Nachwuchs**
-  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister). Die **Muscheln** stehen rechts in
-  der Spalte der kleinen Karten: ein Muschel-Symbol mit „× 12“. Die Muscheln sind klein und
+  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister). Neben Gebiss, Schädel und
+  Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot, „= 0“;
+  ausgewachsen gemessen, mit denselben Segen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
+  Die **Muscheln** stehen rechts in der Spalte der kleinen Karten: ein Muschel-Symbol mit „× 12“, darunter die **Segen als
+  Punktfolge** – jeder Segen ein kleiner, gewölbter Stein in der Reihenfolge, in der er kam: **Lebenskraft rot, Ausdauer
+  grau, Sicht schwarz** (im Karbon Sauerstoff blau). Ein Segen aus einer **goldenen Geburt** trägt einen goldenen Ring und
+  schimmert. Beispiel: Leben (1), Leben (2), Leben (4), Ausdauer (8) – rot, rot, rot, grau; dann schlüpft ein goldenes
+  Kind (Leben) – dazu ein goldgerahmtes Rot; dann Sicht für 16 – schwarz. Dazu, wie viele Muscheln verteilt und frei sind.
+  Die Punktfolge steht auch an der großen Muschel. Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
@@ -928,6 +948,15 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
 - **Der Server prüft**, was die Clients melden: niemand schwimmt schneller, als ein Fisch kann (sonst setzt er ihn
   zurück), und niemand verlässt den Ort durch die Wand. Die Grenzen kennt er aus demselben Weltgenerator.
 - **Die Weltzeit** kommt vom Server – für alle gleich.
+- **Die gemeinsame Art (Koop):** Je Zeitalter gibt es einen Raum der Art (`src/server/SpeciesRoom.ts`), der über alle Orte
+  und Szenen hinweg verbunden bleibt (`src/net/Species.ts`). Er hält den **Laich aller Spieler**: die Geschwister der
+  jetzigen Generation und den Laich der nächsten, jedes Ei unter seiner Kennung. Wer laicht, legt seine Eier dorthin
+  (Eier aus einer vergangenen Generation verfallen); wer stirbt, wählt aus dem gemeinsamen Laich, und der Server **teilt
+  das Ei zu** (wer zuerst kommt). Wählt jemand ein Ei der nächsten Generation, beginnt sie **für alle**. Stirbt jemand
+  ohne Laich, meldet der Server allen das **Aussterben**. Der Raum bleibt bestehen, wenn alle gegangen sind (bis der
+  Server endet); wer sich meldet, bringt seinen eigenen Laich mit – ist er allein im Raum (oder die Art ausgestorben),
+  beginnt die Art mit seinem Laich neu. Ohne Server bleibt alles beim eigenen Laich. (Im Karbon hat vorerst jeder sein
+  eigenes Gelege.)
 - **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
   von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
 - **Gemeinsame Tiere und Pflanzen:** Alle am Ort sehen **dieselben Tiere**, dasselbe Fleisch und **dieselben Pflanzen**
@@ -1063,8 +1092,8 @@ src/
 ├── sim/bite.ts          der Biss der Jäger: Ablauf (ausholen, vorschnellen, zuschnappen, erholen) und seine Streuung
 ├── sim/brood.ts         das Karbon als reine Rechnung: Gelege, Nahrung und Metamorphose, Eier zur Wahl, Vererbung aus dem Training, Hänge, Sauerstoff
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
-├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern)
-├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts
+├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern), SpeciesRoom.ts (die gemeinsame Art: der Laich aller Spieler eines Zeitalters)
+├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts, Species.ts (die gemeinsame Art im Koop)
 ├── level/
 │   ├── LevelGen.ts      erzeugt jeden Ort – für alle Spieler und in jedem Leben gleich (feste Weltsaat), ohne Phaser
 │   └── terrain.ts       der Meeresboden: glatte Höhenlinie, Zonen aus Sand/Fels/Schlamm, Felsbrocken, Bögen, Hitboxen
@@ -1086,8 +1115,8 @@ src/
 ├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
-├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Segen als Punktfolge (upTrail.ts), die Entwickler-Einstellung (devConfig.ts)
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
 tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
@@ -1126,6 +1155,12 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       auf den Server.
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne Laich und ohne wartende Geschwister Neustart als Urfisch (wie bisher).
+- [ ] **Goldene Geburt und Koop-Laich:** Der goldene Segen gilt nur für das Tier aus dem goldenen Ei (nicht für seine
+      Nachkommen) und zählt nicht beim Preis des nächsten Segens; die Richtung ist zufällig (unter denen, die noch wachsen
+      können). Im Koop teilen sich alle Spieler eines Zeitalters auf dem Server die Art; wer neu dazukommt, schließt sich
+      ihrer Generation an (seine eigenen Eier aus einer früheren Generation verfallen). Stirbt jemand ohne Laich, endet
+      auch das Leben der anderen (so wie gewünscht: „durch zu wenig Artgenossen ausgestorben“). Der Laich der Art lebt nur,
+      solange der Server läuft (jeder hat eine Kopie im eigenen Spielstand).
 - [ ] **Der Laich (Devon):** Die Eier tragen die Werte zur Laichzeit (nicht erst beim Tod); die Streuung betrifft nur
       Fähigkeiten, die die Linie schon entwickelt hat, und ist erblich. Passen mehr als 26 Eier in eine Gruppe, stehen die
       schwächsten nur als „+N“ da. Alte Spielstände: Geschwister und befruchtete Gelege werden beim Laden zu Eiern (so, wie
