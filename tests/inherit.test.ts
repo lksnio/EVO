@@ -1,10 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { INHERIT, SPAWN } from '../src/data/life';
 import { phases } from '../src/sim/life';
-import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, plateLevel, PLATE_IDS } from '../src/state/GameState';
+import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, plateLevel, PLATE_IDS, type Clutch, type Heir } from '../src/state/GameState';
 import { SPECIES } from '../src/data/species';
 
-// Vererbung ohne Wahl: Die Nachkommen sind an die Spielweise angepasst – und schlüpfen aus dem befruchteten Gelege.
+/**
+ * Die nächste Generation schlüpft: Die Eier dieses Geleges kommen auf den Stapel (ohne Streuung, damit es nachprüfbar
+ * bleibt), und das erste davon schlüpft. Gibt die Eier zurück.
+ */
+function succeed(c: Clutch, h: Heir) {
+  const v = INHERIT.vary;
+  INHERIT.vary = 0;
+  const eggs = game.layEggs(c, h);
+  INHERIT.vary = v;
+  expect(game.hatch('next', game.roe.indexOf(eggs[0]))).toBe(true);
+  return eggs;
+}
+
+// Vererbung: Was ein Tier beim Laichen weitergibt, liegt als Eier im Laich – stirbt es, wählt man eines davon.
 describe('Generationswechsel', () => {
   beforeEach(() => {
     game.resetAll();
@@ -25,10 +38,14 @@ describe('Generationswechsel', () => {
 
   it('nur befruchtete Gelege führen die Linie weiter, unbefruchtete verderben', () => {
     const now = Date.now();
-    const a = game.addClutch({ place: 'lagune', x: 100, y: 200, at: now, fert: false, role: 'mother' });
-    expect(game.heir()).toBeUndefined();
+    const a = game.addClutch({ place: 'lagune', x: 100, y: 200, at: now, fert: false, role: 'mother', young: 2 });
+    expect(game.roe.length).toBe(0);
     game.fertilize(a.id, { traits: { ...game.traits }, seed: 5, sex: 1 });
-    expect(game.heir()?.id).toBe(a.id);
+    game.layEggs(game.life.clutches[0], game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.roe.length).toBe(2);
+    // dasselbe Gelege legt nicht zweimal Eier
+    expect(game.layEggs(game.life.clutches[0], game.inherit({ meat: 0, plant: 0 }, newStyle()))).toEqual([]);
+    expect(game.roe.length).toBe(2);
     const b = game.addClutch({ place: 'lagune', x: 300, y: 200, at: now - SPAWN.decay * 1000 - 1, fert: false, role: 'mother' });
     expect(game.decayClutches(now)).toBe(true);
     expect(game.life.clutches.map((c) => c.id)).toEqual([a.id]);
@@ -63,25 +80,77 @@ describe('Generationswechsel', () => {
     const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'father', young: n });
     expect(game.young).toBe(3);
     const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
-    game.succeed(c, h);
+    game.layEggs(game.life.clutches[0], h);
+    const [egg] = succeed(c, h);
     expect(game.life.gen).toBe(2);
     expect(game.life.fed).toBe(0);
-    // eins ist geschlüpft, zwei warten
-    expect(game.run?.siblings?.n).toBe(2);
-    // stirbt es vor dem Laichen, schlüpft ein Geschwister: dieselbe Generation, so wie es geschlüpft ist
+    expect(game.prog.at).toEqual({ x: egg.x, y: egg.y });
+    // eins ist geschlüpft, zwei warten als Geschwister
+    expect(game.pool.length).toBe(2);
+    expect(game.roe.length).toBe(0);
+    // stirbt es, kann ein Geschwister schlüpfen: dieselbe Generation, so wie es gelaicht wurde
     game.grow('stealth', 0.5);
     game.ageBy(200);
     game.feed(80);
-    expect(game.sibling()).toBe(true);
+    const sib = game.pool[0];
+    expect(game.hatch('pool', 0)).toBe(true);
     expect(game.life.gen).toBe(2);
     expect(game.life.age).toBe(0);
     expect(game.life.fed).toBe(0);
-    expect(game.traits.stealth).toBe(h.traits.stealth);
-    expect(game.prog.at).toEqual({ x: 500, y: 800 });
+    expect(game.traits.stealth).toBeCloseTo(h.traits.stealth, 3);
+    expect(game.prog.at).toEqual({ x: sib.x, y: sib.y });
     expect(game.run?.history.length).toBe(1);
-    expect(game.sibling()).toBe(true);
-    expect(game.run?.siblings).toBeUndefined();
-    expect(game.sibling()).toBe(false);
+    expect(game.hatch('pool', 0)).toBe(true);
+    expect(game.pool.length).toBe(0);
+    expect(game.hatch('pool', 0)).toBe(false);
+  });
+
+  it('der Laich einer Generation zählt zusammen – auch was die Geschwister gelaicht haben', () => {
+    // der Urfisch laicht drei Eier
+    let c = game.addClutch({ place: 'lagune', x: 100, y: 800, at: Date.now(), fert: true, role: 'father', young: 3 });
+    succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.life.gen).toBe(2);
+    expect(game.pool.length).toBe(2);
+    // Generation 2: das erste Tier laicht vier Eier und stirbt …
+    c = game.addClutch({ place: 'lagune', x: 200, y: 800, at: Date.now(), fert: true, role: 'father', young: 4 });
+    game.layEggs(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.roe.length).toBe(4);
+    // … ein Geschwister schlüpft (der Laich bleibt liegen) und laicht sechs dazu
+    expect(game.hatch('pool', 0)).toBe(true);
+    expect(game.life.gen).toBe(2);
+    expect(game.roe.length).toBe(4);
+    c = game.addClutch({ place: 'lagune', x: 300, y: 800, at: Date.now(), fert: true, role: 'father', young: 6 });
+    game.layEggs(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.roe.length).toBe(10);
+    // aus den zehn wählen: Generation 3 beginnt, die übrigen neun sind ihre Geschwister – das letzte Geschwister der
+    // Generation 2 ist fort, es gibt kein Zurück
+    expect(game.pool.length).toBe(1);
+    expect(game.hatch('next', 7)).toBe(true);
+    expect(game.life.gen).toBe(3);
+    expect(game.pool.length).toBe(9);
+    expect(game.roe.length).toBe(0);
+    expect(game.run?.history.length).toBe(2);
+  });
+
+  it('die Eier tragen die Werte des Elterntiers zur Laichzeit – mit einer kleinen Streuung (Gebiss 18 → 17 bis 19)', () => {
+    // ein Beißfisch: Gebiss etwa 18
+    game.traits.jaw = 0.25;
+    game.traits.bs = 1.5;
+    game.ageBy(phases(1).mature + 60);
+    const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
+    const want = game.roeShown({ traits: h.traits });
+    expect(want.bite).toBeGreaterThanOrEqual(16);
+    const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: 24 });
+    const eggs = game.layEggs(c, h);
+    const bites = eggs.map((e) => game.roeShown(e).bite);
+    for (const b of bites) {
+      expect(b).toBeGreaterThanOrEqual(Math.floor(want.bite * (1 - INHERIT.vary)));
+      expect(b).toBeLessThanOrEqual(Math.ceil(want.bite * (1 + INHERIT.vary)));
+    }
+    // die Eier unterscheiden sich wirklich (nicht alle gleich)
+    expect(new Set(bites).size).toBeGreaterThan(1);
+    // was nie entwickelt wurde (der Stoß des Urfischs), streut nicht
+    for (const e of eggs) expect(game.roeShown(e).ram).toBe(want.ram);
   });
 
   it('nie mehr als SPAWN.maxYoung Nachkommen in einem Leben – der Rest der Nahrung bleibt', () => {
@@ -93,18 +162,22 @@ describe('Generationswechsel', () => {
     expect(game.life.fed).toBeCloseTo(SPAWN.perYoung * 3.5, 6);
   });
 
-  it('mit einem befruchteten Gelege gibt es wenigstens einen Nachkommen; ein neues Gelege ersetzt die alten Geschwister', () => {
+  it('wer in die nächste Generation geht, lässt die übrigen Geschwister für immer zurück', () => {
     game.feed(SPAWN.perYoung * 3.2);
     const c = game.addClutch({ place: 'lagune', x: 500, y: 800, at: Date.now(), fert: true, role: 'mother', young: game.takeYoung() });
-    game.succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
-    expect(game.run?.siblings?.n).toBe(2);
-    // (ältere Spielstände): ein befruchtetes Gelege ohne Angabe zählt einen Nachkommen – einer schlüpft, keiner wartet
+    succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.pool.length).toBe(2);
+    // (ältere Spielstände): ein befruchtetes Gelege ohne Angabe zählt einen Nachkommen
     expect(game.young).toBe(0);
     const d = game.addClutch({ place: 'lagune', x: 700, y: 800, at: Date.now(), fert: true, role: 'mother' });
     expect(game.young).toBe(1);
-    game.succeed(d, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    succeed(d, game.inherit({ meat: 0, plant: 0 }, newStyle()));
     expect(game.life.gen).toBe(3);
-    expect(game.run?.siblings).toBeUndefined();
+    // die beiden Geschwister aus Generation 2 sind fort – und der Laich ist aufgebraucht
+    expect(game.pool.length).toBe(0);
+    expect(game.roe.length).toBe(0);
+    expect(game.hatch('pool', 0)).toBe(false);
+    expect(game.hatch('next', 0)).toBe(false);
   });
 
   it('das eigene Tier verändert sich im Leben nicht – was es tut, zeigt sich erst bei den Nachkommen', () => {
@@ -133,12 +206,12 @@ describe('Generationswechsel', () => {
       game.resetAll();
       expect(game.newRun().sex).toBe(1);
       game.feed(SPAWN.perYoung * 3);
-      const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
+      const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: 3 });
       const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
       expect(h.sex).toBe(1);
-      game.succeed(c, h);
+      succeed(c, h);
       expect(game.run?.sex).toBe(1);
-      while (game.sibling()) expect(game.run?.sex).toBe(1);
+      while (game.hatch('pool', 0)) expect(game.run?.sex).toBe(1);
     }
   });
 
@@ -165,7 +238,7 @@ describe('Generationswechsel', () => {
     for (let i = 0; i < 3; i++) noteBest(style, 'hunt', 0.7);
     const bite0 = game.stats(game.cls, game.traits).bite;
     const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
-    game.succeed(c, game.inherit({ meat: 300, plant: 100 }, style));
+    succeed(c, game.inherit({ meat: 300, plant: 100 }, style));
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
     expect(bite).toBeGreaterThan(0.08);
     expect(bite).toBeLessThan(0.2);
@@ -213,7 +286,7 @@ describe('Generationswechsel', () => {
         const style = { ...newStyle(), hunt: 200 };
         for (let i = 0; i < 5; i++) noteBest(style, 'hunt', best);
         const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
-        game.succeed(c, game.inherit({ meat: 10, plant: 0 }, style));
+        succeed(c, game.inherit({ meat: 10, plant: 0 }, style));
       }
       return plateLevel(game.traits.bs);
     };
@@ -246,11 +319,11 @@ describe('Generationswechsel', () => {
   it('ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation', () => {
     game.prog.boss = 1;
     const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
-    game.succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
     expect(game.prog.boss).toBe(0);
   });
 
-  it('wer viel stößt, bekommt Nachkommen mit härterem Kopf – ohne Wahl, eine Generation weiter', () => {
+  it('wer viel stößt, bekommt Nachkommen mit härterem Kopf – eine Generation weiter', () => {
     game.ageBy(phases(1).mature + 60);
     const before = { ...game.traits };
     const style = { ...newStyle(), ram: 60, hunt: 2, chase: 1, swim: 10 };
@@ -262,12 +335,12 @@ describe('Generationswechsel', () => {
     for (const id of PLATE_IDS) expect(h.fit[id]).toBeGreaterThanOrEqual(0);
     const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
     const gen = game.life.gen;
-    game.succeed(c, h);
+    succeed(c, h);
     expect(game.life.gen).toBe(gen + 1);
     expect(game.life.age).toBe(0);
     expect(game.life.clutches).toEqual([]);
     expect(game.prog.at).toEqual({ x: 640, y: 900 });
-    expect(game.traits.st).toBe(h.traits.st);
+    expect(game.traits.st).toBeCloseTo(h.traits.st, 3);
     expect(game.run?.history.length).toBe(1);
   });
 

@@ -90,8 +90,9 @@ export const SPAWN = {
 };
 
 /**
- * Vererbung beim Generationswechsel – keine Wahl, die Nachkommen sind angepasst an die Spielweise. Das eigene Tier verändert
- * sich im Leben nicht (es wächst nur heran und altert): Was es tut, zeigt sich erst an seinen Nachkommen.
+ * Vererbung beim Laichen – die Nachkommen sind angepasst an die Spielweise bis dahin (jedes Ei im Laich trägt die Werte
+ * zur Laichzeit, mit einer kleinen Streuung, siehe vary); beim Tod wählt man ein Ei. Das eigene Tier verändert sich im
+ * Leben nicht (es wächst nur heran und altert): Was es tut, zeigt sich erst an seinen Nachkommen.
  *   – Jede Evolutionsplatte wächst je nachdem, wie gut die Spielweise zu ihr passte (gain × Passung).
  *   – Was sich im Leben angesammelt hat (Tarnung beim Verstecken, Bodenkontakt am Grund …), geht zum Teil weiter (carry).
  *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie.
@@ -117,6 +118,11 @@ export const INHERIT = {
   ceilBase: 0.3,
   ceilPer: 0.45,
   step: { growth: 0.03, armor: 0.035, diet: 0.15, carry: 0.04, fins: 0.04 },
+  /**
+   * Die Eier eines Laichs streuen ein wenig: Jede Fähigkeit, die die Linie schon entwickelt hat (Gebiss, Stoß, Tempo,
+   * Lebenskraft, Schuppen), weicht bis zu diesem Anteil von dem ab, was das Elterntier weitergibt – Gebiss 18 wird 17 bis 19.
+   */
+  vary: 0.055,
 };
 
 /** Was sonst noch das Gleichgewicht bestimmt (alles in der Entwickler-Einstellung, siehe data/tuning.ts). */

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EPOCHS, ERAS, inEra, isPlayable, ofEra } from '../src/data/epochs';
 import { SECTIONS } from '../src/data/aquapendium';
 import { SPECIES } from '../src/data/species';
+import { INHERIT } from '../src/data/life';
 import { game, rootId, type Clutch, type Traits } from '../src/state/GameState';
 
 // Sieben Zeitalter zur Wahl (Devon bis Paläogen) – jedes eine eigene Welt mit eigener Linie und eigenem Stammbaum.
@@ -9,7 +10,11 @@ import { game, rootId, type Clutch, type Traits } from '../src/state/GameState';
 /** Die nächste Generation schlüpft – mit diesen Merkmalen (wie nach dem Laichen). */
 function nextGen(t: Partial<Traits>) {
   const c: Clutch = { id: 1, place: 'riff', x: 100, y: 100, at: Date.now(), fert: true, role: 'father' };
-  game.succeed(c, { traits: { ...game.traits, ...t }, sex: 1, seed: 3, fit: { st: 0, bs: 0, vf: 0, sw: 0 } });
+  const v = INHERIT.vary;
+  INHERIT.vary = 0;
+  const [egg] = game.layEggs(c, { traits: { ...game.traits, ...t }, sex: 1, seed: 3, fit: { st: 0, bs: 0, vf: 0, sw: 0 } });
+  INHERIT.vary = v;
+  game.hatch('next', game.roe.indexOf(egg));
 }
 
 describe('Zeitalter', () => {

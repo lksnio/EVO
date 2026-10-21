@@ -261,6 +261,8 @@ export interface Clutch {
   partner?: { traits: Traits; seed: number; sex: Sex };
   /** so viele Nachkommen stecken darin (aus der Nahrung, die beim Laichen gesammelt war; ältere Spielstände: einer) */
   young?: number;
+  /** seine Eier liegen schon auf dem Stapel der nächsten Generation (Run.next) */
+  eggs?: boolean;
 }
 
 /** Das Leben des eigenen Tiers: wie alt es ist (Sekunden aktiven Lebens), die wievielte Generation, seine Gelege. */
@@ -291,18 +293,23 @@ export type DriftKey = TraitKey | 'light' | 'fin' | 'crest';
 export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, lastSpawn: -1e9, clutches: [], nextClutch: 1, fed: 0 });
 
 /**
- * Die Geschwister, die noch im Gelege warten, aus dem das eigene Tier geschlüpft ist: Stirbt es, bevor es selbst gelaicht
- * hat, schlüpft das nächste – dieselbe Generation, so beschaffen, wie es geschlüpft ist.
+ * Ein Ei aus dem Laich deiner Linie: So wird das Tier, das daraus schlüpft. Seine Merkmale stehen schon beim Laichen fest –
+ * die Werte des Elterntiers zur Laichzeit (inherit) mit einer kleinen Streuung (INHERIT.vary). Es schlüpft dort, wo es
+ * gelaicht wurde. Gespeichert werden nur die Merkmale, die nicht 0 sind.
  */
-export interface Siblings {
-  n: number;
-  traits: Traits;
+export interface RoeEgg {
+  traits: Partial<Traits>;
+  sex: Sex;
+  seed: number;
   place: string;
   x: number;
   y: number;
 }
 
-/** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern, ohne Wahl. */
+/** Wo die Eier liegen: bei den Geschwistern (deine Generation) oder im Laich für die nächste Generation. */
+export type RoeGroup = 'pool' | 'next';
+
+/** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern (zur Laichzeit). */
 export interface Heir {
   traits: Traits;
   sex: Sex;
@@ -348,8 +355,18 @@ export interface Run {
   prog: EpochProg;
   /** das Leben des eigenen Tiers */
   life: Life;
-  /** die Geschwister, die noch im Gelege warten (deine übrigen Leben) */
-  siblings?: Siblings;
+  /**
+   * Die Geschwister: Eier deiner Generation, die noch im Laich warten – deine übrigen Leben in dieser Generation (der Urfisch
+   * hat keine). Stirbt dein Tier, kann eines davon schlüpfen.
+   */
+  pool?: RoeEgg[];
+  /**
+   * Der Laich deiner Generation: Was du und deine Geschwister gelaicht habt, liegt hier zusammen. Daraus schlüpft die nächste
+   * Generation – wer sie wählt, kommt nie mehr zur jetzigen zurück (die übrigen Geschwister sind dann fort).
+   */
+  next?: RoeEgg[];
+  /** ältere Spielstände: die Geschwister als Anzahl (beim Laden zu Eiern) */
+  siblings?: { n: number; traits: Traits; place: string; x: number; y: number };
   /**
    * Die Segen der großen Muschel für diese Linie: so oft in Lebenskraft, Ausdauer und Sicht (siehe UPGRADES). Die Muscheln selbst
    * gehören nicht der Linie, sondern dir (SaveData.shells) – beginnt eine neue Linie, sind sie wieder frei.
@@ -477,6 +494,22 @@ const BLEND_KEYS: (keyof Traits)[] = ['stealth', 'green', 'sand', 'len', 'girth'
 /** Merkmale zwischen 0 und 1 (die übrigen reichen von -1 bis 1; Kopfplatte und Wuchs haben eigene Grenzen) */
 const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'grip', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
 const range = (k: keyof Traits): [number, number] => (k === 'spike' ? [-1, 0] : k === 'growth' ? [GROWTH_MIN, 1] : UNIT_KEYS.has(k) ? [0, 1] : [-1, 1]);
+
+/** Die Fähigkeiten, die von Ei zu Ei ein wenig streuen: das Merkmal, das sie vor allem trägt, und wie sie gemessen wird. */
+const VARY: [keyof Traits, (s: Stats, t: Traits) => number][] = [
+  ['jaw', (s) => s.bite],
+  ['skull', (s) => s.ram],
+  ['swift', (s) => s.speed],
+  ['growth', (s) => s.maxHp],
+  ['armor', (_s, t) => 1 + 2 * t.armor],
+];
+
+/** Merkmale zum Speichern (Eier im Laich): nur die, die nicht 0 sind, auf vier Stellen gerundet. */
+export function packTraits(t: Traits): Partial<Traits> {
+  const o: Partial<Traits> = {};
+  for (const [k, v] of Object.entries(t) as [keyof Traits, number][]) if (Math.abs(v) > 1e-5) o[k] = Math.round(v * 1e4) / 1e4;
+  return o;
+}
 
 
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
@@ -783,6 +816,18 @@ class GameState {
           // ältere Spielstände kennen kein Alter: Wer schon unterwegs war, ist ausgewachsen
           r.life ??= newLife(r.history.length + 1, phases(r.history.length + 1).mature);
           r.life.clutches ??= [];
+          // ältere Spielstände: Geschwister als Anzahl, befruchtete Gelege ohne Eier – sie werden zu Eiern im Laich (so, wie
+          // das Tier jetzt ist: ohne Streuung)
+          if (r.siblings) {
+            const sb = r.siblings;
+            r.pool = Array.from({ length: sb.n }, () => ({ traits: packTraits(full({ ...sb.traits })), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: sb.place, x: sb.x, y: sb.y }));
+            r.siblings = undefined;
+          }
+          for (const c of r.life.clutches) {
+            if (!c.fert || c.eggs || r.brood) continue;
+            c.eggs = true;
+            for (let i = 0; i < Math.max(1, c.young ?? 1); i++) (r.next ??= []).push({ traits: packTraits(full({ ...r.traits })), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y });
+          }
           // ältere Spielstände zählen die Nahrung nicht: so viel, wie ein Tier bis zu diesem Alter etwa frisst
           r.life.fed ??= Math.round(r.life.age * 0.4);
           // Leben sind kürzer geworden: Wer nach heutiger Rechnung schon am Ende wäre, ist wieder alt (und kann noch laichen)
@@ -1309,11 +1354,76 @@ class GameState {
     return true;
   }
 
-  /** Das Gelege, aus dem die nächste Generation schlüpft: das jüngste befruchtete. */
-  heir(): Clutch | undefined {
-    const cs = this.data.run?.life.clutches ?? [];
-    for (let i = cs.length - 1; i >= 0; i--) if (cs[i].fert) return cs[i];
-    return undefined;
+  /** Die Geschwister, die noch warten: Eier deiner Generation (siehe Run.pool). */
+  get pool(): RoeEgg[] {
+    return this.data.run?.pool ?? [];
+  }
+
+  /** Der Laich für die nächste Generation – von dir und deinen Geschwistern zusammen (siehe Run.next). */
+  get roe(): RoeEgg[] {
+    return this.data.run?.next ?? [];
+  }
+
+  /**
+   * Laich befruchtet: So viele Eier, wie im Gelege stecken, kommen auf den Stapel der nächsten Generation – jedes so, wie
+   * es das Elterntier zur Laichzeit weitergibt (h, siehe inherit), mit einer kleinen Streuung. Was Geschwister laichen,
+   * kommt dazu. Gibt die neuen Eier zurück.
+   */
+  layEggs(c: Clutch, h: Heir): RoeEgg[] {
+    const run = this.r;
+    if (c.eggs) return [];
+    c.eggs = true;
+    const out: RoeEgg[] = [];
+    for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
+      out.push({ traits: packTraits(this.varied(run.cls, h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y });
+    }
+    (run.next ??= []).push(...out);
+    this.save();
+    return out;
+  }
+
+  /**
+   * Die Streuung zwischen den Eiern: Jede Fähigkeit, die die Linie schon entwickelt hat, weicht um bis zu INHERIT.vary ab –
+   * gemessen an dem, was die Übersicht zeigt (Gebiss 18 → 17 bis 19). Was nie entwickelt wurde, streut nicht.
+   */
+  private varied(cls: ClassId, t0: Traits): Traits {
+    const t = full({ ...t0 });
+    if (INHERIT.vary <= 0) return t;
+    const e = 0.02;
+    for (const [k, measure] of VARY) {
+      if (Math.abs(t[k]) < 1e-4) continue;
+      const [lo, hi] = range(k);
+      const a = measure(this.stats(cls, t, ADULT, false), t);
+      const tb = { ...t, [k]: clamp(t[k] + e, lo, hi) };
+      const slope = (measure(this.stats(cls, tb, ADULT, false), tb) - a) / Math.max(1e-6, tb[k] - t[k]);
+      if (!(slope > 1e-6)) continue;
+      t[k] = clamp(t[k] + (a * INHERIT.vary * (Math.random() * 2 - 1)) / slope, lo, hi);
+    }
+    return t;
+  }
+
+  /** So sieht das Tier aus einem Ei aus, wenn es ausgewachsen ist. */
+  roeMorph(e: RoeEgg): Morph {
+    return this.morph({ traits: full({ ...e.traits }), seed: e.seed, sex: e.sex });
+  }
+
+  /**
+   * Was ein Ei verspricht: die Werte des ausgewachsenen Tiers, so wie die Übersicht sie zeigt (mit den Segen der Linie).
+   * Ohne Ei: das eigene Tier, ausgewachsen.
+   */
+  roeShown(e?: { traits: Partial<Traits> }) {
+    const t = full(e ? e.traits : this.r.traits);
+    const ups = this.ups;
+    const st = this.stats(this.r.cls, t, ADULT, ups);
+    const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    return {
+      hp: st.maxHp,
+      stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
+      bite: Math.round((10 * st.bite) / s0.bite),
+      ram: Math.round((10 * st.ram) / s0.ram),
+      speed: Math.round((10 * st.speed) / s0.speed),
+      scales: Math.round(10 * (1 + 2 * (t.armor ?? 0))),
+    };
   }
 
   /**
@@ -1413,43 +1523,39 @@ class GameState {
   }
 
   /**
-   * Die nächste Generation übernimmt: Das eigene Tier ist (nach dem Laichen) gestorben – du spielst als Jungtier aus seinem
-   * Gelege weiter. Was die Linie weiß (Orte, Muscheln, Aufträge, Gruppe), bleibt; Alter, Nahrung und Spielweise beginnen neu.
+   * Ein Ei schlüpft – du spielst als dieses Tier weiter, dort, wo es gelaicht wurde.
+   *   – Ein Geschwister (pool): dieselbe Generation.
+   *   – Ein Ei aus dem Laich deiner Generation (next): Die nächste Generation beginnt – und es gibt kein Zurück. Die übrigen
+   *     Geschwister sind fort, der übrige Laich sind die neuen Geschwister, und neuer Laich kommt erst wieder dazu.
+   * Was die Linie weiß (Orte, Muscheln, Aufträge, Gruppe), bleibt; Alter, Nahrung und Spielweise beginnen neu.
+   * Gibt false zurück, wenn es das Ei nicht gibt.
    */
-  succeed(c: Clutch, h: Heir) {
+  hatch(group: RoeGroup, i: number): boolean {
     const run = this.r;
-    // eins schlüpft jetzt, die übrigen warten im Gelege (die Geschwister des alten Geleges sind ihre eigenen Wege gegangen)
-    const n = Math.max(1, this.young);
-    run.siblings = n > 1 ? { n: n - 1, traits: full({ ...h.traits }), place: c.place, x: c.x, y: c.y } : undefined;
+    const list = group === 'pool' ? run.pool : run.next;
+    const egg = list?.[i];
+    if (!list || !egg) return false;
+    list.splice(i, 1);
+    let gen = run.life.gen;
+    if (group === 'next') {
+      gen += 1;
+      run.pool = list;
+      run.next = [];
+      run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
+      if (run.history.length > 24) run.history.splice(1, 1);
+    }
+    run.traits = full({ ...egg.traits });
+    run.sex = egg.sex;
+    run.seed = egg.seed;
     // die Farbe einer Höhle ist weitergegeben: Mehr als einmal je Lauf gibt es sie nicht
-    if (run.life.coat !== undefined) run.coatSet = true;
-    run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
-    if (run.history.length > 24) run.history.splice(1, 1);
-    run.traits = full({ ...h.traits });
-    run.sex = h.sex;
-    run.seed = h.seed;
-    // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer Abschnitt
-    // des Astes – gleichen sich zwei Linien, teilen sie ihn sich
-    const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
-    if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, run.life.gen + 1).id;
-    this.hatchAt(run, run.life.gen + 1, c);
-  }
-
-  /**
-   * Das eigene Tier ist gestorben, bevor es gelaicht hat – aber im Gelege, aus dem es kam, warten noch Geschwister: Das
-   * nächste schlüpft (dieselbe Generation, so beschaffen, wie das Tier geschlüpft war; Geschlecht und Zeichnung neu).
-   * Gibt false zurück, wenn keines mehr wartet.
-   */
-  sibling(): boolean {
-    const run = this.r;
-    const s = run.siblings;
-    if (!s || s.n < 1) return false;
-    s.n -= 1;
-    if (s.n < 1) run.siblings = undefined;
-    run.traits = full({ ...s.traits });
-    run.sex = newSex();
-    run.seed = Math.floor(Math.random() * 100000);
-    this.hatchAt(run, run.life.gen, s);
+    if (run.traits.coat) run.coatSet = true;
+    if (group === 'next') {
+      // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer
+      // Abschnitt des Astes – gleichen sich zwei Linien, teilen sie ihn sich
+      const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
+      if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, gen).id;
+    }
+    this.hatchAt(run, gen, egg);
     return true;
   }
 

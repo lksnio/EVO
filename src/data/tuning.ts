@@ -249,6 +249,7 @@ export const GROUPS: Group[] = [
       field(INHERIT, 'ceilPer', 'INHERIT.ceilPer', 'Obergrenze mehr je „so stark wie du“', { max: 2 }),
       field(INHERIT, 'carry', 'INHERIT.carry', 'Im Leben Angesammeltes geht weiter (Anteil)', { max: 1 }),
       field(INHERIT, 'partner', 'INHERIT.partner', 'Vom Partner (Anteil)', { max: 1 }),
+      field(INHERIT, 'vary', 'INHERIT.vary', 'Streuung zwischen den Eiern (Anteil)', { max: 0.5 }),
       field(INHERIT.step, 'growth', 'INHERIT.step.growth', 'Größe je Generation höchstens'),
       field(INHERIT.step, 'armor', 'INHERIT.step.armor', 'Robustheit je Generation höchstens'),
       field(INHERIT.step, 'diet', 'INHERIT.step.diet', 'Kost je Generation höchstens'),

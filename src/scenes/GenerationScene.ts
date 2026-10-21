@@ -6,9 +6,8 @@ import type { SuccessionData } from './LevelScene';
 import { fadeTo, text } from '../ui/ui';
 
 /**
- * Der Einschnitt zwischen zwei Leben: Dunkelheit, die Generation, die Zeit – dann wacht das nächste Tier im Laichfluss auf
- * (nach dem Laichen die nächste Generation, sonst ein Geschwister). Was sich verändert hat, steht nirgends: Man merkt es,
- * wenn das Tier heranwächst.
+ * Der Einschnitt zwischen zwei Generationen: Dunkelheit, die neue Generation, die Zeit – dann wacht das Tier aus dem
+ * gewählten Ei im Laichfluss auf (siehe RoeScene).
  */
 export class GenerationScene extends Phaser.Scene {
   private d!: SuccessionData;
@@ -29,7 +28,7 @@ export class GenerationScene extends Phaser.Scene {
     if (this.input.keyboard) this.input.keyboard.enabled = true;
     this.cameras.main.setBackgroundColor('#000000');
     audio.music('generation');
-    const gen = d.sibling ? d.gen : d.gen + 1;
+    const gen = d.gen;
     const head = this.add.text(W / 2, H / 2 - 16, `Generation ${gen}`.toUpperCase(), {
       fontFamily: TITLE_FONT, fontSize: '30px', color: UI.bone, fontStyle: '400', resolution: 2,
     }).setOrigin(0.5).setLetterSpacing(8).setAlpha(0);

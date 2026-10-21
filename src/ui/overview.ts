@@ -230,8 +230,9 @@ export class Overview {
     row(colR, (y += 32), 'Nahrung', nf(Math.floor(life.fed)));
     row(colR, (y += 28), 'Je Nachkomme', nf(game.broodBase));
     row(colR, (y += 28), 'Nachkommen', nf(game.young));
-    const sib = run?.siblings?.n ?? 0;
-    if (sib > 0) row(colR, (y += 28), 'Geschwister im Gelege', nf(sib));
+    // der Laich der ganzen Generation (auch von Geschwistern) und die Geschwister, die noch warten
+    row(colR, (y += 28), 'Laich der Generation', nf(game.roe.length));
+    if (game.pool.length > 0) row(colR, (y += 28), 'Geschwister', nf(game.pool.length));
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 

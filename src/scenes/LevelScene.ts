@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Member, type PlayStyle, type UpKey } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Clutch, type Member, type PlayStyle, type UpKey } from '../state/GameState';
+import type { RoeData } from './RoeScene';
 import { EPOCHS, type EpochDef, type EventDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { CAVE_WALL, edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -59,12 +60,10 @@ export interface SuccessionData {
   epoch: number;
   /** woran das Tier starb (bzw. dass es sein Leben weitergab) */
   cause: string;
-  /** die Generation, die gerade zu Ende ging */
+  /** die Generation, die jetzt beginnt (bzw. weitergeht, wenn ein Geschwister schlüpft) */
   gen: number;
   /** Weltzeit (Jahre vor heute) */
   years: number;
-  /** kein Generationswechsel: Das Tier starb vor dem Laichen, ein Geschwister aus seinem Gelege schlüpft */
-  sibling?: boolean;
 }
 
 /** Geröll vor einer Höhle im Level: Bild, Risse, Hitbox – und wann es zuletzt getroffen wurde. */
@@ -621,7 +620,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
     // das Leben an die Nachkommen weitergeben (aus der Rast; nur mit einem befruchteten Gelege)
-    const onHandOver = () => !this.ended && game.heir() && this.passAway('Lebensende – an die Nachkommen weitergegeben');
+    const onHandOver = () => !this.ended && game.roe.length > 0 && this.passAway('Lebensende – an die Nachkommen weitergegeben');
     bus.on('handOver', onHandOver);
     // zum Hauptmenü (aus der Rast): erst nach fünf Sekunden – so entkommt niemand einer brenzligen Lage
     this.quitLeft = -1;
@@ -2348,7 +2347,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const z = this.cameras.main.zoom;
       this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.run?.siblings?.n ?? 0}\n` +
+        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.pool.length}  Laich ${game.roe.length}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
           `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
@@ -2883,7 +2882,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       bus.emit('vitals', p.hp / p.stats.maxHp, p.hidden);
       // oben: die Weltzeit (für alle gleich, Jahr für Jahr) und darunter die Lebenslinie des eigenen Tiers
       bus.emit('clock', worldYears(this.ep.from, this.ep.to), 1);
-      bus.emit('life', game.life.age / phases(game.life.gen).span, stageOf(game.life.age, game.life.gen), !!game.heir());
+      bus.emit('life', game.life.age / phases(game.life.gen).span, stageOf(game.life.age, game.life.gen), game.roe.length > 0);
       const bs = this.bossA;
       if (bs) bus.emit('boss', bs.def.name, bs.dead ? 0 : Math.max(0, bs.hp / bs.maxHp));
     }
@@ -3343,8 +3342,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.player.fade = left < LIFE.fadeSeconds ? LIFE.fadeTo + (1 - LIFE.fadeTo) * clamp(left / LIFE.fadeSeconds, 0, 1) : 1;
     if (!this.oldWarned && left < 60) {
       this.oldWarned = true;
-      // nur wenn es darauf ankommt: Ohne befruchtetes Gelege endet hier die Linie (oder ein Geschwister schlüpft)
-      if (!game.heir()) bus.emit('notice', 'Das Leben neigt sich dem Ende zu', 'Noch kein befruchtetes Gelege');
+      // nur wenn es darauf ankommt: Ohne Laich deiner Generation geht es nur mit einem Geschwister weiter – oder gar nicht
+      if (!game.roe.length) bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.pool.length ? 'Noch kein Laich deiner Generation' : 'Noch kein Laich – ohne ihn endet deine Linie');
     }
     if (diesOfAge(age, gen)) this.passAway('Altersschwäche');
   }
@@ -3389,25 +3388,30 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Das eigene Tier ist gestorben – nach dem Laichen ist das kein Ende: Aus dem jüngsten befruchteten Gelege schlüpft die
-   * nächste Generation. Sie ist an die Spielweise angepasst (keine Wahl) und muss erst heranwachsen. Vor dem Laichen
-   * schlüpft ein Geschwister aus dem eigenen Gelege, solange dort noch eines wartet.
+   * Das eigene Tier ist gestorben – solange Laich da ist, ist das kein Ende: Man wählt ein Ei (RoeScene), entweder ein
+   * Geschwister (dieselbe Generation) oder eines aus dem Laich deiner Generation (die nächste – ohne Weg zurück). Ohne
+   * beides stirbt die Linie aus.
    */
   private succession(cause: string, wait: number) {
     if (this.ended) return;
     if (game.brood) return this.broodDeath(cause, wait);
     // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
     this.spawning?.settle();
-    const heir = game.heir();
-    if (!heir) return game.run?.siblings?.n ? this.nextSibling(cause, wait) : this.endLine(cause, wait);
+    if (!game.pool.length && !game.roe.length) return this.endLine(cause, wait);
     this.ended = true;
-    this.train.hurt += this.player.takeEndured();
     this.swarm?.storeAll();
-    const h = game.inherit({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train, heir.partner);
-    const data: SuccessionData = { epoch: this.epochIdx, cause, gen: game.life.gen, years: worldYears(this.ep.from, this.ep.to) };
-    game.succeed(heir, h);
+    const data: RoeData = { epoch: this.epochIdx, cause, years: worldYears(this.ep.from, this.ep.to) };
     audio.music(null);
-    this.time.delayedCall(wait, () => this.exitTo('Generation', data));
+    this.time.delayedCall(wait, () => this.exitTo('Roe', data));
+  }
+
+  /**
+   * Was das eigene Tier gerade weitergibt (zur Laichzeit): Nachkommen, angepasst an die Spielweise bis jetzt – daraus werden
+   * die Eier des Laichs (GameState.layEggs).
+   */
+  heirNow(partner?: Clutch['partner']) {
+    this.train.hurt += this.player.takeEndured();
+    return game.inherit({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train, partner);
   }
 
   /** Weiter zur nächsten Szene – ist das Bild schon dunkel (eingeschlafen), ohne erneutes Abblenden. */
@@ -3439,17 +3443,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     });
   }
 
-  /** Gestorben, bevor es gelaicht hat: Das nächste Geschwister aus dem Gelege schlüpft – dieselbe Generation. */
-  private nextSibling(cause: string, wait: number) {
-    this.ended = true;
-    this.swarm?.storeAll();
-    const data: SuccessionData = { epoch: this.epochIdx, cause, gen: game.life.gen, years: worldYears(this.ep.from, this.ep.to), sibling: true };
-    game.sibling();
-    audio.music(null);
-    this.time.delayedCall(wait, () => this.exitTo('Generation', data));
-  }
-
-  /** Das Tier ist tot. Wer ein befruchtetes Gelege hinterlässt, lebt darin weiter – sonst stirbt die Linie aus. */
+  /** Das Tier ist tot. Wer Laich hinterlässt (oder Geschwister hat), lebt darin weiter – sonst stirbt die Linie aus. */
   private onDeath() {
     if (this.ended) return;
     this.succession(this.player.lastCause, 2600);

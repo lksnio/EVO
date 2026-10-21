@@ -20,7 +20,8 @@ Spielbar sind vorerst das **Devon** – dort beginnt jedes Leben – und das **K
 Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)); die anderen ruhen noch „im Gestein“
 (siehe [Zeitalter wählen](#zeitalter-wählen)).
 
-**Stirbst du ohne befruchtetes Gelege und wartet kein Geschwister mehr, stirbt deine Linie aus** – und bleibt als
+**Stirbst du, wählst du ein Ei aus dem Laich deiner Linie** – ein Geschwister oder eines der nächsten Generation. **Liegt
+kein Laich mehr da und wartet kein Geschwister, stirbt deine Linie aus** – und bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
 **Das Logo** spielt mit dem Namen: **EVO** und **LıVING** stehen auf einer Höhe, darunter weit gesperrt **WORLD** zwischen
@@ -171,10 +172,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 2 % größer. Ein um 25 %
   stärkerer Biss heißt also 30 je Nachkomme, dazu 10 % schneller 34; die zweite Generation braucht meist 24–30.
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
-  Stirbt dein Tier nach dem Laichen, schlüpft die nächste Generation, und die **übrigen Nachkommen warten als Geschwister im
-  Gelege**. Stirbt es **vor dem Laichen**, schlüpft eines dieser Geschwister – dieselbe Generation, so beschaffen, wie dein
-  Tier geschlüpft war. Erst wenn kein Geschwister mehr wartet, stirbt die Linie aus. Ein neues Gelege ersetzt die alten
-  Geschwister. Die **Übersicht (C)** zeigt die gesammelte Nahrung, den Grundwert, die Nachkommen und die wartenden Geschwister.
+  Jeder Nachkomme ist ein **Ei im Laich** (siehe unten, „Der Laich“). Die
+  **Übersicht (C)** zeigt die gesammelte Nahrung, den Grundwert, die Nachkommen dieses Lebens, den Laich der ganzen
+  Generation und die wartenden Geschwister.
 - **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
   Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
   eines (`SPAWN.alwaysMale` in `src/data/life.ts`, auch in der Entwickler-Einstellung).
@@ -197,19 +197,35 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Öfter laichen:** Laichen, fressen gehen, wiederkommen und noch einmal laichen – so oft man will, bis kurz vor dem
     Tod. Nach dem Laichen dauert es nur ein paar Sekunden (8), bis es wieder geht, sobald genug Nahrung für einen weiteren
     Nachkommen gesammelt ist; ein neues Weibchen kommt schon nach 15 Sekunden. Wer mehrmals laicht, hat mehrere Gelege –
-    ihre Nachkommen zählen zusammen (höchstens 24), das **jüngste befruchtete** führt die Linie weiter.
+    ihre Nachkommen zählen zusammen (höchstens 24 in einem Leben); jedes befruchtete Gelege legt seine Eier in den Laich
+    der Generation.
   - Ein **unbefruchtetes eigenes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein
     Gelege auch, wenn du den Fluss verlässt.
 - **Einschlafen und Aufwachen:** Am Ende seines Lebens wird dein Tier langsamer, dann still – es schließt die Augen und
   sinkt sanft ab, die Kamera kommt nah heran, die Anzeigen treten zurück, das Bild wird dunkel. (Genauso, wenn du es in der
-  Rast (Esc) mit **„Leben weitergeben“** selbst beendest.) Nach diesem Einschnitt – Dunkelheit, die Generation, die Jahre –
-  **wachst du als schlüpfendes Jungtier wieder auf**: Das Bild wird langsam hell, die Augen öffnen sich, die Kamera zieht
+  Rast (Esc) mit **„Leben weitergeben“** selbst beendest.) Dann wählst du ein Ei aus dem Laich (siehe unten); beginnt damit
+  die nächste Generation, folgt der Einschnitt – Dunkelheit, die Generation, die Jahre. Danach **wachst du als schlüpfendes
+  Jungtier wieder auf**: Das Bild wird langsam hell, die Augen öffnen sich, die Kamera zieht
   zurück, die Geschwister schwärmen aus, dann kommen die Anzeigen. Ein Druck auf eine Taste kürzt den Einschnitt ab.
-- **Der Generationswechsel:** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder durch „Leben weitergeben“ –,
-  schlüpft aus deinem jüngsten befruchteten Gelege die nächste Generation, im Laichfluss, dort, wo das Gelege lag. Was die
-  Linie weiß (Orte, Muscheln, Aufträge, deine Gruppe), bleibt; Alter, Nahrung und Spielweise beginnen neu. Ohne befruchtetes
-  Gelege schlüpft ein Geschwister – und ohne Geschwister stirbt die Linie aus.
-- **Keine Wahl, sondern Anpassung:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten zur
+- **Der Laich: Geschwister oder die nächste Generation.** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder
+  durch „Leben weitergeben“ –, **wählst du ein Ei** (`RoeScene`), und das Tier daraus spielst du weiter, im Laichfluss, dort,
+  wo es gelaicht wurde. Was die Linie weiß (Orte, Muscheln, Aufträge, deine Gruppe), bleibt; Alter, Nahrung und Spielweise
+  beginnen neu.
+  - **Laich zählt zusammen:** Jedes befruchtete Gelege legt seine Eier auf den **Stapel der Generation** – auch das, was
+    Geschwister laichen. Legen drei Geschwister zusammen zehn Eier, wählt man in der nächsten Generation aus diesen zehn.
+  - **Die Eier tragen die Werte zur Laichzeit:** Was ein Ei verspricht, steht beim Laichen fest – so, wie dein Tier dann
+    ist und gelebt hat (siehe unten, „Anpassung“). Dazu streuen die Eier ein wenig (`INHERIT.vary`, 5,5 %): Hat dein Tier
+    Gebiss 15 und viel gegen starke Gegner gebissen, haben seine Nachkommen etwa Gebiss 18 – das eine Ei 17, das andere
+    19. Was die Linie nie entwickelt hat, streut nicht.
+  - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – der Urfisch hat keine), unten
+    der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Höchstwerte** (Lebenskraft,
+    Ausdauer, Gebiss, Stoß, Tempo, Schuppen), daneben den Unterschied zu deinem Tier; die besten Werte einer Gruppe
+    leuchten ocker, die stärksten Eier stehen vorn.
+  - **Kein Weg zurück:** Ein Geschwister hält dich in deiner Generation (der Laich wartet weiter). Wer ein Ei der
+    **nächsten Generation** wählt, beginnt sie – und **kommt nie mehr zurück**: Die übrigen Geschwister sind dann verloren,
+    der übrige Laich sind die neuen Geschwister. Solange noch Geschwister warten, fragt das Spiel deshalb noch einmal
+    („Generation 3 verlassen?“). Erst ohne Laich und ohne Geschwister stirbt die Linie aus.
+- **Anpassung statt Platten:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten zur
   Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte – aber
   **sanft**: Wer fast nur beißt, beißt in der nächsten Generation etwa 15 % kräftiger; alle Richtungen zusammen wachsen kaum
   mehr als eine. Was sich im Leben angesammelt hat (Tarnung, Bodenkontakt, Färbung, Flossen …), geht zum Teil weiter;
@@ -219,7 +235,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
   Stürme …) kehren darin immer wieder – für alle zugleich. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
   rückwärts –, darunter die **Lebenslinie** deines Tiers (mit Marken bei „ausgewachsen“ und „alt“; sie leuchtet warm, sobald
-  ein befruchtetes Gelege wartet).
+  Laich deiner Generation da ist).
 - **Eine feste Welt:** Jeder Ort sieht für alle Spieler und in jedem Leben gleich aus (eine feste Weltsaat) – egal, von
   wo man ankommt.
 - Alle Zahlen stehen an einer Stelle: `src/data/life.ts` (`WORLD`, `LIFE`, `SPAWN`, `INHERIT`, `MISC`) und `FOOD` in
@@ -848,7 +864,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Lebenskraft, Sicht, Ausdauer; Gebiss, Schädel, Schwarm, Schuppen; Körper, Leben, Nachwuchs, Muscheln – daneben die Beute an diesem Ort |
-| P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald ein befruchtetes Gelege wartet; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
+| P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 
 **Zum Hauptmenü (und später weiterspielen):** In der Rast gibt es den Knopf **„Hauptmenü“**. Danach läuft das Spiel noch
@@ -1071,7 +1087,7 @@ src/
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Leben (GenerationScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
 tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
@@ -1109,7 +1125,11 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Partner beim Laichen ist immer die KI** (garantiert). Später: echte Spieler mit Vorrang – dafür muss das Laichen
       auf den Server.
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
-- [ ] **Aussterben:** ohne befruchtetes Gelege und ohne Geschwister im Gelege Neustart als Urfisch (wie bisher).
+- [ ] **Aussterben:** ohne Laich und ohne wartende Geschwister Neustart als Urfisch (wie bisher).
+- [ ] **Der Laich (Devon):** Die Eier tragen die Werte zur Laichzeit (nicht erst beim Tod); die Streuung betrifft nur
+      Fähigkeiten, die die Linie schon entwickelt hat, und ist erblich. Passen mehr als 26 Eier in eine Gruppe, stehen die
+      schwächsten nur als „+N“ da. Alte Spielstände: Geschwister und befruchtete Gelege werden beim Laden zu Eiern (so, wie
+      das Tier gerade ist, ohne Streuung).
 - [ ] **Nachkommen:** je Grundwert Nahrung einer (erster Fisch 20, je 1 % Verbesserung 2 % mehr, höchstens 12); beim
       Laichen wird die gesammelte Nahrung zu Nachwuchs, der Rest bleibt – mehrmals laichen zählt zusammen. Kein Hunger.
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.

@@ -775,8 +775,8 @@ export class HudScene extends Phaser.Scene {
     c.add(text(this, W / 2 - 190, 518, CLASSES[m.cls].name, 20, UI.boneDim).setOrigin(0.5));
 
     const bx = W / 2 + 170;
-    // Wartet ein befruchtetes Gelege, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
-    const heir = !!game.heir();
+    // Liegt Laich deiner Generation, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
+    const heir = game.roe.length > 0;
     const y0 = heir ? 236 : 252, step = heir ? 58 : 66, h = heir ? 50 : 54;
     const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, h, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
     const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, h, onClick: () => this.showControls() });

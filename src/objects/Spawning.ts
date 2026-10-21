@@ -45,7 +45,8 @@ const rnd = ([a, b]: [number, number]) => a + Math.random() * (b - a);
  *   – Männchen befruchten Laich ihrer Art: Im Startgebiet liegt er schon (die Artgenossen laichen dort), sonst kommt ein
  *     Weibchen und legt in deiner Nähe. Zur Laichzeit schimmert befruchtbarer Laich warm – nah genug, schimmert er stärker.
  *   – Weibchen legen ihren Laich dicht am Grund ab; kurz darauf kommt ein Männchen deiner Art und befruchtet ihn.
- * Ein befruchtetes Gelege bleibt im Spielstand: Stirbt dein Tier, schlüpft daraus die nächste Generation (LevelScene).
+ * Sobald ein Gelege befruchtet ist, liegen seine Eier auf dem Stapel der nächsten Generation (GameState.layEggs) – mit den
+ * Werten, die dein Tier jetzt, zur Laichzeit, weitergibt. Stirbt es, wählt man ein Ei (RoeScene).
  * Wird das Tier ausgewachsen, steht einmal kurz oben im Bild unter der Lebenslinie, dass Laichzeit ist und was noch fehlt
  * (Ereignis 'spawnHint') – dann geht es wieder weg; danach zeigt nur noch das Zeichen „E“, wann es geht.
  */
@@ -320,9 +321,11 @@ export class SpawnCtl {
 
   private fertilizeOwn(b: Brood, genes?: Genes) {
     if (!b.clutch || b.clutch.fert) return;
-    game.fertilize(b.clutch.id, genes ?? game.kinTraits(this.kinIndex(1)));
+    const partner = genes ?? game.kinTraits(this.kinIndex(1));
+    game.fertilize(b.clutch.id, partner);
+    const n = game.layEggs(b.clutch, this.host.heirNow(partner)).length;
     this.miltFx(b);
-    bus.emit('notice', 'Laichen', 'Gelege befruchtet');
+    bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
   }
 
   // ---------------------------------------------------------------- Männchen
@@ -368,10 +371,13 @@ export class SpawnCtl {
     const h = this.host;
     const young = game.takeYoung();
     game.markSpawn();
-    b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner: b.mother, young });
+    const partner = b.mother;
+    b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner, young });
     b.mother = undefined;
+    // die Eier kommen auf den Stapel der nächsten Generation – so, wie dein Tier jetzt ist
+    const n = game.layEggs(b.clutch, h.heirNow(partner)).length;
     this.miltFx(b);
-    bus.emit('notice', 'Laichen', 'Gelege befruchtet');
+    bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
   }
 
   // ---------------------------------------------------------------- Gelege
@@ -447,7 +453,9 @@ export class SpawnCtl {
     for (const c of game.life.clutches) {
       if (!c.called || c.fert) continue;
       const b = this.broods.find((x) => x.clutch === c);
-      game.fertilize(c.id, b?.male?.genes ?? game.kinTraits(this.kinIndex(1)));
+      const partner = b?.male?.genes ?? game.kinTraits(this.kinIndex(1));
+      game.fertilize(c.id, partner);
+      game.layEggs(c, this.host.heirNow(partner));
     }
   }
 
