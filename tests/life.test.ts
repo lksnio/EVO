@@ -75,9 +75,9 @@ describe('Lebenszyklus', () => {
     expect(youngOf(500, 100)).toBe(5);
     expect(youngOf(99, 100)).toBe(0);
     expect(youngOf(1e6, 100)).toBe(SPAWN.maxYoung);
-    // sanft: Biss 25 % stärker → 30 je Nachkomme; dazu 10 % schneller → 34
-    expect(broodBase(0.25)).toBe(30);
-    expect(broodBase(0.35)).toBe(34);
+    // sanft: Biss 50 % stärker → 24 je Nachkomme; doppelt so stark → 28
+    expect(broodBase(0.5)).toBe(24);
+    expect(broodBase(1)).toBe(28);
     // Verschlechterungen zählen nicht
     expect(broodBase(-0.2)).toBe(20);
   });

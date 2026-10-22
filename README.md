@@ -169,8 +169,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   der Rest bleibt für das nächste Mal. **Mehrmals laichen zählt zusammen:** 50 gefressen und gelaicht ergibt 2 Nachkommen
   (10 bleiben übrig); wer später noch 10 frisst und wieder laicht, hat 3 – höchstens 24 in einem Leben. **Weiter entwickelte
   Nachfahren brauchen etwas mehr:** Jedes Prozent, um das dein ausgewachsenes Tier besser ist als der erste Fisch (Biss, Stoß,
-  Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 2 % größer. Ein um 25 %
-  stärkerer Biss heißt also 30 je Nachkomme, dazu 10 % schneller 34; die zweite Generation braucht meist 24–30.
+  Schwimmtempo, Lebenskraft, Ausdauer, Zähigkeit – zusammengezählt), macht den Grundwert um 0,4 % größer. Gebiss 15 statt
+  10 (50 % stärker) heißt also 24 je Nachkomme, Gebiss 20 (doppelt so stark) 28.
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
   Jeder Nachkomme ist ein **Ei im Laich** (siehe unten, „Der Laich“). Die
   **Übersicht (C)** zeigt die gesammelte Nahrung, den Grundwert, die Nachkommen dieses Lebens, den Laich der ganzen
@@ -240,8 +240,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     Art), danach der Stammbaum.
 - **Anpassung statt Platten:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten zur
   Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte – aber
-  **sanft**: Wer fast nur beißt, beißt in der nächsten Generation etwa 15 % kräftiger; alle Richtungen zusammen wachsen kaum
-  mehr als eine. Was sich im Leben angesammelt hat (Tarnung, Bodenkontakt, Färbung, Flossen …), geht zum Teil weiter;
+  **deutlich**: Wer fast nur beißt (gegen starke Gegner), hat in der nächsten Generation **etwa +5 bis +8 Gebiss** (Stoß,
+  Schuppen ebenso), bis die Richtung nach einigen Generationen ausgereizt ist; die **Kompromisse** (Tempo, Ausdauer) kosten
+  dabei nur **−1 bis −2**. Alle Richtungen zusammen wachsen kaum mehr als eine. Was sich im Leben angesammelt hat (Tarnung, Bodenkontakt, Färbung, Flossen …), geht zum Teil weiter;
   Größe, Robustheit und Kost passen sich an (siehe unten). Der **Partner** gibt etwas von seinem Aussehen mit. Merklich wird
   es über mehrere Generationen.
 - **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die

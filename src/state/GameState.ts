@@ -1074,7 +1074,7 @@ class GameState {
     // Jungtiere beißen und stoßen schwächer – aber nicht ganz so schwach, wie ihre Größe vermuten ließe
     const force = adult * Math.pow(k.grow, 0.6);
     const bite = b.bite * force * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
-    const ram = b.ram * force * (1 + 2.6 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth);
+    const ram = b.ram * force * (1 + 4 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth);
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
     // Verfolgungsfische halten lange durch – das zeigt ihr Körperbau allein nicht
     const chase = plateLevel(t.vf ?? 0);
@@ -1089,7 +1089,7 @@ class GameState {
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
       speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * swimMul
-        * (1 - 0.2 * Math.pow(t.jaw, 0.9) - 0.09 * t.skull - 0.04 * (t.fang ?? 0) - 0.1 * armor) * (1 - LIFE.oldSpeed * k.old),
+        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
       size: size * sizeBoost,
@@ -1102,8 +1102,8 @@ class GameState {
       digestMeat: Math.max(0.35, 1 + 0.6 * carn - 0.6 * herb),
       digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn),
       // Schwere Waffen und Panzer ermüden: starke Kiefer, ein harter Kopf und Schuppenpanzer kosten Kraft, schlanke Verfolger halten länger durch
-      endurance: clamp(1 + 0.3 * chase - 0.32 * t.jaw - 0.22 * t.skull - 0.12 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
-      recover: clamp(1 + 0.2 * chase - 0.2 * t.jaw - 0.08 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
+      endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
+      recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
       climb: 1 + 0.45 * (t.fUp ?? 0),
       dive: 1 + 0.45 * (t.fDown ?? 0),
@@ -1522,7 +1522,7 @@ class GameState {
       t.girth = clamp(start.girth + 0.4 * dg, -1, 1);
     }
     // Körperrobustheit aus überstandenen Angriffen (je robuster schon, desto weniger kommt dazu)
-    t.armor = clamp(start.armor + Math.min(S.armor, 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - start.armor)), 0, 1);
+    t.armor = clamp(start.armor + Math.min(S.armor, 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - 0.4 * start.armor)), 0, 1);
     // Ernährung aus der aufgenommenen Energie – Schritt für Schritt und nie ganz bis zum Äußersten
     const total = eaten.meat + eaten.plant;
     if (total > 0) {

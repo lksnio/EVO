@@ -65,10 +65,10 @@ export const SPAWN = {
   perYoung: 20,
   /**
    * … und so viel mehr, je weiter das Tier entwickelt ist: perGain × die Verbesserungen gegenüber dem ersten Fisch, zusammengezählt
-   * (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit). Nur das Gebiss 25 % stärker: 20 × (1 + 2 × 0,25) = 30; dazu 10 %
-   * schneller: 34. Eine Generation bringt meist 10–25 % zusammen – die zweite braucht also etwa 24–30.
+   * (Biss, Stoß, Tempo, Lebenskraft, Ausdauer, Zähigkeit). Das Gebiss 50 % stärker (15 statt 10): 20 × (1 + 0,4 × 0,5) = 24;
+   * doppelt so stark (20): 28. Eine Generation bringt bis zu etwa 50–70 % in einer Richtung.
    */
-  perGain: 2,
+  perGain: 0.4,
   /** höchstens so viele Nachkommen in einem Leben */
   maxYoung: 24,
   /** nach dem Laichen frühestens wieder nach so vielen Sekunden aktiven Lebens – fressen gehen, wiederkommen, wieder laichen */
@@ -102,17 +102,17 @@ export const SPAWN = {
  *   – Was sich im Leben angesammelt hat (Tarnung beim Verstecken, Bodenkontakt am Grund …), geht zum Teil weiter (carry).
  *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie.
  *   – Der Partner gibt etwas von seinem Aussehen mit (partner).
- * Keine Generation verändert sich zu stark – man merkt es erst über mehrere: Jede Richtung wächst höchstens um plateStep
- * ihrer vollen Ausprägung (beim Gebiss etwa 15 % Beißkraft), alle zusammen um höchstens plateTotal; Größe, Robustheit, Kost
- * und Fortgesetztes um höchstens step.
+ * Jede Generation verändert sich merklich: Jede Richtung wächst höchstens um plateStep ihrer vollen Ausprägung (beim
+ * Gebiss etwa +5 bis +8, in der Übersicht gemessen), alle zusammen um höchstens plateTotal; Größe, Robustheit (Schuppen
+ * etwa +5), Kost und Fortgesetztes um höchstens step. Die Kompromisse (Tempo, Ausdauer) kosten dabei nur −1 bis −2.
  */
 export const INHERIT = {
   /** eine Richtung wächst um plateStep × gain × Passung (höchstens plateStep): Wer fast nur stößt, bekommt den vollen Schritt */
   gain: 1.1,
   carry: 0.6,
   partner: 0.15,
-  plateStep: 0.045,
-  plateTotal: 0.065,
+  plateStep: 0.2,
+  plateTotal: 0.28,
   /**
    * Wie im Fitnessstudio: Eine Richtung wächst nur so weit, wie die Gegner es hergeben, die man damit bezwungen hat. Ihre
    * Stärke (im Verhältnis zum eigenen ausgewachsenen Tier, die drei stärksten zählen) setzt die Obergrenze der Ausprägung:
@@ -122,7 +122,7 @@ export const INHERIT = {
    */
   ceilBase: 0.3,
   ceilPer: 0.45,
-  step: { growth: 0.03, armor: 0.035, diet: 0.15, carry: 0.04, fins: 0.04 },
+  step: { growth: 0.08, armor: 0.3, diet: 0.15, carry: 0.04, fins: 0.04 },
   /**
    * Die Eier eines Laichs streuen ein wenig: Jede Fähigkeit, die die Linie schon entwickelt hat (Gebiss, Stoß, Tempo,
    * Lebenskraft, Schuppen), weicht bis zu diesem Anteil von dem ab, was das Elterntier weitergibt – Gebiss 18 wird 17 bis 19.

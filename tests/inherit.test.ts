@@ -217,21 +217,21 @@ describe('Generationswechsel', () => {
 
   it('weiter entwickelte Nachfahren brauchen mehr Nahrung je Nachkomme – aber sanft', () => {
     const bite0 = game.stats(game.cls, game.traits).bite;
-    // nur das Gebiss etwa 25 % stärker: rund 30 je Nachkomme (das Anderthalbfache)
-    game.traits.jaw = 0.089;
+    // nur das Gebiss etwa 50 % stärker (15 statt 10): rund 24 je Nachkomme
+    game.traits.jaw = 0.16;
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
-    expect(bite).toBeGreaterThan(0.2);
-    expect(bite).toBeLessThan(0.3);
-    expect(game.broodBase).toBeGreaterThanOrEqual(28);
-    expect(game.broodBase).toBeLessThanOrEqual(32);
+    expect(bite).toBeGreaterThan(0.4);
+    expect(bite).toBeLessThan(0.6);
+    expect(game.broodBase).toBeGreaterThanOrEqual(23);
+    expect(game.broodBase).toBeLessThanOrEqual(25);
     // ein schwereres Tier: stärker in vielem – deutlich mehr je Nachkomme
     game.traits.growth = 1;
     game.traits.girth = 0.6;
     expect(game.weight()).toBeGreaterThan(3);
-    expect(game.broodBase).toBeGreaterThan(40);
+    expect(game.broodBase).toBeGreaterThan(30);
   });
 
-  it('eine Generation verändert sich sanft: die zweite braucht etwa 24–32 Nahrung je Nachkomme', () => {
+  it('eine Generation verändert sich merklich – die zweite braucht etwas mehr Nahrung je Nachkomme', () => {
     game.ageBy(phases(1).mature + 60);
     // ein Leben voller Jagd auf etwas kleinere Beute
     const style = { ...newStyle(), hunt: 40, hurt: 10, fwd: 200, turns: 60, up: 30, down: 30, hab: { start: 200, murky: 100 } };
@@ -240,10 +240,35 @@ describe('Generationswechsel', () => {
     const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
     succeed(c, game.inherit({ meat: 300, plant: 100 }, style));
     const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
-    expect(bite).toBeGreaterThan(0.08);
-    expect(bite).toBeLessThan(0.2);
-    expect(game.broodBase).toBeGreaterThan(SPAWN.perYoung * 1.2);
-    expect(game.broodBase).toBeLessThan(SPAWN.perYoung * 1.6);
+    expect(bite).toBeGreaterThan(0.2);
+    expect(bite).toBeLessThan(0.6);
+    expect(game.broodBase).toBeGreaterThan(SPAWN.perYoung * 1.05);
+    expect(game.broodBase).toBeLessThan(SPAWN.perYoung * 1.4);
+  });
+
+  it('je Generation höchstens +5 bis +8 in einer Richtung – die Kompromisse kosten nur −1 bis −2', () => {
+    const v = INHERIT.vary;
+    INHERIT.vary = 0;
+    for (const kind of ['hunt', 'ram', 'hurt'] as const) {
+      game.resetAll();
+      game.newRun();
+      let prev = game.roeShown();
+      for (let gen = 0; gen < 7; gen++) {
+        const style = { ...newStyle(), [kind]: 300 };
+        for (let i = 0; i < 5; i++) noteBest(style, kind === 'hurt' ? 'hunt' : kind, 2);
+        game.ageBy(400);
+        const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
+        succeed(c, game.inherit({ meat: 50, plant: 50 }, style));
+        const now = game.roeShown();
+        const up = kind === 'hunt' ? now.bite - prev.bite : kind === 'ram' ? now.ram - prev.ram : now.scales - prev.scales;
+        expect(up).toBeLessThanOrEqual(8);
+        if (gen < 3) expect(up).toBeGreaterThanOrEqual(kind === 'ram' ? 4 : 5);
+        expect(now.speed - prev.speed).toBeGreaterThanOrEqual(-2);
+        expect(now.stam - prev.stam).toBeGreaterThanOrEqual(-2);
+        prev = now;
+      }
+    }
+    INHERIT.vary = v;
   });
 
   it('Beute gibt Futter in ganzen Brocken – nach Stärke und Größe, kleine einen, große viele', () => {
