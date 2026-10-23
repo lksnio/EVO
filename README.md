@@ -358,12 +358,11 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     Verhalten in `src/objects/Swarm.ts`. Sonst gibt es weiterhin keine Artgenossen, die frei umherschwimmen.
 - **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
-  - **Der Startort** ist ein **Fluss**, der **Laichfluss** – **klein** (gut ein Drittel so breit wie früher) und **ganz
-    sicher**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden. Außer deiner eigenen Art (Mitspieler,
-    Geschwister, Partner, die Artgenossen der Aufträge) lebt hier **kein Tier** – keine Bewohner, keine Durchzügler, keine
-    Räuber-Ereignisse, kein Gelege fremder Arten, nicht einmal in der Ferne im Hintergrund; Pflanzen und Plankton gibt es
-    trotzdem (`PlaceDef.safe` in `src/data/world.ts`). Der Fluss fällt zum Meer hin ab, erst hinter der Mündung – in den
-    anderen Orten – wartet das Leben. Ausgewachsen kehrst du hierher zurück, um zu laichen – und um an der **großen
+  - **Der Startort** ist der **Laichfluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden.
+    Im Devon leben hier locker verteilte kleine Fische und Trilobiten. Direkt an den eigenen Gelegen werden keine
+    fremden Bewohner oder Zuwanderer erzeugt; natürliche Bewegung bleibt möglich. Große Jäger wohnen erst weiter draußen.
+    Selten zieht ein einzelner größerer Raubfisch außerhalb der Kinderstube vorbei. Auch im Hintergrund ist weniger los.
+    Ausgewachsen kehrst du hierher zurück, um zu laichen – und um an der **großen
     Muschel** zu beten (siehe „Die große Muschel – beten“ weiter unten).
   - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
@@ -409,9 +408,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Die Karte liegt auf C:** Ein Wasserquerschnitt zeigt den tatsächlich erzeugten Meeresboden der drei Abschnitte,
     den Laich in Gold und das eigene Tier als hellen Punkt. **Rot ist der eigene Lebensraum**: Mit dauerhaft besseren
     Fähigkeiten und Muschelsegen reicht er weiter ins Meer. Das ist eine Orientierung, keine Zugangssperre.
-  - **Bewohner nach Tiefe:** Im Laichfluss leben viele gewöhnliche Fische und nur selten große Tiere; die Kinderstube
-    bleibt frei von gefährlichen Bewohnern. Im Tiefental häufen sich große Räuber, Seeskorpione und große Kopffüßer.
-    Dieselbe Verteilung gilt für Zuwanderer und Durchzügler. Die früheren Nebenorte werden beim Laden alter Spielstände
+  - **Bewohner nach Tiefe:** Im Laichfluss leben weniger kleine Fische und Krabbeltiere, keine großen ansässigen Jäger.
+    Größere Jäger begegnen dir im Flachwasser; die Riesen und Spitzenräuber erst im Tiefental. Für Zuwanderer gelten
+    dieselben Grenzen. Im Laichfluss kann außerhalb der Kinderstube alle **3–5 Minuten** ein einzelner größerer
+    Raubfisch vorbeiziehen; ein Großräuber wird dort nicht mehr erzwungen. Die früheren Nebenorte werden beim Laden alter Spielstände
     dem Flachwasser oder Tiefental zugeordnet; vorhandene Eier, Nahrung und Fähigkeiten bleiben erhalten.
 - **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
   großer Fisch** durchs Wasser – als **dunkle Schattenrisse**, deutlich anders als die hellen, echten Tiere. Jede Gruppe
@@ -1080,8 +1080,8 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       `src/data/karbon.ts`.
 - [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
-- [x] **Laichfluss:** Viele kleine Fische, wenige große am Flussausgang. Gefährliche Bewohner und Ereignisse bleiben
-      der Kinderstube fern; im Tiefental sind große Fische und starke Nicht-Fische deutlich häufiger.
+- [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
+      Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.
 - [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen
       Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür, höchstens
       10 Segen (der zehnte kostet 512, zusammen 1023); eine neue Linie verteilt neu. Die Chance richtet sich nach der Stärke

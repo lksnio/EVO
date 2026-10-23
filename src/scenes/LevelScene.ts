@@ -13,7 +13,7 @@ import { LIFE, MISC, STAMINA, WORLD } from '../data/life';
 import { cyclePhase, diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type LevelData, type Zone } from '../level/LevelGen';
-import { faunaAffinity } from '../sim/habitat';
+import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
@@ -2448,15 +2448,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (!passed(e.at)) continue;
       // im sicheren Startgebiet (und im stillen Fluss) tauchen keine Durchzügler auf
       if (e.kind === 'predator' && (safe || this.place.waterway === 0 || (this.L.riverEnd && this.player.x < this.L.riverEnd + 800))) continue;
+      if ((e.kind === 'predator' || e.kind === 'boss') && e.species && faunaAffinity(this.place, SPECIES[e.species], true) <= 0) continue;
       this.trigger(e);
     }
     // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im sicheren Startgebiet und nicht im stillen Fluss)
     const out = !safe && (!this.L.riverEnd || this.player.x > this.L.riverEnd + 800);
     if (out && !this.player.dead) {
-      if (!this.nextPasser) this.nextPasser = this.time.now + 9000 + Math.random() * 8000;
+      if (!this.nextPasser) this.nextPasser = this.time.now + (this.place.waterway === 0 ? passerDelay(this.place) : 9000 + Math.random() * 8000);
       else if (this.time.now > this.nextPasser) {
-        this.nextPasser = this.time.now + (26000 + Math.random() * 28000) * (this.place.waterway === 0 ? 3 : this.place.waterway === 2 ? 0.7 : 1);
-        if (this.animals.filter((a) => !a.dead && a.visitor).length < 2) this.spawnPasser();
+        this.nextPasser = this.time.now + passerDelay(this.place);
+        if (this.animals.filter((a) => !a.dead && a.visitor).length < (this.place.waterway === 0 ? 1 : 2)) this.spawnPasser();
       }
     }
   }
@@ -2563,7 +2564,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */
   /** Ein größeres Tier zieht durchs Bild – ohne Ankündigung, es sei denn, es ist ein Riese. */
   private spawnPasser() {
-    const pool = this.ep.passers.map(([id, weight]): [string, number] => [id, weight * faunaAffinity(this.place, SPECIES[id])]);
+    const pool = this.ep.passers.map(([id, weight]): [string, number] => [id, weight * faunaAffinity(this.place, SPECIES[id], true)]).filter(([, weight]) => weight > 0);
     if (!pool?.length) return;
     let x = Math.random() * pool.reduce((n, [, w]) => n + w, 0);
     let id = pool[0][0];
@@ -2575,13 +2576,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
     const d = SPECIES[id];
-    const n = d?.herd ? Math.min(3, 1 + Math.floor(Math.random() * d.herd[1])) : 1;
+    const n = this.place.waterway === 0 ? 1 : d?.herd ? Math.min(3, 1 + Math.floor(Math.random() * d.herd[1])) : 1;
     this.spawnVisitors(id, n, false, true);
   }
 
   private spawnVisitors(id: string, count: number, fast = false, ambient = false) {
     const def = SPECIES[id];
-    if (!def || !this.authority) return;
+    if (!def || !this.authority || faunaAffinity(this.place, def, true) <= 0) return;
     makeSpeciesTextures(this, def);
     const L = this.L;
     const p = this.player;
@@ -2590,8 +2591,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.x < 1100) fromLeft = false;
     if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
-    const sx = clamp(p.x - dir * (fast ? 1150 : 1000), 50, L.width - 50);
-    const endX = clamp(p.x + dir * (fast ? 2400 : 1600), 40, L.width - 40);
+    const riverMin = this.place.waterway === 0 ? (L.riverEnd ?? 0) + 300 : 0;
+    const sx = clamp(p.x - dir * (fast ? 1150 : 1000), Math.max(50, riverMin), L.width - 50);
+    const endX = clamp(p.x + dir * (fast ? 2400 : 1600), Math.max(40, riverMin), L.width - 40);
     if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
     else if (!ambient) audio.sfx('rumble');
     for (let i = 0; i < count; i++) {
@@ -2629,7 +2631,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private spawnBoss(id: string) {
     const def = SPECIES[id];
-    if (!def || this.bossA || !this.authority) return;
+    if (!def || this.bossA || !this.authority || faunaAffinity(this.place, def, true) <= 0) return;
     makeSpeciesTextures(this, def);
     const L = this.L;
     const p = this.player;
@@ -2691,6 +2693,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
             : def.layer === 'open' ? L.surfaceY + depth * (0.12 + Math.random() * 0.5)
               : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40))
       : def.habitat === 'air' ? ground - 150 : ground - 50;
+    if (nearNursery(this.place, { x, y }, this.roes)) return;
     const a = this.spawnAnimal(id, x, y);
     a.setAlpha(0);
     this.tweens.add({ targets: a, alpha: 1, duration: 800 });

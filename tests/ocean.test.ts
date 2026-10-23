@@ -4,7 +4,8 @@ import { SPECIES } from '../src/data/species';
 import { edgeNeighbor, placeOf, placesOf } from '../src/data/world';
 import { generateLevel } from '../src/level/LevelGen';
 import { oceanChart } from '../src/level/oceanChart';
-import { faunaAffinity, habitatExtent } from '../src/sim/habitat';
+import { faunaAffinity, habitatExtent, nearNursery, passerDelay } from '../src/sim/habitat';
+import { WORLD } from '../src/data/life';
 import { game } from '../src/state/GameState';
 import { TILE } from '../src/config';
 
@@ -65,12 +66,57 @@ describe('Zusammenhängendes Meer', () => {
       }
     });
     expect(counts[0].small).toBeGreaterThan(6 * counts[0].big);
-    expect(counts[0].big).toBeGreaterThan(0);
+    expect(counts[0].big).toBe(0);
     expect(counts[0].small / counts[0].width).toBeGreaterThan(counts[2].small / counts[2].width);
     expect(counts[2].big / counts[2].width).toBeGreaterThan(4 * counts[0].big / counts[0].width);
     expect(counts[2].other).toBeGreaterThan(6);
     expect(counts[2].other / counts[2].width).toBeGreaterThan(4 * counts[0].other / counts[0].width);
     expect(faunaAffinity(places[2], SPECIES.seeskorpion)).toBeGreaterThan(faunaAffinity(places[0], SPECIES.seeskorpion));
+  });
+
+  it('hält den Laichfluss dünner besiedelt und den eigenen Laich von neuen Bewohnern frei', () => {
+    for (const seed of [WORLD.seed, ...Array.from({ length: 12 }, (_, i) => `kinderstube-${i}`)]) {
+      const L = generateLevel(ep, seed, places[0]);
+      const own = L.roe.filter((r) => r.own);
+      expect(own.length).toBeGreaterThan(0);
+      expect(L.spawns.length).toBeGreaterThan(15);
+      expect(L.spawns.length).toBeLessThan(90);
+      expect(L.spawns.some((s) => SPECIES[s.id].crawl)).toBe(true);
+      for (const s of L.spawns) {
+        const d = SPECIES[s.id];
+        expect(d.art.t === 'fish' && d.power <= 5 || d.crawl && d.power <= 3).toBe(true);
+        expect(nearNursery(places[0], s, own)).toBe(false);
+        for (const roe of own) expect(Math.hypot(s.x - roe.x, s.y - roe.y)).toBeGreaterThanOrEqual(500);
+      }
+    }
+  });
+
+  it('lässt größere Jäger erst im Flachwasser und die Riesen erst im Tal wohnen oder einwandern', () => {
+    for (const id of ['cladoselache', 'rolfosteus', 'coccosteus', 'orthoceras', 'seeskorpion']) {
+      expect(faunaAffinity(places[0], SPECIES[id])).toBe(0);
+      expect(faunaAffinity(places[1], SPECIES[id])).toBeGreaterThan(0);
+    }
+    for (const id of ['hyneria', 'dunkleosteus', 'pterygotus', 'eusthenopteron']) {
+      for (const p of places.slice(0, 2)) {
+        expect(faunaAffinity(p, SPECIES[id])).toBe(0);
+        expect(faunaAffinity(p, SPECIES[id], true)).toBe(0);
+      }
+      expect(faunaAffinity(places[2], SPECIES[id])).toBeGreaterThan(0);
+    }
+    const shelf = generateLevel(ep, WORLD.seed, places[1]);
+    expect(shelf.spawns.some((s) => SPECIES[s.id].role === 'predator' && SPECIES[s.id].power >= 8)).toBe(true);
+  });
+
+  it('erlaubt im Laichfluss seltene Raubfisch-Besucher, aber keine Riesen oder regelmäßigen Rudel', () => {
+    expect(faunaAffinity(places[0], SPECIES.cladoselache, true)).toBeGreaterThan(0);
+    for (const id of ['orthoceras', 'pterygotus', 'hyneria', 'dunkleosteus']) expect(faunaAffinity(places[0], SPECIES[id], true)).toBe(0);
+    expect(passerDelay(places[0], () => 0)).toBe(180000);
+    expect(passerDelay(places[0], () => 1)).toBe(300000);
+    expect(passerDelay(places[1], () => 1)).toBeLessThan(passerDelay(places[0], () => 0));
+    const roe = [{ x: 1000, y: 700, own: true }, { x: 2400, y: 600, own: false }];
+    expect(nearNursery(places[0], { x: 1200, y: 650 }, roe)).toBe(true);
+    expect(nearNursery(places[0], { x: 2400, y: 600 }, roe)).toBe(false);
+    expect(nearNursery(places[1], { x: 1000, y: 700 }, roe)).toBe(false);
   });
 
   it('erweitert den roten Lebensraum mit wachsender Stärke stetig bis fast zum ganzen Meer', () => {

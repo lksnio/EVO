@@ -4,7 +4,7 @@ import type { EpochDef, Theme } from '../data/epochs';
 import { SHAPE_OF, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
 import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
-import { faunaAffinity } from '../sim/habitat';
+import { faunaAffinity, nearNursery } from '../sim/habitat';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 import { caveRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
@@ -278,14 +278,6 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
       put(id, cx, hunter && place.deep > 0);
     }
   }
-  // Ein paar große Fische gehören auch zum Flussausgang, selbst wenn die seltenen Würfe leer ausgingen.
-  if (place.waterway === 0 && !L.spawns.some((s) => SPECIES[s.id].power >= 8)) {
-    const large = ep.fauna.find(([id]) => {
-      const d = SPECIES[id];
-      return d.art.t === 'fish' && d.art.len >= 100 && d.power >= 8 && d.role === 'predator';
-    });
-    if (large) put(large[0], Math.round(cols * 0.76), true);
-  }
   // Im tiefsten Wasser lebt einer der ganz Großen
   const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
   if (apex && place.apex) put(apex, Math.floor(cols * 0.62), true);
@@ -470,6 +462,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   for (const sp of L.spawns) {
     for (const c of L.caves) if (sp.x > c.x - 2 * T && sp.x < c.x + c.w + 2 * T && sp.y > c.y - 5 * T) sp.y = c.y - 5 * T - 30;
   }
+  // Erst nach dem Verschieben aus Felsen prüfen: Auch einzelne Schwarmmitglieder bleiben vom eigenen Laich fern.
+  L.spawns = L.spawns.filter((s) => !nearNursery(place, s, L.roe));
   L.groundRects = groundRects(hp, rows * T);
   L.ground = Array.from({ length: cols }, (_, c) => G.at((c + 0.5) * T));
   return L;

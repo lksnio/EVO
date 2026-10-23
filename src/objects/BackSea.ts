@@ -42,7 +42,7 @@ const LAYERS: Layer[] = [
 ];
 
 /** wie dicht es in den Orten wimmelt */
-const DENSITY: Record<PlaceKind, number> = { start: 1, lush: 1.2, murky: 0.75, deep: 0.65, abyss: 0.45 };
+const DENSITY: Record<PlaceKind, number> = { start: 0.35, lush: 1.2, murky: 0.75, deep: 0.65, abyss: 0.45 };
 
 interface Member {
   img: Phaser.GameObjects.Image;
@@ -103,7 +103,7 @@ export class BackSea {
     const cam = scene.cameras.main;
     this.lastX = cam.scrollX;
     this.lastY = cam.scrollY;
-    this.bigDelay = kind === 'start' ? 4 : kind === 'deep' ? 0.7 : 1;
+    this.bigDelay = placeOf(ep, this.placeId).waterway === 0 ? 12 : kind === 'start' ? 4 : kind === 'deep' ? 0.7 : 1;
     this.bigAt = (6000 + Math.random() * 9000) * this.bigDelay;
   }
 
@@ -123,13 +123,13 @@ export class BackSea {
       if (w > 0.05) this.pool.push({ def: d, w });
       if (d.art.t === 'fish' || d.art.t === 'cone') {
         const len = d.art.len;
-        if (len >= 100) this.bigPool.push(d);
+        if (len >= 100 && faunaAffinity(place, d, true) > 0) this.bigPool.push(d);
       }
     }
     // die ganz Großen der Zeit (Herrscher und Durchzügler) tauchen nur in der Ferne auf
     for (const e of ep.events) {
       const d = e.species ? SPECIES[e.species] : undefined;
-      if (d && (d.art.t === 'fish' || d.art.t === 'cone') && !this.bigPool.includes(d)) this.bigPool.push(d);
+      if (d && (d.art.t === 'fish' || d.art.t === 'cone') && faunaAffinity(place, d, true) > 0 && !this.bigPool.includes(d)) this.bigPool.push(d);
     }
     // gibt es keinen Großen, wird der größte Fisch der Zeit einfach größer gezeigt
     if (!this.bigPool.length) {
