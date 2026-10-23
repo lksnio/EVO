@@ -1,12 +1,14 @@
 // Alle Töne werden live mit der Web Audio API erzeugt – es gibt keine Audiodateien.
 
 import { OceanScore, type ScoreMode, type ScoreMood } from './OceanScore';
+import { Piano } from './Piano';
+import { followMood, musicalTension, unit, type MusicState } from './scoreMusic';
 
 export type Sfx =
   | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
   | 'jump' | 'swim' | 'evolve' | 'fail' | 'victory' | 'death' | 'roar' | 'portal'
   | 'step' | 'unlock' | 'shoot' | 'boom' | 'splash' | 'buzz'
-  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'chomp' | 'heart' | 'rustle'
+  | 'chew' | 'growl' | 'refuse' | 'ram' | 'warn' | 'scurry' | 'squeal' | 'snarl' | 'chomp' | 'rustle'
   | 'call' | 'bond' | 'rumble' | 'extinct' | 'charge' | 'tear' | 'snub'
   | 'eatMeat' | 'eatPlant' | 'crunch' | 'shell' | 'moss' | 'travel' | 'tablet' | 'entry' | 'talk'
   | 'thud' | 'crumble' | 'blub' | 'laich'
@@ -58,13 +60,10 @@ interface TrackDef {
   root: number; // MIDI-Note
   scale: number[];
   prog: number[]; // Stufe pro Takt
-  pad?: { type: OscillatorType; v: number; filter: number };
-  bass?: { type: OscillatorType; v: number; filter: number; pat: string };
-  arp?: { type: OscillatorType; v: number; pat: number[]; oct: number; rel: number; filter?: number };
-  lead?: { type: OscillatorType; v: number; notes: (number | null)[]; oct: number; filter?: number };
-  drums?: { k: string; s: string; h: string; t?: string; v: number };
-  /** Rauschen als Klangteppich (Wind, Wasser, Brodeln) – einmal pro Takt */
-  air?: { v: number; filter: number; f2: number; q?: number };
+  pad?: { v: number };
+  bass?: { v: number; pat: string };
+  arp?: { v: number; pat: number[]; oct: number; rel: number };
+  lead?: { v: number; notes: (number | null)[]; oct: number };
 }
 
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
@@ -80,59 +79,49 @@ const TRACKS: Record<string, TrackDef> = {
   // Karte: ruhig, gedämpft, wie ein Lagerfeuer in der Nacht
   map: {
     bpm: 70, root: 50, scale: DORIAN, prog: [0, 6, 5, 0],
-    pad: { type: 'triangle', v: 0.04, filter: 900 },
-    bass: { type: 'sine', v: 0.18, filter: 420, pat: 'x.......x.....o.' },
-    arp: { type: 'triangle', v: 0.035, pat: [0, -1, -1, 2, -1, -1, 1, -1, 0, -1, -1, 3, -1, -1, 2, -1], oct: 1, rel: 0.9, filter: 1600 },
-    drums: { k: 'x...............', s: '................', h: '................', t: '........x.......', v: 0.35 },
+    pad: { v: 0.04 },
+    bass: { v: 0.18, pat: 'x.......x.....o.' },
+    arp: { v: 0.035, pat: [0, -1, -1, 2, -1, -1, 1, -1, 0, -1, -1, 3, -1, -1, 2, -1], oct: 1, rel: 0.9 },
   },
   sumpf: {
     bpm: 78, root: 47, scale: PHRYG, prog: [0, 1, 0, 6],
-    pad: { type: 'triangle', v: 0.035, filter: 700 },
-    bass: { type: 'triangle', v: 0.2, filter: 420, pat: 'x..x......x..o..' },
-    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 1, -1, -1, -1, 0, -1, 2, -1, -1, -1, 1, -1, -1, -1], oct: 1, rel: 0.25, filter: 1400 },
-    drums: { k: 'x.........x.....', s: '................', h: '.x...x...x...x.x', t: '......x.......x.', v: 0.3 },
-    air: { v: 0.03, filter: 2600, f2: 4200, q: 3 },
+    pad: { v: 0.035 },
+    bass: { v: 0.2, pat: 'x..x......x..o..' },
+    arp: { v: 0.04, pat: [0, -1, 1, -1, -1, -1, 0, -1, 2, -1, -1, -1, 1, -1, -1, -1], oct: 1, rel: 0.25 },
   },
   reptil: {
     bpm: 92, root: 45, scale: MINOR, prog: [0, 5, 6, 0],
-    pad: { type: 'sawtooth', v: 0.02, filter: 650 },
-    bass: { type: 'sawtooth', v: 0.12, filter: 420, pat: 'x..x..x.x..x..o.' },
-    arp: { type: 'square', v: 0.016, pat: [0, -1, 1, -1, 0, -1, 2, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.12, filter: 1100 },
-    drums: { k: 'x.....x...x.....', s: '................', h: '................', t: '...x.......x..x.', v: 0.55 },
-    air: { v: 0.04, filter: 500, f2: 250, q: 1 },
+    pad: { v: 0.02 },
+    bass: { v: 0.12, pat: 'x..x..x.x..x..o.' },
+    arp: { v: 0.016, pat: [0, -1, 1, -1, 0, -1, 2, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.12 },
   },
   eis: {
     bpm: 64, root: 46, scale: MINOR, prog: [0, 5, 3, 4],
-    pad: { type: 'sine', v: 0.055, filter: 900 },
-    bass: { type: 'sine', v: 0.16, filter: 380, pat: 'x...............' },
-    arp: { type: 'sine', v: 0.04, pat: [4, -1, -1, 2, -1, -1, -1, -1, 3, -1, -1, 1, -1, -1, -1, -1], oct: 2, rel: 1.6 },
-    air: { v: 0.08, filter: 900, f2: 2400, q: 0.8 },
+    pad: { v: 0.055 },
+    bass: { v: 0.16, pat: 'x...............' },
+    arp: { v: 0.04, pat: [4, -1, -1, 2, -1, -1, -1, -1, 3, -1, -1, 1, -1, -1, -1, -1], oct: 2, rel: 1.6 },
   },
   eden: {
     bpm: 72, root: 50, scale: DORIAN, prog: [0, 3, 4, 0],
-    pad: { type: 'triangle', v: 0.045, filter: 1200 },
-    bass: { type: 'triangle', v: 0.16, filter: 520, pat: 'x.....x.........' },
-    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 2, -1, 4, -1, 2, -1, 1, -1, 3, -1, 2, -1, -1, -1], oct: 1, rel: 0.6 },
-    air: { v: 0.03, filter: 1600, f2: 3000, q: 1 },
+    pad: { v: 0.045 },
+    bass: { v: 0.16, pat: 'x.....x.........' },
+    arp: { v: 0.04, pat: [0, -1, 2, -1, 4, -1, 2, -1, 1, -1, 3, -1, 2, -1, -1, -1], oct: 1, rel: 0.6 },
   },
   // Ein Spitzenräuber hat dich entdeckt
   apex: {
     bpm: 126, root: 40, scale: HARM, prog: [0, 0, 1, 0],
-    pad: { type: 'sawtooth', v: 0.022, filter: 700 },
-    bass: { type: 'sawtooth', v: 0.15, filter: 520, pat: 'x.x.x.xxx.x.x.xo' },
-    arp: { type: 'square', v: 0.02, pat: [0, -1, 1, -1, 0, -1, 1, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.08, filter: 1500 },
-    drums: { k: 'x..x..x.x..x..x.', s: '....x.......x...', h: '..x...x...x...x.', t: '.............xxx', v: 0.6 },
+    pad: { v: 0.022 },
+    bass: { v: 0.15, pat: 'x.x.x.xxx.x.x.xo' },
+    arp: { v: 0.02, pat: [0, -1, 1, -1, 0, -1, 1, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.08 },
   },
   ending: {
     bpm: 66, root: 50, scale: MAJOR, prog: [0, 3, 4, 0, 5, 3, 4, 4],
-    pad: { type: 'triangle', v: 0.05, filter: 1500 },
-    bass: { type: 'triangle', v: 0.16, filter: 600, pat: 'x.......x...o...' },
-    arp: { type: 'sine', v: 0.045, pat: [0, 1, 2, 4, 2, 1, 0, 1, 0, 1, 2, 4, 3, 2, 1, 2], oct: 1, rel: 0.8 },
-    lead: { type: 'triangle', v: 0.06, oct: 1, notes: [4, _, _, _, 5, _, 4, _, 2, _, _, _, 0, _, _, _, 1, _, _, _, 2, _, 4, _, 2, _, _, _, _, _, _, _] },
+    pad: { v: 0.05 },
+    bass: { v: 0.16, pat: 'x.......x...o...' },
+    arp: { v: 0.045, pat: [0, 1, 2, 4, 2, 1, 0, 1, 0, 1, 2, 4, 3, 2, 1, 2], oct: 1, rel: 0.8 },
+    lead: { v: 0.06, oct: 1, notes: [4, _, _, _, 5, _, 4, _, 2, _, _, _, 0, _, _, _, 1, _, _, _, 2, _, 4, _, 2, _, _, _, _, _, _, _] },
   },
 };
-
-const midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
 function degMidi(root: number, scale: number[], deg: number) {
   const n = scale.length;
@@ -145,6 +134,10 @@ class Sequencer {
   private next = 0;
   private timer = 0;
   readonly out: GainNode;
+  private piano: Piano;
+  private mood: MusicState = { depth: 0, threat: 0, injury: 0 };
+  private target: MusicState = { depth: 0, threat: 0, injury: 0 };
+  private lastTime = 0;
 
   constructor(private eng: AudioEngine, private tr: TrackDef) {
     const ctx = eng.ctx!;
@@ -152,10 +145,18 @@ class Sequencer {
     this.out.gain.value = 0.0001;
     this.out.connect(eng.musicBus!);
     this.out.gain.setTargetAtTime(1, ctx.currentTime, 0.4);
+    this.piano = new Piano(ctx, this.out);
+  }
+
+  set(m: ScoreMood) {
+    if (m.depth !== undefined) this.target.depth = unit(m.depth);
+    if (m.threat !== undefined) this.target.threat = unit(m.threat);
+    if (m.injury !== undefined) this.target.injury = unit(m.injury);
   }
 
   start() {
     this.next = this.eng.ctx!.currentTime + 0.08;
+    this.lastTime = this.eng.ctx!.currentTime;
     this.timer = window.setInterval(() => this.tick(), 25);
   }
 
@@ -164,13 +165,18 @@ class Sequencer {
     const ctx = this.eng.ctx!;
     this.out.gain.cancelScheduledValues(ctx.currentTime);
     this.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.25);
+    this.piano.stop(ctx.currentTime);
     const o = this.out;
     window.setTimeout(() => o.disconnect(), 1500);
   }
 
   private tick() {
     const ctx = this.eng.ctx!;
+    this.mood = followMood(this.mood, this.target, ctx.currentTime - this.lastTime);
+    this.lastTime = ctx.currentTime;
+    this.piano.colour(this.mood.depth, musicalTension(this.mood), ctx.currentTime);
     const stepDur = 60 / this.tr.bpm / 4;
+    if (this.next < ctx.currentTime - 0.5) this.next = ctx.currentTime + 0.05;
     while (this.next < ctx.currentTime + 0.15) {
       this.schedule(this.step, this.next, stepDur);
       this.next += stepDur;
@@ -184,26 +190,26 @@ class Sequencer {
     const bar = Math.floor(step / 16);
     const deg = tr.prog[bar % tr.prog.length];
     const chord = [0, 2, 4, 7, 9].map((i) => degMidi(tr.root, tr.scale, deg + i));
-    const e = this.eng;
-    const dest = this.out;
+    const tension = musicalTension(this.mood);
+    const note = (midi: number, duration: number, velocity: number, melody = false) => {
+      this.piano.play(midi, t, velocity, duration, { depth: this.mood.depth, tension });
+      if (melody && tension > 0.2 && step % 8 === 0) this.piano.play(midi + 1, t + 0.045, velocity * tension * 0.55, duration * 0.7, { depth: this.mood.depth, tension }, true);
+    };
     if (tr.pad && s16 === 0) {
-      for (const m of chord.slice(0, 3)) {
-        e.tone({ f: midiHz(m), d: sd * 16 + 0.3, type: tr.pad.type, v: tr.pad.v, a: 0.5, filter: tr.pad.filter, dest, t: t - e.ctx!.currentTime });
-        e.tone({ f: midiHz(m), d: sd * 16 + 0.3, type: tr.pad.type, v: tr.pad.v * 0.6, a: 0.5, filter: tr.pad.filter, dest, detune: 9, t: t - e.ctx!.currentTime });
-      }
+      for (const m of chord.slice(0, 3)) note(m, sd * 14, tr.pad.v * 4);
     }
     if (tr.bass) {
       const c = tr.bass.pat[s16];
       if (c === 'x' || c === 'o') {
         const m = (c === 'x' ? chord[0] : chord[2]) - 12;
-        e.tone({ f: midiHz(m), d: sd * 2.2, type: tr.bass.type, v: tr.bass.v, a: 0.01, filter: tr.bass.filter, dest, t: t - e.ctx!.currentTime });
+        note(m, sd * 5, tr.bass.v * 2);
       }
     }
     if (tr.arp) {
       const i = tr.arp.pat[s16];
       if (i >= 0) {
         const m = chord[i % chord.length] + 12 * tr.arp.oct;
-        e.tone({ f: midiHz(m), d: tr.arp.rel, type: tr.arp.type, v: tr.arp.v, a: 0.005, filter: tr.arp.filter, dest, t: t - e.ctx!.currentTime });
+        note(m, Math.max(1.1, tr.arp.rel), tr.arp.v * 8);
       }
     }
     if (tr.lead && step % 2 === 0) {
@@ -211,21 +217,10 @@ class Sequencer {
       const n = tr.lead.notes[idx];
       if (n !== null && n !== undefined) {
         const m = degMidi(tr.root + 12 * tr.lead.oct, tr.scale, deg + n);
-        e.tone({ f: midiHz(m), d: sd * 3.5, type: tr.lead.type, v: tr.lead.v, a: 0.02, filter: tr.lead.filter, dest, t: t - e.ctx!.currentTime });
+        note(m, sd * 6, tr.lead.v * 7, true);
       }
     }
-    if (tr.drums) {
-      const v = tr.drums.v;
-      const dt = t - e.ctx!.currentTime;
-      if (tr.drums.k[s16] === 'x') e.tone({ f: 120, f2: 40, d: 0.22, type: 'sine', v: 0.5 * v, a: 0.002, dest, t: dt });
-      if (tr.drums.s[s16] === 'x') e.noise({ d: 0.14, v: 0.22 * v, filter: 1800, type: 'bandpass', q: 0.8, dest, t: dt });
-      if (tr.drums.h[s16] === 'x') e.noise({ d: 0.04, v: 0.06 * v, filter: 7000, type: 'highpass', dest, t: dt });
-      if (tr.drums.t?.[s16] === 'x') e.tone({ f: 150, f2: 70, d: 0.3, type: 'sine', v: 0.35 * v, a: 0.003, dest, t: dt });
-    }
-    if (tr.air && s16 === 0) {
-      const bar = sd * 16;
-      e.noise({ d: bar * 1.1, a: bar * 0.45, v: tr.air.v, filter: tr.air.filter, f2: tr.air.f2, type: 'bandpass', q: tr.air.q ?? 1, dest, t: t - e.ctx!.currentTime });
-    }
+    // Preserve these tracks' notes and rhythms, but arrange all musical voices for piano, without synth pads or drums.
   }
 }
 
@@ -243,6 +238,7 @@ export class AudioEngine {
   private noiseBuf: AudioBuffer | null = null;
   private seq: Sequencer | null = null;
   private score: OceanScore | null = null;
+  private scoreMood: MusicState = { depth: 0, threat: 0, injury: 0 };
   private scoreTimer = 0;
   private track: string | null = null;
   private wanted: string | null = null;
@@ -625,13 +621,6 @@ export class AudioEngine {
         this.tone({ f: 72, f2: 54, d: 0.9, type: 'sawtooth', v: 0.1, a: 0.12, filter: 260, q: 4 });
         this.tone({ f: 60, f2: 80, d: 0.7, type: 'sawtooth', v: 0.07, a: 0.2, filter: 220, q: 3, t: 0.35 });
         break;
-      case 'heart': {
-        // k: wie viel Angst (0 … 1) – leise bei einem kleinen Jäger, laut und dumpf, wenn ein großer jagt und man fast tot ist
-        const h = k > 0 ? 0.2 + 0.8 * k : 1;
-        this.tone({ f: 62, f2: 42, d: 0.14, type: 'sine', v: 0.45 * h, a: 0.004 });
-        this.tone({ f: 58, f2: 40, d: 0.14, type: 'sine', v: 0.3 * h, a: 0.004, t: 0.2 });
-        break;
-      }
       case 'rustle':
         this.noise({ d: 0.35, v: 0.09, a: 0.08, filter: 3200, f2: 1800, type: 'bandpass', q: 0.8 });
         break;
@@ -831,6 +820,7 @@ export class AudioEngine {
       this.scoreTimer = window.setInterval(() => this.score?.tick(ctx.currentTime + 0.35), 250);
     }
     this.score.mode(m);
+    if (m === 'level') this.score.set(this.scoreMood);
   }
 
   private stopScore() {
@@ -842,7 +832,11 @@ export class AudioEngine {
 
   /** Wie es im Spiel gerade aussieht: Tiefe und Gefahr (0 … 1) – die Musik folgt weich. */
   mood(m: ScoreMood) {
+    if (m.depth !== undefined) this.scoreMood.depth = unit(m.depth);
+    if (m.threat !== undefined) this.scoreMood.threat = unit(m.threat);
+    if (m.injury !== undefined) this.scoreMood.injury = unit(m.injury);
     this.score?.set(m);
+    this.seq?.set(m);
   }
 
   /** Ein Artgenosse ist gestorben: Für einen Moment bricht die Klanglandschaft fast ganz zusammen. */
@@ -862,6 +856,7 @@ export class AudioEngine {
     this.stopScore();
     if (!name || !TRACKS[name]) return;
     this.seq = new Sequencer(this, TRACKS[name]);
+    if (name !== 'map' && name !== 'ending') this.seq.set(this.scoreMood);
     this.seq.start();
   }
 }

@@ -552,10 +552,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
   Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere
   und die Fische in der Ferne (`BackSea.see`).
-- **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
-  richtig sieht. **Je größer und stärker der Jäger** im Vergleich zu dir, desto **lauter und schneller** (ein kleiner Fisch
-  macht kaum Angst), und **je näher du dem Tod bist**, desto mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch
-  einen jagt. Mit jedem Schlag pochen die roten Bildränder einer Verletzung mit (`LevelScene.heartStep`).
+- **Musikalische Warnung:** Das laufende Klavierstück wird bei **niedriger Gesundheit** oder **Verfolgung durch einen Räuber**
+  schiefer: Die Stimmung driftet leicht auseinander, leise chromatische Nachbartöne reiben sich mit der Melodie. Auch ein
+  gewöhnlicher Räuber hinter dir zählt; größere und nähere Verfolger verstärken die Spannung. Sie löst sich nach der
+  Gefahr langsam wieder. Der frühere Herzschlag entfällt. Verletzungen bleiben an den ruhigen roten Bildrändern sichtbar.
 - **Panzerung (Schuppen):** Ein Schuppenpanzer macht **langsamer**, dafür wirft dich ein Treffer **weniger weit zurück** –
   und man fängt sich schneller (bei vollem Panzer etwa halb so weit).
 - **Stärkere Gegner:** Räuber, Riesen und Verteidiger haben deutlich mehr Lebenskraft und **richten
@@ -760,36 +760,28 @@ daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für
 
 ## Die Musik des Ozeans
 
-Ein instrumentaler Soundtrack, der live entsteht (`src/audio/OceanScore.ts`) und deshalb **nahtlos endlos** läuft, ohne sich
-zu wiederholen: **minimalistische, organische elektronische Ambient-Musik** für einen urzeitlichen, fremdartigen Ozean –
-weit, geheimnisvoll, lebendig, still schön, mit unterschwelliger Unruhe und dem Gefühl verletzlicher Existenz. Keine Stimmen,
-kein durchgehender Beat, keine heroischen Melodien, keine epische Orchestrierung, keine Trommeln, keine Schreckeffekte – und
-viel Raum für die Geräusche des Wassers, die das Spiel selbst spielt.
+Die bestehende Hintergrundmusik wird als **düsteres, melodisches Klavier** weitergeführt. Die prägenden kurzen Motive
+des Ozeans bleiben erkennbar; gebrochene Akkorde, offene Quinten, Moll, Vorhalte und eine zurückhaltende harmonische
+Mollkadenz geben ihnen den modalen Folk-Charakter klassischer düsterer Rollenspielmusik. Die Harmonik orientiert sich an
+der Stimmung der Gothic-1-Overworld- und Gitarrenstücke; die Melodien stammen weiterhin aus EVO. Auch die vorhandenen
+Stücke der anderen Bildschirme behalten ihre Tonfolgen und Rhythmen und werden für Klavier arrangiert.
 
-- **Das Tonmaterial** ist die **Obertonreihe eines tiefen D** (36,7 Hz): Alle Töne sind Vielfache davon. Flächen und
-  Glastöne klingen dadurch wie natürliche Resonanzen eines Körpers – vertraut und doch fremd (der 7., 11. und 13. Teilton
-  liegen zwischen den Tasten eines Klaviers).
-- **Es beginnt beinahe lautlos:** erst nur der Grund (ein Ton, den man mehr spürt als hört, und der Atem des Wassers), dann
-  kommen nach und nach die **Klangflächen** – drei Stimmen, die sehr langsam zwischen offenen, schwebenden Klängen wandern,
-  jede atmet für sich und schweigt manchmal ganz –, die **fließenden Resonanzen** (Rauschen, das in schmalen Bändern auf
-  Obertönen singt und langsam gleitet) und **ferne, gläserne Töne**, weit weg im Raum.
-- **Motive:** wenige prägnante Folgen aus **drei, vier Tönen** – kleine Schritte, ein unerwarteter Sprung, nie aufgelöst. Sie
-  tauchen selten auf, oft nur als Bruchstück, manchmal eine Oktave tiefer und mit einem fernen Echo; eine Stimme der Flächen
-  gleitet vorher zu ihrem ersten Ton.
-- **Pulse:** weiche, **unregelmäßige** Stöße in der Tiefe, wie ein fremdes Herz – in Ruhe kaum zu hören.
-- **Gefahr:** Kommt ein großer Räuber näher, entsteht **allmählich rhythmische Spannung**: Die Pulse werden dichter und
-  regelmäßiger, ein **gedämpftes Ostinato** aus wenigen gezupften Tönen in ungeraden Gruppen (3 + 2 + 2) setzt ein – erst
-  vereinzelt, dann dichter und heller –, die Flächen beginnen zu zittern, ein dunkler, reibender Klang schwillt an, enge
-  Dissonanzen steigen auf und vergehen. Ist die Gefahr vorüber, **gleitet alles langsam zurück in die Stille** (die
-  Spannung kommt allmählich und geht noch langsamer).
-- **Tiefe:** Höhen und Melodisches treten zurück, die Glastöne werden dumpf und tiefer, Druck, tiefe Resonanzen und ein Ächzen
-  wie von nachgebender Welt treten hervor – und lange Momente fast völliger Stille.
-- **Ein Artgenosse stirbt:** Die Klanglandschaft bricht für einen Moment fast ganz zusammen; nur eine tiefe Resonanz und zwei
-  Töne eines Motivs hallen nach, brüchig, etwas zu tief. Dann kehrt die Welt zurück.
+- **Klavierklang:** angeschlagene, leicht inharmonische Saiten mit kurzem Hammeranschlag, unterschiedlich schnell
+  verklingenden Obertönen und dezentem Raumhall. Register-Samples werden einmal im Browser erzeugt und wiederverwendet;
+  höchstens 32 Stimmen sind gleichzeitig aktiv. Es gibt keine externen Audiodateien.
+- **Niedrige Gesundheit:** Unter 45 % Lebenskraft gerät das Klavier zunehmend aus der Stimmung, auch ohne Verfolger.
+- **Räuber:** Tatsächliche Verfolgung verändert das laufende Stück, auch von hinten oder außerhalb des Sichtfelds.
+  Ungleichmäßige Stimmung und leise chromatische Nebentöne erzeugen Reibung. Verletzung und Verfolgung verstärken sich.
+  Die Warnung kommt zügig und löst sich langsam; der frühere Herzschlag und die alten Musikpulse sind entfernt.
+- **Wassertiefe:** Das Stück wird gedämpfter, etwas langsamer und räumlicher. In großer Tiefe wandert die rechte Hand
+  eine Oktave nach unten; Bass und Melodie bleiben hörbar. An Land kehrt der klarere Klang zurück.
+- **Titel und Generationenwechsel:** dieselben Motive, ruhig und ohne Gefahren-Verstimmung. Beim Tod eines Artgenossen
+  bricht eine kurze Kadenz ab, danach setzt das Stück wieder ein.
 
-Titelbild und der Einschnitt zwischen zwei Leben nutzen dieselbe Klanglandschaft, ruhiger, ohne Gefahr und mit den Motiven
-etwas öfter. Eine Hörprobe lässt sich im Browser rendern: `OceanScore` in einem `OfflineAudioContext` anlegen, Stimmung setzen
-(`set({ threat, depth })`), `tick(t)` in kleinen Schritten bis zum Ende aufrufen, dann `startRendering()`.
+`src/audio/OceanScore.ts` steuert das fortlaufende Arrangement, `Piano.ts` das Instrument und `scoreMusic.ts` die
+Harmonik und die getestete Zuordnung der Spielsignale. Für Hörproben: `OceanScore` in einem `OfflineAudioContext`
+anlegen, mit `set({ threat, depth, injury })` die Stimmung setzen, `tick(t)` in kleinen Schritten bis zum Ende planen
+und dann `startRendering()` aufrufen. Die Kontexte dürfen unterschiedliche Sample-Raten haben.
 
 ### Klänge der Bedienung
 

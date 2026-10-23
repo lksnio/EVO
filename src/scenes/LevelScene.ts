@@ -42,6 +42,7 @@ import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
 import { mix as mixColor } from '../util/color';
 import { rrect, tex } from '../util/canvas';
+import { worldMusicMood } from '../audio/scoreMusic';
 
 type PImg = Phaser.Physics.Arcade.Image;
 
@@ -204,7 +205,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** die Sicht unter Wasser: trübes Wasser überall, wohin der Fisch nicht blickt (siehe objects/Sight.ts) */
   private sight?: Sight;
   /** wann das Herz das nächste Mal schlägt (es schlägt nur, wenn dich etwas jagt) */
-  private beatAt = 0;
   private deepK = 0;
   private deepBeatAt = 0;
   private deepRumbleAt = 0;
@@ -981,7 +981,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dreadAt = now;
     this.dreadK = Math.max(this.dreadK, 0.6);
     audio.sfx('rumble');
-    for (let i = 0; i < 4; i++) this.time.delayedCall(300 + i * 650, () => !this.ended && audio.sfx('heart', 0.8));
     const p = this.player;
     for (const a of this.animals) {
       if (a.dead || a.kin || a.role !== 'prey') continue;
@@ -2290,7 +2289,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.drawStamina(p, dt);
     if (this.amphibious) this.drawOxygen(p, dt);
     this.sightStep(dt);
-    this.heartStep(time);
     for (const a of [...this.animals]) {
       try {
         a.tick(time, dt);
@@ -2709,9 +2707,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Die Musik hört mit (audio/OceanScore.ts): wie tief du bist und wie nah ein großer Räuber ist – erst recht einer, der
-   * dich jagt. Einen Wechsel zu Jagdmusik gibt es nicht: Die Spannung wächst in der Klanglandschaft selbst und vergeht
-   * langsam wieder, wenn die Gefahr vorüber ist.
+   * Das Klavier trägt die Warnung: Gesundheit, tatsächliche Verfolgung und Wassertiefe verändern das laufende Stück.
    */
   private huntMood(time: number) {
     const hunter = this.animals.find((a) => !a.dead && a.huntingPlayer && (a.visitor || a.role === 'apex'));
@@ -2726,18 +2722,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.moodAt = time + 250;
     const p = this.player, L = this.L;
     const mine = Math.max(1, p.stats.power);
-    let threat = this.cine ? 0.55 : 0;
-    for (const a of this.animals) {
-      if (a.dead || a.kin || a.ally || a.role === 'prey' || a.role === 'hazard') continue;
-      const big = a.def.power * a.sz;
-      if (!(a.role === 'apex' || a.visitor || a.boss || big >= mine * 1.4)) continue;
-      const near = clamp(1 - (Math.hypot(a.x - p.x, a.y - p.y) - 280) / 1200, 0, 1);
-      if (!near) continue;
-      const chasing = a.huntingPlayer || a.target === p || a.attacking ? 1 : 0.5;
-      threat = Math.max(threat, near * clamp(big / (mine * 2), 0.45, 1) * chasing);
-    }
-    const frac = clamp((p.y - L.surfaceY) / Math.max(300, L.height - L.surfaceY), 0, 1);
-    audio.mood({ depth: Math.max(this.deepK, clamp((frac - 0.2) / 0.8, 0, 1) * 0.55), threat });
+    const mood = worldMusicMood({ x: p.x, y: p.y, hp: p.hp, maxHp: p.stats.maxHp, power: mine, underwater: p.inWater },
+      this.animals.map((a) => ({ x: a.x, y: a.y, dead: a.dead, kin: a.kin, ally: a.ally, role: a.role,
+        power: a.def.power * a.sz,
+        hunting: a.target === p || (!a.target && (a.huntingPlayer || (a.attacking && Math.hypot(a.x - p.x, a.y - p.y) < 700))),
+        large: a.role === 'apex' || !!a.visitor || a.boss || a.def.power * a.sz >= mine * 1.4,
+      })), L.surfaceY, L.height);
+    if (this.cine) mood.threat = Math.max(0.55, mood.threat);
+    audio.mood(mood);
   }
 
   private interact(time: number, dt: number) {
@@ -2973,32 +2965,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         a.fogTint = false;
       }
     }
-  }
-
-  /**
-   * Herzklopfen: Es schlägt, solange dich ein Tier jagt – oft eines, das man im trüben Wasser gar nicht sieht. Je größer und
-   * stärker der Jäger, desto lauter und schneller (ein kleiner Fisch macht kaum Angst), und je näher man dem Tod ist, desto
-   * mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch einen jagt.
-   */
-  private heartStep(time: number) {
-    const p = this.player;
-    if (p.dead || this.ended || time < this.beatAt) return;
-    let fear = 0;
-    const mine = Math.max(0.1, this.playerPower());
-    for (const a of this.animals) {
-      if (a.dead || a.kin || a.ally || a.target !== p) continue;
-      if (!(a.st === 'hunt' || a.attacking || a.aggroUntil > time)) continue;
-      if (Math.hypot(a.x - p.x, a.y - p.y) > 1500) continue;
-      // wie stark der Jäger ist, im Vergleich zu dir: ebenbürtig macht schon Angst, doppelt so stark sehr
-      const rel = (a.def.power * a.sz) / mine;
-      fear = Math.max(fear, clamp(0.12 + 0.45 * rel, 0.12, 1));
-    }
-    if (fear <= 0) return;
-    const low = 1 - clamp(p.hp / Math.max(1, p.stats.maxHp), 0, 1);
-    const k = clamp(fear * (0.5 + 0.5 * low * low + 0.25 * low), 0, 1);
-    this.beatAt = time + 980 - 520 * k;
-    audio.sfx('heart', k);
-    bus.emit('heartbeat', k);
   }
 
   // ---------------------------------------------------------------- Tiefe
