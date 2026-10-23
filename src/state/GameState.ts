@@ -1094,6 +1094,8 @@ class GameState {
     const sizeDrag = 1.12 - 0.14 * adult;
     const scaleBase = 10 * (1 + 2 * armor);
     const baseHp = b.hp * Math.pow(adult, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor);
+    // Dauerhaft vererbte Lebenskraft lässt den Körper etwas mitwachsen; aktuelle Verletzungen und Alter zählen hier nicht.
+    const vitalitySize = Math.pow(Math.max(1, (baseHp + (t.vitality ?? 0)) / Math.max(1, baseHp)), INHERIT.vitalitySize);
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
     // Verfolgungsfische halten lange durch – das zeigt ihr Körperbau allein nicht
     const chase = plateLevel(t.vf ?? 0);
@@ -1111,8 +1113,8 @@ class GameState {
       speed: b.speed * (1 + 0.38 * t.stealth) * sizeDrag * body * (land ? 1 + 0.14 * limb : 1) * swimMul
         * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth,
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
-      // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
-      size: size * sizeBoost,
+      // Mehr vererbte Lebenskraft und Lebenssegen: ein etwas größerer Körper, ohne zusätzliche Kampf-/Tempoboni.
+      size: size * sizeBoost * vitalitySize,
       defense: clamp((1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor) * scaleBase / scalePoints(t) / (1 + mass), 0.05, 2),
       groundSpeed: 0.7 + 0.6 * limb,
       power: bite * 0.6 + ram * 0.4,
@@ -1145,6 +1147,8 @@ class GameState {
     const cls = o.cls ?? run?.cls ?? 'fish';
     // das eigene Tier bleibt sein Leben lang, wie es geschlüpft ist – es wächst nur heran und altert
     const t = o.traits ?? run?.traits ?? ZERO;
+    const grown = this.stats(cls, t, ADULT, false);
+    const biteScore = Math.round(10 * grown.bite / (CLASSES[cls].base.bite * adultSize(ZERO)));
     return {
       cls,
       size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK), !o.traits).size,
@@ -1160,6 +1164,7 @@ class GameState {
       girth: clamp((t.girth ?? 0) + (t.massGain ?? 0), -1, 1),
       swift: t.swift ?? 0,
       fang: t.fang ?? 0,
+      toothTier: Math.max(0, Math.floor((biteScore - 10) / 10)),
       light: t.light ?? 0,
       limb: t.limb ?? 0,
       grip: t.grip ?? 0,

@@ -2248,7 +2248,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = this.time.now;
     const plates = Math.max(0, -t.spike) * t.skull;
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
-    const dealt = st.ram * 0.5 * sf;
+    // 25 % mehr Trefferschaden; der Schädelwert und seine Betäubung verwenden weiterhin dieselbe Skala.
+    const dealt = st.ram * 0.625 * sf;
     const ran = a.runningFor(this.time.now);
     this.scoreHit('ram', a, ran, sf);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');

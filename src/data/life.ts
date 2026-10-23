@@ -120,6 +120,8 @@ export const INHERIT = {
   lengthStep: 0.1,
   /** Gewichtszuwachs: dieser Anteil × mittlere relative Wassertiefe. */
   massStep: 0.1,
+  /** Sichtbares Körperwachstum durch vererbte Lebenskraft: doppelte Lebensbasis → rund 15 % größer */
+  vitalitySize: 0.2,
   carry: 0.6,
   partner: 0.15,
   /**
@@ -182,7 +184,7 @@ export const UPGRADES = {
   /** Lebenskraft: so viel mehr je Segen (Anteil) – und der Körper wird ein wenig größer */
   hp: 0.025,
   /** so viel größer wird der Körper je Segen in Lebenskraft (Anteil) */
-  hpSize: 0.012,
+  hpSize: 0.018,
   /** Sicht (Anteil des ganzen Bildes vor dir): zu Beginn … */
   sight: 0.2,
   /** … und so viel mehr je Segen … */

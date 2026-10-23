@@ -266,11 +266,13 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Kämpfen** – angreifen tun nur der **Biss** (E) und der **Stoß** (R); bloßes Berühren tut
     niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
     Anfang an: Er macht kaum Schaden, **betäubt** getroffene Tiere aber **1 Sekunde beim Schädel-Grundwert 10** –
-    die Dauer steigt linear bis auf **2 Sekunden ab Schädel 100**, auch bei großen Räubern.
+    die Dauer steigt linear bis auf **2 Sekunden ab Schädel 100**, auch bei großen Räubern. Der Trefferschaden des
+    Stoßes wurde um **25 %** erhöht; der anfängliche Schädelwert bleibt **10**, ebenso die bisherige Betäubungsskala.
     Wer oft stößt, bekommt einen harten, später gepanzerten Kopf – ein Stoß tut aber auch dem **eigenen Kopf ein wenig weh**
     (mit hartem Schädel weniger). Der Biss geht **aus dem Stand**: Der Körper
     bleibt, wo er ist – nur der Kopf reißt das Maul auf, schnappt zu und knirscht mit den
-    Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
+    Kiefern – mit starkem Gebiss deutlich wuchtiger. Bei **Gebiss 20, 30, 40 …** werden die Vorderzähne sichtbar länger,
+    auch wenn der Kiefer bereits voll ausgeprägt ist. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
   - **Anlauf und Schwung:** Weder Spurt noch Stoß sind ein Blitzstart. Beim **Spurt (W)** schlägt das Tier kräftiger und wird
     über etwa eine Sekunde **langsam schneller**, nach dem Loslassen klingt das Tempo ebenso langsam ab. Beim **Stoß (R)**
@@ -506,7 +508,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Lichtschacht. Wer davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
   viele Muscheln **frei** sind, und **drei Richtungen**, in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
   danach („27 → 28“):
-  - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird etwas größer**.
+  - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird je Segen um 1,8 % größer**.
   - **Ausdauer:** ein Viertelkreis mehr (höchstens drei Kreise) – und die **Flossen werden größer und kräftiger**.
   - **Sicht:** von **20 %** aus je Segen **5 %** mehr (höchstens 100 %, siehe „Sicht“ unten) – und die **Augen werden
     größer**, die Iris leuchtet kräftiger, mit hellem Ring und einem zweiten, kleinen Lichtreflex.
@@ -641,6 +643,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   den Schuppen vor Schaden, kostet aber die Hälfte des relativen Gewichtszuwachses an Tempo. Länge und Gewicht bleiben
   ohne Änderungsanzeige. Standard: höchstens 10 % mehr Länge bei 60.000 Bildpunkten Strecke, bis 10 % mehr Gewicht bei
   voller mittlerer Wassertiefe je Generation. Die Werte sind in der Entwickler-Einstellung anpassbar.
+  Auch zusätzliche vererbte Lebenspunkte lassen den Körper etwas mitwachsen: Eine verdoppelte Lebensbasis macht ihn
+  rund **15 % größer**. Das richtet sich nach den vererbten Punkten; Verletzungen lassen das Tier nicht schrumpfen.
 - **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
   mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform und Zeitalter.
   Darunter groß die **drei übergreifenden Werte**, die die große Muschel segnet: **Lebenskraft** als Zahl, gerade und

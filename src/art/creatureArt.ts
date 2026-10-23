@@ -44,6 +44,8 @@ export interface Morph {
   swift?: number;
   /** Reißzähne, die vorn aus dem Maul stehen (viel Fleisch gefressen) */
   fang?: number;
+  /** Zusätzliche Vorderzahn-Stufe je zehn Gebisspunkte über dem Grundwert 10, auch nach maximaler Kieferausprägung */
+  toothTier?: number;
   /** Färbung: -1 dunkel (Tiefe, Schatten) … +1 hell (oben im Licht) */
   light?: number;
   /** Bodenkontakt: fleischige Stützflossen (Fisch) bzw. kräftigere Beine */
@@ -108,6 +110,7 @@ export function quantize(m: Morph): Morph {
     girth: q(m.girth ?? 0, 0.2),
     swift: q(m.swift ?? 0, 0.25),
     fang: q(m.fang ?? 0, 0.2),
+    toothTier: Math.max(0, Math.floor(m.toothTier ?? 0)),
     light: q(m.light ?? 0, 0.2),
     limb: q(m.limb ?? 0, 0.2),
     fin: q(m.fin ?? 0, 0.25),
@@ -134,7 +137,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
 }
 
 interface Pal {
@@ -966,6 +969,11 @@ function teethCount(m: Morph) {
   }
 }
 
+/** Jede Stufe bleibt sichtbar; später wächst das Gebiss langsamer, damit es zum Kopf passt. */
+function frontToothGrowth(m: Morph) {
+  return 12 * Math.log2(1 + 0.15 * Math.max(0, Math.floor(m.toothTier ?? 0)));
+}
+
 function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
   const { L, mouthY, hingeX } = hg;
   const herb = m.diet < -0.3;
@@ -979,12 +987,13 @@ function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
     const big = m.cls === 'amphibian' && m.jaw > 0.55 && i === n - 2;
     tooth(ctx, x, mouthY - 0.4, 1.6 + len * 0.45, len * (big ? 1.7 : 0.75 + 0.35 * Math.sin(t * 9 + i)), 1, herb, 0.2);
   }
-  // Reißzähne: wer viel Fleisch frisst, dem wachsen vorn lange, spitze Zähne aus dem Maul
+  // Vorderzähne wachsen auch nach voller Kieferausprägung weiter, in Zehnerschritten des Gebisswerts.
   const fg = m.fang ?? 0;
-  if (fg > 0.1 && !herb) {
-    const fl = 3 + 13 * fg;
-    tooth(ctx, L * 0.9 - 1, mouthY - 0.6, 1.8 + fl * 0.2, fl, 1, false, 0.32);
-    if (fg > 0.35) tooth(ctx, L * 0.72, mouthY - 0.6, 1.6 + fl * 0.16, fl * 0.75, 1, false, 0.28);
+  const tier = m.toothTier ?? 0;
+  if (tier > 0 || (fg > 0.1 && !herb)) {
+    const fl = Math.max(fg > 0.1 && !herb ? 3 + 13 * fg : 0, tier > 0 ? len + frontToothGrowth(m) : 0);
+    tooth(ctx, L * 0.9 - 1, mouthY - 0.6, 1.8 + fl * 0.2, fl, 1, herb, 0.32);
+    if (fg > 0.35 || tier >= 2) tooth(ctx, L * 0.72, mouthY - 0.6, 1.6 + fl * 0.16, fl * 0.75, 1, herb, 0.28);
   }
   if (m.cls === 'mammal') {
     // Eckzahn – wird bei starkem Kiefer und Fleischkost zum Säbelzahn
@@ -1317,7 +1326,8 @@ export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
   const body = part(scene, id + '_b', g.bw + 90, g.bh + 120, g.bw / 2 + 45, g.bh / 2 + 70, s, (ctx) => drawBody(ctx, m, P, g));
   const hw = hg.L + 76, hh = hg.H + 90;
   const head = part(scene, id + '_h', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawHead(ctx, m, P, hg));
-  const teeth = part(scene, id + '_t', hw, hh, 44, hg.H / 2 + 52, s, (ctx) => drawTeeth(ctx, m, hg));
+  // Mitwachsende Leinwand, damit lange Vorderzähne bei hohen Gebisswerten nicht abgeschnitten werden.
+  const teeth = part(scene, id + '_t', hw, hh + frontToothGrowth(m), 44, hg.H / 2 + 52, s, (ctx) => drawTeeth(ctx, m, hg));
   const jl = hg.L - hg.hingeX + 10;
   const jaw = part(scene, id + '_j', jl + 12, hg.jawH + 30, 6, 12, s, (ctx) => drawJaw(ctx, m, P, hg));
   const tail = part(scene, id + '_s', 120, 100, 108, 50, s, (ctx) => drawTail(ctx, m, P, g));
