@@ -74,6 +74,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   /** die Augenlider (0 offen … 1 geschlossen) */
   private lid?: Phaser.GameObjects.Graphics;
   private lidK = 0;
+  private squintK = 0;
   private lidCol = 0x3a3a2a;
   private lidEdge = 0x101010;
 
@@ -175,11 +176,20 @@ export class CreatureView extends Phaser.GameObjects.Container {
     return this;
   }
 
+  /** Beim Stoß zusammenkneifen, unabhängig von den Lidern beim Schlüpfen und Einschlafen. */
+  squint(closed: number) {
+    const k = Math.max(0, Math.min(1, closed));
+    if (k === this.squintK) return this;
+    this.squintK = k;
+    this.drawLid();
+    return this;
+  }
+
   private drawLid() {
     const g = this.lid;
     if (!g) return;
     g.clear();
-    const k = this.lidK;
+    const k = Math.max(this.lidK, this.squintK);
     if (k <= 0.01) return;
     const hg = this.L.hg, s = this.L.s;
     const x = hg.ex * s, y = hg.ey * s, r = hg.er * s * 1.14;
@@ -346,7 +356,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
       } else if (this.fin) this.fin.rotation = 0.15 + Math.sin(t * 5.5) * 0.35;
       this.bodyImg.y = bob;
       this.tailImg.y = L.tail[1] + bob;
-      this.headC.y = L.neck[1] + bob + dip * 2 * L.s;
+      this.headC.y = L.neck[1] + bob + (dip * 2 + this.headTilt * 3) * L.s;
       this.headC.rotation = Math.sin(t * sp + 1) * 0.03 + this.headTilt + shake + dip * 0.25 + biteTilt;
       return;
     }
@@ -380,7 +390,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
       this.legs[3].rotation = lb + splay;
     }
     this.bodyImg.y = bob;
-    this.headC.y = L.neck[1] + bob + dip * 4 * L.s;
+    this.headC.y = L.neck[1] + bob + (dip * 4 + this.headTilt * 3) * L.s;
     this.tailImg.y = L.tail[1] + bob;
     this.tailImg.rotation = tailR;
     this.headC.rotation = headR + this.headTilt + shake + dip * 0.45 + biteTilt;

@@ -672,8 +672,7 @@ export class HudScene extends Phaser.Scene {
     const info = text(this, W / 2 + 14, y0 + 102, `${free} frei  ·  ${total} gefunden  ·  Segen ${done} von ${UPGRADES.max}${all ? '' : `  ·  der nächste kostet ${mus(cost)}`}`, 18, UI.boneDim).setOrigin(0.5);
     c.add(info);
     c.add(this.add.image(info.x - info.width / 2 - 10, info.y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(18, 20));
-    // die Segen bisher als Punktfolge (in der Reihenfolge, in der sie kamen; golden: aus einer goldenen Geburt)
-    c.add(upTrail(this, W / 2, y0 + 130, game.upTrail, { size: 13, step: 19, perRow: 12, empty: '' }).c);
+    const trail = game.upTrail;
 
     const ups = game.ups;
     const now = game.shown(ups);
@@ -698,9 +697,8 @@ export class HudScene extends Phaser.Scene {
       const next = col.val(game.shown({ ...ups, [col.k]: ups[col.k] + 1 }));
       c.add(text(this, cx, top + 30, col.name.toUpperCase(), 14, UI.ochre, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4));
       c.add(title(this, cx, top + 84, maxed ? String(col.val(now)) : `${col.val(now)}  →  ${next}`, 34, UI.bone).setOrigin(0.5));
-      c.add(text(this, cx, top + 132, game.upMaxed(col.k) ? 'so stark, wie es geht' : col.what, 15, UI.boneDim).setOrigin(0.5));
-      const own = game.bought[col.k], gold = game.run?.gold?.key === col.k;
-      c.add(text(this, cx, top + 160, (own ? `${own}× gesegnet` : 'noch nicht gesegnet') + (gold ? '  ·  +1 golden' : ''), 14, gold ? '#e8c070' : UI.boneDim).setOrigin(0.5).setAlpha(0.8));
+      c.add(upTrail(this, cx, top + 115, trail.filter((d) => d.key === col.k), { size: 14, step: 20, perRow: 12 }).c);
+      c.add(text(this, cx, top + 151, game.upMaxed(col.k) ? 'so stark, wie es geht' : col.what, 15, UI.boneDim).setOrigin(0.5));
       const b = new Button(this, cx, top + 216, col.name, { w: 220, h: 50, color: UI.ochreN, onClick: () => this.pickShrine(col.k) });
       b.setDisabled(maxed || free < cost);
       items.push(b);

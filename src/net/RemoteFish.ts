@@ -97,6 +97,8 @@ export class RemoteFish {
     this.view.setPosition(x, y);
     this.view.setFacing(this.facing);
     const dead = this.anim === ANIM.dead;
+    this.view.headTilt = this.anim === ANIM.ram ? 0.62 : 0;
+    this.view.squint(this.anim === ANIM.ram ? 0.8 : 0);
     this.view.animate(dt, this.speed01 > 0.12 ? 'swim' : 'idle', dead ? 0 : this.speed01);
     this.view.setAlpha(this.away ? 0.45 : dead ? 0.6 : 1);
     this.label.setPosition(x, y + (this.view.L?.topY ?? -24) - 8);

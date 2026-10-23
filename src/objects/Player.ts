@@ -29,7 +29,9 @@ export interface PlayerHost extends Phaser.Scene {
 type Body = Phaser.Physics.Arcade.Body;
 
 /** So lange (ms) schlägt das Tier beim Stoß höchstens kräftiger, bevor es gleitet. */
-const CHARGE_MS = 650;
+const CHARGE_MS = 500;
+/** Nach dem Stoß kurz langsamer werden; ein weiterer Stoß wartet bis zur Erholung. */
+const RAM_RECOVERY_MS = 900;
 /** So lange (s) dauert das Einschlafen am Ende des Lebens: still werden, die Augen schließen, sanft absinken. */
 export const SLEEP_S = 3.2;
 
@@ -60,7 +62,7 @@ export class Player {
   inCover = false;
   hidden = false;
   sprinting = false;
-  /** Tempo relativ zum Normaltempo (0..~1.5) */
+  /** Tempo relativ zum Normaltempo (beim Stoß kurz bis etwa 2.8) */
   speed01 = 0;
   lastHurt = -1e9;
   /** wann zuletzt zugebissen wurde (Spielzeit in ms) – so sehen die anderen Spieler den Biss */
@@ -84,6 +86,7 @@ export class Player {
   private dashV = 0;
   private dashV0 = 0;
   private dashPeak = 0;
+  private dashChargeMs = CHARGE_MS;
   private ramReady = 0;
   private ramDir = { x: 1, y: 0 };
   /** Spurt: je länger man kräftig schlägt, desto schneller wird man (0..1) */
@@ -326,7 +329,7 @@ export class Player {
     const en = this.stats.endurance;
     // Sprint: hält je nach Körperbau kürzer oder länger
     const wantSprint = c.held.sprint && (dir !== 0 || (wet && (c.held.up || c.held.down)));
-    this.sprinting = wantSprint && !this.exhausted && this.stamina > 0.05;
+    this.sprinting = wantSprint && this.dash === 'none' && time >= this.ramReady && !this.exhausted && this.stamina > 0.05;
     const max = this.staminaMax;
     // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
     this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : 0.9));
@@ -350,7 +353,8 @@ export class Player {
       this.stamina = Math.min(max, this.stamina + dt * 0.6 * max);
       this.exhausted = false;
     }
-    const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1);
+    const ramRecovery = 1 - 0.4 * clamp((this.ramReady - time) / RAM_RECOVERY_MS, 0, 1);
+    const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) * ramRecovery;
 
     this.slipping = false;
     this.climbing = false;
@@ -387,7 +391,7 @@ export class Player {
         const gate = this.turnDir !== 0 ? clamp((this.turnT - 0.4) / 0.6, 0, 1) : 1;
         const cruise = this.stats.cruise;
         const upDown = dy < 0 ? this.stats.climb : dy > 0 ? this.stats.dive : 1;
-        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (1 + 0.3 * this.surge) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) : (dir / len) * sp * cruise * gate;
+        const vx = this.bottomWalk ? dir * this.stats.speed * this.stats.groundSpeed * (1 + 0.3 * this.surge) * hurtSlow * starving * (this.exhausted ? 0.68 : 1) * ramRecovery : (dir / len) * sp * cruise * gate;
         // Ohne Steuerung steht man nie ganz still: das Wasser trägt einen leicht nach links oder rechts
         const drift = dir === 0 && dy === 0 && !floor;
         this.driftPh += dt;
@@ -418,7 +422,7 @@ export class Player {
       }
       this.wasGround = onGround;
       // Karbon: an Land langsamer als im Wasser (kräftige Beine helfen) – und Hänge nur so steil, wie Beine und Griff es zulassen
-      const walk = amph ? this.stats.landSpeed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) : sp;
+      const walk = amph ? this.stats.landSpeed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) * ramRecovery : sp;
       let vxWant = dir * walk;
       if (amph && onGround && this.host.groundSlope) {
         const deg = (k: number) => (Math.atan(Math.abs(k)) * 180) / Math.PI;
@@ -468,15 +472,18 @@ export class Player {
       this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
-    // Stoß (R, erst mit hartem Kopf möglich): kein Blitzstart. Das Tier schlägt kräftiger und wird langsam
-    // schneller (so lange R gehalten wird, höchstens eine gute halbe Sekunde) – danach gleitet es und nutzt den
-    // aufgebauten Schwung. Genau dann stößt und beißt man am besten.
+    // Stoß (R): mit stärkerem Schädel kürzer anlaufen und schneller vorstoßen. Der Schwung klingt rasch ab;
+    // danach muss man sich kurz erholen. Für Strecke bleibt der Spurt schneller, auch gegenüber Spurt + Stoß.
     if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
       this.dash = 'charge';
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * 2.3 * this.fade;
+      const skull = clamp(game.traits.skull, 0, 1);
+      this.dashChargeMs = CHARGE_MS - 100 * skull;
+      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade;
+      this.surge = 0;
+      this.sprinting = false;
       const dy = wet ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
       const len = Math.hypot(this.facing, dy * 0.7) || 1;
       this.ramDir = { x: this.facing / len, y: (dy * 0.7) / len };
@@ -485,12 +492,12 @@ export class Player {
     if (this.dash !== 'none') {
       if (knocked) {
         this.dash = 'none';
-        this.ramReady = time + 450;
+        this.ramReady = time + RAM_RECOVERY_MS;
       } else if (this.dash === 'charge') {
         this.dashAge += dt * 1000;
-        const k = clamp(this.dashAge / CHARGE_MS, 0, 1);
+        const k = clamp(this.dashAge / this.dashChargeMs, 0, 1);
         this.dashV = this.dashV0 + (this.dashPeak - this.dashV0) * Math.pow(k, 1.5);
-        this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / CHARGE_MS);
+        this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / this.dashChargeMs);
         this.usedAt = time;
         // wer R loslässt (oder keine Kraft mehr hat), nutzt den Schwung, den er bis dahin hat
         if (k >= 1 || (!c.held.ram && this.dashAge > 220) || this.exhausted) this.dash = 'glide';
@@ -503,10 +510,13 @@ export class Player {
         if (this.dash === 'glide') this.dashAge = 0;
       } else {
         this.dashAge += dt * 1000;
-        this.dashV *= Math.exp(-dt / 0.55);
-        if (this.dashV < this.stats.speed * 1.1 || this.dashAge > 900) {
+        this.dashV *= Math.exp(-dt / 0.24);
+        if (this.dashV < (wet ? this.stats.speed : this.stats.landSpeed) * 1.05 || this.dashAge > 600) {
           this.dash = 'none';
-          this.ramReady = time + 450;
+          this.ramReady = time + RAM_RECOVERY_MS;
+          // Auch im letzten Gleit-Bild abbremsen, statt noch einen Frame im Spurt weiterzufliegen.
+          if (wet) b.setVelocity(b.velocity.x * 0.6, b.velocity.y * 0.6);
+          else b.setVelocityX(b.velocity.x * 0.6);
         }
       }
     }
@@ -531,7 +541,8 @@ export class Player {
       const m = this.momentum;
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect(), m));
     }
-    this.view.headTilt = this.dash === 'charge' ? 0.3 : this.dash === 'glide' ? 0.42 : this.sprinting ? 0.18 : 0;
+    this.view.headTilt = this.dash === 'charge' ? 0.5 : this.dash === 'glide' ? 0.62 : this.sprinting ? 0.18 : 0;
+    this.view.squint(this.dash !== 'none' ? 0.8 : 0);
 
     // Atem und Erschöpfung sichtbar machen
     const low = this.stamina / max;
@@ -549,7 +560,7 @@ export class Player {
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (speed > 25) mode = 'walk';
     // beim Anlauf schlägt der Schwanz immer kräftiger, im Gleiten liegt er ruhig
-    const beat = this.dash === 'charge' ? 0.8 + 1.1 * clamp(this.dashAge / CHARGE_MS, 0, 1) : this.dash === 'glide' ? 0.12 : Math.min(1.3, this.speed01) + 0.3 * this.surge;
+    const beat = this.dash === 'charge' ? 0.8 + 1.1 * clamp(this.dashAge / this.dashChargeMs, 0, 1) : this.dash === 'glide' ? 0.12 : Math.min(1.3, this.speed01) + 0.3 * this.surge;
     this.syncView(dt, mode, beat);
     this.view.setAlpha(time < this.invulnUntil ? (Math.floor(time / 90) % 2 ? 0.55 : 1) : this.ambush ? 0.62 : 1);
   }
@@ -673,6 +684,7 @@ export class Player {
     this.sleepAt = this.host.time.now;
     this.sprinting = false;
     this.dash = 'none';
+    this.view.squint(0);
   }
 
   private sleepStep(time: number, dt: number) {
@@ -700,6 +712,7 @@ export class Player {
 
   private die() {
     this.dead = true;
+    this.view.squint(0);
     this.body.setVelocity(0, this.wet ? -30 : -260);
     audio.sfx('death');
     this.host.tweens.add({ targets: this.view, angle: this.facing * 180, alpha: 0.5, duration: 1100, ease: 'Sine.in' });

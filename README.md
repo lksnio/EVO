@@ -277,8 +277,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     über etwa eine Sekunde **langsam schneller**, nach dem Loslassen klingt das Tempo ebenso langsam ab. Beim **Stoß (R)**
     baut es mit immer kräftigeren Flossenschlägen Tempo auf (R halten = längerer Anlauf, kurzes Antippen = kleiner Stoß), lässt
     dann die Flossen ruhen und **gleitet mit dem aufgebauten Schwung** ein Stück weiter – nach oben und unten lässt sich das
-    noch lenken. Auf diesen Moment kommt es an: Wer **im Schwung beißt**, erreicht weiter nach vorn und beißt härter; auch
-    der Zusammenstoß zählt erst bei hohem Tempo.
+    noch lenken. Mit stärkerem **Schädel** wird der Anlauf kürzer und der Stoß schneller. Dabei kneift der Fisch die Augen
+    zusammen und duckt den Kopf. Danach ist er für knapp eine Sekunde langsamer und kann noch nicht wieder stoßen oder
+    sprinten – **für schnelle Fortbewegung bleibt Sprinten am besten**. Wer **im Schwung beißt**, erreicht weiter nach vorn
+    und beißt härter; auch der Zusammenstoß zählt erst bei hohem Tempo.
   - **Wenden braucht Zeit:** Das Tier dreht nicht auf der Stelle um – es bremst, dreht sich und nimmt dann erst in die neue
     Richtung Fahrt auf. Wer oft die Richtung wechselt, wird **wendiger** (seine Seitenflossen wachsen) und dreht schneller.
     Wer hauptsächlich nach oben, nach unten oder geradeaus schwimmt, wird in dieser Richtung schneller.
@@ -691,12 +693,11 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister). Neben Gebiss, Schädel und
   Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot, „= 0“;
   ausgewachsen gemessen, mit denselben Segen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
-  Die **Muscheln** stehen rechts in der Spalte der kleinen Karten: ein Muschel-Symbol mit „× 12“, darunter die **Segen als
-  Punktfolge** – jeder Segen ein kleiner, gewölbter Stein in der Reihenfolge, in der er kam: **Lebenskraft rot, Ausdauer
-  grau, Sicht schwarz** (im Karbon Sauerstoff blau). Ein Segen aus einer **goldenen Geburt** trägt einen goldenen Ring und
-  schimmert. Beispiel: Leben (1), Leben (2), Leben (4), Ausdauer (8) – rot, rot, rot, grau; dann schlüpft ein goldenes
-  Kind (Leben) – dazu ein goldgerahmtes Rot; dann Sicht für 16 – schwarz. Dazu, wie viele Muscheln verteilt und frei sind.
-  Die Punktfolge steht auch an der großen Muschel. Die Muscheln sind klein und
+  Die **Segen** stehen als kleine Kugeln direkt unter den großen Zahlen: **Lebenskraft rot, Ausdauer grau, Sicht schwarz**
+  (im Karbon Sauerstoff blau), ohne zusätzliche Beschriftung. Zwei Segen in Lebenskraft ergeben zwei rote Kugeln.
+  Ein Segen aus einer **goldenen Geburt** hat einen dezenten goldenen statt weißen Glanzpunkt.
+  Auch an der großen Muschel stehen die Kugeln unter dem passenden Wert. Die **Muscheln** stehen rechts in der Spalte
+  der kleinen Karten: ein Muschel-Symbol mit „× 12“, darunter, wie viele verteilt und frei sind. Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist

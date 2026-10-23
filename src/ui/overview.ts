@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT } from '../config';
 import { CLASSES } from '../data/classes';
-import { game } from '../state/GameState';
+import { game, type UpKey } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { SPECIES } from '../data/species';
@@ -9,7 +9,7 @@ import { dietIcon, preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
 import { BROOD } from '../data/karbon';
 import { text, title } from './ui';
-import { upLegend, upTrail } from './upTrail';
+import { upTrail } from './upTrail';
 
 export interface OverviewData {
   morph: Morph;
@@ -107,24 +107,26 @@ export class Overview {
     const v = game.shown();
     // im Karbon segnet die große Muschel Sauerstoff statt Sicht (Sekunden an Land)
     const brood = game.brood;
-    const big = [
-      { label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
-      brood ? { label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { label: 'SICHT', value: String(v.sight) },
-      { label: 'AUSDAUER', value: String(v.stam) },
+    const trail = game.upTrail;
+    const big: { key: UpKey; label: string; value: string; of?: string }[] = [
+      { key: 'hp', label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
+      brood ? { key: 'oxy', label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { key: 'sight', label: 'SICHT', value: String(v.sight) },
+      { key: 'stam', label: 'AUSDAUER', value: String(v.stam) },
     ];
     big.forEach((b, i) => {
       const cx = mid + (i - 1) * 260;
       c.add(caps(cx, y0 + 128, b.label));
-      const val = title(scene, cx, y0 + 168, b.value, 40, UI.bone).setOrigin(0.5);
+      const val = title(scene, cx, y0 + 163, b.value, 40, UI.bone).setOrigin(0.5);
       c.add(val);
       if (b.of) {
-        const of = title(scene, 0, y0 + 174, b.of, 24, UI.boneDim).setOrigin(0, 0.5);
+        const of = title(scene, 0, y0 + 169, b.of, 24, UI.boneDim).setOrigin(0, 0.5);
         // Zahl und „/höchstens“ zusammen mittig
         const tw = val.width + 4 + of.width;
         val.setX(cx - tw / 2 + val.width / 2);
         of.setX(val.x + val.width / 2 + 4);
         c.add(of);
       }
+      c.add(upTrail(scene, cx, y0 + 195, trail.filter((d) => d.key === b.key), { size: 14, step: 20, perRow: 12 }).c);
       if (i > 0) diamond(g, mid + (i - 1.5) * 260, y0 + 152, 3.5, 0.55);
     });
 
@@ -329,17 +331,10 @@ export class Overview {
     return h;
   }
 
-  /** Die Muscheln – eine kleine Karte: das Muschel-Symbol und wie viele du hast. Eine neu gefundene lässt die Zahl aufleuchten. */
-  /**
-   * Die Muscheln: oben, wie viele du gefunden hast; darunter die Segen deiner Linie als Punktfolge – in der Reihenfolge, in
-   * der sie kamen (Lebenskraft rot, Ausdauer grau, Sicht schwarz, Sauerstoff blau; ein goldener Ring: aus einer goldenen
-   * Geburt, nur für dieses Tier).
-   */
+  /** Die Muscheln: gefunden, verteilt und frei. Eine neu gefundene lässt die Zahl aufleuchten. */
   private shellCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
     const c = this.c;
-    const trail = game.upTrail;
-    const rows = Math.max(1, Math.ceil(trail.length / 9));
-    const h = 62 + 30 + rows * 24 + 44;
+    const h = 100;
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
     const shells = game.shells;
@@ -356,16 +351,10 @@ export class Overview {
       scene.tweens.add({ targets: n, alpha: 0.55, yoyo: true, repeat: 2, duration: 520, ease: 'Sine.inOut', onComplete: () => n.active && n.setColor(UI.bone) });
       game.seenShells = shells;
     }
-    // die Segen: eine Punktfolge
     const ty = y + 66;
     g.lineStyle(1, 0xc8913c, 0.22);
     g.lineBetween(x + 24, ty, x + w - 24, ty);
-    const bought = game.upCount;
-    c.add(scene.add.text(x + 24, ty + 16, 'SEGEN', { fontFamily: TITLE_FONT, fontSize: '11px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(0, 0.5).setLetterSpacing(3));
-    c.add(text(scene, x + w - 24, ty + 16, `${game.shellsSpent} verteilt · ${game.shellsFree} frei`, 11, UI.boneDim).setOrigin(1, 0.5));
-    const tr = upTrail(scene, x + w / 2, ty + 42, trail, { size: 16, step: 23, perRow: 9, empty: bought ? '' : 'noch kein Segen' });
-    c.add(tr.c);
-    c.add(upLegend(scene, x + w / 2, ty + 42 + tr.h + 20, game.upKeys, trail.some((d) => d.gold)));
+    c.add(text(scene, x + w / 2, ty + 14, `${game.shellsSpent} verteilt · ${game.shellsFree} frei`, 11, UI.boneDim).setOrigin(0.5));
   }
 
   update(dt: number) {
