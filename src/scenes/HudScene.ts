@@ -43,6 +43,7 @@ export class HudScene extends Phaser.Scene {
   private hidden = false;
   private hurtA = 0;
   private hideA = 0;
+  private pulse = 0;
   private pauseC?: Phaser.GameObjects.Container;
   private pauseNav?: MenuNav;
   /** vor der großen Muschel: die Wahl, wofür sie segnet */
@@ -94,7 +95,7 @@ export class HudScene extends Phaser.Scene {
     this.bossShown = false;
     this.hp = 1;
     this.hidden = false;
-    this.hurtA = this.hideA = 0;
+    this.hurtA = this.hideA = this.pulse = 0;
     this.lifeFrac = 0;
     this.heir = false;
   }
@@ -221,6 +222,9 @@ export class HudScene extends Phaser.Scene {
     bus.on('notice', onNotice);
     bus.on('boss', onBoss);
     bus.on('vitals', onVitals);
+    const onBeat = (k: number) => (this.pulse = Math.max(this.pulse, k));
+    bus.on('heartbeat', onBeat);
+    this.events.once('shutdown', () => bus.off('heartbeat', onBeat));
     bus.on('ramUnlocked', onRam);
     bus.on('shell', onShell);
     // Kino-Moment: schwarze Balken oben und unten
@@ -614,11 +618,14 @@ export class HudScene extends Phaser.Scene {
     const dt = Math.min(0.05, dms / 1000);
     const ease = (cur: number, to: number, k: number) => cur + (to - cur) * Math.min(1, dt * k);
 
-    // Verletzung bleibt auch bei stummem Ton sichtbar; die akustische Warnung trägt das Klavier.
+    // Verletzung: alle vier Bildränder färben sich rot; schlägt das Herz (wenn dich etwas jagt – LevelScene.heartStep),
+    // pochen sie mit
     const hurt = this.hp < 0.6 ? Math.pow((0.6 - this.hp) / 0.6, 0.8) : 0;
     this.hurtA = ease(this.hurtA, hurt, 4);
-    this.hurtV.setAlpha(this.hurtA * 0.45);
-    this.edgeV.setAlpha(this.hurtA * 0.7);
+    this.pulse = Math.max(0, this.pulse - dt * 2.4);
+    const beat = this.pulse * (hurt > 0 ? 1 : 0);
+    this.hurtV.setAlpha(Math.min(1, this.hurtA * 0.45 + beat * 0.2));
+    this.edgeV.setAlpha(Math.min(1, this.hurtA * 0.7 + beat * 0.25));
 
     // Versteckt im Dickicht
     this.hideA = ease(this.hideA, this.hidden ? 0.6 : 0, 5);
