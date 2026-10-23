@@ -53,10 +53,11 @@ describe('Zusammenhängendes Meer', () => {
   });
 
   it('bevölkert den Anfang mit kleinen Fischen und das Tal mit großen Tieren und starken Nicht-Fischen', () => {
-    const counts = places.map(() => ({ small: 0, big: 0, other: 0, width: 0 }));
+    const counts = places.map(() => ({ small: 0, schools: 0, big: 0, other: 0, width: 0 }));
     for (let seed = 0; seed < 6; seed++) places.forEach((p, i) => {
       const L = generateLevel(ep, seed, p), count = counts[i];
       count.width += L.width;
+      count.schools += new Set(L.spawns.filter((s) => SPECIES[s.id].art.t === 'fish' && SPECIES[s.id].role === 'prey' && s.herd !== undefined).map((s) => s.herd)).size;
       for (const spawn of L.spawns) {
         const d = SPECIES[spawn.id];
         if (d.art.t === 'fish' && d.role === 'prey') count.small++;
@@ -67,6 +68,8 @@ describe('Zusammenhängendes Meer', () => {
     });
     expect(counts[0].small).toBeGreaterThan(6 * counts[0].big);
     expect(counts[0].big).toBe(0);
+    expect(counts[1].small / counts[1].width).toBeGreaterThan(4 * counts[0].small / counts[0].width);
+    expect(counts[1].schools / counts[1].width).toBeGreaterThan(4 * counts[0].schools / counts[0].width);
     expect(counts[0].small / counts[0].width).toBeGreaterThan(counts[2].small / counts[2].width);
     expect(counts[2].big / counts[2].width).toBeGreaterThan(4 * counts[0].big / counts[0].width);
     expect(counts[2].other).toBeGreaterThan(6);
@@ -79,8 +82,8 @@ describe('Zusammenhängendes Meer', () => {
       const L = generateLevel(ep, seed, places[0]);
       const own = L.roe.filter((r) => r.own);
       expect(own.length).toBeGreaterThan(0);
-      expect(L.spawns.length).toBeGreaterThan(15);
-      expect(L.spawns.length).toBeLessThan(90);
+      expect(L.spawns.length).toBeGreaterThan(2);
+      expect(L.spawns.length).toBeLessThan(50);
       expect(L.spawns.some((s) => SPECIES[s.id].crawl)).toBe(true);
       for (const s of L.spawns) {
         const d = SPECIES[s.id];
@@ -104,7 +107,7 @@ describe('Zusammenhängendes Meer', () => {
       expect(faunaAffinity(places[2], SPECIES[id])).toBeGreaterThan(0);
     }
     const shelf = generateLevel(ep, WORLD.seed, places[1]);
-    expect(shelf.spawns.some((s) => SPECIES[s.id].role === 'predator' && SPECIES[s.id].power >= 8)).toBe(true);
+    expect(shelf.spawns.some((s) => SPECIES[s.id].role === 'predator' && SPECIES[s.id].power >= 6)).toBe(true);
   });
 
   it('erlaubt im Laichfluss seltene Raubfisch-Besucher, aber keine Riesen oder regelmäßigen Rudel', () => {

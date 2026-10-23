@@ -7,13 +7,14 @@ export function faunaAffinity(place: PlaceDef, animal: SpeciesDef, passing = fal
   const i = place.waterway;
   if (i === 0) {
     if (animal.crawl && animal.power <= 3) return 1;
-    if (animal.art.t === 'fish' && animal.power <= 5) return animal.role === 'prey' ? 0.75 : 0.25;
+    if (animal.art.t === 'fish' && animal.power <= 5) return animal.role === 'prey' ? 0.2 : 0.1;
     return passing && animal.art.t === 'fish' && animal.art.len <= 120 && animal.role === 'predator' && animal.power <= 18 ? 0.15 : 0;
   }
   // Das Flachwasser hat die ersten größeren Jäger; die Riesen und Spitzenräuber leben erst im Tiefental.
   if (i === 1) {
     if (animal.boss || animal.role === 'apex' || animal.power >= 22) return 0;
     if (animal.role === 'predator' && animal.power >= 6) return 8;
+    if (animal.art.t === 'fish' && animal.role === 'prey' && animal.herd && animal.power <= 3) return 2;
   }
   if (animal.art.t === 'fish' && (animal.role === 'prey' || animal.power <= 4)) return [1.8, 1.25, 0.35][i];
   if (animal.power >= 6 && animal.art.t !== 'fish') return [0.08, 0.35, 5.5][i];

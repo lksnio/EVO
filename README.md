@@ -408,7 +408,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Die Karte liegt auf C:** Ein Wasserquerschnitt zeigt den tatsächlich erzeugten Meeresboden der drei Abschnitte,
     den Laich in Gold und das eigene Tier als hellen Punkt. **Rot ist der eigene Lebensraum**: Mit dauerhaft besseren
     Fähigkeiten und Muschelsegen reicht er weiter ins Meer. Das ist eine Orientierung, keine Zugangssperre.
-  - **Bewohner nach Tiefe:** Im Laichfluss leben weniger kleine Fische und Krabbeltiere, keine großen ansässigen Jäger.
+  - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.
+    Die größeren Schwarmbestände kleiner Beutefische sammeln sich im zweiten Gebiet, dem Flachwasser. Auch im
+    Hintergrund ist der Laichfluss deutlich ruhiger und das Flachwasser belebter.
     Größere Jäger begegnen dir im Flachwasser; die Riesen und Spitzenräuber erst im Tiefental. Für Zuwanderer gelten
     dieselben Grenzen. Im Laichfluss kann außerhalb der Kinderstube alle **3–5 Minuten** ein einzelner größerer
     Raubfisch vorbeiziehen; ein Großräuber wird dort nicht mehr erzwungen. Die früheren Nebenorte werden beim Laden alter Spielstände

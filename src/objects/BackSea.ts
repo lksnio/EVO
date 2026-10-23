@@ -42,7 +42,7 @@ const LAYERS: Layer[] = [
 ];
 
 /** wie dicht es in den Orten wimmelt */
-const DENSITY: Record<PlaceKind, number> = { start: 0.35, lush: 1.2, murky: 0.75, deep: 0.65, abyss: 0.45 };
+const DENSITY: Record<PlaceKind, number> = { start: 0.12, lush: 1.5, murky: 0.75, deep: 0.65, abyss: 0.45 };
 
 interface Member {
   img: Phaser.GameObjects.Image;

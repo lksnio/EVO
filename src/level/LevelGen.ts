@@ -212,7 +212,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
   const cols = heights.length;
   // im tiefen Wasser leben die Jäger weiter unten
   const low = Math.max(0, Math.min(0.62, place.deep / 20));
-  // Wer lebt wo? Am Start wimmelt es von kleinen Fischen, in bewachsenen Orten weiden sie in Ruhe, in der
+  // Wer lebt wo? Am Start leben wenige kleine Fische, im Flachwasser sammeln sich ihre Schwärme, in der
   // Tiefe gibt es kaum noch kleine – dafür starke, große Tiere, die dort unten warten.
   const SIZE_K: Record<string, [number, number]> = { start: [0.6, 1.25], lush: [0.3, 0.85], murky: [1, 1], deep: [2.4, 0.2], abyss: [3.2, 0.05] };
   const [bigK, smallK] = SIZE_K[place.kind] ?? [1, 1];
