@@ -20,7 +20,7 @@ export const BINDS: BindDef[] = [
   { id: 'right', label: 'Nach rechts' },
   { id: 'up', label: 'Nach oben' },
   { id: 'down', label: 'Nach unten' },
-  { id: 'bite', label: 'Beißen und Fressen', note: 'zur Laichzeit: laichen' },
+  { id: 'bite', label: 'Beißen und Fressen', note: 'am Laich: Eiübersicht öffnen' },
   { id: 'sprint', label: 'Sprinten', note: 'kostet Kraft' },
   { id: 'ram', label: 'Stoß', note: 'Anlauf nehmen' },
   { id: 'talk', label: 'Ansprechen', note: 'im Gespräch: weiter' },

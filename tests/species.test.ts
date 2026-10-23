@@ -109,4 +109,48 @@ describe('Die gemeinsame Art (Koop)', () => {
     await wait(200);
     expect(c.state.over).toBe('');
   });
+
+  it('zeigt gleichzeitige Markierungen ohne Reservierung und entfernt sie beim Wechsel oder Verlassen', async () => {
+    const a = await new Client(URL).create<SpeciesState>(SPECIES_ROOM, { epoch: 0, name: 'Anna' } satisfies SpeciesJoin, SpeciesState);
+    const b = await new Client(URL).joinById<SpeciesState>(a.roomId, { name: 'Ben' }, SpeciesState);
+    rooms.push(a, b);
+    a.send('hello', { gen: 3, pool: [egg('marka'), egg('markb')], next: [egg('markc'), egg('markd')] });
+    await until(() => b.state.pool.size === 2 && b.state.next.size === 2);
+    a.send('select', { id: 'marka' });
+    b.send('select', { id: 'marka' });
+    await until(() => a.state.selections.size === 2 && b.state.selections.size === 2);
+    expect([...a.state.selections.values()]).toEqual(['marka', 'marka']);
+    expect(a.state.pool.size).toBe(2);
+    b.send('select', { id: 'unbekannt' });
+    await wait(100);
+    expect(a.state.selections.get(b.sessionId)).toBe('marka');
+    a.send('select', { id: 'markb' });
+    await until(() => b.state.selections.get(a.sessionId) === 'markb');
+    a.send('select', { id: '' });
+    await until(() => b.state.selections.size === 1);
+    expect(b.state.selections.has(a.sessionId)).toBe(false);
+
+    // Ein Generationssprung verwirft alte Geschwister, erhält aber die Markierung eines weiterhin wartenden Eis.
+    a.send('select', { id: 'markb' });
+    b.send('select', { id: 'markd' });
+    await until(() => a.state.selections.get(b.sessionId) === 'markd');
+    const pickA = picker(a), pickB = picker(b);
+    expect((await pickA('markc')).gen).toBe(4);
+    await until(() => b.state.gen === 4 && b.state.selections.size === 1);
+    expect(b.state.selections.has(a.sessionId)).toBe(false);
+    expect(b.state.selections.get(b.sessionId)).toBe('markd');
+    expect(b.state.pool.has('markd')).toBe(true);
+
+    a.send('select', { id: 'markd' });
+    await until(() => b.state.selections.size === 2);
+    const claims = await Promise.all([pickA('markd'), pickB('markd')]);
+    expect(claims.filter((r) => r.egg).length).toBe(1);
+    await until(() => a.state.selections.size === 0 && b.state.selections.size === 0);
+    a.send('lay', { gen: 5, eggs: [egg('markleave')] });
+    await until(() => b.state.next.has('markleave'));
+    b.send('select', { id: 'markleave' });
+    await until(() => a.state.selections.size === 1);
+    await b.leave();
+    await until(() => a.state.selections.size === 0 && a.state.members.size === 1);
+  });
 });

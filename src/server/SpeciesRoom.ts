@@ -44,10 +44,16 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
       for (const raw of m.eggs.slice(0, 100)) this.place(gen, raw);
     },
     pick: (client: Client, m: SpeciesPick) => this.onPick(client, m),
+    select: (client: Client, m: { id?: unknown }) => {
+      const id = typeof m?.id === 'string' ? m.id : '';
+      if (!id) this.state.selections.delete(client.sessionId);
+      else if (!this.state.over && (this.state.pool.has(id) || this.state.next.has(id))) this.state.selections.set(client.sessionId, id);
+    },
     extinct: (client: Client, m: { cause?: unknown }) => {
       const s = this.state;
       // nur wenn wirklich nichts mehr da ist (ein anderer könnte gerade gelaicht haben)
       if (s.over || s.pool.size || s.next.size || !s.gen) return;
+      s.selections.clear();
       s.over = String(m?.cause ?? 'Zu wenige Artgenossen').slice(0, 80) || 'Zu wenige Artgenossen';
       this.broadcast('extinct', { name: s.members.get(client.sessionId) ?? '', cause: s.over, gen: s.gen } satisfies SpeciesOver);
     },
@@ -65,6 +71,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
 
   onLeave(client: Client) {
     this.state.members.delete(client.sessionId);
+    this.state.selections.delete(client.sessionId);
   }
 
   /**
@@ -83,6 +90,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
       s.gen = gen;
       s.pool.clear();
       s.next.clear();
+      s.selections.clear();
       this.known.clear();
     }
     for (const raw of pool.slice(0, SPECIES_MAX_EGGS)) this.place(gen, raw);
@@ -100,6 +108,11 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     else s.next.set(e.id, e.json);
   }
 
+  private pruneSelections() {
+    const s = this.state;
+    for (const [player, egg] of s.selections) if (!s.pool.has(egg) && !s.next.has(egg)) s.selections.delete(player);
+  }
+
   private onPick(client: Client, m: SpeciesPick) {
     const s = this.state;
     const req = num(m?.req, 0);
@@ -109,6 +122,8 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     const fromPool = s.pool.get(id);
     if (fromPool) {
       s.pool.delete(id);
+      this.pruneSelections();
+      s.selections.delete(client.sessionId);
       return reply({ req, egg: fromPool, gen: s.gen, group: 'pool' });
     }
     const fromNext = s.next.get(id);
@@ -119,6 +134,8 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     s.pool.clear();
     for (const [k, v] of s.next) s.pool.set(k, v);
     s.next.clear();
+    this.pruneSelections();
+    s.selections.delete(client.sessionId);
     reply({ req, egg: fromNext, gen: s.gen, group: 'next' });
     this.broadcast('advanced', { name: s.members.get(client.sessionId) ?? '', gen: s.gen } satisfies SpeciesAdvanced, { except: client });
   }

@@ -66,7 +66,7 @@ export class SpawnCtl {
   private wasAdult?: boolean;
   /** Weibchen, bereit: ein warmer Schimmer am Grund unter ihr */
   private nest?: Phaser.GameObjects.Image;
-  /** das Zeichen „E“: Jetzt kann gelaicht werden (über dem Laich in Reichweite bzw. über einem Weibchen am Grund) */
+  /** Das Zeichen der Aktionstaste öffnet beim Laich die Eiübersicht. */
   private prompt: Prompt;
   private touchMode: boolean;
   /** frühestens dann legt ein Weibchen deiner Art (wenn du als Männchen bereit bist) */
@@ -97,6 +97,12 @@ export class SpawnCtl {
         continue;
       }
       this.broods.push({ roe, x: roe.x, y: roe.y, at: worldNow(), mother: game.kinTraits(this.kinIndex(2)), lasting: true });
+    }
+    // Der Laichgrund bleibt auch ohne Nahrung, Partnerbesuch oder verfügbare Eier zugänglich.
+    if (host.place.kind === 'start' && !this.broods.length) {
+      const x = Math.max(100, (host.L.riverEnd ?? host.L.width * 0.25) * 0.45);
+      const b = this.addBrood(x, this.groundY(x) - 12, worldNow(), { mother: game.kinTraits(this.kinIndex(2)) });
+      b.lasting = true;
     }
     for (const b of this.broods) if (b.clutch && !b.clutch.fert) this.callMale(b, rnd(SPAWN.maleDelay));
     host.events.once('shutdown', () => this.shutdown());
@@ -182,7 +188,7 @@ export class SpawnCtl {
       let best = SPAWN.reach;
       for (const b of this.broods) {
         const d = Math.hypot(b.x - p.x, b.y - 20 - p.y);
-        if (b.mother && !b.clutch && d < best) {
+        if ((b.mother || b.clutch || b.lasting) && d < best) {
           best = d;
           this.target = b;
         }
@@ -190,22 +196,51 @@ export class SpawnCtl {
     }
     const atGround = male ? !!this.target : this.groundY(p.x) - p.y < SPAWN.ground;
     this.block = spawnBlock({ age: life.age, gen: life.gen, fed: life.fed, base: this.base, young: game.young, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
-    this.setAble(this.block === null);
-    // Laichzeit (ausgewachsen, genug gefressen, nicht gerade erst gelaicht): zeigen, was sich befruchten lässt bzw. wo es geht
-    const time4 = this.block === null || this.block === 'gelege' || this.block === 'grund' || this.block === 'ort';
+    this.setAble(!!this.target);
+    // Der dauerhafte Laich ist jederzeit erkennbar; erst die Übersicht prüft die Voraussetzungen zum Befruchten.
     // ein Weibchen vor etwas Fressbarem frisst mit E (act) – dann sagt die Zeile das auch
     const eats = !male && this.block === null && this.host.foodAhead();
-    this.marks(male && time4);
+    this.marks(male);
     this.nestHint(!male && this.block === null && !eats);
     this.tell(male, eats);
     // jetzt geht es: das Zeichen „E“ über dem Laich (Männchen) bzw. über dem Weibchen am Grund
     const t = this.target;
-    if (male && t) this.prompt.update(dt, t.x, t.y - 4, this.block === null);
+    if (male && t) this.prompt.update(dt, t.x, t.y - 4, true);
     else this.prompt.update(dt, p.x, p.y + 20, !male && this.block === null && !eats);
     // Ein Weibchen deiner Art laicht, wenn du als Männchen bereit im Laichfluss bist (und kein Laich mehr da ist)
     const ready = male && isAdult(life.age, life.gen) && this.grounds && youngOf(life.fed, this.base) >= 1 && game.young < SPAWN.maxYoung
       && life.age - life.lastSpawn >= SPAWN.cooldown;
     if (ready && !this.female && !this.broods.some((b) => b.mother) && time > this.femaleAt) this.callFemale(time);
+  }
+
+  /** Am dauerhaften Laich ansehen, unabhängig von Alter und Nahrung. */
+  visit(): boolean {
+    if (this.host.ended || this.host.player.dead || !this.target) return false;
+    this.host.openRoe();
+    return true;
+  }
+
+  get offer(): { count: number; reason: string } {
+    const life = game.life;
+    const block = spawnBlock({ age: life.age, gen: life.gen, fed: life.fed, base: this.base, young: game.young,
+      lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround: !!this.target, male: true });
+    const reason: Record<SpawnBlock, string> = {
+      jung: 'Ab der Laichzeit kannst du neue Eier befruchten.',
+      nahrung: `Noch ${Math.max(1, Math.ceil(this.base - life.fed))} Nahrung für das nächste Ei.`,
+      voll: `Bereits ${SPAWN.maxYoung} Nachkommen in diesem Leben befruchtet.`,
+      pause: 'Schwimme eine Weile weiter, bevor du erneut befruchtest.',
+      ort: 'Befruchten ist im Laichfluss möglich.',
+      grund: 'Schwimme näher an den Laich.', gelege: 'Schwimme näher an den Laich.',
+    };
+    return { count: block ? 0 : Math.min(youngOf(life.fed, this.base), SPAWN.maxYoung - game.young), reason: block ? reason[block] : '' };
+  }
+
+  /** Der eigene Knopf in der Eiübersicht: erst hier wird Nahrung zu neuen Nachkommen. */
+  fertilize(): number {
+    if (!this.target || this.host.ended || this.host.player.dead || !this.offer.count) return 0;
+    const n = this.offer.count;
+    this.fertilizeAsMale(this.target);
+    return n;
   }
 
   /**
@@ -251,7 +286,7 @@ export class SpawnCtl {
   private marks(on: boolean) {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 2.6);
     for (const b of this.broods) {
-      const show = on && !!b.mother && !b.clutch;
+      const show = on && !!(b.mother || b.clutch || b.lasting);
       if (!show) {
         if (b.mark?.visible) {
           b.mark.setVisible(false);
@@ -378,9 +413,10 @@ export class SpawnCtl {
     const h = this.host;
     const young = game.takeYoung();
     game.markSpawn();
-    const partner = b.mother;
+    const partner = b.mother ?? game.kinTraits(this.kinIndex(2));
     b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner, young });
-    b.mother = undefined;
+    b.mother = partner;
+    b.lasting = true;
     // die Eier kommen auf den Stapel der nächsten Generation – so, wie dein Tier jetzt ist
     const eggs = game.layEggs(b.clutch, h.heirNow(partner));
     this.miltFx(b);
@@ -407,7 +443,7 @@ export class SpawnCtl {
   private told(b: Brood, eggs: RoeEgg[]) {
     const n = eggs.length, gold = eggs.filter((e) => e.gold);
     if (!gold.length) {
-      bus.emit('notice', 'Laichen', `Befruchtet · ${n} ${n === 1 ? 'Ei' : 'Eier'} im Laich`);
+      bus.emit('notice', 'Laichen', `${n} ${n === 1 ? 'neues Ei' : 'neue Eier'} befruchtet · insgesamt ${game.young} Nachkommen`);
       return;
     }
     this.goldFx(b, true);

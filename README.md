@@ -173,34 +173,30 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   10 (50 % stärker) heißt also 24 je Nachkomme, Gebiss 20 (doppelt so stark) 28.
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
   Jeder Nachkomme ist ein **Ei im Laich** (siehe unten, „Der Laich“). Die
-  **Übersicht (C)** zeigt die gesammelte Nahrung, den Grundwert, die Nachkommen dieses Lebens, den Laich der ganzen
-  Generation und die wartenden Geschwister.
+  **Übersicht (C)** trennt bereits befruchtete Eier dieses Lebens und verfügbare Nahrung. Dazu stehen der Bedarf je Ei
+  und die Zahl weiterer möglicher Eier. Generation und Lebensabschnitt stehen direkt über deinem Fisch,
+  wartende Geschwister unter Länge und Gewicht.
 - **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
   Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
   eines (`SPAWN.alwaysMale` in `src/data/life.ts`, auch in der Entwickler-Einstellung).
-- **Laichen (Taste E in der Grundbelegung – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laichen“ heißt):** Ausgewachsen, **genug
-  gefressen für wenigstens einen Nachkommen** und im **Laichfluss** (dem Startort, flussaufwärts der Mündung). Laich deiner
-  eigenen Art ist nie Futter – wer zur Laichzeit E drückt, frisst also nie die eigenen Eier.
+- **Den Laich besuchen (Taste E in der Grundbelegung – dieselbe wie zum Fressen; am Handy der Biss-Knopf, der dann „Laich“ heißt):**
+  Der Laich im Startgebiet bleibt dauerhaft da. In seiner Nähe öffnet die Aktionstaste die **Eiübersicht**, auch als
+  Jungtier oder ohne Nahrung. **Weiterschwimmen / Esc** kehrt zum eigenen Tier zurück. Das Ansehen kostet keine Nahrung.
   - **In dem Moment, in dem dein Tier ausgewachsen ist**, steht einmal kurz unter der Lebenslinie, dass Laichzeit ist und was
     noch fehlt („Laichzeit · noch 18 Nahrung“) – dann geht es langsam wieder weg. Nur ein Hinweis; eine dauernde Anzeige
     gibt es nicht (wann es geht, zeigt das Zeichen „E“).
-  - **Das Zeichen „E“** (wie das „F“ zum Ansprechen) erscheint über dem Laich, sobald du nah genug bist und es geht – dann
-    E drücken (ein kurzer Druck reicht). Am Handy steht dort „···“, und der Biss-Knopf heißt „Laichen“.
-  - **Als Männchen** befruchtest du Laich deiner Art: Im **Startgebiet** liegt er schon (die Artgenossen laichen dort).
-    Zur Laichzeit ist befruchtbarer Laich **wärmer gefärbt** (orange statt rosa, mit einem leisen Schimmer) – der in
-    Reichweite noch etwas kräftiger. Schwimm hin (gut eine Fischlänge Abstand reicht – die Strömung treibt einen ab) und
-    drück E. Liegt keiner (mehr) da, kommt ein **Weibchen deiner Art** und legt ein Gelege ein Stück vor dir.
-  - **Als Weibchen** schwimmst du dicht über den Grund (dort schimmert es warm unter dir) und drückst E – dann liegt dein
-    **Gelege** am Boden. Kurz darauf kommt ein **Männchen deiner Art** vom Meer herauf, verweilt über dem Gelege und
-    **befruchtet** es (eine helle Wolke, danach schimmert das Gelege warm). Liegt vor deinem Maul gerade etwas Fressbares,
-    frisst du mit E wie immer.
-  - **Öfter laichen:** Laichen, fressen gehen, wiederkommen und noch einmal laichen – so oft man will, bis kurz vor dem
-    Tod. Nach dem Laichen dauert es nur ein paar Sekunden (8), bis es wieder geht, sobald genug Nahrung für einen weiteren
-    Nachkommen gesammelt ist; ein neues Weibchen kommt schon nach 15 Sekunden. Wer mehrmals laicht, hat mehrere Gelege –
-    ihre Nachkommen zählen zusammen (höchstens 24 in einem Leben); jedes befruchtete Gelege legt seine Eier in den Laich
-    der Generation.
-  - Ein **unbefruchtetes eigenes Gelege verdirbt** nach vier Minuten. Ein Männchen, das schon unterwegs ist, findet dein
-    Gelege auch, wenn du den Fluss verlässt.
+  - **Das Zeichen „E“** erscheint über dem Laich in Reichweite; sein warmer Schimmer wird dort kräftiger.
+    Am Handy steht über dem Laich „···“.
+  - **Befruchten:** Der eigene Knopf in der Eiübersicht zeigt, wie viele neue Eier entstehen können. Erst beim Drücken
+    (oder mit **B**) wird die gesammelte Nahrung verbraucht. Dafür musst du ausgewachsen sein und genug Nahrung für
+    wenigstens ein Ei haben. Der Laich bleibt danach zugänglich; die Meldung nennt neue Eier und die Gesamtzahl
+    bereits befruchteter Nachkommen dieses Lebens.
+  - **Öfter befruchten:** Fressen gehen, wiederkommen und weitere Eier befruchten – nach acht Sekunden aktiven Lebens
+    geht es erneut, bis höchstens 24 Nachkommen in diesem Leben erreicht sind.
+  - **Das Leben freiwillig weitergeben:** Wähle ein Geschwister oder einen Nachkommen. Erst nach der Bestätigung
+    **„Dieses Leben abschließen?“** endet dein jetziges Leben. Geschwister erhalten den Nachwuchs; mit der nächsten
+    Generation gehen übrige Geschwister verloren. Im Koop siehst du am Ei den Namen des Mitspielers, der es gerade
+    markiert. Markieren reserviert kein Ei; schlüpfen kann daraus nur einer.
 - **Einschlafen und Aufwachen:** Am Ende seines Lebens wird dein Tier langsamer, dann still – es schließt die Augen und
   sinkt sanft ab, die Kamera kommt nah heran, die Anzeigen treten zurück, das Bild wird dunkel. (Genauso, wenn du es in der
   Rast (Esc) mit **„Leben weitergeben“** selbst beendest.) Dann wählst du ein Ei aus dem Laich (siehe unten); beginnt damit
@@ -213,10 +209,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   beginnen neu.
   - **Laich zählt zusammen:** Jedes befruchtete Gelege legt seine Eier auf den **Stapel der Generation** – auch das, was
     Geschwister laichen. Legen drei Geschwister zusammen zehn Eier, wählt man in der nächsten Generation aus diesen zehn.
-  - **Die Eier tragen die Werte zur Laichzeit:** Was ein Ei verspricht, steht beim Laichen fest – so, wie dein Tier dann
-    ist und gelebt hat (siehe unten, „Anpassung“). Dazu streuen die Eier ein wenig (`INHERIT.vary`, 5,5 %): Hat dein Tier
-    Gebiss 15 und viel gegen starke Gegner gebissen, haben seine Nachkommen etwa Gebiss 18 – das eine Ei 17, das andere
-    19. Was die Linie nie entwickelt hat, streut nicht.
+  - **Die Eier tragen die Werte zur Laichzeit:** Was ein Ei verspricht, steht beim Befruchten fest – so, wie dein Tier
+    dann ist und gelebt hat (siehe unten, „Anpassung“). Jedes Ei variiert seinen neuen Zuwachs um ±50 %; bereits geerbte
+    Werte streuen dabei nicht erneut.
   - **Goldene Geburt:** Jedes Ei leuchtet mit **5 %** Wahrscheinlichkeit golden (`SPAWN.gold`). Schon beim Laichen sieht man
     es: Das Gelege färbt sich golden, goldene Funken steigen auf, „GOLDENE GEBURT · +25 % Ausdauer“. Das Tier aus einem
     goldenen Ei hat **einen Segen mehr** in einer Richtung der großen Muschel – genau so viel, wie der nächste Segen
@@ -229,8 +224,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     leuchten ocker, die stärksten Eier stehen vorn.
   - **Kein Weg zurück:** Ein Geschwister hält dich in deiner Generation (der Laich wartet weiter). Wer ein Ei der
     **nächsten Generation** wählt, beginnt sie – und **kommt nie mehr zurück**: Die übrigen Geschwister sind dann verloren,
-    der übrige Laich sind die neuen Geschwister. Solange noch Geschwister warten, fragt das Spiel deshalb noch einmal
-    („Generation 3 verlassen?“). Erst ohne Laich und ohne Geschwister stirbt die Linie aus.
+    der übrige Laich sind die neuen Geschwister. Vor jedem Schlüpfen fragt das Spiel nach; zu Lebzeiten steht dort
+    „Dieses Leben abschließen?“. Erst nach dem Tod ohne Laich und ohne Geschwister stirbt die Linie aus.
   - **Im Koop teilen alle denselben Laich** (siehe [Mehrspieler](#mehrspieler-prototyp)): Was einer laicht, liegt für alle
     da, und man wählt aus der gemeinsamen Menge – ein Ei bekommt nur, wer zuerst kommt. **Geht einer in die nächste
     Generation, kann der andere nach seinem Tod auch nur noch dorthin** (die Laich-Wahl sagt es: „Generation 2 · dein

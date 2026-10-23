@@ -12,7 +12,7 @@ import { netWanted, playerName, serverUrl } from './NetSync';
 
 interface RoomLike {
   sessionId: string;
-  state: { gen: number; pool: Map<string, string>; next: Map<string, string>; members: Map<string, string>; over: string };
+  state: { gen: number; pool: Map<string, string>; next: Map<string, string>; members: Map<string, string>; selections: Map<string, string>; over: string };
   send(type: string, m: unknown): void;
   leave(): Promise<unknown>;
   connection: { isOpen: boolean };
@@ -33,7 +33,9 @@ class SpeciesLink {
   private joining?: Promise<void>;
   private req = 1;
   private waits = new Map<number, (r: SpeciesPicked) => void>();
-  private lastGen = 0;
+  private lastLaich = '';
+  private lastMarks = '';
+  private marked = '';
 
   constructor() {
     bus.on('roeLaid', (gen: unknown, eggs: unknown) => this.lay(gen as number, eggs as RoeEgg[]));
@@ -50,6 +52,21 @@ class SpeciesLink {
     const r = this.room;
     if (!r) return [];
     return [...r.state.members.entries()].filter(([id]) => id !== r.sessionId).map(([, n]) => n);
+  }
+
+  /** Was andere Spieler gerade ansehen, mit ihrer Kennung statt einer Platznummer. */
+  get selections(): { player: string; name: string; egg: string }[] {
+    const r = this.room;
+    if (!r || !this.active) return [];
+    return [...r.state.selections.entries()].filter(([id]) => id !== r.sessionId)
+      .map(([player, egg]) => ({ player, name: r.state.members.get(player) ?? 'Artgenosse', egg }));
+  }
+
+  mark(id: string | null) {
+    const next = id ?? '';
+    if (!this.active || (next !== '' && this.marked === next)) return;
+    this.marked = next;
+    this.room!.send('select', { id: next });
   }
 
   /** In diesem Zeitalter mit der gemeinsamen Art verbinden (einmal; ein anderes Zeitalter: neu). */
@@ -73,7 +90,11 @@ class SpeciesLink {
         advanced: (m: SpeciesAdvanced) => bus.emit('speciesAdvanced', m.name, m.gen),
         over: (m: SpeciesOver) => bus.emit('speciesOver', m.name, m.cause, m.gen),
         closed: () => {
-          if (this.room === room) this.room = undefined;
+          if (this.room === room) {
+            this.room = undefined;
+            this.marked = '';
+            bus.emit('speciesSelection');
+          }
         },
       })) as unknown as RoomLike;
       if (this.epoch !== epoch) {
@@ -96,9 +117,17 @@ class SpeciesLink {
     const r = this.room;
     const run = game.run;
     if (!r || !r.state.gen || r.state.over || !run || run.epoch !== this.epoch || run.brood) return;
-    game.syncShared(r.state.gen, list(r.state.pool), list(r.state.next));
-    if (r.state.gen !== this.lastGen) this.lastGen = r.state.gen;
-    bus.emit('species');
+    const laich = JSON.stringify([r.state.gen, [...r.state.pool], [...r.state.next]]);
+    const marks = JSON.stringify([[...r.state.selections], [...r.state.members]]);
+    if (laich !== this.lastLaich) {
+      this.lastLaich = laich;
+      game.syncShared(r.state.gen, list(r.state.pool), list(r.state.next));
+      bus.emit('species');
+    }
+    if (marks !== this.lastMarks) {
+      this.lastMarks = marks;
+      bus.emit('speciesSelection');
+    }
   }
 
   /** Gelaicht: an die Art (Eier der Generation gen). */
@@ -139,7 +168,9 @@ class SpeciesLink {
     const r = this.room;
     this.room = undefined;
     this.epoch = -1;
-    this.lastGen = 0;
+    this.lastLaich = '';
+    this.lastMarks = '';
+    this.marked = '';
     if (r) void r.leave().catch(() => undefined);
   }
 }

@@ -3410,12 +3410,36 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
   }
 
-  /** E gedrückt: Ist Laichzeit und gerade die Gelegenheit, wird gelaicht statt gebissen (Spieler, Player.update). */
+  /** Aktion am Laich öffnet die Eiübersicht statt zuzubeißen (Spieler, Player.update). */
   spawnAct() {
     const sp = this.spawning;
     if (!sp || this.ended) return false;
-    // ein Weibchen, das gerade vor etwas Fressbarem ist, frisst lieber
-    return sp.act(this.foodAhead());
+    return sp.visit();
+  }
+
+  /** Die Eiübersicht zu Lebzeiten öffnen; zurückkehren lässt das Tier am selben Ort weiterleben. */
+  openRoe() {
+    if (this.ended || this.player.dead || this.scene.isActive('Roe') || this.quest?.busy || this.hunt?.busy || this.cineActive) return;
+    this.controls.clear();
+    this.scene.pause('Hud');
+    this.scene.launch('Roe', { epoch: this.epochIdx, cause: 'Das Leben weitergeben', years: worldYears(this.ep.from, this.ep.to), living: true } satisfies RoeData);
+    this.scene.pause();
+  }
+
+  /** Erst nach einer bestätigten, erfolgreichen Ei-Wahl das laufende Level abschließen. */
+  finishRoeVisit() {
+    this.spawning?.settle();
+    this.swarm?.storeAll();
+    this.ended = true;
+    this.scene.stop('Hud');
+    this.scene.stop();
+  }
+
+  resumeRoeVisit() {
+    this.controls.clear();
+    audio.music(this.ep.music);
+    this.scene.resume('Hud');
+    this.scene.resume();
   }
 
   /** Liegt gerade etwas Fressbares (oder ein Tier) vor dem Maul? */

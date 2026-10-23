@@ -882,9 +882,9 @@ export class HudScene extends Phaser.Scene {
     this.touchBtn(220, 610, 46, '▶', 'right');
     this.touchBtn(150, 540, 40, '▲', 'up');
     this.touchBtn(150, 680, 36, '▼', 'down');
-    // zur Laichzeit laicht derselbe Knopf (wie E)
+    // Am Laich öffnet derselbe Knopf die Eiübersicht (wie E).
     const bite = this.touchBtn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
-    const onAble = (on: boolean) => bite.setText(on ? 'Laichen' : 'Biss');
+    const onAble = (on: boolean) => bite.setText(on ? 'Laich' : 'Biss');
     bus.on('spawnable', onAble);
     this.events.once('shutdown', () => bus.off('spawnable', onAble));
     this.touchBtn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);

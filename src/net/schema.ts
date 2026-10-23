@@ -89,6 +89,8 @@ export const SpeciesState = schema(
     next: t.map('string'),
     /** wer mitspielt (Kennung → Name) */
     members: t.map('string'),
+    /** Momentan markiertes Ei je Spieler; eine Markierung reserviert kein Ei. */
+    selections: t.map('string'),
     /** ausgestorben: warum (sonst leer) */
     over: t.string(),
   },

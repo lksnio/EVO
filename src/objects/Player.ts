@@ -12,7 +12,7 @@ import { breathe, climbCost } from '../sim/brood';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect, momentum?: number): void;
-  /** Zur Laichzeit: E laicht (befruchtet bzw. legt ab), statt zu beißen – true, wenn gelaicht wurde */
+  /** Aktion am Laich öffnet die Eiübersicht statt zuzubeißen. */
   spawnAct?(): boolean;
   puff(x: number, y: number, n: number, tint?: number): void;
   bleed(x: number, y: number, n: number): void;

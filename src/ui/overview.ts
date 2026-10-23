@@ -8,6 +8,7 @@ import { SPECIES } from '../data/species';
 import { dietIcon, preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
 import { BROOD } from '../data/karbon';
+import { SPAWN } from '../data/life';
 import { text, title } from './ui';
 import { upTrail } from './upTrail';
 
@@ -161,9 +162,9 @@ export class Overview {
       c.add(val);
       const k = dkey[b.label];
       const dv = delta && k ? delta[k] ?? 0 : null;
-      if (dv !== null) {
+      if (dv !== null && dv !== 0) {
         const up = dv > 0, down = dv < 0;
-        const tag = text(scene, cx + val.width / 2 + 8, by + 42, up ? `▲ ${dv}` : down ? `▼ ${-dv}` : '= 0', 13, up ? '#9cd07e' : down ? '#e08872' : '#6c6454', { fontStyle: '700' }).setOrigin(0, 0.5);
+        const tag = text(scene, cx + val.width / 2 + 8, by + 42, up ? `▲ ${dv}` : `▼ ${-dv}`, 13, up ? '#9cd07e' : '#e08872', { fontStyle: '700' }).setOrigin(0, 0.5);
         c.add(tag);
         if (up || down) {
           const glow = scene.add.image(tag.x + tag.width / 2, tag.y, 'glow').setTint(up ? 0x7cc860 : 0xe06a50).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(tag.width + 26, 22).setAlpha(0.14);
@@ -175,7 +176,6 @@ export class Overview {
         g.lineBetween(cx - step / 2, by + 6, cx - step / 2, by + 48);
       }
     });
-    if (delta) c.add(text(scene, mid, by + 74, 'gegenüber der vorigen Generation (ausgewachsen)', 11, '#6c6454', { fontStyle: 'italic' }).setOrigin(0.5));
     rule(g, x0 + 70, x0 + w - 70, y0 + 300, 0.25);
 
     // zwischen den Spalten eine kaum sichtbare Linie
@@ -198,9 +198,12 @@ export class Overview {
     };
 
     // ---- links: das Tier selbst und sein Körper
+    head(colL, y0 + 334, 'LEBEN');
+    const stage = brood ? (brood.phase === 'young' ? 'Larve' : 'Vierfüßer') : STAGE_NAME[stageOf(life.age, life.gen)];
+    c.add(text(scene, colL + colW / 2, y0 + 364, `Generation ${brood?.gen ?? life.gen} · ${stage}`, 17, UI.bone).setOrigin(0.5));
     // das Tier etwa gleich groß im Bild – ein Jungtier etwas näher, ein großes etwas ferner
-    const px = colL + colW / 2, py = y0 + 400, scale = 1.45 * Math.min(2.4, Math.max(0.75, 1 / Math.max(0.1, d.morph.size)));
-    c.add(scene.add.image(px, py + 58, 'shadow').setDisplaySize(230, 20).setAlpha(0.45));
+    const px = colL + colW / 2, py = y0 + 422, scale = 1.45 * Math.min(2.4, Math.max(0.75, 1 / Math.max(0.1, d.morph.size)));
+    c.add(scene.add.image(px, py + 46, 'shadow').setDisplaySize(230, 20).setAlpha(0.45));
     this.portrait = new CreatureView(scene, px, py, { ...d.morph, belly: 1 }, scale);
     if (this.portrait.L.land) this.portrait.setY(py + 56 - this.portrait.L.footY * scale);
     this.portrait.setFacing(1);
@@ -220,9 +223,7 @@ export class Overview {
     y = y0 + 334;
     if (brood) {
       head(colR, y, 'DAS GELEGE');
-      row(colR, (y += 32), 'Generation', String(brood.gen));
-      row(colR, (y += 28), 'Eier im Nest', nf(brood.eggs));
-      row(colR, (y += 28), 'Abschnitt', brood.phase === 'young' ? 'Larve' : 'Vierfüßer');
+      row(colR, (y += 32), 'Eier im Nest', nf(brood.eggs));
       if (brood.phase === 'young') row(colR, (y += 28), 'Nahrung', `${nf(Math.floor(brood.food))} / ${nf(BROOD.food)}`);
       else row(colR, (y += 28), 'Neues Gelege in', `${Math.floor(brood.left / 60)}:${`${Math.ceil(brood.left) % 60}`.padStart(2, '0')}`);
       y += 40;
@@ -235,23 +236,37 @@ export class Overview {
       scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
       return;
     }
-    head(colR, y, 'LEBEN');
-    row(colR, (y += 32), 'Generation', String(life.gen));
-    row(colR, (y += 28), 'Lebensabschnitt', STAGE_NAME[stageOf(life.age, life.gen)]);
-    const group = game.swarm?.members.length ?? 0;
-    if (group > 0) row(colR, (y += 28), 'Deine Gruppe', nf(group));
-    else if (d.kin > 0) row(colR, (y += 28), 'Artgenossen', nf(d.kin));
-
-    // was gefressen wurde, wird beim Laichen zu Nachwuchs (siehe SPAWN)
-    y += 40;
     head(colR, y, 'NACHWUCHS');
-    y += 42;
-    const food = title(scene, 0, y, `${nf(game.young)}, ${nf(Math.floor(life.fed))}`, 32, UI.bone).setOrigin(0, 0.5);
-    const perEgg = title(scene, 0, y + 3, `/${nf(game.broodBase)}`, 20, UI.boneDim).setOrigin(0, 0.5);
-    const totalWidth = food.width + perEgg.width + 3;
-    food.setX(colR + colW / 2 - totalWidth / 2);
-    perEgg.setX(food.x + food.width + 3);
-    c.add([food, perEgg]);
+    // Zwei ruhige Zahlenspalten: echte Nachkommen und noch verfügbare Nahrung.
+    const top = y + 26, left = colR + colW / 4, right = colR + colW * 3 / 4;
+    g.fillStyle(0x000000, 0.22);
+    g.fillRoundedRect(colR, top, colW, 240, 6);
+    g.lineStyle(1, 0xc8913c, 0.2);
+    g.lineBetween(colR + colW / 2, top + 20, colR + colW / 2, top + 112);
+    c.add(text(scene, left, top + 27, 'BEFRUCHTETE EIER', 11, UI.ochre).setOrigin(0.5).setLetterSpacing(1));
+    c.add(title(scene, left, top + 66, nf(game.young), 38, UI.bone).setOrigin(0.5));
+    c.add(text(scene, left, top + 99, 'in diesem Leben', 13, UI.boneDim).setOrigin(0.5));
+    c.add(text(scene, right, top + 27, 'NAHRUNG', 11, UI.ochre).setOrigin(0.5).setLetterSpacing(1));
+    c.add(title(scene, right, top + 66, nf(Math.floor(life.fed)), 38, UI.bone).setOrigin(0.5));
+    c.add(text(scene, right, top + 99, `${nf(game.broodBase)} je Ei`, 13, UI.boneDim).setOrigin(0.5));
+    const ready = Math.min(Math.floor(life.fed / game.broodBase), SPAWN.maxYoung - game.young);
+    const full = game.young >= SPAWN.maxYoung;
+    const barX = colR + 24, barY = top + 134, barW = colW - 48;
+    g.fillStyle(0x000000, 0.45);
+    g.fillRoundedRect(barX, barY, barW, 5, 2.5);
+    const fill = Math.min(1, life.fed / game.broodBase);
+    if (fill > 0) {
+      g.fillStyle(full ? 0x66604d : 0xc8913c, 0.85);
+      g.fillRoundedRect(barX, barY, Math.max(5, barW * fill), 5, 2.5);
+    }
+    const status = full ? 'Dein Nachwuchs ist vollständig.' : ready
+      ? `${ready} ${ready === 1 ? 'weiteres Ei möglich' : 'weitere Eier möglich'}`
+      : `Noch ${nf(Math.ceil(game.broodBase - life.fed))} Nahrung fürs nächste Ei`;
+    c.add(text(scene, colR + colW / 2, top + 167, status, 18, ready ? UI.ochre : UI.bone).setOrigin(0.5));
+    c.add(text(scene, colR + colW / 2, top + 207, full ? 'Am Laich dein nächstes Leben wählen.' : 'Ab der Laichzeit am Laich befruchten.', 13, UI.boneDim).setOrigin(0.5));
+    const group = game.swarm?.members.length ?? 0;
+    if (group > 0) row(colR, top + 280, 'Deine Gruppe', nf(group));
+    else if (d.kin > 0) row(colR, top + 280, 'Artgenossen', nf(d.kin));
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 
