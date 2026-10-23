@@ -127,8 +127,8 @@ export class BackSea {
       }
     }
     // die ganz Großen der Zeit (Herrscher und Durchzügler) tauchen nur in der Ferne auf
-    for (const e of ep.events) {
-      const d = e.species ? SPECIES[e.species] : undefined;
+    for (const id of [...ep.passers.map(([id]) => id), ...(ep.apex ? [ep.apex] : [])]) {
+      const d = SPECIES[id];
       if (d && (d.art.t === 'fish' || d.art.t === 'cone') && faunaAffinity(place, d, true) > 0 && !this.bigPool.includes(d)) this.bigPool.push(d);
     }
     // gibt es keinen Großen, wird der größte Fisch der Zeit einfach größer gezeigt

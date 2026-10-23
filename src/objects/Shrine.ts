@@ -2,12 +2,12 @@ import Phaser from 'phaser';
 import { DEPTH } from '../config';
 import { rgrad, tex, type Ctx } from '../util/canvas';
 import { game } from '../state/GameState';
-import { Prompt } from './Quest';
+import { Prompt } from '../ui/InteractionPrompt';
 
 // ---------------------------------------------------------------------------
 // Die große Muschel im Laichfluss: eine riesige Fächermuschel, aufrecht im Sand, davor eine Perle, die leise glüht. Wer genug
 // Muscheln gesammelt hat (8, 16, 32, 64 …), betet hier – und sie segnet seine Linie mit mehr Ausdauer. Ist es so weit,
-// ruft sie: Ringe aus Licht gehen von der Perle aus. Gebetet wird mit der Taste fürs Ansprechen (LevelScene.pray).
+// ruft sie: Ringe aus Licht gehen von der Perle aus. Gebetet wird mit der Interaktionstaste (LevelScene.shrineStep).
 // ---------------------------------------------------------------------------
 
 /** Maße der Muschel (Bildpunkte), Gelenk unten in der Mitte */

@@ -149,8 +149,6 @@ export const MISC = {
   healBite: 0.4,
   /** eine abgefressene Pflanze wächst nach so vielen Sekunden um einen Bissen nach … */
   plantRegrow: 22,
-  /** … zur Blütezeit nach so vielen */
-  plantRegrowBloom: 2.5,
   /** so viel Fleisch nimmt ein anderes Tier mit einem Biss */
   animalBite: 5,
 };

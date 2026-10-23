@@ -1,7 +1,7 @@
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, isPlayable, type EpochDef } from '../data/epochs';
 import { linkKey, placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
-import { SWARM } from '../data/quests';
+import { SWARM } from '../data/swarm';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
@@ -35,7 +35,7 @@ import {
 //   stealth – wächst durch Pflanzenfressen, Ausweichen und Verstecken
 //   scars   – Narben überlebter Kämpfe
 //   green   – Tarnfarbe vom Verstecken zwischen Pflanzen
-//   sand    – Tarnfarbe vom Verstecken am Boden und in Höhlen
+//   sand    – Tarnfarbe vom Verstecken am Boden und in Felsspalten
 // Ganz verborgen (nirgends angezeigt, nur am Verhalten zu merken):
 //   nerve   – Nervenstärke: wer oft nah an Räubern bleibt, ohne aufzufallen, wird später bemerkt
 //   tox     – Giftfestigkeit: giftige Pflanzen schaden weniger
@@ -93,7 +93,7 @@ export interface Traits {
   tint: number;
   /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
   snout: number;
-  /** Färbung durch eine Höhle: 0 natürlich, 1 grün (Gras), 2 schwarz (Dunkelheit) */
+  /** Färbung aus älteren Spielständen: 0 natürlich, 1 grün (Gras), 2 schwarz (Dunkelheit) */
   coat: number;
   /** Körperrobustheit (0 … 1): robustere Schuppen bis zum Schuppenpanzer – aus überstandenen Angriffen */
   armor: number;
@@ -215,13 +215,13 @@ export interface Ancestor {
   epoch: number;
 }
 
-/** Wo man im aktuellen Zeitalter steht – über mehrere Orte hinweg (die Zeit läuft auch auf der Karte weiter). */
+/** Wo man im aktuellen Zeitalter steht – über mehrere Orte hinweg. */
 export interface EpochProg {
   /** aktueller Ort */
   place: string;
   /** schon besuchte Orte */
   seen: string[];
-  /** bekannte Orte (nur diese zeigt die Karte) – ein neuer Ort wird bekannt, sobald man über den Rand zu ihm hinüberschwimmt */
+  /** entdeckte Orte – ein neuer Ort wird bekannt, sobald man über den Rand zu ihm hinüberschwimmt */
   known: string[];
   /** bekannte Wege zwischen zwei Orten (linkKey) – sie entstehen, wenn man von einem Ort in den anderen schwimmt */
   links: string[];
@@ -231,8 +231,6 @@ export interface EpochProg {
   resume?: { x: number; y: number };
   /** Hier beginnt das Leben (ein neues Jungtier schlüpft aus seinem Gelege) – gilt nur einmal */
   at?: { x: number; y: number };
-  /** Endgegner: 0 noch nicht da, 1 lebt, 2 besiegt */
-  boss: 0 | 1 | 2;
   /** in diesem Leben aufgenommene Energie (Nährwert nach der Verdauung) */
   eaten: { meat: number; plant: number };
   /** Zustand beim Verlassen eines Ortes */
@@ -247,7 +245,6 @@ export const newProg = (epoch: number): EpochProg => ({
   seen: [startPlace(EPOCHS[epoch]).id],
   known: [startPlace(EPOCHS[epoch]).id],
   links: [],
-  boss: 0,
   eaten: { meat: 0, plant: 0 },
   train: newStyle(),
 });
@@ -295,7 +292,7 @@ export interface Life {
    * Das eigene Tier bleibt, wie es geschlüpft ist – erst die Nachkommen tragen es weiter (siehe inherit).
    */
   drift?: Partial<Record<DriftKey, number>>;
-  /** die Farbe einer Höhle, durch die das Tier geschwommen ist – sie geht an die Nachkommen */
+  /** aus älteren Spielständen vorgemerkte Färbung für die Nachkommen */
   coat?: number;
   /** wie grimmig das Tier dreinschaut (fest für dieses Leben; aus der Angriffslust beim Schlüpfen) */
   fierce?: number;
@@ -356,10 +353,8 @@ export interface Run {
   epoch: number;
   /** Knoten im Stammbaum: zuletzt überlebtes Zeitalter (oder die Wurzel) */
   node: string;
-  /** Artgenossen zu Beginn des Zeitalters (sie sind selten und geben Aufträge – sonst ist man allein) */
+  /** Artgenossen zu Beginn des Zeitalters (ältere Spielstände) */
   kin: number;
-  /** Stand der Aufträge, die Artgenossen geben: Kennung → Schritt (siehe data/quests.ts) */
-  quests?: Record<string, number>;
   /** Was die Gruppe über dich gelernt hat: Treue der Artgenossen zu Beginn (0..1) */
   social: number;
   /** Der Kopf ist hart genug: Rammen ist freigeschaltet */
@@ -368,12 +363,6 @@ export interface Run {
   ramNew?: boolean;
   /** insgesamt gefressen (in Sättigungs-Einheiten) */
   eaten?: { meat: number; plant: number };
-  /** wie oft das aktuelle Zeitalter schon gespielt wurde (der Endgegner ist noch nicht besiegt) */
-  round?: number;
-  /** Die Farbe aus einer Höhle gibt es nur einmal pro Lauf: danach bleibt sie, wie sie ist */
-  coatSet?: boolean;
-  /** aufgebrochenes Geröll vor Höhlen (Zeitalter:Ort:Nummer) – bleibt offen, solange dieses Leben dauert */
-  walls?: string[];
   /** Stand im aktuellen Leben (Ort, Gefressenes, Spielweise …) */
   prog: EpochProg;
   /** das Leben des eigenen Tiers */
@@ -419,10 +408,8 @@ export interface Run {
   blessings?: number;
   seenRows?: number;
   history: Ancestor[];
-  /** die Gruppe deiner Art (entsteht beim Treffen in „Die gemeinsame Jagd“) – sie überdauert Orte und Zeitalter */
+  /** bereits vorhandene Gruppe deiner Art – sie überdauert Orte und Generationen */
   swarm?: Swarm;
-  /** Stand der gemeinsamen Jagd (Auftrag „jagd“) */
-  hunt?: { kills: number; took: boolean; size: number };
   /** Karbon: das Gelege – Jugend, Gefahr, die Eier als Leben, was die Generation getan hat (siehe sim/brood.ts) */
   brood?: Brood;
   /** Karbon: den steilen Gipfel erreicht – das Zeitalter ist gemeistert */
@@ -436,15 +423,15 @@ export interface Member {
 }
 
 /**
- * Deine Gruppe: wer von deiner Art mit dir lebt, und ihre Überlebensbilanz. Rufen kann man sie erst, wenn sie es gelernt hat
- * (nach der gemeinsamen Jagd); wer gerufen ist, kommt beim Ortswechsel mit.
+ * Deine Gruppe: wer von deiner Art mit dir lebt, und ihre Überlebensbilanz.
+ * Wer gerufen ist, kommt beim Ortswechsel mit.
  */
 export interface Swarm {
   /** die Lebenden */
   members: Member[];
   /** nächste freie Nummer */
   next: number;
-  /** gerade bei dir (gerufen bzw. bei der Jagd) */
+  /** gerade bei dir (gerufen) */
   out: number[];
   /** kommt auf deinen Ruf (Taste S) */
   callable: boolean;
@@ -845,8 +832,15 @@ class GameState {
           // Leben sind kürzer geworden: Wer nach heutiger Rechnung schon am Ende wäre, ist wieder alt (und kann noch laichen)
           // – sonst bleibt das Alter, wie es war
           if (r.life.age > phases(r.life.gen).span - 20) r.life.age = phases(r.life.gen).old;
-          // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
-          if (r.prog.boss === 1) r.prog.boss = 0;
+          // Abgelöste Aufgaben und Sonderereignisse dürfen beim Laden nicht zurückkehren.
+          const legacy = r as Run & { quests?: unknown; hunt?: unknown; walls?: unknown; coatSet?: unknown };
+          delete legacy.quests;
+          delete legacy.hunt;
+          delete legacy.walls;
+          delete legacy.coatSet;
+          delete (r.prog as EpochProg & { boss?: unknown }).boss;
+          // Bereits vorhandene Gruppen bleiben erhalten und brauchen keinen Questabschluss mehr.
+          if (r.swarm) r.swarm.callable = true;
           r.prog.known ??= [...r.prog.seen];
           if (EPOCHS[r.epoch].id === 'devon') {
             const mapPlace = (id: string) => placeOf(EPOCHS[r.epoch], id).id;
@@ -1023,7 +1017,6 @@ class GameState {
       epoch,
       node: root.id,
       kin: 0,
-      quests: {},
       social: 0.55,
       // der Stoß geht von Anfang an (stark wird er erst mit einem harten Kopf)
       canRam: true,
@@ -1514,7 +1507,7 @@ class GameState {
     const lim = (v: number, m: number) => clamp(v, -m, m);
     const lived = Math.max(60, run.life.age);
     const t = full({ ...start });
-    // Narben bleiben beim Elterntier; die Farbe einer Höhle geht an die Nachkommen
+    // Narben bleiben beim Elterntier; vorgemerkte Färbungen älterer Spielstände gehen an die Nachkommen
     t.scars = 0;
     t.coat = end.coat;
     for (const key of AMP) t[key] = clamp(start[key] + Math.min(S.carry, Math.max(0, end[key] - start[key]) * k), 0, 1);
@@ -1555,7 +1548,7 @@ class GameState {
    *   – Ein Geschwister (pool): dieselbe Generation.
    *   – Ein Ei aus dem Laich deiner Generation (next): Die nächste Generation beginnt – und es gibt kein Zurück. Die übrigen
    *     Geschwister sind fort, der übrige Laich sind die neuen Geschwister, und neuer Laich kommt erst wieder dazu.
-   * Was die Linie weiß (Orte, Muscheln, Aufträge, Gruppe), bleibt; Alter, Nahrung und Spielweise beginnen neu.
+   * Was die Linie weiß (Orte, Muscheln, Gruppe), bleibt; Alter, Nahrung und Spielweise beginnen neu.
    * Gibt false zurück, wenn es das Ei nicht gibt.
    */
   hatch(group: RoeGroup, i: number): boolean {
@@ -1590,8 +1583,6 @@ class GameState {
     run.seed = egg.seed;
     // golden geboren: ein Segen mehr – nur für dieses Tier (in der Punktfolge nach den bisher gekauften)
     run.gold = egg.gold ? { key: egg.gold, at: this.upLog.length } : undefined;
-    // die Farbe einer Höhle ist weitergegeben: Mehr als einmal je Lauf gibt es sie nicht
-    if (run.traits.coat) run.coatSet = true;
     if (jump) {
       // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer
       // Abschnitt des Astes – gleichen sich zwei Linien, teilen sie ihn sich
@@ -1637,8 +1628,6 @@ class GameState {
     p.hp = undefined;
     p.eaten = { meat: 0, plant: 0 };
     p.train = newStyle();
-    // ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation
-    if (p.boss === 1) p.boss = 0;
     if (!p.seen.includes(p.place)) p.seen.push(p.place);
     if (!p.known.includes(p.place)) p.known.push(p.place);
     if (this.checkRamUnlock()) run.ramNew = true;
@@ -1736,17 +1725,6 @@ class GameState {
     return this.data.run?.swarm;
   }
 
-  /** Die Gruppe deiner Art entsteht (beim ersten Treffen): so viele Artgenossen, alle bei voller Kraft. */
-  foundSwarm(n: number): Swarm {
-    const r = this.r;
-    r.swarm ??= {
-      members: Array.from({ length: n }, (_, i) => ({ id: i + 1, hp: 1 })),
-      next: n + 1, out: [], callable: false, fed: 0, grown: 0, lost: 0, left: 0,
-    };
-    this.save();
-    return r.swarm;
-  }
-
   /** So viele kommen höchstens auf deinen Ruf – je mehr Zusammenhalt (Schwarmfisch), desto mehr. */
   swarmCap() {
     return SWARM.cap + Math.round(SWARM.capPlus * (this.traits.pack ?? 0));
@@ -1831,12 +1809,6 @@ class GameState {
     d[k] = clamp(base + (d[k] ?? 0) + amount, -1, 1) - base;
   }
 
-  /** Die Farbe einer Höhle geht an die Nachkommen (einmal je Lauf, siehe coatSet). */
-  setCoat(coat: number) {
-    this.r.life.coat = coat;
-    this.save();
-  }
-
   /** Die Merkmale mit allem, was sich im Leben angesammelt hat – so gehen sie an die Nachkommen. */
   drifted(): Traits {
     const run = this.r;
@@ -1886,17 +1858,6 @@ class GameState {
     return this.r.prog;
   }
 
-  /** Wie weit ein Auftrag gediehen ist (0 = noch nicht begonnen). */
-  questStep(id: string): number {
-    return this.run?.quests?.[id] ?? 0;
-  }
-
-  setQuestStep(id: string, step: number) {
-    const run = this.r;
-    run.quests = { ...(run.quests ?? {}), [id]: step };
-    this.save();
-  }
-
   /** Den Ort verlassen: Zustand merken (Lebenskraft, Artgenossen, Gefressenes …). */
   leavePlace(s: Partial<EpochProg>) {
     Object.assign(this.r.prog, s);
@@ -1923,16 +1884,6 @@ class GameState {
     if (!p.known.includes(b)) p.known.push(b);
     if (!p.known.includes(a)) p.known.push(a);
     this.save();
-  }
-
-  /** Ist dieser Ort schon bekannt? */
-  isKnown(id: string) {
-    return this.r.prog.known.includes(id);
-  }
-
-  /** Kennt man den Weg zwischen diesen beiden Orten? */
-  hasLink(a: string, b: string) {
-    return (this.r.prog.links ?? []).includes(linkKey(a, b));
   }
 
   private epochFood() {

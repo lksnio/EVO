@@ -1,4 +1,4 @@
-import { ERAS, type EpochDef } from './epochs';
+import { epochSpecies, ERAS, type EpochDef } from './epochs';
 import { SPECIES, type Role, type SpeciesDef } from './species';
 import type { PlaceKind } from './world';
 
@@ -123,8 +123,7 @@ const size = (d: SpeciesDef) => (d.art as { len?: number }).len ?? ((d.art as { 
 
 /** Die Tiere eines Zeitalters: die Bewohner seiner Orte, die Durchzügler und die großen Gäste. */
 function idsOf(ep: EpochDef): string[] {
-  const ids = [...ep.fauna.map(([f]) => f), ...ep.passers.map(([f]) => f), ...ep.events.map((v) => v.species ?? '')];
-  return [...new Set(ids)].filter((id) => SPECIES[id]);
+  return epochSpecies(ep).filter((id) => SPECIES[id]);
 }
 
 function entry(id: string, no: number): Entry {

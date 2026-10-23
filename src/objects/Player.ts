@@ -99,8 +99,8 @@ export class Player {
   private turnCount = 0;
   private lastVSign = 0;
   private lastVTurn = 0;
-  /** in einer Höhle (nur die Augen sind zu sehen) */
-  inCave = false;
+  /** in einer Felsspalte */
+  inCrevice = false;
   /** liegt still am Boden (Sandtarnung) */
   grounded = false;
   /** im Hinterhalt (versteckt/getarnt): leicht durchsichtig, der erste Angriff überrascht */

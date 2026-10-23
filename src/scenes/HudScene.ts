@@ -36,8 +36,6 @@ export class HudScene extends Phaser.Scene {
   private dexC!: Phaser.GameObjects.Container;
   private dexGlow!: Phaser.GameObjects.Image;
   private dexQueue: { head: string; name: string }[] = [];
-  /** gerade läuft ein Kino-Moment (schwarze Balken) */
-  private cineOn = false;
   private dexBusy = false;
   private hp = 1;
   private hidden = false;
@@ -56,10 +54,6 @@ export class HudScene extends Phaser.Scene {
   private giveUpArmed = false;
   private isTouch = false;
   private ramBtn = false;
-  private bossC!: Phaser.GameObjects.Container;
-  private bossName!: Phaser.GameObjects.Text;
-  private bossBar!: Phaser.GameObjects.Graphics;
-  private bossShown = false;
   private overview?: Overview;
   /** der Weg ins Hauptmenü läuft gerade (die Sekunden zählen herunter) */
   private quitting = false;
@@ -69,8 +63,6 @@ export class HudScene extends Phaser.Scene {
   /** Lebenslinie: wie weit das Leben des eigenen Tiers ist (0 … 1), ob es ausgewachsen ist und ob ein Nachkomme wartet */
   private lifeFrac = 0;
   private heir = false;
-  /** Antwort im Gespräch (ja oder nein) */
-  private choiceC?: Phaser.GameObjects.Container;
   /** frisch geschlüpft: Die Anzeigen kommen erst, wenn das Tier aufgewacht ist */
   private wake = false;
   /** Karbon: die Zeile unter der Brutlinie (Generation, Eier, Nahrung bzw. Zeit bis zum neuen Gelege) */
@@ -92,7 +84,6 @@ export class HudScene extends Phaser.Scene {
     this.ramBtn = false;
     this.overview = undefined;
     this.overviewGlow = undefined;
-    this.bossShown = false;
     this.hp = 1;
     this.hidden = false;
     this.hurtA = this.hideA = this.pulse = 0;
@@ -108,11 +99,6 @@ export class HudScene extends Phaser.Scene {
     this.hurtV = this.add.image(W / 2, H / 2, 'vignette_red').setDisplaySize(W, H).setAlpha(0);
     this.edgeV = this.add.image(W / 2, H / 2, 'edge_red').setDisplaySize(W, H).setAlpha(0);
 
-    // Lebensbalken des Endgegners (unten)
-    this.bossC = this.add.container(W / 2, H - 46).setAlpha(0).setDepth(8);
-    this.bossName = title(this, 0, -18, '', 22, '#d8b070').setOrigin(0.5);
-    this.bossBar = this.add.graphics();
-    this.bossC.add([this.bossBar, this.bossName]);
     // Die Weltzeit (für alle gleich): Name der Zeit, Jahresangabe – darunter die Lebenslinie des eigenen Tiers
     const clockBg = this.add.graphics();
     clockBg.fillStyle(0x050403, 0.55);
@@ -128,7 +114,6 @@ export class HudScene extends Phaser.Scene {
     this.drawFuse();
     // Ein neues Tier in der Chronik des Lebens: ein kleines Schild oben links
     this.dexQueue = [];
-    this.cineOn = false;
     this.dexBusy = false;
     this.dexC = this.add.container(22, 22).setAlpha(0).setDepth(7);
     this.dexGlow = this.add.image(0, 0, 'glow').setTint(0xffe0a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0).setDepth(6);
@@ -143,8 +128,6 @@ export class HudScene extends Phaser.Scene {
     this.updateGlow();
     this.swarmUi();
     this.netUi();
-    this.questUi();
-    this.choiceUi();
 
     // Beim Betreten eines Ortes: nur sein Name, sanft ein- und wieder ausgeblendet
     const head = title(this, W / 2, H / 2 - 90, this.placeName, 46).setOrigin(0.5).setAlpha(0);
@@ -210,7 +193,6 @@ export class HudScene extends Phaser.Scene {
       this.nextDex();
     };
     const onRam = () => this.ramUnlocked();
-    const onBoss = (name: string, f: number) => this.drawBoss(name, f);
     const onShell = () => this.updateGlow();
     const onDex = (ids: string[]) => {
       for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEU IN DER CHRONIK DES LEBENS', name: SPECIES[id].name });
@@ -220,29 +202,15 @@ export class HudScene extends Phaser.Scene {
     bus.on('clock', onClock);
     bus.on('life', onLife);
     bus.on('notice', onNotice);
-    bus.on('boss', onBoss);
     bus.on('vitals', onVitals);
     const onBeat = (k: number) => (this.pulse = Math.max(this.pulse, k));
     bus.on('heartbeat', onBeat);
     this.events.once('shutdown', () => bus.off('heartbeat', onBeat));
     bus.on('ramUnlocked', onRam);
     bus.on('shell', onShell);
-    // Kino-Moment: schwarze Balken oben und unten
-    const barH = 64;
-    const bars = [this.add.rectangle(0, -barH, W, barH, 0x000000, 1).setOrigin(0).setDepth(50), this.add.rectangle(0, H, W, barH, 0x000000, 1).setOrigin(0).setDepth(50)];
-    const onCine = (on: boolean) => {
-      this.cineOn = on;
-      this.tweens.add({ targets: bars[0], y: on ? 0 : -barH, duration: 900, ease: 'Sine.inOut' });
-      this.tweens.add({ targets: bars[1], y: on ? H - barH : H, duration: 900, ease: 'Sine.inOut' });
-      // neue Einträge der Chronik warten, bis die Balken wieder weg sind
-      if (!on) this.time.delayedCall(900, () => this.nextDex());
-    };
-    bus.on('cine', onCine);
     this.events.once('shutdown', () => {
-      bus.off('cine', onCine);
       bus.off('vitals', onVitals);
       bus.off('ramUnlocked', onRam);
-      bus.off('boss', onBoss);
       bus.off('clock', onClock);
       bus.off('life', onLife);
       bus.off('notice', onNotice);
@@ -431,97 +399,6 @@ export class HudScene extends Phaser.Scene {
     this.events.once('shutdown', () => bus.off('swarm', show));
   }
 
-  /** Der laufende Auftrag: Titel, Ziel und Fortschritt in einem Schild oben links (wie die Einträge der Chronik). */
-  private questUi() {
-    const c = this.add.container(22, 100).setAlpha(0).setDepth(7);
-    let shown = false;
-    const show = (q: { title: string; lines: string[] } | null) => {
-      this.tweens.killTweensOf(c);
-      if (!q) {
-        shown = false;
-        this.tweens.add({ targets: c, alpha: 0, duration: 500, onComplete: () => c.removeAll(true) });
-        return;
-      }
-      c.removeAll(true);
-      const head = text(this, 18, 12, q.title.toUpperCase(), 12, UI.ochre, { fontStyle: '700' }).setOrigin(0, 0).setLetterSpacing(3);
-      const rows = q.lines.map((l, i) => text(this, 18, 34 + i * 25, l, i === 0 ? 19 : 16, i === 0 ? UI.bone : UI.boneDim).setOrigin(0, 0));
-      const w = Math.round(Math.max(280, 36 + Math.max(head.width, ...rows.map((r) => r.width)))), h = 44 + q.lines.length * 25;
-      const g = this.add.graphics();
-      g.fillStyle(0x000000, 0.3);
-      g.fillRoundedRect(3, 5, w, h, 12);
-      g.fillStyle(0x0d0c0b, 0.78);
-      g.fillRoundedRect(0, 0, w, h, 12);
-      g.lineStyle(1.5, 0xc8913c, 0.45);
-      g.strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 12);
-      c.add([g, head, ...rows]);
-      if (!shown) {
-        shown = true;
-        c.setAlpha(0).setX(16);
-        if (!this.cineOn) this.tweens.add({ targets: c, alpha: 1, x: 22, duration: 600, ease: 'Sine.out' });
-      } else c.setAlpha(this.cineOn ? 0 : 1).setX(22);
-    };
-    // im Gespräch (Kino-Balken) tritt das Schild zurück
-    const onCine = (on: boolean) => {
-      if (!shown) return;
-      this.tweens.killTweensOf(c);
-      this.tweens.add({ targets: c, alpha: on ? 0 : 1, x: 22, duration: 500, delay: on ? 0 : 700 });
-    };
-    bus.on('questHud', show);
-    bus.on('cine', onCine);
-    this.events.once('shutdown', () => {
-      bus.off('questHud', show);
-      bus.off('cine', onCine);
-    });
-  }
-
-  /** Eine Frage im Gespräch: zwei Antworten unten im Kino-Balken (Pfeiltasten wählen, F bestätigt – oder antippen). */
-  private choiceUi() {
-    const show = (opts: string[] | null, sel: number) => {
-      if (!opts) {
-        this.choiceC?.destroy();
-        this.choiceC = undefined;
-        return;
-      }
-      if (!this.choiceC) {
-        const c = (this.choiceC = this.add.container(W / 2, H - 32).setDepth(55).setAlpha(0));
-        opts.forEach((o, i) => {
-          const b = new Button(this, (i - (opts.length - 1) / 2) * 300, 0, o, { w: 270, h: 44, size: 20, sound: null, onClick: () => bus.emit('choicePick', i) });
-          c.add(b);
-        });
-        this.tweens.add({ targets: c, alpha: 1, duration: 300 });
-      }
-      this.choiceC.list.forEach((b, i) => (b as Button).setFocus(i === sel));
-    };
-    bus.on('choice', show);
-    this.events.once('shutdown', () => {
-      bus.off('choice', show);
-      this.choiceC = undefined;
-    });
-  }
-
-  /** Lebensbalken des Endgegners. */
-  private drawBoss(name: string, f: number) {
-    if (!this.bossShown && f > 0) {
-      this.bossShown = true;
-      this.tweens.add({ targets: this.bossC, alpha: 1, duration: 800 });
-    }
-    this.bossName.setText(name.toUpperCase());
-    const g = this.bossBar;
-    const w = 520;
-    g.clear();
-    g.fillStyle(0x050403, 0.7);
-    g.fillRoundedRect(-w / 2 - 8, -4, w + 16, 22, 6);
-    g.fillStyle(0x3a1410, 1);
-    g.fillRect(-w / 2, 2, w, 10);
-    g.fillStyle(0xb8321e, 1);
-    g.fillRect(-w / 2, 2, w * f, 10);
-    g.fillStyle(0xffffff, 0.15);
-    g.fillRect(-w / 2, 2, w * f, 3);
-    g.lineStyle(1.5, 0x8a6a40, 0.9);
-    g.strokeRect(-w / 2 - 1, 1, w + 2, 12);
-    if (f <= 0 && this.bossShown) this.tweens.add({ targets: this.bossC, alpha: 0, duration: 1200, delay: 1500 });
-  }
-
   // ---------------------------------------------------------------- Übersicht (Taste C)
 
   toggleOverview() {
@@ -547,7 +424,7 @@ export class HudScene extends Phaser.Scene {
    * Mehrere Einträge kommen nacheinander.
    */
   private nextDex() {
-    if (this.dexBusy || this.cineOn || !this.dexQueue.length) return;
+    if (this.dexBusy || !this.dexQueue.length) return;
     const { head: headText, name } = this.dexQueue.shift()!;
     this.dexBusy = true;
     const c = this.dexC;
@@ -891,7 +768,7 @@ export class HudScene extends Phaser.Scene {
     this.talkButton();
   }
 
-  /** Der Knopf zum Ansprechen: erscheint nur, wenn ein Artgenosse in der Nähe ist, der etwas zu erzählen hat. */
+  /** Der Knopf zum Beten: erscheint nur in der Nähe der großen Muschel. */
   private talkButton() {
     const x = 1066, y = 400, r = 42;
     const g = this.add.graphics().setDepth(5);
@@ -899,7 +776,7 @@ export class HudScene extends Phaser.Scene {
     g.fillCircle(x, y, r);
     g.lineStyle(2.5, 0xe0a848, 0.6);
     g.strokeCircle(x, y, r);
-    const t = text(this, x, y, 'Reden', 19, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
+    const t = text(this, x, y, 'Beten', 19, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
     const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
     const all = [g, t];
     for (const o of all) o.setAlpha(0);
@@ -910,8 +787,8 @@ export class HudScene extends Phaser.Scene {
       audio.unlock();
       this.time.delayedCall(200, () => (touch.talk = false));
     });
-    // am Handy: „Reden“ – an der großen Muschel „Beten“
-    const onTalk = (on: boolean, label = 'Reden') => {
+    // Die Interaktion an der großen Muschel ist auch am Handy verfügbar.
+    const onTalk = (on: boolean, label = 'Beten') => {
       if (on) t.setText(label);
       this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
       z.input!.enabled = on;

@@ -8,7 +8,7 @@ import { clamp } from '../util/math';
 import { CreatureView } from './CreatureView';
 import { Roe } from './Food';
 import type { Kin } from './Kin';
-import { Prompt } from './Quest';
+import { Prompt } from '../ui/InteractionPrompt';
 import type { LevelScene } from '../scenes/LevelScene';
 
 type Genes = { traits: Traits; seed: number; sex: Sex };
@@ -173,7 +173,7 @@ export class SpawnCtl {
         this.callMale(b, rnd(SPAWN.maleDelay));
       }
     }
-    const busy = !run || p.dead || !!h.quest?.busy || !!h.hunt?.busy || h.cineActive;
+    const busy = !run || p.dead;
     if (busy) {
       this.setAble(false);
       this.marks(false);

@@ -3,7 +3,7 @@
 //   predator  – jagt, wenn sie hungrig ist und sich überlegen fühlt
 //   defender  – friedlich, verteidigt sich aber heftig
 //   hazard    – treibt umher, ist nur bei Berührung gefährlich
-//   apex      – Spitzenräuber, zieht (als Ereignis) durch den Lebensraum
+//   apex      – Spitzenräuber, lebt in geeigneten tiefen Gebieten
 // "art" beschreibt, wie das Tier gezeichnet wird (siehe art/speciesArt.ts).
 
 import type { PlaceKind } from './world';

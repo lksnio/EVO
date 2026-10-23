@@ -23,7 +23,7 @@ export const BINDS: BindDef[] = [
   { id: 'bite', label: 'Beißen und Fressen', note: 'am Laich: Eiübersicht öffnen' },
   { id: 'sprint', label: 'Sprinten', note: 'kostet Kraft' },
   { id: 'ram', label: 'Stoß', note: 'Anlauf nehmen' },
-  { id: 'talk', label: 'Ansprechen', note: 'im Gespräch: weiter' },
+  { id: 'talk', label: 'Beten', note: 'an der großen Muschel' },
   { id: 'call', label: 'Gruppe rufen', note: 'oder fortschicken' },
   { id: 'jump', label: 'Auftauchen' },
   { id: 'overview', label: 'Übersicht' },

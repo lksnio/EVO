@@ -49,8 +49,6 @@ export class Sight {
   /** Mitte des klaren Bereichs (Welt) */
   cx = 0;
   cy = 0;
-  /** in besonderen Momenten (Szenen mit der Kamera) lichtet sich das Wasser ganz: 0 = trüb wie immer … 1 = alles klar */
-  open = 0;
 
   /** murkKey: das trübe Wasser (ein Bild mit dem Farbverlauf des Wassers); full: so weit ist es vom Fisch bis zum Bildrand. */
   constructor(private scene: Phaser.Scene, private murkKey: string, depth: number, readonly full: number) {
@@ -74,18 +72,14 @@ export class Sight {
   /** Wie klar man an dieser Stelle sieht (0 … 1). r: Ausdehnung des Dings – von großen Tieren sieht man den Rand früher. */
   clarityAt(x: number, y: number, r = 0) {
     const d = Math.max(0, Math.hypot(x - this.cx, y - this.cy) - r);
-    return Math.max(this.open, clarityFrom(d, this.v));
+    return clarityFrom(d, this.v);
   }
 
   /**
    * Jedes Bild: Der klare Bereich folgt dem Fisch (px, py) und liegt in Blickrichtung (look, Bogenmaß) vor ihm. sight: die
    * Sicht des Tiers (wächst nach einem Segen langsam heran); water: die Wasserqualität des Ortes; deep: wie tief (0 … 1).
-   * clear: Das Wasser lichtet sich ganz (eine Szene mit der Kamera).
    */
-  update(dt: number, px: number, py: number, look: number, sight: number, water: number, deep: number, clear = false) {
-    this.open = Math.max(0, Math.min(1, this.open + (clear ? dt * 1.5 : -dt * 1.5)));
-    this.murkImg.setAlpha(1 - this.open);
-    this.shade.setAlpha(1 - this.open);
+  update(dt: number, px: number, py: number, look: number, sight: number, water: number, deep: number) {
     // die Blickrichtung gleitet (statt sich zu drehen): Beim Umdrehen wandert der klare Bereich durch den Fisch hindurch
     const k = Math.min(1, dt * 7);
     this.dir.x += (Math.cos(look) - this.dir.x) * k;

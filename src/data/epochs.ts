@@ -13,22 +13,6 @@ import type { ClassId } from './classes';
 
 export type Theme = 'ozean' | 'sumpf' | 'reptil' | 'eis' | 'eden';
 
-/** leviathan: Kino-Moment – Zeitlupe, die Kamera rückt heran, ein riesiger Schatten zieht durch die Tiefe */
-export type EventKind = 'predator' | 'bloom' | 'storm' | 'boss' | 'leviathan';
-
-export interface EventDef {
-  /** Zeitpunkt im Zeitalter: 0 = Beginn, 1 = Ende */
-  at: number;
-  kind: EventKind;
-  /** Räuber, die durchziehen */
-  species?: string;
-  count?: number;
-  /** Dauer (Sturm) in Sekunden */
-  dur?: number;
-  /** zieht nur schnell vorbei (verstecken!) */
-  fast?: boolean;
-}
-
 export interface EpochDef {
   id: string;
   /** erdgeschichtlicher Name */
@@ -75,9 +59,10 @@ export interface EpochDef {
   meta?: 'sight' | 'oxy';
   /** Tiere: Art und Anzahl der Gruppen */
   fauna: [string, number][];
+  /** Größter ansässiger Jäger, ausschließlich in dafür geeigneten tiefen Gebieten. */
+  apex?: string;
   /** größere Tiere, die hin und wieder durchs Bild ziehen (Art, Gewicht): meist friedlich – sie jagen kleine Fische und ziehen weiter */
   passers: [string, number][];
-  events: EventDef[];
 }
 
 const M = 1e6;
@@ -87,14 +72,14 @@ function later(id: string, name: string, tagline: string, period: [number, numbe
   return {
     id, name, tagline, period, blurb, place, theme, cls, habitat, fem,
     from: period[0] * M, to: period[1] * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.8, cover: 0.5,
-    fauna: [], passers: [], events: [],
+    fauna: [], passers: [],
   };
 }
 
 export const EPOCHS: EpochDef[] = [
   // ---------------------------------------------------------------- I. Devon – hier beginnt alles
   {
-    id: 'devon', name: 'Devon', playable: true, tagline: 'Das Zeitalter der Fische', period: [419, 359],
+    id: 'devon', apex: 'dunkleosteus', name: 'Devon', playable: true, tagline: 'Das Zeitalter der Fische', period: [419, 359],
     blurb: 'Riffe aus Korallen und Schwämmen säumen die Küsten. Panzerfische, frühe Haie und Fleischflosser ringen um die Vorherrschaft – über allen thront Dunkleosteus.',
     place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     from: 383 * M, to: 371 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.85, cover: 0.55,
@@ -107,18 +92,13 @@ export const EPOCHS: EpochDef[] = [
       ['cladoselache', 0.25], ['rolfosteus', 0.25], ['eusthenopteron', 0.2], ['stethacanthus', 0.15], ['holoptychius', 0.12], ['tiktaalik', 0.12], ['hyneria', 0.08],
     ],
     passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 1.5], ['rolfosteus', 1.5], ['eusthenopteron', 1.5], ['holoptychius', 1], ['pterygotus', 0.6], ['hyneria', 0.5]],
-    events: [
-      { at: 0.06, kind: 'predator', species: 'dunkleosteus', fast: true },
-      { at: 0.32, kind: 'predator', species: 'dunkleosteus' },
-      { at: 0.72, kind: 'bloom' },
-    ],
   },
   // ---------------------------------------------------------------- II.–VII. ruhen noch: Bild und Text stehen, Welt und Tiere folgen
   // ---------------------------------------------------------------- II. Karbon – an Land
   // das Unterkarbon (vor etwa 348 Millionen Jahren): Man lebt als Pederpes, einer der ersten Vierfüßer. Statt zu laichen gibt es
   // ein Gelege voller Eier – die Leben der Art (siehe data/karbon.ts). Räuber kommen nicht als Ereignis, sondern ans Nest.
   {
-    id: 'karbon', name: 'Karbon', playable: true, brood: true, meta: 'oxy', tagline: 'Die Kohlewälder', period: [359, 299],
+    id: 'karbon', apex: 'rhizodus', name: 'Karbon', playable: true, brood: true, meta: 'oxy', tagline: 'Die Kohlewälder', period: [359, 299],
     blurb: 'Dampfende Sümpfe zwischen Inseln und Ufern. Riesige Fleischflosser lauern im Wasser, Tausendfüßer und Skorpione kriechen durch die ersten Wälder – und die ersten Vierfüßer wagen sich ans Land.',
     place: 'Kohlesumpf', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
     from: 349 * M, to: 341 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.9, cover: 0.5,
@@ -128,7 +108,6 @@ export const EPOCHS: EpochDef[] = [
       ['pulmonoscorpius', 0.5], ['megalichthys', 0.35], ['crassigyrinus', 0.3], ['strepsodus', 0.2], ['stethacanthus', 0.15],
     ],
     passers: [['megalichthys', 3], ['crassigyrinus', 2], ['strepsodus', 1.5], ['stethacanthus', 1]],
-    events: [{ at: 0.5, kind: 'predator', species: 'rhizodus' }],
   },
   later('perm', 'Perm', 'Das Reich der Segelrücken', [299, 252],
     'Alle Kontinente sind zu Pangäa verschmolzen. Im trockenen Land herrschen Segelechsen wie Dimetrodon – die fernen Vorfahren der Säugetiere. Am Ende steht das größte Massensterben der Erdgeschichte.',
@@ -141,7 +120,7 @@ export const EPOCHS: EpochDef[] = [
     'Lagunen und Farnwälder', 'reptil', 'reptile', 'land'),
   // die späte Kreidezeit: das Westliche Binnenmeer, das Nordamerika teilte (die Zahlen sind vorläufig)
   {
-    id: 'kreide', name: 'Kreidezeit', fem: true, tagline: 'Die Herrschaft der Meeresechsen', period: [145, 66],
+    id: 'kreide', apex: 'mosasaurus', name: 'Kreidezeit', fem: true, tagline: 'Die Herrschaft der Meeresechsen', period: [145, 66],
     blurb: 'Ein warmes Binnenmeer teilt Nordamerika. Mosasaurier und Plesiosaurier jagen, Riesenhaie ziehen ihre Bahnen, und Ammoniten treiben im Licht.',
     place: 'Westliches Binnenmeer', theme: 'ozean', cls: 'fish', habitat: 'water',
     from: 82 * M, to: 72 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 95, plants: 0.6, cover: 0.45,
@@ -150,18 +129,13 @@ export const EPOCHS: EpochDef[] = [
       ['qualle', 1], ['archelon', 0.4], ['xiphactinus', 0.4],
     ],
     passers: [['platecarpus', 3], ['elasmosaurus', 2], ['cretoxyrhina', 2], ['xiphactinus', 2], ['tylosaurus', 1]],
-    events: [
-      { at: 0.1, kind: 'predator', species: 'tylosaurus', fast: true },
-      { at: 0.45, kind: 'predator', species: 'mosasaurus' },
-      { at: 0.75, kind: 'bloom' },
-    ],
   },
   later('palaeogen', 'Paläogen', 'Die Zeit der Säugetiere', [66, 23],
     'Die Dinosaurier sind verschwunden. Säugetiere erobern Land und Meer – die ersten Wale tasten sich ins Wasser, und Wälder bedecken die Erde bis an die Pole.',
     'Urwälder und Küsten', 'eden', 'mammal', 'land'),
   // ---------------------------------------------------------------- verborgen (für später)
   {
-    id: 'ordovizium', name: 'Ordovizium', hidden: true, tagline: 'Die ersten Fische', period: [485, 443],
+    id: 'ordovizium', apex: 'cameroceras', name: 'Ordovizium', hidden: true, tagline: 'Die ersten Fische', period: [485, 443],
     blurb: 'Flache, warme Meere bedecken die Erde. Riesige Kopffüßer jagen im offenen Wasser, Trilobiten pflügen durch den Schlamm – und mittendrin schwimmen die ersten Fische, noch ohne Kiefer.',
     place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
@@ -170,14 +144,9 @@ export const EPOCHS: EpochDef[] = [
       ['conodont', 1], ['qualle', 1], ['orthoceras', 0.7], ['megalograptus', 0.2],
     ],
     passers: [['orthoceras', 3], ['megalograptus', 2], ['cameroceras', 0.8]],
-    events: [
-      { at: 0.08, kind: 'predator', species: 'cameroceras', fast: true },
-      { at: 0.42, kind: 'predator', species: 'cameroceras' },
-      { at: 0.72, kind: 'bloom' },
-    ],
   },
   {
-    id: 'silur', name: 'Silur', hidden: true, tagline: 'Die ersten Kiefer', period: [443, 419],
+    id: 'silur', apex: 'pterygotus', name: 'Silur', hidden: true, tagline: 'Die ersten Kiefer', period: [443, 419],
     blurb: 'Tangwälder wiegen sich in der Strömung. Die ersten Fische mit Kiefern jagen – und riesige Seeskorpione lauern am Grund.',
     place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
@@ -186,12 +155,6 @@ export const EPOCHS: EpochDef[] = [
       ['trilobit', 2], ['dalmanites', 2.4], ['conodont', 0.9], ['entelognathus', 0.7], ['qualle', 1.5], ['orthoceras', 1.1], ['megalograptus', 0.2], ['pterygotus', 0.2],
     ],
     passers: [['entelognathus', 3], ['seeskorpion', 2], ['orthoceras', 1.5], ['megalograptus', 1.5], ['pterygotus', 0.8]],
-    events: [
-      { at: 0.07, kind: 'predator', species: 'pterygotus', fast: true },
-      { at: 0.22, kind: 'leviathan' },
-      { at: 0.35, kind: 'predator', species: 'seeskorpion', count: 3 },
-      { at: 0.68, kind: 'storm', dur: 18 },
-    ],
   },
 ];
 
@@ -239,4 +202,9 @@ export function spanWords(years: number) {
     return `${s} ${m < 1.5 ? 'Million' : 'Millionen'} Jahre`;
   }
   return `${de(years)} Jahre`;
+}
+
+/** Alle Arten der regulären Tierwelt, ohne doppelte Einträge. */
+export function epochSpecies(ep: EpochDef): string[] {
+  return [...new Set([...ep.fauna.map(([id]) => id), ...ep.passers.map(([id]) => id), ...(ep.apex ? [ep.apex] : [])])];
 }

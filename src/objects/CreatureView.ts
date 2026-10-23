@@ -66,9 +66,6 @@ export class CreatureView extends Phaser.GameObjects.Container {
   headTilt = 0;
   /** 0..1: Erschöpfung/Verletzung verlangsamt die Bewegungen */
   weary = 0;
-  /** spricht gerade (1) oder schweigt (0): Das Maul bewegt sich wie beim Reden */
-  talk = 0;
-  private talkK = 0;
   /** 0..1: Das Tier kommt zur Ruhe (am Ende des Lebens) – alle Bewegungen ebben ab */
   still = 0;
   /** die Augenlider (0 offen … 1 geschlossen) */
@@ -146,22 +143,6 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   bite() {
     this.biteT = 0;
-  }
-
-  /** Position des Auges in der Welt (für das Augenleuchten in Höhlen). */
-  eyeWorld() {
-    const hg = this.L.hg;
-    const m = this.headC.getWorldTransformMatrix();
-    const p = m.transformPoint(hg.ex * this.L.s, hg.ey * this.L.s);
-    return { x: p.x, y: p.y, r: hg.er * this.L.s * Math.abs(this.scaleY) };
-  }
-
-  /** Position des Mauls (der Schnauzenspitze) in der Welt – dort steigen beim Sprechen Bläschen auf. */
-  mouthWorld() {
-    const hg = this.L.hg;
-    const m = this.headC.getWorldTransformMatrix();
-    const p = m.transformPoint(hg.L * this.L.s, hg.mouthY * this.L.s);
-    return { x: p.x, y: p.y };
   }
 
   /**
@@ -326,12 +307,6 @@ export class CreatureView extends Phaser.GameObjects.Container {
       open = Math.max(open, Math.abs(Math.sin(c * 14)) * 0.45);
       dip = Math.min(1, c * 6) * (c > 0.5 ? Math.max(0, 1 - (c - 0.5) * 5) : 1);
       if (c > 0.7) this.chewT = -1;
-    }
-    // Sprechen: das Maul geht in Silben auf und zu, mal weiter, mal kaum
-    this.talkK += (this.talk - this.talkK) * Math.min(1, dt * 10);
-    if (this.talkK > 0.01) {
-      const syl = Math.max(0, Math.sin(t * 13)) * (0.55 + 0.45 * Math.sin(t * 3.7 + 1)) * (Math.sin(t * 1.9) > -0.75 ? 1 : 0.2);
-      open = Math.max(open, syl * 0.42 * this.talkK);
     }
     let shake = 0;
     if (this.shakeT >= 0) {

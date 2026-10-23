@@ -78,8 +78,6 @@ export interface World extends Phaser.Scene {
   openY(x: number): number;
   /** Alle Tiere einer Gruppe (Schwarm, Rudel). */
   herdOf(id: number): Animal[];
-  /** Hier wird gerade gesprochen (oder eben noch): Niemand greift in der Nähe an. */
-  truce?(x: number, y: number): boolean;
   /** Ist das Tier (mit seiner ganzen Größe) gerade im Bild? Fort geht nur, wer nicht mehr zu sehen ist. */
   inView?(a: Animal): boolean;
 }
@@ -98,15 +96,13 @@ const APEX_MOVES: Record<string, string[]> = {
   hyneria: ['lunge', 'lunge', 'charge'],
 };
 
-/** Ein Tier, das nur durch den Lebensraum zieht (Ereignis). */
+/** Ein Tier, das gelegentlich durch den Lebensraum zieht. */
 export interface Visitor {
   dir: number;
   endX: number;
   cruiseY: number;
   /** wie lange es einem Ziel höchstens nachjagt */
   huntUntil: number;
-  /** zieht nur schnell vorbei */
-  fast?: boolean;
   /** bis dahin hat es das Interesse am Spieler verloren */
   boredUntil: number;
 }
@@ -132,12 +128,6 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   ally = false;
   /** ein Artgenosse des Spielers */
   kin = false;
-  /** spielt in einer Szene mit (Auftrag): Die Szene steuert das Tier, es denkt nicht selbst und ist unverwundbar */
-  scripted = false;
-  /** gehört zu einem Auftrag (z. B. der Schwarm der gemeinsamen Jagd): flieht wie jedes Tier, verlässt den Ort aber nicht */
-  bound = false;
-  /** gehört nur zu deinem Spiel (Auftrag): Andere Spieler sehen es nicht */
-  personal = false;
   /** Mehrspieler: Nummer des Tieres im Ort (für alle Spieler gleich) */
   netId = 0;
   /** gerade im Dickicht versteckt */
@@ -146,10 +136,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   vis = 1;
   /** gerade als Umriss im trüben Wasser gefärbt */
   fogTint = false;
-  /** zieht nur durch (Ereignis) */
+  /** zieht gelegentlich durch den Lebensraum */
   visitor: Visitor | null = null;
-  /** Endgegner der Region: bleibt, bis er besiegt ist, und sucht dich */
-  boss = false;
   /** Größe dieses Tieres: nicht jedes Exemplar ist gleich groß */
   sz = 1;
   /** Artgenossen des Spielers, die mitgekämpft haben (wollen später mitfressen) */
@@ -428,13 +416,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   // ------------------------------------------------------------------ Ablauf
 
   tick(time: number, dt: number) {
-    if (this.dead || this.scripted) return;
+    if (this.dead) return;
     this.lastDt = dt;
     // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
     if (this.world.water) {
       const wb = this.world.physics.world.bounds;
       if (this.x < wb.x - 200 || this.x > wb.right + 200) {
-        if (this.kin || this.ally || this.boss || this.bound) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
+        if (this.kin || this.ally) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
         else return this.leave();
       }
     }
@@ -510,7 +498,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       const w = b.width * 0.5 + 20;
       const r: Rect = this.dir > 0 ? { x: this.x, y: b.y, w, h: b.height } : { x: this.x - w, y: b.y, w, h: b.height };
       for (const a of this.world.animals) {
-        if (a === this || a.dead || a.kin || a.boss || a.visitor || a.role === 'hazard' || a.def.power >= this.def.power * 0.8) continue;
+        if (a === this || a.dead || a.kin || a.visitor || a.role === 'hazard' || a.def.power >= this.def.power * 0.8) continue;
         if (!overlaps(r, a.hitRect())) continue;
         this.pathBiteAt = time + 450;
         a.hurt(Math.max(this.def.dmg * 2, a.maxHp * 0.6), this, 'bite');
@@ -574,12 +562,6 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected sense(time: number) {
     const W = this.world;
     const p = this.pl;
-    // Der Endgegner streift immer in deiner Nähe umher
-    if (this.boss && !p.dead) {
-      this.home.x = p.x;
-      this.home.y = p.y;
-      this.hunger = 1;
-    }
     const role = this.role;
     const d = this.def;
     const dp = this.dist(p);
@@ -605,7 +587,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const attackedByPlayer = this.isPlayer(this.attacker) && time - this.attackedAt < 8000 && !this.attacker.dead;
     // Räuber haben Launen: Meist schwimmen sie einfach ihres Weges. Gereizt werden sie, wenn man sie angreift, ihnen frech zu nah
     // kommt, vor ihnen herumrast oder sich lange in ihrer Nähe aufhält
-    if ((role === 'apex' || role === 'predator') && !friend && !this.boss && !this.visitor?.fast) this.mood(time, seen, dp, attackedByPlayer);
+    if ((role === 'apex' || role === 'predator') && !friend) this.mood(time, seen, dp, attackedByPlayer);
     let threat: Target | null = null;
     let threatD = Infinity;
     if (role === 'prey' && !friend) {
@@ -675,17 +657,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
-    // Jagdziel – nicht, wo gerade gesprochen wird: Dort lässt man dich und deinen Gesprächspartner in Ruhe
-    if ((role === 'predator' || role === 'apex') && W.truce?.(this.x, this.y)) {
-      this.target = null;
-      this.aggroUntil = 0;
-      this.packTarget = null;
-    } else if (role === 'predator' || role === 'apex') {
+    if (role === 'predator' || role === 'apex') {
       let best: Target | null = null;
       let bd = Infinity;
       const peace = !!W.peace?.() && !attackedByPlayer;
-      // gejagt wird erst mit Hunger (der Endgegner und Durchzügler sind immer hungrig)
-      const hungry = this.boss || !!this.visitor || this.hunger > (role === 'apex' ? 0.62 : 0.5);
+      // gejagt wird erst mit Hunger (Durchzügler sind immer hungrig)
+      const hungry = !!this.visitor || this.hunger > (role === 'apex' ? 0.62 : 0.5);
       // Wer Aas in der Nähe hat, frisst lieber, als zu kämpfen
       const scavenging = !!meatNear && this.hunger > 0.3 && !attackedByPlayer && !this.visitor;
       if (this.ally) {
@@ -693,9 +670,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (best && best.def.power > d.power * 3) best = null;
       } else if (hungry && !scavenging) {
         const bold = this.hunger > 0.75 ? 1.4 : 1.15;
-        // den Spieler jagt ein Räuber nur, wenn er gereizt ist (oder der Endgegner bzw. ein angekündigter Jäger) – im Karbon
+        // den Spieler jagt ein Räuber nur, wenn er gereizt ist – im Karbon
         // vor der Metamorphose gar nicht
-        const provoked = !peace && (time < this.aggroUntil || this.boss || !!this.visitor?.fast);
+        const provoked = !peace && time < this.aggroUntil;
         if (seen && provoked && (role === 'apex' || T < d.power * bold)) {
           best = p;
           bd = dp * 0.9;
@@ -1204,7 +1181,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Satte Jäger ruhen oft – am Meeresgrund bzw. am Boden. */
   protected wantsRest(time: number) {
-    if ((this.role !== 'predator' && this.role !== 'apex') || this.visitor || this.boss || this.flies || this.kin) return false;
+    if ((this.role !== 'predator' && this.role !== 'apex') || this.visitor || this.flies || this.kin) return false;
     if (this.st === 'rest') return time < this.restUntil;
     return this.hunger < 0.45 && time > this.nextRestAt;
   }
@@ -1455,13 +1432,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.mv) return this.apexMove(time, dt);
     const tg = this.target;
     if (tg && !tg.dead) {
-      if (!v.huntUntil) v.huntUntil = time + (v.fast ? 1800 : 7000);
+      if (!v.huntUntil) v.huntUntil = time + 7000;
       if (time < v.huntUntil) {
         this.huntTarget(time, tg);
         return;
       }
       // genug gejagt – weiterziehen
-      if (this.isPlayer(tg)) v.boredUntil = time + (v.fast ? 20000 : 6000);
+      if (this.isPlayer(tg)) v.boredUntil = time + 6000;
       this.target = null;
     }
     v.huntUntil = 0;
@@ -1471,7 +1448,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.go('cruise');
     const ty = this.swims || this.flies ? v.cruiseY + Math.sin(this.t * 0.7 + this.phase) * 40 : this.y;
-    this.moveTo(v.endX, ty, this.def.speed * (v.fast ? 2.4 : 0.8));
+    this.moveTo(v.endX, ty, this.def.speed * 0.8);
     if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) {
       // nie vor deinen Augen verschwinden: Solange es zu sehen ist, zieht es weiter (im Wasser auch über den Rand hinaus)
       if (!W.inView?.(this)) return this.leave();
@@ -1488,7 +1465,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.packTarget = null;
     this.attacking = false;
     if (this.mv) this.endMove();
-    if (!this.visitor && !this.boss && !this.bound && this.role !== 'prey') this.leaveDir = this.x < fromX ? -1 : 1;
+    if (!this.visitor && this.role !== 'prey') this.leaveDir = this.x < fromX ? -1 : 1;
   }
 
   /** Verlässt den Lebensraum (ohne zu sterben). */
@@ -1792,7 +1769,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Wie lange (ms) dieses Beutetier schon ununterbrochen davonrennt – 0, wenn es das gerade nicht tut. */
   runningFor(time: number) {
-    if (this.role !== 'prey' || this.kin || this.ally || this.boss || this.visitor) return 0;
+    if (this.role !== 'prey' || this.kin || this.ally || this.visitor) return 0;
     return time - this.runLast < 350 ? time - this.runSince : 0;
   }
 
@@ -1889,7 +1866,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.plan = bitePlan(this.atkSpeed, this.big, long);
   }
 
-  /** ein großer Räuber (Spitzenräuber, Endgegner): holt länger aus, beißt wuchtiger */
+  /** ein großer Räuber (Spitzenräuber oder besonders große Art): holt länger aus, beißt wuchtiger */
   protected get big() {
     return this.role === 'apex' || !!this.def.boss;
   }
@@ -2118,7 +2095,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   /** Schaden nehmen. */
   hurt(dmg: number, from: Target, kind: 'bite' | 'ram' | 'other') {
-    if (this.dead || this.scripted) return;
+    if (this.dead) return;
     const now = this.world.time.now;
     // erschöpft kann es sich kaum wehren
     this.hp -= dmg * this.weak * (now < this.tiredUntil ? 1.5 : 1);

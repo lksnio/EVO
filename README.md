@@ -112,7 +112,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   kommt die **Metamorphose** (die Kiemen schwinden, das Tier wird groß). Bis dahin greift kein großer Räuber an – nur wer
   angegriffen wird, wehrt sich.
 - **Die Gefahr:** Ab der Metamorphose läuft die Zeit bis zum neuen Gelege (5 Minuten, im HUD unter der Jahreszahl), und
-  **Räuber kommen in Wellen ans Nest** – aus dem Wasser, in dem das Nest liegt, vom fernen Ende her, später größere. Am
+  **Hungrige Bewohner desselben Gewässers können die Eier am Nest fressen.** Dafür werden keine zusätzlichen Räuber erzeugt. Am
   Nest fressen sie Eier, bis sie satt sind, und ziehen wieder ab; wer in ihrer Nähe ist, wird zuerst angegriffen. Wer das
   Nest verlässt (in einen anderen Ort), verliert alle 4 Sekunden ein Ei – „das Nest ist ungeschützt!“. Fressen ist jetzt
   keine Nahrung mehr, sondern **heilt**.
@@ -155,7 +155,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   **10 % zusätzliche Körperlänge geben 2 % mehr Grundtempo**. Auch ein Jungtier einer schnellen Linie muss erst
   heranwachsen, bevor es deren volles Tempo erreicht.
 - **Dein Tier bleibt, wie es geschlüpft ist:** Im Leben wächst es nur heran und altert. Was es tut – sich verstecken, am Grund
-  laufen, oben im Licht oder unten im Dunkeln schwimmen, durch eine Höhle tauchen, Treffer einstecken –, sammelt sich im
+  laufen, oben im Licht oder unten im Dunkeln schwimmen, Treffer einstecken –, sammelt sich im
   Verborgenen und zeigt sich erst an seinen **Nachkommen**. Nirgends steht, was sich verändert hat: Man merkt es, wenn das
   nächste Tier heranwächst.
 - **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 3 + 8 Minuten (bis zur Laichzeit + danach),
@@ -209,7 +209,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   zurück, die Geschwister schwärmen aus, dann kommen die Anzeigen. Ein Druck auf eine Taste kürzt den Einschnitt ab.
 - **Der Laich: Geschwister oder die nächste Generation.** Stirbt dein Tier – durch einen Räuber, an Altersschwäche oder
   durch „Leben weitergeben“ –, **wählst du ein Ei** (`RoeScene`), und das Tier daraus spielst du weiter, im Laichfluss, dort,
-  wo es gelaicht wurde. Was die Linie weiß (Orte, Muscheln, Aufträge, deine Gruppe), bleibt; Alter, Nahrung und Spielweise
+  wo es gelaicht wurde. Was die Linie weiß (Orte, Muscheln, deine Gruppe), bleibt; Alter, Nahrung und Spielweise
   beginnen neu.
   - **Laich zählt zusammen:** Jedes befruchtete Gelege legt seine Eier auf den **Stapel der Generation** – auch das, was
     Geschwister laichen. Legen drei Geschwister zusammen zehn Eier, wählt man in der nächsten Generation aus diesen zehn.
@@ -244,8 +244,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
   Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
 - **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die
-  12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
-  Stürme …) kehren darin immer wieder – für alle zugleich. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
+  12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
   rückwärts –, darunter die **Lebenslinie** deines Tiers (mit Marken bei „ausgewachsen“ und „alt“; sie leuchtet warm, sobald
   Laich deiner Generation da ist).
 - **Eine feste Welt:** Jeder Ort sieht für alle Spieler und in jedem Leben gleich aus (eine feste Weltsaat) – egal, von
@@ -258,7 +257,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 - **Überleben, wie du willst:**
   - **Verstecken** – nur mit der **passenden Farbe**: Wer **grün** ist, verschwindet im Gras (Dickicht);
     wer **schwarz** ist, in der Dunkelheit (tief unten, in Tunneln). Ohne Farbe sieht man dich überall – auch im
-    Gras. Die Farbe bekommst du in den **Höhlen** (siehe unten). Große Räuber, die nur durchziehen,
+    Gras. Bereits vorhandene Färbungen aus älteren Spielständen bleiben erhalten. Große Räuber, die nur durchziehen,
     schwimmen fast immer einfach vorbei.
   - **Hinterhalt wie bei Teemo** – wer in seinem Versteck (Gras bei Grün, Dunkelheit bei Schwarz) **1,5 Sekunden
     ganz still** hält, ist bereit: Der nächste Angriff trifft aus dem Hinterhalt deutlich härter – auch noch gleich
@@ -318,47 +317,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Teilen** – frisst ein anderes Tier von deiner Beute mit, während du dabei bist, fasst es
     Vertrauen. Solche Verbündeten verteidigen dich.
   - …oder eine Mischung davon.
-- **Deine Art – selten, und sie geben Aufträge:** Artgenossen (fast wie du, mit kleinen Abweichungen) sind **sehr selten**.
-  Meist ist man allein; wer einem begegnet, trifft ihn bei einem **Auftrag** (`src/data/quests.ts`, `src/objects/Quest.ts`).
-  Über einem Artgenossen, der etwas zu erzählen hat, erscheint in der Nähe ein kleines Zeichen **F** (bzw. die Taste, die
-  „Ansprechen“ in der [Steuerung](#steuerung) hat): Mit **F** (oder Eingabe;
-  am Handy mit dem Knopf „Reden“) **spricht man ihn an**. Dann rückt die Kamera an beide Tiere heran (schwarze Balken wie beim
-  Riesen im Hintergrund), er spricht in **Sprechblasen** (Text erscheint Buchstabe für Buchstabe, **F**/Eingabe/Antippen geht
-  weiter) – dabei bewegt sich sein **Maul** in Silben, aus dem Maul steigen **Bläschen** auf, und es **blubbert** leise.
-  Räuber ringsum ziehen ab, und solange gesprochen wird (und noch einen Augenblick danach), **greift in der Nähe niemand an** –
-  weder dich noch deinen Gesprächspartner. Das eigene Tier bleibt an seinem Platz.
-  - **Auftrag „Der Gefährte“ (Devon):** Nach dem Start kann man ein wenig erkunden – **nach links geht es nicht hinaus**
-    (dort entspringt der Fluss, das Ufer steigt bis zur Wasseroberfläche), nur nach rechts. Weiter rechts, im offenen Meer hinter
-    der Mündung, wartet ein Artgenosse. Er erzählt von einem **Ort ohne Räuber, dafür mit Pflanzen überall** – ein sicherer Ort,
-    an dem man es sich gut gehen lassen kann –, will dorthin aufbrechen, bittet, ihn zu begleiten, und **schwimmt voraus**
-    (er wartet im nächsten Ort, dem Korallengarten). Schwimmt man rechts hinaus, **trifft man ihn dort sofort**; ein kurzes zweites
-    Gespräch, dann sagt er: „Warte … hörst du das?“ – beide schauen sich um, es grollt, und **ein großes Tier, das in diese Zeit
-    passt** (im Devon *Dunkleosteus*), kommt heran, **frisst ihn** und schwimmt davon. Das Tier lässt sich in
-    `quests.ts` je Zeitalter einstellen; der Auftrag ist bisher nur für das Devon eingetragen. Der Stand des Auftrags (0 offen, 1 vorausgeschwommen, 2 erledigt) wird im Spielstand gespeichert.
-  - **Auftrag „Die gemeinsame Jagd“ (Devon, nach dem Gefährten):** Im Ort, in dem der Gefährte gefressen wurde, wartet
-    danach eine kleine Gruppe von **vier bis fünf Überlebenden deiner Art** – echte Artgenossen mit ihrem gewohnten Verhalten.
-    Einen von ihnen kann man ansprechen: Er erzählt von einem **Schwarm Drepanaspis** ganz in der Nähe (flache, gepanzerte
-    Weidegänger am Grund) und fragt, ob du
-    mitjagst (**Ja/Nein** mit ← →, bestätigen mit F/Eingabe – oder antippen). Wer ablehnt, spielt ganz normal weiter; die
-    Gruppe wartet, man kann es sich später anders überlegen. Wer zusagt, wird von der Gruppe begleitet; der Schwarm (etwa fünf
-    kräftige Drepanaspis, die sich mit einem Gegenstoß wehren und fliehen) zieht ein Stück entfernt. Gejagt wird mit den
-    üblichen Mitteln – keine Vorgaben, kein Locken: Greifst du an, helfen die Artgenossen mit ihrer gewohnten KI mit. **Ziel:
-    drei Drepanaspis erlegen** (deine und die Risse der Gruppe zählen), du musst aber **selbst mitgejagt** haben. Ziel und
-    Fortschritt stehen oben links in einem Schild („Drepanaspis erlegt: 1 von 3“, wie viele deiner Gruppe noch leben, wohin der
-    Schwarm zieht). Erlegte Tiere werden ganz normal zu Fleisch. Fehlen Tiere, sammelt sich der Schwarm nach ein paar Sekunden neu.
-    Der Stand (0 offen, 1 abgelehnt, 2 Jagd läuft, 3 geschafft), die Zahl der Risse und deine Gruppe werden gespeichert – ein
-    Ortswechsel setzt nichts zurück, und wer dich begleitet, kommt mit. Alle Texte und Zielzahlen stehen zentral in
-    `src/data/quests.ts` (`JAGD`), der Ablauf in `src/objects/HuntQuest.ts`.
-  - **Deine Gruppe – der Schwarm (Taste S in der Grundbelegung, am Handy der Knopf mit den drei Fischen oben rechts):** Nach der Jagd erklärt dir
-    einer der Überlebenden, dass du sie **rufen** kannst. Wer überlebt hat, gehört fortan zu deiner Gruppe (die Zahl am Knopf).
-    Auf deinen Ruf schwimmen sie von außerhalb des Bildes herbei, **folgen dir locker** und **helfen, sobald du angreifst**.
-    Noch einmal S schickt sie fort (sie leben weiter; danach kann man ein paar Sekunden nicht rufen). Jeder von ihnen hat **so
-    viel Lebenskraft wie du, aber einen schwächeren Biss** (anfangs halb so stark). Die Kehrseiten: **Wer mitjagt, will
-    mitfressen** – wer leer ausgeht, beißt dich und verlässt die Gruppe für immer; **wer stirbt, kommt nicht wieder**, beim
-    nächsten Ruf fehlt er. Lässt du sie aber öfter von gemeinsamer Beute fressen, **schließen sich weitere an** und die Gruppe
-    kommt größer. Verletzte bleiben bis zur nächsten Generation angeschlagen. Zahlen in `src/data/quests.ts` (`SWARM`),
-    Verhalten in `src/objects/Swarm.ts`. Sonst gibt es weiterhin keine Artgenossen, die frei umherschwimmen.
-- **Orte und Weltkarte:** Jedes Zeitalter hat **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
+- **Freies Überleben:** Es gibt keine Aufträge, Dialogszenen oder zeitgesteuerten Sonderereignisse. Die Tierwelt lebt
+  durch ihre Bewohner, Schwärme und seltene Durchzügler. Bereits gespeicherte Gruppen bleiben erhalten und lassen sich
+  mit **S** rufen oder fortschicken; ihre Einstellungen stehen in `src/data/swarm.ts`.
+- **Orte und Weltkarte:** Das Devon hat **drei direkt verbundene Wasserabschnitte**, das Karbon **zehn Orte** – und jeder ist **deutlich größer** als früher: breit nach
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
   - **Der Startort** ist der **Laichfluss**: Du schlüpfst in einem flachen Becken zwischen **Fischlaich** am Boden.
     Im Devon leben hier locker verteilte kleine Fische und Trilobiten. Direkt an den eigenen Gelegen werden keine
@@ -380,9 +342,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     (hell, mit Dünen und Rippelspuren) wechseln sich mit **Felsgebieten** (dunkel, mit eingebetteten Steinen) und **Schlamm** ab –
     weich ineinander übergehend, nach unten immer dunkler. Auf dem Grund liegen **Felsbrocken** (manche lehnen aneinander,
     manche stecken halb im Hang) und **Kiesel**; man schwimmt um sie herum oder über sie hinweg. **Große, dunkle Felsen im
-    Vordergrund** haben keine Hitbox: Wer **hinter** ihnen schwimmt, verschwindet kurz aus dem Bild. Die Höhlen liegen unter einer
-    **Felskuppel** – mit unregelmäßiger Decke und rundem, geschlossenem Ende –, die Felsspalten unter einer Platte, die auf
-    einem Felsbrocken ruht. Die Hitboxen bleiben
+    Vordergrund** haben keine Hitbox: Wer **hinter** ihnen schwimmt, verschwindet kurz aus dem Bild. Felsspalten liegen unter einer Platte, die auf einem Felsbrocken ruht. Die Hitboxen bleiben
     Rechtecke (Säulen von 20 Bildpunkten, bei den Felsen schmale Scheiben) – nur so fein, dass nichts mehr eckig wirkt; kleine
     Stufen (bis etwa 22 Bildpunkte) gleitet man am Grund einfach hinauf.
   - **Bodentiere (Trilobiten u. a.) laufen am Boden wirklich:** Sie **richten sich nach dem Boden aus** (am Hang schräg, an
@@ -392,17 +352,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     der Körper eine Wand meldet), **ducken** sie sich unter Überhängen hindurch, sonst weichen sie ein Stück zurück, suchen
     sich ein neues Ziel auf der anderen Seite und merken sich die Wand (Nahrung dahinter wird eine Weile nicht angesteuert);
     in einer Sackgasse bleiben sie ruhig stehen, statt zwischen links und rechts zu zappeln.
-  - **Farbhöhlen sind selten und verschüttet:** Nur **zwei Orte im ganzen Zeitalter** haben eine – eine
-    **grüne** in einem trüben Ort (im Devon der Korallengarten; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
-    Ankunftsplatz und ist mit **losem Geröll** zugeschüttet (heller als der Fels, Steine mit Lücken dazwischen). Ein
-    **kräftiger Stoß** (R, mit vollem Anlauf) bricht es auf – allein schafft das erst ein harter Kopf (Stoßfisch) oder ein
-    großer, massiger Körper, sonst **im Schwarm**: Jeder Artgenosse, der dich gerade begleitet, stößt mit (mit drei
-    Begleitern reicht es). Ein zu schwacher Stoß lässt nur Risse zurück, an denen man sieht, wie viel noch fehlt.
-    Aufgebrochen bleibt das Geröll für den Rest des Lebens (Werte in `src/data/world.ts`,
-    `CAVE_WALL`). Wer bis ans hintere Ende schwimmt und wieder herauskommt, gibt die Farbe an seine **Nachkommen** weiter
-    (ein leiser Schimmer zeigt es; das Tier selbst bleibt, wie es ist). Die Farbe gibt es **nur einmal pro Spieldurchlauf** –
-    wer einmal gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht in der Übersicht (C). Daneben gibt es einige
-    niedrige **Felsspalten** zum Verstecken für Schlanke.
+  - **Natürliche Verstecke:** Niedrige **Felsspalten** und dichter Bewuchs bieten Deckung. Farbhöhlen, verschüttete
+    Eingänge und aufbrechbare Wände gibt es nicht mehr. Bestehende Färbungen und vorgemerkte Farben älterer Spielstände
+    bleiben für die Vererbung erhalten.
   - **Ein zusammenhängendes Meer im Devon:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
     Korallengarten und von dort ins **Tiefental**. Dessen Boden fällt nach rechts immer weiter ab. Zurück geht es ebenso
     direkt nach links, ohne Overworld, Zielauswahl oder zusätzliche Reisezeit. Die Abschnitte werden mit einer kurzen
@@ -506,7 +458,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   wenn deine Linie ausstirbt.
 - **Die große Muschel – Muscheln verteilen:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
   Fächermuschel**, perlmuttfarben, mit einer leise glühenden **Perle** davor, Lichtfunken steigen auf, von oben fällt ein
-  Lichtschacht. Wer davor die Taste fürs Ansprechen drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
+  Lichtschacht. Wer davor die Interaktionstaste drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
   viele Muscheln **frei** sind, und **drei Richtungen**, in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
   danach („27 → 28“):
   - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird je Segen um 1,8 % größer**.
@@ -547,8 +499,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     das **Schwarze kommt früher** und wird dichter. Auch der kleine Sichtbereich direkt um den Fisch schrumpft dabei,
     damit der erste Fisch in großer Tiefe nicht genauso weit sieht wie in trübem Flachwasser.
 
-  Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. In Szenen mit der Kamera (Aufträge)
-  lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
+  Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
   Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere
   und die Fische in der Ferne (`BackSea.see`).
 - **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
@@ -579,16 +530,11 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus. Auch **große Tiere töten nicht nur**, sondern
   **fressen ihre Beute**: Ein Räuber, der etwas erlegt hat, schwimmt zum Fleisch, senkt den Kopf und frisst Bissen für Bissen –
   mit sichtbarem Nicken, Kauen und einem Ruck bei jedem Happen (bis er satt ist oder etwas ihn stört).
-- **Herrscher des Devons:** Im Devon wartet der Endgegner – *Dunkleosteus*, mit Lebensbalken unten im Bild; einmal
-  aufgetaucht, folgt er dir von Ort zu Ort (nie ins sichere Startgebiet). Wie er in der durchgehenden Weltzeit auftaucht,
-  ist noch offen.
-- **Überraschungsangriff:** Wer aus Dickicht, Höhle, Felsspalte oder gut getarnt angreift (das Tier
+- **Überraschungsangriff:** Wer aus Dickicht, Felsspalte oder gut getarnt angreift (das Tier
   ist dann leicht durchsichtig), trifft mit dem ersten Biss oder Stoß zwei- bis dreifach und betäubt.
-- **Riesen:** Zu Beginn mancher Zeitalter rast etwas Gewaltiges vorbei – im Devon *Dunkleosteus* (im verborgenen
-  Ordovizium ein Riesenkopffüßer, im Silur *Pterygotus*). Vorher wird das Wasser dunkler,
-  es grollt, das Herz klopft, und die kleinen Fische fliehen: Zeit, sich zu verstecken. Selten
-  streifen auch große Jäger wie *Megalograptus*, *Cladoselache* oder *Hyneria* umher. Wen ein Riese
-  reißt, von dem bleibt meist etwas übrig …
+- **Große Jäger:** Spitzenräuber leben in passenden tiefen Gebieten. Seltene Durchzügler entstehen abhängig vom
+  Lebensraum, ohne festen Weltzeitplan, geskriptete Angriffe oder Kameraszenen.
+
 - **Ein Schatten in der Tiefe:** Im Silur wird plötzlich alles langsamer, die Kamera rückt an dein
   Tier heran, die Musik verklingt und das Meer rauscht lauter – du hältst inne, während weit hinten ein
   riesiger Fisch vorbeizieht. Dann geht es weiter, als wäre nichts gewesen.
@@ -676,8 +622,6 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
   aussehen und was sie können.
-- **Ereignisse** je Zeitalter: große Räuber ziehen durch, Stürme wühlen das Wasser auf, Futter
-  sprießt – immer wieder, nach der Weltzeit für alle zugleich.
 - **Von Generation zu Generation** setzt sich fort, was sich bewährt hat (Tarnung, Bodenkontakt …). Das **Aussehen** und
   die Fähigkeiten der Art verändern sich **nur beim Generationswechsel** – im Leben wächst das Tier nur heran.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
@@ -740,7 +684,6 @@ Generationswechsel – als Wert sieht man nichts davon:
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | hält sich oft oben im Licht bzw. unten in der Tiefe | hellere bzw. dunklere Färbung |
-| schwimmt durch eine Farbhöhle | die Farbe der Höhle (grün bzw. schwarz) – einmal je Durchlauf |
 | versteckt sich zwischen Pflanzen | grünere Farben, größere (wendigere) Flossen, eine flachere Rückenflosse |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger
@@ -816,7 +759,7 @@ anwählen und Eingabe drücken), dann die neue Taste drücken. **Entf** (oder ei
 Gehört die Taste schon einer anderen Handlung, wechselt sie hierher – unten steht dann, wem sie genommen wurde.
 **Grundbelegung** stellt alles wieder her. Die Belegung gilt sofort (auch mitten im Spiel), wird im Browser gespeichert
 (`evo-keys-v1`, unabhängig vom Spielstand) und überall verwendet: die Zeichen über dem Kopf („E“ zum Laichen, „F“ zum
-Ansprechen) zeigen die eigene Taste, ebenso der Übersicht-Knopf oben rechts und die Hinweise in den Aufträgen. **Esc** ist
+Beten) zeigen die eigene Taste, ebenso der Übersicht-Knopf oben rechts. **Esc** ist
 fest (Rast, zurück); in Menüs wählen immer auch die Pfeiltasten und Eingabe. Code: `src/state/keymap.ts` (Belegung),
 `src/ui/keysPanel.ts` (die Seite), `src/objects/Controls.ts` (liest sie im Spiel).
 
@@ -908,14 +851,13 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
 - **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
   von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
 - **Gemeinsame Tiere und Pflanzen:** Alle am Ort sehen **dieselben Tiere**, dasselbe Fleisch und **dieselben Pflanzen**
-  (wer abfrisst, frisst es allen weg; nachwachsen und die Blütezeit rechnet der Ortswächter). Gerechnet werden sie im Spiel eines
+  (wer abfrisst, frisst es allen weg; das Nachwachsen rechnet der Ortswächter). Gerechnet werden sie im Spiel eines
   Spielers, dem **Ortswächter** (wer zuerst da war); der Server verteilt sie an alle anderen. Beißt oder stößt ein anderer
   Spieler ein Tier, geht der Treffer an den Ortswächter; Tiere jagen, meiden und beißen **jeden** Spieler (den jeweils
   nächsten); wer vom Fleisch frisst, nimmt es allen weg. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
   er in der Rast), übernimmt ein anderer Spieler die Tiere, so wie sie gerade sind. Neue Tiere (Durchzügler, Rückkehrer,
   Schlüpflinge) kommen nur beim Ortswächter dazu. Kein Tier verschwindet vor den Augen eines Spielers.
-- **Noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner) und die Tiere eines
-  Auftrags – die sieht nur, wem sie gehören.
+- **Noch für jeden einzeln:** der Laich und deine Artgenossen (bestehende Gruppe, Laich-Partner) – sie gehören zum eigenen Spielstand.
 
 Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind – und wie lange eine Nachricht zum Server und zurück
 braucht (z. B. „· 40 ms“; ab 150 ms wird die Zeile ocker: Dann liegt ein Ruckeln eher an der Verbindung als am Spiel).
@@ -1027,9 +969,9 @@ src/
 ├── data/                Spieldaten – hier lässt sich das Spiel am leichtesten anpassen
 │   ├── classes.ts       Körperformen mit Grundwerten
 │   ├── species.ts       alle Tierarten mit Rolle, Kost, Sinnen, Stärke
-│   ├── epochs.ts        Zeitalter: Zeitraum, Tiere, Ereignisse, spielbar oder ruhend, Zeile und Text für die Auswahl
-│   ├── quests.ts        die Aufträge der Artgenossen: Texte, Schritte, das Tier, das den Gefährten frisst; die gemeinsame Jagd (JAGD) und der Schwarm (SWARM) mit allen Zielzahlen
-│   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Höhlen; Lage kommt aus paleo.json)
+│   ├── epochs.ts        Zeitalter: Zeitraum, Bewohner, Durchzügler, Spitzenräuber, spielbar oder ruhend, Zeile und Text für die Auswahl
+│   ├── swarm.ts         Einstellungen bestehender Artgenossen-Gruppen
+│   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Verbindungen; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
 │   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
 │   ├── life.ts          Welt und Leben: Weltsaat und Weltzeit (WORLD), Wachsen und Altern (LIFE), Laichen (SPAWN), Vererbung (INHERIT), Sonstiges (MISC)
@@ -1061,7 +1003,7 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Segen als Punktfolge (upTrail.ts), die Entwickler-Einstellung (devConfig.ts)
 └── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
@@ -1096,7 +1038,6 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Sicht:** Sie hängt an der Sicht des Tiers, der Wasserqualität und der Tiefe; der Rand ist kurz, dahinter wird es
       dunkel. Bitte beim Spielen ansehen, ob es zu dunkel oder zu eng ist (`SIGHT` in `src/sim/sight.ts`: `front0`, `fade`,
       `water`, `depth`, `dark`, `darkSpread`).
-- [ ] **Endgegner und Demo-Ende** sind ausgesetzt (gehören zum alten Zeitalter-Ablauf).
 - [ ] **Altern nur beim Spielen:** Wer offline ist, altert nicht.
 - [ ] **Eigene Gelege sind unangreifbar** – weder Räuber noch andere Spieler fressen sie.
 - [ ] **Partner beim Laichen ist immer die KI** (garantiert). Später: echte Spieler mit Vorrang – dafür muss das Laichen
@@ -1118,8 +1059,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Rast im Mehrspieler:** pausiert nur bei dir; die anderen sehen deinen Fisch so lange still stehen.
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
       Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
-- [ ] **Im Mehrspieler noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner)
-      und die Tiere eines Auftrags. Jeder Wasserabschnitt hat seinen eigenen Raum.
+- [ ] **Im Mehrspieler noch für jeden einzeln:** der Laich und deine Artgenossen (bestehende Gruppe, Laich-Partner). Jeder Wasserabschnitt hat seinen eigenen Raum.
 - [ ] **Tempo:** Das eigene Tier ist etwa 15 % gemächlicher als früher (Grundtempo 183 statt 215), alle anderen Tiere 10 %
       (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen. Angriffe der
       Tiere (Ausholen, Zustoßen, Ansturm) sind so schnell wie früher.
@@ -1129,9 +1069,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
       Beutefische ab 6 Lebenskraft × 1,2 – die kleinsten sind mit zwei Bissen erledigt, kleine brauchen drei und mehr);
       Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
-- [x] **Karte:** Wasserquerschnitt auf C; direkte Gebietswechsel ohne Overworld und ohne zusätzliche Reisezeit.
+- [x] **Karte:** Verkleinerte Overworld mit Gondwana und Lebensraum auf C; direkte Gebietswechsel ohne Reisezeit.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
-      eigene Tier verändert sich im Leben nicht (auch nicht durch eine Farbhöhle – die Farbe geht an die Nachkommen).
+      eigene Tier verändert sich im Leben nicht.
 - [ ] **Lebenstempo:** Generation 1 ist nach 3 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 8
       Minuten); Generation 2: 4 + 11; danach logarithmisch länger (Generation 8: 6 + 17). Die ganze Lebensdauer ist dieselbe
       wie zuvor (11, 15, 19, 23 Minuten). Laich der Artgenossen im Startgebiet verdirbt nicht.

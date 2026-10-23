@@ -1,5 +1,5 @@
 import { audio } from '../audio/Audio';
-import { SWARM } from '../data/quests';
+import { SWARM } from '../data/swarm';
 import { bus, game, type Member } from '../state/GameState';
 import { clamp } from '../util/math';
 import type { Kill, Meat } from './Food';

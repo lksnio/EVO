@@ -71,8 +71,8 @@ export class RemoteTarget implements PlayerLike {
   }
 }
 
-/** Wird dieses Tier mit den anderen Spielern geteilt? (Artgenossen und Tiere eines Auftrags gehören nur dir.) */
-const shared = (a: Animal) => !a.dead && !a.kin && !a.personal && !a.scripted && !(a instanceof GhostAnimal);
+/** Wird dieses Tier mit den anderen Spielern geteilt? (Artgenossen gehören nur dir.) */
+const shared = (a: Animal) => !a.dead && !a.kin && !(a instanceof GhostAnimal);
 
 /**
  * Die Tiere, das Fleisch und die Pflanzen eines Ortes für alle Spieler gleich (siehe net/protocol.ts):

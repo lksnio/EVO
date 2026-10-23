@@ -1,9 +1,9 @@
 import { CLASSES } from './classes';
-import { EPOCHS } from './epochs';
+import { epochSpecies, EPOCHS } from './epochs';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
 import { SIGHT } from '../sim/sight';
 import { BITE } from '../sim/bite';
-import { JAGD, SWARM } from './quests';
+import { SWARM } from './swarm';
 import { SPECIES } from './species';
 import { FOOD, game, meatOf } from '../state/GameState';
 
@@ -135,7 +135,7 @@ export const SPECIES_ROWS: SpeciesRow[] = (() => {
   const seen = new Set<string>();
   const rows: SpeciesRow[] = [];
   for (const ep of EPOCHS) {
-    const ids = [...ep.fauna.map(([id]) => id), ...ep.passers.map(([id]) => id), ...ep.events.map((e) => e.species)];
+    const ids = epochSpecies(ep);
     for (const id of ids) {
       if (!id || seen.has(id) || !BASE[id]) continue;
       seen.add(id);
@@ -164,7 +164,6 @@ export const GROUPS: Group[] = [
       field(FOOD.roe, 'sat', 'FOOD.roe.sat', 'Nahrung je Ei (fremder Laich)'),
       field(MISC, 'animalBite', 'MISC.animalBite', 'Fleisch je Biss anderer Tiere'),
       field(MISC, 'plantRegrow', 'MISC.plantRegrow', 'Pflanzen wachsen nach (Sekunden je Bissen)'),
-      field(MISC, 'plantRegrowBloom', 'MISC.plantRegrowBloom', '… zur Blütezeit (Sekunden)'),
     ],
   },
   {
@@ -300,7 +299,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'gruppe',
-    title: 'Gruppe und gemeinsame Jagd',
+    title: 'Gruppe',
     params: [
       field(SWARM, 'cap', 'SWARM.cap', 'Höchstens auf einen Ruf'),
       field(SWARM, 'capPlus', 'SWARM.capPlus', '… mehr mit vollem Zusammenhalt'),
@@ -308,8 +307,6 @@ export const GROUPS: Group[] = [
       field(SWARM, 'dmg', 'SWARM.dmg', 'Angriffskraft eines Artgenossen (Anteil)', { max: 1 }),
       field(SWARM, 'dmgPlus', 'SWARM.dmgPlus', '… mehr mit vollem Zusammenhalt', { max: 1 }),
       field(SWARM, 'cooldown', 'SWARM.cooldown', 'Wieder rufen nach (ms)', { step: 500 }),
-      field(JAGD, 'kills', 'JAGD.kills', 'Gemeinsame Jagd: zu erlegen'),
-      field(JAGD, 'school', 'JAGD.school', 'Gemeinsame Jagd: Tiere im Schwarm'),
     ],
   },
 ];

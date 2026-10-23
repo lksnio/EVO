@@ -65,22 +65,15 @@ export class Plant {
     return true;
   }
 
-  update(now: number, fast = false) {
+  update(now: number) {
     if (this.net) return;
     if (this.units < this.max && now > this.regrowAt) {
       this.units++;
-      this.regrowAt = now + (fast ? MISC.plantRegrowBloom : MISC.plantRegrow) * 1000;
+      this.regrowAt = now + MISC.plantRegrow * 1000;
       this.img.setTexture(this.key);
     }
   }
 
-  /** Alles wächst auf einmal nach (Blütezeit). Beim Gast kommt das vom Ortswächter. */
-  refill() {
-    if (this.net || this.units >= this.max) return;
-    this.units = this.max;
-    this.img.setTexture(this.key);
-    this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.6, to: 1 }, duration: 600, ease: 'Back.out' });
-  }
 
   /** Mehrspieler (Gast): So viel ist laut Ortswächter daran – nach einem eigenen Bissen erst, wenn er ihn kennt. */
   netSet(units: number, now: number) {

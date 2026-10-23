@@ -2183,22 +2183,6 @@ export function commonTextures(scene: Phaser.Scene) {
   // Lichtnetz (Kaustik) – zwei Lagen, die sich gegeneinander verschieben
   causticTex(scene, 'caustics', 57);
   causticTex(scene, 'caustics2', 91);
-  // Höhle: dunkler Fels als Rückwand, Augenleuchten
-  tex(scene, 'cave_back', 128, 128, (ctx) => {
-    ctx.fillStyle = '#0a0d0e';
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = pattern(ctx, 'stone', 0.6);
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.restore();
-    ctx.fillStyle = 'rgba(60,70,70,.12)';
-    ctx.fillRect(0, 0, 128, 128);
-  });
-  tex(scene, 'eyeglint', 24, 24, (ctx) => {
-    ctx.fillStyle = rgrad(ctx, 12, 12, 0, 12, [[0, 'rgba(255,250,220,1)'], [0.25, 'rgba(255,230,160,.8)'], [1, 'rgba(255,200,120,0)']]);
-    ctx.fillRect(0, 0, 24, 24);
-  });
   // Glühender Brocken (Meteoritenregen)
   tex(scene, 'fireball', 48, 48, (ctx) => {
     ctx.fillStyle = rgrad(ctx, 24, 24, 2, 24, [[0, 'rgba(255,240,190,1)'], [0.35, 'rgba(255,150,50,.95)'], [0.7, 'rgba(160,40,10,.5)'], [1, 'rgba(60,10,0,0)']]);
@@ -2262,78 +2246,6 @@ function causticTex(scene: Phaser.Scene, key: string, seed: number) {
     }
     ctx.putImageData(img, 0, 0);
   });
-}
-
-/**
- * Schatten einer Höhle: weiche, unregelmäßige Ränder, hinten fast schwarz, zum Eingang
- * (links unten) heller – dazu Tropfsteine an der Decke. Gibt Schlüssel und Versatz zur Höhle zurück.
- */
-export function caveShade(scene: Phaser.Scene, cw: number, ch: number, T: number, seed: number, gnd: string) {
-  const M = 30;
-  const tw = cw + T + 2 * M, th = ch + 2 * M;
-  const key = `cave_shade_${gnd}_${cw}x${ch}_${seed}`;
-  tex(scene, key, tw, th, (ctx) => {
-    const r = mulberry32(seed + 11);
-    const ix = M + T, iy = M;
-    // Felsbrocken entlang der Öffnung: Die Höhle wird rund statt eckig
-    const rock = ctx.createPattern(scene.textures.get(gnd).getSourceImage() as HTMLCanvasElement, 'repeat');
-    const lump = (x: number, y: number, rad: number) => {
-      blob(ctx, r, x, y, rad, rad * (0.75 + r() * 0.3), 8);
-      ctx.fillStyle = rock ?? '#1a2022';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,.35)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    };
-    for (let x = ix + 10; x < ix + cw - 10; x += 14 + r() * 12) lump(x, iy - 2, 6 + r() * 6);
-    for (let y = iy + 14; y < iy + ch - 6; y += 14 + r() * 12) lump(ix + cw + 3, y, 8 + r() * 8);
-    for (let y = iy + 12; y < iy + 2 * T - 4; y += 14 + r() * 10) lump(ix - 3, y, 8 + r() * 6);
-    for (let x = M + 8; x < ix + 4; x += 12 + r() * 8) lump(x, iy + 2 * T + 2, 7 + r() * 6);
-    for (let x = ix + 12; x < ix + cw - 12; x += 22 + r() * 18) lump(x, iy + ch + 4, 5 + r() * 6);
-    lump(ix + 4, iy + 4, 20 + r() * 6);
-    lump(ix + cw - 4, iy + 4, 22 + r() * 6);
-    lump(ix + cw - 2, iy + ch - 2, 20 + r() * 6);
-    const stamp = (x: number, y: number, rad: number, a: number) => {
-      ctx.fillStyle = rgrad(ctx, x, y, 0, rad, [[0, `rgba(2,3,3,${a})`], [1, 'rgba(2,3,3,0)']]);
-      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-    };
-    for (let y = iy + 12; y <= iy + ch - 8; y += 16) {
-      for (let x = ix + 12; x <= ix + cw - 12; x += 16) stamp(x + (r() - 0.5) * 8, y + (r() - 0.5) * 8, 22 + r() * 10, 0.8);
-    }
-    // durch den Eingang fällt der Schatten weicher nach draußen
-    for (let y = iy + ch - 2 * T + 12; y <= iy + ch - 8; y += 16) {
-      for (let x = M + 6; x <= ix; x += 16) stamp(x, y, 20 + r() * 8, 0.45);
-    }
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = rgrad(ctx, ix, iy + ch - T * 0.8, 0, T * 2.6, [[0, 'rgba(0,0,0,.55)'], [1, 'rgba(0,0,0,0)']]);
-    ctx.fillRect(0, 0, tw, th);
-    ctx.restore();
-    // Tropfsteine an der Decke, ein paar Höcker am Boden
-    for (let x = ix + 6 + r() * 10; x < ix + cw - 6; x += 12 + r() * 16) {
-      const len = 8 + r() * 24, hw = 3 + r() * 5;
-      ctx.beginPath();
-      ctx.moveTo(x - hw, iy - 2);
-      ctx.quadraticCurveTo(x - hw * 0.3, iy + len * 0.6, x, iy + len);
-      ctx.quadraticCurveTo(x + hw * 0.3, iy + len * 0.6, x + hw, iy - 2);
-      ctx.closePath();
-      ctx.fillStyle = '#121718';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(140,155,150,.18)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-    for (let x = ix + 10 + r() * 20; x < ix + cw - 10; x += 26 + r() * 30) {
-      const hgt = 5 + r() * 10, hw = 4 + r() * 6;
-      ctx.beginPath();
-      ctx.moveTo(x - hw, iy + ch + 2);
-      ctx.quadraticCurveTo(x, iy + ch - hgt * 1.6, x + hw, iy + ch + 2);
-      ctx.closePath();
-      ctx.fillStyle = '#101415';
-      ctx.fill();
-    }
-  });
-  return { key, ox: -(T + M), oy: -M };
 }
 
 export const THEME_TINT: Record<Theme, number> = {

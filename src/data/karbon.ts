@@ -30,11 +30,6 @@ export const BROOD = {
   growMeta: 0.8,
   /** fern vom Nest (in einem anderen Ort) geht in der Gefahr alle so viele Sekunden ein Ei verloren */
   awayEvery: 4,
-  /** Räuberwellen am Nest: alle so viele Sekunden (von … bis) kommen so viele Räuber (von … bis) */
-  waveEvery: [30, 46] as [number, number],
-  waveSize: [1, 3] as [number, number],
-  /** die erste Welle kommt so viele Sekunden nach der Metamorphose */
-  firstWave: 14,
   /** ein Räuber am Nest beißt alle so viele Sekunden ins Gelege … */
   raidEvery: 1.5,
   /** … und frisst dabei so viele Eier (kleine Räuber … große) */

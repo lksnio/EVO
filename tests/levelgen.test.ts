@@ -14,7 +14,6 @@ const shape = (L: ReturnType<typeof generateLevel>) => ({
   rocks: L.rocks.map((r) => [Math.round(r.x), Math.round(r.y), r.seed]),
   spawns: L.spawns,
   plants: L.plants,
-  caves: L.caves.map((c) => [c.x, c.y, c.w, c.h]),
   shrine: L.shrine,
 });
 

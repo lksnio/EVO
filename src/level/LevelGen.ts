@@ -1,17 +1,17 @@
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
-import { SHAPE_OF, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
+import { SHAPE_OF, type PlaceDef, type ZoneDef } from '../data/world';
 import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
 import { faunaAffinity, nearNursery } from '../sim/habitat';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
-import { caveRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
+import { buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
 // beide Richtungen durchstreifen kann – an seinen Rändern geht es direkt im Nachbargebiet weiter. Er wird für
 // jeden Lauf aus einer Saat erzeugt (derselbe Ort sieht beim Wiederkommen gleich aus): Gelände,
-// Pflanzen, Dickicht zum Verstecken, Höhlen, Muscheln und die Tiere (in Herden, Räuber abseits).
+// Pflanzen, Dickicht und Felsspalten zum Verstecken, Muscheln und die Tiere (in Herden, Räuber abseits).
 
 export interface Spawn {
   id: string;
@@ -71,10 +71,6 @@ export interface LevelData {
   plants: { x: number; y: number; v: number }[];
   /** Dickicht: x, y (oben), Breite, Höhe – unten endet es am Boden */
   cover: Rect[];
-  /** Höhlen im Fels: Wer bis ans hintere Ende schwimmt und wieder heraus, kommt mit der Farbe der Höhle heraus. */
-  caves: Cave[];
-  /** Geröll, das eine Höhle verschüttet – ein kräftiger Stoß (oder der Stoß im Schwarm) bricht es auf */
-  walls: CaveWall[];
   spawns: Spawn[];
   decor: Decor[];
   start: { x: number; y: number };
@@ -107,23 +103,6 @@ export interface LevelData {
   summit?: Rect;
 }
 
-/** Eine Höhle: Innenraum und die Farbe, die man darin annimmt (1 grün, 2 schwarz). */
-export interface Cave extends Rect {
-  coat: number;
-  /** Seite der Öffnung (1 rechts, -1 links) – die andere Seite ist geschlossen */
-  side: 1 | -1;
-  /** Umriss des Hohlraums (Weltkoordinaten) */
-  hollow: [number, number][];
-}
-
-/** Geröll in der Öffnung einer Höhle (cave: Nummer der Höhle). */
-export interface CaveWall extends Rect {
-  cave: number;
-  /** Richtung, aus der man von außen kommt (1: von rechts, -1: von links) */
-  side: 1 | -1;
-  seed: number;
-}
-
 export interface Zone {
   x0: number;
   x1: number;
@@ -150,8 +129,6 @@ function base(ep: EpochDef, mode: 'water' | 'land', width: number, height: numbe
     hazards: [],
     plants: [],
     cover: [],
-    caves: [],
-    walls: [],
     spawns: [],
     decor: [],
     start: { x: 0, y: 0 },
@@ -279,7 +256,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
     }
   }
   // Im tiefsten Wasser lebt einer der ganz Großen
-  const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
+  const apex = ep.apex;
   if (apex && place.apex) put(apex, Math.floor(cols * 0.62), true);
 }
 
@@ -417,7 +394,6 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     G.flatten((cols - 14) * T, cols * T, place.seabed[1] * T, 80);
   }
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };
-  addTunnels(L, place.caves, r, cols, G, startCol);
   addCrevices(L, 2, r, cols, G, startCol);
   addCurrents(L, r, cols, G.heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
@@ -458,10 +434,6 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     }
     sp.y = Math.min(sp.y, G.at(sp.x) - 24);
   }
-  // keine Tiere im Fels der Tunnel (das Dach reicht vier Kacheln über den Gang)
-  for (const sp of L.spawns) {
-    for (const c of L.caves) if (sp.x > c.x - 2 * T && sp.x < c.x + c.w + 2 * T && sp.y > c.y - 5 * T) sp.y = c.y - 5 * T - 30;
-  }
   // Erst nach dem Verschieben aus Felsen prüfen: Auch einzelne Schwarmmitglieder bleiben vom eigenen Laich fern.
   L.spawns = L.spawns.filter((s) => !nearNursery(place, s, L.roe));
   L.groundRects = groundRects(hp, rows * T);
@@ -482,7 +454,6 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   const taken: [number, number][] = [];
   const frozen = (x0: number, x1: number) =>
     keep.some(([a, b]) => x1 > a && x0 < b)
-    || L.caves.some((c) => x1 > c.x - 5 * T && x0 < c.x + c.w + 5 * T)
     || L.crevices.some((c) => x1 > c.x - 4 * T && x0 < c.x + c.w + 4 * T);
   // der Felsen sitzt auf dem tiefsten Punkt unter ihm, ein Stück im Boden
   const seat = (x: number, rx: number, ry: number, tone: number, sink: number): RockSpec => {
@@ -533,7 +504,7 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   for (let i = 0, n = Math.round(cols * 0.6); i < n; i++) {
     const x = (2 + r() * (cols - 4)) * T;
     const m = matAt(zones, x);
-    if (r() > WEIGHT[m] + 0.1 || L.caves.some((c) => x > c.x - 20 && x < c.x + c.w + 20)) continue;
+    if (r() > WEIGHT[m] + 0.1) continue;
     const prx = 5 + r() * 9;
     L.rocks.push(seat(x, prx, prx * (0.55 + r() * 0.3), toneOf(m), 4));
   }
@@ -563,7 +534,7 @@ function placeMats(L: LevelData, place: PlaceDef, r: Rng, G: Ground, riverEndCol
     const m = matAt(zones, x0 + w / 2);
     if (m === 'rock' && r() < 0.85) continue;
     if (x0 < riverEndCol * T && x1 > riverEndCol * T) continue;
-    if (L.caves.some((c) => x1 > c.x - T && x0 < c.x + c.w + T) || L.crevices.some((c) => x1 > c.x - T && x0 < c.x + c.w + T)) continue;
+    if (L.crevices.some((c) => x1 > c.x - T && x0 < c.x + c.w + T)) continue;
     if (L.solids.some((s) => s.x < x1 && s.x + s.w > x0 && s.y < G.at(s.x + s.w / 2) - 8)) continue;
     if (G.flat(x0, x1) > 40 || L.mats.some((q) => x0 < q.x1 + 40 && x1 > q.x0 - 40)) continue;
     L.mats.push({ x0, x1, tone: tones[Math.floor(r() * tones.length)], seed: Math.floor(r() * 1e9) });
@@ -578,8 +549,7 @@ function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
   const lush = place.kind === 'lush';
   const zones = L.terrain.zones;
   const free = (x: number, w: number) =>
-    !L.caves.some((c) => x + w > c.x - T && x - w < c.x + c.w + T)
-    && !L.crevices.some((c) => x + w > c.x - T && x - w < c.x + c.w + T)
+    !L.crevices.some((c) => x + w > c.x - T && x - w < c.x + c.w + T)
     && !L.solids.some((s) => x + w > s.x && x - w < s.x + s.w && s.y < G.at(x) - 8)
     && !L.fore.some((f) => Math.abs(x - f.x) < f.rx * 0.95 + w);
   // Wer hier lebt, hängt vom Ort, vom Zeitalter und vom Untergrund ab (data/biota.ts); manche wachsen in kleinen Gruppen
@@ -638,46 +608,6 @@ function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: numbe
 }
 
 /**
- * Höhlen im Fels: ein Hohlraum mit unregelmäßiger Decke, hinten rund und geschlossen. Die Öffnung zeigt zum Ankunftsplatz –
- * sie ist mit Geröll verschüttet (L.walls), das nur ein kräftiger Stoß aufbricht. Drinnen liegt eine Muschel; wer bis ans
- * hintere Ende schwimmt und wieder heraus, nimmt die Farbe der Höhle an (grün bzw. schwarz). Der Boden wird dort eingeebnet.
- */
-function addTunnels(L: LevelData, kinds: CaveKind[], r: Rng, cols: number, G: Ground, startCol: number) {
-  const used: { c0: number; c1: number }[] = [];
-  kinds.forEach((kind, idx) => {
-    for (let k = 0; k < 500; k++) {
-      const W = rint(r, 11, 15);
-      // die erste Höhle nicht weit vom Ankunftsplatz, damit man sie findet
-      const off = rint(r, 9, 26);
-      const c0 = idx === 0 && k < 150 ? (r() < 0.5 ? startCol + off : startCol - off - W) : rint(r, 8, cols - W - 8);
-      if (c0 < 8 || c0 + W > cols - 8) continue;
-      if ((idx > 0 || k >= 150) && Math.abs(c0 + W / 2 - startCol) < 12) continue;
-      if (used.some((u) => c0 < u.c1 + 8 && c0 + W > u.c0 - 8)) continue;
-      if (G.flat((c0 - 3) * T, (c0 + W + 3) * T) > (k < 200 ? 90 : 170)) continue;
-      const f = Math.round(G.at((c0 + W / 2) * T) / T);
-      if (f < 14) continue;
-      const x0 = c0 * T, x1 = (c0 + W) * T;
-      // die Öffnung zeigt zum Ankunftsplatz
-      const side: 1 | -1 = c0 + W / 2 < startCol ? 1 : -1;
-      // einebnen: der Hohlraum hat einen ebenen Boden, davor und dahinter geht er weich ins Gelände über
-      G.flatten((c0 - 4) * T, (c0 + W + 4) * T, f * T, 140);
-      const cave = caveRock(x0, x1, f * T, 3.3 * T, 3 * T, 3.9 * T, 1.5 * T, side, Math.floor(r() * 1e9));
-      L.rocks.push(cave.rock);
-      for (const b of cave.boxes) L.solids.push(b);
-      const top = Math.floor(cave.ceil);
-      L.caves.push({ x: x0, y: top, w: W * T, h: f * T - top, coat: kind === 'g' ? 1 : 2, side, hollow: cave.hollow });
-      L.walls.push({ ...cave.wall, cave: L.caves.length - 1, side, seed: Math.floor(r() * 1e9) });
-      used.push({ c0, c1: c0 + W });
-      // Bewuchs auf der Kuppel
-      for (let i = 0; i < W; i++) if (r() < 0.45) L.decor.push({ k: pick(r, ['seaweed', 'anemone', 'sponge', 'seagrass']), x: x0 + (i + 0.5) * T, y: cave.top(x0 + (i + 0.5) * T) + 4 });
-      // hinter dem geschlossenen Ende wächst dichter Bewuchs – vor dem Geröll bleibt es frei, damit man es sieht
-      L.cover.push({ x: side > 0 ? x0 - 4 * T : x1 + T, y: (f - 7) * T, w: 3 * T, h: 7 * T });
-      break;
-    }
-  });
-}
-
-/**
  * Felsspalten: Eine Felsplatte liegt knapp über dem Grund. Darunter bleibt ein niedriger Durchgang,
  * in den große Jäger nicht hineinkommen – und wer selbst zu massig ist, auch nicht.
  */
@@ -691,7 +621,7 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
     const x0 = c0 * T, x1 = (c0 + W) * T;
     const gap = 34 + Math.floor(r() * 7);
     const slabY = f * T - gap - 2 * T;
-    const busy = L.caves.some((c) => c.x < x1 + 5 * T && c.x + c.w > x0 - 5 * T) || L.crevices.some((c) => c.x < x1 + 6 * T && c.x + c.w > x0 - 6 * T);
+    const busy = L.crevices.some((c) => c.x < x1 + 6 * T && c.x + c.w > x0 - 6 * T);
     if (busy) continue;
     // der Boden darunter wird eben; die Felsplatte liegt auf einem Felsbrocken am einen Ende auf (dort ist der Spalt geschlossen)
     G.flatten(x0 - 2 * T, x1 + 2 * T, f * T, 120);
@@ -739,7 +669,7 @@ function shrineCol(L: LevelData, place: PlaceDef, G: Ground, startCol: number) {
   let best = -1, bestScore = Infinity;
   for (let col = startCol + 12; col < Math.min(cols - 10, startCol + 36); col++) {
     const x = (col + 0.5) * T;
-    if (L.caves.some((c) => x > c.x - 4 * T && x < c.x + c.w + 4 * T) || L.crevices.some((c) => x > c.x - 4 * T && x < c.x + c.w + 4 * T)) continue;
+    if (L.crevices.some((c) => x > c.x - 4 * T && x < c.x + c.w + 4 * T)) continue;
     // möglichst eben und nicht zu weit weg
     const score = G.flat((col - 3) * T, (col + 4) * T) + (col - startCol) * 0.5;
     if (score < bestScore) {
@@ -1052,7 +982,7 @@ function placeFaunaSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G:
     for (let g = 0; g < count; g++) put(id, pool);
   }
   // im tiefen See lebt einer der ganz Großen
-  const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
+  const apex = ep.apex;
   if (apex && place.apex && wetCols.length) {
     let deepest = wetCols[0];
     for (const c of wetCols) if (G.at((c + 0.5) * T) > G.at((deepest + 0.5) * T)) deepest = c;

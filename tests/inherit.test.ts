@@ -184,12 +184,11 @@ describe('Generationswechsel', () => {
   it('das eigene Tier verändert sich im Leben nicht – was es tut, zeigt sich erst bei den Nachkommen', () => {
     const before = JSON.stringify(game.traits);
     const look = JSON.stringify(game.morph({ belly: 1 }));
-    // lange versteckt, am Grund gelaufen, im Licht geschwommen, durch eine Höhle
+    // lange versteckt, am Grund gelaufen, im Licht geschwommen
     for (let i = 0; i < 40; i++) game.grow('stealth', 0.05);
     game.grow('limb', 0.3);
     game.shiftLight(0.5);
     game.shiftBody('fin', 0.4);
-    game.setCoat(1);
     expect(JSON.stringify(game.traits)).toBe(before);
     expect(JSON.stringify(game.morph({ belly: 1 }))).toBe(look);
     // die Nachkommen tragen einen Teil davon weiter – höchstens einen Schritt je Generation
@@ -197,8 +196,15 @@ describe('Generationswechsel', () => {
     expect(h.traits.stealth).toBeGreaterThan(game.traits.stealth);
     expect(h.traits.stealth - game.traits.stealth).toBeLessThanOrEqual(INHERIT.step.carry + 1e-9);
     expect(h.traits.light).toBeGreaterThan(game.traits.light);
-    expect(h.traits.coat).toBe(1);
     expect(h.traits.scars).toBe(0);
+  });
+
+  it('erhält vorgemerkte Färbungen älterer Spielstände bei den Nachkommen', () => {
+    game.life.coat = 2;
+    expect(game.traits.coat).toBe(0);
+    const c = game.addClutch({ place: 'riff', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
+    succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
+    expect(game.traits.coat).toBe(2);
   });
 
   it('vorerst schlüpft jedes eigene Tier als Männchen – auch Nachkommen und Geschwister', () => {
@@ -323,12 +329,6 @@ describe('Generationswechsel', () => {
     expect(plateCeil(style).bs).toBeCloseTo(0.3, 5);
   });
 
-  it('ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation', () => {
-    game.prog.boss = 1;
-    const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
-    succeed(c, game.inherit({ meat: 0, plant: 0 }, newStyle()));
-    expect(game.prog.boss).toBe(0);
-  });
 
   it('erfolgreiche Stöße stärken den Schädel der Nachkommen und schwächen das Gebiss', () => {
     const style = newStyle();

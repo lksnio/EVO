@@ -155,4 +155,39 @@ describe('ältere Spielstände', () => {
     expect(game.data.nodes.n2.children).toEqual([]);
     expect(game.chosenEpoch).toBe(0);
   });
+
+  it('entfernt alte Aufgaben, Wand- und Bosszustände, erhält aber die laufende Linie', () => {
+    game.resetAll();
+    game.newRun(0);
+    game.ageBy(40);
+    game.addShell();
+    const old = JSON.parse(JSON.stringify(game.data));
+    const r = old.run;
+    r.quests = { gefaehrte: 1, jagd: 2 };
+    r.hunt = { kills: 2, took: true, size: 5 };
+    r.walls = ['devon:garten:0'];
+    r.coatSet = true;
+    r.life.coat = 1;
+    r.prog.boss = 1;
+    r.prog.resume = { x: 1800, y: 400 };
+    r.swarm = { members: [{ id: 1, hp: 0.6 }], next: 2, out: [1], callable: false, fed: 1, grown: 0, lost: 0, left: 0 };
+    store.set('evo-save-v3', JSON.stringify(old));
+    game.load();
+    expect(game.run?.id).toBe(r.id);
+    expect(game.life.age).toBe(40);
+    expect(game.prog.resume).toEqual({ x: 1800, y: 400 });
+    expect(game.shells).toBe(1);
+    expect(game.life.coat).toBe(1);
+    expect(game.drifted().coat).toBe(1);
+    expect(game.swarm?.callable).toBe(true);
+    expect(game.swarm?.members).toEqual([{ id: 1, hp: 0.6 }]);
+    expect(game.swarm?.out).toEqual([1]);
+    for (const field of ['quests', 'hunt', 'walls', 'coatSet']) expect(game.run).not.toHaveProperty(field);
+    expect(game.prog).not.toHaveProperty('boss');
+    game.save();
+    const saved = JSON.parse(store.get('evo-save-v3')!);
+    expect(saved.run).not.toHaveProperty('quests');
+    expect(saved.run.prog).not.toHaveProperty('boss');
+  });
+
 });

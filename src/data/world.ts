@@ -37,15 +37,6 @@ export type PlaceKind = 'start' | 'lush' | 'murky' | 'deep' | 'abyss';
  */
 export type PlaceShape = 'bowl' | 'meadow' | 'ridges' | 'vee' | 'well' | 'river' | 'nest' | 'shore' | 'isles' | 'marsh' | 'lake' | 'peak';
 
-/** Höhlen eines Ortes: g = grüne Höhle (färbt grün), b = schwarze Höhle. Die erste liegt nahe beim Ankunftsplatz. */
-export type CaveKind = 'g' | 'b';
-
-/**
- * Das Geröll vor einer Höhle bricht bei einem Stoß, der mindestens need × der Grund-Stoßkraft der Körperform hat (der Urfisch
- * schafft allein höchstens etwa zwei Drittel davon). Jeder Artgenosse, der dich begleitet und dabei näher als near bei dir
- * ist, stößt mit und gibt perKin deiner Stoßkraft dazu – mit drei Begleitern und vollem Anlauf reicht es.
- */
-export const CAVE_WALL = { need: 1.5, perKin: 0.25, near: 520 };
 
 export interface PlaceDef {
   id: string;
@@ -65,8 +56,6 @@ export interface PlaceDef {
   apex?: boolean;
   /** Form des Geländes (sonst nach Art des Ortes) */
   shape?: PlaceShape;
-  /** die durchquerbaren Farbtunnel dieses Ortes (selten) */
-  caves: CaveKind[];
   /** wie viele Stellen an der Oberfläche Licht hereinlassen */
   sun: number;
   /**
@@ -98,7 +87,6 @@ interface RoleDef {
   links: Role[];
   deep: number;
   wide: number;
-  caves: CaveKind[];
   sun: number;
   safe?: boolean;
   /** Feinabstimmung der Gebiets-Faktoren: Pflanzen, Dickicht, Beute, Jäger */
@@ -110,20 +98,20 @@ interface RoleDef {
 
 /**
  * Zehn Orte je Zeitalter, miteinander verbunden wie ein Netz. Von einem Ort in den nächsten kommt man über den Rand – wer
- * hinüberschwimmt, sieht den Ort und den Weg danach auf der Karte. Die Farbtunnel sind selten und liegen weit vom Start.
+ * hinüberschwimmt, sieht den Ort und den Weg danach auf der Karte. Niedrige Felsspalten dienen als natürliche Verstecke.
  */
 const ROLES: Record<Role, RoleDef> = {
   // das Startgebiet: klein, nur der Laichfluss und seine Mündung – und sicher (siehe PlaceDef.safe)
-  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 1.25, caves: [], sun: 4, safe: true },
-  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, caves: [], sun: 6, mul: [1, 1, 1, 1] },
-  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, caves: [], sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
-  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, caves: [], sun: 3 },
-  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], deep: 6, wide: 3.2, caves: ['g'], sun: 3, mul: [0.8, 0.9, 1, 0.7] },
-  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], deep: 60, wide: 2.8, caves: [], sun: 3 },
-  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], deep: 42, wide: 3, caves: [], sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
-  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], deep: 70, wide: 2.6, caves: ['b'], sun: 2 },
-  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], deep: 80, wide: 2.6, caves: [], sun: 2, apex: true },
-  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], deep: 90, wide: 2.4, caves: [], sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
+  start: { kind: 'start', shape: 'river', links: ['lush1', 'lush2', 'murky1', 'deep1'], deep: 14, wide: 1.25, sun: 4, safe: true },
+  lush1: { kind: 'lush', shape: 'meadow', links: ['start', 'lush2', 'murky2'], deep: 2, wide: 3.1, sun: 6, mul: [1, 1, 1, 1] },
+  lush2: { kind: 'lush', shape: 'bowl', links: ['start', 'lush1', 'deep2'], deep: 10, wide: 3, sun: 6, mul: [1.1, 1.15, 0.9, 0.8] },
+  murky1: { kind: 'murky', shape: 'ridges', links: ['start', 'murky2'], deep: 12, wide: 2.8, sun: 3 },
+  murky2: { kind: 'murky', shape: 'meadow', links: ['lush1', 'murky1'], deep: 6, wide: 3.2, sun: 3, mul: [0.8, 0.9, 1, 0.7] },
+  deep1: { kind: 'deep', shape: 'vee', links: ['start', 'deep2', 'deep3'], deep: 60, wide: 2.8, sun: 3 },
+  deep2: { kind: 'deep', shape: 'ridges', links: ['lush2', 'deep1', 'deep3'], deep: 42, wide: 3, sun: 3, mul: [0.8, 0.9, 0.9, 1.1] },
+  deep3: { kind: 'deep', shape: 'well', links: ['deep1', 'deep2', 'abyss1', 'abyss2'], deep: 70, wide: 2.6, sun: 2 },
+  abyss1: { kind: 'abyss', shape: 'vee', links: ['deep3', 'abyss2'], deep: 80, wide: 2.6, sun: 2, apex: true },
+  abyss2: { kind: 'abyss', shape: 'well', links: ['deep3', 'abyss1'], deep: 90, wide: 2.4, sun: 1, apex: true, mul: [0.8, 0.8, 0.7, 1.15] },
 };
 
 /** Zone nach Art des Ortes. veils = Farbe des Schleiers für bewachsene und trübe Orte. */
@@ -197,15 +185,15 @@ function buildPlaces(epId: string): PlaceDef[] {
     const [x, y] = PALEO[epId].nodes[r];
     return {
       id, name, kind: d.kind, x, y, links: d.links.map(idOf), def,
-      deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe, sky: d.sky,
+      deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, sun: d.sun, safe: d.safe, sky: d.sky,
     };
   });
   if (epId !== 'devon') return places;
   // Ein Meer, drei direkt verbundene Abschnitte. Die alten IDs bleiben für Spielstände erhalten.
   const river = places[0], shelf = places[1], valley = places[5];
   Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28] });
-  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 3, waterway: 1, seabed: [28, 28], caves: ['g'] });
-  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: [28, 107], caves: ['b'], apex: true });
+  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 3, waterway: 1, seabed: [28, 28] });
+  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: [28, 107], apex: true });
   valley.def.name = valley.name;
   return [river, shelf, valley];
 }
