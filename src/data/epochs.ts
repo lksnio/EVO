@@ -103,7 +103,7 @@ export const EPOCHS: EpochDef[] = [
       ['moythomasia', 9], ['acanthodes', 5], ['thelodus', 4], ['kieferlos', 4], ['cheiracanthus', 3.5], ['drepanaspis', 3], ['dipterus', 2.5],
       ['cephalaspis', 2], ['pteraspis', 2], ['trilobit', 3], ['dalmanites', 1.5],
       ['bothriolepis', 1.6], ['pterichthyodes', 1.4], ['climatius', 0.8], ['qualle', 1],
-      ['conodont', 0.8], ['osteolepis', 0.4], ['cheirolepis', 0.4], ['orthoceras', 0.4], ['coccosteus', 0.35], ['seeskorpion', 0.2],
+      ['conodont', 0.8], ['osteolepis', 0.4], ['cheirolepis', 0.4], ['orthoceras', 0.4], ['coccosteus', 0.35], ['seeskorpion', 0.2], ['pterygotus', 0.12], ['megalograptus', 0.15],
       ['cladoselache', 0.25], ['rolfosteus', 0.25], ['eusthenopteron', 0.2], ['stethacanthus', 0.15], ['holoptychius', 0.12], ['tiktaalik', 0.12], ['hyneria', 0.08],
     ],
     passers: [['cladoselache', 3], ['coccosteus', 2], ['stethacanthus', 1.5], ['rolfosteus', 1.5], ['eusthenopteron', 1.5], ['holoptychius', 1], ['pterygotus', 0.6], ['hyneria', 0.5]],

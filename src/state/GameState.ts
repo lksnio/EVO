@@ -6,7 +6,7 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
-import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
+import { INHERIT, LIFE, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN, OXYGEN } from '../data/karbon';
 import {
@@ -845,6 +845,18 @@ class GameState {
           // Endgegner gehören nicht mehr zum Ablauf: Einer, der dir noch folgte, ist fort
           if (r.prog.boss === 1) r.prog.boss = 0;
           r.prog.known ??= [...r.prog.seen];
+          if (EPOCHS[r.epoch].id === 'devon') {
+            const mapPlace = (id: string) => placeOf(EPOCHS[r.epoch], id).id;
+            r.prog.place = mapPlace(r.prog.place);
+            r.prog.known = [...new Set(r.prog.known.map(mapPlace))];
+            r.prog.seen = [...new Set(r.prog.seen.map(mapPlace))];
+            r.prog.links = [...new Set((r.prog.links ?? []).map((link) => {
+              const [a, b] = link.split('|').map(mapPlace);
+              return a !== b ? linkKey(a, b) : '';
+            }).filter(Boolean))];
+            for (const egg of [...r.pool ?? [], ...r.next ?? []]) egg.place = mapPlace(egg.place);
+            for (const clutch of r.life.clutches) clutch.place = mapPlace(clutch.place);
+          }
           // Orte aus einer älteren Karte, die es nicht mehr gibt
           r.prog.known = r.prog.known.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
           r.prog.seen = r.prog.seen.filter((id) => placesOf(EPOCHS[r.epoch]).some((p) => p.id === id));
@@ -1603,7 +1615,7 @@ class GameState {
     this.newGeneration(run);
     run.life = newLife(gen);
     const p = run.prog;
-    p.place = c.place;
+    p.place = placeOf(EPOCHS[run.epoch], c.place).id;
     p.edge = undefined;
     p.at = { x: c.x, y: c.y };
     p.hp = undefined;
@@ -1611,8 +1623,8 @@ class GameState {
     p.train = newStyle();
     // ein Endgegner, der dem Elterntier folgte, folgt nicht der neuen Generation
     if (p.boss === 1) p.boss = 0;
-    if (!p.seen.includes(c.place)) p.seen.push(c.place);
-    if (!p.known.includes(c.place)) p.known.push(c.place);
+    if (!p.seen.includes(p.place)) p.seen.push(p.place);
+    if (!p.known.includes(p.place)) p.known.push(p.place);
     if (this.checkRamUnlock()) run.ramNew = true;
     run.life.fierce = this.fear();
     this.save();
@@ -1875,12 +1887,10 @@ class GameState {
     this.save();
   }
 
-  /** Über die Karte in einen Ort (hops: wie viele Wege es waren): Er ist danach bekannt, jeder Weg kostet etwas Lebenszeit. */
-  enterPlace(id: string, edge?: { side: 'left' | 'right'; frac: number }, hops = 1) {
+  /** Direkt in einen Nachbarabschnitt, ohne zusätzliche Reisezeit. */
+  enterPlace(id: string, edge?: { side: 'left' | 'right'; frac: number }) {
     const run = this.r;
     const p = run.prog;
-    // jeder Weg über die Karte kostet etwas Lebenszeit
-    if (id !== p.place || edge) run.life.age += MISC.travel * Math.max(1, hops);
     p.place = placeOf(EPOCHS[run.epoch], id).id;
     p.edge = edge;
     if (!p.seen.includes(p.place)) p.seen.push(p.place);

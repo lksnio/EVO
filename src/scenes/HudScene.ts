@@ -3,7 +3,6 @@ import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { bus, game, type UpKey } from '../state/GameState';
 import type { LevelScene } from './LevelScene';
-import type { Kin } from '../objects/Kin';
 import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { phases, worldYears } from '../sim/life';
@@ -535,8 +534,7 @@ export class HudScene extends Phaser.Scene {
     if (this.pauseC || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    const kin = lvl.animals.filter((a) => a.kin && !a.dead) as unknown as Kin[];
-    this.overview = new Overview(this, { morph: lvl.player.morph(), placeName: this.placeName, kin: kin.length, hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp, overall: lvl.place.kind === 'start' }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp, position: { x: lvl.player.x, y: lvl.player.y } }, () => this.toggleOverview());
   }
 
   /**

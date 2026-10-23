@@ -141,8 +141,6 @@ export const MISC = {
   plantRegrowBloom: 2.5,
   /** so viel Fleisch nimmt ein anderes Tier mit einem Biss */
   animalBite: 5,
-  /** so viele Sekunden Leben kostet ein Weg über die Karte */
-  travel: 7,
 };
 
 /**

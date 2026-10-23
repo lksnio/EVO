@@ -4,11 +4,12 @@ import type { EpochDef, Theme } from '../data/epochs';
 import { SHAPE_OF, type CaveKind, type PlaceDef, type ZoneDef } from '../data/world';
 import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
+import { faunaAffinity } from '../sim/habitat';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 import { caveRock, buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
-// beide Richtungen durchstreifen kann – an seinen Rändern geht es zurück auf die Karte. Er wird für
+// beide Richtungen durchstreifen kann – an seinen Rändern geht es direkt im Nachbargebiet weiter. Er wird für
 // jeden Lauf aus einer Saat erzeugt (derselbe Ort sieht beim Wiederkommen gleich aus): Gelände,
 // Pflanzen, Dickicht zum Verstecken, Höhlen, Muscheln und die Tiere (in Herden, Räuber abseits).
 
@@ -249,10 +250,10 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
   };
   for (const [id, groups] of ep.fauna) {
     const d = SPECIES[id];
-    const danger = d.role === 'predator' || d.role === 'defender' || d.role === 'hazard';
+    const danger = d.role !== 'prey';
     const hunter = d.role === 'predator' || d.role === 'apex';
     // je Ort anders verteilt: Wo es viel zu fressen gibt, mehr Beute – in der Tiefe mehr Jäger
-    const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1) * taste(id);
+    const mul = (hunter ? def.hunters : d.role === 'prey' ? def.prey : 1) * (d.where?.[place.kind] ?? 1) * taste(id) * faunaAffinity(place, d);
     const sizeK = (d.role === 'predator' || d.role === 'apex' || d.role === 'defender') && d.power >= 8 ? bigK : d.role === 'prey' && d.power <= 3 ? smallK : 1;
     // Die Zahl in der Fauna-Liste ist ein Richtwert für Tiere; je Gruppengröße ergibt das die Zahl der Schwärme bzw. Rudel.
     // Die Orte sind groß – und es soll in ihnen ordentlich wimmeln.
@@ -262,17 +263,28 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
     const want = (groups * mul * sizeK * place.wide * dens * (1 + Math.max(0, place.deep) * 0.008)) / avgHerd;
     // keine Art überschwemmt einen Ort: Räuber und Verteidiger höchstens etwa neun Tiere je Art
     const count = Math.min(d.role === 'prey' || d.role === 'hazard' ? 99 : Math.max(1, Math.round(9 / avgHerd)), Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
-    const c0 = Math.max(4, minCol), c1 = cols - 5;
+    // Kleine Fische bevölkern auch den Fluss; gefährliche Tiere bleiben außerhalb der Kinderstube.
+    const c0 = Math.max(4, danger ? minCol : 4), c1 = cols - 5;
     for (let g = 0; g < count; g++) {
       // Räuber nicht direkt neben einem Ankunftsplatz
-      const keep = danger ? 20 : 8;
+      const keep = (danger ? 20 : 8) + (d.herd?.[1] ?? 1);
       const near = (c: number) => arrCols.some((a) => Math.abs(c - a) < keep);
       // Im Trichter sammeln sich die großen Jäger in der Mitte, ganz unten
-      const pickCol = () => (vee && hunter && sizeK > 1 && r() < 0.7 ? Math.round(cols / 2 + (r() - 0.5) * cols * 0.45) : rint(r, c0, c1));
+      const pickCol = () => (vee && hunter && sizeK > 1 && r() < 0.7
+        ? Math.round(cols * (place.waterway !== undefined ? 0.65 : 0.5) + (r() - 0.5) * cols * 0.4) : rint(r, c0, c1));
       let cx = pickCol();
-      for (let k = 0; k < 12 && near(cx); k++) cx = pickCol();
+      for (let k = 0; k < 24 && near(cx); k++) cx = pickCol();
+      if (near(cx)) continue;
       put(id, cx, hunter && place.deep > 0);
     }
+  }
+  // Ein paar große Fische gehören auch zum Flussausgang, selbst wenn die seltenen Würfe leer ausgingen.
+  if (place.waterway === 0 && !L.spawns.some((s) => SPECIES[s.id].power >= 8)) {
+    const large = ep.fauna.find(([id]) => {
+      const d = SPECIES[id];
+      return d.art.t === 'fish' && d.art.len >= 100 && d.power >= 8 && d.role === 'predator';
+    });
+    if (large) put(large[0], Math.round(cols * 0.76), true);
   }
   // Im tiefsten Wasser lebt einer der ganz Großen
   const apex = ep.events.find((e) => e.species && SPECIES[e.species]?.role === 'apex')?.species;
@@ -340,7 +352,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   const rows = 31 + extra;
   const L = base(ep, 'water', cols * T, rows * T);
   L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
-  // Man kommt links an, aber nicht am Rand – zurück zur Karte geht es bewusst am Ende
+  // Ohne Randübergang beginnt man etwas weiter im Gebiet.
   const startCol = Math.round(cols * 0.16);
   L.startCol = startCol;
   // Der Fluss am Start reicht gut ein Drittel des Ortes weit
@@ -364,7 +376,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   if (shape === 'river') {
     // Der Start: ein flacher Fluss, der in der Mündung ins Meer abfällt. Links ein tieferer Tümpel, in dem man schlüpft.
     undulate = 0.25;
-    const seaFloor = Math.min(lowest, floor0 - 4);
+    const seaFloor = place.seabed?.[1] ?? Math.min(lowest, floor0 - 4);
     const slope = Math.round(cols * 0.2);
     prof = (c) => {
       // ganz links entspringt der Fluss: Das Ufer steigt bis zur Wasseroberfläche an – dort geht es nicht weiter
@@ -372,8 +384,13 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
       const bed = 17 - 5 * ease((c - 14) / 20) + Math.sin(c * 0.21) * 0.9 * ease((c - 30) / 14) * (1 - ease((c - (riverEndCol - 10)) / 10));
       if (c < riverEndCol) return bed;
       if (c < riverEndCol + slope) return 12 + (seaFloor - 12) * ease((c - riverEndCol) / slope);
-      return clampN(seaFloor + Math.sin(c * 0.13) * 1.5 + Math.sin(c * 0.05 + 2) * 2, floor0 - 8, lowest);
+      return clampN(seaFloor + Math.sin(c * 0.13) * 0.8 + Math.sin(c * 0.05 + 2), floor0 - 8, lowest);
     };
+  } else if (place.seabed) {
+    // Das Tal steigt rechts nicht wieder an: Es fällt vom Schelf bis in den tiefsten Teil ab.
+    const [entry, exit] = place.seabed;
+    undulate = 0.2;
+    prof = (c) => entry + (exit - entry) * Math.pow(clampN(c / (cols - 1), 0, 1), 1.15);
   } else if (shape === 'vee') {
     undulate = 1;
     const rim = 21;
@@ -403,6 +420,10 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   const hp = buildHeightfield(r, cols, rows, zones, prof, undulate, riverEndCol ? 2.2 : 9);
   L.terrain = { hp, zones };
   const G = makeGround(hp, cols);
+  if (place.seabed) {
+    if (!riverEndCol) G.flatten(0, 14 * T, place.seabed[0] * T, 80);
+    G.flatten((cols - 14) * T, cols * T, place.seabed[1] * T, 80);
+  }
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };
   addTunnels(L, place.caves, r, cols, G, startCol);
   addCrevices(L, 2, r, cols, G, startCol);
@@ -417,7 +438,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   placeMats(L, place, r, G, riverEndCol);
   dressGround(L, ep, place, r, G, riverEndCol);
   placeShrine(L, G, startCol, shrine);
-  // am Start ist es still: Tiere gibt es erst in den anderen Orten (siehe PlaceDef.safe)
+  // Die Kinderstube bleibt ruhig; gewöhnliche Fische leben auch im Fluss.
   placeFauna(L, ep, place, r, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
   placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort

@@ -101,7 +101,7 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('der Ortswächter rechnet die Tiere: Gäste sehen sie, Treffer und Fressen gehen an ihn, Schaden an den Getroffenen', async () => {
-    const zone = zoneId(0, 'delta');
+    const zone = zoneId(0, 'wand');
     const host = await join(opts('Wächter', { zone }));
     const hits: HitMsg[] = [], eats: EatMsg[] = [];
     host.onMessage('hit', (m: HitMsg) => hits.push(m));
@@ -158,10 +158,11 @@ describe('Spielserver (Colyseus)', () => {
     await host.leave();
     await until(() => guest.state.host === guest.sessionId);
     expect(guest.state.animals.has('8')).toBe(true);
+    await guest.leave();
   });
 
   it('ein Ortswächter im Hintergrund gibt ab – an einen anderen Spieler am Ort', async () => {
-    const zone = zoneId(0, 'bank');
+    const zone = zoneId(1, 'farn');
     const a = await join(opts('Ada', { zone }));
     const b = await join(opts('Bo', { zone }));
     rooms.push(a, b);

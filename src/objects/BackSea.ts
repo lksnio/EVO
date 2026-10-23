@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { DEPTH } from '../config';
 import type { EpochDef } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import type { PlaceKind } from '../data/world';
+import { placeOf, type PlaceKind } from '../data/world';
+import { faunaAffinity } from '../sim/habitat';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { clamp, hashStr } from '../util/math';
 
@@ -73,6 +74,7 @@ export class BackSea {
   private lastY = 0;
   private t = 0;
   private bigAt = 0;
+  private bigDelay = 1;
   /** wie schnell sich die Kamera gerade bewegt (geglättet, Pixel pro Sekunde) – bestimmt, von wo neue Gruppen hereinschwimmen */
   private camV = 0;
   private enabled = true;
@@ -101,11 +103,13 @@ export class BackSea {
     const cam = scene.cameras.main;
     this.lastX = cam.scrollX;
     this.lastY = cam.scrollY;
-    this.bigAt = 6000 + Math.random() * 9000;
+    this.bigDelay = kind === 'start' ? 4 : kind === 'deep' ? 0.7 : 1;
+    this.bigAt = (6000 + Math.random() * 9000) * this.bigDelay;
   }
 
   /** Welche Tiere ziehen hier durch? Schwimmer der Zeit, je Ort etwas anders gewichtet. */
   private buildPool(ep: EpochDef) {
+    const place = placeOf(ep, this.placeId);
     const seen = new Set<string>();
     for (const [id, n] of ep.fauna) {
       const d = SPECIES[id];
@@ -115,7 +119,7 @@ export class BackSea {
       seen.add(id);
       const taste = 0.45 + 1.1 * ((hashStr(ep.id + '/' + this.placeId + '/' + id) % 1000) / 1000);
       const len = (d.art as { len?: number }).len ?? 40;
-      const w = n * (d.where?.[this.kind] ?? 1) * taste * (d.role === 'predator' ? 0.4 : 1) * (d.art.t === 'jelly' ? 0.5 : 1) * (0.5 + Math.min(1, len / 60));
+      const w = n * (d.where?.[this.kind] ?? 1) * taste * (d.role === 'predator' ? 0.4 : 1) * (d.art.t === 'jelly' ? 0.5 : 1) * (0.5 + Math.min(1, len / 60)) * faunaAffinity(place, d);
       if (w > 0.05) this.pool.push({ def: d, w });
       if (d.art.t === 'fish' || d.art.t === 'cone') {
         const len = d.art.len;
@@ -216,7 +220,7 @@ export class BackSea {
     // ab und zu zieht ein ganz großer Fisch durch die Ferne (nie mehr als einer zugleich)
     this.bigAt -= dt * 1000;
     if (this.bigAt <= 0 && this.bigPool.length) {
-      this.bigAt = 22000 + Math.random() * 30000;
+      this.bigAt = (22000 + Math.random() * 30000) * this.bigDelay;
       if (!this.schools.some((s) => s.big)) this.spawn(Math.random() < 0.6 ? 0 : 1, false, true);
     }
 

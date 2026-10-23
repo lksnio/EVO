@@ -49,7 +49,7 @@ type Shown = Record<StatKey, number>;
 const PER_ROW = 13;
 const ROWS = 2;
 const STEP = 50;
-const ROW_STEP = 72;
+const ROW_STEP = 64;
 
 /** Ein Ei als kleines Bild: glasig, mit Dotter und eingerolltem Keim. */
 function roeTexture(scene: Phaser.Scene) {
@@ -224,14 +224,14 @@ export class RoeScene extends Phaser.Scene {
     const pg = game.poolGen, own = this.gen, ahead = pg > own;
     const run = game.run!;
     const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-    this.group('pool', 60, 128, pool,
+    this.group('pool', 60, 120, pool,
       ahead ? `GENERATION ${pg} · DEIN ARTGENOSSE IST SCHON DORT` : `GESCHWISTER · GENERATION ${own}`,
       ahead
         ? `Generation ${own} gibt es nicht mehr – nur hier geht es weiter (${plural(pool.length, 'Ei', 'Eier')})`
         : pool.length ? `${plural(pool.length, 'Ei wartet', 'Eier warten')} – du bleibst in Generation ${own}`
         : own <= 1 && !run.history.length ? 'Der Urfisch hat keine Geschwister.' : 'Keine Geschwister mehr.',
       ahead);
-    this.group('next', 60, 388, roe,
+    this.group('next', 60, 340, roe,
       `NÄCHSTE GENERATION · GENERATION ${pg + 1}`,
       roe.length ? `${plural(roe.length, 'Ei', 'Eier')} aus eurem Laich – kein Weg zurück zu Generation ${pg}` : `Kein Laich – in Generation ${pg} hat noch niemand gelaicht.`,
       false);
@@ -254,7 +254,7 @@ export class RoeScene extends Phaser.Scene {
   private group(g: RoeGroup, x: number, y: number, eggs: RoeEgg[], head: string, sub: string, warn: boolean) {
     const L = this.layer!;
     const next = g === 'next';
-    L.add(this.add.rectangle(x - 16, y - 12, 720, 236, next ? 0x2a1a0c : 0x0e1a1e, next ? 0.55 : 0.5).setOrigin(0).setStrokeStyle(1, next ? 0x8a5a24 : warn ? 0x8a5a24 : 0x3a5058, 0.8));
+    L.add(this.add.rectangle(x - 16, y - 12, 720, 210, next ? 0x2a1a0c : 0x0e1a1e, next ? 0.55 : 0.5).setOrigin(0).setStrokeStyle(1, next ? 0x8a5a24 : warn ? 0x8a5a24 : 0x3a5058, 0.8));
     L.add(text(this, x, y, head, 17, next || warn ? UI.ochre : UI.bone).setLetterSpacing(2));
     L.add(text(this, x, y + 26, sub, 15, eggs.length ? (warn ? '#e0b070' : UI.boneDim) : '#6c6454'));
     const max = PER_ROW * ROWS;
@@ -263,7 +263,7 @@ export class RoeScene extends Phaser.Scene {
     const order = eggs.map((egg, i) => ({ egg, i, v: game.roeShown(egg) })).sort((a, b) => score(b.v) - score(a.v));
     order.slice(0, max).forEach(({ egg, i, v }, pos) => {
       const ex = x + 22 + (pos % PER_ROW) * STEP;
-      const ey = y + 90 + Math.floor(pos / PER_ROW) * ROW_STEP;
+      const ey = y + 82 + Math.floor(pos / PER_ROW) * ROW_STEP;
       // ein goldenes Ei: ein warmer Hof dahinter, der atmet, und ein Funkeln
       if (egg.gold) {
         const halo = this.add.image(ex, ey, 'glow').setTint(0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(84, 84).setAlpha(0.55);
@@ -291,20 +291,32 @@ export class RoeScene extends Phaser.Scene {
       this.tweens.add({ targets: img, y: ey - 3, yoyo: true, repeat: -1, duration: 1500 + Math.random() * 900, delay: Math.random() * 800, ease: 'Sine.inOut' });
       this.slots.push({ group: g, i, pos, egg, img, ring, v });
     });
-    if (eggs.length > max) L.add(text(this, x + 22 + PER_ROW * STEP - 30, y + 220, `+${eggs.length - max} schwächere`, 13, '#6c6454').setOrigin(1, 0.5));
+    if (eggs.length > max) L.add(text(this, x + 22 + PER_ROW * STEP - 30, y + 190, `+${eggs.length - max} schwächere`, 13, '#6c6454').setOrigin(1, 0.5));
   }
 
   private drawNursery() {
     this.nursery?.destroy();
-    if (!this.d.living) return;
     const c = (this.nursery = this.add.container(0, 0));
+    c.add(this.add.rectangle(44, 550, 720, 76, 0x10191c, 0.95).setOrigin(0).setStrokeStyle(1, 0x4a5a5e, 0.6));
+    const summary = [
+      ['NAHRUNG ÜBRIG', String(Math.floor(game.life.fed))],
+      ['NAHRUNG JE EI', String(game.broodBase)],
+      ['DEIN NACHWUCHS', `${game.young} ${game.young === 1 ? 'Ei' : 'Eier'}`],
+    ];
+    summary.forEach(([label, value], i) => {
+      const x = 164 + i * 240;
+      c.add(text(this, x, 566, label, 12, UI.ochre).setOrigin(0.5).setLetterSpacing(1));
+      c.add(text(this, x, 601, value, 30, UI.bone, { fontStyle: '600' }).setOrigin(0.5));
+      if (i) c.add(this.add.rectangle(x - 120, 588, 1, 46, 0x4a5a5e, 0.45));
+    });
+    if (!this.d.living) return;
     const offer = (this.scene.get('Level') as LevelScene).spawning!.offer;
     const label = offer.count ? `${offer.count} ${offer.count === 1 ? 'Ei' : 'Eier'} befruchten` : 'Laich befruchten';
     const b = new Button(this, 266, 645, label, { w: 344, h: 42, size: 17, color: UI.ochreN, onClick: () => !this.confirm && this.fertilize() });
     b.setDisabled(!offer.count || this.going);
     c.add(b);
     c.add(new Button(this, 642, 645, 'Weiterschwimmen', { w: 280, h: 42, size: 16, onClick: () => !this.confirm && this.closeVisit() }));
-    c.add(text(this, 266, 675, offer.count ? `${Math.floor(game.life.fed)} Nahrung · ${game.broodBase} je Ei · bereits ${game.young} befruchtet` : offer.reason, 12, UI.boneDim).setOrigin(0.5));
+    c.add(text(this, 404, 675, offer.count ? 'Beim Befruchten wird die Nahrung in Eier umgewandelt.' : offer.reason, 14, UI.boneDim).setOrigin(0.5));
   }
 
   private fertilize() {

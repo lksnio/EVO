@@ -13,6 +13,7 @@ import { LIFE, MISC, STAMINA, WORLD } from '../data/life';
 import { cyclePhase, diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { generateLevel, type CaveWall, type LevelData, type Zone } from '../level/LevelGen';
+import { faunaAffinity } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveShade, rubbleArt, terrainArt } from '../art/terrainArt';
@@ -387,8 +388,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
-    // (nur der Startfluss ist links zu: Dort liegt die Quelle, es gibt keinen Weg hinaus)
-    world.setBoundsCollision(!this.water || this.place.kind === 'start', !this.water, true, this.water);
+    // Quelle und äußerster Talrand schließen das Meer ab.
+    world.setBoundsCollision(!this.water || !edgeNeighbor(ep, this.place, 'left', 0.5), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water);
     // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
@@ -465,7 +466,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // … und wer zum Hauptmenü gegangen war, kommt genau dort wieder an, wo er war (einmalig)
     const back = born ? undefined : game.prog.resume;
     game.prog.resume = undefined;
-    this.player = new Player(this, born ? born.x : back ? back.x : L.start.x, born ? born.y - 40 : back ? back.y : L.start.y, this.water);
+    const spawn = born ? { x: born.x, y: born.y - 40 } : back ? { ...back } : { ...L.start };
+    // Alte Spielstände können aus einem breiteren oder tieferen Abschnitt stammen.
+    if (this.water && !this.amphibious && (born || back)) {
+      spawn.x = clamp(spawn.x, 120, L.width - 120);
+      const floor = groundAt(L.terrain.hp, spawn.x);
+      spawn.y = clamp(spawn.y, L.surfaceY + 120, Math.max(L.surfaceY + 120, floor - 130));
+      for (let i = 0; i < 8; i++) {
+        const rock = L.solids.find((q) => spawn.x > q.x - 60 && spawn.x < q.x + q.w + 60 && spawn.y > q.y - 60 && spawn.y < q.y + q.h + 60);
+        if (!rock) break;
+        spawn.y = Math.max(L.surfaceY + 120, rock.y - 70);
+      }
+    }
+    this.player = new Player(this, spawn.x, spawn.y, this.water);
     // über allem im Bild (auch über der Dunkelheit der Tiefe), wie eine Anzeige
     this.stamG = this.add.graphics().setDepth(DEPTH.text - 1);
     this.stamA = 0;
@@ -2435,7 +2448,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const e of this.timeline) {
       if (!passed(e.at)) continue;
       // im sicheren Startgebiet (und im stillen Fluss) tauchen keine Durchzügler auf
-      if (e.kind === 'predator' && (safe || (this.L.riverEnd && this.player.x < this.L.riverEnd + 800))) continue;
+      if (e.kind === 'predator' && (safe || this.place.waterway === 0 || (this.L.riverEnd && this.player.x < this.L.riverEnd + 800))) continue;
       this.trigger(e);
     }
     // Immer wieder zieht ein größerer Fisch durchs Bild (nicht im sicheren Startgebiet und nicht im stillen Fluss)
@@ -2443,7 +2456,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (out && !this.player.dead) {
       if (!this.nextPasser) this.nextPasser = this.time.now + 9000 + Math.random() * 8000;
       else if (this.time.now > this.nextPasser) {
-        this.nextPasser = this.time.now + 26000 + Math.random() * 28000;
+        this.nextPasser = this.time.now + (26000 + Math.random() * 28000) * (this.place.waterway === 0 ? 3 : this.place.waterway === 2 ? 0.7 : 1);
         if (this.animals.filter((a) => !a.dead && a.visitor).length < 2) this.spawnPasser();
       }
     }
@@ -2551,7 +2564,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Große Räuber ziehen durch – von der Seite, die weiter weg ist, zur anderen. */
   /** Ein größeres Tier zieht durchs Bild – ohne Ankündigung, es sei denn, es ist ein Riese. */
   private spawnPasser() {
-    const pool = this.ep.passers;
+    const pool = this.ep.passers.map(([id, weight]): [string, number] => [id, weight * faunaAffinity(this.place, SPECIES[id])]);
     if (!pool?.length) return;
     let x = Math.random() * pool.reduce((n, [, w]) => n + w, 0);
     let id = pool[0][0];
@@ -2651,20 +2664,23 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (a) a.leaveDir = a.x < this.L.width / 2 ? -1 : 1;
     }
     if (resident >= this.faunaCount) return;
-    const pool = this.ep.fauna.map(([id]) => id).filter((id) => SPECIES[id].role !== 'hazard');
+    const pool = this.ep.fauna.filter(([id]) => SPECIES[id].role !== 'hazard');
     if (!pool.length) return;
     const L = this.L;
     const side = Math.random() < 0.5 ? -1 : 1;
     const x = clamp(this.player.x + side * (1000 + Math.random() * 400), 70, L.width - 70);
     // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
     const z = this.zoneAt(x).def;
-    const weight = (id: string) => {
+    const weight = ([id, count]: [string, number]) => {
       const d = SPECIES[id];
       const r = d.role;
-      return (r === 'predator' || r === 'apex' ? z.hunters : r === 'prey' ? z.prey : 1) * (d.where?.[this.place.kind] ?? 1);
+      if (this.L.riverEnd && x < this.L.riverEnd + 800 && r !== 'prey') return 0;
+      return count * (r === 'predator' || r === 'apex' ? z.hunters : r === 'prey' ? z.prey : 1) * (d.where?.[this.place.kind] ?? 1) * faunaAffinity(this.place, d);
     };
-    let roll = Math.random() * pool.reduce((sum, id) => sum + weight(id), 0);
-    const id = pool.find((pid) => (roll -= weight(pid)) <= 0) ?? pool[0];
+    const total = pool.reduce((sum, item) => sum + weight(item), 0);
+    if (total <= 0) return;
+    let roll = Math.random() * total;
+    const [id] = pool.find((item) => (roll -= weight(item)) < 0) ?? pool[0];
     const def = SPECIES[id];
     const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
     const ground = L.ground[col];
@@ -2994,11 +3010,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
-  // ---------------------------------------------------------------- Ränder, Karte, Muscheln
+  // ---------------------------------------------------------------- Übergänge, Muscheln
 
   /**
-   * Links und rechts gibt es keine Wand: Wer über den Rand hinausschwimmt, kommt (über die Karte) in den Nachbarort auf dieser
-   * Seite – welcher es ist, entscheidet die Tiefe (siehe edgeNeighbor). Andere Wege gibt es nicht.
+   * Am Rand geht es direkt im benachbarten Wasserabschnitt weiter. Die Karte liegt ausschließlich in der C-Übersicht.
    */
   private edgeStep() {
     const p = this.player;
@@ -3012,23 +3027,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (to) this.leave(to.id, { side, frac });
   }
 
-  /**
-   * Über den Rand hinaus: Der Stand wird gemerkt, der Weg zwischen den beiden Orten ist ab jetzt bekannt (er erscheint auf der
-   * Karte), dann geht es über die Karte weiter – in den Nachbarort oder an einen anderen bekannten Ort.
-   */
+  /** Zustand sichern und ohne Reiseauswahl im benachbarten Abschnitt weiterschwimmen. */
   private leave(to: string, edge: { side: 'left' | 'right'; frac: number }) {
     if (this.ended) return;
     this.ended = true;
     this.saveProgress();
-    // neu: der Ort bzw. der Weg dorthin – die Karte lässt ihn erscheinen
-    const newPlace = !game.isKnown(to), newLink = !game.hasLink(this.place.id, to);
     game.discoverLink(this.place.id, to);
     audio.sfx('travel');
     this.player.body.setVelocity(0, 0);
-    this.cameras.main.fadeOut(900, 2, 3, 4);
-    this.time.delayedCall(950, () => {
+    this.cameras.main.fadeOut(240, 2, 3, 4);
+    this.time.delayedCall(260, () => {
       this.scene.stop('Hud');
-      this.scene.start('Map', { epoch: this.epochIdx, from: this.place.id, to, edge, newPlace, newLink });
+      game.enterPlace(to, edge);
+      this.scene.restart({ epoch: this.epochIdx, place: to });
     });
   }
 
@@ -3059,7 +3070,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     fadeTo(this, 'Title', {}, 900);
   }
 
-  /** Zustand für den nächsten Ort bzw. die Karte festhalten. */
+  /** Zustand für den nächsten Wasserabschnitt festhalten. */
   private saveProgress() {
     const p = this.player;
     // wer von deiner Gruppe bei dir ist, kommt mit – mit der Lebenskraft, die er gerade hat

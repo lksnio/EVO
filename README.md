@@ -387,7 +387,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     sich ein neues Ziel auf der anderen Seite und merken sich die Wand (Nahrung dahinter wird eine Weile nicht angesteuert);
     in einer Sackgasse bleiben sie ruhig stehen, statt zwischen links und rechts zu zappeln.
   - **Farbhöhlen sind selten und verschüttet:** Nur **zwei Orte im ganzen Zeitalter** haben eine – eine
-    **grüne** in einem trüben Ort (im Devon die Schlammbank; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
+    **grüne** in einem trüben Ort (im Devon der Korallengarten; mit Querbinden wie bei einem Barsch) und eine **schwarze** in der Tiefe. Ihre Öffnung zeigt zum
     Ankunftsplatz und ist mit **losem Geröll** zugeschüttet (heller als der Fels, Steine mit Lücken dazwischen). Ein
     **kräftiger Stoß** (R, mit vollem Anlauf) bricht es auf – allein schafft das erst ein harter Kopf (Stoßfisch) oder ein
     großer, massiger Körper, sonst **im Schwarm**: Jeder Artgenosse, der dich gerade begleitet, stößt mit (mit drei
@@ -397,30 +397,17 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     (ein leiser Schimmer zeigt es; das Tier selbst bleibt, wie es ist). Die Farbe gibt es **nur einmal pro Spieldurchlauf** –
     wer einmal gefärbt ist, wird nicht mehr umgefärbt. Die **Färbung** steht in der Übersicht (C). Daneben gibt es einige
     niedrige **Felsspalten** zum Verstecken für Schlanke.
-  - **Neue Orte entdeckst du, indem du hinausschwimmst:** Nach **links und rechts gibt es keine Wand** – die Grenze
-    eines Ortes sieht man nicht, es ist ein Stück Meer wie jedes andere. Wer über den Rand hinausschwimmt, landet auf der
-    **Karte**: Der Weg in den **Nachbarort** zeichnet sich ab, und ist der Ort neu, **erscheint er dort zum ersten Mal**.
-    Gibt es auf der Seite mehrere Nachbarn, entscheidet die Tiefe: oben im Wasser der nördlichere, unten der südlichere.
-    Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden hinein und kommt am gegenüberliegenden Rand an, **auf derselben
-    Wassertiefe**. Man kann aber auch **selbst wählen, wohin** (Pfeiltasten oder antippen, Eingabe zum Losschwimmen): jeden
-    bekannten Ort, zu dem bekannte Wege führen – auch zurück; dann schwimmt das Tier die Wege auf der Karte entlang.
-    **Wege entstehen durch Durchschwimmen:** Jeder Übergang über einen Rand verbindet die beiden Orte auf der Karte. Jedes
-    Wegstück kostet etwas Lebenszeit (7 Sekunden). Das Meer ist tief: Oben fällt das Licht herein, nach unten wird es immer
-    dunkler. Auch Tiere, die den Rand erreichen, schwimmen einfach weiter hinaus.
-  - **Die Karte ist die Urzeit-Erde:** Jedes Zeitalter hat seine eigene Weltkarte nach der **echten Lage der Kontinente** –
-    Ordovizium: Gondwana im Süden, Laurentia, Baltica und Sibiria; Silur und Devon: Laurussia (Laurentia + Baltica),
-    Gondwana, Sibiria, dazu Iapetus-, Rheischer Ozean, Paläotethys und Panthalassa ringsum (**Pangäa** gibt es erst viel
-    später – im Perm). Beschriftet ist vom Land nur das Hauptland **Gondwana** (`MAP_LABELS` in `src/art/paleoArt.ts`),
-    dazu leise die Meere. Die **Orte sind schlichte, dicke Punkte im Wasser** mit ihrem Namen – ohne Zeichen. Orte und Wege,
-    die man noch nicht kennt, sind gar nicht zu sehen. Da du ein Fisch bist, bleibt das **meiste unbesucht**: Die Karte
-    ist dunkel, nur um bekannte Orte und entlang der geschwommenen Wege (Blasenspuren) wird sie hell – das Land bleibt Nebel.
-    Das Tier **schwimmt auf der Karte um das Land herum** (Wegsuche im Wasser, nie über Land), neue Orte decken sich mit
-    einem Aufhellen entlang des Weges auf. Die Umrisse sind **gezeichnet, nicht vermessen** – vereinfachte Näherungen.
-    Die Karte ist **weit herausgezoomt**: Die zehn Orte liegen nur in der Mitte, ringsum liegt noch viel Welt (Gondwana bis zum Südpol,
-    dazu ferne Landmassen wie Nordchina, Südchina, Kasachstania – später braucht man das Land für die Schritte an Land). Das
-    Tier auf der Karte ist klein. `MAP_ZOOM` in `src/art/mapArt.ts` stellt ein, wie weit.
-    Die Daten stehen in `src/data/paleo.json` (Umrisse, Meeresnamen, Lage der Orte, ferne Landmassen unter `far`); weitere
-    Zeitalter (z. B. Pangäa) lassen sich dort ergänzen.
+  - **Ein zusammenhängendes Meer im Devon:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
+    Korallengarten und von dort ins **Tiefental**. Dessen Boden fällt nach rechts immer weiter ab. Zurück geht es ebenso
+    direkt nach links, ohne Overworld, Zielauswahl oder zusätzliche Reisezeit. Die Abschnitte werden mit einer kurzen
+    Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Übergangsböden passen zusammen.
+  - **Die Karte liegt auf C:** Ein Wasserquerschnitt zeigt den tatsächlich erzeugten Meeresboden der drei Abschnitte,
+    den Laich in Gold und das eigene Tier als hellen Punkt. **Rot ist der eigene Lebensraum**: Mit dauerhaft besseren
+    Fähigkeiten und Muschelsegen reicht er weiter ins Meer. Das ist eine Orientierung, keine Zugangssperre.
+  - **Bewohner nach Tiefe:** Im Laichfluss leben viele gewöhnliche Fische und nur selten große Tiere; die Kinderstube
+    bleibt frei von gefährlichen Bewohnern. Im Tiefental häufen sich große Räuber, Seeskorpione und große Kopffüßer.
+    Dieselbe Verteilung gilt für Zuwanderer und Durchzügler. Die früheren Nebenorte werden beim Laden alter Spielstände
+    dem Flachwasser oder Tiefental zugeordnet; vorhandene Eier, Nahrung und Fähigkeiten bleiben erhalten.
 - **Ein Meer hinter dem Spielfeld:** Im Hintergrund ziehen in **zwei Tiefenstufen** Schwärme und gelegentlich ein **ganz
   großer Fisch** durchs Wasser – als **dunkle Schattenrisse**, deutlich anders als die hellen, echten Tiere. Jede Gruppe
   schwimmt in ihre **eigene Richtung**, und die Schichten wandern mit der Kamera mit (Parallaxe: weiter hinten weniger),
@@ -653,9 +640,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   **Schädel** (Stoßstärke), **Flossen** (Schwimmen und Wendigkeit) und
   **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
-  Gewicht, darunter Geschwister, Färbung und Kost), rechts das **Leben** (Generation, Lebensabschnitt, deine Gruppe) und
-  der **Nachwuchs** als „2, 70/29“: zwei bereits erzeugte Eier, 70 Nahrung übrig, 29 je weiterem Ei (kleiner gesetzt). Neben Gebiss, Schädel und
-  Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot, „= 0“;
+  Gewicht, darunter Geschwister, Färbung und Kost), rechts die **Karte des Lebensraums**. Generation und Lebensabschnitt
+  stehen über dem bewegten Fischbild. Die Gewichtsanzeige ist um Faktor 100 skaliert, ohne die Kampfverhältnisse zu ändern.
+  Nahrung, Eikosten und Nachwuchs stehen gemeinsam am Laich (E), nicht mehr auf C. Neben Gebiss, Schädel, Flossen und
+  Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot; Null entfällt;
   ausgewachsen gemessen, mit denselben Segen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
   Die **Segen** stehen als kleine Kugeln direkt unter den großen Zahlen: **Lebenskraft rot, Ausdauer grau, Sicht schwarz**
   (im Karbon Sauerstoff blau), ohne zusätzliche Beschriftung. Zwei Segen in Lebenskraft ergeben zwei rote Kugeln.
@@ -666,7 +654,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
-- **Die Beute (rechts neben der Übersicht):** Nahrungsanteile und die drei am häufigsten gegessenen Tierarten gelten für
+- **Die Beute (rechts neben der Übersicht):** Die Überschrift **„Beute: 72“** zeigt die aktuell übrige Nahrung, ohne
+  Orts- oder Epochenzeile darunter. Nahrungsanteile und die drei am häufigsten gegessenen Tierarten gelten für
   die ganze Epoche, über Orte, Generationen und Linien hinweg. Eine Tierart zählt einmal pro gefressenem Tier, auch wenn
   es viele Fleischbrocken hat; das Töten allein zählt hier nicht. Andere Epochen haben eigene Listen.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
@@ -688,7 +677,7 @@ Tiers, unten (nur wenn er auftaucht) der Lebensbalken des Herrschers. Wie weit m
 Leben (Laichzeit, Gelege abgelegt bzw. befruchtet). **Der Name des Ortes** erscheint **nur beim Betreten**, groß und ohne Beschreibung, und blendet
 wieder aus; **Hinweise, Erzählzeilen** („eine dunkle Gestalt ist zu hören …“) **und Namensschilder großer Tiere** gibt es
 nicht – was man über ein Tier wissen will, steht in der Chronik des Lebens. Nur wenn Ausdauer verbraucht wird, erscheint neben dem Tier der grüne Ausdauerkreis. Verletzung und Verstecktsein zeigen sich am Bildrand,
-am Herzschlag (er schlägt, wenn dich etwas jagt) und am Tier selbst. Schwer verletzt färben
+am schiefer werdenden Klavier bei Gefahr und am Tier selbst. Schwer verletzt färben
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
@@ -800,8 +789,7 @@ Platte heller, mit der Tastatur gewählt glüht sie leise (`Button` in `src/ui/u
 
 ## Steuerung
 
-**Die Tasten lassen sich frei belegen:** im Titelbild unter „Steuerung“ und in der Rast (Esc) – im Spiel wie auf der
-Karte. Dort steht jede Handlung mit **zwei Tasten** (Haupt- und Zweittaste): eine anklicken (oder mit den Pfeiltasten
+**Die Tasten lassen sich frei belegen:** im Titelbild unter „Steuerung“ und in der Rast (Esc) – direkt im Spiel. Dort steht jede Handlung mit **zwei Tasten** (Haupt- und Zweittaste): eine anklicken (oder mit den Pfeiltasten
 anwählen und Eingabe drücken), dann die neue Taste drücken. **Entf** (oder ein Rechtsklick) leert sie, **Esc** bricht ab.
 Gehört die Taste schon einer anderen Handlung, wechselt sie hierher – unten steht dann, wem sie genommen wurde.
 **Grundbelegung** stellt alles wieder her. Die Belegung gilt sofort (auch mitten im Spiel), wird im Browser gespeichert
@@ -822,7 +810,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Übersicht: Lebenskraft, Sicht, Ausdauer; Gebiss, Schädel, Schwarm, Schuppen; Körper, Leben, Nachwuchs, Muscheln – daneben die Beute an diesem Ort |
+| C | Werte, Körper, Muscheln und Lebensraumkarte; daneben „Beute: N“ mit der übrigen Nahrung |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 
@@ -836,9 +824,8 @@ das Tier in dieser Zeit, zählt der Tod. Dann wird alles gespeichert, auch **die
 **In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
 **Im Stammbaum:** ← → geht von Knoten zu Knoten. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.
 
-**Auf der Karte:** Pfeiltasten (oder die Schwimmtasten der Belegung, oder antippen) wählen ein anderes Ziel, Eingabe,
-Leertaste, Beißen oder Ansprechen schwimmt los, die Übersicht-Taste öffnet die Übersicht, Esc (oder die Rast-Taste) die
-Rast. Ohne eigene Wahl schwimmt das Tier nach gut drei Sekunden von selbst in den Nachbarort.
+**Am Laich (E):** Geschwister und nächste Generation ansehen, Nahrung und Kosten je Ei ablesen, mit B befruchten.
+Ein Wechsel wird bestätigt; Esc kehrt zum lebenden Fisch zurück. Die Karte selbst öffnet sich mit C.
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
@@ -852,7 +839,7 @@ mit **allen Zahlen, die das Gleichgewicht bestimmen** – jeweils mit dem einges
 - **Nachwuchs und Laichen:** Nahrung je Nachkomme, wie viel mehr weiter Entwickelte brauchen, höchstens Nachkommen, Pause
   nach dem Laichen, immer als Männchen schlüpfen, Reichweiten, Zeiten der KI-Partner, Verderben der Gelege.
 - **Leben:** Dauer bis zur Laichzeit und danach (und wie viel länger je Generation), Größe beim Schlüpfen, Alter, das
-  Langsamerwerden am Ende, Heilen beim Treiben und beim langsamen Schwimmen (und bis wohin), Heilkraut, Weg über die Karte.
+  Langsamerwerden am Ende, Heilen beim Treiben und beim langsamen Schwimmen (und bis wohin), Heilkraut.
 - **Vererbung:** wie stark sich die Nachkommen je Generation verändern (Richtungen, Obergrenzen, Größe, Robustheit, Kost,
   Angesammeltes, Partner).
 - **Eigenes Tier:** Grundwerte des ersten Fischs (Lebenskraft, Biss, Stoß, Tempo).
@@ -1055,7 +1042,7 @@ src/
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Quest.ts (Gespräche und Szenen der Aufträge), HuntQuest.ts (die gemeinsame Jagd), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Segen als Punktfolge (upTrail.ts), die Entwickler-Einstellung (devConfig.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, Karte, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
 tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
@@ -1078,8 +1065,8 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       `src/data/karbon.ts`.
 - [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
-- [ ] **Das sichere Startgebiet** (Laichfluss) ist klein und frei von allen anderen Tieren – auch Hintergrund-Schwärme,
-      Räuber-Ereignisse und der Herrscher bleiben draußen.
+- [x] **Laichfluss:** Viele kleine Fische, wenige große am Flussausgang. Gefährliche Bewohner und Ereignisse bleiben
+      der Kinderstube fern; im Tiefental sind große Fische und starke Nicht-Fische deutlich häufiger.
 - [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen
       Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür, höchstens
       10 Segen (der zehnte kostet 512, zusammen 1023); eine neue Linie verteilt neu. Die Chance richtet sich nach der Stärke
@@ -1110,7 +1097,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Tiere rechnet vorerst der Ortswächter** (das Spiel eines Spielers), nicht der Server. Später: die Tier-KI auf den
       Server (dann kann auch niemand schummeln, und die Welt lebt ohne Spieler weiter).
 - [ ] **Im Mehrspieler noch für jeden einzeln:** der Laich, deine Artgenossen (Gruppe, Auftrags-Figuren, Laich-Partner)
-      und die Tiere eines Auftrags. Auf der Karte (zwischen zwei Orten) ist man für die anderen nicht zu sehen.
+      und die Tiere eines Auftrags. Jeder Wasserabschnitt hat seinen eigenen Raum.
 - [ ] **Tempo:** Das eigene Tier ist etwa 15 % gemächlicher als früher (Grundtempo 183 statt 215), alle anderen Tiere 10 %
       (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen. Angriffe der
       Tiere (Ausholen, Zustoßen, Ansturm) sind so schnell wie früher.
@@ -1120,7 +1107,7 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
       Beutefische ab 6 Lebenskraft × 1,2 – die kleinsten sind mit zwei Bissen erledigt, kleine brauchen drei und mehr);
       Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
-- [ ] **Karte:** Wege entstehen nur durch Durchschwimmen; ohne eigene Wahl geht es nach 3,4 Sekunden in den Nachbarort.
+- [x] **Karte:** Wasserquerschnitt auf C; direkte Gebietswechsel ohne Overworld und ohne zusätzliche Reisezeit.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
       eigene Tier verändert sich im Leben nicht (auch nicht durch eine Farbhöhle – die Farbe geht an die Nachkommen).
 - [ ] **Lebenstempo:** Generation 1 ist nach 3 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 8

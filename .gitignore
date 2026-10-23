@@ -5,3 +5,6 @@ dist/
 .vscode/*
 !.vscode/extensions.json
 __pycache__/
+
+# Lokaler Wiederanlaufzustand des Colyseus-Entwicklungsservers
+.devmode.json

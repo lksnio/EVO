@@ -235,7 +235,6 @@ export const GROUPS: Group[] = [
       field(MISC, 'regenRest', 'MISC.regenRest', 'Heilen beim Treiben (Anteil je Sekunde)', { step: 0.001, max: 1 }),
       field(MISC, 'regenSlow', 'MISC.regenSlow', 'Heilen beim langsamen Schwimmen (Anteil je Sekunde)', { step: 0.001, max: 1 }),
       field(MISC, 'healBite', 'MISC.healBite', 'Ein Heilkraut heilt (Anteil)', { max: 1 }),
-      field(MISC, 'travel', 'MISC.travel', 'Ein Weg über die Karte kostet (Sekunden)'),
     ],
   },
   {

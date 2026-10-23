@@ -8,25 +8,23 @@ import { SPECIES } from '../data/species';
 import { dietIcon, preyIcon } from '../art/speciesArt';
 import { STAGE_NAME, stageOf } from '../sim/life';
 import { BROOD } from '../data/karbon';
-import { SPAWN } from '../data/life';
 import { text, title } from './ui';
 import { upTrail } from './upTrail';
+import { habitatMap } from './habitatMap';
 
 export interface OverviewData {
   morph: Morph;
-  placeName: string;
-  /** Artgenossen in der Nähe (ohne deine Gruppe) */
-  kin: number;
   /** Lebenskraft gerade und höchstens */
   hp: number;
   hpMax: number;
-  /** im Startgebiet (dort leben keine anderen Tiere): Die Beute zeigt alle Orte zusammen */
-  overall?: boolean;
+  /** Position im aktuellen Wasserabschnitt für die Karte. */
+  position: { x: number; y: number };
 }
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
 const length = (cm: number) => (cm >= 100 ? `${nf(cm / 100, 2)} m` : `${nf(cm)} cm`);
-const weight = (g: number) => (g >= 1000 ? `${nf(g / 1000, 1)} kg` : g < 10 ? `${nf(g, 1)} g` : `${nf(g)} g`);
+// Angezeigte Masse ×100; Körperbau, Vererbung und Schadensverhältnisse bleiben unverändert.
+const weight = (g: number) => { const shown = g * 100; return shown >= 1000 ? `${nf(shown / 1000, 1)} kg` : `${nf(shown)} g`; };
 
 /** Der Rahmen: dunkel und warm, doppelte feine Linie, kleine Rauten in den Ecken. */
 function frame(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number) {
@@ -70,7 +68,7 @@ function rule(g: Phaser.GameObjects.Graphics, x0: number, x1: number, y: number,
  * Die Übersicht (Taste C) – wie der Charakterbogen alter Rollenspiele. Oben, wer dein Tier ist; darunter seine drei großen
  * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, die die große Muschel segnet –, dann seine Waffen und sein
  * Schutz: Gebiss, Schädel, Flossen und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
- * der Körper, das Leben, der Nachwuchs und die Muscheln.
+ * der Körper, das Leben, die Lebensraumkarte und die Muscheln. Nachwuchsdetails liegen am Laich.
  */
 export class Overview {
   readonly c: Phaser.GameObjects.Container;
@@ -80,8 +78,7 @@ export class Overview {
     const c = (this.c = scene.add.container(0, 0).setDepth(60));
     c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0).setInteractive().on('pointerdown', onClose));
 
-    // links der Bogen deines Tiers, rechts daneben eine schmale Spalte kleiner Karten – vorerst die Beute (was deine Linie an
-    // diesem Ort gefressen hat)
+    // Links der Charakterbogen mit Karte, rechts die Nahrung und Muscheln.
     const x0 = 24, y0 = 14, w = 952, h = 692, mid = x0 + w / 2;
     const g = scene.add.graphics();
     frame(g, x0, y0, w, h);
@@ -219,7 +216,7 @@ export class Overview {
     row(colL, (y += 28), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
     row(colL, (y += 28), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
 
-    // ---- rechts: Leben, Nachwuchs, Funde (im Karbon: das Gelege)
+    // ---- rechts: Lebensraumkarte (im Karbon: das Gelege)
     y = y0 + 334;
     if (brood) {
       head(colR, y, 'DAS GELEGE');
@@ -236,37 +233,17 @@ export class Overview {
       scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
       return;
     }
-    head(colR, y, 'NACHWUCHS');
-    // Zwei ruhige Zahlenspalten: echte Nachkommen und noch verfügbare Nahrung.
-    const top = y + 26, left = colR + colW / 4, right = colR + colW * 3 / 4;
-    g.fillStyle(0x000000, 0.22);
-    g.fillRoundedRect(colR, top, colW, 240, 6);
-    g.lineStyle(1, 0xc8913c, 0.2);
-    g.lineBetween(colR + colW / 2, top + 20, colR + colW / 2, top + 112);
-    c.add(text(scene, left, top + 27, 'BEFRUCHTETE EIER', 11, UI.ochre).setOrigin(0.5).setLetterSpacing(1));
-    c.add(title(scene, left, top + 66, nf(game.young), 38, UI.bone).setOrigin(0.5));
-    c.add(text(scene, left, top + 99, 'in diesem Leben', 13, UI.boneDim).setOrigin(0.5));
-    c.add(text(scene, right, top + 27, 'NAHRUNG', 11, UI.ochre).setOrigin(0.5).setLetterSpacing(1));
-    c.add(title(scene, right, top + 66, nf(Math.floor(life.fed)), 38, UI.bone).setOrigin(0.5));
-    c.add(text(scene, right, top + 99, `${nf(game.broodBase)} je Ei`, 13, UI.boneDim).setOrigin(0.5));
-    const ready = Math.min(Math.floor(life.fed / game.broodBase), SPAWN.maxYoung - game.young);
-    const full = game.young >= SPAWN.maxYoung;
-    const barX = colR + 24, barY = top + 134, barW = colW - 48;
-    g.fillStyle(0x000000, 0.45);
-    g.fillRoundedRect(barX, barY, barW, 5, 2.5);
-    const fill = Math.min(1, life.fed / game.broodBase);
-    if (fill > 0) {
-      g.fillStyle(full ? 0x66604d : 0xc8913c, 0.85);
-      g.fillRoundedRect(barX, barY, Math.max(5, barW * fill), 5, 2.5);
-    }
-    const status = full ? 'Dein Nachwuchs ist vollständig.' : ready
-      ? `${ready} ${ready === 1 ? 'weiteres Ei möglich' : 'weitere Eier möglich'}`
-      : `Noch ${nf(Math.ceil(game.broodBase - life.fed))} Nahrung fürs nächste Ei`;
-    c.add(text(scene, colR + colW / 2, top + 167, status, 18, ready ? UI.ochre : UI.bone).setOrigin(0.5));
-    c.add(text(scene, colR + colW / 2, top + 207, full ? 'Am Laich dein nächstes Leben wählen.' : 'Ab der Laichzeit am Laich befruchten.', 13, UI.boneDim).setOrigin(0.5));
+    head(colR, y, 'KARTE');
+    c.add(habitatMap(scene, colR, y + 26, colW, 232, d.position));
+    g.fillStyle(0xb44045, 0.9);
+    g.fillCircle(colR + 5, y + 280, 4);
+    c.add(text(scene, colR + 17, y + 280, 'Dein Lebensraum', 14, UI.bone).setOrigin(0, 0.5));
+    g.fillStyle(0xfff7de, 1);
+    g.fillCircle(colR + 224, y + 280, 3);
+    c.add(text(scene, colR + 236, y + 280, 'Du bist hier', 14, UI.boneDim).setOrigin(0, 0.5));
+    c.add(text(scene, colR, y + 307, 'Mit deiner Stärke wächst dein Lebensraum.', 14, UI.boneDim).setOrigin(0, 0.5));
     const group = game.swarm?.members.length ?? 0;
-    if (group > 0) row(colR, top + 280, 'Deine Gruppe', nf(group));
-    else if (d.kin > 0) row(colR, top + 280, 'Artgenossen', nf(d.kin));
+    if (group > 0) c.add(text(scene, sx + sw / 2, y0 + ph + 114, `Deine Gruppe · ${nf(group)}`, 16, UI.boneDim).setOrigin(0.5));
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 
@@ -282,10 +259,8 @@ export class Overview {
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
     const cx = x + w / 2;
-    c.add(scene.add.text(cx, y + 38, 'BEUTE', { fontFamily: TITLE_FONT, fontSize: '15px', color: UI.ochre, fontStyle: '700', resolution: 2 })
-      .setOrigin(0.5).setLetterSpacing(5));
-    // Alle Orte und Linien dieses Zeitalters zusammen.
-    c.add(text(scene, cx, y + 60, game.epoch.name, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
+    c.add(scene.add.text(cx, y + 44, `BEUTE: ${nf(Math.floor(game.brood?.food ?? game.life.fed))}`, { fontFamily: TITLE_FONT, fontSize: '18px', color: UI.ochre, fontStyle: '700', resolution: 2 })
+      .setOrigin(0.5).setLetterSpacing(2));
     rule(g, x + 30, x + w - 30, y + 78, 0.3);
 
     // Grünzeug gegen Fleisch

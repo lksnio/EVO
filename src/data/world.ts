@@ -2,10 +2,8 @@ import type { EpochDef } from './epochs';
 import { PALEO } from './paleo';
 
 // ---------------------------------------------------------------------------
-// Die Weltkarte. Jedes Zeitalter hat zehn Orte; wer links oder rechts über den Rand eines Ortes hinausschwimmt,
-// kommt in den Nachbarort – der Weg dorthin erscheint auf der Karte, und auf ihm kann man später auch andere bekannte Orte
-// ansteuern. Die Orte unterscheiden sich: manche sind dicht bewachsen und voller Nahrung, andere trüb – und manche reichen
-// tief hinab, wo die schlimmen Tiere warten.
+// Die Wasserabschnitte schließen direkt aneinander an. Das Devon besteht aus Laichfluss, Flachwasser und Tiefental;
+// die übrigen Zeitalter behalten zunächst ihre vorhandenen Gebiete. Die Karte ist Teil der C-Übersicht.
 // ---------------------------------------------------------------------------
 
 /** Wie sich ein Ort anfühlt (Faktoren auf die Werte des Zeitalters). */
@@ -81,6 +79,10 @@ export interface PlaceDef {
    * die Tiefe des Wassers unter der Wasserlinie (in Kacheln).
    */
   sky?: number;
+  /** Abschnitt des zusammenhängenden Devon-Meeres, von links nach rechts. */
+  waterway?: 0 | 1 | 2;
+  /** Bodenhöhe an den beiden Übergängen (Kacheln); dieselbe Höhe an benachbarten Rändern. */
+  seabed?: [number, number];
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
@@ -186,7 +188,7 @@ function buildPlaces(epId: string): PlaceDef[] {
   const spec = EPOCH_PLACES[epId];
   const roles = Object.keys(ROLES) as Role[];
   const idOf = (r: Role) => spec.names[r][0];
-  return roles.map((r) => {
+  const places: PlaceDef[] = roles.map((r) => {
     // ein Zeitalter kann seinen Orten eine eigene Gestalt geben (das Karbon: Ufer, Inseln, der steile Fels)
     const d = { ...ROLES[r], ...spec.roles?.[r] };
     const [id, name] = spec.names[r];
@@ -198,6 +200,14 @@ function buildPlaces(epId: string): PlaceDef[] {
       deep: d.deep, wide: d.wide, apex: d.apex, shape: d.shape, caves: d.caves, sun: d.sun, safe: d.safe, sky: d.sky,
     };
   });
+  if (epId !== 'devon') return places;
+  // Ein Meer, drei direkt verbundene Abschnitte. Die alten IDs bleiben für Spielstände erhalten.
+  const river = places[0], shelf = places[1], valley = places[5];
+  Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28] });
+  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 3, waterway: 1, seabed: [28, 28], caves: ['g'] });
+  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: [28, 107], caves: ['b'], apex: true });
+  valley.def.name = valley.name;
+  return [river, shelf, valley];
 }
 
 /** Orte je Zeitalter. Der erste ist immer der Start. */
@@ -207,6 +217,11 @@ export const placesOf = (ep: EpochDef | string): PlaceDef[] => PLACES[typeof ep 
 
 export function placeOf(ep: EpochDef | string, id: string): PlaceDef {
   const list = placesOf(ep);
+  // Die früheren Nebenarme münden jetzt entweder ins Flachwasser oder ins Tiefental.
+  if ((typeof ep === 'string' ? ep : ep.id) === 'devon') {
+    if (['wald', 'delta', 'bank'].includes(id)) return list[1];
+    if (['terrasse', 'kluft', 'maul', 'grund'].includes(id)) return list[2];
+  }
   return list.find((p) => p.id === id) ?? list[0];
 }
 
@@ -224,6 +239,7 @@ export const linkKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${
  * frac: 0 an der Oberfläche … 1 am Grund.
  */
 export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left' | 'right', frac: number): PlaceDef | undefined {
+  if (from.waterway !== undefined) return placesOf(ep)[from.waterway + (side === 'left' ? -1 : 1)];
   const nb = from.links.map((id) => placeOf(ep, id));
   if (!nb.length) return undefined;
   // Der Startfluss entspringt links (dort geht es nicht hinaus); rechts führt er ins Meer und zum ersten bewachsenen Ort
