@@ -17,8 +17,6 @@ export interface OverviewData {
   /** Lebenskraft gerade und höchstens */
   hp: number;
   hpMax: number;
-  /** Position im aktuellen Wasserabschnitt für die Karte. */
-  position: { x: number; y: number };
 }
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -234,7 +232,7 @@ export class Overview {
       return;
     }
     head(colR, y, 'KARTE');
-    c.add(habitatMap(scene, colR, y + 26, colW, 232, d.position));
+    c.add(habitatMap(scene, colR, y + 26, colW, 232));
     g.fillStyle(0xb44045, 0.9);
     g.fillCircle(colR + 5, y + 280, 4);
     c.add(text(scene, colR + 17, y + 280, 'Dein Lebensraum', 14, UI.bone).setOrigin(0, 0.5));

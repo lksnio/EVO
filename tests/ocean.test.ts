@@ -39,7 +39,7 @@ describe('Zusammenhängendes Meer', () => {
     }
   });
 
-  it('zeigt auf C denselben Boden, dieselbe Reihenfolge und eine durchgehende Position', () => {
+  it('ermittelt dieselben Böden und die durchgehende Breite der Wasserabschnitte', () => {
     const chart = oceanChart(ep, 'karten-saat');
     let x = 0;
     chart.sections.forEach((s, i) => {

@@ -538,7 +538,7 @@ export class HudScene extends Phaser.Scene {
     if (this.pauseC || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp, position: { x: lvl.player.x, y: lvl.player.y } }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview());
   }
 
   /**

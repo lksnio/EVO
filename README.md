@@ -407,9 +407,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     Korallengarten und von dort ins **Tiefental**. Dessen Boden fällt nach rechts immer weiter ab. Zurück geht es ebenso
     direkt nach links, ohne Overworld, Zielauswahl oder zusätzliche Reisezeit. Die Abschnitte werden mit einer kurzen
     Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Übergangsböden passen zusammen.
-  - **Die Karte liegt auf C:** Ein Wasserquerschnitt zeigt den tatsächlich erzeugten Meeresboden der drei Abschnitte,
-    den Laich in Gold und das eigene Tier als hellen Punkt. **Rot ist der eigene Lebensraum**: Mit dauerhaft besseren
-    Fähigkeiten und Muschelsegen reicht er weiter ins Meer. Das ist eine Orientierung, keine Zugangssperre.
+  - **Die Karte liegt auf C:** Die frühere **Overworld mit Gondwana, den übrigen Kontinenten und den Meeren** steht
+    verkleinert bei den Werten. Der helle Punkt markiert deinen aktuellen Ort. **Rot ist der eigene Lebensraum im Meer**:
+    Mit dauerhaft besseren Fähigkeiten und Muschelsegen wächst die Fläche. Land wird dabei ausgespart.
+    Die Karte dient der Orientierung; zwischen den Wasserabschnitten schwimmt man weiterhin direkt hinüber.
   - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.
     Die größeren Schwarmbestände kleiner Beutefische sammeln sich im zweiten Gebiet, dem Flachwasser. Auch im
     Hintergrund ist der Laichfluss deutlich ruhiger und das Flachwasser belebter.

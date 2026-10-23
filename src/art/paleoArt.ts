@@ -77,7 +77,7 @@ function spaced(ctx: Ctx, s: string, x: number, y: number, track: number) {
 }
 
 /** Eine Fassung der Karte zeichnen. fields: die Gebiete der Orte (nur in der hellen Fassung). */
-function drawWorld(epId: string, pal: Palette, fields: { x: number; y: number; img: HTMLCanvasElement }[]) {
+function drawWorld(epId: string, pal: Palette, fields: { x: number; y: number; img: HTMLCanvasElement }[], labels = true) {
   const [cv, ctx] = newCanvas(W, H);
   const map = PALEO[epId];
   const b = MAP_BOX;
@@ -208,19 +208,32 @@ function drawWorld(epId: string, pal: Palette, fields: { x: number; y: number; i
   // Namen: vom Land nur das große Gondwana (MAP_LABELS), dazu die Meere
   ctx.textBaseline = 'middle';
   for (const c of map.continents) {
-    if (!MAP_LABELS.has(c.name)) continue;
+    if (!labels || !MAP_LABELS.has(c.name)) continue;
     const p = scr(c.label);
     ctx.font = `700 12px ${TITLE_FONT}`;
     ctx.fillStyle = pal.label;
     spaced(ctx, c.name.toUpperCase(), p.x, p.y, 3.6);
   }
   for (const o of map.oceans) {
+    if (!labels) continue;
     const p = scr([o.x, o.y]);
     ctx.font = `italic 500 13px ${FONT}`;
     ctx.fillStyle = pal.ocean;
     spaced(ctx, o.name, p.x, p.y, 1.8);
   }
   ctx.restore();
+  return cv;
+}
+
+const worldCanvases = new Map<string, HTMLCanvasElement>();
+
+/** Dieselbe Urzeit-Erde wie auf der früheren Overworld, ohne Beschriftung: Die kleine Karte setzt lesbare Namen darüber. */
+export function worldMapCanvas(epId: string) {
+  let cv = worldCanvases.get(epId);
+  if (!cv) {
+    cv = drawWorld(epId, BRIGHT, [], false);
+    worldCanvases.set(epId, cv);
+  }
   return cv;
 }
 
