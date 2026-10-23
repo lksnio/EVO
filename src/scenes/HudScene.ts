@@ -678,11 +678,11 @@ export class HudScene extends Phaser.Scene {
     const now = game.shown(ups);
     const cols: { k: UpKey; name: string; what: string; val: (v: ReturnType<typeof game.shown>) => number }[] = [
       { k: 'hp', name: 'Lebenskraft', what: `+${nf(UPGRADES.hp * 100, 1)} %  ·  ein größerer Körper`, val: (v) => v.hpMax },
-      { k: 'stam', name: 'Ausdauer', what: '+¼ Kreis  ·  kräftigere Flossen', val: (v) => v.stam },
       // im Karbon: Sauerstoff statt Sicht – länger an Land, ohne auszutrocknen
       game.upKeys.includes('oxy')
         ? { k: 'oxy', name: 'Sauerstoff', what: `+${Math.round(OXYGEN.perUp * 100)} %  ·  länger an Land`, val: (v) => v.oxy }
         : { k: 'sight', name: 'Sicht', what: `+${Math.round(UPGRADES.sightPer * 100)} %  ·  größere Augen`, val: (v) => v.sight },
+      { k: 'stam', name: 'Ausdauer', what: '+¼ Kreis  ·  kräftigere Flossen', val: (v) => v.stam },
     ];
     const items: Button[] = [];
     cols.forEach((col, i) => {

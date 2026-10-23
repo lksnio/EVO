@@ -68,7 +68,7 @@ function rule(g: Phaser.GameObjects.Graphics, x0: number, x1: number, y: number,
 /**
  * Die Übersicht (Taste C) – wie der Charakterbogen alter Rollenspiele. Oben, wer dein Tier ist; darunter seine drei großen
  * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, die die große Muschel segnet –, dann seine Waffen und sein
- * Schutz: Gebiss, Schädel, Schwarm und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
+ * Schutz: Gebiss, Schädel, Flossen und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
  * der Körper, das Leben, der Nachwuchs und die Muscheln.
  */
 export class Overview {
@@ -89,10 +89,9 @@ export class Overview {
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
     // rechts daneben eine Spalte kleiner Karten: die Beute, darunter die Muscheln
     const sx = x0 + w + 16, sw = W - 24 - sx;
-    const ph = this.preyCard(scene, g, d, sx, y0, sw);
+    const ph = this.preyCard(scene, g, sx, y0, sw);
     this.shellCard(scene, g, sx, y0 + ph + 14, sw);
 
-    const run = game.run;
     const life = game.life;
     const ep = game.epoch;
     // Kopf: der Name der Linie, darunter Körperform, Zeitalter und Ort
@@ -148,12 +147,12 @@ export class Overview {
       : [
           { label: 'GEBISS', value: v.bite },
           { label: 'SCHÄDEL', value: v.skull },
-          { label: 'SCHWARM', value: v.swarm },
+          { label: 'FLOSSEN', value: v.fins },
           { label: 'SCHUPPEN', value: v.scales },
         ];
     // daneben, wie viel sich jede vererbte Fähigkeit gegenüber der vorigen Generation verändert hat (ausgewachsen gemessen)
     const delta = game.inheritedDelta();
-    const dkey: Record<string, 'bite' | 'skull' | 'scales' | 'legs' | 'grip' | undefined> = { GEBISS: 'bite', SCHÄDEL: 'skull', SCHUPPEN: 'scales', BEINE: 'legs', GRIFF: 'grip' };
+    const dkey: Record<string, 'bite' | 'skull' | 'fins' | 'scales' | 'legs' | 'grip' | undefined> = { GEBISS: 'bite', SCHÄDEL: 'skull', FLOSSEN: 'fins', SCHUPPEN: 'scales', BEINE: 'legs', GRIFF: 'grip' };
     const step = (w - 180) / small.length;
     small.forEach((b, i) => {
       const cx = x0 + 90 + step * (i + 0.5);
@@ -213,6 +212,7 @@ export class Overview {
     head(colL, y, 'KÖRPER');
     row(colL, (y += 32), 'Länge', length(m.cm));
     row(colL, (y += 28), 'Gewicht', weight(m.g));
+    if (!brood) row(colL, (y += 28), 'Geschwister', nf(game.pool.length));
     row(colL, (y += 28), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
     row(colL, (y += 28), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
 
@@ -237,7 +237,6 @@ export class Overview {
     }
     head(colR, y, 'LEBEN');
     row(colR, (y += 32), 'Generation', String(life.gen));
-    if (run) row(colR, (y += 28), 'Geschlecht', run.sex === 1 ? 'Männchen' : 'Weibchen');
     row(colR, (y += 28), 'Lebensabschnitt', STAGE_NAME[stageOf(life.age, life.gen)]);
     const group = game.swarm?.members.length ?? 0;
     if (group > 0) row(colR, (y += 28), 'Deine Gruppe', nf(group));
@@ -246,12 +245,13 @@ export class Overview {
     // was gefressen wurde, wird beim Laichen zu Nachwuchs (siehe SPAWN)
     y += 40;
     head(colR, y, 'NACHWUCHS');
-    row(colR, (y += 32), 'Nahrung', nf(Math.floor(life.fed)));
-    row(colR, (y += 28), 'Je Nachkomme', nf(game.broodBase));
-    row(colR, (y += 28), 'Nachkommen', nf(game.young));
-    // der Laich der ganzen Generation (auch von Geschwistern) und die Geschwister, die noch warten
-    row(colR, (y += 28), 'Laich der Generation', nf(game.roe.length));
-    if (game.pool.length > 0) row(colR, (y += 28), 'Geschwister', nf(game.pool.length));
+    y += 42;
+    const food = title(scene, 0, y, `${nf(game.young)}, ${nf(Math.floor(life.fed))}`, 32, UI.bone).setOrigin(0, 0.5);
+    const perEgg = title(scene, 0, y + 3, `/${nf(game.broodBase)}`, 20, UI.boneDim).setOrigin(0, 0.5);
+    const totalWidth = food.width + perEgg.width + 3;
+    food.setX(colR + colW / 2 - totalWidth / 2);
+    perEgg.setX(food.x + food.width + 3);
+    c.add([food, perEgg]);
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 
@@ -260,15 +260,8 @@ export class Overview {
     scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
   }
 
-  /**
-   * Die Beute – eine kleine Karte: oben, wie viel Grünzeug und wie viel Fleisch deine Linie an diesem Ort gefressen hat (links
-   * ein Pflänzchen, rechts ein Stück Fleisch, dazwischen ein Balken: grün der Anteil der Pflanzen, rot der des Fleischs).
-   * Darunter die Tiere, die sie hier am häufigsten gefressen hat – die drei häufigsten, je als kleines Sinnbild mit ihrem
-   * Anteil an allen hier gefressenen Tieren (jedes Tier zählt einmal, gleich wie viele Brocken). An einem anderen Ort stehen
-   * andere Zahlen; im Startgebiet (dort lebt sonst niemand) alle Orte zusammen („Gesamt“). Eine neue Linie beginnt leer.
-   * Gibt die Höhe der Karte zurück.
-   */
-  private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, d: OverviewData, x: number, y: number, w: number) {
+  /** Beute und Nahrungsanteile des ganzen Zeitalters, unabhängig von Ort und Generation. */
+  private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
     const c = this.c;
     const rowH = 46, top = y + 140, h = top - y + rowH * 3 + 14;
     frame(g, x, y, w, h);
@@ -276,13 +269,12 @@ export class Overview {
     const cx = x + w / 2;
     c.add(scene.add.text(cx, y + 38, 'BEUTE', { fontFamily: TITLE_FONT, fontSize: '15px', color: UI.ochre, fontStyle: '700', resolution: 2 })
       .setOrigin(0.5).setLetterSpacing(5));
-    // der Ort, an dem man ist – im Startgebiet (dort lebt sonst niemand) alle Orte zusammen
-    const place = d.overall ? null : undefined;
-    c.add(text(scene, cx, y + 60, d.overall ? 'Gesamt' : d.placeName, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
+    // Alle Orte und Linien dieses Zeitalters zusammen.
+    c.add(text(scene, cx, y + 60, game.epoch.name, 13, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0.85));
     rule(g, x + 30, x + w - 30, y + 78, 0.3);
 
     // Grünzeug gegen Fleisch
-    const diet = game.dietAt(place);
+    const diet = game.dietAt();
     const by = y + 100, bx0 = x + 54, bx1 = x + w - 54, bw = bx1 - bx0;
     c.add(scene.add.image(x + 33, by, dietIcon(scene, 'plant')).setDisplaySize(28, 28).setAlpha(diet ? 1 : 0.4));
     const meat = scene.add.image(x + w - 33, by, dietIcon(scene, 'meat')).setAlpha(diet ? 1 : 0.4);
@@ -311,7 +303,7 @@ export class Overview {
     g.lineBetween(x + 30, top - 4, x + w - 30, top - 4);
 
     // die drei häufigsten Tiere
-    const { top: best } = game.topPrey(place);
+    const { top: best } = game.topPrey();
     for (let i = 0; i < 3; i++) {
       const ry = top + rowH * i + rowH / 2;
       const e = best[i];
@@ -331,13 +323,13 @@ export class Overview {
     return h;
   }
 
-  /** Die Muscheln: gefunden, verteilt und frei. Eine neu gefundene lässt die Zahl aufleuchten. */
+  /** Nur die noch verfügbaren Muscheln. Eine neu gefundene lässt die Zahl aufleuchten. */
   private shellCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
     const c = this.c;
-    const h = 100;
+    const h = 62;
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
-    const shells = game.shells;
+    const shells = game.shellsFree;
     const n = title(scene, 0, y + 31, `× ${shells}`, 22, UI.bone).setOrigin(0, 0.5);
     const icon = scene.add.image(0, y + 31, 'shell').setOrigin(0, 0.5).setDisplaySize(22, 24);
     if (!shells) icon.setTint(0x000000).setAlpha(0.35);
@@ -346,15 +338,11 @@ export class Overview {
     icon.setX(x + w / 2 - tw / 2);
     n.setX(icon.x + 32);
     c.add([icon, n]);
-    if (shells > game.seenShells) {
+    if (game.shells > game.seenShells) {
       n.setColor('#f0c878');
       scene.tweens.add({ targets: n, alpha: 0.55, yoyo: true, repeat: 2, duration: 520, ease: 'Sine.inOut', onComplete: () => n.active && n.setColor(UI.bone) });
-      game.seenShells = shells;
+      game.seenShells = game.shells;
     }
-    const ty = y + 66;
-    g.lineStyle(1, 0xc8913c, 0.22);
-    g.lineBetween(x + 24, ty, x + w - 24, ty);
-    c.add(text(scene, x + w / 2, ty + 14, `${game.shellsSpent} verteilt · ${game.shellsFree} frei`, 11, UI.boneDim).setOrigin(0.5));
   }
 
   update(dt: number) {

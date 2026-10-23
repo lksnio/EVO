@@ -48,6 +48,8 @@ export type NetAnimal = SchemaType<typeof NetAnimal>;
 /** Ein Stück Fleisch am Ort. */
 export const NetMeat = schema(
   {
+    sp: t.string(),
+    kill: t.string(),
     x: t.float32(),
     y: t.float32(),
     v: t.float32(),

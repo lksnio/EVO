@@ -19,15 +19,46 @@ describe('Beute', () => {
     // an einem anderen Ort stehen andere Zahlen
     expect(game.topPrey('woanders').total).toBe(0);
     expect(game.topPrey(here).total).toBe(10);
+    game.prog.place = 'woanders';
+    game.noteEaten('b');
+    expect(game.topPrey().total).toBe(11);
+    expect(game.topPrey(here).total).toBe(10);
   });
 
-  it('gilt über die Generationen der Linie – eine neue Linie beginnt leer', () => {
+  it('zeigt die Nahrungsanteile über Orte und Generationen einer Epoche', () => {
+    game.newRun(0);
+    game.noteFood('plant', 60);
+    game.prog.place = 'woanders';
+    game.noteFood('meat', 40);
+    expect(game.dietAt()).toEqual({ plant: 0.6, meat: 0.4 });
+    game.newRun(0);
+    expect(game.dietAt()).toEqual({ plant: 0.6, meat: 0.4 });
+    game.newRun(1);
+    expect(game.dietAt()).toBeNull();
+  });
+
+  it('übernimmt alte Ortsdaten einmalig, ohne sie beim nächsten Essen doppelt zu zählen', () => {
+    game.newRun(0);
+    game.run!.prey = { riff: { a: 2 }, delta: { a: 1, b: 1 } };
+    game.run!.diet = { riff: { plant: 60, meat: 40 } };
+    expect(game.topPrey().total).toBe(4);
+    game.noteEaten('b');
+    game.noteFood('plant', 20);
+    expect(game.topPrey().total).toBe(5);
+    expect(game.dietAt()).toEqual({ plant: 80 / 120, meat: 40 / 120 });
+    game.noteEaten('b');
+    expect(game.topPrey().total).toBe(6);
+  });
+
+  it('gilt über alle Linien derselben Epoche; andere Epochen haben ihre eigene Beute', () => {
     game.newRun(0);
     game.noteEaten('a');
     game.noteEaten('a');
     expect(game.topPrey().total).toBe(2);
     game.extinct(0.5, 'Test');
     game.newRun(0);
+    expect(game.topPrey().total).toBe(2);
+    game.newRun(1);
     expect(game.topPrey()).toEqual({ top: [], total: 0 });
   });
 });

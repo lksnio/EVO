@@ -25,7 +25,7 @@ export interface PlayerLike {
   /** Blickrichtung (1 rechts, -1 links) – wer dir folgt, schwimmt dahinter */
   facing?: number;
   hitRect(): Rect;
-  hurt(dmg: number, fromX: number, by?: string): void;
+  hurt(dmg: number, fromX: number, by?: string, source?: object): void;
   /** ein anderer Spieler (Mehrspieler) – die Tiere behandeln ihn wie dich */
   human?: boolean;
 }
@@ -1169,7 +1169,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         // kein Todesstoß: etwas Schaden, der nach der Stärke des Tieres geht (ein junger Fisch überlebt etliche davon)
         const dmg = clamp(this.def.power * this.sz * 0.5, 0.8, 3.5) * (time < this.rageUntil ? 1.5 : 1);
         if (this.isPlayer(tg)) {
-          tg.hurt(dmg, this.x, this.def.name);
+          tg.hurt(dmg, this.x, this.def.name, this);
           this.hitPlayerAt = time;
         } else (tg as Animal).hurt(dmg, this, 'ram');
         audio.sfx('ram');
@@ -1349,7 +1349,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (tg && !tg.dead && overlaps(this.biteRect(), tg.hitRect()) && time > this.biteReady) {
           this.biteReady = time + 900;
           if (this.isPlayer(tg)) {
-            tg.hurt(this.def.dmg * 1.3, this.x, this.def.name);
+            tg.hurt(this.def.dmg * 1.3, this.x, this.def.name, this);
             this.hitPlayerAt = time;
           } else (tg as Animal).hurt(this.def.dmg * 1.3, this, 'ram');
           audio.sfx('ram');
@@ -1541,7 +1541,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.biteReady = Math.max(this.biteReady, time + 900);
     const jaw = !!jawOf(this.def.id);
     if (this.isPlayer(tg)) {
-      tg.hurt(this.def.dmg * 1.15, this.x, this.def.name);
+      tg.hurt(this.def.dmg * 1.15, this.x, this.def.name, this);
       this.hitPlayerAt = time;
     } else (tg as Animal).hurt(this.def.dmg, this, jaw ? 'bite' : 'ram');
     if (jaw) audio.sfx('chomp', clamp(this.def.power / 30, 0, 1));
@@ -2101,7 +2101,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   protected strikeHit(time: number, tg: Target) {
     if (this.isPlayer(tg)) {
-      tg.hurt(this.biteDmg, this.x, this.def.name);
+      tg.hurt(this.biteDmg, this.x, this.def.name, this);
       this.hitPlayerAt = time;
       if (Math.random() < 0.5) audio.sfx('snarl');
     } else (tg as Animal).hurt(this.biteDmg, this, 'bite');

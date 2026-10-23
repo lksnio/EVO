@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
+import { recordDefeat, type CombatSkill } from '../sim/evolution';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, noteBest, shellChance, type Clutch, type Member, type PlayStyle, type UpKey } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, shellChance, type Clutch, type Member, type PlayStyle, type UpKey } from '../state/GameState';
 import type { RoeData } from './RoeScene';
 import { species } from '../net/Species';
 import { speciesEnd } from './ExtinctScene';
@@ -267,6 +268,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private slow = 1;
   /** Was du in diesem Zeitalter getan hast – daraus wird beim Generationswechsel die nächste Generation */
   train: PlayStyle = newStyle();
+  private combat = new Map<Animal, Partial<Record<CombatSkill, number>>>();
+  private pendingCombat = new Map<number, { used: Partial<Record<CombatSkill, number>>; strength: number }>();
   /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
   private lastBitten: Animal | null = null;
   private lastBiteAt = -1e9;
@@ -279,6 +282,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   init(d: { epoch?: number; place?: string }) {
+    this.combat.clear();
+    this.pendingCombat.clear();
     this.epochIdx = d?.epoch ?? game.epochIndex;
     this.ep = EPOCHS[this.epochIdx];
     const prog = game.prog;
@@ -1748,7 +1753,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Ein Tier aus der Liste der Tiere nehmen (es wird nicht mehr bedacht). */
   dropAnimal(a: Animal) {
+    const used = this.combat.get(a);
+    if ((a as { ghost?: boolean }).ghost && a.netId && used) this.pendingCombat.set(a.netId, { used, strength: this.strength(a) });
     this.removeAnimal(a);
+  }
+
+  /** Gäste werten einen vorhergesagten Sieg erst nach der Todesmeldung des Ortswächters. */
+  confirmNetDefeat(id: number, a?: Animal) {
+    const live = a && this.combat.get(a);
+    const result = live && a ? { used: live, strength: this.strength(a) } : this.pendingCombat.get(id);
+    if (result && !this.ended) recordDefeat((this.train.defeats ??= {}), result.used, result.strength);
+    if (a) this.combat.delete(a);
+    this.pendingCombat.delete(id);
   }
 
   /**
@@ -1798,6 +1814,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   private removeAnimal(a: Animal) {
+    this.combat.delete(a);
     const i = this.animals.indexOf(a);
     if (i >= 0) this.animals.splice(i, 1);
     this.ramHit.delete(a);
@@ -1809,6 +1826,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   animalDied(a: Animal, byPlayer: boolean) {
+    const used = this.combat.get(a);
     this.removeAnimal(a);
     this.bleed(a.x, a.y, 14);
     if (a.kin) {
@@ -1823,6 +1841,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.hunt?.died(a, byPlayer);
     // Beute, an der du beteiligt warst, gilt als deine
     const ours = byPlayer || this.time.now - a.hitByPlayerAt < 8000;
+    if (ours && used && !this.ended && a.role !== 'hazard') recordDefeat((this.train.defeats ??= {}), used, this.strength(a));
     // Karbon: Jagd stärkt das Gebiss der Nachkommen – kleine Beute zählt einfach, ein erlegter Räuber doppelt
     const br = game.brood;
     if (br && ours && !this.ended) br.train.prey += a.role === 'prey' ? 1 : 2;
@@ -1834,7 +1853,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // gemeinsam erlegt: zählt für den Schwarmfisch (gegen Starke mehr)
     if (ours && kill.helpers.size) {
       this.train.pack += 0.5 + this.challenge(a);
-      noteBest(this.train, 'pack', this.strength(a));
     }
     // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – so viel, wie es stark und groß war (meatOf, nach der
     // Lebenskraft der Art und der Größe des Tiers), in Brocken: große Keulen (je FOOD.chunk) und kleine Stücke (je 1)
@@ -1911,18 +1929,26 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.train.hab[kind] = (this.train.hab[kind] ?? 0) + w;
   }
 
-  /** Ein Erfolg (Stoß bzw. Biss) für die Platten: erlegte Gegner zählen dreifach, eingeholte Flüchtende zusätzlich als Verfolgung. */
+  /** Fähigkeiten dieses Kampfs sammeln; erst der anschließende Sieg verbucht sie für die Vererbung. */
   private scoreHit(kind: 'ram' | 'hunt', a: Animal, ranMs: number, k = 1) {
-    const kill = a.dead ? 3 : 1;
-    this.train[kind] += this.challenge(a) * kill * k;
-    const chase = this.pursuit(a, ranMs);
-    this.train.chase += chase * kill;
-    // die stärksten bezwungenen Gegner (erlegt zählt ganz, ein Treffer halb) – sie bestimmen, wie weit das Training trägt
-    const won = a.dead ? 1 : 0.5;
-    noteBest(this.train, kind, this.strength(a) * won);
-    if (chase > 0) noteBest(this.train, 'chase', (a.fleeSpeed() / Math.max(1, game.stats(game.cls, game.traits).speed)) * won);
+    if (!a.kin && a.role !== 'hazard') {
+      const used = this.combat.get(a) ?? {};
+      const key = kind === 'ram' ? 'skull' : 'bite';
+      used[key] = (used[key] ?? 0) + k;
+      const chase = this.pursuit(a, ranMs);
+      if (chase > 0) used.fins = (used.fins ?? 0) + chase;
+      this.combat.set(a, used);
+    }
     this.useHere(0.6);
     this.hunt?.hit(a);
+  }
+
+  /** Erst überstandene Angriffe und ein anschließender Sieg bringen Schuppenpunkte. */
+  playerDamaged(source: object, damage: number) {
+    if (!(source instanceof Animal) || source.kin || source.role === 'hazard') return;
+    const used = this.combat.get(source) ?? {};
+    used.scales = (used.scales ?? 0) + Math.min(2, damage / Math.max(1, this.player.stats.maxHp) * 10);
+    this.combat.set(source, used);
   }
 
   playerBite(rect: Rect, momentum = 0) {
@@ -1939,13 +1965,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.lastBitten = a;
       this.lastBiteAt = now;
       const ran = a.runningFor(now);
+      this.scoreHit('hunt', a, ran, held ? 1.5 : 1);
       a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
-      // Bisse zählen für die Platte „Beißen“ – gegen Starke viel, gegen kleine Beute kaum
-      this.scoreHit('hunt', a, ran, held ? 1.5 : 1);
       if (!a.dead) this.callHunt(a);
-      if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name);
+      if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name, a);
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
     }
     if (hit) {
@@ -2215,6 +2240,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const dealt = st.ram * 0.5 * sf;
     const small = a.def.power <= st.power * 3;
     const ran = a.runningFor(this.time.now);
+    this.scoreHit('ram', a, ran, sf);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
     if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
     if (sneak) {
@@ -2226,8 +2252,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const back = bump + Math.max(0, a.def.power - st.power * 1.5) * 0.12 * (1 - 0.65 * t.skull) * (1 - 0.5 * plates);
     const k = clamp(a.def.power / (st.power + 1), 0, 1);
     p.recoil(a.x, back, k * 0.6);
-    // Stöße zählen für die Platte „Stoßen“ – erst recht, wenn damit (starke) Gegner erlegt werden
-    this.scoreHit('ram', a, ran, sf);
     if (a.role !== 'hazard') game.addAggression(0.035);
     if (!a.dead) this.callHunt(a);
     audio.sfx('ram');
@@ -2771,7 +2795,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Oben im Licht wird man heller, unten in der Tiefe (bzw. im Schatten) dunkler
     if (this.water) {
       const col = clamp(Math.floor(cx / TILE), 0, L.ground.length - 1);
-      const depth = (cy - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY);
+      const depth = clamp((cy - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY), 0, 1);
+      const bodyDepth = clamp((cy - L.surfaceY) / Math.max(80, L.height - L.surfaceY), 0, 1);
+      this.train.depthTime = (this.train.depthTime ?? 0) + bodyDepth * dt;
+      this.train.waterTime = (this.train.waterTime ?? 0) + dt;
+      if (!p.drifting && !p.bottomWalk) this.train.distance = (this.train.distance ?? 0) + Math.hypot(p.body.velocity.x, p.body.velocity.y) * dt;
       if (depth < 0.32) game.shiftLight(0.004 * dt);
       else if (depth > 0.72) game.shiftLight(-0.004 * dt);
       // Wer tief unten überlebt, bekommt starke Nerven (größer wird erst die nächste Generation – siehe useHere)
@@ -2820,7 +2848,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (a.dead || a.kin || a.ally) continue;
       // Stellvertreter im Mehrspieler rechnen nicht selbst: Wer gerade vorschnellt, beißt mit dem Maul
       if (a.attacking && (a as { ghost?: boolean }).ghost && overlaps(pr, a.biteRect())) {
-        p.hurt(a.def.dmg * 1.15, a.x, a.def.name);
+        p.hurt(a.def.dmg * 1.15, a.x, a.def.name, a);
         a.hitPlayerAt = time;
         continue;
       }
@@ -2837,7 +2865,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         continue;
       }
       if (a.role === 'hazard') {
-        p.hurt(a.def.dmg, a.x, a.def.name);
+        p.hurt(a.def.dmg, a.x, a.def.name, a);
         a.hitPlayerAt = time;
       }
     }

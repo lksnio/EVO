@@ -5,6 +5,7 @@ import { SWARM } from '../data/quests';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
+import { evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
 import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN, OXYGEN } from '../data/karbon';
@@ -47,6 +48,15 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface Traits {
+  /** Additive vererbte Punkte. Ältere Spielstände ohne diese Felder behalten ihre bisherigen Werte. */
+  vitality?: number;
+  biteGain?: number;
+  ramGain?: number;
+  finGain?: number;
+  scaleGain?: number;
+  /** Verborgene relative Körperzuwächse: Länge aus Strecke, Masse aus mittlerer Tiefe. */
+  lengthGain?: number;
+  massGain?: number;
   jaw: number;
   skull: number;
   stealth: number;
@@ -320,6 +330,8 @@ export type RoeGroup = 'pool' | 'next';
 
 /** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern (zur Laichzeit). */
 export interface Heir {
+  /** Grundwerte und Zuwächse vor dem individuellen Wurf jedes Eis. */
+  evolution?: { traits: Traits; gains: Gains };
   traits: Traits;
   sex: Sex;
   seed: number;
@@ -475,6 +487,8 @@ export interface TreeNode {
 }
 
 export interface SaveData {
+  /** Gegessene Beute und Nahrung über alle Orte und Linien eines Zeitalters. */
+  epochFood?: Record<string, { prey: Record<string, number>; plant: number; meat: number }>;
   v: 3;
   muted: boolean;
   seenIntro: boolean;
@@ -509,19 +523,10 @@ export const ZERO_TRAITS: Readonly<Traits> = ZERO;
 /** Was im Zeitalter Stück für Stück wächst, setzt sich über die Jahrmillionen fort (verstärkt). */
 const AMP: TraitKey[] = ['stealth', 'green', 'sand', 'nerve', 'tox', 'limb'];
 /** Was ein Partner an die Nachkommen weitergibt: das Aussehen, nicht Größe, Kost, Robustheit oder die Evolutionsplatten. */
-const BLEND_KEYS: (keyof Traits)[] = ['stealth', 'green', 'sand', 'len', 'girth', 'swift', 'light', 'fin', 'tail', 'crest', 'tint', 'snout', 'fUp', 'fDown', 'fSide', 'fTail'];
+const BLEND_KEYS: (keyof Traits)[] = ['stealth', 'green', 'sand', 'light', 'fin', 'tail', 'crest', 'tint', 'snout', 'fUp', 'fDown', 'fSide', 'fTail'];
 /** Merkmale zwischen 0 und 1 (die übrigen reichen von -1 bis 1; Kopfplatte und Wuchs haben eigene Grenzen) */
 const UNIT_KEYS = new Set<keyof Traits>(['jaw', 'skull', 'stealth', 'fang', 'limb', 'grip', 'pack', 'armor', 'fUp', 'fDown', 'fSide', 'fTail']);
 const range = (k: keyof Traits): [number, number] => (k === 'spike' ? [-1, 0] : k === 'growth' ? [GROWTH_MIN, 1] : UNIT_KEYS.has(k) ? [0, 1] : [-1, 1]);
-
-/** Die Fähigkeiten, die von Ei zu Ei ein wenig streuen: das Merkmal, das sie vor allem trägt, und wie sie gemessen wird. */
-const VARY: [keyof Traits, (s: Stats, t: Traits) => number][] = [
-  ['jaw', (s) => s.bite],
-  ['skull', (s) => s.ram],
-  ['swift', (s) => s.speed],
-  ['growth', (s) => s.maxHp],
-  ['armor', (_s, t) => 1 + 2 * t.armor],
-];
 
 /** Merkmale zum Speichern (Eier im Laich): nur die, die nicht 0 sind, auf vier Stellen gerundet. */
 export function packTraits(t: Traits): Partial<Traits> {
@@ -568,14 +573,6 @@ const PLATE_MAX = 4;
 /** Wie ausgeprägt eine Platte nach n Punkten ist (0 … 1): Die ersten Punkte zeigen viel, jeder weitere etwas weniger. */
 export const plateLevel = (n: number) => 1 - Math.exp(-0.7 * clamp(n, 0, PLATE_MAX));
 
-/** Die volle Ausprägung einer Platte (Verschiebung der Merkmale gegenüber dem Urfisch). */
-const PLATE_D: Record<PlateId, Partial<Record<keyof Traits, number>>> = {
-  st: { skull: 0.5, spike: -1, fSide: 0.5, len: -0.3, snout: -0.55, crest: 0.35, girth: 0.2, light: -0.15 },
-  bs: { jaw: 0.62, fang: 0.6, girth: 0.3, snout: -0.2, len: -0.1 },
-  vf: { len: 0.7, girth: -0.55, swift: 0.75, tail: 0.85, fTail: 0.5, fin: 0.45, crest: 0.2, snout: 0.6, light: 0.12 },
-  sw: { pack: 1, girth: -0.3, len: 0.15, fin: 0.25, snout: 0.15, light: 0.3 },
-};
-
 /** Die vorherrschende Platte (oder undefined beim Urfisch) – bei Gleichstand in der Reihenfolge Stoßen, Beißen, Verfolgung, Schwarm. */
 export function dominantPlate(t: Partial<Traits>): PlateId | undefined {
   const f = full(t);
@@ -601,19 +598,6 @@ export const plateSig = (t: Partial<Traits>) => {
 export function plateFit(s: Pick<PlayStyle, 'ram' | 'hunt' | 'chase' | 'swim' | 'pack'>): Record<PlateId, number> {
   const fit = (v: number, ref: number) => 1 - Math.exp(-Math.max(0, v) / ref);
   return { st: fit(s.ram, 22), bs: fit(s.hunt, 30), vf: fit(s.chase + 0.35 * s.swim, 40), sw: fit(s.pack, 8) };
-}
-
-/** Lebensraum → Körpergröße: Zu diesem Wuchs zieht es eine Linie, die vor allem hier lebt (flach und bewachsen → klein, tief → groß). */
-const HABITAT_GROWTH: Record<PlaceKind, number> = { start: 0.05, lush: -0.15, murky: 0.25, deep: 0.55, abyss: 0.9 };
-
-/** Wohin der Lebensraum eines Zeitalters den Wuchs zieht – und wie sicher (wer kaum aktiv war, ändert sich kaum). */
-function habitatPull(hab: PlayStyle['hab'], seconds: number) {
-  let sum = 0, pull = 0;
-  for (const [kind, v] of Object.entries(hab) as [PlaceKind, number][]) {
-    sum += v;
-    pull += v * HABITAT_GROWTH[kind];
-  }
-  return sum > 0 ? { target: pull / sum, sure: Math.min(1, sum / (0.3 * seconds)) } : undefined;
 }
 
 /**
@@ -648,6 +632,8 @@ const BODY: Record<ClassId, { cm: number; g: number }> = {
 
 /** Ältere Spielstände kennen manche Merkmale noch nicht. */
 const full = (t: Partial<Traits>): Traits => ({ ...ZERO, ...t });
+const finPoints = (t: Traits) => Math.max(1, 10 + (t.finGain ?? 0));
+const scalePoints = (t: Traits) => Math.max(1, (10 * (1 + 2 * (t.armor ?? 0)) + (t.scaleGain ?? 0)) * Math.max(0.1, 1 - (t.lengthGain ?? 0) / 2));
 
 /**
  * Merkmale aus einem älteren Spielstand: Aus der Panzer- und der Jäger-Linie werden Stoß- und Verfolgungsfisch; was es nicht
@@ -740,6 +726,10 @@ export const bus = new Emitter();
  * Anpassungen, die unabhängig von der Platte geschehen (Größe, Robustheit, Flossen aus der Bewegung).
  */
 export interface PlayStyle {
+  defeats?: Defeats;
+  distance?: number;
+  depthTime?: number;
+  waterTime?: number;
   /** Treffer mit einem Stoß bzw. einem Biss – gewichtet nach der Stärke des Gegners; wer ihn damit erlegt, zählt dreifach */
   ram: number;
   hunt: number;
@@ -768,7 +758,7 @@ export interface PlayStyle {
 
 export type TrainKey = 'ram' | 'hunt' | 'chase' | 'pack';
 
-export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {}, best: {} });
+export const newStyle = (): PlayStyle => ({ ram: 0, hunt: 0, chase: 0, swim: 0, pack: 0, hurt: 0, up: 0, down: 0, fwd: 0, turns: 0, hab: {}, best: {}, defeats: {}, distance: 0, depthTime: 0, waterTime: 0 });
 
 /** Ein Gegner wurde bezwungen (r: seine Stärke im Verhältnis zu dir) – merken, wenn er zu den drei stärksten gehört. */
 export function noteBest(style: PlayStyle, k: TrainKey, r: number) {
@@ -1073,8 +1063,15 @@ class GameState {
     const swimMul = amph ? 1 - KTRAIN.swimLimb * limb - KTRAIN.swimGrip * grip : 1;
     // Jungtiere beißen und stoßen schwächer – aber nicht ganz so schwach, wie ihre Größe vermuten ließe
     const force = adult * Math.pow(k.grow, 0.6);
-    const bite = b.bite * force * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.25 * carn) * (1 + 0.6 * (t.fang ?? 0));
-    const ram = b.ram * force * (1 + 4 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth);
+    const bite = Math.max(0.1, b.bite * force * (1 + 3.6 * Math.pow(t.jaw, 1.1)) * (1 + 0.6 * (t.fang ?? 0))
+      + b.bite * 0.07 * (t.biteGain ?? 0) * Math.pow(k.grow, 0.6));
+    const ram = Math.max(0.1, b.ram * force * (1 + 4 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth)
+      + b.ram * 0.07 * (t.ramGain ?? 0) * Math.pow(k.grow, 0.6));
+    const length = t.lengthGain ?? 0, mass = t.massGain ?? 0;
+    const bodySpeed = (1 + length) * Math.max(0.1, 1 - mass / 2);
+    const fins = Math.max(0.1, 1 + (t.finGain ?? 0) / 10);
+    const scaleBase = 10 * (1 + 2 * armor);
+    const baseHp = b.hp * Math.pow(adult, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor);
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
     // Verfolgungsfische halten lange durch – das zeigt ihr Körperbau allein nicht
     const chase = plateLevel(t.vf ?? 0);
@@ -1083,17 +1080,17 @@ class GameState {
     return {
       // Jungtiere sind verletzlich, aber nicht ganz so sehr, wie ihre Größe vermuten ließe; im Alter lässt die Kraft nach
       // dazu die Segen der großen Muschel in Lebenskraft (nur beim eigenen Tier)
-      maxHp: Math.max(3, Math.round(b.hp * Math.pow(adult, 1.3) * Math.pow(k.grow, 0.8) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old) * hpBoost)),
+      maxHp: Math.max(3, Math.round((baseHp + (t.vitality ?? 0)) * Math.pow(k.grow, 0.8) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old) * hpBoost)),
       bite,
       ram,
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
       speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * swimMul
-        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old),
+        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed,
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
       size: size * sizeBoost,
-      defense: clamp(1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor, 0.35, 1.1),
+      defense: clamp((1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor) * scaleBase / scalePoints(t) / (1 + mass), 0.05, 2),
       groundSpeed: 0.7 + 0.6 * limb,
       power: bite * 0.6 + ram * 0.4,
       // große Fische fallen früher auf – kleine Beute ist dann längst auf und davon
@@ -1105,11 +1102,11 @@ class GameState {
       endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
       recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
-      climb: 1 + 0.45 * (t.fUp ?? 0),
-      dive: 1 + 0.45 * (t.fDown ?? 0),
-      cruise: 1 + 0.3 * (t.fTail ?? 0),
+      climb: (1 + 0.45 * (t.fUp ?? 0)) * fins,
+      dive: (1 + 0.45 * (t.fDown ?? 0)) * fins,
+      cruise: (1 + 0.3 * (t.fTail ?? 0)) * fins,
       // kleine, kurze Fische wenden schnell, große und lange schwerfällig
-      agility: clamp(1 + 1.1 * (t.fSide ?? 0) - 0.14 * (t.len ?? 0) - 0.22 * (size - 0.8), 0.6, 2.4),
+      agility: clamp(fins + 1.1 * (t.fSide ?? 0) - 0.14 * (t.len ?? 0) - 0.22 * (size - 0.8), 0.6, 2.4),
       upkeep: 1 + 0.3 * armor + 0.15 * Math.max(0, girth),
       // Schuppenpanzer: Treffer werfen einen weniger weit zurück
       knock: clamp(1 - 0.55 * armor - 0.15 * plates, 0.35, 1),
@@ -1128,16 +1125,16 @@ class GameState {
     return {
       cls,
       size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK), !o.traits).size,
-      jaw: t.jaw,
-      skull: t.skull,
+      jaw: clamp(t.jaw + (t.biteGain ?? 0) / 35, 0, 1),
+      skull: clamp(t.skull + (t.ramGain ?? 0) / 40, 0, 1),
       stealth: t.stealth,
       diet: t.diet,
       scars: t.scars,
       spike: t.spike ?? 0,
       green: t.green ?? 0,
       sand: t.sand ?? 0,
-      len: t.len ?? 0,
-      girth: t.girth ?? 0,
+      len: clamp((t.len ?? 0) + (t.lengthGain ?? 0), -1, 1),
+      girth: clamp((t.girth ?? 0) + (t.massGain ?? 0), -1, 1),
       swift: t.swift ?? 0,
       fang: t.fang ?? 0,
       light: t.light ?? 0,
@@ -1145,13 +1142,13 @@ class GameState {
       grip: t.grip ?? 0,
       // Karbon: Das Jungtier ist eine Larve mit Kiemenbüscheln – bis zur Metamorphose
       gills: !o.traits && run?.brood?.phase === 'young' ? 1 : 0,
-      fin: t.fin ?? 0,
+      fin: clamp((t.fin ?? 0) + (t.finGain ?? 0) / 20, -1, 1),
       tail: t.tail ?? 0,
       crest: t.crest ?? 0,
       tint: t.tint ?? 0,
       snout: t.snout ?? 0,
       coat: t.coat ?? 0,
-      armor: t.armor ?? 0,
+      armor: clamp((t.armor ?? 0) + (t.scaleGain ?? 0) / 20, 0, 1),
       st: t.st ?? 0,
       bs: t.bs ?? 0,
       vf: t.vf ?? 0,
@@ -1183,6 +1180,7 @@ class GameState {
     const t = run.traits;
     const sex: Sex = (i + run.id) % 2 ? 1 : 2;
     const traits: Traits = {
+      ...t,
       jaw: j(t.jaw, 0.1),
       skull: j(t.skull, 0.1),
       stealth: j(t.stealth, 0.1),
@@ -1232,7 +1230,7 @@ class GameState {
     const size = this.stats(cls, t, life, own).size;
     const cm = b.cm * size * (1 + 0.15 * (t.len ?? 0));
     const g = b.g * Math.pow(cm, 3) * (1 + 0.35 * (t.girth ?? 0) - 0.08 * (t.len ?? 0)) * (0.9 + 0.2 * t.growth);
-    return { cm, g };
+    return { cm: cm * (1 + (t.lengthGain ?? 0)), g: g * (1 + (t.massGain ?? 0)) };
   }
 
   /** Wie oft eine Art (nach ihrem Namen im Stammbaum) schon ausgestorben ist. */
@@ -1403,7 +1401,7 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      const e: RoeEgg = { id: eggId(), traits: packTraits(this.varied(run.cls, h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
+      const e: RoeEgg = { id: eggId(), traits: packTraits(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains) : h.traits), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
       // eine goldene Geburt: ein Segen mehr in einer Richtung, die noch wachsen kann
       if (Math.random() < SPAWN.gold) {
         const keys = this.upKeys.filter((k) => !this.upMaxed(k));
@@ -1436,23 +1434,14 @@ class GameState {
     this.save();
   }
 
-  /**
-   * Die Streuung zwischen den Eiern: Jede Fähigkeit, die die Linie schon entwickelt hat, weicht um bis zu INHERIT.vary ab –
-   * gemessen an dem, was die Übersicht zeigt (Gebiss 18 → 17 bis 19). Was nie entwickelt wurde, streut nicht.
-   */
-  private varied(cls: ClassId, t0: Traits): Traits {
-    const t = full({ ...t0 });
-    if (INHERIT.vary <= 0) return t;
-    const e = 0.02;
-    for (const [k, measure] of VARY) {
-      if (Math.abs(t[k]) < 1e-4) continue;
-      const [lo, hi] = range(k);
-      const a = measure(this.stats(cls, t, ADULT, false), t);
-      const tb = { ...t, [k]: clamp(t[k] + e, lo, hi) };
-      const slope = (measure(this.stats(cls, tb, ADULT, false), tb) - a) / Math.max(1e-6, tb[k] - t[k]);
-      if (!(slope > 1e-6)) continue;
-      t[k] = clamp(t[k] + (a * INHERIT.vary * (Math.random() * 2 - 1)) / slope, lo, hi);
-    }
+  private applyEvolution(start: Traits, gains: Gains, random = Math.random): Traits {
+    const d = evolutionStep(gains, random);
+    const t = full({ ...start });
+    t.vitality = (t.vitality ?? 0) + d.hp;
+    t.biteGain = (t.biteGain ?? 0) + d.bite;
+    t.ramGain = (t.ramGain ?? 0) + d.skull;
+    t.finGain = (t.finGain ?? 0) + d.fins;
+    t.scaleGain = (t.scaleGain ?? 0) + d.scales;
     return t;
   }
 
@@ -1477,21 +1466,15 @@ class GameState {
       bite: Math.round((10 * st.bite) / s0.bite),
       ram: Math.round((10 * st.ram) / s0.ram),
       speed: Math.round((10 * st.speed) / s0.speed),
-      scales: Math.round(10 * (1 + 2 * (t.armor ?? 0))),
+      scales: Math.round(scalePoints(t)),
+      fins: Math.round(finPoints(t)),
     };
   }
 
   /**
-   * Die nächste Generation – angepasst an die Spielweise, ohne Wahl. Alles baut auf dem Stand vom Ende dieses Lebens auf:
-   *   – Was im Leben Stück für Stück gewachsen ist (Tarnung, Bodenkontakt …), setzt sich zum Teil fort (INHERIT.carry).
-   *   – Die Bewegung formt die Flossen (moveGrowth).
-   *   – Körpergröße: Der Lebensraum, in dem man am aktivsten war, zieht den Wuchs nach oben (Tiefe) bzw. unten (flach,
-   *     bewachsen); größer heißt auch massiger.
-   *   – Körperrobustheit: Überstandene Angriffe machen die Schuppen robuster – gefährliche zählen mehr.
-   *   – Ernährung: Der Anteil von Fleisch und Pflanzen an der aufgenommenen Energie verschiebt die Kost, Schritt für Schritt.
-   *   – Jede Evolutionsplatte wächst, je nachdem wie gut die Spielweise zu ihr passte (INHERIT.gain × Passung) – wer viel
-   *     stößt, bekommt Nachkommen mit härterem Kopf, wer viel beißt, ein stärkeres Gebiss, wer jagt, einen schnelleren Körper.
-   *   – Der Partner gibt etwas von seinem Aussehen mit (INHERIT.partner); Geschlecht und Zeichnung sind neu gewürfelt.
+   * Vorschau mit mittlerem Zugewinn, dazu der Plan für den individuellen Wurf jedes Eis.
+   * Pflanzen-/Fleischanteile und besiegte Gegner steuern die Punkte. Kosmetische Merkmale gehen zum Teil weiter;
+   * Länge aus Strecke und Gewicht aus mittlerer Tiefe bleiben ohne eigene Änderungsanzeige.
    */
   inherit(eaten: { meat: number; plant: number }, style: PlayStyle, partner?: Clutch['partner']): Heir {
     const run = this.r;
@@ -1509,20 +1492,10 @@ class GameState {
     for (const key of AMP) t[key] = clamp(start[key] + Math.min(S.carry, Math.max(0, end[key] - start[key]) * k), 0, 1);
     // Färbung und Flossen, die sich im Leben verschoben haben (Licht, Verstecke), setzen sich fort
     for (const g of ['light', 'fin', 'crest'] as const) t[g] = clamp(start[g] + lim((end[g] - start[g]) * k * 0.8, S.carry), -1, 1);
-    const mv = moveGrowth(style);
-    t.fUp = clamp(start.fUp + Math.min(S.fins, mv.up), 0, 1);
-    t.fDown = clamp(start.fDown + Math.min(S.fins, mv.down), 0, 1);
-    t.fSide = clamp(start.fSide + Math.min(S.fins, mv.side), 0, 1);
-    t.fTail = clamp(start.fTail + Math.min(S.fins, mv.tail), 0, 1);
-    // Körpergröße aus dem Lebensraum: ein Stück des Weges je Generation
-    const hab = habitatPull(style.hab, lived);
-    if (hab) {
-      const dg = lim((hab.target - start.growth) * 0.45 * hab.sure, S.growth);
-      t.growth = clamp(start.growth + dg, GROWTH_MIN, 1);
-      t.girth = clamp(start.girth + 0.4 * dg, -1, 1);
-    }
-    // Körperrobustheit aus überstandenen Angriffen (je robuster schon, desto weniger kommt dazu)
-    t.armor = clamp(start.armor + Math.min(S.armor, 0.3 * (1 - Math.exp(-style.hurt / 12)) * (1 - 0.4 * start.armor)), 0, 1);
+    // Länge und Masse ändern sich nur bei den Nachkommen, unabhängig von der Pflanzen-/Fleischwertung.
+    t.lengthGain = (start.lengthGain ?? 0) + INHERIT.lengthStep * clamp((style.distance ?? 0) / Math.max(1, INHERIT.swimDistance), 0, 1);
+    const depth = (style.waterTime ?? 0) > 0 ? (style.depthTime ?? 0) / style.waterTime! : 0;
+    t.massGain = (start.massGain ?? 0) + INHERIT.massStep * clamp(depth, 0, 1);
     // Ernährung aus der aufgenommenen Energie – Schritt für Schritt und nie ganz bis zum Äußersten
     const total = eaten.meat + eaten.plant;
     if (total > 0) {
@@ -1530,50 +1503,22 @@ class GameState {
       const sure = Math.min(1, total / (0.4 * fedRef(lived, this.stats(run.cls, run.traits).size)));
       t.diet = clamp(start.diet + lim(target - start.diet, S.diet) * sure, -DIET_MAX, DIET_MAX);
     }
-    // die Evolutionsplatten: jede so weit, wie die Spielweise zu ihr passte (den Schwarmfisch nur mit einer Gruppe)
+    const gains = evolutionBudget(eaten, style.defeats ?? {});
     const fit = plateFit(style);
-    const plates = this.swarm?.callable && this.swarm.members.length ? PLATE_IDS : PLATE_IDS.filter((id) => id !== 'sw');
-    let line: PlateId | undefined;
-    let best = 0;
-    // wie weit jede Richtung wachsen würde: je besser die Spielweise passte, desto mehr – höchstens plateStep je Richtung,
-    // alle zusammen höchstens plateTotal, und nie über das hinaus, was die bezwungenen Gegner hergeben (plateCeil)
-    const ceil = plateCeil(style);
-    const want = plates.map((id) => {
-      const lv = plateLevel(t[id]);
-      const free = INHERIT.plateStep * Math.min(1, INHERIT.gain * fit[id]);
-      return Math.max(0, Math.min(free, ceil[id] - lv, plateLevel(PLATE_MAX) - lv));
-    });
-    const sum = want.reduce((a, b) => a + b, 0);
-    const scale = sum > INHERIT.plateTotal ? INHERIT.plateTotal / sum : 1;
-    for (const [i, id] of plates.entries()) {
-      const n0 = t[id];
-      const f = Math.max(0, want[i] * scale);
-      // die Punkte, die zu dieser Ausprägung gehören
-      const n1 = Math.min(PLATE_MAX, -Math.log(Math.max(1e-6, 1 - Math.min(0.999, plateLevel(n0) + f))) / 0.7);
-      for (const [key, d] of Object.entries(PLATE_D[id]) as [keyof Traits, number][]) {
-        const [lo, hi] = range(key);
-        t[key] = clamp(t[key] + d * f, lo, hi);
-      }
-      t[id] = n1;
-      if (f > best) {
-        best = f;
-        line = id;
-      }
-    }
     // der Partner: ein wenig von seinem Aussehen (nicht von Größe, Kost, Robustheit oder den Platten)
     if (partner) {
       const p = full({ ...partner.traits });
       for (const key of BLEND_KEYS) {
         const [lo, hi] = range(key);
-        t[key] = clamp(t[key] + (p[key] - t[key]) * INHERIT.partner, lo, hi);
+        t[key] = clamp((t[key] ?? 0) + ((p[key] ?? 0) - (t[key] ?? 0)) * INHERIT.partner, lo, hi);
       }
     }
     return {
-      traits: t,
+      traits: this.applyEvolution(t, gains, () => 0.5),
+      evolution: { traits: t, gains },
       sex: newSex(),
       seed: Math.floor(Math.random() * 100000),
       fit,
-      line: best > INHERIT.plateStep * 0.6 ? line : undefined,
     };
   }
 
@@ -1613,7 +1558,7 @@ class GameState {
       if (run.history.length > 24) run.history.splice(1, 1);
     }
     run.traits = full({ ...egg.traits });
-    run.sex = egg.sex;
+    run.sex = SPAWN.alwaysMale ? 1 : egg.sex;
     run.seed = egg.seed;
     // golden geboren: ein Segen mehr – nur für dieses Tier (in der Punktfolge nach den bisher gekauften)
     run.gold = egg.gold ? { key: egg.gold, at: this.upLog.length } : undefined;
@@ -1632,7 +1577,7 @@ class GameState {
    * Wie sich die vererbten Fähigkeiten gegenüber der vorigen Generation verändert haben (ausgewachsen, beide mit deinen Segen): Gebiss,
    * Schädel, Schuppen – im Karbon Gebiss, Beine, Griff, Schuppen. Ohne vorige Generation (der Urahn): nichts.
    */
-  inheritedDelta(): Partial<Record<'bite' | 'skull' | 'scales' | 'legs' | 'grip', number>> | null {
+  inheritedDelta(): Partial<Record<'bite' | 'skull' | 'fins' | 'scales' | 'legs' | 'grip', number>> | null {
     const run = this.data.run;
     const prev = run?.history[run.history.length - 1];
     if (!run || !prev || prev.epoch !== run.epoch) return null;
@@ -1644,10 +1589,10 @@ class GameState {
       const t = full({ ...tr });
       const st = this.stats(run.cls, t, ADULT, ups);
       const ten = (v: number) => Math.round(10 * (1 + 2 * v));
-      return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), scales: ten(t.armor ?? 0), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
+      return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), fins: Math.round(finPoints(t)), scales: Math.round(scalePoints(t)), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
     };
     const a = val(run.traits), b = val(prev.traits);
-    return { bite: a.bite - b.bite, skull: a.skull - b.skull, scales: a.scales - b.scales, legs: a.legs - b.legs, grip: a.grip - b.grip };
+    return { bite: a.bite - b.bite, skull: a.skull - b.skull, fins: a.fins - b.fins, scales: a.scales - b.scales, legs: a.legs - b.legs, grip: a.grip - b.grip };
   }
 
   /** Ein neues Tier schlüpft aus dem Gelege c: Alter, Nahrung und Spielweise beginnen neu – was die Linie weiß, bleibt. */
@@ -1964,10 +1909,26 @@ class GameState {
     return (this.r.prog.links ?? []).includes(linkKey(a, b));
   }
 
+  private epochFood() {
+    const run = this.data.run;
+    if (!run) return undefined;
+    const all = (this.data.epochFood ??= {});
+    const key = String(run.epoch);
+    if (!all[key]) {
+      const at = { prey: {} as Record<string, number>, plant: 0, meat: 0 };
+      for (const m of Object.values(run.prey ?? {})) for (const [id, n] of Object.entries(m)) at.prey[id] = (at.prey[id] ?? 0) + n;
+      for (const d of Object.values(run.diet ?? {})) { at.plant += d.plant; at.meat += d.meat; }
+      all[key] = at;
+    }
+    return all[key];
+  }
+
   /** Von einem Tier dieser Art gefressen (zum ersten Mal von diesem Tier): Es zählt für den Ort, an dem man gerade ist. */
   noteEaten(species: string) {
     const r = this.data.run;
     if (!r) return;
+    const epoch = this.epochFood()!;
+    epoch.prey[species] = (epoch.prey[species] ?? 0) + 1;
     const at = ((r.prey ??= {})[r.prog.place] ??= {});
     at[species] = (at[species] ?? 0) + 1;
     this.save();
@@ -1977,15 +1938,22 @@ class GameState {
   noteFood(kind: 'plant' | 'meat', units: number) {
     const r = this.data.run;
     if (!r || !(units > 0)) return;
+    this.epochFood()![kind] += units;
     const at = ((r.diet ??= {})[r.prog.place] ??= { plant: 0, meat: 0 });
     at[kind] += units;
   }
 
   /**
-   * Wie viel Grünzeug und wie viel Fleisch deine Linie an einem Ort gefressen hat – als Anteil (0 … 1; ohne alles: null).
+   * Wie viel Grünzeug und Fleisch in dieser Epoche gegessen wurde (optional gefiltert nach altem Ort) – als Anteil (0 … 1; ohne alles: null).
    * place = null: an allen Orten zusammen.
    */
-  dietAt(place: string | null = this.data.run?.prog.place ?? ''): { plant: number; meat: number } | null {
+  dietAt(place: string | null = null): { plant: number; meat: number } | null {
+    const ep = this.data.run?.epoch;
+    const epoch = ep === undefined ? undefined : this.data.epochFood?.[String(ep)];
+    if (place === null && epoch) {
+      const sum = epoch.plant + epoch.meat;
+      return sum > 0 ? { plant: epoch.plant / sum, meat: epoch.meat / sum } : null;
+    }
     const all = this.data.run?.diet ?? {};
     let plant = 0, meat = 0;
     for (const [id, at] of Object.entries(all)) {
@@ -1998,12 +1966,14 @@ class GameState {
   }
 
   /**
-   * Die Tiere, die deine Linie an einem Ort am häufigsten gefressen hat (höchstens n): Art, wie viele, und ihr Anteil an allen
+   * Die Tiere, die du in dieser Epoche am häufigsten gefressen hast (höchstens n): Art, wie viele, und ihr Anteil an allen
    * dort gefressenen Tieren (0 … 1). Dazu, wie viele es dort insgesamt waren. place = null: an allen Orten zusammen.
    */
-  topPrey(place: string | null = this.data.run?.prog.place ?? '', n = 3): { top: { id: string; count: number; share: number }[]; total: number } {
-    const at: Record<string, number> = {};
-    for (const [id, m] of Object.entries(this.data.run?.prey ?? {})) {
+  topPrey(place: string | null = null, n = 3): { top: { id: string; count: number; share: number }[]; total: number } {
+    const ep = this.data.run?.epoch;
+    const epoch = ep === undefined ? undefined : this.data.epochFood?.[String(ep)];
+    const at: Record<string, number> = place === null && epoch ? { ...epoch.prey } : {};
+    for (const [id, m] of Object.entries(place === null && epoch ? {} : this.data.run?.prey ?? {})) {
       if (place !== null && id !== place) continue;
       for (const [sp, k] of Object.entries(m)) at[sp] = (at[sp] ?? 0) + k;
     }
@@ -2055,7 +2025,7 @@ class GameState {
   }
 
   /**
-   * Die Punktfolge der Übersicht: jeder Segen in der Reihenfolge, in der er kam – die gekauften der Linie, dazwischen (an der
+   * Die Segen mit ihrer Kennung: gekauft in der Reihenfolge, in der sie kamen – die gekauften der Linie, dazwischen (an der
    * Stelle der Geburt) der goldene deines Tiers.
    */
   get upTrail(): { key: UpKey; gold: boolean }[] {
@@ -2107,7 +2077,7 @@ class GameState {
   /** Wofür die große Muschel in diesem Zeitalter segnet: Lebenskraft, Ausdauer und Sicht – im Karbon Sauerstoff statt Sicht. */
   get upKeys(): UpKey[] {
     const ep = EPOCHS[this.data.run?.epoch ?? this.chosenEpoch];
-    return ['hp', 'stam', ep?.meta === 'oxy' ? 'oxy' : 'sight'];
+    return ['hp', ep?.meta === 'oxy' ? 'oxy' : 'sight', 'stam'];
   }
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
@@ -2148,7 +2118,8 @@ class GameState {
       /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
       swarm: Math.round(10 * n * this.swarmStrength()),
       /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */
-      scales: Math.round(10 * (1 + 2 * (t.armor ?? 0))),
+      scales: Math.round(scalePoints(t)),
+      fins: Math.round(finPoints(t)),
       /** Karbon: so viele Sekunden reicht der Sauerstoff an Land (ausgewachsen); Beine und Griff (der erste Pederpes: je 10) */
       oxy: Math.round(oxygenSeconds(ups.oxy, false)),
       legs: Math.round(10 * (1 + 2 * (t.limb ?? 0))),

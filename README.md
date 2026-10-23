@@ -238,13 +238,12 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     weiter“). Stirbt jemand und es liegt **kein Laich mehr** da, ist **die Art ausgestorben – für alle**: Ein eigener
     Abschied („Die Art ist ausgestorben · Zu wenige Artgenossen“, die leeren Eihüllen, wer zuletzt starb, die Letzten ihrer
     Art), danach der Stammbaum.
-- **Anpassung statt Platten:** Die Nachkommen sind **an deine Spielweise angepasst** – es gibt keine Platten zur
-  Auswahl. Jede Richtung (Stoßen, Beißen, Verfolgen, im Schwarm) wächst so stark, wie dein Leben zu ihr passte – aber
-  **deutlich**: Wer fast nur beißt (gegen starke Gegner), hat in der nächsten Generation **etwa +5 bis +8 Gebiss** (Stoß,
-  Schuppen ebenso), bis die Richtung nach einigen Generationen ausgereizt ist; die **Kompromisse** (Tempo, Ausdauer) kosten
-  dabei nur **−1 bis −2**. Alle Richtungen zusammen wachsen kaum mehr als eine. Was sich im Leben angesammelt hat (Tarnung, Bodenkontakt, Färbung, Flossen …), geht zum Teil weiter;
-  Größe, Robustheit und Kost passen sich an (siehe unten). Der **Partner** gibt etwas von seinem Aussehen mit. Merklich wird
-  es über mehrere Generationen.
+- **Anpassung statt Platten:** Pro Generation stehen vor Varianz höchstens **15 Punkte** bereit. Der Pflanzenanteil der
+  Nahrung erhöht die **Lebenskraft**, der Fleischanteil verteilt sich auf **Gebiss, Schädel, Flossen und Schuppen**.
+  Nur besiegte Gegner zählen für die Kampfwertung, auch ohne sie zu fressen. Die Menge und relative Stärke bestimmen den
+  Zuwachs: Acht ebenbürtige Siege erschließen das volle Fleischbudget; stärkere Gegner zählen entsprechend mehr.
+  Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
+  Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
 - **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die
   12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Die Ereignisse eines Zeitalters (Durchzügler, Blüte,
   Stürme …) kehren darin immer wieder – für alle zugleich. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
@@ -641,81 +640,40 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 - **Strömungen und Felsspalten:** Strömungen reißen Kleine mit – massige Tiere schwimmen dagegen an.
   Unter Felsplatten liegen enge Spalten, in die kein großer Jäger passt; wer selbst zu groß und
   massig wird, aber auch nicht mehr.
-- **Vier Evolutionsrichtungen – deine Spielweise entscheidet:** Beim Generationswechsel wählst du nichts; die Nachkommen
-  entwickeln sich in die Richtungen, die zu deinem Leben passten (meist eine Mischung, oft mit einer deutlichen):
-  - **Stoßfisch** – wendiger (große Seitenflossen, kürzerer Körper) und eine ausgeprägte **Kopfplatte** (ein Knochenschild
-    über Stirn und Schnauze), kräftiger Stoß; dafür etwas langsamer und schneller müde, das Gebiss bleibt, wie es ist.
-  - **Beißfisch** – mehr Kraft und ein **starkes Gebiss**: tieferer Kiefer, mehr und längere Zähne, Reißzähne, ein Kaumuskel
-    an der Wange; dafür langsamer und schneller müde.
-  - **Verfolgungsfisch** – schneller und ausdauernder: **länglicher**, schlanker Körper, große Schwanzflosse, spitze Schnauze;
-    dafür weniger Lebenskraft, ein schwacher Stoß und schwerfälligeres Wenden.
-  - **Schwarmfisch** (erst, sobald deine Gruppe auf deinen Ruf kommt) – silbrig, schlanker, mit hellem und
-    dunklem Band an der Flanke: Deine Gruppe wird **stärker** (ihr Biss bis zu drei Viertel von deinem), **größer** (mehr kommen
-    auf deinen Ruf) und wächst schneller durch geteilte Beute; dafür hast du selbst weniger Lebenskraft – allein bist du
-    verletzlicher, und die Beute wird geteilt.
-  **Wie stark** sich eine Richtung ausprägt, bestimmt die Spielweise des Lebens (beim Generationswechsel unter „Deine
-  Spielweise“ in ein bis drei Punkten): erfolgreiche **Stöße** und mit dem Stoß erlegte Gegner für den Stoßfisch,
-  erfolgreiche **Bisse** und erlegte Beute für den Beißfisch, **eingeholte Flüchtende**, Jagden und zurückgelegte Strecke mit
-  Tempo für den Verfolgungsfisch, **gemeinsam erlegte und geteilte Beute** für den Schwarmfisch.
-  Erfolge gegen **deutlich stärkere Gegner** zählen ein Vielfaches, kleine Beute kaum. Die Richtungen bauen über die
-  Generationen aufeinander auf; wer anders lebt, bekommt Mischformen. Keine ist überall die beste.
-  **Wie im Fitnessstudio:** Jede Richtung wächst nur so weit, wie die Gegner es hergeben, die du damit bezwungen hast. Es
-  zählen die drei stärksten (im Verhältnis zu deinem ausgewachsenen Tier; erlegt ganz, nur getroffen halb). Wer nur kleine
-  Beute (etwa halb so stark wie er) frisst, spezialisiert sich ein paar Generationen lang – bis gut zur Hälfte der vollen
-  Ausprägung, dann ist Schluss. Ebenbürtige Gegner tragen bis drei Viertel, doppelt so starke bis ganz hinauf. Und weil du
-  dabei stärker wirst, wird dieselbe Beute für dich schwächer: Weiter kommt nur, wer sich an Größere wagt. Steht eine
-  Richtung an, sagt es das Generationsbild („Beißen: Kleine Beute formt dich hier nicht weiter …“). Die Kompromisse
-  bleiben: Ein starkes Gebiss macht langsamer, ein Panzerkopf schwerer, Schlanke halten weniger aus.
-  **Nie zu viel auf einmal:** Je Generation wächst eine Richtung höchstens um ein Sechstel ihrer vollen Ausprägung, alle
-  zusammen um gut ein Fünftel; Größe und Robustheit ändern sich höchstens um 10 %, die Kost um ein Viertel, Flossen und
-  was im Leben gewachsen ist (Tarnung, Bodenkontakt …) nur um ein paar Prozent. Wer konsequent spielt, sieht es trotzdem
-  jedes Mal (Grenzen in `src/data/life.ts`, `INHERIT`).
-- **Drei Anpassungen, unabhängig von der Platte:**
-  - **Körpergröße** aus dem **Lebensraum**: Es zählt, wo du im Leben am **aktivsten** warst (schwimmen, fressen, kämpfen –
-    bloßes Treiben kaum). Flache, bewachsene Orte machen kleiner, trübe etwas größer, die Tiefe und erst recht der Abgrund
-    deutlich größer (in tiefen Orten zählt nur, wer auch hinabschwimmt). Größere Fische sind massiger, brauchen mehr Nahrung,
-    werden langsamer und schwerfälliger – und fallen früher auf, kleine Beute entkommt ihnen leichter.
-  - **Körperrobustheit** aus **überstandenen Angriffen**: Jeder Treffer, den du überlebst, zählt – schwere ein Vielfaches.
-    Die Nachkommen bekommen deutlichere, glänzende **Schuppen**, später einen **Schuppenpanzer** mit Knochenschilden auf dem
-    Rücken und an der Seite (unabhängig von der Kopfplatte): weniger Schaden, mehr Lebenskraft, aber langsamer.
-  - **Ernährung** aus der **gefressenen Energie**: Der Anteil von Fleisch und Pflanzen verschiebt die Kost Schritt für
-    Schritt (höchstens ein gutes Stück je Generation, nie ganz bis zum Äußersten). Wer zu 90 % Fleisch frisst, dem liefern
-    Pflanzen schon in der nächsten Generation spürbar, in der übernächsten **deutlich weniger Energie** – und umgekehrt.
+- **Vier Kampffähigkeiten:** Bisse stärken das **Gebiss**, Stöße den **Schädel**, erfolgreiche Verfolgungen die **Flossen**,
+  überstandene Angriffe anschließend besiegter Gegner die **Schuppen**. Ein Sieg wird nach den eingesetzten Fähigkeiten
+  aufgeteilt und insgesamt nur einmal gewertet. Bloße Treffer oder erlittene Angriffe ohne anschließenden Sieg zählen nicht.
+  Beispiel: 60 % Pflanzen und 40 % Fleisch ergeben 9 Lebenspunkte und bis zu 6 Kampfpunkte vor Varianz. Bei reiner
+  Bisswertung sind das +3 bis +9 Gebiss pro Ei und fest −1,5 Schädel. Die Varianz verändert keine bereits geerbten Punkte.
+- **Verborgener Körperbau:** Viel Schwimmstrecke macht die Nachkommen länger und schneller; die Schuppen verlieren dabei
+  die Hälfte des relativen Längenzuwachses. Zeitlich gemittelte Wassertiefe erhöht das Gewicht: Mehr Masse schützt neben
+  den Schuppen vor Schaden, kostet aber die Hälfte des relativen Gewichtszuwachses an Tempo. Länge und Gewicht bleiben
+  ohne Änderungsanzeige. Standard: höchstens 10 % mehr Länge bei 60.000 Bildpunkten Strecke, bis 10 % mehr Gewicht bei
+  voller mittlerer Wassertiefe je Generation. Die Werte sind in der Entwickler-Einstellung anpassbar.
 - **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
   mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform und Zeitalter.
   Darunter groß die **drei übergreifenden Werte**, die die große Muschel segnet: **Lebenskraft** als Zahl, gerade und
   höchstens („20/50“), **Sicht** (20 zu Beginn) und **Ausdauer** (30 bei einem Kreis und normalem Körperbau – so viele
   Zehntelsekunden reicht ein Spurt). Darunter, auf einer Reihe kleiner Tafeln, Waffen und Schutz: **Gebiss** (Bissstärke),
-  **Schädel** (Stoßstärke), **Schwarm** (deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft) und
+  **Schädel** (Stoßstärke), **Flossen** (Schwimmen und Wendigkeit) und
   **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
-  Gewicht, Färbung, Kost), rechts das **Leben** (Generation, Geschlecht, Lebensabschnitt, deine Gruppe), der **Nachwuchs**
-  (gesammelte Nahrung, wie viel ein Nachkomme braucht, Nachkommen, wartende Geschwister). Neben Gebiss, Schädel und
+  Gewicht, darunter Geschwister, Färbung und Kost), rechts das **Leben** (Generation, Lebensabschnitt, deine Gruppe) und
+  der **Nachwuchs** als „2, 70/29“: zwei bereits erzeugte Eier, 70 Nahrung übrig, 29 je weiterem Ei (kleiner gesetzt). Neben Gebiss, Schädel und
   Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot, „= 0“;
   ausgewachsen gemessen, mit denselben Segen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
   Die **Segen** stehen als kleine Kugeln direkt unter den großen Zahlen: **Lebenskraft rot, Ausdauer grau, Sicht schwarz**
   (im Karbon Sauerstoff blau), ohne zusätzliche Beschriftung. Zwei Segen in Lebenskraft ergeben zwei rote Kugeln.
   Ein Segen aus einer **goldenen Geburt** hat einen dezenten goldenen statt weißen Glanzpunkt.
   Auch an der großen Muschel stehen die Kugeln unter dem passenden Wert. Die **Muscheln** stehen rechts in der Spalte
-  der kleinen Karten: ein Muschel-Symbol mit „× 12“, darunter, wie viele verteilt und frei sind. Die Muscheln sind klein und
+  der kleinen Karten: ein Muschel-Symbol mit der noch freien Anzahl, ohne weitere Beschriftung. Die Muscheln sind klein und
   kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
   die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
   gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
   (C, Esc oder ein Klick daneben schließt sie).
-- **Die Beute (rechts neben der Übersicht):** Eine kleine, kompakte Karte. Unter „Beute“ steht der Ort, an dem du bist – **im
-  Startgebiet** (dort lebt sonst kein Tier) steht „**Gesamt**“, und die Karte zeigt **alle Orte zusammen**. (Oben im Bogen
-  steht der Ort nicht mehr – nur Körperform und Zeitalter.) **Oben: Grünzeug gegen Fleisch** – links ein
-  kleines Pflänzchen, rechts ein Stück Fleisch (die Keule aus dem Spiel), dazwischen ein **Balken**, links grün, rechts rot,
-  geteilt nach dem Anteil, darunter die Prozente (nach dem Nährwert des Gefressenen; Eier zählen als Fleisch). **Darunter
-  die drei Tiere**, die deine Linie **an diesem Ort** am häufigsten gefressen hat – mit Platz 1, 2, 3, je einem **kleinen
-  Sinnbild** (das Original verkleinert und vereinfacht: drei flache Farbtöne, dunkle Kontur, feiner warmer Rand) und
-  seinem **Anteil** an allen Tieren, die du hier gefressen hast – ohne absolute Zahlen. **Jedes Tier zählt einmal**, auch ein
-  großes mit vielen Brocken; es zählt, sobald du den ersten Brocken davon frisst (gleich, wer es erlegt hat). **An einem
-  anderen Ort stehen andere Zahlen.** Alles gilt für den ganzen Lauf (über alle Generationen deiner Linie); **beginnt eine
-  neue Linie, ist alles wieder leer**. Unter der Karte steht die Muschel-Karte; Platz für weitere ist da. Code:
-  `GameState.noteEaten`/`topPrey`/`noteFood`/`dietAt` (`Run.prey`, `Run.diet`), `Overview.preyCard`/`shellCard`
-  (`src/ui/overview.ts`), die Sinnbilder `preyIcon`/`dietIcon` (`src/art/speciesArt.ts`). Im Mehrspieler zählt vorerst nur
-  Beute, die in deinem eigenen Spiel erlegt wurde.
+- **Die Beute (rechts neben der Übersicht):** Nahrungsanteile und die drei am häufigsten gegessenen Tierarten gelten für
+  die ganze Epoche, über Orte, Generationen und Linien hinweg. Eine Tierart zählt einmal pro gefressenem Tier, auch wenn
+  es viele Fleischbrocken hat; das Töten allein zählt hier nicht. Andere Epochen haben eigene Listen.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
@@ -771,28 +729,20 @@ Generationswechsel – als Wert sieht man nichts davon:
 
 | Wer so lebt … | … dessen Nachkommen bekommen |
 | --- | --- |
-| lebt als **Stoßfisch** | eine **Kopfplatte** (Knochenschild über Stirn und Schnauze), einen härteren Schädel, große Seitenflossen, einen kurzen, stumpfen Kopf, stahlgraue Farben: kräftiger Stoß, wendiger, weniger eigener Schaden – etwas langsamer, schneller müde |
-| … und stößt dabei oft und erfolgreich (Taste R), erlegt damit Tiere | eine deutlichere Ausprägung – Erfolge gegen Stärkere zählen ein Vielfaches |
-| lebt als **Beißfisch** | einen tieferen Kiefer, mehr und längere Zähne, **Reißzähne**, einen Kaumuskel, bronzene Farben: viel mehr Beißkraft – langsamer, schneller müde (wer Pflanzen frisst, hat stumpfe Zähne und keine Reißzähne) |
-| … und beißt oft und erfolgreich, erlegt Beute | eine deutlichere Ausprägung |
-| lebt als **Verfolgungsfisch** | einen längeren, schlankeren, flinken Körper, eine große Schwanzflosse, eine spitze Schnauze, blaugraue Farben: schneller, ausdauernder – weniger Lebenskraft, schwächerer Stoß, wendet träger |
-| … und holt Flüchtende ein, jagt, schwimmt viel und schnell (gegen Strömungen doppelt) | eine deutlichere Ausprägung – je länger und schneller die Beute floh, desto mehr |
-| ist am **aktivsten** in flachen, bewachsenen Orten · in trüben · in der Tiefe · im Abgrund | kleiner · etwas größer · deutlich größer · noch größer – mit der Größe massiger, langsamer und schwerfälliger |
-| übersteht viele Treffer (schwere zählen mehr) | robustere **Schuppen**, später einen **Schuppenpanzer** mit Knochenschilden: weniger Schaden, mehr Lebenskraft – langsamer |
+| besiegt Gegner mit Bissen bzw. Stößen | stärkere Gebisse bzw. Schädel; der jeweils andere Wert sinkt um ein Viertel des Basiszugewinns |
+| verfolgt Gegner erfolgreich und besiegt sie | stärkere Flossen, dafür etwas weniger Schuppen |
+| übersteht Angriffe und besiegt diese Gegner | stärkere Schuppen, dafür etwas schwächere Flossen |
+| frisst überwiegend Pflanzen | mehr Lebenskraft |
+| schwimmt weite Strecken | längerer Körper und höheres Tempo; halb so viel relativer Verlust an Schuppen |
+| hält sich im zeitlichen Mittel tief im Wasser auf | mehr Gewicht und Schutz vor Schaden; halb so viel relativer Tempoverlust |
 | frisst (nach Energie) überwiegend Fleisch bzw. Pflanzen | die Kost verschiebt sich Schritt für Schritt: Fleischfresser holen aus Fleisch mehr und aus Pflanzen weniger heraus (bei 90 % Fleisch nach zwei Generationen nur noch gut die Hälfte), Pflanzenfresser umgekehrt |
 | frisst Pflanzen, weicht aus, versteckt sich, entkommt Jägern | Tarnmuster, einen schlankeren Körper, mehr Tempo, größere Augen |
 | liegt oft still am Boden | sandig braun-graue Farben |
 | stützt sich oft am Grund ab und läuft dort entlang | fleischige **Stützflossen** (schneller am Grund, hält sich in Strömungen) |
-| lebt als **Schwarmfisch** (erst, wenn deine Gruppe auf deinen Ruf kommt) | silbrig, schlank, mit Band an der Flanke: mehr **Zusammenhalt** – die Gruppe kommt größer, beißt kräftiger und wächst schneller – weniger eigene Lebenskraft |
-| … und jagt oft mit der Gruppe und lässt sie mitfressen | eine deutlichere Ausprägung – gegen Starke mehr |
 | bleibt nah bei Jägern, ohne aufzufallen | stärkere Nerven: Jäger bemerken einen später – nirgends angezeigt |
 | frisst giftige Pflanzen | wird giftfester – nirgends angezeigt |
 | hält sich oft oben im Licht bzw. unten in der Tiefe | hellere bzw. dunklere Färbung |
 | schwimmt durch eine Farbhöhle | die Farbe der Höhle (grün bzw. schwarz) – einmal je Durchlauf |
-| schwimmt am häufigsten **nach oben** | eine ausgeprägtere **Rückenflosse** oben am Körper, schnelleres Steigen |
-| schwimmt am häufigsten **nach unten** | etwas größere **Flossen unten am Körper**, schnelleres Tauchen |
-| schwimmt oft und schnell **nach vorn** | eine stärkere **Schwanz-/Hinterflosse**, höheres Reisetempo |
-| **wechselt oft die Richtung** | größere **Seitenflossen**: das Tier wendet schneller (gebremst von Länge und Masse) |
 | versteckt sich zwischen Pflanzen | grünere Farben, größere (wendigere) Flossen, eine flachere Rückenflosse |
 
 Wer viel tötet, bekommt einen Ruf: Beutetiere fliehen früher, Räuber meiden einen, Verteidiger

@@ -18,6 +18,7 @@ export interface PlayerHost extends Phaser.Scene {
   bleed(x: number, y: number, n: number): void;
   solidAt(x: number, y: number): boolean;
   surfaceY: number;
+  playerDamaged?(source: object, damage: number): void;
   /**
    * Land über dem Wasser (Karbon): Über der Wasserlinie läuft man (mit Schwerkraft), darunter schwimmt man. groundSlope gibt die
    * Steigung des Bodens bei x zurück (dy/dx; positiv: nach rechts geht es bergab).
@@ -479,7 +480,7 @@ export class Player {
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      const skull = clamp(game.traits.skull, 0, 1);
+      const skull = clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
       this.dashChargeMs = CHARGE_MS - 100 * skull;
       this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade;
       this.surge = 0;
@@ -620,11 +621,12 @@ export class Player {
     return true;
   }
 
-  hurt(dmg: number, fromX: number, by?: string) {
+  hurt(dmg: number, fromX: number, by?: string, source?: object) {
     if (this.dead || this.invulnerable || this.shielded) return;
     if (by) this.lastCause = by;
     const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
+    if (source) this.host.playerDamaged?.(source, d);
     const now = this.host.time.now;
     // Wie hart war der Treffer? Schwere Treffer schleudern einen weit zurück, betäuben kurz und erschüttern das Bild.
     const ratio = clamp(d / Math.max(1, this.stats.maxHp), 0, 1);

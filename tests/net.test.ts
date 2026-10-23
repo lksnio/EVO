@@ -115,13 +115,15 @@ describe('Spielserver (Colyseus)', () => {
     expect(guest.state.host).toBe(host.sessionId);
     host.send('fauna', {
       a: [{ id: 7, sp: 'arandaspis', x: 1200, y: 600, d: -1, an: 5, hp: 4, mh: 6, sz: 1.1, tn: 0, al: 100, at: false }],
-      m: [{ id: 3, x: 1300, y: 640, v: 5, s: 1 }],
+      m: [{ id: 3, x: 1300, y: 640, v: 5, s: 1, sp: 'arandaspis', kill: 'kill7' }],
     });
     await until(() => guest.state.animals.has('7') && guest.state.meats.has('3'));
     // ein volles Paket (so viele Tiere schickt der Ortswächter höchstens auf einmal) passt durch
     host.send('fauna', { a: Array.from({ length: 24 }, (_, i) => ({ id: 100 + i, sp: 'arandaspis', x: 1000 + i * 37.5, y: 600.5, d: -1, an: 12, hp: 5.5, mh: 6.5, sz: 1.123, tn: 0xff9a82, al: 100, at: true })) });
     await until(() => guest.state.animals.has('123'));
     expect(guest.state.animals.get('7')!.hp).toBe(4);
+    expect(guest.state.meats.get('3')!.sp).toBe('arandaspis');
+    expect(guest.state.meats.get('3')!.kill).toBe('kill7');
     // nur der Ortswächter darf Tiere melden
     guest.send('fauna', { a: [{ id: 99, sp: 'arandaspis', x: 1, y: 1, d: 1, an: 0, hp: 1, mh: 1, sz: 1, tn: 0, al: 100, at: false }] });
     guest.send('hit', { id: 7, dmg: 2.5, kind: 'bite', stun: 550 });
@@ -130,9 +132,9 @@ describe('Spielserver (Colyseus)', () => {
     expect(hits[0]).toEqual({ id: 7, dmg: 2.5, kind: 'bite', stun: 550, from: guest.sessionId });
     expect(eats[0]).toEqual({ id: 3, amount: 1.5 });
     expect(guest.state.animals.has('99')).toBe(false);
-    host.send('hurt', { to: guest.sessionId, dmg: 3, x: 1200, by: 'Arandaspis' });
+    host.send('hurt', { to: guest.sessionId, dmg: 3, x: 1200, by: 'Arandaspis', animal: 7 });
     await until(() => hurts.length > 0);
-    expect(hurts[0]).toEqual({ dmg: 3, x: 1200, by: 'Arandaspis' });
+    expect(hurts[0]).toEqual({ dmg: 3, x: 1200, by: 'Arandaspis', animal: 7 });
     host.send('fauna', { gone: [[7, 1]], mgone: [3] });
     await until(() => !guest.state.animals.has('7') && died.length > 0);
     expect(died[0]).toEqual([7]);

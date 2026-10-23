@@ -1,6 +1,7 @@
 import { Room, type Client } from 'colyseus';
 import { EPOCHS } from '../data/epochs';
 import { WORLD } from '../data/life';
+import { SPECIES } from '../data/species';
 import { placesOf } from '../data/world';
 import { generateLevel } from '../level/LevelGen';
 import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
@@ -78,7 +79,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     hurt: (client: Client, m: HurtMsg) => {
       if (client.sessionId !== this.state.host || typeof m?.to !== 'string') return;
       const to = this.clients.getById(m.to);
-      to?.send('hurt', { dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
+      to?.send('hurt', { animal: Math.max(0, Math.floor(num(m.animal, 0))), dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
     },
     look: (client: Client, m: LookMsg) => {
       const f = this.state.players.get(client.sessionId);
@@ -204,6 +205,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       f.y = clamp(num(r.y, f.y), b.y0, b.y1 + 200);
       f.v = clamp(num(r.v, 0), 0, 1000);
       f.s = clamp(Math.round(num(r.s, 0)), 0, 2);
+      f.sp = typeof r.sp === 'string' && Object.hasOwn(SPECIES, r.sp) ? r.sp : '';
+      f.kill = typeof r.kill === 'string' ? r.kill.slice(0, 64) : '';
     }
     for (const id of Array.isArray(m.mgone) ? m.mgone : []) if (int(id)) M.delete(String(id));
     // die Pflanzen: übrige Bissen je Pflanze

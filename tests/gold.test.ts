@@ -13,6 +13,8 @@ function lay(n: number, gold: number, t: Partial<typeof game.traits> = {}) {
   const c = game.addClutch({ place: 'laichfluss', x: 300, y: 600, at: Date.now(), fert: true, role: 'father', young: n });
   const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
   Object.assign(h.traits, t);
+  // Diese Tests setzen ein vorgegebenes Erbgut statt eines neuen Zugewinn-Wurfs.
+  delete h.evolution;
   const eggs = game.layEggs(c, h);
   SPAWN.gold = g;
   INHERIT.vary = v;

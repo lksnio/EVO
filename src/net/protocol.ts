@@ -117,6 +117,9 @@ export interface AnimalRow {
 
 /** Ein Stück Fleisch. */
 export interface MeatRow {
+  /** Art und gemeinsame Beutekennung aller Brocken dieses Tiers. */
+  sp?: string;
+  kill?: string;
   id: number;
   x: number;
   y: number;
@@ -160,6 +163,8 @@ export interface HitMsg {
 
 /** Ein Tier des Ortswächters trifft einen anderen Spieler (to). */
 export interface HurtMsg {
+  /** Gegnerkennung für die lokale Schuppenwertung (ältere Clients senden sie nicht). */
+  animal?: number;
   to?: string;
   dmg: number;
   x: number;

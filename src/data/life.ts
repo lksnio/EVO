@@ -95,24 +95,23 @@ export const SPAWN = {
 };
 
 /**
- * Vererbung beim Laichen – die Nachkommen sind angepasst an die Spielweise bis dahin (jedes Ei im Laich trägt die Werte
- * zur Laichzeit, mit einer kleinen Streuung, siehe vary); beim Tod wählt man ein Ei. Das eigene Tier verändert sich im
- * Leben nicht (es wächst nur heran und altert): Was es tut, zeigt sich erst an seinen Nachkommen.
- *   – Jede Evolutionsplatte wächst je nachdem, wie gut die Spielweise zu ihr passte (gain × Passung).
- *   – Was sich im Leben angesammelt hat (Tarnung beim Verstecken, Bodenkontakt am Grund …), geht zum Teil weiter (carry).
- *   – Größe aus dem Lebensraum, Robustheit aus überstandenen Angriffen, Kost aus der aufgenommenen Energie.
- *   – Der Partner gibt etwas von seinem Aussehen mit (partner).
- * Jede Generation verändert sich merklich: Jede Richtung wächst höchstens um plateStep ihrer vollen Ausprägung (beim
- * Gebiss etwa +5 bis +8, in der Übersicht gemessen), alle zusammen um höchstens plateTotal; Größe, Robustheit (Schuppen
- * etwa +5), Kost und Fortgesetztes um höchstens step. Die Kompromisse (Tempo, Ausdauer) kosten dabei nur −1 bis −2.
+ * Vererbung beim Befruchten: höchstens 15 Punkte vor Varianz. Pflanzenanteil → Leben; Fleischanteil → Kampffähigkeiten,
+ * nach Zahl und relativer Stärke besiegter Gegner. Jedes Ei würfelt seinen Zuwachs mit ±50 %, nicht seine gesamten Werte.
+ * Gebiss/Schädel und Flossen/Schuppen sind Gegenpaare: Abzug = halbe untere Schranke des positiven Zuwachses.
+ * Länge und Gewicht entwickeln sich getrennt aus Schwimmstrecke und zeitlich gemittelter Wassertiefe.
  */
 export const INHERIT = {
-  /** eine Richtung wächst um plateStep × gain × Passung (höchstens plateStep): Wer fast nur stößt, bekommt den vollen Schritt */
-  gain: 1.1,
+  /** Budget vor Varianz: Pflanzen → Leben, Fleisch → Gebiss, Schädel, Flossen und Schuppen. */
+  points: 15,
+  /** Acht ebenbürtige besiegte Gegner schöpfen das Fleischbudget aus; schwächere zählen anteilig. */
+  defeats: 8,
+  /** Verborgener Längenzuwachs pro Generation bei dieser Schwimmstrecke (Bildpunkte). */
+  swimDistance: 60000,
+  lengthStep: 0.1,
+  /** Gewichtszuwachs: dieser Anteil × mittlere relative Wassertiefe. */
+  massStep: 0.1,
   carry: 0.6,
   partner: 0.15,
-  plateStep: 0.2,
-  plateTotal: 0.28,
   /**
    * Wie im Fitnessstudio: Eine Richtung wächst nur so weit, wie die Gegner es hergeben, die man damit bezwungen hat. Ihre
    * Stärke (im Verhältnis zum eigenen ausgewachsenen Tier, die drei stärksten zählen) setzt die Obergrenze der Ausprägung:
@@ -122,12 +121,9 @@ export const INHERIT = {
    */
   ceilBase: 0.3,
   ceilPer: 0.45,
-  step: { growth: 0.08, armor: 0.3, diet: 0.15, carry: 0.04, fins: 0.04 },
-  /**
-   * Die Eier eines Laichs streuen ein wenig: Jede Fähigkeit, die die Linie schon entwickelt hat (Gebiss, Stoß, Tempo,
-   * Lebenskraft, Schuppen), weicht bis zu diesem Anteil von dem ab, was das Elterntier weitergibt – Gebiss 18 wird 17 bis 19.
-   */
-  vary: 0.055,
+  step: { diet: 0.15, carry: 0.04 },
+  /** Varianz ausschließlich des neu erspielten Zugewinns (± Anteil), individuell je Ei. */
+  vary: 0.5,
 };
 
 /** Was sonst noch das Gleichgewicht bestimmt (alles in der Entwickler-Einstellung, siehe data/tuning.ts). */

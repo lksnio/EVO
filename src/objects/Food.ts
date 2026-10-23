@@ -169,7 +169,7 @@ export class Kill {
   fed = new Set<object>();
   playerAte = false;
   /** species: die Art des erlegten Tiers (für die Beute-Statistik der Übersicht) */
-  constructor(public byPlayer: boolean, readonly species?: string) {}
+  constructor(public byPlayer: boolean, readonly species?: string, readonly id = Date.now().toString(36) + Math.random().toString(36).slice(2)) {}
 
   get left() {
     return this.meats.some((m) => !m.gone && m.value > 0.5);

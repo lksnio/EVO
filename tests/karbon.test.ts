@@ -22,9 +22,9 @@ describe('Karbon im Spielstand', () => {
     // ein Jungtier ist klein
     expect(game.lifeK.grow).toBeCloseTo(BROOD.growHatch);
     // an der großen Muschel: Sauerstoff statt Sicht
-    expect(game.upKeys).toEqual(['hp', 'stam', 'oxy']);
+    expect(game.upKeys).toEqual(['hp', 'oxy', 'stam']);
     game.newRun(0);
-    expect(game.upKeys).toEqual(['hp', 'stam', 'sight']);
+    expect(game.upKeys).toEqual(['hp', 'sight', 'stam']);
   });
 
   it('Fressen, Metamorphose, ein Ei wählen: das neue Tier trägt das Erbgut seines Eis und schlüpft am Nest', () => {

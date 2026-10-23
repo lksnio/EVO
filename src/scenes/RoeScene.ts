@@ -30,12 +30,13 @@ export interface RoeData {
   years: number;
 }
 
-type StatKey = 'hp' | 'stam' | 'bite' | 'ram' | 'speed' | 'scales';
+type StatKey = 'hp' | 'stam' | 'bite' | 'ram' | 'fins' | 'speed' | 'scales';
 const STATS: [StatKey, string][] = [
   ['hp', 'Lebenskraft'],
   ['stam', 'Ausdauer'],
   ['bite', 'Gebiss'],
-  ['ram', 'Stoß'],
+  ['ram', 'Schädel'],
+  ['fins', 'Flossen'],
   ['speed', 'Tempo'],
   ['scales', 'Schuppen'],
 ];
@@ -342,7 +343,7 @@ export class RoeScene extends Phaser.Scene {
     c.add(text(this, -170, -60, gold ? 'ausgewachsen · mit dem goldenen Segen' : 'ausgewachsen', 13, gold ? '#b8964a' : '#6c6454'));
     c.add(text(this, 170, -60, 'dein Tier', 13, '#6c6454').setOrigin(1, 0));
     STATS.forEach(([k, name], j) => {
-      const y = -32 + j * 34;
+      const y = -32 + j * 32;
       const val = s.v[k], diff = val - this.mine[k];
       const top = val === this.best[s.group][k] && val > this.low[s.group][k];
       const golden = (gold === 'hp' && k === 'hp') || (gold === 'stam' && k === 'stam');
@@ -456,7 +457,7 @@ export class RoeScene extends Phaser.Scene {
   }
 }
 
-const none = (): Shown => ({ hp: 0, stam: 0, bite: 0, ram: 0, speed: 0, scales: 0 });
+const none = (): Shown => ({ hp: 0, stam: 0, bite: 0, ram: 0, fins: 0, speed: 0, scales: 0 });
 
 /** Die höchsten (bzw. niedrigsten) Werte einer Gruppe. */
 function spanOf(list: Shown[], f: (a: number, b: number) => number): Shown {

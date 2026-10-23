@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { INHERIT, SPAWN } from '../src/data/life';
 import { phases } from '../src/sim/life';
-import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, plateLevel, PLATE_IDS, type Clutch, type Heir } from '../src/state/GameState';
+import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, type Clutch, type Heir } from '../src/state/GameState';
 import { SPECIES } from '../src/data/species';
+import { evolutionBudget, recordDefeat, type CombatSkill } from '../src/sim/evolution';
 
 /**
  * Die nächste Generation schlüpft: Die Eier dieses Geleges kommen auf den Stapel (ohne Streuung, damit es nachprüfbar
@@ -22,7 +23,9 @@ describe('Generationswechsel', () => {
   beforeEach(() => {
     game.resetAll();
     game.newRun();
+    SPAWN.gold = 0;
   });
+  afterEach(() => { SPAWN.gold = 0.05; INHERIT.vary = 0.5; });
 
   it('ein Jungtier ist klein und schwach, ausgewachsen stark – Artgenossen sind immer ausgewachsen', () => {
     const young = game.stats();
@@ -132,25 +135,22 @@ describe('Generationswechsel', () => {
     expect(game.run?.history.length).toBe(2);
   });
 
-  it('die Eier tragen die Werte des Elterntiers zur Laichzeit – mit einer kleinen Streuung (Gebiss 18 → 17 bis 19)', () => {
-    // ein Beißfisch: Gebiss etwa 18
-    game.traits.jaw = 0.25;
-    game.traits.bs = 1.5;
-    game.ageBy(phases(1).mature + 60);
-    const h = game.inherit({ meat: 0, plant: 0 }, newStyle());
-    const want = game.roeShown({ traits: h.traits });
-    expect(want.bite).toBeGreaterThanOrEqual(16);
+  it('nur der aktuelle Zuwachs streut pro Ei, geerbte Werte und feste Gegenkosten bleiben erhalten', () => {
+    game.traits.biteGain = 10;
+    const style = newStyle();
+    for (let i = 0; i < 8; i++) recordDefeat(style.defeats!, { bite: 1 }, 1);
+    const h = game.inherit({ meat: 40, plant: 60 }, style);
     const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: 24 });
     const eggs = game.layEggs(c, h);
-    const bites = eggs.map((e) => game.roeShown(e).bite);
-    for (const b of bites) {
-      expect(b).toBeGreaterThanOrEqual(Math.floor(want.bite * (1 - INHERIT.vary)));
-      expect(b).toBeLessThanOrEqual(Math.ceil(want.bite * (1 + INHERIT.vary)));
+    for (const e of eggs) {
+      expect(e.traits.biteGain).toBeGreaterThanOrEqual(13);
+      expect(e.traits.biteGain).toBeLessThanOrEqual(19);
+      expect(e.traits.ramGain).toBe(-1.5);
+      expect(e.traits.vitality).toBeGreaterThanOrEqual(4.5);
+      expect(e.traits.vitality).toBeLessThanOrEqual(13.5);
     }
-    // die Eier unterscheiden sich wirklich (nicht alle gleich)
-    expect(new Set(bites).size).toBeGreaterThan(1);
-    // was nie entwickelt wurde (der Stoß des Urfischs), streut nicht
-    for (const e of eggs) expect(game.roeShown(e).ram).toBe(want.ram);
+    expect(new Set(eggs.map(e => e.traits.biteGain)).size).toBeGreaterThan(1);
+    expect(game.traits.biteGain).toBe(10);
   });
 
   it('nie mehr als SPAWN.maxYoung Nachkommen in einem Leben – der Rest der Nahrung bleibt', () => {
@@ -231,44 +231,36 @@ describe('Generationswechsel', () => {
     expect(game.broodBase).toBeGreaterThan(30);
   });
 
-  it('eine Generation verändert sich merklich – die zweite braucht etwas mehr Nahrung je Nachkomme', () => {
-    game.ageBy(phases(1).mature + 60);
-    // ein Leben voller Jagd auf etwas kleinere Beute
-    const style = { ...newStyle(), hunt: 40, hurt: 10, fwd: 200, turns: 60, up: 30, down: 30, hab: { start: 200, murky: 100 } };
-    for (let i = 0; i < 3; i++) noteBest(style, 'hunt', 0.7);
-    const bite0 = game.stats(game.cls, game.traits).bite;
+  it('60 % Pflanzen ergeben 9 Lebenspunkte, 40 % Fleisch bei vollen Biss-Siegen 6 Gebisspunkte', () => {
+    const style = newStyle();
+    for (let i = 0; i < 8; i++) recordDefeat(style.defeats!, { bite: 1 }, 1);
+    const before = game.roeShown();
+    const h = game.inherit({ meat: 40, plant: 60 }, style);
+    expect(h.traits.vitality).toBe(9);
+    expect(h.traits.biteGain).toBe(6);
+    expect(h.traits.ramGain).toBe(-1.5);
+    const preview = game.roeShown({ traits: h.traits });
+    expect(preview.hp - before.hp).toBe(9);
+    expect(preview.bite - before.bite).toBe(6);
+    expect(game.stats(game.cls, h.traits).endurance).toBe(game.stats(game.cls, game.traits).endurance);
     const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
-    succeed(c, game.inherit({ meat: 300, plant: 100 }, style));
-    const bite = game.stats(game.cls, game.traits).bite / bite0 - 1;
-    expect(bite).toBeGreaterThan(0.2);
-    expect(bite).toBeLessThan(0.6);
-    expect(game.broodBase).toBeGreaterThan(SPAWN.perYoung * 1.05);
-    expect(game.broodBase).toBeLessThan(SPAWN.perYoung * 1.4);
+    const [egg] = game.layEggs(c, h);
+    expect(game.hatch('next', game.roe.indexOf(egg))).toBe(true);
+    expect(game.broodBase).toBeGreaterThan(SPAWN.perYoung);
+    expect(game.inheritedDelta()!.bite).toBeGreaterThanOrEqual(3);
+    expect(game.inheritedDelta()!.bite).toBeLessThanOrEqual(9);
   });
 
-  it('je Generation höchstens +5 bis +8 in einer Richtung – die Kompromisse kosten nur −1 bis −2', () => {
-    const v = INHERIT.vary;
-    INHERIT.vary = 0;
-    for (const kind of ['hunt', 'ram', 'hurt'] as const) {
-      game.resetAll();
-      game.newRun();
-      let prev = game.roeShown();
-      for (let gen = 0; gen < 7; gen++) {
-        const style = { ...newStyle(), [kind]: 300 };
-        for (let i = 0; i < 5; i++) noteBest(style, kind === 'hurt' ? 'hunt' : kind, 2);
-        game.ageBy(400);
-        const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
-        succeed(c, game.inherit({ meat: 50, plant: 50 }, style));
-        const now = game.roeShown();
-        const up = kind === 'hunt' ? now.bite - prev.bite : kind === 'ram' ? now.ram - prev.ram : now.scales - prev.scales;
-        expect(up).toBeLessThanOrEqual(8);
-        if (gen < 3) expect(up).toBeGreaterThanOrEqual(kind === 'ram' ? 4 : 5);
-        expect(now.speed - prev.speed).toBeGreaterThanOrEqual(-2);
-        expect(now.stam - prev.stam).toBeGreaterThanOrEqual(-2);
-        prev = now;
-      }
+  it('Gegenkosten hängen von der unteren Schranke ab, nicht vom zufälligen Zuwachs', () => {
+    for (const [key, gain, opposite] of [['bite', 'biteGain', 'ramGain'], ['skull', 'ramGain', 'biteGain'], ['fins', 'finGain', 'scaleGain'], ['scales', 'scaleGain', 'finGain']] as const) {
+      game.resetAll(); game.newRun();
+      const style = newStyle();
+      for (let i = 0; i < 8; i++) recordDefeat(style.defeats!, { [key]: 1 }, 1);
+      const h = game.inherit({ meat: 40, plant: 60 }, style);
+      const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: 24 });
+      const eggs = game.layEggs(c, h);
+      for (const e of eggs) { expect(e.traits[gain]).toBeGreaterThanOrEqual(3); expect(e.traits[gain]).toBeLessThanOrEqual(9); expect(e.traits[opposite]).toBe(-1.5); }
     }
-    INHERIT.vary = v;
   });
 
   it('Beute gibt Futter in ganzen Brocken – nach Stärke und Größe, kleine einen, große viele', () => {
@@ -303,30 +295,19 @@ describe('Generationswechsel', () => {
     expect(Math.ceil(SPECIES.kieferlos.hp / game.stats().bite)).toBeLessThanOrEqual(5);
   });
 
-  it('wie im Fitnessstudio: nur kleine Beute trägt bis zu einer Stufe, stärkere Gegner darüber hinaus', () => {
-    const train = (best: number) => {
-      game.resetAll();
-      game.newRun();
-      for (let gen = 0; gen < 30; gen++) {
-        const style = { ...newStyle(), hunt: 200 };
-        for (let i = 0; i < 5; i++) noteBest(style, 'hunt', best);
-        const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father' });
-        succeed(c, game.inherit({ meat: 10, plant: 0 }, style));
-      }
-      return plateLevel(game.traits.bs);
+  it('mehr und stärkere besiegte Gegner erschließen mehr vom Fleischbudget, Treffer allein reichen nicht', () => {
+    const budget = (n: number, strength: number) => {
+      const style = newStyle();
+      for (let i = 0; i < n; i++) recordDefeat(style.defeats!, { bite: 1 }, strength);
+      return evolutionBudget({ meat: 100, plant: 0 }, style.defeats!).bite;
     };
-    const small = train(0.5), equal = train(1), strong = train(2);
-    // kleine Beute (halb so stark): Es geht voran – aber nur bis zur Obergrenze
-    expect(small).toBeGreaterThan(0.4);
-    expect(small).toBeLessThanOrEqual(0.3 + 0.45 * 0.5 + 0.001);
-    expect(equal).toBeGreaterThan(small + 0.15);
-    expect(strong).toBeGreaterThan(equal);
-    // es bleiben Kompromisse: Ein starkes Gebiss macht langsamer
-    game.resetAll();
-    const base = game.stats(game.cls, game.newRun().traits);
-    game.traits.bs = 3;
-    game.traits.jaw = 0.8;
-    expect(game.stats(game.cls, game.traits).speed).toBeLessThan(base.speed);
+    expect(budget(0, 1)).toBe(0);
+    expect(budget(4, 0.5)).toBe(3.75);
+    expect(budget(4, 1)).toBe(7.5);
+    expect(budget(8, 1)).toBe(15);
+    expect(budget(100, 10)).toBe(15);
+    const style = { ...newStyle(), hunt: 10000, ram: 10000, hurt: 10000 };
+    expect(game.inherit({ meat: 100, plant: 0 }, style).traits.biteGain ?? 0).toBe(0);
   });
 
   it('die drei stärksten Gegner zählen – ein einzelner Glückstreffer trägt nicht weit', () => {
@@ -348,42 +329,32 @@ describe('Generationswechsel', () => {
     expect(game.prog.boss).toBe(0);
   });
 
-  it('wer viel stößt, bekommt Nachkommen mit härterem Kopf – eine Generation weiter', () => {
-    game.ageBy(phases(1).mature + 60);
-    const before = { ...game.traits };
-    const style = { ...newStyle(), ram: 60, hunt: 2, chase: 1, swim: 10 };
+  it('erfolgreiche Stöße stärken den Schädel der Nachkommen und schwächen das Gebiss', () => {
+    const style = newStyle();
+    for (let i = 0; i < 8; i++) recordDefeat(style.defeats!, { skull: 1 }, 1);
     const h = game.inherit({ meat: 10, plant: 10 }, style);
-    expect(h.line).toBe('st');
-    expect(h.traits.st).toBeGreaterThan(before.st);
-    expect(h.traits.skull).toBeGreaterThan(before.skull);
-    expect(h.traits.st - before.st).toBeGreaterThan(h.traits.bs - before.bs);
-    for (const id of PLATE_IDS) expect(h.fit[id]).toBeGreaterThanOrEqual(0);
-    const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'mother' });
-    const gen = game.life.gen;
+    expect(h.traits.ramGain).toBe(7.5);
+    expect(h.traits.biteGain).toBe(-1.875);
+    expect(game.roeShown({ traits: h.traits }).ram).toBeGreaterThan(game.roeShown().ram);
+    const c = game.addClutch({ place: 'lagune', x: 640, y: 900, at: Date.now(), fert: true, role: 'father' });
     succeed(c, h);
-    expect(game.life.gen).toBe(gen + 1);
+    expect(game.life.gen).toBe(2);
     expect(game.life.age).toBe(0);
-    expect(game.life.clutches).toEqual([]);
     expect(game.prog.at).toEqual({ x: 640, y: 900 });
-    expect(game.traits.st).toBeCloseTo(h.traits.st, 3);
     expect(game.run?.history.length).toBe(1);
   });
 
-  it('keine Generation verändert sich zu stark – aber merklich', () => {
-    game.ageBy(phases(1).mature + 60);
-    const before = { ...game.traits };
-    // ein Leben voller Stöße, Bisse und Verfolgungen, tief unten, viel eingesteckt, nur Fleisch
-    const style = { ...newStyle(), ram: 500, hunt: 500, chase: 500, swim: 500, hurt: 200, hab: { abyss: 900 } };
+  it('aufgeteilte Kampferfolge teilen sich das Budget, Körperwachstum läuft getrennt und bleibt verborgen', () => {
+    const style = { ...newStyle(), distance: 60000, waterTime: 100, depthTime: 80 };
+    for (let i = 0; i < 8; i++) recordDefeat(style.defeats!, { bite: 1, skull: 1, fins: 1, scales: 1 }, 1);
+    const budget = evolutionBudget({ meat: 100, plant: 0 }, style.defeats!);
+    for (const key of ['bite', 'skull', 'fins', 'scales'] as CombatSkill[]) expect(budget[key]).toBe(3.75);
+    expect(Object.values(budget).reduce((n, v) => n + v, 0)).toBe(15);
     const h = game.inherit({ meat: 100, plant: 0 }, style);
-    const grew = PLATE_IDS.map((id) => 1 - Math.exp(-0.7 * h.traits[id]) - (1 - Math.exp(-0.7 * before[id])));
-    for (const g of grew) expect(g).toBeLessThanOrEqual(INHERIT.plateStep + 1e-9);
-    expect(grew.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(INHERIT.plateTotal + 1e-9);
-    expect(Math.max(...grew)).toBeGreaterThan(INHERIT.plateTotal * 0.3);
-    expect(Math.abs(h.traits.growth - before.growth)).toBeLessThanOrEqual(INHERIT.step.growth + 1e-9);
-    expect(h.traits.armor - before.armor).toBeLessThanOrEqual(INHERIT.step.armor + 1e-9);
-    expect(Math.abs(h.traits.diet - before.diet)).toBeLessThanOrEqual(INHERIT.step.diet + 1e-9);
-    // merklich: Kiefer, Schädel oder Körperbau haben sich bewegt
-    expect(Math.abs(h.traits.jaw - before.jaw) + Math.abs(h.traits.skull - before.skull) + Math.abs(h.traits.len - before.len)).toBeGreaterThan(0.02);
+    expect(h.traits.lengthGain).toBeCloseTo(0.1);
+    expect(h.traits.massGain).toBeCloseTo(0.08);
+    expect(game.traits.lengthGain).toBeUndefined();
+    expect(game.traits.massGain).toBeUndefined();
   });
 
   it('der Partner gibt nur etwas vom Aussehen mit', () => {

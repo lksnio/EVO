@@ -63,11 +63,11 @@ export class RemoteTarget implements PlayerLike {
     return { x: this.x - w / 2, y: this.y + top, w, h };
   }
 
-  hurt(dmg: number, fromX: number, by?: string) {
+  hurt(dmg: number, fromX: number, by?: string, source?: object) {
     const now = performance.now();
     if (now - this.hurtAt < 150 || this.dead) return;
     this.hurtAt = now;
-    this.send({ to: this.id, dmg, x: fromX, by: by ?? '' });
+    this.send({ to: this.id, dmg, x: fromX, by: by ?? '', animal: (source as { netId?: number } | undefined)?.netId });
   }
 }
 
@@ -90,6 +90,8 @@ export class WorldSync {
   readonly targets = new Map<string, RemoteTarget>();
   private ghosts = new Map<number, GhostAnimal>();
   private gmeats = new Map<number, Meat>();
+  private gkills = new Map<string, Kill>();
+  private eatenKills = new Set<string>();
   /** Ortswächter: zuletzt gemeldet (Kurzform) und die Tiere/Stücke dazu */
   private sentA = new Map<number, { sig: string; same: number }>();
   private sentM = new Map<number, string>();
@@ -181,7 +183,7 @@ export class WorldSync {
       if (!m.netId) m.netId = this.nextMeat++;
       mseen.add(m.netId);
       this.meatById.set(m.netId, m);
-      const r: MeatRow = { id: m.netId, x: r1(m.x), y: r1(m.y), v: r1(m.value), s: m.size };
+      const r: MeatRow = { id: m.netId, x: r1(m.x), y: r1(m.y), v: r1(m.value), s: m.size, sp: m.kill.species, kill: m.kill.id };
       const sig = `${r.x | 0},${r.y | 0},${r.v}`;
       if (this.sentM.get(r.id) === sig) continue;
       this.sentM.set(r.id, sig);
@@ -256,12 +258,18 @@ export class WorldSync {
       const id = Number(key);
       const m = this.gmeats.get(id);
       if (m) m.netUpdate(n.x, n.y, n.v);
-      else this.addMeat(id, n.x, n.y, n.v);
+      else this.addMeat(id, n.x, n.y, n.v, n.sp, n.kill);
     }
     for (const [id, m] of this.gmeats) {
       if (s.meats.has(String(id)) && !m.gone) continue;
       m.remove(true);
       this.gmeats.delete(id);
+    }
+    // Vergangene Beute hält keine zerstörten Bilder fest; ihre Kennung verhindert doppeltes Zählen verspäteter Brocken.
+    for (const [id, kill] of this.gkills) {
+      if (kill.left) continue;
+      if (kill.playerAte) this.eatenKills.add(id);
+      this.gkills.delete(id);
     }
   }
 
@@ -279,9 +287,14 @@ export class WorldSync {
     this.h.animals.push(g);
   }
 
-  private addMeat(id: number, x: number, y: number, v: number) {
+  private addMeat(id: number, x: number, y: number, v: number, species = '', killId = '') {
     if (v <= 0.5) return;
-    const m = new Meat(this.h, this.h, x, y, v, this.h.time.now, new Kill(false));
+    const kill = (killId && this.gkills.get(killId)) || new Kill(false, species || undefined, killId || undefined);
+    if (killId) {
+      kill.playerAte ||= this.eatenKills.has(killId);
+      this.gkills.set(killId, kill);
+    }
+    const m = new Meat(this.h, this.h, x, y, v, this.h.time.now, kill);
     m.netId = id;
     m.net = { x, y };
     m.onBite = (got) => this.z?.eat({ id, amount: got });
@@ -293,6 +306,7 @@ export class WorldSync {
   died(ids: number[]) {
     for (const id of ids) {
       const g = this.ghosts.get(id);
+      this.h.confirmNetDefeat(id, g);
       if (g && !g.dead) g.vanishDead();
     }
   }
@@ -300,7 +314,7 @@ export class WorldSync {
   /** Ein Tier des Ortswächters hat dich getroffen. */
   hurt(m: HurtMsg) {
     const p = this.h.player;
-    if (!p.dead && !this.h.ended) p.hurt(m.dmg, m.x, m.by);
+    if (!p.dead && !this.h.ended) p.hurt(m.dmg, m.x, m.by, m.animal ? this.ghosts.get(m.animal) : undefined);
   }
 
   // ---------------------------------------------------------------- Ortswächter
@@ -355,7 +369,7 @@ export class WorldSync {
       maxM = Math.max(maxM, id);
       if (gm.gone) continue;
       gm.remove();
-      const m = new Meat(this.h, this.h, gm.x, gm.y, gm.value, this.h.time.now, new Kill(false));
+      const m = new Meat(this.h, this.h, gm.x, gm.y, gm.value, this.h.time.now, gm.kill);
       m.netId = id;
       this.h.meats.push(m);
     }
