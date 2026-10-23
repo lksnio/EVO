@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { INHERIT } from '../src/data/life';
+import { INHERIT, LIFE } from '../src/data/life';
+import { ADULT, phases } from '../src/sim/life';
 import { COMBAT_SKILLS, evolutionBudget, evolutionStep, recordDefeat, type Defeats } from '../src/sim/evolution';
 import { game, newStyle } from '../src/state/GameState';
 
@@ -44,6 +45,51 @@ describe('Punktebudget und Varianz', () => {
 });
 
 describe('Verborgener Körperbau und Kampfwerte', () => {
+  it('Flossen und Länge steigern das Schwimmtempo nur noch in kleinen Schritten', () => {
+    const start = { ...game.traits };
+    const base = game.stats('fish', start, ADULT);
+    const evolved = game.stats('fish', { ...start, finGain: 10, lengthGain: 0.1 }, ADULT);
+    expect(evolved.speed * evolved.cruise / (base.speed * base.cruise)).toBeCloseTo(1.02 * 1.1);
+    expect(evolved.speed * evolved.climb / (base.speed * base.climb)).toBeCloseTo(1.02 * 1.1);
+    expect(evolved.speed * evolved.dive / (base.speed * base.dive)).toBeCloseTo(1.02 * 1.1);
+    expect(game.roeShown({ traits: { ...start, finGain: 10 } }).fins).toBe(20);
+  });
+
+  it('auch weit entwickelte Jungtiere erreichen ihr Generationstempo erst beim Ausgewachsensein', () => {
+    Object.assign(game.traits, { finGain: 90, lengthGain: 0.7, massGain: 0.3 });
+    const grown = game.stats('fish', game.traits, ADULT);
+    for (const gen of [1, 4, 16]) {
+      game.life.gen = gen;
+      const mature = phases(gen).mature;
+      let previous = 0;
+      for (const age of [0, mature * 0.25, mature * 0.5, mature * 0.9, mature]) {
+        game.life.age = age;
+        const st = game.stats();
+        expect(st.speed).toBeGreaterThan(previous);
+        if (age < mature) {
+          expect(st.speed * st.cruise).toBeLessThan(grown.speed * grown.cruise);
+          expect(st.speed * st.climb).toBeLessThan(grown.speed * grown.climb);
+          expect(st.speed * st.dive).toBeLessThan(grown.speed * grown.dive);
+        } else expect(st.speed).toBeCloseTo(grown.speed);
+        if (age === 0) expect(st.speed).toBeCloseTo(grown.speed * 0.6);
+        previous = st.speed;
+      }
+    }
+  });
+
+  it('der Wachstumsfaktor gilt auch für Schwimmen und Laufen anderer Körperformen', () => {
+    for (const cls of ['fish', 'amphibian', 'reptile', 'mammal'] as const) {
+      const traits = { ...game.traits, growth: 0.6, limb: 0.4 };
+      const hatch = game.stats(cls, traits, { grow: LIFE.hatch, old: 0 });
+      const half = game.stats(cls, traits, { grow: (LIFE.hatch + LIFE.adult) / 2, old: 0 });
+      const grown = game.stats(cls, traits, ADULT);
+      expect(hatch.speed / grown.speed).toBeCloseTo(0.6);
+      expect(half.speed / grown.speed).toBeCloseTo(0.8);
+      expect(hatch.landSpeed / grown.landSpeed).toBeCloseTo(0.6);
+      expect(half.landSpeed / grown.landSpeed).toBeCloseTo(0.8);
+    }
+  });
+
   it('lange Strecken erhöhen Länge und Tempo; Schuppen verlieren nur die halbe relative Änderung', () => {
     const start = { ...game.traits };
     const h = game.inherit({ plant: 0, meat: 0 }, { ...newStyle(), distance: INHERIT.swimDistance });
@@ -51,7 +97,7 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     const ma = game.measure(game.cls, start), mb = game.measure(game.cls, h.traits);
     expect(mb.cm / ma.cm).toBeCloseTo(1.1);
     expect(mb.g).toBeCloseTo(ma.g);
-    expect(b.speed / a.speed).toBeCloseTo(1.1);
+    expect(b.speed / a.speed).toBeCloseTo(1.02);
     expect(game.roeShown({ traits: h.traits }).scales).toBe(10); // 9.5 wird für die Anzeige gerundet
     expect(b.defense / a.defense).toBeCloseTo(1 / 0.95);
     expect(game.inheritedDelta()).toBeNull();

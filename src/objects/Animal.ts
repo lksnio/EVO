@@ -2140,7 +2140,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const heavy = this.role === 'apex' ? 0.25 : this.role === 'defender' ? 0.4 : 1;
     if (kind === 'ram') {
       this.b.setVelocity(s * Math.min(560, 200 + dmg * 14) * heavy, this.swims || this.flies ? -40 : -260 * heavy);
-      this.stunUntil = now + 450 * heavy + 150;
+      this.stun(450 * heavy + 150);
     } else {
       this.b.setVelocity(s * 140 * heavy, this.swims || this.flies ? -20 : -120 * heavy);
       this.knockUntil = now + 160;

@@ -6,7 +6,7 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
-import { INHERIT, LIFE, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
+import { INHERIT, LIFE, MOVEMENT, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN, OXYGEN } from '../data/karbon';
 import {
@@ -167,6 +167,8 @@ export interface Stats {
   maxHp: number;
   bite: number;
   ram: number;
+  /** Betäubung durch einen Schädelstoß (Millisekunden): Schädel 10 → 1 s, ab 100 → 2 s */
+  ramStun: number;
   /** Selbstschaden beim Rammen (dünner Schädel tut weh) */
   ramSelf: number;
   speed: number;
@@ -632,6 +634,7 @@ const BODY: Record<ClassId, { cm: number; g: number }> = {
 
 /** Ältere Spielstände kennen manche Merkmale noch nicht. */
 const full = (t: Partial<Traits>): Traits => ({ ...ZERO, ...t });
+const adultSize = (t: Traits) => clamp(0.7 + 0.62 * t.growth, 0.58, 1.5);
 const finPoints = (t: Traits) => Math.max(1, 10 + (t.finGain ?? 0));
 const scalePoints = (t: Traits) => Math.max(1, (10 * (1 + 2 * (t.armor ?? 0)) + (t.scaleGain ?? 0)) * Math.max(0.1, 1 - (t.lengthGain ?? 0) / 2));
 
@@ -1058,7 +1061,7 @@ class GameState {
     const k = life ?? (traits ? ADULT : this.lifeK);
     const b = CLASSES[cls].base;
     // Die ausgewachsene Größe kommt aus dem Wuchs (dem Lebensraum der Vorfahren); ein Jungtier ist davon erst ein Teil
-    const adult = clamp(0.7 + 0.62 * t.growth, 0.58, 1.5);
+    const adult = adultSize(t);
     const size = adult * k.grow;
     const carn = Math.max(0, t.diet), herb = Math.max(0, -t.diet);
     // die Kopfplatte des Stoßfischs: ein gepanzerter, harter Schädel
@@ -1079,9 +1082,16 @@ class GameState {
       + b.bite * 0.07 * (t.biteGain ?? 0) * Math.pow(k.grow, 0.6));
     const ram = Math.max(0.1, b.ram * force * (1 + 4 * t.skull) * (1 + 0.5 * plates) * (1 + 0.15 * girth)
       + b.ram * 0.07 * (t.ramGain ?? 0) * Math.pow(k.grow, 0.6));
+    // Dieselbe Skala wie der Schädelwert in der Übersicht, ohne Rundung und mit dem Urahn der Körperklasse als Bezug.
+    const skullScore = 10 * ram / (b.ram * adultSize(ZERO));
     const length = t.lengthGain ?? 0, mass = t.massGain ?? 0;
-    const bodySpeed = (1 + length) * Math.max(0.1, 1 - mass / 2);
+    const bodySpeed = (1 + MOVEMENT.lengthSpeed * length) * Math.max(0.1, 1 - mass / 2);
     const fins = Math.max(0.1, 1 + (t.finGain ?? 0) / 10);
+    const finSpeed = Math.max(0.1, 1 + MOVEMENT.finPerPoint * (t.finGain ?? 0));
+    const maturity = clamp((k.grow - LIFE.hatch) / Math.max(0.001, LIFE.adult - LIFE.hatch), 0, 1);
+    const speedGrowth = MOVEMENT.hatchSpeed + (1 - MOVEMENT.hatchSpeed) * maturity;
+    // Die kleinere Körpergröße darf Jungtiere nicht über das ausgewachsene Generationstempo hinaus beschleunigen.
+    const sizeDrag = 1.12 - 0.14 * adult;
     const scaleBase = 10 * (1 + 2 * armor);
     const baseHp = b.hp * Math.pow(adult, 1.3) * (1 + 0.25 * t.skull + 0.2 * plates) * (1 + 0.16 * girth + 0.05 * (t.len ?? 0)) * (1 + 0.15 * armor);
     const body = (1 + 0.14 * (t.swift ?? 0) + 0.05 * (t.len ?? 0) - 0.07 * girth);
@@ -1095,10 +1105,11 @@ class GameState {
       maxHp: Math.max(3, Math.round((baseHp + (t.vitality ?? 0)) * Math.pow(k.grow, 0.8) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old) * hpBoost)),
       bite,
       ram,
+      ramStun: 1000 + 1000 * clamp((skullScore - 10) / 90, 0, 1),
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
-      speed: b.speed * (1 + 0.38 * t.stealth) * (1.12 - 0.14 * size) * body * (land ? 1 + 0.14 * limb : 1) * swimMul
-        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed,
+      speed: b.speed * (1 + 0.38 * t.stealth) * sizeDrag * body * (land ? 1 + 0.14 * limb : 1) * swimMul
+        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth,
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // mehr Lebenskraft von der großen Muschel: ein etwas größerer Körper
       size: size * sizeBoost,
@@ -1114,16 +1125,16 @@ class GameState {
       endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
       recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
-      climb: (1 + 0.45 * (t.fUp ?? 0)) * fins,
-      dive: (1 + 0.45 * (t.fDown ?? 0)) * fins,
-      cruise: (1 + 0.3 * (t.fTail ?? 0)) * fins,
+      climb: (1 + 0.45 * (t.fUp ?? 0)) * finSpeed,
+      dive: (1 + 0.45 * (t.fDown ?? 0)) * finSpeed,
+      cruise: (1 + 0.3 * (t.fTail ?? 0)) * finSpeed,
       // kleine, kurze Fische wenden schnell, große und lange schwerfällig
       agility: clamp(fins + 1.1 * (t.fSide ?? 0) - 0.14 * (t.len ?? 0) - 0.22 * (size - 0.8), 0.6, 2.4),
       upkeep: 1 + 0.3 * armor + 0.15 * Math.max(0, girth),
       // Schuppenpanzer: Treffer werfen einen weniger weit zurück
       knock: clamp(1 - 0.55 * armor - 0.15 * plates, 0.35, 1),
       // an Land: langsamer als im Wasser (ein Jungtier mit Kiemen kriecht nur), mit kräftigen Beinen schneller
-      landSpeed: b.speed * 0.62 * (1.12 - 0.14 * size) * (1 + KTRAIN.landLimb * limb) * (1 - KTRAIN.landArmor * armor) * (0.55 + 0.45 * clamp((k.grow - 0.4) / 0.6, 0, 1)),
+      landSpeed: b.speed * 0.62 * sizeDrag * (1 + KTRAIN.landLimb * limb) * (1 - KTRAIN.landArmor * armor) * speedGrowth,
       slope: maxSlope(limb, grip),
     };
   }

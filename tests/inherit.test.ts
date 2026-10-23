@@ -34,6 +34,7 @@ describe('Generationswechsel', () => {
     expect(young.size).toBeLessThan(grown.size * 0.5);
     expect(young.bite).toBeLessThan(grown.bite);
     expect(young.maxHp).toBeLessThan(grown.maxHp);
+    expect(young.speed).toBeCloseTo(grown.speed * 0.6);
     expect(game.stats(game.cls, game.traits).size).toBeCloseTo(game.stats(game.cls, game.traits).size);
     game.ageBy(phases(1).span);
     expect(game.stats().speed).toBeLessThan(grown.speed);

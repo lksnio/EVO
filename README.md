@@ -148,8 +148,12 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   etwa **8 Minuten** – und **laichen kann er die ganze Zeit, bis kurz vor dem Tod** (auch im Alter); oder er geht gleich mit
   „Leben weitergeben“. In den letzten 40 % dieser
   Zeit ist er **alt** (langsamer, schneller müde, weniger Lebenskraft), in den letzten 40 Sekunden wird er spürbar langsamer,
-  dann schläft er ein. Mit der Größe wachsen Lebenskraft, Biss und Stoß; ein Jungtier ist dafür etwas flinker. Gezählt wird
+  dann schläft er ein. Mit der Größe wachsen Lebenskraft, Biss, Stoß und Tempo: Beim Schlüpfen hat der Fisch **60 % seines
+  ausgewachsenen Tempos**, bis zur Laichreife erreicht er es allmählich. Gezählt wird
   nur die Zeit, in der man spielt – wer offline ist, altert nicht. Gemeldet wird nur die Laichzeit (leise, oben links).
+  Das Tempo steigt über die Generationen behutsam: **10 zusätzliche Flossenpunkte geben 10 % mehr Schwimmtempo**,
+  **10 % zusätzliche Körperlänge geben 2 % mehr Grundtempo**. Auch ein Jungtier einer schnellen Linie muss erst
+  heranwachsen, bevor es deren volles Tempo erreicht.
 - **Dein Tier bleibt, wie es geschlüpft ist:** Im Leben wächst es nur heran und altert. Was es tut – sich verstecken, am Grund
   laufen, oben im Licht oder unten im Dunkeln schwimmen, durch eine Höhle tauchen, Treffer einstecken –, sammelt sich im
   Verborgenen und zeigt sich erst an seinen **Nachkommen**. Nirgends steht, was sich verändert hat: Man merkt es, wenn das
@@ -261,8 +265,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     nach dem Hervorbrechen. Ohne passende Farbe gibt es keine Überraschungsangriffe.
   - **Kämpfen** – angreifen tun nur der **Biss** (E) und der **Stoß** (R); bloßes Berühren tut
     niemandem etwas (außer Quallen) – man kann also an jedem Tier vorbeischwimmen. Der Stoß geht von
-    Anfang an: Er macht kaum Schaden, **betäubt** kleine und mittelgroße Tiere aber kurz – Zeit für ein,
-    zwei Bisse. Wer oft stößt, bekommt einen harten, später gepanzerten Kopf – ein Stoß tut aber auch dem **eigenen Kopf ein wenig weh**
+    Anfang an: Er macht kaum Schaden, **betäubt** getroffene Tiere aber **1 Sekunde beim Schädel-Grundwert 10** –
+    die Dauer steigt linear bis auf **2 Sekunden ab Schädel 100**, auch bei großen Räubern.
+    Wer oft stößt, bekommt einen harten, später gepanzerten Kopf – ein Stoß tut aber auch dem **eigenen Kopf ein wenig weh**
     (mit hartem Schädel weniger). Der Biss geht **aus dem Stand**: Der Körper
     bleibt, wo er ist – nur der Kopf reißt das Maul auf, schnappt zu und knirscht mit den
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Zweimal schnell hintereinander zugebissen heißt:
@@ -524,16 +529,18 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   dunkler. **Tiere** sind im Trüben nicht zu sehen, am Rand erscheinen sie als blasser, verschwommener Umriss, im Blick
   deutlich. **Wie weit man sieht, hängt an drei Dingen:**
   - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Segen in Sicht gibt **5 %** mehr (100 % hieße bis zum
-    Bildrand). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite) – zu Beginn gut drei Fischlängen klar.
+    Bildrand bei guten Bedingungen). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite),
+    das ebenso wie die eigene Sicht mit Wasserqualität und Tiefe verrechnet wird.
   - **an der Wasserqualität:** Der **Laichfluss** hat **sehr klares Wasser** – man sieht es ihm an: Das Wasser ist dort
     heller und kühl hellblau, mit kräftigeren Lichtbahnen, glitzernden Schwebeteilchen und einem hellen Dunst statt Trübe.
-    Dort sieht man am weitesten, und durch das
+    Dort reicht der klare Blick schon beim ersten Fisch deutlich weiter; Trübung verkürzt die Reichweite überproportional. Durch das
     Wasser hindurch auch den **Hintergrund und die Fische in der Ferne** gut. Der **Korallengarten** ist noch recht klar,
     aber schon etwas weniger (man merkt es an der Sicht). In **trüben Orten** (Delta, Schlammbank) sieht man deutlich
-    weniger weit und kaum etwas vom Hintergrund; in der Tiefe ist das Wasser klar, aber dunkel.
+    weniger weit und kaum etwas vom Hintergrund; dunkle Tiefengebiete begrenzen die Sicht zusätzlich.
   - **an der Tiefe:** **Nah an der Oberfläche** reicht der Blick am weitesten (und in die Ferne sieht man dort am meisten),
     **je tiefer, desto weniger weit** – und in der Tiefe hört die Sicht **plötzlicher auf** (der Rand wird steiler), und
-    das **Schwarze kommt früher** und wird dichter.
+    das **Schwarze kommt früher** und wird dichter. Auch der kleine Sichtbereich direkt um den Fisch schrumpft dabei,
+    damit der erste Fisch in großer Tiefe nicht genauso weit sieht wie in trübem Flachwasser.
 
   Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. In Szenen mit der Kamera (Aufträge)
   lichtet sich das Wasser. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die

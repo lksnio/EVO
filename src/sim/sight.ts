@@ -18,18 +18,20 @@ export const SIGHT = {
   front0: 0.1,
   /** nach hinten reicht der Blick so viel (Anteil des Blicks nach vorn): auf dem Zeitstrahl 1 nach hinten, 2 nach vorn */
   backShare: 0.5,
-  /** … aber wenigstens so weit (Bildpunkte der Welt) – damit man einen Jäger knapp hinter sich noch bemerkt */
+  /** … aber in klarem, flachem Wasser wenigstens so weit (Bildpunkte der Welt); bei schlechter Sicht sinkt auch dieser Sockel */
   back: 95,
   /** über diesen Anteil der vollen Weite verschwimmt es am Rand (nah an der Oberfläche; in der Tiefe weniger) */
   fade: 0.16,
-  /** Wasserqualität nach Art des Ortes (1 = ganz klar) */
-  water: { start: 1, lush: 0.8, murky: 0.55, deep: 0.85, abyss: 0.8 } as Record<string, number>,
+  /** Wasser- und Lichtverhältnisse nach Art des Ortes (1 = ganz klar und hell) */
+  water: { start: 1, lush: 0.8, murky: 0.5, deep: 0.7, abyss: 0.5 } as Record<string, number>,
+  /** Trübung verkürzt die Sicht überproportional, statt fast nur den Hintergrund abzudunkeln */
+  waterPower: 1.6,
   /** ab so viel Tiefe (Bildpunkte unter der Oberfläche) ist es ganz „tief“ */
-  deepAt: 3200,
+  deepAt: 2400,
   /** dicht unter der Oberfläche reicht der Blick so viel weiter (Faktor) … */
-  surface: 1.15,
+  surface: 1.8,
   /** … und ganz in der Tiefe nur noch so weit (Faktor) */
-  depth: 0.68,
+  depth: 0.32,
   /** in der Tiefe wird der Übergang so viel kürzer (Anteil): Die Sicht hört plötzlicher auf */
   steep: 0.6,
   /** so dicht ist das trübe Wasser jenseits der Sicht: in ganz klarem Wasser dicht unter der Oberfläche … */
@@ -63,7 +65,7 @@ export function depthOf(below: number) {
 
 /** Wie klar das Wasser hier ist (0 = trüb bzw. tief und dunkel … 1 = ganz klar, dicht unter der Oberfläche). */
 export function clearness(water = 1, deep = 0) {
-  return Math.max(0, Math.min(1, Math.pow(water, 1.3) * (1 - 0.85 * Math.pow(deep, 0.8))));
+  return Math.max(0, Math.min(1, Math.pow(water, SIGHT.waterPower) * (1 - 0.85 * Math.pow(deep, 0.8))));
 }
 
 /**
@@ -72,12 +74,15 @@ export function clearness(water = 1, deep = 0) {
  */
 export function vision(sight: number, full: number, water = 1, deep = 0): Vision {
   const d = Math.pow(deep, 0.8);
-  const far = (SIGHT.surface + (SIGHT.depth - SIGHT.surface) * d) * water;
-  const front = Math.max(SIGHT.back * 1.4, full * (SIGHT.front0 + (1 - SIGHT.front0) * sight) * far);
+  const q = clearness(water, deep);
+  const far = (SIGHT.surface + (SIGHT.depth - SIGHT.surface) * d) * Math.pow(water, SIGHT.waterPower);
+  // Auch die Nähe wird in dunklem Wasser enger; ein fester Sockel würde bei jungen Fischen die Tiefe wieder aufheben.
+  const near = SIGHT.back * (0.5 + 0.5 * q);
+  const front = Math.max(near * 1.4, full * (SIGHT.front0 + (1 - SIGHT.front0) * sight) * far);
   return {
     front,
-    back: Math.max(SIGHT.back, front * SIGHT.backShare),
-    fade: Math.max(40, SIGHT.fade * full * (1 - SIGHT.steep * d) * (0.75 + 0.25 * water)),
+    back: Math.max(near, front * SIGHT.backShare),
+    fade: Math.max(24, SIGHT.fade * full * (1 - SIGHT.steep * d) * (0.5 + 0.5 * q)),
   };
 }
 

@@ -43,6 +43,16 @@ export const LIFE = {
   fadeTo: 0.45,
 };
 
+/** Tempoentwicklung: kleine Schritte über Generationen; das volle Tempo erst beim Ausgewachsensein. */
+export const MOVEMENT = {
+  /** Anteil des ausgewachsenen Tempos beim Schlüpfen (bei LIFE.hatch) */
+  hatchSpeed: 0.6,
+  /** Tempofaktor je vererbtem Flossenpunkt: +10 Punkte → +10 % statt bisher +100 % */
+  finPerPoint: 0.01,
+  /** Anteil des Längenzuwachses, der Tempo gibt: +10 % Länge → +2 % Tempo */
+  lengthSpeed: 0.2,
+};
+
 /**
  * Laichen: Gelaicht wird im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund. Weibchen legen ein Gelege,
  * Männchen befruchten eines. Fehlt ein Partner, kommt einer deiner Art dazu (KI) – später auch andere Spieler.

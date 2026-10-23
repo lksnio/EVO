@@ -2236,10 +2236,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Stoß: Wer mit Schwung in ein Tier stößt, betäubt kleine und mittelgroße Tiere einen Moment lang –
-   * Zeit für ein, zwei Bisse, bevor sie fliehen oder zurückbeißen. Schaden macht er anfangs kaum; wer oft
-   * (und erfolgreich) stößt, dessen Stoßfisch-Platte prägt sich stärker aus: ein harter Kopf mit Kopfplatte. Große
-   * Tiere taumeln nur kurz, und wer gegen etwas viel Größeres stößt, tut sich selbst weh.
+   * Stoß: Mit Schwung betäubt man ein Tier für 1 s beim Grund-Schädelwert 10; linear bis 2 s ab Schädel 100.
+   * Das gilt auch für große Tiere. Wer gegen etwas viel Größeres stößt, tut sich weiterhin selbst weh.
    */
   private collide(a: Animal, approach: number) {
     const p = this.player;
@@ -2251,11 +2249,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const plates = Math.max(0, -t.spike) * t.skull;
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
     const dealt = st.ram * 0.5 * sf;
-    const small = a.def.power <= st.power * 3;
     const ran = a.runningFor(this.time.now);
     this.scoreHit('ram', a, ran, sf);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
-    if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
+    if (!a.dead) a.stun(st.ramStun);
     if (sneak) {
       this.surprise(a);
       this.consumeAmbush();

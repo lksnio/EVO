@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Controls } from '../src/objects/Controls';
 import { Player, type PlayerHost } from '../src/objects/Player';
 import { game } from '../src/state/GameState';
+import { ADULT } from '../src/sim/life';
 
 // Nur Darstellung und Audio ersetzen: Bewegung, Ausdauer und Eingaben laufen durch Player.update.
 vi.mock('phaser', () => ({ default: {} }));
@@ -62,6 +63,29 @@ function swimmer(skull = 0, land = false) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('Schädelstoß', () => {
+  it.each([
+    [-10, 1000], [0, 1000], [22.5, 1250], [45, 1500], [67.5, 1750], [90, 2000], [140, 2000],
+  ])('vererbter Schädelzuwachs %s ergibt %s ms Betäubung', (ramGain, duration) => {
+    game.resetAll();
+    game.newRun();
+    for (const cls of ['fish', 'amphibian'] as const) {
+      const st = game.stats(cls, { ...game.traits, ramGain }, ADULT);
+      expect(st.ramStun).toBeCloseTo(duration);
+    }
+  });
+
+  it('berücksichtigt auch ältere Schädelmerkmale und die aktuelle Stärke des Jungtiers', () => {
+    game.resetAll();
+    game.newRun();
+    const traits = { ...game.traits, skull: 0.5 };
+    // Dreifache Stoßkraft gegenüber dem Urahn: Schädel 30, also 20/90 des Wegs von 1 zu 2 Sekunden.
+    expect(game.stats('fish', traits, ADULT).ramStun).toBeCloseTo(1000 + 1000 * 20 / 90);
+    const strong = { ...game.traits, ramGain: 90 };
+    expect(game.stats('fish', strong, ADULT).ramStun).toBe(2000);
+    expect(game.stats('fish', strong, { grow: 0.4, old: 0 }).ramStun).toBeLessThan(2000);
+    expect(game.stats().ramStun).toBe(1000);
+  });
+
   it('kommt mit höherem Schädelwert früher und schneller auf Stoßtempo', () => {
     const peak = (skull: number) => {
       const s = swimmer(skull);
