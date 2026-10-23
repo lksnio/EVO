@@ -47,6 +47,25 @@ und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie 
 
 **Online spielen:** https://lksnio.github.io/EVO/
 
+## 16-Bit-Look und Bildoptionen
+
+Die Spielwelt nutzt einen SNES-inspirierten Cyber-Look: Stahlblau und Violett, Cyan-Kanten, warme Energiesparks und
+vier prozedural gezeichnete Pixel-Art-Parallaxebenen mit unterschiedlichen Geschwindigkeiten. Sprint, Schädelstoß, Biss und
+Treffer haben eigene gepoolte Pixelpartikel und kurze, abgestufte Flash-Animationen.
+
+Unter **Esc → Bild & Stil** lassen sich Pixelgröße (1–6), Kontrast, Farbintensität und Dithering sofort einstellen,
+der Kameraeffekt ausschalten und die Standardwerte wiederherstellen. Die Änderungen bleiben lokal im Browser;
+Spielwerte und Mehrspieler werden davon nicht beeinflusst. Standard: 3 Pixel, 114 % Kontrast, 130 % Farbintensität,
+35 % Dithering. HUD, Stats, Menüs und die Laichauswahl bleiben scharf und ungefiltert.
+
+Technik: Das Projekt verwendet **Phaser 4.2**. `src/fx/RetroPipeline.ts` implementiert den GLSL-Kamerafilter mit
+`BaseFilterShader` und `camera.filters.internal`, der nativen Nachfolge-API der Phaser-3-`PostFXPipeline`.
+Ein einzelner Pass verbindet Pixelraster, eine feste Palette aus 48 RGB555-Farben und ein stabiles 4×4-Bayer-Raster.
+Eine einmal erzeugte Farbtabelle spart die Palettensuche pro Bildschirmfragment. Nur die Hauptkamera der Levelszene
+erhält diesen Filter; die eigene HUD-Kamera bleibt frei. Ohne WebGL bleiben Pixel-Art-Hintergründe und Effekte erhalten.
+Palette und Standardwerte stehen in `src/data/retro.ts`, Hintergründe und Partikel in `src/fx/RetroBackdrop.ts`
+und `src/fx/RetroEffects.ts`.
+
 ## Zeitalter wählen
 
 Unter „Zeitalter“ (bzw. „Leben beginnen“) stehen die **sieben Zeitalter** nebeneinander – sieben Bilder, so hoch wie der

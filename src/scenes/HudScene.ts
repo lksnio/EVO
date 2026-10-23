@@ -20,6 +20,7 @@ import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
 import { UPGRADES } from '../data/life';
 import { BROOD, OXYGEN } from '../data/karbon';
+import { openRetroSettings } from '../ui/retroSettings';
 
 const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -52,6 +53,7 @@ export class HudScene extends Phaser.Scene {
   private shrineNav?: MenuNav;
   /** die Seite „Steuerung“ (über der Rast) */
   private keys?: Phaser.GameObjects.Container;
+  private visualSettings?: Phaser.GameObjects.Container;
   private portrait?: CreatureView;
   private giveUp?: Button;
   private giveUpArmed = false;
@@ -93,6 +95,7 @@ export class HudScene extends Phaser.Scene {
     this.ramBtn = false;
     this.overview = undefined;
     this.overviewGlow = undefined;
+    this.visualSettings = undefined;
     this.bossShown = false;
     this.hp = 1;
     this.hidden = false;
@@ -103,6 +106,7 @@ export class HudScene extends Phaser.Scene {
 
   create() {
     const ep = this.ep;
+    this.events.once('shutdown', () => { this.visualSettings?.destroy(); this.visualSettings = undefined; });
 
     // Bildränder: Verletzung (rot), Versteck (grünlich-dunkel)
     this.hideV = this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setTint(0x0c1a0a).setAlpha(0);
@@ -779,13 +783,14 @@ export class HudScene extends Phaser.Scene {
     const bx = W / 2 + 170;
     // Liegt Laich deiner Generation, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
     const heir = game.roe.length > 0;
-    const y0 = heir ? 236 : 252, step = heir ? 58 : 66, h = heir ? 50 : 54;
+    const y0 = heir ? 232 : 246, step = heir ? 50 : 56, h = heir ? 44 : 48;
     const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, h, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
     const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, h, onClick: () => this.showControls() });
+    const visuals = new Button(this, bx, y0 + step * 2, 'Bild & Stil', { w: 300, h, onClick: () => this.showVisualSettings() });
     // Zum Hauptmenü: Das Spiel läuft noch 5 Sekunden weiter (so entkommt man keiner Gefahr), dann geht es genau hier weiter
-    const b4 = new Button(this, bx, y0 + step * 2, 'Hauptmenü', { w: 300, h, icon: 'ic_home', onClick: () => this.quit() });
-    const items = [b1, b3, b4];
-    if (heir) items.push(new Button(this, bx, y0 + step * 3, 'Leben weitergeben', { w: 300, h, icon: 'ic_swarm', onClick: () => this.handOver() }));
+    const b4 = new Button(this, bx, y0 + step * 3, 'Hauptmenü', { w: 300, h, icon: 'ic_home', onClick: () => this.quit() });
+    const items = [b1, b3, visuals, b4];
+    if (heir) items.push(new Button(this, bx, y0 + step * 4, 'Leben weitergeben', { w: 300, h, icon: 'ic_swarm', onClick: () => this.handOver() }));
     const b2 = new Button(this, bx, y0 + step * items.length, 'Aufgeben', { w: 300, h, icon: 'ic_skull', onClick: () => this.abort() });
     items.push(b2);
     this.giveUp = b2;
@@ -809,8 +814,20 @@ export class HudScene extends Phaser.Scene {
     });
   }
 
+  private showVisualSettings() {
+    if (!this.pauseC || this.keys || this.visualSettings) return;
+    if (this.pauseNav) this.pauseNav.enabled = false;
+    this.pauseC.setVisible(false);
+    this.visualSettings = openRetroSettings(this, 55, () => {
+      this.visualSettings = undefined;
+      this.pauseC?.setVisible(true);
+      if (this.pauseNav) this.pauseNav.enabled = true;
+    });
+  }
+
   private resumeGame() {
     if (!this.pauseC) return;
+    this.visualSettings?.destroy();
     this.pauseC.destroy();
     this.pauseC = undefined;
     this.portrait = undefined;

@@ -7,9 +7,9 @@ import { type Ctx, addTex, newCanvas, smooth, vgrad } from '../util/canvas';
 import { mulberry32 } from '../util/math';
 import { innerShade, pattern, softShadow, type NoiseKind } from './paint';
 
-// Der Meeresboden wird in Stücken von 640 Bildpunkten Breite gemalt: eine glatte Höhenlinie, darunter Sand, Fels oder Schlamm
-// (weich ineinander übergehend), nach unten dunkler werdend. Felsen sind eigene Bilder – mit Schatten, Schichten, Rissen und
-// Sand am Fuß. Die Hitboxen (Rechtecke) stehen in LevelData; hier geht es nur um das Bild.
+// Der Meeresboden wird in unveränderten 640-Pixel-Stücken gemalt. Kühle Stahl-/Violettflächen, abgestufte Schatten,
+// Cyan-Lippen und vereinzelte warme Mineraladern geben der Welt die klare Lesbarkeit eines 16-Bit-Actionspiels.
+// Fugen und Facetten sind reine Textur; Umrisse, Hitboxen und Levelgeometrie kommen unverändert aus LevelData.
 
 const TAU = Math.PI * 2;
 const CHUNK = 640;
@@ -25,21 +25,21 @@ interface Mat {
 }
 
 const OCEAN: Record<Material, Mat> = {
-  sand: { top: 0xa89a74, mid: 0x7d704f, deep: 0x3d372a },
-  rock: { top: 0x6f736c, mid: 0x4d5350, deep: 0x272d2d },
-  mud: { top: 0x5a5340, mid: 0x3d382b, deep: 0x201f19 },
+  sand: { top: 0x4488af, mid: 0x274971, deep: 0x121e40 },
+  rock: { top: 0x6273b2, mid: 0x333c6e, deep: 0x1b2348 },
+  mud: { top: 0x535084, mid: 0x302951, deep: 0x15142e },
 };
 /** Die Farbe, in der jedes Bodenstück unten ausläuft */
-const DEEP = 0x192021;
-const TINT: Record<Theme, number> = { ozean: 0x000000, sumpf: 0x3a4a1c, reptil: 0x4a2a14, eis: 0xc8dcea, eden: 0x4a3a1a };
+const DEEP = 0x080e24;
+const TINT: Record<Theme, number> = { ozean: 0x000000, sumpf: 0x265867, reptil: 0x70435f, eis: 0x70ceea, eden: 0x486993 };
 
 /** Farben eines Materials – je nach Ort (Variante 1: bewachsen, grünlich; 2: tief, dunkel und bläulich). */
 function colors(theme: Theme, variant: number, m: Material): Mat {
   const base = OCEAN[m];
   const tint = (c: number) => {
     let o = theme === 'ozean' ? c : mix(c, TINT[theme], 0.4);
-    if (variant === 1) o = mix(o, m === 'rock' ? 0x4c5c3c : 0x5c6a30, m === 'rock' ? 0.14 : 0.26);
-    else if (variant === 2) o = shade(mix(o, 0x0f1e2c, 0.3), -0.12);
+    if (variant === 1) o = mix(o, m === 'rock' ? 0x24566f : 0x287c82, m === 'rock' ? 0.14 : 0.26);
+    else if (variant === 2) o = shade(mix(o, 0x171c49, 0.3), -0.1);
     return o;
   };
   return { top: tint(base.top), mid: tint(base.mid), deep: tint(base.deep) };
@@ -53,6 +53,7 @@ const deepColor = (theme: Theme, variant: number) => {
 
 /** Farbe in der Tiefe u (0 = Oberfläche, 1 = ganz unten): oben hell, dann das Material, dann die gemeinsame Tiefenfarbe. */
 function depthColor(m: Mat, deep: number, u: number) {
+  u = Math.floor(u * 8) / 8;
   if (u < 0.3) return mix(m.top, m.mid, u / 0.3);
   if (u < 0.75) return mix(m.mid, m.deep, (u - 0.3) / 0.45);
   return mix(m.deep, deep, (u - 0.75) / 0.25);
@@ -85,7 +86,34 @@ export interface RockLook {
   dark?: boolean;
 }
 
-const TONES = [0x9b9884, 0x70746d, 0x525957];
+const TONES = [0x477caa, 0x365685, 0x252e57];
+
+/** Sparse, snapped panel seams and mineral inlays, clipped by the caller to the existing terrain silhouette. */
+function inlays(ctx: Ctx, x0: number, y0: number, width: number, height: number, seed: number, dark = false) {
+  const q = mulberry32(seed ^ 0x53a9be7);
+  const step = 64;
+  for (let y = Math.ceil(y0 / 40) * 40; y < y0 + height; y += 40) {
+    const offset = Math.floor(q() * 3) * 16;
+    for (let x = Math.floor(x0 / step) * step + offset; x < x0 + width; x += step + 16) {
+      if (q() < 0.4) continue;
+      const w = 32 + Math.floor(q() * 3) * 8;
+      ctx.fillStyle = dark ? 'rgba(4,9,28,0.5)' : 'rgba(4,9,28,0.7)';
+      ctx.fillRect(x, y, w, 2);
+      ctx.fillRect(x + w - 2, y + 2, 2, 12);
+      ctx.fillStyle = dark ? 'rgba(61,105,143,0.18)' : 'rgba(97,165,208,0.25)';
+      ctx.fillRect(x + 2, y + 2, w - 6, 2);
+      ctx.fillRect(x + w, y + 2, 2, 12);
+      if (!dark && q() < 0.3) {
+        ctx.fillStyle = '#a45c41';
+        ctx.fillRect(x + 7, y - 8, 12, 4);
+        ctx.fillStyle = '#e99a55';
+        ctx.fillRect(x + 11, y - 8, 4, 2);
+      }
+      ctx.fillStyle = dark ? 'rgba(29,61,94,0.35)' : 'rgba(115,171,211,0.45)';
+      ctx.fillRect(x + 4, y + 7, 3, 3);
+    }
+  }
+}
 
 /** Einen Felsen in Weltkoordinaten malen (die Leinwand ist so verschoben, dass sie passen). */
 function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
@@ -98,14 +126,15 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
     else roundedPoly(ctx, pts, form === 'slab' ? 9 : 16);
   };
   let base = TONES[Math.max(0, Math.min(2, s.tone))];
-  if (look.variant === 1) base = mix(base, 0x56683a, 0.16);
+  if (look.variant === 1) base = mix(base, 0x267b83, 0.16);
   else if (look.variant === 2) base = shade(mix(base, 0x10202e, 0.3), -0.1);
   if (look.theme !== 'ozean') base = mix(base, TINT[look.theme], 0.3);
   if (look.dark) base = shade(mix(base, 0x0c1a22, 0.35), -0.3);
   const top = s.y - s.ry, bot = s.y + s.ry, ht = Math.max(8, s.ry * 2);
   if (form === 'boulder') softShadow(ctx, s.x, s.y + rockBottom(outline) - 2, s.rx * 1.12, Math.max(4, s.ry * 0.2), look.dark ? 0.3 : 0.5);
   path();
-  ctx.fillStyle = vgrad(ctx, top, bot, [[0, css(shade(base, 0.2))], [0.4, css(base)], [1, css(shade(base, -0.5))]]);
+  const bright = css(shade(base, 0.28)), mid = css(base), low = css(shade(base, -0.18)), dark = css(shade(base, -0.48));
+  ctx.fillStyle = vgrad(ctx, top, bot, [[0, bright], [0.17, bright], [0.17, mid], [0.45, mid], [0.45, low], [0.75, low], [0.75, dark], [1, dark]]);
   ctx.fill();
   ctx.save();
   path();
@@ -119,13 +148,14 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
   const fillBox = () => ctx.fillRect(s.x - s.rx - 4, top - 4, s.rx * 2 + 8, ht + 8);
   // Gesteinsstruktur
   box(() => {
-    ctx.globalAlpha = look.dark ? 0.7 : 0.85;
+    ctx.globalAlpha = look.dark ? 0.28 : 0.35;
     ctx.fillStyle = pattern(ctx, 'stone', s.rx < 40 ? 0.7 : 0.5, (s.seed % 97) * 3, (s.seed % 89) * 3);
     fillBox();
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = 0.15;
     ctx.fillStyle = pattern(ctx, 'mottle', 0.6, (s.seed % 53) * 5, (s.seed % 41) * 5);
     fillBox();
   });
+  inlays(ctx, s.x - s.rx, top + 8, s.rx * 2, ht * 0.75, s.seed, look.dark);
   // Schichten: Platten und Bögen sind geschichtet, große Brocken haben ein paar Bänder
   const layers = form === 'boulder' ? (s.rx > 70 ? 3 : 0) : Math.max(3, Math.round(ht / 26));
   ctx.lineCap = 'round';
@@ -140,7 +170,7 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
     ctx.lineWidth = 1.6;
     ctx.stroke();
     ctx.translate(0, 2.4);
-    ctx.strokeStyle = 'rgba(255,248,226,0.07)';
+    ctx.strokeStyle = 'rgba(130,202,255,0.17)';
     ctx.lineWidth = 1.2;
     ctx.stroke();
     ctx.translate(0, -2.4);
@@ -165,12 +195,11 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
     for (let k = 0, n = Math.round((s.rx / 14) * moss * 2); k < n; k++) {
       const x = s.x + (r() * 2 - 1) * s.rx * 0.85;
       const y = top + ht * (0.04 + r() * 0.22);
-      const rad = 7 + r() * 14;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-      g.addColorStop(0, `rgba(86,118,58,${0.4 * moss + 0.1})`);
-      g.addColorStop(1, 'rgba(86,118,58,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+      const rad = 4 + Math.floor(r() * 3) * 4;
+      ctx.fillStyle = css(0x3fa89e, 0.25 + 0.3 * moss);
+      ctx.fillRect(Math.round(x / 4) * 4, Math.round(y / 4) * 4, rad, 4);
+      ctx.fillStyle = css(0x89d7ce, 0.2 + 0.2 * moss);
+      ctx.fillRect(Math.round(x / 4) * 4 + 4, Math.round(y / 4) * 4, 4, 2);
     }
   }
   // Sand am Fuß – der Felsen steckt im Boden
@@ -182,12 +211,21 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
   // weiche Schatten an den Kanten, Licht von oben
   innerShade(ctx, path, path, 'rgba(0,0,0,0.55)', ht * 0.22, 0, -ht * 0.12, ht * 0.12);
   innerShade(ctx, path, path, 'rgba(0,0,0,0.3)', ht * 0.07, 0, 0, ht * 0.05);
-  innerShade(ctx, path, path, look.dark ? 'rgba(120,170,170,0.24)' : 'rgba(255,240,205,0.4)', ht * 0.1, 0, ht * 0.08, ht * 0.05);
+  innerShade(ctx, path, path, look.dark ? 'rgba(70,120,185,0.18)' : 'rgba(117,207,255,0.3)', ht * 0.1, 0, ht * 0.08, ht * 0.05);
   ctx.restore();
   path();
-  ctx.strokeStyle = 'rgba(4,8,8,0.7)';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(3,8,25,0.9)';
+  ctx.lineWidth = 2.5;
   ctx.stroke();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(s.x - s.rx - 6, top - 6, s.rx * 2 + 12, ht * 0.36);
+  ctx.clip();
+  path();
+  ctx.strokeStyle = look.dark ? 'rgba(77,134,185,0.28)' : 'rgba(110,221,248,0.65)';
+  ctx.lineWidth = look.dark ? 1.5 : 2.5;
+  ctx.stroke();
+  ctx.restore();
   if (form === 'arch') {
     // die Pfeiler stecken im Boden: unten blenden sie in den Boden aus
     ctx.save();
@@ -202,10 +240,10 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
 // Mikrobenmatten
 
 const MAT_TONES = [
-  { base: 0x5f6e30, light: 0x94a65a, dark: 0x2c3818 }, // olivgrün
-  { base: 0x66485a, light: 0x9c7288, dark: 0x30202c }, // purpurbraun
-  { base: 0x9a6860, light: 0xd29c90, dark: 0x4a2e2a }, // rosa
-  { base: 0xa08a40, light: 0xdac672, dark: 0x4a3e18 }, // ocker
+  { base: 0x248976, light: 0x77e5c2, dark: 0x16383e }, // türkis
+  { base: 0x754ba3, light: 0xc993ec, dark: 0x33244c }, // violett
+  { base: 0x9a4b85, light: 0xee93cb, dark: 0x492640 }, // magenta
+  { base: 0xad6737, light: 0xffbd65, dark: 0x502e2e }, // bernstein
 ];
 
 /** Eine Matte: ein dünner, runzliger Belag, der der Bodenlinie folgt – an den Rändern auslaufend, mit Gasbläschen. */
@@ -400,10 +438,11 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
     ctx.drawImage(tc, gx0, oy, w, h);
     ctx.restore();
   };
-  layer('stone', 0.55, 0.95, ['rock'], 'multiply');
-  layer('mottle', 0.45, 0.5, ['sand'], 'multiply');
-  layer('blotch', 0.7, 0.45, ['mud'], 'multiply');
-  layer('grain', 1, 0.35, ['sand', 'rock', 'mud'], 'multiply');
+  layer('stone', 0.55, 0.4, ['rock'], 'multiply');
+  layer('mottle', 0.45, 0.2, ['sand'], 'multiply');
+  layer('blotch', 0.7, 0.2, ['mud'], 'multiply');
+  layer('grain', 1, 0.12, ['sand', 'rock', 'mud'], 'multiply');
+  inlays(ctx, x0, Math.ceil(lo + 32), x1 - x0, Math.min(SKIN - 40, 120), index * 7919 + L.width);
 
   // Einzelheiten unter der Oberfläche
   const r = mulberry32(index * 7919 + L.width);
@@ -492,7 +531,7 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
       else ctx.moveTo(x, y);
       on = true;
     }
-    ctx.strokeStyle = lightLine ? `rgba(255,244,214,${a})` : `rgba(0,0,0,${a})`;
+    ctx.strokeStyle = lightLine ? `rgba(135,191,245,${a * 2})` : `rgba(1,4,22,${a * 2})`;
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -509,18 +548,28 @@ function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: nu
   edge();
   ctx.stroke();
   ctx.translate(0, -9);
-  for (const [lw, a] of [[30, 0.04], [18, 0.06], [10, 0.09], [5, 0.13]] as const) {
+  for (const [lw, a] of [[16, 0.06], [8, 0.12], [3, 0.48]] as const) {
     edge();
-    ctx.strokeStyle = `rgba(255,240,205,${a})`;
+    ctx.strokeStyle = `rgba(112,221,246,${a})`;
     ctx.lineWidth = lw;
     ctx.stroke();
   }
   ctx.restore();
   // dünne dunkle Kante
   edge();
-  ctx.strokeStyle = 'rgba(6,10,10,0.6)';
-  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = 'rgba(5,13,40,0.8)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
+  // Short hard-lit ledges, following the same ground curve. No new obstacles or collision shapes.
+  for (let x = Math.ceil(gx0 / 48) * 48; x < gx1; x += 48) {
+    const yy = groundCurve(hp, x) + 2;
+    ctx.strokeStyle = Math.floor(x / 48) % 9 === 4 ? 'rgba(255,171,87,0.65)' : 'rgba(121,230,255,0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, yy);
+    ctx.lineTo(x + 9, groundCurve(hp, x + 9) + 2);
+    ctx.stroke();
+  }
   // Mikrobenmatten liegen obenauf
   for (const m of L.mats) if (m.x1 > gx0 && m.x0 < gx1) paintMat(ctx, hp, m);
   // Kiesel auf dem Boden
@@ -615,11 +664,11 @@ export function rubbleArt(scene: Phaser.Scene, wl: CaveWall, theme: Theme, varia
   const left = (yy: number) => wl.x - (out < 0 ? slope(yy) : 4 * Math.max(0, (yy - wl.y) / wl.h));
   const right = (yy: number) => wl.x + wl.w + (out > 0 ? slope(yy) : 4 * Math.max(0, (yy - wl.y) / wl.h));
   let base = TONES[1];
-  if (variant === 1) base = mix(base, 0x56683a, 0.16);
+  if (variant === 1) base = mix(base, 0x267b83, 0.16);
   else if (variant === 2) base = shade(mix(base, 0x10202e, 0.3), -0.1);
   if (theme !== 'ozean') base = mix(base, TINT[theme], 0.3);
   // etwas heller und wärmer als der Fels: frisch heruntergebrochen
-  base = mix(base, 0xa8987a, 0.25);
+  base = mix(base, 0x9888aa, 0.25);
   // lose Steine: unten große Brocken, oben kleinere, kreuz und quer übereinander
   const stones: { x: number; y: number; rx: number; ry: number; a: number; t: number }[] = [];
   for (let k = 0; k < 900 && stones.length < 46; k++) {
