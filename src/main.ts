@@ -28,7 +28,6 @@ import { GalleryScene } from './scenes/GalleryScene';
 import { AquapendiumScene } from './scenes/AquapendiumScene';
 import { EraScene } from './scenes/EraScene';
 import { matches } from './state/keymap';
-import { loadRetroSettings, resetRetroSettings, retroSettings, setRetroSettings } from './data/retro';
 
 async function start() {
   // Schriften laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
@@ -51,7 +50,6 @@ async function start() {
   game.load(new URLSearchParams(location.search).get('slot'));
   // eigene Werte aus der Entwickler-Einstellung (Titelbild, Zahnrad)
   applyTuning();
-  loadRetroSettings();
   audio.setMuted(game.data.muted);
   setMuteHandler((m) => {
     game.data.muted = m;
@@ -88,10 +86,7 @@ async function start() {
   keepAlive(g);
 
   // Für Tests und Entwickler-Konsole
-  (window as unknown as Record<string, unknown>).__evo = {
-    game: g, state: game, audio, OceanScore, debug: DEBUG,
-    visuals: { settings: retroSettings, set: setRetroSettings, reset: resetRetroSettings },
-  };
+  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, OceanScore, debug: DEBUG };
 }
 
 start();

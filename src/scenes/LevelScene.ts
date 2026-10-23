@@ -42,13 +42,10 @@ import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
 import { mix as mixColor } from '../util/color';
 import { rrect, tex } from '../util/canvas';
-import { installRetroPipeline } from '../fx/RetroPipeline';
-import { RetroBackdrop } from '../fx/RetroBackdrop';
-import { RetroEffects } from '../fx/RetroEffects';
 
 type PImg = Phaser.Physics.Arcade.Image;
 
-const DUST: Record<Theme, number> = { ozean: 0x67dfee, sumpf: 0x7aa6db, reptil: 0xffad5b, eis: 0xb5f7ef, eden: 0xc5e797 };
+const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 0x6a4a34, eis: 0xdfe6ec, eden: 0x6a5a3a };
 
 
 /** Bildschirmfeste Ebenen müssen beim Herauszoomen größer sein, damit sie das ganze Bild füllen. */
@@ -144,8 +141,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private hazards: Rect[] = [];
   private lava: Phaser.GameObjects.TileSprite[] = [];
   private shots: PImg[] = [];
-  private retroBackdrop!: RetroBackdrop;
-  private retroFx!: RetroEffects;
+  private bgFar!: Phaser.GameObjects.TileSprite;
+  private bgMid!: Phaser.GameObjects.TileSprite;
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
   /** Plankton, Meeresschnee und treibende Kolonien */
@@ -396,13 +393,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
     this.cameras.main.setBackgroundColor('#020304');
-    installRetroPipeline(this);
 
-    // Vier eigenständige Pixel-Art-Parallaxebenen; Gameplay und Kollisionsgeometrie bleiben in Weltkoordinaten.
+    // Hintergrund mit Nebel
+    // im Startgebiet ist das Wasser sauber: heller, klar und hellblau
+    // im Karbon (Land über dem Wasser) ein heller, dunstiger Tag über dem Sumpf
     const clean = this.place.kind === 'start' || this.amphibious;
-    const [, , fog] = levelBackgrounds(this, L.theme, L.variant, clean);
-    this.retroBackdrop = new RetroBackdrop(this, { theme: L.theme, variant: L.variant, water: this.water && !this.amphibious, seed: this.place.id });
-    this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 4).setAlpha(0.08).setTileScale(1 / Z);
+    const [far, mid, fog] = levelBackgrounds(this, L.theme, L.variant, clean);
+    this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
+    this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
+    this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
 
     // Gelände: ein glatter Boden aus Sand, Fels und Schlamm, dazu Felsen und Kiesel
     this.solids = this.physics.add.staticGroup();
@@ -548,10 +547,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }).setDepth(DEPTH.fx - 2);
     }
     this.sparkle = this.add.particles(0, 0, 'p_dot', {
-      speed: { min: 10, max: 50 }, lifespan: 700, scale: { start: 0.7, end: 0.25 }, alpha: { start: 1, end: 0 },
-      gravityY: -30, tint: [0x67edf0, 0xffad5b, 0xffefb5], emitting: false, blendMode: Phaser.BlendModes.ADD,
+      speed: { min: 10, max: 50 }, lifespan: 1400, scale: { start: 0.5, end: 0 }, alpha: { start: 0.9, end: 0 },
+      gravityY: -30, tint: [0xffd890, 0xfff0c8], emitting: false, blendMode: Phaser.BlendModes.ADD,
     }).setDepth(DEPTH.fx);
-    this.retroFx = new RetroEffects(this, this.water);
     this.ambient();
     if (L.variant !== 'normal') {
       this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z).setDepth(DEPTH.dark);
@@ -566,7 +564,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.place.kind === 'start' ? 0.32 : 0.55);
     // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
     if (this.place.kind === 'start' && this.water && !this.amphibious) {
-      this.add.rectangle(VX, VY, VW, VH, 0x329bed, 0.025).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
+      this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
     }
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
@@ -1021,9 +1019,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const L = this.L;
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
     this.surfGlow = this.add.tileSprite(0, L.surfaceY - 8, L.width, 218, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
-      .setBlendMode(Phaser.BlendModes.ADD).setTint(0x67edf0).setAlpha(0.16).setTileScale(1, 0.62);
+      .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.34).setTileScale(1, 0.62);
     // zwei Lichtnetze in verschiedener Größe, die gegeneinander laufen – so wiederholt sich nichts sichtbar
-    for (const [key, a, v, sc] of [['caustics', 0.11, 9, 1], ['caustics2', 0.07, -6, 1.37]] as const) {
+    for (const [key, a, v, sc] of [['caustics', 0.34, 9, 1], ['caustics2', 0.26, -6, 1.37]] as const) {
       const s = this.add.tileSprite(0, L.surfaceY - 4, L.width, 194, key).setOrigin(0).setDepth(DEPTH.decoBack - 1)
         .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc);
       this.caustics.push({ s, v, a });
@@ -1033,10 +1031,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       let x = lit.x0 + 40 + Math.random() * 90;
       while (x < lit.x1 - 30) {
         const light = this.zoneAt(x).def.light;
-        const base = (0.07 + Math.random() * 0.14) * light;
+        const base = (0.12 + Math.random() * 0.26) * light;
         // das Licht reicht nur ein Stück ins Wasser – darunter wird es dämmrig
         const ray = this.add.image(x, L.surfaceY - 30, 'lightray').setOrigin(0.5, 0).setDepth(DEPTH.decoBack)
-          .setTint(0x67edf0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.45 + Math.random() * 1.25, 0.48 + Math.random() * 0.3);
+          .setBlendMode(Phaser.BlendModes.ADD).setAlpha(base).setScale(0.45 + Math.random() * 1.25, 0.48 + Math.random() * 0.3);
         ray.setAngle(-16 + Math.random() * 12);
         this.tweens.add({ targets: ray, angle: ray.angle + 3 + Math.random() * 5, alpha: base * (0.35 + Math.random() * 0.3), yoyo: true, repeat: -1, duration: 3000 + Math.random() * 4500, ease: 'Sine.inOut', delay: Math.random() * 2000 });
         this.cullAdd(ray, x - 260, x + 160);
@@ -1049,7 +1047,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
           // Lichtflecken nur dort, wo das Licht noch bis zum Grund reicht (auf hohen Felsen)
           if (gy < L.height && gy - L.surfaceY < reach) {
             const spot = this.add.image(gx, gy - 6, 'glow').setDepth(DEPTH.decoBack + 1).setBlendMode(Phaser.BlendModes.ADD)
-              .setTint(0x55dfff).setScale(1 + Math.random() * 1.4, 0.3 + Math.random() * 0.12).setAlpha((0.05 + Math.random() * 0.07) * light);
+              .setTint(0xbfe8e0).setScale(1 + Math.random() * 1.4, 0.3 + Math.random() * 0.12).setAlpha((0.07 + Math.random() * 0.1) * light);
             this.tweens.add({ targets: spot, alpha: spot.alpha * 0.4, yoyo: true, repeat: -1, duration: 2500 + Math.random() * 3000, ease: 'Sine.inOut' });
             this.cullAdd(spot, gx - 150, gx + 150);
           }
@@ -1058,8 +1056,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
       // ein warmer Schein dort, wo die Sonne durchkommt
       const pool = this.add.image((lit.x0 + lit.x1) / 2, L.surfaceY + 70, 'glow').setDisplaySize((lit.x1 - lit.x0) * 1.15, 340)
-        .setTint(0x329bed).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.08).setDepth(DEPTH.fx + 1);
-      this.tweens.add({ targets: pool, alpha: 0.04, yoyo: true, repeat: -1, duration: 3800 + Math.random() * 2400, ease: 'Sine.inOut' });
+        .setTint(0xcfeee0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.2).setDepth(DEPTH.fx + 1);
+      this.tweens.add({ targets: pool, alpha: 0.12, yoyo: true, repeat: -1, duration: 3800 + Math.random() * 2400, ease: 'Sine.inOut' });
       this.cullAdd(pool, lit.x0 - 200, lit.x1 + 200);
 
     }
@@ -1132,7 +1130,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** An Land: Sonnenstrahlen durch Blätterdach, Dunst oder Schneetreiben – je Gebiet anders hell. */
   private landLight() {
     const L = this.L;
-    const tint = L.theme === 'eis' ? 0x67edf0 : L.theme === 'sumpf' ? 0xb353cc : 0xffad5b;
+    const tint = L.theme === 'eis' ? 0xd0e4ff : L.theme === 'sumpf' ? 0xd8e8b0 : 0xffe0a0;
     let x = 100 + Math.random() * 200;
     while (x < L.width) {
       const light = this.zoneAt(x).def.light;
@@ -1305,11 +1303,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private zoneFx(time: number) {
     const z = this.L.zones[0].def;
     this.veil.setFillStyle(z.veil, z.veilA);
-    this.fog.setAlpha(Math.min(0.24, 0.075 * z.fog));
+    this.fog.setAlpha(Math.min(0.85, 0.35 * z.fog));
     this.zoneLight = z.light;
     // trübes Wasser macht unauffälliger
     this.murk = this.place.kind === 'murky' ? z.veilA : 0;
-    this.surfGlow?.setAlpha(0.16 * this.zoneLight);
+    this.surfGlow?.setAlpha(0.42 * this.zoneLight);
     for (const c of this.caustics) c.s.setAlpha(c.a * this.zoneLight);
     // Pflanzen wiegen sich (nur die sichtbaren)
     const t = time / 1000;
@@ -1969,7 +1967,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const ran = a.runningFor(now);
       this.scoreHit('hunt', a, ran, held ? 1.5 : 1);
       a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
-      this.retroFx.hit(a.x, a.y, 1 + momentum);
       if (sneak) this.surprise(a);
       if (held && !a.dead) a.stun(550);
       if (!a.dead) this.callHunt(a);
@@ -2245,7 +2242,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ran = a.runningFor(this.time.now);
     this.scoreHit('ram', a, ran, sf);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
-    this.retroFx.hit((a.x + p.x) / 2, (a.y + p.y) / 2, 1.5);
     if (!a.dead) a.stun(small ? 1150 : a.role === 'apex' ? 220 : 500);
     if (sneak) {
       this.surprise(a);
@@ -2277,7 +2273,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended && !(this.cine && !this.cine.released) && !this.quest?.busy && !this.hunt?.busy && time > this.prayUntil) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
-    this.retroFx.update(time, delta, p);
     // Gespräch: Solange es läuft und noch einen Augenblick danach, lässt man dich und deinen Gesprächspartner in Ruhe
     if (this.quest?.busy || this.hunt?.busy) {
       this.truceUntil = time + 2500;
@@ -2331,7 +2326,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.meats = this.meats.filter((c) => !c.gone);
 
     const cam = this.cameras.main;
-    this.retroBackdrop.update(cam, time);
+    this.bgFar.tilePositionX = cam.scrollX * 0.08;
+    this.bgMid.tilePositionX = cam.scrollX * 0.28;
     this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
     // im Fluss am Start ist es still: die Fische in der Ferne tauchen erst zur Mündung hin auf
     const re = this.L.riverEnd ?? 0;
@@ -3455,7 +3451,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Ein kurzes Funkeln. */
   glitter(x: number, y: number, n: number) {
-    this.retroFx.energy(x, y, n);
+    this.sparkle.explode(n, x, y);
   }
 
   /**
