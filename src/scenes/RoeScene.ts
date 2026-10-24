@@ -8,6 +8,7 @@ import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 import { tex } from '../util/canvas';
 import type { LevelScene, SuccessionData } from './LevelScene';
 import { speciesEnd } from './ExtinctScene';
+import { orderRoe } from '../sim/roe';
 
 /**
  * Der Laich (Devon): Nach dem Tod oder beim Besuch am dauerhaften Laich wählt man sein nächstes Leben.
@@ -15,9 +16,9 @@ import { speciesEnd } from './ExtinctScene';
  *   – Geschwister: Eier deiner Generation, die noch warten. Man bleibt in dieser Generation.
  *   – Nächste Generation: der Laich, den du und deine Geschwister gelegt habt. Wer daraus wählt, beginnt die nächste
  *     Generation – und kommt nie mehr zurück: Die übrigen Geschwister sind dann fort. Deshalb fragt die Szene noch einmal.
- * Jedes Ei zeigt, was in ihm steckt: das ausgewachsene Tier und seine Höchstwerte (Lebenskraft, Ausdauer, Gebiss, Stoß,
+ * Jedes Ei zeigt, was in ihm steckt: das ausgewachsene Tier und seine Erbgutwerte (Lebenskraft, Ausdauer, Gebiss, Stoß,
  * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Goldene Eier leuchten: Das Tier daraus
- * hat einen Segen mehr (nur dieses Tier).
+ * hat einen Segen mehr (nur dieses Tier). Persönliche Muschelsegen kommen erst beim Schlüpfen hinzu.
  *
  * Im Koop ist der Laich der gemeinsame (net/Species.ts): Die Liste ändert sich, wenn ein Artgenosse ein Ei nimmt; ein Ei
  * schlüpft erst, wenn der Server es zuteilt. Ist ein Artgenosse schon in der nächsten Generation, geht es nur noch dorthin.
@@ -258,9 +259,8 @@ export class RoeScene extends Phaser.Scene {
     L.add(text(this, x, y, head, 17, next || warn ? UI.ochre : UI.bone).setLetterSpacing(2));
     L.add(text(this, x, y + 26, sub, 15, eggs.length ? (warn ? '#e0b070' : UI.boneDim) : '#6c6454'));
     const max = PER_ROW * ROWS;
-    // die stärksten zuerst (gemessen an deinem Tier) – passen nicht alle ins Bild, fehlen die schwächsten
-    const score = (v: Shown) => STATS.reduce((a, [k]) => a + v[k] / Math.max(1, this.mine[k]), 0);
-    const order = eggs.map((egg, i) => ({ egg, i, v: game.roeShown(egg) })).sort((a, b) => score(b.v) - score(a.v));
+    // Gemeinsame Reihenfolge: kein Bezug zu den persönlichen Werten des betrachtenden Spielers.
+    const order = orderRoe(eggs, (egg) => game.roeShown(egg));
     order.slice(0, max).forEach(({ egg, i, v }, pos) => {
       const ex = x + 22 + (pos % PER_ROW) * STEP;
       const ey = y + 82 + Math.floor(pos / PER_ROW) * ROW_STEP;
@@ -420,8 +420,8 @@ export class RoeScene extends Phaser.Scene {
       c.add(this.add.rectangle(0, -196, 300, 26, 0x2a1c06, 0.9).setStrokeStyle(1, 0xffc850, 0.8));
       c.add(text(this, 0, -196, `✦  GOLDENE GEBURT  ·  ${upGain(gold)}  ✦`, 13, '#ffd878', { fontStyle: '700' }).setOrigin(0.5));
     }
-    c.add(text(this, -170, -60, gold ? 'ausgewachsen · mit dem goldenen Segen' : 'ausgewachsen', 13, gold ? '#b8964a' : '#6c6454'));
-    c.add(text(this, 170, -60, 'dein Tier', 13, '#6c6454').setOrigin(1, 0));
+    c.add(text(this, -170, -60, 'Erbgut · ausgewachsen', 13, gold ? '#b8964a' : '#6c6454'));
+    c.add(text(this, 170, -60, 'dein Erbgut', 13, '#6c6454').setOrigin(1, 0));
     STATS.forEach(([k, name], j) => {
       const y = -32 + j * 32;
       const val = s.v[k], diff = val - this.mine[k];
@@ -432,6 +432,7 @@ export class RoeScene extends Phaser.Scene {
       c.add(text(this, 70, y, `${val}`, 19, col ?? UI.bone).setOrigin(1, 0));
       if (diff !== 0) c.add(text(this, 170, y, diff > 0 ? `+${diff}` : `−${-diff}`, 16, diff > 0 ? '#9cc488' : '#c87a6a').setOrigin(1, 0));
     });
+    c.add(text(this, 0, 204, 'Persönliche Muschelsegen kommen beim Schlüpfen hinzu.', 13, UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5));
     const own = this.gen;
     const sibs = game.pool.length;
     const also = species.active && species.others.length ? ` – auch für ${species.others.join(', ')}` : '';
@@ -442,7 +443,7 @@ export class RoeScene extends Phaser.Scene {
       : pg > own
         ? `Dein Artgenosse ist schon in Generation ${pg} – mit diesem Ei folgst du ihm. Zurück zu Generation ${own} führt kein Weg.`
         : `Ein Geschwister: Du bleibst in Generation ${gen}${game.roe.length ? ' – euer Laich wartet weiter' : ''}.`;
-    c.add(text(this, 0, 196, note, 15, next || pg > own ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
+    c.add(text(this, 0, 224, note, 15, next || pg > own ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
   }
 
   update(_t: number, delta: number) {

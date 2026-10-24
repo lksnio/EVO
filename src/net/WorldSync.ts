@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import { SPECIES } from '../data/species';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import type { Animal, PlayerLike } from '../objects/Animal';
@@ -10,6 +9,7 @@ import { FAUNA_HZ, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type
 import type { RemoteFish } from './RemoteFish';
 import type { ZoneState } from './schema';
 import type { Zone } from './NetClient';
+import { animalRow } from './animalRow';
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 /** so viele Tiere bzw. Fleischstücke je Nachricht (eine Nachricht bleibt so unter 3 KB) */
@@ -26,7 +26,7 @@ export class RemoteTarget implements PlayerLike {
   hidden = false;
   private hurtAt = 0;
 
-  constructor(readonly id: string, private f: RemoteFish, private send: (m: HurtMsg) => void) {}
+  constructor(readonly id: string, private f: RemoteFish, private send: (m: HurtMsg, source?: object) => void) {}
 
   get x() {
     return this.f.view.x;
@@ -67,7 +67,7 @@ export class RemoteTarget implements PlayerLike {
     const now = performance.now();
     if (now - this.hurtAt < 150 || this.dead) return;
     this.hurtAt = now;
-    this.send({ to: this.id, dmg, x: fromX, by: by ?? '', animal: (source as { netId?: number } | undefined)?.netId });
+    this.send({ to: this.id, dmg, x: fromX, by: by ?? '' }, source);
   }
 }
 
@@ -93,7 +93,7 @@ export class WorldSync {
   private gkills = new Map<string, Kill>();
   private eatenKills = new Set<string>();
   /** Ortswächter: zuletzt gemeldet (Kurzform) und die Tiere/Stücke dazu */
-  private sentA = new Map<number, { sig: string; same: number }>();
+  private sentA = new Map<number, { sig: string; same: number; at: number }>();
   private sentM = new Map<number, string>();
   /** Ortswächter: zuletzt gemeldete Bissen je Pflanze */
   private sentP = new Map<number, number>();
@@ -119,7 +119,15 @@ export class WorldSync {
   }
 
   addTarget(id: string, f: RemoteFish) {
-    this.targets.set(id, new RemoteTarget(id, f, (m) => this.z?.hurt(m)));
+    this.targets.set(id, new RemoteTarget(id, f, (m, source) => {
+      const a = source as Animal | undefined;
+      if (a?.def && shared(a)) {
+        if (!a.netId) a.netId = this.nextId++;
+        m.animal = a.netId;
+        m.attacker = animalRow(a);
+      }
+      this.z?.hurt(m);
+    }));
   }
 
   removeTarget(id: string) {
@@ -133,10 +141,13 @@ export class WorldSync {
     this.started = true;
     this.host = host;
     if (host) {
-      if (!first) this.takeOver();
+      if (!first || this.z?.state.animals.size) this.takeOver();
       this.sentA.clear();
       this.sentM.clear();
       this.sentP.clear();
+      this.lastA.clear();
+      this.lastM.clear();
+      this.byId.clear();
       this.sendAt = 0;
     } else {
       this.h.dropShared();
@@ -160,13 +171,13 @@ export class WorldSync {
       if (!shared(a)) continue;
       if (!a.netId) a.netId = this.nextId++;
       seen.set(a.netId, a);
-      const r = this.rowOf(a);
+      const r = animalRow(a);
       const sig = `${r.sp},${r.x | 0},${r.y | 0},${r.d},${r.an},${r.hp},${r.mh},${r.sz},${r.tn},${r.al},${r.at}`;
       const last = this.sentA.get(r.id);
       // unverändert: nur noch ein paar Mal (es ist stehen geblieben), dann nicht mehr
       const same = last?.sig === sig ? last.same + 1 : 0;
-      if (same > SETTLE_SENDS) continue;
-      this.sentA.set(r.id, { sig, same });
+      if (same > SETTLE_SENDS && now - (last?.at ?? 0) < 1000) continue;
+      this.sentA.set(r.id, { sig, same, at: now });
       (msg.a ??= []).push(r);
     }
     for (const [id, a] of this.lastA) {
@@ -210,24 +221,9 @@ export class WorldSync {
     const a = msg.a ?? [], m = msg.m ?? [], t = msg.t;
     for (let i = 0; i < a.length; i += ROWS_PER_MSG) z.fauna({ t, a: a.slice(i, i + ROWS_PER_MSG) });
     for (let i = 0; i < m.length; i += ROWS_PER_MSG) z.fauna({ m: m.slice(i, i + ROWS_PER_MSG) });
-    if (msg.gone || msg.mgone || msg.p) z.fauna({ gone: msg.gone?.slice(0, 200), mgone: msg.mgone?.slice(0, 200), p: msg.p?.slice(0, 400) });
-  }
-
-  private rowOf(a: Animal): AnimalRow {
-    return {
-      id: a.netId,
-      sp: a.def.id,
-      x: r1(a.x),
-      y: r1(a.y),
-      d: a.flipX ? -1 : 1,
-      an: Math.round(a.angle),
-      hp: r1(Math.max(0, a.hp)),
-      mh: r1(a.maxHp),
-      sz: Math.round(a.sz * 1000) / 1000,
-      tn: a.isTinted && a.tintMode !== Phaser.TintModes.FILL ? a.tintTopLeft : 0,
-      al: Math.round(a.alpha * 100),
-      at: a.attacking,
-    };
+    for (let i = 0; i < (msg.gone?.length ?? 0); i += 200) z.fauna({ gone: msg.gone!.slice(i, i + 200) });
+    for (let i = 0; i < (msg.mgone?.length ?? 0); i += 200) z.fauna({ mgone: msg.mgone!.slice(i, i + 200) });
+    for (let i = 0; i < (msg.p?.length ?? 0); i += 400) z.fauna({ p: msg.p!.slice(i, i + 400) });
   }
 
   // ---------------------------------------------------------------- Gast
@@ -240,8 +236,12 @@ export class WorldSync {
       const id = Number(key);
       const r: AnimalRow = { id, sp: n.sp, x: n.x, y: n.y, d: n.d, an: n.an, hp: n.hp, mh: n.mh, sz: n.sz, tn: n.tn, al: n.al, at: n.at };
       const g = this.ghosts.get(id);
-      if (g && !g.dead) g.apply(r, now, n.t || now);
-      else if (!g && now > (this.deadUntil.get(id) ?? 0)) this.addGhost(r, now, n.t || now);
+      if (g && g.active && !g.dead) g.apply(r, now, n.t || now);
+      else if (r.hp > 0 && now > (this.deadUntil.get(id) ?? 0)) {
+        if (g) { this.h.dropAnimal(g); g.destroy(); this.ghosts.delete(id); }
+        this.deadUntil.delete(id);
+        this.addGhost(r, now, n.t || now);
+      }
     }
     const time = this.h.time.now;
     for (const [key, units] of s.plants) this.h.plants[Number(key)]?.netSet(units, time);
@@ -314,7 +314,18 @@ export class WorldSync {
   /** Ein Tier des Ortswächters hat dich getroffen. */
   hurt(m: HurtMsg) {
     const p = this.h.player;
-    if (!p.dead && !this.h.ended) p.hurt(m.dmg, m.x, m.by, m.animal ? this.ghosts.get(m.animal) : undefined);
+    if (p.dead || this.h.ended) return;
+    const r = m.attacker;
+    if (r && r.id === m.animal && r.hp > 0 && !this.host) {
+      let g = this.ghosts.get(r.id);
+      if (g && (g.dead || !g.active)) {
+        this.h.dropAnimal(g); g.destroy(); this.ghosts.delete(r.id); g = undefined;
+      }
+      if (!g) { this.addGhost(r, performance.now(), performance.now()); g = this.ghosts.get(r.id); }
+      g?.reveal(r, performance.now());
+      this.deadUntil.delete(r.id);
+    }
+    p.hurt(m.dmg, m.x, m.by, m.animal ? this.ghosts.get(m.animal) : undefined);
   }
 
   // ---------------------------------------------------------------- Ortswächter
@@ -348,35 +359,51 @@ export class WorldSync {
 
   /** Der Ortswächter ging: Ab jetzt rechnet dieses Spiel die Tiere – so, wie sie gerade sind. */
   private takeOver() {
-    let max = 0;
+    const state = this.z?.state;
+    // Maßgeblich ist der vollständige Serverstand, nicht eine unvollständige oder lokal als tot vorhergesagte Ansicht.
+    const animals: AnimalRow[] = state ? [...state.animals].map(([key, n]) => ({
+      id: Number(key), sp: n.sp, x: n.x, y: n.y, d: n.d, an: n.an,
+      hp: n.hp, mh: n.mh, sz: n.sz, tn: n.tn, al: n.al, at: n.at,
+    })) : [...this.ghosts.values()].filter((g) => !g.dead).map(animalRow);
+    const meats = state ? [...state.meats].map(([key, n]) => ({
+      id: Number(key), x: n.x, y: n.y, v: n.v, sp: n.sp, kill: n.kill,
+    })) : [...this.gmeats].map(([id, m]) => ({ id, x: m.x, y: m.y, v: m.value, sp: m.kill.species, kill: m.kill.id }));
+    this.h.dropShared();
     for (const g of this.ghosts.values()) {
-      max = Math.max(max, g.netId);
       this.h.dropAnimal(g);
-      if (g.dead) continue;
-      const a = this.h.spawnAnimal(g.def.id, g.x, g.y);
-      a.netId = g.netId;
-      a.sz = g.sz;
-      a.setScale(g.sz);
-      a.maxHp = g.maxHp;
-      a.hp = Math.max(0.5, g.hp);
-      a.dir = g.dir;
-      g.dead = true;
       g.destroy();
     }
     this.ghosts.clear();
+    this.deadUntil.clear();
+    let max = 0;
+    for (const r of animals) {
+      max = Math.max(max, r.id);
+      if (r.hp <= 0 || !SPECIES[r.sp]) continue;
+      const a = this.h.spawnAnimal(r.sp, r.x, r.y);
+      a.netId = r.id;
+      a.sz = r.sz;
+      a.setScale(r.sz);
+      a.b.reset(r.x, r.y);
+      a.maxHp = r.mh;
+      a.hp = r.hp;
+      a.dir = r.d;
+      a.setFlipX(r.d < 0);
+    }
+    for (const gm of this.gmeats.values()) gm.remove();
+    this.gmeats.clear();
     let maxM = 0;
-    for (const [id, gm] of this.gmeats) {
-      maxM = Math.max(maxM, id);
-      if (gm.gone) continue;
-      gm.remove();
-      const m = new Meat(this.h, this.h, gm.x, gm.y, gm.value, this.h.time.now, gm.kill);
-      m.netId = id;
+    for (const r of meats) {
+      maxM = Math.max(maxM, r.id);
+      if (r.v <= 0) continue;
+      const kill = (r.kill && this.gkills.get(r.kill)) || new Kill(false, r.sp || undefined, r.kill || undefined);
+      const m = new Meat(this.h, this.h, r.x, r.y, r.v, this.h.time.now, kill);
+      m.netId = r.id;
       this.h.meats.push(m);
     }
-    this.gmeats.clear();
     this.nextId = Math.max(this.nextId, max + 1);
     this.nextMeat = Math.max(this.nextMeat, maxM + 1);
-    // die Pflanzen: wie sie gerade sind – was fehlt, wächst von jetzt an hier nach
+    // Die Pflanzen: derselbe Stand; was fehlt, wächst von jetzt an hier nach.
+    if (state) for (const [key, units] of state.plants) this.h.plants[Number(key)]?.netSet(units, this.h.time.now);
     for (const pl of this.h.plants) pl.local(this.h.time.now);
   }
 

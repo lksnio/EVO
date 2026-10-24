@@ -107,6 +107,8 @@ class SpeciesLink {
       if (run && run.epoch === epoch && !run.brood) {
         room.send('hello', { gen: game.poolGen, pool: game.pool.map((e) => JSON.stringify(e)), next: game.roe.map((e) => JSON.stringify(e)) });
       }
+      // Auch einen bereits vollständigen Anfangsstand übernehmen, wenn hello nichts mehr ändert.
+      this.mirror();
     } catch (e) {
       console.warn('[EVO] Gemeinsame Art nicht erreichbar – es bleibt beim eigenen Laich.', e);
     }

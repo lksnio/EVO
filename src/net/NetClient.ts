@@ -74,8 +74,8 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
     if (id !== room.sessionId) h.add(id, f);
   });
   cb.onRemove('players', (_f, id) => h.remove(id));
-  cb.listen('host', (id) => h.host(id));
-  room.onStateChange((s) => h.patch(s));
+  // Erst nach dem vollständigen Patch wechseln: Map-Einträge können nach dem Feld „host“ eintreffen.
+  room.onStateChange((s) => { h.host(s.host); h.patch(s); });
   room.onMessage('welcome', (m: WelcomeMsg) => h.welcome(m));
   room.onMessage('snap', (m: SnapMsg) => h.snap(m));
   room.onMessage('hit', (m: HitMsg) => h.hit(m));

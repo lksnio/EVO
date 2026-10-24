@@ -1472,13 +1472,12 @@ class GameState {
   }
 
   /**
-   * Was ein Ei verspricht: die Werte des ausgewachsenen Tiers, so wie die Übersicht sie zeigt (mit den Segen der Linie).
-   * Ohne Ei: das eigene Tier, ausgewachsen.
+   * Gemeinsame Erbgutwerte, ausgewachsen: persönliche Muschelsegen gehören nicht zum Ei.
+   * Der goldene Segen steckt im Ei und ist deshalb enthalten. Ohne Ei: das eigene Erbgut zum Vergleich.
    */
   roeShown(e?: { traits: Partial<Traits>; gold?: UpKey }) {
     const t = full(e ? e.traits : this.r.traits);
-    // ein Ei bringt die Segen der Linie mit – und, golden geboren, einen dazu (nicht den goldenen Segen deines Tiers)
-    const ups = e ? withGold(this.bought, e.gold) : this.ups;
+    const ups = withGold(noUps(), e ? e.gold : this.r.gold?.key);
     const st = this.stats(this.r.cls, t, ADULT, ups);
     const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
     return {

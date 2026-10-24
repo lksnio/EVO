@@ -79,7 +79,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     hurt: (client: Client, m: HurtMsg) => {
       if (client.sessionId !== this.state.host || typeof m?.to !== 'string') return;
       const to = this.clients.getById(m.to);
-      to?.send('hurt', { animal: Math.max(0, Math.floor(num(m.animal, 0))), dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
+      const animal = int(m.animal);
+      // Der Treffer kann vor dem nächsten regulären Tierpaket eintreffen. Das Tier vor dem Schaden bereitstellen.
+      if (m.attacker?.id === animal) this.onFauna(client, { a: [m.attacker] });
+      const a = this.state.animals.get(String(animal));
+      // Ohne ein lebendes, darstellbares Tier keinen Geistertreffer ausliefern.
+      if (!animal || !a || a.hp <= 0) return;
+      const attacker = a ? { id: animal, sp: a.sp, x: a.x, y: a.y, d: a.d, an: a.an, hp: a.hp, mh: a.mh, sz: a.sz, tn: a.tn, al: a.al, at: a.at } : undefined;
+      to?.send('hurt', { animal, ...(attacker ? { attacker } : {}), dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
     },
     look: (client: Client, m: LookMsg) => {
       const f = this.state.players.get(client.sessionId);
@@ -162,7 +169,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const sent = num(m.t, 0);
     for (const r of Array.isArray(m.a) ? m.a.slice(0, MAX_ANIMALS) : []) {
       const id = int(r?.id);
-      if (!id || typeof r.sp !== 'string' || r.sp.length > 40) continue;
+      if (!id || typeof r.sp !== 'string' || !Object.hasOwn(SPECIES, r.sp)) continue;
       const key = String(id);
       let a = A.get(key);
       if (!a) {

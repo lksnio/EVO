@@ -165,6 +165,8 @@ export interface HitMsg {
 export interface HurtMsg {
   /** Gegnerkennung für die lokale Schuppenwertung (ältere Clients senden sie nicht). */
   animal?: number;
+  /** Aktueller Angreifer, auch wenn sein reguläres Tierpaket noch unterwegs ist. */
+  attacker?: AnimalRow;
   to?: string;
   dmg: number;
   x: number;

@@ -223,9 +223,11 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     Tier**, nicht für die Linie, und macht den nächsten Segen nicht teurer. In der Laich-Wahl leuchtet das Ei golden, die
     Karte trägt ein goldenes Band.
   - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – der Urfisch hat keine), unten
-    der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Höchstwerte** (Lebenskraft,
+    der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Erbgutwerte** (Lebenskraft,
     Ausdauer, Gebiss, Stoß, Tempo, Schuppen), daneben den Unterschied zu deinem Tier; die besten Werte einer Gruppe
-    leuchten ocker, die stärksten Eier stehen vorn.
+    leuchten ocker, die stärksten Eier stehen vorn. Werte und Reihenfolge sind für alle Spieler identisch: Angezeigt wird
+    das ausgewachsene Erbgut einschließlich eines goldenen Ei-Segens. Persönliche Muschelsegen kommen beim Schlüpfen hinzu;
+    sie verändern weder die Eiwerte noch die Reihenfolge im gemeinsamen Laich.
   - **Kein Weg zurück:** Ein Geschwister hält dich in deiner Generation (der Laich wartet weiter). Wer ein Ei der
     **nächsten Generation** wählt, beginnt sie – und **kommt nie mehr zurück**: Die übrigen Geschwister sind dann verloren,
     der übrige Laich sind die neuen Geschwister. Vor jedem Schlüpfen fragt das Spiel nach; zu Lebzeiten steht dort
@@ -856,8 +858,12 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
   Spieler ein Tier, geht der Treffer an den Ortswächter; Tiere jagen, meiden und beißen **jeden** Spieler (den jeweils
   nächsten); wer vom Fleisch frisst, nimmt es allen weg. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
   er in der Rast), übernimmt ein anderer Spieler die Tiere, so wie sie gerade sind. Neue Tiere (Durchzügler, Rückkehrer,
-  Schlüpflinge) kommen nur beim Ortswächter dazu. Kein Tier verschwindet vor den Augen eines Spielers.
-- **Noch für jeden einzeln:** der Laich und deine Artgenossen (bestehende Gruppe, Laich-Partner) – sie gehören zum eigenen Spielstand.
+  Schlüpflinge) kommen nur beim Ortswächter dazu. Der ganze Tierbestand wird unabhängig vom eigenen Blickfeld synchronisiert;
+  ruhende Tiere werden mindestens jede Sekunde bestätigt. Sicht und Nebelfärbung berechnet jeder Spieler selbst. Beim
+  Wächterwechsel gilt der vollständige Serverbestand, auch wenn ein Tier lokal fälschlich als tot vorhergesagt wurde.
+  Treffer liefern den aktuellen Angreifer mit; unbekannte oder tote Tiere können keinen Netzwerkschaden verursachen.
+  Ein großer Sicherheitsabstand um die Ansichten aller Spieler schützt vor Einwandern oder Entfernen direkt im Bild.
+- **Noch für jeden einzeln:** deine Artgenossen (bestehende Gruppe und Laich-Partner). Der Laich im Devon ist gemeinsam.
 
 Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind – und wie lange eine Nachricht zum Server und zurück
 braucht (z. B. „· 40 ms“; ab 150 ms wird die Zeile ocker: Dann liegt ein Ruckeln eher an der Verbindung als am Spiel).

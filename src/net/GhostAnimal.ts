@@ -19,7 +19,6 @@ export class GhostAnimal extends Animal {
   onDie?: (g: GhostAnimal) => void;
   private path = new Interp(FAUNA_INTERP_MS);
   private tn = 0;
-  private al = 100;
   private flashUntil = 0;
 
   constructor(world: World, def: SpeciesDef, r: AnimalRow, now: number, sent = now) {
@@ -45,7 +44,7 @@ export class GhostAnimal extends Animal {
     this.setAngle(r.an);
     this.attacking = r.at;
     this.tn = r.tn;
-    this.al = r.al;
+    this.presence = r.al / 100;
   }
 
   tick(_time: number, dt: number) {
@@ -60,7 +59,22 @@ export class GhostAnimal extends Animal {
       if (this.tn) this.setTint(this.tn).setTintMode(Phaser.TintModes.MULTIPLY);
       else if (this.isTinted) this.clearTint();
     }
-    this.setAlpha(this.al / 100);
+    // Im Wasser setzt sightStep die Deckkraft nach dem lokalen Blickfeld, nach diesem tick.
+    if (!this.world.water || this.world.amphibious) this.setAlpha(this.presence);
+  }
+
+  get glowing() {
+    return this.tn !== 0;
+  }
+
+  /** Schaden darf nicht von einem fehlenden oder weit hinterher interpolierten Angreifer kommen. */
+  reveal(r: AnimalRow, now: number) {
+    this.path = new Interp(FAUNA_INTERP_MS);
+    this.apply(r, now, now);
+    this.setPosition(r.x, r.y);
+    this.presence = 1;
+    this.revealedUntil = this.world.time.now + 1000;
+    this.setAlpha(1);
   }
 
   /** Getroffen: sofort sichtbar – die Lebenskraft rechnet der Ortswächter. */

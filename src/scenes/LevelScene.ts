@@ -1472,7 +1472,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ts = this.net?.world.targets;
     if (!ts || !ts.size) return [v];
     const out = [{ x: v.x, y: v.y, right: v.right, bottom: v.bottom }];
-    const hw = v.width / 2, hh = v.height / 2;
+    // Die Kamera des anderen kann weiter herausgezoomt sein; zusätzlich Platz für Bewegung während der Netzverzögerung.
+    const hw = Math.max(v.width, VW) / 2 + 900, hh = Math.max(v.height, VH) / 2 + 900;
     for (const t of ts.values()) if (!t.dead) out.push({ x: t.x - hw, y: t.y - hh, right: t.x + hw, bottom: t.y + hh });
     return out;
   }
@@ -2022,8 +2023,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.net?.update();
     this.drawStamina(p, dt);
     if (this.amphibious) this.drawOxygen(p, dt);
-    this.sightStep(dt);
-    this.heartStep(time);
     for (const a of [...this.animals]) {
       try {
         a.tick(time, dt);
@@ -2049,6 +2048,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         a.vanish();
       }
     }
+    // Erst Position und Angriff aktualisieren, dann die persönliche Sicht berechnen.
+    this.sightStep(dt);
+    this.heartStep(time);
     for (const pl of this.plants) pl.update(time);
     if (time > this.hatchAt) {
       this.hatchAt = time + 1000;
@@ -2168,7 +2170,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
     const riverMin = this.place.waterway === 0 ? (L.riverEnd ?? 0) + 300 : 0;
-    const sx = clamp(p.x - dir * 1000, Math.max(50, riverMin), L.width - 50);
+    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const sx = clamp(p.x - dir * spawnAway, Math.max(50, riverMin), L.width - 50);
     const endX = clamp(p.x + dir * 1600, Math.max(40, riverMin), L.width - 40);
     if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
     for (let i = 0; i < count; i++) {
@@ -2189,12 +2192,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
           y = ground - 90;
           cruiseY = y;
         }
+        if (!this.offScreen(x, y, 300)) return;
         const a = new Animal(this, def, x, y);
         this.groundIt(a);
         a.visitor = { dir, endX, cruiseY, huntUntil: 0, boredUntil: 0 };
         a.dir = dir;
-        a.setAlpha(0);
-        this.tweens.add({ targets: a, alpha: 1, duration: 900 });
+        a.presence = 0;
+        this.tweens.add({ targets: a, presence: 1, duration: 900 });
         this.animals.push(a);
       });
     }
@@ -2219,7 +2223,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!pool.length) return;
     const L = this.L;
     const side = Math.random() < 0.5 ? -1 : 1;
-    const x = clamp(this.player.x + side * (1000 + Math.random() * 400), 70, L.width - 70);
+    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const x = clamp(this.player.x + side * (spawnAway + Math.random() * 400), 70, L.width - 70);
     // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
     const z = this.zoneAt(x).def;
     const weight = ([id, count]: [string, number]) => {
@@ -2243,10 +2248,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
             : def.layer === 'open' ? L.surfaceY + depth * (0.12 + Math.random() * 0.5)
               : clamp(ground - 140 - Math.random() * 200, L.surfaceY + 60, ground - 40))
       : def.habitat === 'air' ? ground - 150 : ground - 50;
-    if (nearNursery(this.place, { x, y }, this.roes)) return;
+    if (nearNursery(this.place, { x, y }, this.roes) || !this.offScreen(x, y, 300)) return;
     const a = this.spawnAnimal(id, x, y);
-    a.setAlpha(0);
-    this.tweens.add({ targets: a, alpha: 1, duration: 800 });
+    a.presence = 0;
+    this.tweens.add({ targets: a, presence: 1, duration: 800 });
   }
 
   /**
@@ -2462,7 +2467,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!sg) return;
     const p = this.player;
     const rot = p.view.rotation;
-    // in Szenen mit der Kamera lichtet sich das Wasser (dort soll man sehen, was geschieht)
     // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
     const water = SIGHT.water[this.place.kind] ?? 1, deep = depthOf(p.y - this.L.surfaceY);
     sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep);
@@ -2472,12 +2476,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (a.dead) continue;
       const kin = a instanceof Kin;
       const obj: { setAlpha(v: number): unknown } = kin ? a.view : a;
-      // wer gerade ein- oder ausgeblendet wird (Durchzügler, Sterbende), bleibt dabei
-      if (this.tweens.isTweening(obj)) continue;
-      const c = sg.clarityAt(a.x, a.y, Math.min(140, a.displayWidth * 0.35));
+      // Artgenossen können eigene Ansicht-Tweens haben; Tiere kombinieren ihre Einblendung mit der Sicht.
+      if (kin && this.tweens.isTweening(obj)) continue;
+      const c = Math.max(this.time.now < a.revealedUntil ? 1 : 0, sg.clarityAt(a.x, a.y, Math.min(140, a.displayWidth * 0.35)));
       a.vis = c;
       // ganz in der Trübe: nicht zu sehen; dann ein Umriss, der langsam deutlicher wird
-      obj.setAlpha(clamp(c / 0.2, 0, 1));
+      obj.setAlpha(clamp(c / 0.2, 0, 1) * (kin || this.time.now < a.revealedUntil ? 1 : a.presence));
       if (kin) continue;
       // wer zum Angriff rot aufglüht, bleibt rot – auch als Umriss im Trüben
       if (a.glowing) {

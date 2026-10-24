@@ -134,7 +134,7 @@ describe('Spielserver (Colyseus)', () => {
     expect(guest.state.animals.has('99')).toBe(false);
     host.send('hurt', { to: guest.sessionId, dmg: 3, x: 1200, by: 'Arandaspis', animal: 7 });
     await until(() => hurts.length > 0);
-    expect(hurts[0]).toEqual({ dmg: 3, x: 1200, by: 'Arandaspis', animal: 7 });
+    expect(hurts[0]).toMatchObject({ dmg: 3, x: 1200, by: 'Arandaspis', animal: 7, attacker: { id: 7, sp: 'arandaspis', x: 1200, y: 600 } });
     host.send('fauna', { gone: [[7, 1]], mgone: [3] });
     await until(() => !guest.state.animals.has('7') && died.length > 0);
     expect(died[0]).toEqual([7]);
@@ -172,6 +172,23 @@ describe('Spielserver (Colyseus)', () => {
     expect(b.state.host).toBe(a.sessionId);
     a.send('yield', {});
     await until(() => a.state.host === b.sessionId);
+  });
+
+  it('liefert den aktuellen Angreifer mit dem Schaden, auch vor dem ersten Tierpaket', async () => {
+    const host = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Wächter', { zone: '0/garten' }), ZoneState);
+    const guest = await new Client(URL).joinById<ZoneState>(host.roomId, opts('Gast', { zone: '0/garten' }), ZoneState);
+    rooms.push(host, guest);
+    const hurts: HurtMsg[] = [];
+    guest.onMessage('hurt', (m: HurtMsg) => hurts.push(m));
+    await until(() => guest.state.players.size === 2);
+    const attacker = { id: 701, sp: 'cladoselache', x: 2000, y: 600, d: -1, an: 0, hp: 40, mh: 40, sz: 1, tn: 0xff7a66, al: 100, at: true };
+    host.send('hurt', { animal: 701, attacker, to: guest.sessionId, dmg: 4, x: 2000, by: 'Hai' });
+    await until(() => hurts.length === 1 && guest.state.animals.has('701'));
+    expect(hurts[0].attacker).toEqual(attacker);
+    expect(hurts[0].animal).toBe(701);
+    host.send('hurt', { animal: 9999, to: guest.sessionId, dmg: 4, x: 2000, by: 'Unbekannt' });
+    await wait(100);
+    expect(hurts).toHaveLength(1);
   });
 
   it('einen Ort, den es nicht gibt, kann man nicht betreten', async () => {

@@ -130,6 +130,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   kin = false;
   /** Mehrspieler: Nummer des Tieres im Ort (für alle Spieler gleich) */
   netId = 0;
+  /** Einblendung beim Einwandern. Vom lokalen Blickfeld getrennt, damit andere Spieler keine Unsichtbarkeit erben. */
+  presence = 1;
+  /** Nach einem Treffer bleibt der Angreifer kurz erkennbar. */
+  revealedUntil = 0;
   /** gerade im Dickicht versteckt */
   hiddenNow = false;
   /** wie deutlich der Spieler dieses Tier sieht (0 = nur Wasser … 1 = klar; siehe LevelScene.sightStep) */
@@ -417,6 +421,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   tick(time: number, dt: number) {
     if (this.dead) return;
+    if (!this.world.water || this.world.amphibious) this.setAlpha(this.presence);
     this.lastDt = dt;
     // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
     if (this.world.water) {
