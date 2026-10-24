@@ -184,11 +184,16 @@ describe('Spielserver (Colyseus)', () => {
     const attacker = { id: 701, sp: 'cladoselache', x: 2000, y: 600, d: -1, an: 0, hp: 40, mh: 40, sz: 1, tn: 0xff7a66, al: 100, at: true };
     host.send('hurt', { animal: 701, attacker, to: guest.sessionId, dmg: 4, x: 2000, by: 'Hai' });
     await until(() => hurts.length === 1 && guest.state.animals.has('701'));
-    expect(hurts[0].attacker).toEqual(attacker);
+    expect(hurts[0].attacker).toEqual({ ...attacker, hu: '' });
     expect(hurts[0].animal).toBe(701);
     host.send('hurt', { animal: 9999, to: guest.sessionId, dmg: 4, x: 2000, by: 'Unbekannt' });
     await wait(100);
     expect(hurts).toHaveLength(1);
+    // wen ein Tier jagt, kommt mit – aber nur eine Kennung, die es im Ort gibt
+    host.send('fauna', { t: 5, a: [{ ...attacker, id: 702, hu: guest.sessionId }, { ...attacker, id: 703, hu: 'fremd' }] });
+    await until(() => guest.state.animals.has('702') && guest.state.animals.has('703'));
+    expect(guest.state.animals.get('702')!.hu).toBe(guest.sessionId);
+    expect(guest.state.animals.get('703')!.hu).toBe('');
   });
 
   it('einen Ort, den es nicht gibt, kann man nicht betreten', async () => {

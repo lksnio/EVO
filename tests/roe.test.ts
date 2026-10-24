@@ -39,4 +39,22 @@ describe('Gemeinsamer Laich: Werte und Reihenfolge', () => {
     expect(game.ups.hp).toBe(5);
     expect(game.stats(game.cls, game.traits, undefined, true).maxHp).toBeGreaterThan(geneticHp);
   });
+
+  it('Ausdauer: Ei, eigenes Erbgut und Spiel rechnen gleich – unabhängig von Wachstum, Spieler und Muschelsegen', () => {
+    const egg: RoeEgg = { id: 'eggfins', traits: { finGain: 10 }, seed: 4, sex: 1, place: 'riff', x: 0, y: 0 };
+    const a = game.roeShown(egg).stam;
+    // ein anderer Spieler: jung, mit Segen in Ausdauer, golden geboren, mit anderem Erbgut
+    game.run!.ups = { hp: 2, stam: 4, sight: 1, oxy: 0 };
+    game.run!.gold = { key: 'stam', at: 0 };
+    game.traits.biteGain = 40;
+    expect(game.roeShown(egg).stam).toBe(a);
+    // kräftigere Flossen halten etwas länger durch
+    expect(a).toBeGreaterThan(game.roeShown({ ...egg, traits: {} }).stam);
+    // geschlüpft: dieselbe Ausdauer im Spiel, ob Jungtier oder ausgewachsen (ohne Muschelsegen)
+    game.run!.ups = { hp: 0, stam: 0, sight: 0, oxy: 0 };
+    game.hatchRoe(egg, 2);
+    expect(game.shown().stam).toBe(a);
+    game.ageBy(250);
+    expect(game.shown().stam).toBe(a);
+  });
 });

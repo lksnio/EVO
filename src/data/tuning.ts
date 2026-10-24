@@ -1,6 +1,6 @@
 import { CLASSES } from './classes';
 import { epochSpecies, EPOCHS } from './epochs';
-import { INHERIT, LIFE, MISC, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
+import { INHERIT, LIFE, MISC, MOVEMENT, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
 import { SIGHT } from '../sim/sight';
 import { BITE } from '../sim/bite';
 import { SWARM } from './swarm';
@@ -207,6 +207,9 @@ export const GROUPS: Group[] = [
       field(SIGHT, 'depth', 'SIGHT.depth', 'Ganz in der Tiefe reicht der Blick so weit (Faktor)', { step: 0.02, max: 1.5 }),
       field(SIGHT, 'dark', 'SIGHT.dark', 'Hinter dem Rand so dunkel (nah an der Oberfläche)', { step: 0.05, max: 1 }),
       field(SIGHT, 'darkDeep', 'SIGHT.darkDeep', 'Hinter dem Rand so dunkel (in der Tiefe)', { step: 0.05, max: 1 }),
+      field(SIGHT, 'feel', 'SIGHT.feel', 'Seitenlinie: so nah spürt man jedes Tier (Bildpunkte)', { step: 10, max: 600 }),
+      field(SIGHT, 'feelThreat', 'SIGHT.feelThreat', 'Seitenlinie: so weit spürt man Jäger und Angreifer (Bildpunkte)', { step: 10, max: 1200 }),
+      field(SIGHT, 'feelThreatClarity', 'SIGHT.feelThreatClarity', 'Wie deutlich ein gespürter Jäger zu sehen ist', { step: 0.05, max: 1 }),
       field(STAMINA, 'perBlessing', 'STAMINA.perBlessing', 'Ein Segen gibt (Anteil eines Kreises)', { step: 0.05, max: 2 }),
       field(STAMINA, 'max', 'STAMINA.max', 'Höchstens so viele Kreise', { min: 1, max: 3 }),
       field(STAMINA, 'sprint', 'STAMINA.sprint', 'Ein Kreis reicht für so viele Sekunden Spurt', { step: 0.1, min: 0.5 }),
@@ -245,6 +248,9 @@ export const GROUPS: Group[] = [
       field(INHERIT, 'defeats', 'INHERIT.defeats', 'Ebenbürtige Siege für das volle Fleischbudget'),
       field(INHERIT, 'swimDistance', 'INHERIT.swimDistance', 'Strecke für den vollen Längenzuwachs'),
       field(INHERIT, 'lengthStep', 'INHERIT.lengthStep', 'Längenzuwachs je Generation (Anteil)'),
+      field(MOVEMENT, 'finPerPoint', 'MOVEMENT.finPerPoint', 'Tempo je vererbtem Flossenpunkt (Anteil)', { step: 0.005, max: 0.2 }),
+      field(MOVEMENT, 'finEndurance', 'MOVEMENT.finEndurance', 'Ausdauer je vererbtem Flossenpunkt (Anteil)', { step: 0.001, max: 0.05 }),
+      field(MOVEMENT, 'lengthSpeed', 'MOVEMENT.lengthSpeed', 'Tempo aus dem Längenzuwachs (Anteil)', { step: 0.05, max: 1 }),
       field(INHERIT, 'massStep', 'INHERIT.massStep', 'Gewichtszuwachs in voller Tiefe (Anteil)'),
       field(INHERIT, 'carry', 'INHERIT.carry', 'Im Leben Angesammeltes geht weiter (Anteil)', { max: 1 }),
       field(INHERIT, 'partner', 'INHERIT.partner', 'Vom Partner (Anteil)', { max: 1 }),

@@ -37,4 +37,31 @@ describe('Stellvertreter im persönlichen Blickfeld', () => {
     expect(g.revealedUntil).toBe(1500);
     expect(g.setAlpha).toHaveBeenCalledWith(1);
   });
+
+  it('übernimmt, wen es jagt, und folgt seiner Bahn ohne zusätzliches Nachhinken', () => {
+    const g = ghost();
+    g.apply({ ...row, hu: 'ben' }, 1000, 1000);
+    expect(g.hu).toBe('ben');
+    g.apply({ ...row, x: 140 }, 1100, 1100);
+    expect(g.hu).toBe('');
+    // kleine Schritte der geglätteten Bahn: genau dort zeigen, nicht noch einmal hinterherziehen
+    g.x = 125;
+    const at = vi.spyOn((g as unknown as { path: Interp }).path, 'at').mockReturnValue({ x: 130, y: 300 });
+    g.tick(0, 0.016);
+    expect(g.x).toBe(130);
+    at.mockRestore();
+  });
+
+  it('blendet aus, wenn es beim Ortswächter fortzieht', () => {
+    const g = ghost();
+    const add = vi.fn();
+    Object.assign(g, { active: true, attacking: true, hu: 'ben', world: { ...((g as unknown as { world: object }).world), tweens: { add } } });
+    g.fadeOut();
+    expect(g.dead).toBe(true);
+    expect(g.attacking).toBe(false);
+    expect(g.hu).toBe('');
+    expect(add).toHaveBeenCalledWith(expect.objectContaining({ alpha: 0 }));
+    g.fadeOut();
+    expect(add).toHaveBeenCalledTimes(1);
+  });
 });

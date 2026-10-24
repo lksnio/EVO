@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { INHERIT, LIFE } from '../src/data/life';
+import { INHERIT, LIFE, MOVEMENT } from '../src/data/life';
 import { ADULT, phases } from '../src/sim/life';
 import { COMBAT_SKILLS, evolutionBudget, evolutionStep, recordDefeat, type Defeats } from '../src/sim/evolution';
 import { game, newStyle } from '../src/state/GameState';
@@ -45,14 +45,18 @@ describe('Punktebudget und Varianz', () => {
 });
 
 describe('Verborgener Körperbau und Kampfwerte', () => {
-  it('Flossen und Länge steigern das Schwimmtempo nur noch in kleinen Schritten', () => {
+  it('Flossen und Länge steigern das Schwimmtempo in spürbaren, aber maßvollen Schritten', () => {
     const start = { ...game.traits };
     const base = game.stats('fish', start, ADULT);
     const evolved = game.stats('fish', { ...start, finGain: 10, lengthGain: 0.1 }, ADULT);
-    expect(evolved.speed * evolved.cruise / (base.speed * base.cruise)).toBeCloseTo(1.02 * 1.1);
-    expect(evolved.speed * evolved.climb / (base.speed * base.climb)).toBeCloseTo(1.02 * 1.1);
-    expect(evolved.speed * evolved.dive / (base.speed * base.dive)).toBeCloseTo(1.02 * 1.1);
+    const gain = (1 + MOVEMENT.lengthSpeed * 0.1) * (1 + MOVEMENT.finPerPoint * 10);
+    expect(gain).toBeCloseTo(1.03 * 1.2);
+    expect(evolved.speed * evolved.cruise / (base.speed * base.cruise)).toBeCloseTo(gain);
+    expect(evolved.speed * evolved.climb / (base.speed * base.climb)).toBeCloseTo(gain);
+    expect(evolved.speed * evolved.dive / (base.speed * base.dive)).toBeCloseTo(gain);
     expect(game.roeShown({ traits: { ...start, finGain: 10 } }).fins).toBe(20);
+    // der Tempo-Wert im Laich zeigt den Flossenschub mit: +10 Flossenpunkte → +20 % (10 → 12)
+    expect(game.roeShown({ traits: { ...start, finGain: 10 } }).speed).toBe(12);
   });
 
   it('auch weit entwickelte Jungtiere erreichen ihr Generationstempo erst beim Ausgewachsensein', () => {
@@ -97,7 +101,7 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     const ma = game.measure(game.cls, start), mb = game.measure(game.cls, h.traits);
     expect(mb.cm / ma.cm).toBeCloseTo(1.1);
     expect(mb.g).toBeCloseTo(ma.g);
-    expect(b.speed / a.speed).toBeCloseTo(1.02);
+    expect(b.speed / a.speed).toBeCloseTo(1 + MOVEMENT.lengthSpeed * INHERIT.lengthStep);
     expect(game.roeShown({ traits: h.traits }).scales).toBe(10); // 9.5 wird für die Anzeige gerundet
     expect(b.defense / a.defense).toBeCloseTo(1 / 0.95);
     expect(game.inheritedDelta()).toBeNull();

@@ -34,7 +34,7 @@ import { Sight } from '../objects/Sight';
 import { Nest } from '../objects/Nest';
 import { BROOD, OXYGEN } from '../data/karbon';
 import { eatEggs, tick as broodTick } from '../sim/brood';
-import { clearness, depthOf, SIGHT } from '../sim/sight';
+import { clearness, depthOf, sensed, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -1565,8 +1565,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const a of [...this.animals]) {
       if (a.kin || (a as { ghost?: boolean }).ghost) continue;
       a.dead = true;
+      a.attacking = false;
+      if (a.body) a.b.enable = false;
       this.removeAnimal(a);
-      a.destroy();
+      // kurz ausblenden statt schlagartig zu verschwinden – die Stellvertreter des Ortswächters kommen an ihre Stelle
+      if (a.active) this.tweens.add({ targets: a, alpha: 0, duration: 300, onComplete: () => a.destroy() });
     }
     for (const m of this.meats) if (!m.net) m.remove();
     this.meats = this.meats.filter((m) => !m.gone);
@@ -2472,16 +2475,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep);
     // die Fische in der Ferne: In klarem Wasser dicht unter der Oberfläche sieht man sie gut, im Trüben und in der Tiefe kaum
     if (this.backSea) this.backSea.see += (clearness(water, deep) - this.backSea.see) * Math.min(1, dt * 1.5);
+    const now = this.time.now;
     for (const a of this.animals) {
       if (a.dead) continue;
       const kin = a instanceof Kin;
       const obj: { setAlpha(v: number): unknown } = kin ? a.view : a;
       // Artgenossen können eigene Ansicht-Tweens haben; Tiere kombinieren ihre Einblendung mit der Sicht.
       if (kin && this.tweens.isTweening(obj)) continue;
-      const c = Math.max(this.time.now < a.revealedUntil ? 1 : 0, sg.clarityAt(a.x, a.y, Math.min(140, a.displayWidth * 0.35)));
+      const r = Math.min(140, a.displayWidth * 0.35);
+      // die Seitenlinie: Was nah ist, dich jagt oder angreift, bleibt wenigstens ein Umriss – nichts greift unsichtbar an
+      const feel = kin ? 0 : sensed(Math.hypot(a.x - p.x, a.y - p.y) - r, a.attacking || this.threatens(a, now));
+      const c = Math.max(now < a.revealedUntil ? 1 : 0, sg.clarityAt(a.x, a.y, r), feel);
       a.vis = c;
       // ganz in der Trübe: nicht zu sehen; dann ein Umriss, der langsam deutlicher wird
-      obj.setAlpha(clamp(c / 0.2, 0, 1) * (kin || this.time.now < a.revealedUntil ? 1 : a.presence));
+      // die Einblendung beim Einwandern zählt nicht für das, was dir schon nahe ist oder dich angreift
+      obj.setAlpha(clamp(c / 0.2, 0, 1) * (kin || now < a.revealedUntil || feel > 0 ? 1 : a.presence));
       if (kin) continue;
       // wer zum Angriff rot aufglüht, bleibt rot – auch als Umriss im Trüben
       if (a.glowing) {
@@ -2500,6 +2508,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
+   * Jagt oder greift dieses Tier gerade dich an? Beim Gast weiß es nur der Ortswächter – er meldet es mit (AnimalRow.hu).
+   */
+  private threatens(a: Animal, time: number) {
+    if (a.kin || a.ally) return false;
+    const g = a as { ghost?: boolean; hu?: string };
+    if (g.ghost) return !!g.hu && g.hu === this.net?.world.me;
+    return a.target === this.player && (a.st === 'hunt' || a.attacking || a.aggroUntil > time);
+  }
+
+  /**
    * Herzklopfen: Es schlägt, solange dich ein Tier jagt – oft eines, das man im trüben Wasser gar nicht sieht. Je größer und
    * stärker der Jäger, desto lauter und schneller (ein kleiner Fisch macht kaum Angst), und je näher man dem Tod ist, desto
    * mehr. Am lautesten, wenn man fast tot ist und ein großer Fisch einen jagt.
@@ -2510,8 +2528,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     let fear = 0;
     const mine = Math.max(0.1, this.playerPower());
     for (const a of this.animals) {
-      if (a.dead || a.kin || a.ally || a.target !== p) continue;
-      if (!(a.st === 'hunt' || a.attacking || a.aggroUntil > time)) continue;
+      if (a.dead || !this.threatens(a, time)) continue;
       if (Math.hypot(a.x - p.x, a.y - p.y) > 1500) continue;
       // wie stark der Jäger ist, im Vergleich zu dir: ebenbürtig macht schon Angst, doppelt so stark sehr
       const rel = (a.def.power * a.sz) / mine;

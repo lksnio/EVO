@@ -85,7 +85,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const a = this.state.animals.get(String(animal));
       // Ohne ein lebendes, darstellbares Tier keinen Geistertreffer ausliefern.
       if (!animal || !a || a.hp <= 0) return;
-      const attacker = a ? { id: animal, sp: a.sp, x: a.x, y: a.y, d: a.d, an: a.an, hp: a.hp, mh: a.mh, sz: a.sz, tn: a.tn, al: a.al, at: a.at } : undefined;
+      const attacker = a ? { id: animal, sp: a.sp, x: a.x, y: a.y, d: a.d, an: a.an, hp: a.hp, mh: a.mh, sz: a.sz, tn: a.tn, al: a.al, at: a.at, hu: a.hu } : undefined;
       to?.send('hurt', { animal, ...(attacker ? { attacker } : {}), dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
     },
     look: (client: Client, m: LookMsg) => {
@@ -188,6 +188,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       a.tn = clamp(Math.round(num(r.tn, 0)), 0, 0xffffff);
       a.al = clamp(Math.round(num(r.al, 100)), 0, 100);
       a.at = r.at === true;
+      a.hu = typeof r.hu === 'string' && this.state.players.has(r.hu) ? r.hu : '';
       a.t = sent;
     }
     const died: number[] = [];

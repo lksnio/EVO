@@ -31,8 +31,16 @@ export const MOVE_BURST = 900;
 /** So oft (je Sekunde) meldet der Ortswächter die Tiere und das Fleisch seines Ortes. */
 export const FAUNA_HZ = 10;
 
+/**
+ * Tiere in der Nähe eines anderen Spielers meldet der Ortswächter doppelt so oft: Dort zählt jede Zehntelsekunde (ein
+ * Angreifer soll dort sein, wo er zubeißt – nicht ein Stück dahinter).
+ */
+export const FAUNA_NEAR_HZ = 20;
+/** so nah (Bildpunkte) an einem anderen Spieler gilt ein Tier als „in der Nähe“ */
+export const FAUNA_NEAR_PX = 1400;
+
 /** Tiere des Ortswächters werden mindestens so weit zurück (ms) gezeigt – er meldet seltener als die Spieler sich selbst. */
-export const FAUNA_INTERP_MS = 130;
+export const FAUNA_INTERP_MS = 80;
 
 /** So lange (s) hält der Server den Platz eines Spielers, dessen Verbindung abriss. */
 export const RECONNECT_S = 20;
@@ -113,6 +121,8 @@ export interface AnimalRow {
   al: number;
   /** greift gerade an (gefährlich bei Berührung) */
   at: boolean;
+  /** wen es gerade jagt oder angreift (Sitzungskennung eines Spielers, sonst leer) – für Herzklopfen und Seitenlinie */
+  hu?: string;
 }
 
 /** Ein Stück Fleisch. */

@@ -1117,8 +1117,10 @@ class GameState {
       digestMeat: Math.max(0.35, 1 + 0.6 * carn - 0.6 * herb),
       digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn),
       // Schwere Waffen und Panzer ermüden: starke Kiefer, ein harter Kopf und Schuppenpanzer kosten Kraft, schlanke Verfolger halten länger durch
-      endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, size - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
-      recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, size - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
+      // Gemessen am Erbgut (ausgewachsene Größe), nicht am Wachstumsstand: Ei, Übersicht und Spiel zeigen dieselbe Ausdauer
+      endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
+        + MOVEMENT.finEndurance * (t.finGain ?? 0), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
+      recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, adult - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
       climb: (1 + 0.45 * (t.fUp ?? 0)) * finSpeed,
       dive: (1 + 0.45 * (t.fDown ?? 0)) * finSpeed,
@@ -1485,7 +1487,8 @@ class GameState {
       stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
       bite: Math.round((10 * st.bite) / s0.bite),
       ram: Math.round((10 * st.ram) / s0.ram),
-      speed: Math.round((10 * st.speed) / s0.speed),
+      // Tempo: Grundtempo mal Flossenschub (cruise) – so schwimmt das Tier tatsächlich
+      speed: Math.round((10 * st.speed * st.cruise) / (s0.speed * s0.cruise)),
       scales: Math.round(scalePoints(t)),
       fins: Math.round(finPoints(t)),
     };

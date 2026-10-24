@@ -9,6 +9,9 @@ import { Meat, type Plant } from './Food';
 
 type Body = Phaser.Physics.Arcade.Body;
 
+/** So weit (Bildpunkte) hinter dem Rand des Ortes ist ein Tier auf jeden Fall fort – auch wenn es noch jemand sieht. */
+const EDGE_FAR = 520;
+
 /** Was ein Tier über den Spieler wissen muss. */
 export interface PlayerLike {
   x: number;
@@ -423,12 +426,14 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.dead) return;
     if (!this.world.water || this.world.amphibious) this.setAlpha(this.presence);
     this.lastDt = dt;
-    // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter)
+    // Am Rand des Ortes gibt es keine Wand: Wer weit hinausschwimmt, ist für diesen Ort fort (das Meer geht weiter) – aber
+    // erst, wenn es kein Spieler mehr sieht (sonst verschwände es vor seinen Augen). Spätestens EDGE_FAR draußen ist es fort.
     if (this.world.water) {
       const wb = this.world.physics.world.bounds;
-      if (this.x < wb.x - 200 || this.x > wb.right + 200) {
+      const out = Math.max(wb.x - this.x, this.x - wb.right);
+      if (out > 200) {
         if (this.kin || this.ally) this.b.setVelocityX(this.x < wb.centerX ? 160 : -160);
-        else return this.leave();
+        else if (out > EDGE_FAR || !this.world.inView?.(this)) return this.leave();
       }
     }
     // Wer tot oder fort ist, ist kein Ziel mehr (sonst greift man ins Leere – das ließ das Spiel einfrieren)

@@ -46,6 +46,16 @@ export const SIGHT = {
   darkSpread: 4,
   /** … und in der Tiefe (dort kommt das Schwarze früher) */
   darkSpreadDeep: 2.4,
+  /**
+   * Die Seitenlinie: So nah (Bildpunkte bis zum Rand des Tiers) spürt ein Fisch jedes Tier, auch im Trüben und hinter sich …
+   */
+  feel: 120,
+  /** … und so weit ein Tier, das ihn jagt oder angreift (auch im Mehrspieler, wo das Bild des Angreifers etwas nachläuft) */
+  feelThreat: 420,
+  /** so deutlich ist, was man nur spürt: ein dunkler Umriss (ab 0,2 ganz deckend, siehe LevelScene.sightStep) … */
+  feelClarity: 0.35,
+  /** … und ein Jäger oder Angreifer: deutlich erkennbar, nur leicht vom Trüben verschleiert */
+  feelThreatClarity: 0.6,
 };
 
 /**
@@ -125,4 +135,17 @@ export function clarity(fwd: number, side: number, v: Vision): number {
 /** So weit reicht der Blick höchstens, von der Mitte des klaren Bereichs aus (bis nur noch Wasser ist). */
 export function farthest(v: Vision) {
   return disc(v).r + v.fade;
+}
+
+/**
+ * Die Seitenlinie: Was nah ist oder dich jagt, spürt ein Fisch auch dort, wo er nichts sieht – es bleibt wenigstens als
+ * Umriss erkennbar. Nichts greift unsichtbar an. d: Abstand bis zum Rand des Tiers; threat: Es jagt oder greift dich an.
+ * Gibt die Klarheit zurück, mit der man es spürt (0 … SIGHT.feelClarity, bei Gefahr SIGHT.feelThreatClarity); im äußeren
+ * Drittel der Reichweite blendet es ein.
+ */
+export function sensed(d: number, threat: boolean) {
+  const reach = threat ? SIGHT.feelThreat : SIGHT.feel;
+  if (d >= reach) return 0;
+  const t = Math.max(0, (d - reach * (2 / 3)) / (reach / 3));
+  return (threat ? SIGHT.feelThreatClarity : SIGHT.feelClarity) * (1 - t);
 }

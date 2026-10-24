@@ -14,6 +14,7 @@ vi.mock('../src/net/GhostAnimal', () => ({ GhostAnimal: class {
   constructor(_host: unknown, def: { id: string }, r: AnimalRow) { this.netId = r.id; this.def = def; this.hp = r.hp; }
   apply = vi.fn();
   destroy() { this.active = false; }
+  fadeOut() { this.dead = true; this.active = false; }
   reveal = vi.fn();
 } }));
 
@@ -32,7 +33,7 @@ function setup() {
     spawnAnimal(_id: string, x: number, y: number) { const a = animal(0); a.x = x; a.y = y; this.animals.push(a); return a; },
     confirmNetDefeat() {},
   };
-  const zone = { state, fauna: (msg: FaunaMsg) => sent.push(msg) } as unknown as Zone;
+  const zone = { me: 'anna', state, fauna: (msg: FaunaMsg) => sent.push(msg) } as unknown as Zone;
   const world = new WorldSync(h as unknown as LevelScene, () => zone);
   const add = (r: AnimalRow) => { const n = new NetAnimal(); Object.assign(n, r, { t: 100 }); state.animals.set(String(r.id), n); };
   return { h, state, world, sent, add };
@@ -98,5 +99,41 @@ describe('Gemeinsame Tiere: Sicht und Wiederherstellung', () => {
     const rows = sent.flatMap((m) => m.a ?? []);
     expect(rows.filter((r) => r.id === 1).length).toBeGreaterThanOrEqual(5);
     expect(rows.every((r) => r.al === 100)).toBe(true);
+  });
+
+  it('meldet Tiere in der Nähe eines anderen Spielers doppelt so oft – und wen sie jagen', () => {
+    const { world, h, sent } = setup();
+    const near = animal(1), far = animal(2);
+    far.x = 8000;
+    h.animals.push(near, far);
+    world.setHost(true);
+    world.addTarget('ben', { view: { x: 1200, y: 400, active: true }, dead: false, gone: false } as never);
+    Object.assign(near, { target: world.targets.get('ben'), st: 'hunt', aggroUntil: 0 });
+    for (let i = 0; i < 20; i++) {
+      now += 50;
+      near.x += 3; far.x += 3;
+      world.update();
+    }
+    const rows = sent.flatMap((m) => m.a ?? []);
+    const n1 = rows.filter((r) => r.id === near.netId), n2 = rows.filter((r) => r.id === far.netId);
+    expect(n1.length).toBeGreaterThanOrEqual(18);
+    expect(n2.length).toBeGreaterThanOrEqual(9);
+    expect(n2.length).toBeLessThanOrEqual(11);
+    expect(n1.every((r) => r.hu === 'ben')).toBe(true);
+    expect(n2.every((r) => r.hu === '')).toBe(true);
+    // und den eigenen Spieler (Sitzungskennung des Ortswächters)
+    Object.assign(far, { target: h.player, st: 'hunt' });
+    now += 200; far.x += 3; world.update();
+    expect(sent.flatMap((m) => m.a ?? []).filter((r) => r.id === far.netId).pop()?.hu).toBe('anna');
+  });
+
+  it('blendet einen beim Ortswächter fortgezogenen Stellvertreter aus, statt ihn schlagartig zu entfernen', () => {
+    const { world, h, state, add } = setup();
+    add(row(7)); world.setHost(false);
+    const g = h.animals[0] as unknown as { fadeOut: () => void };
+    const fade = vi.spyOn(g, 'fadeOut');
+    state.animals.delete('7'); world.patch(state);
+    expect(fade).toHaveBeenCalled();
+    expect(h.animals).toHaveLength(0);
   });
 });

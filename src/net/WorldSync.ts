@@ -5,7 +5,7 @@ import { Kill, Meat } from '../objects/Food';
 import type { Rect } from '../util/math';
 import type { LevelScene } from '../scenes/LevelScene';
 import { GhostAnimal } from './GhostAnimal';
-import { FAUNA_HZ, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow, type PlantMsg } from './protocol';
+import { FAUNA_HZ, FAUNA_NEAR_HZ, FAUNA_NEAR_PX, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow, type PlantMsg } from './protocol';
 import type { RemoteFish } from './RemoteFish';
 import type { ZoneState } from './schema';
 import type { Zone } from './NetClient';
@@ -104,6 +104,8 @@ export class WorldSync {
   private nextId = 1;
   private nextMeat = 1;
   private sendAt = 0;
+  /** Ortswächter: wann wieder alles gemeldet wird (dazwischen nur die Tiere in der Nähe eines anderen Spielers) */
+  private fullAt = 0;
   /** Gast: vorhergesagt gestorben – bis dahin nicht wieder hervorholen */
   private deadUntil = new Map<number, number>();
 
@@ -118,13 +120,18 @@ export class WorldSync {
     return !this.started || this.host;
   }
 
+  /** die eigene Sitzungskennung im Ort (leer, solange noch nicht verbunden) */
+  get me() {
+    return this.z?.me ?? '';
+  }
+
   addTarget(id: string, f: RemoteFish) {
     this.targets.set(id, new RemoteTarget(id, f, (m, source) => {
       const a = source as Animal | undefined;
       if (a?.def && shared(a)) {
         if (!a.netId) a.netId = this.nextId++;
         m.animal = a.netId;
-        m.attacker = animalRow(a);
+        m.attacker = { ...animalRow(a), hu: this.hunted(a) };
       }
       this.z?.hurt(m);
     }));
@@ -149,6 +156,7 @@ export class WorldSync {
       this.lastM.clear();
       this.byId.clear();
       this.sendAt = 0;
+      this.fullAt = 0;
     } else {
       this.h.dropShared();
       // die Pflanzen rechnet der Ortswächter: Bissen gehen an ihn
@@ -164,15 +172,22 @@ export class WorldSync {
     if (!this.started || !this.host) return;
     const now = performance.now();
     if (now < this.sendAt) return;
-    this.sendAt = now + 1000 / FAUNA_HZ;
+    this.sendAt = now + 1000 / FAUNA_NEAR_HZ;
+    // FAUNA_HZ-mal je Sekunde alles; dazwischen nur die Tiere in der Nähe eines anderen Spielers (dort zählt jede Zehntelsekunde)
+    const full = now >= this.fullAt;
+    if (full) this.fullAt = now + 1000 / FAUNA_HZ - 500 / FAUNA_NEAR_HZ;
+    const others = [...this.targets.values()].filter((t) => !t.dead);
+    const near = (a: Animal) => others.some((t) => Math.abs(t.x - a.x) < FAUNA_NEAR_PX && Math.abs(t.y - a.y) < FAUNA_NEAR_PX);
     const msg: FaunaMsg = { t: Math.round(now) };
     const seen = new Map<number, Animal>();
     for (const a of this.h.animals) {
       if (!shared(a)) continue;
       if (!a.netId) a.netId = this.nextId++;
       seen.set(a.netId, a);
+      if (!full && !near(a)) continue;
       const r = animalRow(a);
-      const sig = `${r.sp},${r.x | 0},${r.y | 0},${r.d},${r.an},${r.hp},${r.mh},${r.sz},${r.tn},${r.al},${r.at}`;
+      r.hu = this.hunted(a);
+      const sig = `${r.sp},${r.x | 0},${r.y | 0},${r.d},${r.an},${r.hp},${r.mh},${r.sz},${r.tn},${r.al},${r.at},${r.hu}`;
       const last = this.sentA.get(r.id);
       // unverändert: nur noch ein paar Mal (es ist stehen geblieben), dann nicht mehr
       const same = last?.sig === sig ? last.same + 1 : 0;
@@ -187,6 +202,20 @@ export class WorldSync {
     }
     this.lastA = seen;
     this.byId = seen;
+    if (full) this.sendRest(msg);
+    this.send(msg);
+  }
+
+  /** Wen jagt dieses Tier gerade (Sitzungskennung)? Die anderen hören dann ihr Herz klopfen und spüren es kommen. */
+  private hunted(a: Animal): string {
+    const t = a.target;
+    if (!t || a.kin || a.ally || !(a.st === 'hunt' || a.attacking || a.aggroUntil > this.h.time.now)) return '';
+    if (t === this.h.player) return this.me;
+    return t instanceof RemoteTarget ? t.id : '';
+  }
+
+  /** Fleisch und Pflanzen: nur bei der vollen Meldung. */
+  private sendRest(msg: FaunaMsg) {
     const mseen = new Set<number>();
     this.meatById.clear();
     for (const m of this.h.meats) {
@@ -211,7 +240,6 @@ export class WorldSync {
       this.sentP.set(i, pl.units);
       (msg.p ??= []).push([i, pl.units]);
     });
-    this.send(msg);
   }
 
   /** In kleinen Paketen senden: Eine Nachricht darf nicht zu groß werden (der Server nimmt nur ein paar KB auf einmal). */
@@ -234,7 +262,7 @@ export class WorldSync {
     const now = performance.now();
     for (const [key, n] of s.animals) {
       const id = Number(key);
-      const r: AnimalRow = { id, sp: n.sp, x: n.x, y: n.y, d: n.d, an: n.an, hp: n.hp, mh: n.mh, sz: n.sz, tn: n.tn, al: n.al, at: n.at };
+      const r: AnimalRow = { id, sp: n.sp, x: n.x, y: n.y, d: n.d, an: n.an, hp: n.hp, mh: n.mh, sz: n.sz, tn: n.tn, al: n.al, at: n.at, hu: n.hu };
       const g = this.ghosts.get(id);
       if (g && g.active && !g.dead) g.apply(r, now, n.t || now);
       else if (r.hp > 0 && now > (this.deadUntil.get(id) ?? 0)) {
@@ -248,10 +276,10 @@ export class WorldSync {
     for (const [id, g] of this.ghosts) {
       if (s.animals.has(String(id))) continue;
       this.ghosts.delete(id);
+      // fort (nicht gestorben): ausblenden – nie schlagartig vor den Augen verschwinden
       if (!g.dead) {
         this.h.dropAnimal(g);
-        g.dead = true;
-        g.destroy();
+        g.fadeOut();
       }
     }
     for (const [key, n] of s.meats) {

@@ -151,8 +151,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   dann schläft er ein. Mit der Größe wachsen Lebenskraft, Biss, Stoß und Tempo: Beim Schlüpfen hat der Fisch **60 % seines
   ausgewachsenen Tempos**, bis zur Laichreife erreicht er es allmählich. Gezählt wird
   nur die Zeit, in der man spielt – wer offline ist, altert nicht. Gemeldet wird nur die Laichzeit (leise, oben links).
-  Das Tempo steigt über die Generationen behutsam: **10 zusätzliche Flossenpunkte geben 10 % mehr Schwimmtempo**,
-  **10 % zusätzliche Körperlänge geben 2 % mehr Grundtempo**. Auch ein Jungtier einer schnellen Linie muss erst
+  Das Tempo steigt über die Generationen spürbar: **10 zusätzliche Flossenpunkte geben 20 % mehr Schwimmtempo** (und
+  5 % mehr Ausdauer), **10 % zusätzliche Körperlänge geben 3 % mehr Grundtempo** (`MOVEMENT` in `src/data/life.ts`). Der
+  Tempo-Wert im Laich enthält den Flossenschub – so sieht man den Fortschritt dort, wo man wählt. Auch ein Jungtier einer schnellen Linie muss erst
   heranwachsen, bevor es deren volles Tempo erreicht.
 - **Dein Tier bleibt, wie es geschlüpft ist:** Im Leben wächst es nur heran und altert. Was es tut – sich verstecken, am Grund
   laufen, oben im Licht oder unten im Dunkeln schwimmen, Treffer einstecken –, sammelt sich im
@@ -444,7 +445,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   (ein Viertelkreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. Der Kreis ist klein und dezent –
   ein schmaler, leicht durchscheinender Ring dicht neben dem Tier. **Wie schnell** die Ausdauer
   schwindet, hängt am Körper: Schwere, gepanzerte Tiere und starke Kiefer ermüden schneller, schlanke Verfolger halten länger
-  durch (ein Kreis reicht bei normalem Körperbau drei Sekunden Spurt). Beim normalen Schwimmen füllt sich der Kreis nur
+  durch (ein Kreis reicht bei normalem Körperbau drei Sekunden Spurt), kräftigere vererbte Flossen etwas länger. Gerechnet
+  wird mit dem Erbgut (der ausgewachsenen Größe), nicht mit dem Wachstumsstand: Ei, Übersicht und Spiel zeigen dieselbe
+  Ausdauer; nur das Alter zehrt sie am Lebensende auf. Beim normalen Schwimmen füllt sich der Kreis nur
   langsam; **ausruhen** geht schneller: nichts tun und sich **vom Wasser treiben lassen** (man steht dabei nie ganz still,
   sondern gleitet leicht nach links oder rechts). So kehren Ausdauer und **Lebenskraft** zurück: Wer sich treiben lässt,
   heilt gut ein Prozent je Sekunde (in knapp anderthalb Minuten von fast nichts bis voll), wer nur langsam schwimmt, ein
@@ -501,7 +504,11 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     das **Schwarze kommt früher** und wird dichter. Auch der kleine Sichtbereich direkt um den Fisch schrumpft dabei,
     damit der erste Fisch in großer Tiefe nicht genauso weit sieht wie in trübem Flachwasser.
 
-  Greift ein Tier aus dem Trüben an, sieht man kein Ausrufezeichen – man hört es nur. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
+  **Die Seitenlinie:** Was dir ganz nah kommt (gut eine Körperlänge), spürst du auch im Trüben und hinter dir – es bleibt
+  ein dunkler Umriss. Ein Tier, **das dich jagt oder angreift**, spürst du schon von Weitem (gut 400 Bildpunkte): Es ist
+  deutlich zu erkennen, nur leicht verschleiert. **Nichts greift unsichtbar an** – auch nicht im Mehrspieler, wo das Bild
+  eines Angreifers ein wenig nachläuft (`SIGHT.feel`, `feelThreat`, `sensed`). Greift ein Tier aus dem Trüben an, sieht
+  man kein Ausrufezeichen – man hört es nur. Auf dem Land gibt es diese Sicht nicht. Alle Zahlen stehen in `SIGHT` (`src/sim/sight.ts`, die
   Rechnung); `src/objects/Sight.ts` legt das Wasser und das Dunkle über das Bild, `LevelScene.sightStep` blendet die Tiere
   und die Fische in der Ferne (`BackSea.see`).
 - **Herzklopfen:** Das Herz schlägt **genau dann, wenn dich ein Tier jagt** – meist eines, das man im Trüben gar nicht
@@ -863,6 +870,11 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
   Wächterwechsel gilt der vollständige Serverbestand, auch wenn ein Tier lokal fälschlich als tot vorhergesagt wurde.
   Treffer liefern den aktuellen Angreifer mit; unbekannte oder tote Tiere können keinen Netzwerkschaden verursachen.
   Ein großer Sicherheitsabstand um die Ansichten aller Spieler schützt vor Einwandern oder Entfernen direkt im Bild.
+  Tiere in der Nähe eines anderen Spielers meldet der Ortswächter **20-mal je Sekunde** (sonst 10-mal), und die
+  Stellvertreter folgen ihrer Bahn ohne zusätzliches Nachziehen – ein Angreifer ist dort, wo er zubeißt. Mitgemeldet wird,
+  **wen ein Tier jagt**: So schlägt das Herz auch beim Gast, und die Seitenlinie zeigt den Jäger. Was beim Ortswächter
+  fortzieht, blendet beim Gast aus statt schlagartig zu verschwinden; Tiere am Rand des Ortes ziehen erst weiter, wenn sie
+  kein Spieler mehr sieht; beim Wechsel der Rolle blenden die eigenen Tiere aus, statt zu verschwinden.
 - **Noch für jeden einzeln:** deine Artgenossen (bestehende Gruppe und Laich-Partner). Der Laich im Devon ist gemeinsam.
 
 Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind – und wie lange eine Nachricht zum Server und zurück

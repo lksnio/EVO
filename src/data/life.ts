@@ -47,10 +47,12 @@ export const LIFE = {
 export const MOVEMENT = {
   /** Anteil des ausgewachsenen Tempos beim Schlüpfen (bei LIFE.hatch) */
   hatchSpeed: 0.6,
-  /** Tempofaktor je vererbtem Flossenpunkt: +10 Punkte → +10 % statt bisher +100 % */
-  finPerPoint: 0.01,
-  /** Anteil des Längenzuwachses, der Tempo gibt: +10 % Länge → +2 % Tempo */
-  lengthSpeed: 0.2,
+  /** Tempofaktor je vererbtem Flossenpunkt: +10 Punkte → +20 % Schwimmtempo */
+  finPerPoint: 0.02,
+  /** Ausdauer je vererbtem Flossenpunkt: kräftigere Flossen ermüden langsamer (+10 Punkte → +5 % Ausdauer) */
+  finEndurance: 0.005,
+  /** Anteil des Längenzuwachses, der Tempo gibt: +10 % Länge → +3 % Tempo */
+  lengthSpeed: 0.3,
 };
 
 /**

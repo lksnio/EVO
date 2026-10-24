@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clarity, clearness, depthOf, disc, farthest, SIGHT, veil, vision } from '../src/sim/sight';
+import { clarity, clearness, depthOf, disc, farthest, sensed, SIGHT, veil, vision } from '../src/sim/sight';
 import { placesOf } from '../src/data/world';
 import { EPOCHS } from '../src/data/epochs';
 import { generateLevel } from '../src/level/LevelGen';
@@ -108,5 +108,25 @@ describe('Sicht', () => {
       }
       expect(vision(1, FULL, water, 1).front).toBeGreaterThan(depths[4].front);
     }
+  });
+
+  it('Seitenlinie: Nahes und Angreifer bleiben auch im Trüben ein Umriss – nichts greift unsichtbar an', () => {
+    // ganz nah: immer zu spüren, auch hinter dem Fisch in tiefem, trübem Wasser
+    expect(sensed(0, false)).toBe(SIGHT.feelClarity);
+    expect(sensed(SIGHT.feel * 0.5, false)).toBe(SIGHT.feelClarity);
+    expect(sensed(SIGHT.feel, false)).toBe(0);
+    // wer dich jagt, ist viel weiter zu spüren – mit einem weichen Übergang am Rand
+    expect(sensed(SIGHT.feel * 2, true)).toBe(SIGHT.feelThreatClarity);
+    expect(SIGHT.feelThreatClarity).toBeGreaterThan(SIGHT.feelClarity);
+    const edge = sensed(SIGHT.feelThreat * 0.85, true);
+    expect(edge).toBeGreaterThan(0);
+    expect(edge).toBeLessThan(SIGHT.feelThreatClarity);
+    expect(sensed(SIGHT.feelThreat, true)).toBe(0);
+    // gespürt heißt: deckend sichtbar (ab 0,2), aber nur als dunkler Umriss (unter dem klaren Sehen)
+    expect(SIGHT.feelClarity).toBeGreaterThanOrEqual(0.2);
+    expect(SIGHT.feelThreatClarity).toBeLessThan(0.7);
+    // ein Angreifer mit nachlaufendem Bild (Netz) liegt noch weit innerhalb der Reichweite
+    const deepMurk = vision(0.2, FULL, 0.5, 1);
+    expect(SIGHT.feelThreat).toBeGreaterThan(disc(deepMurk).r + 200);
   });
 });

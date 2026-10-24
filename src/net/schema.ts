@@ -38,6 +38,8 @@ export const NetAnimal = schema(
     tn: t.uint32(),
     al: t.uint8(),
     at: t.boolean(),
+    /** wen es gerade jagt (Sitzungskennung, leer: niemanden) */
+    hu: t.string(),
     /** Uhrzeit des Ortswächters, als er es zuletzt meldete (ms) */
     t: t.float64(),
   },

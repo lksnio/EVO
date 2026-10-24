@@ -17,6 +17,8 @@ export class GhostAnimal extends Animal {
   onHit?: (g: GhostAnimal, dmg: number, kind: 'bite' | 'ram' | 'other', stun: number) => void;
   /** gestorben (vorhergesagt) – an den Ortswächter gemeldet */
   onDie?: (g: GhostAnimal) => void;
+  /** wen es gerade jagt (Sitzungskennung eines Spielers, sonst leer) – so meldet es der Ortswächter */
+  hu = '';
   private path = new Interp(FAUNA_INTERP_MS);
   private tn = 0;
   private flashUntil = 0;
@@ -45,14 +47,16 @@ export class GhostAnimal extends Animal {
     this.attacking = r.at;
     this.tn = r.tn;
     this.presence = r.al / 100;
+    this.hu = r.hu ?? '';
   }
 
   tick(_time: number, dt: number) {
     if (this.dead) return;
     const now = performance.now();
     const { x, y } = this.path.at(now, dt);
-    // ein kleiner Rückstand wird weich aufgeholt (z. B. nach dem ersten Bild)
-    const k = Math.min(1, dt * 14);
+    // Die Bahn ist schon geglättet: ihr direkt folgen (jedes weitere Nachziehen ließe den Angreifer hinterherhinken). Nur ein
+    // großer Sprung (z. B. nach dem ersten Bild) wird weich aufgeholt.
+    const k = Math.hypot(x - this.x, y - this.y) < 48 ? 1 : Math.min(1, dt * 14);
     this.setPosition(this.x + (x - this.x) * k, this.y + (y - this.y) * k);
     this.setFlipX(this.dir < 0);
     if (now > this.flashUntil) {
@@ -106,6 +110,16 @@ export class GhostAnimal extends Animal {
     this.world.bleed(this.x, this.y, 10);
     this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.world.tweens.add({ targets: this, alpha: 0, scaleX: this.scaleX * 0.5, scaleY: this.scaleY * 0.5, duration: 260, ease: 'Sine.in', onComplete: () => this.destroy() });
+  }
+
+  /** Beim Ortswächter fort (nicht gestorben): ausblenden statt schlagartig zu verschwinden. */
+  fadeOut() {
+    if (this.dead) return;
+    this.dead = true;
+    this.attacking = false;
+    this.hu = '';
+    if (!this.active) return;
+    this.world.tweens.add({ targets: this, alpha: 0, duration: 300, onComplete: () => this.destroy() });
   }
 
   hitRect(): Rect {
