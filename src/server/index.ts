@@ -1,6 +1,7 @@
 import { networkInterfaces } from 'node:os';
 import { defineRoom, defineServer } from 'colyseus';
-import { SPECIES_ROOM, ZONE_ROOM } from '../net/protocol';
+import { DUEL_ROOM, SPECIES_ROOM, ZONE_ROOM } from '../net/protocol';
+import { DuelRoom } from './DuelRoom';
 import { SpeciesRoom } from './SpeciesRoom';
 import { ZoneRoom } from './ZoneRoom';
 
@@ -27,12 +28,15 @@ function announce() {
  * als eigenständiger Server (`npm run build`, dann `npm start`), der auch das Spiel ausliefert.
  *
  * Je Ort und Zeitalter gibt es einen Raum: joinOrCreate('zone', { zone: '0/lagune', … }) führt alle Spieler am selben Ort
- * zusammen (filterBy). Dazu je Zeitalter der Raum der gemeinsamen Art (der Laich aller Spieler, siehe SpeciesRoom).
+ * zusammen (filterBy). Dazu je Zeitalter der Raum der gemeinsamen Art (der Laich aller Spieler, siehe SpeciesRoom) und für
+ * jedes Laichduell aus der Höhle im Laichfluss ein eigenes Becken (DuelRoom).
  */
 export const server = defineServer({
   rooms: {
     [ZONE_ROOM]: defineRoom(ZoneRoom).filterBy(['zone']),
     [SPECIES_ROOM]: defineRoom(SpeciesRoom).filterBy(['epoch']),
+    // ein Laichduell zu zweit: angelegt vom Ort, betreten nur mit Eintrittskarte (joinById)
+    [DUEL_ROOM]: defineRoom(DuelRoom),
   },
   beforeListen: () => {
     if (!process.env.VITEST) announce();

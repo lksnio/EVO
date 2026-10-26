@@ -28,6 +28,9 @@ function parseLook(s: string): Morph {
   return game.morph({ traits: ZERO_TRAITS, fierce: 0 });
 }
 
+/** Was ein Fisch eines anderen Spielers meldet – am Ort (NetFish) oder im Laichduell (DuelFish, Aussehen aus dem Element). */
+export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'> & { cave?: boolean };
+
 /**
  * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt und zwischen den Meldungen geglättet (net/Interp.ts),
  * damit er ruhig schwimmt, obwohl seine Lage nur etwa 20 Mal je Sekunde ankommt. Darüber steht sein Name.
@@ -41,8 +44,11 @@ export class RemoteFish {
   private facing = 1;
   private speed01 = 0;
   private away = false;
+  /** sein Name und ob er gerade in der Höhle zum Laichduell eingeloggt ist */
+  name = '';
+  cave = false;
 
-  constructor(scene: Phaser.Scene, f: NetFish, now: number) {
+  constructor(scene: Phaser.Scene, f: FishRow, now: number) {
     this.look = f.look;
     this.view = new CreatureView(scene, f.x, f.y, parseLook(f.look));
     this.view.setDepth(DEPTH.player - 1);
@@ -72,8 +78,17 @@ export class RemoteFish {
     return this.facing;
   }
 
+  /** wo er gerade gezeigt wird */
+  get x() {
+    return this.view.x;
+  }
+
+  get y() {
+    return this.view.y;
+  }
+
   /** Eine neue Meldung vom Server. */
-  push(f: NetFish, now: number) {
+  push(f: FishRow, now: number) {
     // ein älterer Server meldet keine Uhrzeit: dann die Ankunft
     this.path.push(f.t || now, f.x, f.y, now);
     if (f.look !== this.look && f.look) {
@@ -84,6 +99,8 @@ export class RemoteFish {
     this.anim = f.anim;
     this.facing = f.facing < 0 ? -1 : 1;
     this.away = f.away;
+    this.cave = !!f.cave;
+    this.name = f.name;
     if (this.label.text !== f.name) this.label.setText(f.name);
   }
 

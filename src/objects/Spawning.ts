@@ -80,13 +80,26 @@ export class SpawnCtl {
   /** so viel Nahrung braucht ein Nachkomme (gilt das ganze Leben – das Tier verändert sich darin nicht) */
   readonly base = game.broodBase;
 
+  /** Im Laichfluss gibt es nur einen Laichhaufen: Dorthin kommen alle (auch im Koop) zum Laichen und Befruchten. */
+  private heap?: { x: number; y: number };
+
   constructor(private host: LevelScene) {
     this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
     this.prompt = new Prompt(host, this.touchMode, 'bite');
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
-    // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen
+    const spot = host.place.kind === 'start' ? host.L.roe.find((q) => q.own) : undefined;
+    this.heap = spot && { x: spot.x, y: spot.y };
+    // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen. Gelege aus älteren
+    // Spielständen (damals lagen hier mehrere Laichhaufen) liegen jetzt auf dem einen.
     game.decayClutches();
-    for (const c of game.life.clutches) if (c.place === host.place.id) this.addBrood(c.x, c.y, c.at, { clutch: c });
+    for (const c of game.life.clutches) {
+      if (c.place !== host.place.id) continue;
+      if (this.heap && (c.x !== this.heap.x || c.y !== this.heap.y)) {
+        c.x = this.heap.x;
+        c.y = this.heap.y;
+      }
+      this.addBrood(c.x, c.y, c.at, { clutch: c });
+    }
     // der Laich deiner Art, der hier schon liegt (im Startgebiet): befruchtbar – wo schon dein eigenes Gelege liegt, nicht
     for (const roe of host.roes) {
       if (!roe.own || roe.hatched || this.broods.some((b) => b.roe === roe)) continue;
@@ -100,8 +113,8 @@ export class SpawnCtl {
     }
     // Der Laichgrund bleibt auch ohne Nahrung, Partnerbesuch oder verfügbare Eier zugänglich.
     if (host.place.kind === 'start' && !this.broods.length) {
-      const x = Math.max(100, (host.L.riverEnd ?? host.L.width * 0.25) * 0.45);
-      const b = this.addBrood(x, this.groundY(x) - 12, worldNow(), { mother: game.kinTraits(this.kinIndex(2)) });
+      const x = this.heap?.x ?? Math.max(100, (host.L.riverEnd ?? host.L.width * 0.25) * 0.45);
+      const b = this.addBrood(x, this.heap?.y ?? this.groundY(x) - 12, worldNow(), { mother: game.kinTraits(this.kinIndex(2)) });
       b.lasting = true;
     }
     for (const b of this.broods) if (b.clutch && !b.clutch.fert) this.callMale(b, rnd(SPAWN.maleDelay));
@@ -194,7 +207,8 @@ export class SpawnCtl {
         }
       }
     }
-    const atGround = male ? !!this.target : this.groundY(p.x) - p.y < SPAWN.ground;
+    const atGround = male ? !!this.target
+      : this.heap ? Math.hypot(this.heap.x - p.x, this.heap.y - 20 - p.y) < SPAWN.reach : this.groundY(p.x) - p.y < SPAWN.ground;
     this.block = spawnBlock({ age: life.age, gen: life.gen, fed: life.fed, base: this.base, young: game.young, lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround, male });
     this.setAble(!!this.target);
     // Der dauerhafte Laich ist jederzeit erkennbar; erst die Übersicht prüft die Voraussetzungen zum Befruchten.
@@ -286,7 +300,8 @@ export class SpawnCtl {
   private marks(on: boolean) {
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 2.6);
     for (const b of this.broods) {
-      const show = on && !!(b.mother || b.clutch || b.lasting);
+      // je Laichhaufen ein Schimmer (liegen mehrere Gelege darauf, zeigt ihn das sichtbare)
+      const show = on && b.roe.img.visible && !!(b.mother || b.clutch || b.lasting);
       if (!show) {
         if (b.mark?.visible) {
           b.mark.setVisible(false);
@@ -296,7 +311,8 @@ export class SpawnCtl {
         continue;
       }
       b.mark ??= this.host.add.image(b.x, b.y - 16, 'glow').setTint(0xffc870).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 70).setDepth(DEPTH.terrain + 0.5);
-      const near = b === this.target;
+      const t = this.target;
+      const near = !!t && (t === b || this.twin(b.x, b.y, b) === t);
       b.mark.setVisible(true).setAlpha((near ? 0.42 : 0.2) + (near ? 0.25 : 0.12) * pulse);
       b.roe.img.setTint(near ? 0xffd890 : 0xffe4b8);
     }
@@ -310,7 +326,8 @@ export class SpawnCtl {
       return;
     }
     this.nest ??= this.host.add.image(p.x, p.y, 'glow').setTint(0xffc870).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(110, 40).setDepth(DEPTH.terrain + 0.5);
-    this.nest.setVisible(true).setPosition(p.x, this.groundY(p.x) - 4).setAlpha(0.22 + 0.12 * Math.sin(this.t * 2.6));
+    const at = this.heap ?? { x: p.x, y: this.groundY(p.x) - 4 };
+    this.nest.setVisible(true).setPosition(at.x, at.y).setAlpha(0.22 + 0.12 * Math.sin(this.t * 2.6));
   }
 
   private setAble(v: boolean) {
@@ -321,13 +338,14 @@ export class SpawnCtl {
 
   // ---------------------------------------------------------------- Weibchen
 
-  /** Ein Gelege ablegen – am Grund, genau unter dir. */
+  /** Ein Gelege ablegen – auf den Laichhaufen (gibt es keinen, am Grund genau unter dir). */
   private lay() {
     const h = this.host, p = h.player;
-    const y = Math.round(this.groundY(p.x) + 6);
+    const x = this.heap?.x ?? Math.round(p.x);
+    const y = this.heap?.y ?? Math.round(this.groundY(p.x) + 6);
     const young = game.takeYoung();
     game.markSpawn();
-    const c = game.addClutch({ place: h.place.id, x: Math.round(p.x), y, at: worldNow(), fert: false, role: 'mother', young });
+    const c = game.addClutch({ place: h.place.id, x, y, at: worldNow(), fert: false, role: 'mother', young });
     const b = this.addBrood(c.x, c.y, c.at, { clutch: c });
     this.layFx(b, p.x, p.y);
     bus.emit('notice', 'Laichen', 'Gelege abgelegt');
@@ -378,8 +396,8 @@ export class SpawnCtl {
     this.femaleAt = time + SPAWN.femaleEvery * 1000;
     const re = h.L.riverEnd ?? h.L.width;
     const dir = p.facing || 1;
-    const x = clamp(p.x + dir * (170 + Math.random() * 110), 200, re - 140);
-    const gy = this.groundY(x);
+    const x = this.heap?.x ?? clamp(p.x + dir * (170 + Math.random() * 110), 200, re - 140);
+    const gy = this.heap ? this.heap.y - 6 : this.groundY(x);
     const v = h.cameras.main.worldView;
     const k = h.spawnKinAt(this.kinIndex(2), Math.min(h.L.width - 80, v.right + 140), Math.max(h.surfaceY + 80, gy - 160));
     k.homeDir = 1;
@@ -429,6 +447,8 @@ export class SpawnCtl {
     const h = this.host;
     const roe = new Roe(h, x, y, 'own', 1, SPAWN.eggs, true);
     roe.spared = true;
+    // mehrere Gelege auf demselben Haufen: ein Bild (und ein Schimmer) genügt
+    if (this.twin(x, y)) roe.img.setVisible(false);
     // vor dem Boden (auch am Hang ganz zu sehen), hinter allen Tieren
     roe.img.setDepth(DEPTH.terrain + 1);
     h.roes.push(roe);
@@ -470,9 +490,14 @@ export class SpawnCtl {
     audio.sfx('shell');
   }
 
+  /** Ein anderes Gelege, das schon an dieser Stelle liegt (derselbe Laichhaufen). */
+  private twin(x: number, y: number, not?: Brood) {
+    return this.broods.find((o) => o !== not && Math.abs(o.x - x) < 40 && Math.abs(o.y - y) < 40);
+  }
+
   /** Befruchtet: Das Gelege schimmert warm. */
   private glow(b: Brood) {
-    if (b.glow) return;
+    if (b.glow || this.twin(b.x, b.y, b)?.glow) return;
     const g = this.host.add.image(b.x, b.y - 14, 'glow').setTint(0xffe2a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(130, 80).setAlpha(0.22).setDepth(DEPTH.terrain + 0.5);
     this.host.tweens.add({ targets: g, alpha: 0.5, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.inOut' });
     b.glow = g;
@@ -510,6 +535,10 @@ export class SpawnCtl {
       b.gold?.destroy();
       b.sparks?.destroy();
       b.mark?.destroy();
+      // lag noch ein Gelege auf demselben Haufen, zeigt jetzt dieses das Bild
+      const t = this.twin(b.x, b.y);
+      if (t && b.roe.img.visible) t.roe.img.setVisible(true);
+      if (t && b.glow && !t.glow && t.clutch?.fert) this.glow(t);
       if (b.clutch) bus.emit('notice', 'Gelege verdorben', 'Es wurde nicht befruchtet.');
     }
   }

@@ -47,6 +47,34 @@ describe('Weltgenerator', () => {
   });
 });
 
+describe('Laichfluss im Devon', () => {
+  const river = placesOf(ep)[0];
+  const L = generateLevel(ep, 'evo-welt-1', river);
+
+  it('hat nur noch einen Laichhaufen der eigenen Art – am Schlüpfplatz', () => {
+    const own = L.roe.filter((q) => q.own);
+    expect(own).toHaveLength(1);
+    expect(Math.abs(own[0].x - L.start.x)).toBeLessThan(400);
+  });
+
+  it('links vom Start liegt die dunkle Höhle: innen frei, darüber Fels, darüber freies Wasser bis zum Rand', () => {
+    const c = L.cave!;
+    expect(c).toBeDefined();
+    expect(c.x + c.w).toBeLessThan(L.roe.find((q) => q.own)!.x - 300);
+    // Platz für zwei Fische
+    expect(c.w).toBeGreaterThan(300);
+    expect(c.h).toBeGreaterThan(110);
+    const solidAt = (x: number, y: number) => L.solids.some((s) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h);
+    // drinnen ist es frei (ein Stück über dem Boden), über der Decke liegt Fels
+    for (let x = c.x + 60; x < c.x + c.w - 20; x += 40) {
+      expect(solidAt(x, c.y + c.h - 40)).toBe(false);
+      expect(solidAt(x, c.y - 30)).toBe(true);
+    }
+    // über dem Fels ist Wasser bis an den linken Rand
+    for (let y = L.surfaceY + 40; y < c.y - 140; y += 40) expect(solidAt(10, y)).toBe(false);
+  });
+});
+
 const slopeDeg = (hp: number[], i: number) => (Math.atan(Math.abs(hp[i + 1] - hp[i]) / STEP) * 180) / Math.PI;
 
 /** die steilste Stelle am Fuß des Felsens (das untere Fünftel seiner Höhe) */

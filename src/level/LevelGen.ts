@@ -6,7 +6,7 @@ import { HEAL, TOXIC } from '../data/plants';
 import { pickBio } from '../data/biota';
 import { faunaAffinity, nearNursery } from '../sim/habitat';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
-import { buildHeightfield, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
+import { buildHeightfield, caveRock, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
 // beide Richtungen durchstreifen kann – an seinen Rändern geht es direkt im Nachbargebiet weiter. Er wird für
@@ -92,6 +92,11 @@ export interface LevelData {
   roe: RoeSpot[];
   /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
   riverEnd?: number;
+  /**
+   * Die dunkle Höhle ganz links im Laichfluss (Devon): Wer zu zweit hineinschwimmt, kann sich zum Laichduell einloggen (siehe
+   * sim/duel.ts). Darüber liegt freies Wasser bis zum Rand – dort ziehen Tiere aus dem Bild, die Spielerfische nicht.
+   */
+  cave?: Rect & { hollow: [number, number][] };
   /**
    * Land über dem Wasser (Karbon): Über der Wasserlinie (surfaceY) liegt Himmel, das Land ragt hinein – wer dort ist, läuft
    * (siehe Player). land: die Abschnitte, in denen der Boden über der Wasserlinie liegt.
@@ -278,11 +283,9 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
     return -1;
   };
   if (riverEndCol) {
-    // die eigene Brut: ein paar Gelege rund um den Schlüpfplatz
-    for (const off of [-7, 2, 10]) {
-      const c = nearFlat(startCol + off, 4, 24);
-      if (c >= 0 && !L.roe.some((q) => Math.abs(q.x - (c + 0.5) * T) < 3 * T)) L.roe.push(spot(c, 1, 'own', true));
-    }
+    // die eigene Brut: ein einziger Laichhaufen am Schlüpfplatz – hierher kommen alle zum Laichen
+    const c = nearFlat(startCol + 2, 4, 24);
+    L.roe.push(spot(c >= 0 ? c : startCol + 2, 1, 'own', true));
   }
   // Gelege der Bewohner (Hazards wie Quallen laichen nicht, die Herrscher ziehen nur durch) – im sicheren Startgebiet keine
   if (place.safe) return;
@@ -327,6 +330,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   // Der Fluss am Start reicht gut ein Drittel des Ortes weit
   const riverEndCol = place.shape === 'river' || (!place.shape && SHAPE_OF[place.kind] === 'river') ? Math.round(cols * 0.36) : 0;
   if (riverEndCol) L.riverEnd = riverEndCol * T;
+  const cave = !!place.duelCave && riverEndCol > 0;
 
   // Jeder Ort hat seine eigene Form: eine Mulde (Start), eine flache Wiese (bewachsen), Hügelketten (trüb), ein Trichter
   // in V-Form (tief) oder ein Schacht zwischen zwei Rändern (Abgrund). Wer hineinschwimmt, wird tiefer und dunkler.
@@ -348,8 +352,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     const seaFloor = place.seabed?.[1] ?? Math.min(lowest, floor0 - 4);
     const slope = Math.round(cols * 0.2);
     prof = (c) => {
-      // ganz links entspringt der Fluss: Das Ufer steigt bis zur Wasseroberfläche an – dort geht es nicht weiter
-      if (c < 14) return 17 - 15.4 * ease((11 - c) / 11);
+      // ganz links entspringt der Fluss: Das Ufer steigt bis zur Wasseroberfläche an – dort geht es nicht weiter. Im Devon liegt
+      // dort stattdessen die Höhle im Fels, und darüber geht das Wasser bis an den Rand.
+      if (c < 14) return cave ? 17 : 17 - 15.4 * ease((11 - c) / 11);
       const bed = 17 - 5 * ease((c - 14) / 20) + Math.sin(c * 0.21) * 0.9 * ease((c - 30) / 14) * (1 - ease((c - (riverEndCol - 10)) / 10));
       if (c < riverEndCol) return bed;
       if (c < riverEndCol + slope) return 12 + (seaFloor - 12) * ease((c - riverEndCol) / slope);
@@ -394,6 +399,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     G.flatten((cols - 14) * T, cols * T, place.seabed[1] * T, 80);
   }
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };
+  // (mit eigener Saat – so bleibt der Rest des Ortes, wie er war)
+  if (cave) addDuelCave(L, mulberry32(hashStr(`${ep.id}_${place.id}_höhle`)), G);
   addCrevices(L, 2, r, cols, G, startCol);
   addCurrents(L, r, cols, G.heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
@@ -436,12 +443,43 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   }
   // Erst nach dem Verschieben aus Felsen prüfen: Auch einzelne Schwarmmitglieder bleiben vom eigenen Laich fern.
   L.spawns = L.spawns.filter((s) => !nearNursery(place, s, L.roe));
+  // … und die Höhle des Laichduells samt ihrem Eingang bleibt frei
+  const cv = L.cave;
+  if (cv) L.spawns = L.spawns.filter((s) => s.x > cv.x + cv.w + 400);
+  // der Laichfluss bleibt dünn besiedelt: höchstens RIVER_MAX Tiere (ein Schwarm kommt ganz oder gar nicht)
+  if (place.waterway === 0) L.spawns = capHerds(L.spawns, RIVER_MAX);
   L.groundRects = groundRects(hp, rows * T);
   L.ground = Array.from({ length: cols }, (_, c) => G.at((c + 0.5) * T));
   return L;
 }
 
 const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/** so viele Tiere leben höchstens im Laichfluss */
+const RIVER_MAX = 40;
+
+/**
+ * Höchstens max Tiere – Schwärme und Rudel bleiben dabei ganz. Krabbeltiere am Grund gehören zum Fluss und bleiben zuerst,
+ * von den Fischen fallen die später erzeugten weg.
+ */
+function capHerds(spawns: Spawn[], max: number): Spawn[] {
+  const groups = new Map<number | Spawn, Spawn[]>();
+  for (const s of spawns) {
+    const k = s.herd ?? s;
+    const g = groups.get(k);
+    if (g) g.push(s);
+    else groups.set(k, [s]);
+  }
+  const order = [...groups.values()].sort((a, b) => Number(!SPECIES[a[0].id]?.crawl) - Number(!SPECIES[b[0].id]?.crawl));
+  const keep = new Set<Spawn>();
+  let n = 0;
+  for (const g of order) {
+    if (n + g.length > max) continue;
+    n += g.length;
+    for (const s of g) keep.add(s);
+  }
+  return spawns.filter((s) => keep.has(s));
+}
 
 /**
  * Felsen und Kiesel: Brocken liegen auf dem Boden – in Felsgebieten viele, im Sand wenige. Sie sind fest (Hitbox), man schwimmt
@@ -608,6 +646,22 @@ function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: numbe
 }
 
 /**
+ * Die Höhle des Laichduells ganz links im Laichfluss (Devon): ein Felsmassiv auf dem Flussbett, hinten geschlossen, die Öffnung
+ * zeigt nach rechts zum Laich. Der Pfeiler dahinter läuft zum Rand hin in den Boden aus – darüber ist freies Wasser bis an den
+ * Rand (Tiere ziehen dort hinaus, die Spielerfische hält eine Wand). Drinnen ist Platz für zwei Fische.
+ */
+function addDuelCave(L: LevelData, r: Rng, G: Ground) {
+  const floor = Math.round(G.at(8 * T) / T) * T;
+  const x0 = 3 * T, x1 = 12 * T, mouth = 1.5 * T;
+  G.flatten(0, x1 + mouth + T, floor, 120);
+  const c = caveRock(x0, x1, floor, 3.6 * T, 3 * T, 4 * T, mouth, 1, Math.floor(r() * 1e9));
+  L.rocks.push(c.rock);
+  for (const b of c.boxes) L.solids.push(b);
+  const top = Math.floor(c.ceil);
+  L.cave = { x: x0, y: top, w: x1 + mouth - x0, h: floor - top, hollow: c.hollow };
+}
+
+/**
  * Felsspalten: Eine Felsplatte liegt knapp über dem Grund. Darunter bleibt ein niedriger Durchgang,
  * in den große Jäger nicht hineinkommen – und wer selbst zu massig ist, auch nicht.
  */
@@ -616,6 +670,7 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
   for (let k = 0; k < 400 && L.crevices.length < n; k++) {
     const c0 = rint(r, 6, cols - W - 6);
     if (Math.abs(c0 - startCol) < 12) continue;
+    if (L.cave && c0 * T < L.cave.x + L.cave.w + 4 * T) continue;
     if (G.flat((c0 - 2) * T, (c0 + W + 2) * T) > (k < 200 ? 70 : 110)) continue;
     const f = Math.round(G.at((c0 + W / 2) * T) / T);
     const x0 = c0 * T, x1 = (c0 + W) * T;
@@ -650,6 +705,7 @@ function addCurrents(L: LevelData, r: Rng, cols: number, heights: Heights, start
     if (Math.abs(c0 + w / T / 2 - startCol) < 14) continue;
     const x = c0 * T;
     if (L.currents.some((c) => c.x < x + w + 6 * T && c.x + c.w > x - 6 * T)) continue;
+    if (L.cave && x < L.cave.x + L.cave.w + 2 * T) continue;
     let floor = Infinity;
     for (let i = c0; i < c0 + w / T; i++) floor = Math.min(floor, heights[i] * T);
     const h = rint(r, 3, 4) * T;

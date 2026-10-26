@@ -19,6 +19,8 @@ export const NetFish = schema(
     t: t.float64(),
     /** Verbindung kurz weg: Der Fisch bleibt stehen, bis der Spieler zurück ist (oder der Platz verfällt) */
     away: t.boolean(),
+    /** in der Höhle zum Laichduell eingeloggt (siehe protocol.ts, CaveMsg) */
+    cave: t.boolean(),
   },
   'NetFish',
 );
@@ -99,3 +101,56 @@ export const SpeciesState = schema(
   'SpeciesState',
 );
 export type SpeciesState = SchemaType<typeof SpeciesState>;
+
+/** Ein Fisch im Laichduell (siehe sim/duel.ts): Lage wie NetFish, dazu Lebenskraft, Element und ob er lebt. */
+export const DuelFish = schema(
+  {
+    name: t.string(),
+    /** 0 links, 1 rechts */
+    side: t.uint8(),
+    x: t.float32(),
+    y: t.float32(),
+    facing: t.int8(),
+    anim: t.uint8(),
+    t: t.float64(),
+    away: t.boolean(),
+    hp: t.float32(),
+    maxHp: t.float32(),
+    /** Urfisch, Stein-, Wasser- oder Pflanzenfisch */
+    elem: t.string(),
+    alive: t.boolean(),
+    /** der wievielte Fisch dieses Spielers im Duell (mit jedem Schlüpfen einer mehr) */
+    gen: t.uint8(),
+  },
+  'DuelFish',
+);
+export type DuelFish = SchemaType<typeof DuelFish>;
+
+/** Laich im Becken: treibt mit der Strömung und nimmt die Farbe des Gebiets an. */
+export const DuelEgg = schema(
+  {
+    owner: t.string(),
+    x: t.float32(),
+    y: t.float32(),
+    /** so lange (s) liegt er schon */
+    age: t.float32(),
+    /** das Gebiet, in dem er gerade liegt (daraus wird der neue Fisch) */
+    elem: t.string(),
+  },
+  'DuelEgg',
+);
+export type DuelEgg = SchemaType<typeof DuelEgg>;
+
+export const DuelState = schema(
+  {
+    /** wait: einer fehlt noch; count: gleich geht es los; play; over: vorbei (winner, leer: abgebrochen) */
+    phase: t.string(),
+    /** Countdown bzw. Wartezeit (s) */
+    left: t.float32(),
+    winner: t.string(),
+    fish: t.map(DuelFish),
+    eggs: t.map(DuelEgg),
+  },
+  'DuelState',
+);
+export type DuelState = SchemaType<typeof DuelState>;

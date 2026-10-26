@@ -15,7 +15,7 @@ import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
-import { terrainArt } from '../art/terrainArt';
+import { caveBack, caveShade, terrainArt } from '../art/terrainArt';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import { Controls, touch } from '../objects/Controls';
@@ -27,7 +27,10 @@ import { Kin, type KinWorld } from '../objects/Kin';
 import type { PlayerLike } from '../objects/Animal';
 import { SwarmCtl } from '../objects/Swarm';
 import { SpawnCtl } from '../objects/Spawning';
+import { DuelCave } from '../objects/DuelCave';
 import { NetSync, netWanted } from '../net/NetSync';
+import type { DuelStartMsg } from '../net/protocol';
+import type { DuelData } from './DuelScene';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
@@ -106,6 +109,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private near = { k: 1 };
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
+  /** die Höhle des Laichduells (links im Laichfluss des Devons): zu zweit einloggen */
+  private duelCave?: DuelCave;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
   private net?: NetSync;
   /** Mehrspieler: um welchen Spieler sich ein Tier gerade kümmert (für eine Weile gemerkt, damit es nicht hin und her springt) */
@@ -298,7 +303,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.near = { k: 1 };
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
-
+    this.duelCave = undefined;
   }
 
   create() {
@@ -321,8 +326,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
-    // Quelle und äußerster Talrand schließen das Meer ab.
-    world.setBoundsCollision(!this.water || !edgeNeighbor(ep, this.place, 'left', 0.5), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water);
+    // Quelle und äußerster Talrand schließen das Meer ab. Über der Höhle im Laichfluss ist links freies Wasser: Dort ziehen
+    // Tiere aus dem Bild – die Spielerfische hält eine eigene Wand (siehe unten).
+    world.setBoundsCollision(!this.water || (!edgeNeighbor(ep, this.place, 'left', 0.5) && !L.cave), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water);
     // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
@@ -380,6 +386,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     this.buildCover();
     this.buildCrevices();
+    this.buildCave();
     this.buildCurrents();
     // Dickicht und Felsspalten dienen als natürliche Verstecke
     this.cover = [...L.cover, ...L.crevices];
@@ -399,7 +406,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.prog.resume = undefined;
     const spawn = born ? { x: born.x, y: born.y - 40 } : back ? { ...back } : { ...L.start };
     // Alte Spielstände können aus einem breiteren oder tieferen Abschnitt stammen.
-    if (this.water && !this.amphibious && (born || back)) {
+    // (wer aus dem Laichduell kommt, wartet in dessen Höhle – ihr Dach liegt dicht über einem)
+    const c = L.cave;
+    const inCave = !!back && !!c && spawn.x > c.x && spawn.x < c.x + c.w && spawn.y > c.y + 20 && spawn.y < c.y + c.h - 10;
+    if (this.water && !this.amphibious && (born || back) && !inCave) {
       spawn.x = clamp(spawn.x, 120, L.width - 120);
       const floor = groundAt(L.terrain.hp, spawn.x);
       spawn.y = clamp(spawn.y, L.surfaceY + 120, Math.max(L.surfaceY + 120, floor - 130));
@@ -410,6 +420,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
     }
     this.player = new Player(this, spawn.x, spawn.y, this.water);
+    // links über der Höhle geht es für die Tiere weiter, für dich nicht: eine Wand nur für die Spielerfische
+    if (L.cave) {
+      const wall = this.add.rectangle(-60, L.height / 2, 120, L.height * 2).setVisible(false);
+      this.physics.add.existing(wall, true);
+      this.physics.add.collider(this.player.rect, wall);
+    }
     // über allem im Bild (auch über der Dunkelheit der Tiefe), wie eine Anzeige
     this.stamG = this.add.graphics().setDepth(DEPTH.text - 1);
     this.stamA = 0;
@@ -537,6 +553,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.net = netWanted() ? new NetSync(this) : undefined;
     // … und die gemeinsame Art: Der Laich gehört allen Spielern des Zeitalters (net/Species.ts)
     if (this.net && !ep.brood) species.connect(this.epochIdx);
+    // die Höhle des Laichduells: zu zweit hineinschwimmen und einloggen
+    if (L.cave) this.duelCave = new DuelCave(this, this.net);
     const onAdvanced = (name: unknown, gen: unknown) => {
       if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
       bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Nach deinem Tod geht es nur noch dort weiter.');
@@ -715,6 +733,21 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const shade = this.add.image(c.x, c.y, dark).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.cover);
       this.cullAdd(shade, c.x - 20, c.x + c.w + 20);
     }
+  }
+
+  /**
+   * Die Höhle des Laichduells: eine dunkle Rückwand im Hohlraum, darüber (vor den Fischen) der Schatten – hinten fast schwarz,
+   * zur Öffnung hin heller. Drinnen sieht man von den Fischen fast nur noch die Augen (objects/DuelCave.ts).
+   */
+  private buildCave() {
+    const c = this.L.cave;
+    if (!c) return;
+    const bk = caveBack(this, c.hollow, this.terrainKeys);
+    const back = this.add.image(bk.x, bk.y, bk.key).setOrigin(0).setDisplaySize(bk.w, bk.h).setDepth(DEPTH.decoBack + 3);
+    this.cullAdd(back, bk.x - 60, bk.x + bk.w + 60);
+    const sh = caveShade(this, c.hollow, 1, this.terrainKeys);
+    const shade = this.add.image(sh.x, sh.y, sh.key).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.cover);
+    this.cullAdd(shade, sh.x - 20, sh.x + sh.w + 20);
   }
 
   /** Strömungen: helle Schlieren zeigen, wohin das Wasser zieht. */
@@ -2023,6 +2056,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
     this.spawning?.update(time, dt);
+    this.duelCave?.update(dt);
     this.net?.update();
     this.drawStamina(p, dt);
     if (this.amphibious) this.drawOxygen(p, dt);
@@ -2299,7 +2333,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Felsspalten sind für alle dunkel genug. Ohne Farbe sieht man dich im Gras.
     const coat = game.traits.coat | 0;
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
-    p.inCrevice = L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10);
+    // die dunkle Höhle im Laichfluss verbirgt wie eine Felsspalte
+    p.inCrevice = L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10) || !!this.duelCave?.inside(cx, cy);
     const camo = (coat === 1 && ci >= 0) || (coat === 2 && this.inDark());
     p.inCover = p.inCrevice || (coat === 1 && ci >= 0);
     p.hidden = (p.inCrevice || camo) && p.speed01 < 0.55 && !p.sprinting;
@@ -2913,11 +2948,34 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
   }
 
-  /** Aktion am Laich öffnet die Eiübersicht statt zuzubeißen (Spieler, Player.update). */
+  /** Aktion in der Höhle loggt zum Laichduell ein, am Laich öffnet sie die Eiübersicht – statt zuzubeißen (Player.update). */
   spawnAct() {
+    if (this.ended) return false;
+    if (this.duelCave?.act()) return true;
     const sp = this.spawning;
-    if (!sp || this.ended) return false;
+    if (!sp) return false;
     return sp.visit();
+  }
+
+  /**
+   * In der Höhle sind beide eingeloggt: ins Becken des Laichduells (DuelScene). Das eigene Tier wartet so lange in der Höhle –
+   * es altert nicht und behält seine Lebenskraft; danach geht es genau dort weiter.
+   */
+  startDuel(m: DuelStartMsg) {
+    if (this.ended || this.player.dead) return;
+    this.ended = true;
+    this.quitLeft = -1;
+    this.spawning?.settle();
+    this.saveProgress();
+    game.leavePlace({ resume: { x: Math.round(this.player.x), y: Math.round(this.player.y) } });
+    this.player.body.setVelocity(0, 0);
+    audio.sfx('travel');
+    const data: DuelData = { epoch: this.epochIdx, place: this.place.id, room: m.room, ticket: m.ticket, side: m.side, foe: m.foe };
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.time.delayedCall(520, () => {
+      this.scene.stop('Hud');
+      this.scene.start('Duel', data);
+    });
   }
 
   /** Die Eiübersicht zu Lebzeiten öffnen; zurückkehren lässt das Tier am selben Ort weiterleben. */

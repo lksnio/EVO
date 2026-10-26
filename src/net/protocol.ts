@@ -256,3 +256,56 @@ export interface SpeciesOver {
   cause: string;
   gen: number;
 }
+
+// ---------------------------------------------------------------- das Laichduell (Höhle im Laichfluss)
+//
+// In der Höhle links im Laichfluss (Devon) loggen sich zwei Spieler mit der Aktionstaste ein (cave). Sind beide eingeloggt,
+// legt der Server ein Becken an (DUEL_ROOM) und schickt beiden die Nummer des Raums und eine Eintrittskarte (duel). Im Becken
+// melden die Clients ihre Lage (pos) und ihre Bisse (hit); Lebenskraft, Laich, Schlüpfen und Sieg rechnet der Server
+// (Regeln: sim/duel.ts).
+
+/** Name des Raums für ein Laichduell (nur mit Eintrittskarte, angelegt vom Ort, siehe ZoneRoom). */
+export const DUEL_ROOM = 'duel';
+
+/** Client → Server (Ort): in der Höhle eingeloggt (on) bzw. wieder ausgeloggt. */
+export interface CaveMsg {
+  on: boolean;
+}
+
+/** Server → Client (Ort): Beide sind eingeloggt – das Laichduell beginnt. */
+export interface DuelStartMsg {
+  room: string;
+  ticket: string;
+  /** eigene Seite: 0 links, 1 rechts */
+  side: number;
+  foe: string;
+}
+
+/** Beim Betreten des Beckens. */
+export interface DuelJoin {
+  ticket: string;
+}
+
+/** Client → Server (Becken): die eigene Lage. gen: der wievielte Fisch dieses Spielers im Duell (ältere Meldungen zählen nicht). */
+export interface DuelPosMsg extends PosMsg {
+  gen: number;
+}
+
+/** Server → beide: Ein Biss hat getroffen (to: der Getroffene, hp: seine Lebenskraft danach). */
+export interface DuelHurtMsg {
+  to: string;
+  from: string;
+  dmg: number;
+  hp: number;
+  x: number;
+  y: number;
+}
+
+/** Server → beide: Aus dem Laich ist ein neuer Fisch geschlüpft (das alte Tier ist tot). */
+export interface DuelHatchMsg {
+  owner: string;
+  x: number;
+  y: number;
+  elem: string;
+  gen: number;
+}

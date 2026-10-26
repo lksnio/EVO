@@ -1,6 +1,6 @@
 import { bus, game } from '../state/GameState';
 import { setServerClock } from '../sim/life';
-import { ANIM, SEND_HZ, cleanName, zoneId, type PosMsg } from './protocol';
+import { ANIM, SEND_HZ, cleanName, zoneId, type DuelStartMsg, type PosMsg } from './protocol';
 import { RemoteFish } from './RemoteFish';
 import type { NetFish, ZoneState } from './schema';
 import { WorldSync } from './WorldSync';
@@ -174,6 +174,7 @@ export class NetSync {
         bus.emit('ping', Math.round(netInfo.ping));
       },
       welcome: (m) => setServerClock(m.now),
+      duel: (m: DuelStartMsg) => !this.closed && this.host.startDuel(m),
       // Der Server kennt die Lage besser (der Fisch war zu schnell): zurück dorthin
       snap: (m) => !this.closed && !h.player.dead && h.player.body.reset(m.x, m.y),
       status: (s: NetStatus) => {
@@ -182,6 +183,22 @@ export class NetSync {
         else this.others = -1;
       },
     };
+  }
+
+  /** Die anderen Spieler an diesem Ort (so, wie sie gerade gezeigt werden). */
+  players(): RemoteFish[] {
+    return [...this.fish.values()].filter((f) => !f.gone);
+  }
+
+  /** Ist man selbst in der Höhle zum Laichduell eingeloggt (so, wie es der Server sieht)? */
+  get inCave() {
+    const z = this.zone;
+    return !!z && !!z.state.players.get(z.me)?.cave;
+  }
+
+  /** In der Höhle einloggen bzw. ausloggen. */
+  caveLogin(on: boolean) {
+    this.zone?.cave({ on });
   }
 
   /** Wer rechnet die Tiere? Erst entscheiden, wenn der Ortswächter bekannt ist (beim Betreten kommt der Stand etwas später). */

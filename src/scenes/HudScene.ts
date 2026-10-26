@@ -8,13 +8,14 @@ import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
 import { phases, worldYears } from '../sim/life';
 import { CLASSES } from '../data/classes';
 import { SPECIES } from '../data/species';
-import { tapped, touch } from '../objects/Controls';
+import { touch } from '../objects/Controls';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, panel, soundButton, text, title } from '../ui/ui';
 import { openKeys } from '../ui/keysPanel';
 import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
 import { upTrail } from '../ui/upTrail';
+import { touchButton } from '../ui/touchPad';
 import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
 import { UPGRADES } from '../data/life';
@@ -806,27 +807,6 @@ export class HudScene extends Phaser.Scene {
   }
 
   private touchBtn(x: number, y: number, r: number, label: string, key: keyof typeof touch, color = 0xe6dcc4) {
-    const g = this.add.graphics().setDepth(5);
-    const draw = (down: boolean) => {
-      g.clear();
-      g.fillStyle(0x0b0a09, down ? 0.55 : 0.32);
-      g.fillCircle(x, y, r);
-      g.lineStyle(2.5, color, down ? 0.85 : 0.35);
-      g.strokeCircle(x, y, r);
-    };
-    draw(false);
-    const t = text(this, x, y, label, r > 50 ? 21 : 18, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6).setAlpha(0.85);
-    const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
-    const set = (v: boolean) => {
-      touch[key] = v;
-      // ein kurzes Tippen zählt, auch wenn der Finger vor dem nächsten Bild schon wieder oben ist
-      if (v) tapped[key] = true;
-      draw(v);
-      if (v) audio.unlock();
-    };
-    z.on('pointerdown', () => set(true));
-    z.on('pointerup', () => set(false));
-    z.on('pointerout', () => set(false));
-    return t;
+    return touchButton(this, x, y, r, label, key, color);
   }
 }

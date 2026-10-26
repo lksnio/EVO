@@ -1,13 +1,16 @@
-import { Room, type Client } from 'colyseus';
+import { randomUUID } from 'node:crypto';
+import { matchMaker, Room, type Client } from 'colyseus';
 import { EPOCHS } from '../data/epochs';
 import { WORLD } from '../data/life';
 import { SPECIES } from '../data/species';
 import { placesOf } from '../data/world';
 import { generateLevel } from '../level/LevelGen';
 import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
+import type { Rect } from '../util/math';
+import type { DuelSeat } from './DuelRoom';
 import {
-  cleanName, MAX_SPEED, MOVE_BURST, PATCH_HZ, RECONNECT_S,
-  type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
+  cleanName, DUEL_ROOM, MAX_SPEED, MOVE_BURST, PATCH_HZ, RECONNECT_S,
+  type CaveMsg, type DuelStartMsg, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
   type SnapMsg, type WelcomeMsg,
 } from '../net/protocol';
 
@@ -45,6 +48,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   maxClients = 24;
   private bounds = { x0: 0, x1: 4000, y0: -600, y1: 2000, sx: 200, sy: 300 };
   private budget = new Map<string, Budget>();
+  /** die Höhle des Laichduells (nur im Laichfluss des Devons) und wer gerade ins Becken geschickt wird */
+  private cave?: Rect;
+  private starting = new Set<string>();
 
   messages = {
     pos: (client: Client, m: PosMsg) => this.onPos(client, m),
@@ -88,6 +94,20 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const attacker = a ? { id: animal, sp: a.sp, x: a.x, y: a.y, d: a.d, an: a.an, hp: a.hp, mh: a.mh, sz: a.sz, tn: a.tn, al: a.al, at: a.at, hu: a.hu } : undefined;
       to?.send('hurt', { animal, ...(attacker ? { attacker } : {}), dmg: clamp(num(m.dmg, 0), 0, 200), x: num(m.x, 0), by: String(m.by ?? '').slice(0, 40) } satisfies HurtMsg);
     },
+    // in der Höhle einloggen (nur wenn noch jemand drin ist) bzw. ausloggen; sind zwei eingeloggt, beginnt das Laichduell
+    cave: (client: Client, m: CaveMsg) => {
+      const f = this.state.players.get(client.sessionId);
+      if (!f || !this.cave) return;
+      if (m?.on !== true) {
+        f.cave = false;
+        return;
+      }
+      if (f.away || !this.inCave(f, 40)) return;
+      const mate = [...this.state.players.entries()].some(([id, o]) => id !== client.sessionId && !o.away && this.inCave(o, 90));
+      if (!mate) return;
+      f.cave = true;
+      void this.tryDuel();
+    },
     look: (client: Client, m: LookMsg) => {
       const f = this.state.players.get(client.sessionId);
       if (!f || !m || typeof m.look !== 'string' || m.look.length > 4000) return;
@@ -103,6 +123,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const ep = EPOCHS[z.epoch];
     const L = generateLevel(ep, WORLD.seed, placesOf(ep).find((p) => p.id === z.place)!);
     this.bounds = { x0: 0, x1: L.width, y0: Math.min(0, L.surfaceY) - 600, y1: L.height + 60, sx: L.start.x, sy: L.start.y };
+    if (L.cave) this.cave = { x: L.cave.x, y: L.cave.y, w: L.cave.w, h: L.cave.h };
     // PATCH_HZ-mal je Sekunde gehen die Änderungen hinaus
     this.setPatchRate(1000 / PATCH_HZ);
   }
@@ -117,6 +138,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     f.size = 1;
     f.look = typeof o?.look === 'string' && o.look.length <= 4000 ? o.look : '';
     f.gen = clamp(Math.round(num(o?.gen, 1)), 1, 60000);
+    f.cave = false;
     this.state.players.set(client.sessionId, f);
     this.budget.set(client.sessionId, { left: MOVE_BURST, at: Date.now() });
     // der Erste am Ort (oder wenn keiner mehr da ist) wird Ortswächter
@@ -140,6 +162,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   onLeave(client: Client) {
+    this.starting.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.budget.delete(client.sessionId);
     if (this.state.host === client.sessionId) this.newHost(client.sessionId);
@@ -154,6 +177,35 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.state.animals.clear();
       this.state.meats.clear();
       this.state.plants.clear();
+    }
+  }
+
+  /** Ist der Fisch in der Höhle (mit etwas Spielraum m, das Netz ist nicht ganz genau)? */
+  private inCave(f: { x: number; y: number }, m: number) {
+    const c = this.cave;
+    return !!c && f.x > c.x - m && f.x < c.x + c.w + m && f.y > c.y - m && f.y < c.y + c.h + m;
+  }
+
+  /**
+   * Sind zwei in der Höhle eingeloggt, legt der Server ein Becken an (DuelRoom) und schickt beiden die Nummer und eine eigene
+   * Eintrittskarte – sie verlassen dann den Ort und kommen nach dem Duell zur Höhle zurück.
+   */
+  private async tryDuel() {
+    const ready = [...this.state.players.entries()].filter(([id, f]) => f.cave && !f.away && this.inCave(f, 90) && !this.starting.has(id));
+    if (ready.length < 2) return;
+    const pair = ready.slice(0, 2);
+    for (const [id, f] of pair) {
+      f.cave = false;
+      this.starting.add(id);
+    }
+    const seats: DuelSeat[] = pair.map(([, f], side) => ({ ticket: randomUUID(), name: f.name, side }));
+    try {
+      const room = await matchMaker.createRoom(DUEL_ROOM, { seats });
+      pair.forEach(([id], i) => this.clients.getById(id)?.send('duel', { room: room.roomId, ticket: seats[i].ticket, side: i, foe: pair[1 - i][1].name } satisfies DuelStartMsg));
+    } catch (e) {
+      console.warn('[EVO] Das Laichduell ließ sich nicht anlegen.', e);
+    } finally {
+      for (const [id] of pair) this.starting.delete(id);
     }
   }
 
@@ -256,5 +308,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     f.facing = num(m.facing, 1) < 0 ? -1 : 1;
     f.anim = clamp(Math.round(num(m.anim, 0)), 0, 7);
     f.size = clamp(num(m.size, 1), 0.1, 3);
+    // wer die Höhle verlässt, ist nicht mehr eingeloggt
+    if (f.cave && !this.inCave(f, 90)) f.cave = false;
   }
 }

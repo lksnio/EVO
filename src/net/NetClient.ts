@@ -1,8 +1,8 @@
 import { Callbacks, Client, type Room } from '@colyseus/sdk';
-import { SpeciesState, ZoneState, type NetFish } from './schema';
+import { DuelState, SpeciesState, ZoneState, type NetFish } from './schema';
 import {
   SPECIES_ROOM, ZONE_ROOM,
-  type SpeciesAdvanced, type SpeciesJoin, type SpeciesOver, type SpeciesPicked,
+  type CaveMsg, type DuelHatchMsg, type DuelHurtMsg, type DuelPosMsg, type DuelStartMsg, type SpeciesAdvanced, type SpeciesJoin, type SpeciesOver, type SpeciesPicked,
   type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
   type SnapMsg, type WelcomeMsg,
 } from './protocol';
@@ -33,6 +33,8 @@ export interface ZoneHandlers {
   plant(m: PlantMsg): void;
   /** die Antwort auf ping() – mit der eigenen Uhrzeit von damals */
   pong(m: PingMsg): void;
+  /** in der Höhle sind zwei eingeloggt: Das Laichduell beginnt (Becken und Eintrittskarte) */
+  duel(m: DuelStartMsg): void;
 }
 
 /** Ein betretener Ort: senden, verlassen – und wer man selbst ist. */
@@ -50,6 +52,8 @@ export interface Zone {
   ping(m: PingMsg): void;
   /** als Ortswächter abgeben (ein anderer Spieler rechnet weiter) */
   yieldHost(): void;
+  /** in der Höhle zum Laichduell einloggen bzw. ausloggen */
+  cave(m: CaveMsg): void;
   leave(): void;
 }
 
@@ -84,6 +88,7 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
   room.onMessage('died', (ids: number[]) => h.died(ids));
   room.onMessage('plant', (m: PlantMsg) => h.plant(m));
   room.onMessage('pong', (m: PingMsg) => h.pong(m));
+  room.onMessage('duel', (m: DuelStartMsg) => h.duel(m));
   room.onDrop(() => h.status('unterbrochen'));
   room.onReconnect(() => h.status('verbunden'));
   room.onLeave(() => {
@@ -105,6 +110,7 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
     plant: (m) => send('plant', m),
     ping: (m) => send('ping', m),
     yieldHost: () => send('yield', {}),
+    cave: (m) => send('cave', m),
     leave: () => {
       if (left) return;
       left = true;
@@ -132,4 +138,52 @@ export async function joinSpecies(url: string, opts: SpeciesJoin, h: SpeciesHand
   room.onMessage('extinct', (m: SpeciesOver) => h.over(m));
   room.onLeave(() => h.closed());
   return room;
+}
+
+/** Das Laichduell: was das Becken meldet. */
+export interface DuelHandlers {
+  hurt(m: DuelHurtMsg): void;
+  hatch(m: DuelHatchMsg): void;
+  snap(m: SnapMsg): void;
+  /** die Verbindung zum Becken ist fort */
+  closed(): void;
+}
+
+/** Ein betretenes Becken (siehe server/DuelRoom.ts). */
+export interface Duel {
+  readonly me: string;
+  readonly state: DuelState;
+  pos(m: DuelPosMsg): void;
+  hit(): void;
+  lay(): void;
+  forfeit(): void;
+  leave(): void;
+}
+
+/** Ins Becken eines Laichduells – mit der Eintrittskarte, die der Ort geschickt hat. */
+export async function joinDuel(url: string, roomId: string, ticket: string, h: DuelHandlers): Promise<Duel> {
+  const room: Room<unknown, DuelState> = await clientFor(url).joinById<DuelState>(roomId, { ticket }, DuelState);
+  let left = false;
+  room.onMessage('hurt', (m: DuelHurtMsg) => h.hurt(m));
+  room.onMessage('hatch', (m: DuelHatchMsg) => h.hatch(m));
+  room.onMessage('snap', (m: SnapMsg) => h.snap(m));
+  room.onLeave(() => {
+    if (!left) h.closed();
+  });
+  const send = (type: string, m: unknown) => room.connection.isOpen && room.send(type, m);
+  return {
+    me: room.sessionId,
+    get state() {
+      return room.state;
+    },
+    pos: (m) => send('pos', m),
+    hit: () => send('hit', {}),
+    lay: () => send('lay', {}),
+    forfeit: () => send('forfeit', {}),
+    leave: () => {
+      if (left) return;
+      left = true;
+      room.leave().catch(() => undefined);
+    },
+  };
 }

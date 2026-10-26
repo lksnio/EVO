@@ -72,6 +72,8 @@ export interface PlaceDef {
   waterway?: 0 | 1 | 2;
   /** Bodenhöhe an den beiden Übergängen (Kacheln); dieselbe Höhe an benachbarten Rändern. */
   seabed?: [number, number];
+  /** links im Laichfluss liegt die dunkle Höhle des Laichduells (siehe LevelData.cave, sim/duel.ts) */
+  duelCave?: boolean;
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
@@ -191,7 +193,7 @@ function buildPlaces(epId: string): PlaceDef[] {
   if (epId !== 'devon') return places;
   // Ein Meer, drei direkt verbundene Abschnitte. Die alten IDs bleiben für Spielstände erhalten.
   const river = places[0], shelf = places[1], valley = places[5];
-  Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28] });
+  Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28], duelCave: true });
   Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 3, waterway: 1, seabed: [28, 28] });
   Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: [28, 107], apex: true });
   valley.def.name = valley.name;

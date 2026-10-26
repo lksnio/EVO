@@ -850,6 +850,8 @@ export const ROE_TONES = [
   { egg: 0xe8c4c0, shell: 0xfae6e2, yolk: 0xd8786c },
   { egg: 0x9ccad4, shell: 0xd8f0f4, yolk: 0x3c7a8c },
   { egg: 0xb8c890, shell: 0xe2eec4, yolk: 0x5c7a3c },
+  // hell und fast farblos: nimmt im Laichduell die Farbe seines Gebiets an (scenes/DuelScene.ts)
+  { egg: 0xe6e2d6, shell: 0xfbf9f2, yolk: 0xb4ab94 },
 ];
 
 export const roeKey = (tone: number, stage: number) => `roe_${tone}_${stage}`;
@@ -2179,6 +2181,11 @@ export function commonTextures(scene: Phaser.Scene) {
     g.addColorStop(1, 'rgba(120,180,180,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 64, 360);
+  });
+  // Höhle: Augenleuchten im Dunkeln
+  tex(scene, 'eyeglint', 24, 24, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 12, 12, 0, 12, [[0, 'rgba(255,250,220,1)'], [0.25, 'rgba(255,230,160,.8)'], [1, 'rgba(255,200,120,0)']]);
+    ctx.fillRect(0, 0, 24, 24);
   });
   // Lichtnetz (Kaustik) – zwei Lagen, die sich gegeneinander verschieben
   causticTex(scene, 'caustics', 57);

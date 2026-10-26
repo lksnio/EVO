@@ -319,7 +319,10 @@ function maskGradient(ctx: Ctx, width: number, zones: TerrainZone[], mats: Mater
 
 let serial = 0;
 
-function paintChunk(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: number, index: number, pebbles: RockSpec[], keys: string[], tag: number) {
+/** Was zum Malen des Bodens gebraucht wird (ein Ort – oder das Becken des Laichduells). */
+export type TerrainSpec = Pick<LevelData, 'width' | 'terrain' | 'mats' | 'rocks' | 'fore'>;
+
+function paintChunk(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number, index: number, pebbles: RockSpec[], keys: string[], tag: number) {
   const hp = L.terrain.hp, zones = L.terrain.zones;
   const x0 = index * CHUNK, x1 = Math.min(L.width, x0 + CHUNK);
   const gx0 = x0 - 6, gx1 = x1 + 6;
@@ -548,7 +551,7 @@ function rockPiece(scene: Phaser.Scene, s: RockSpec, look: RockLook, tag: string
 }
 
 /** Alle Bilder des Bodens und der Felsen eines Ortes. */
-export function terrainArt(scene: Phaser.Scene, L: LevelData, theme: Theme, variant: number): TerrainArt {
+export function terrainArt(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number): TerrainArt {
   const keys: string[] = [];
   const tag = ++serial;
   const pebbles = L.rocks.filter((s) => (s.form ?? 'boulder') === 'boulder' && s.rx < 30);
@@ -561,4 +564,84 @@ export function terrainArt(scene: Phaser.Scene, L: LevelData, theme: Theme, vari
   const rocks = [...solid].sort((a, b) => order(a) - order(b)).map((s) => rockPiece(scene, s, look, tag + 'g', keys));
   const fore = L.fore.map((s) => rockPiece(scene, s, { ...look, dark: true }, tag + 'f', keys));
   return { chunks, rocks, fore, deep: deepColor(theme, variant), keys };
+}
+
+// ---------------------------------------------------------------------------
+// Höhlen: der Schatten im Hohlraum
+
+let caveSerial = 0;
+
+/** Der Schatten im Hohlraum: der Umriss der Höhle, hinten am dunkelsten, zur Öffnung hin heller, mit weichem Rand. */
+export function caveShade(scene: Phaser.Scene, hollow: Poly, side: 1 | -1, keys: string[]): ArtPiece {
+  const pad = 8;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of hollow) {
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  const x = Math.floor(x0 - pad), y = Math.floor(y0 - pad), w = Math.ceil(x1 - x0 + pad * 2), h = Math.ceil(y1 - y0 + pad * 2);
+  const [cv, ctx] = newCanvas(w, h);
+  ctx.translate(-x, -y);
+  const back = side > 0 ? x0 : x1, open = side > 0 ? x1 : x0;
+  const g = ctx.createLinearGradient(back, 0, open, 0);
+  for (const [o, a] of [[0, 0.82], [0.55, 0.7], [0.85, 0.46], [1, 0.24]]) g.addColorStop(o, `rgba(2,4,4,${a})`);
+  ctx.filter = 'blur(3px)';
+  ctx.beginPath();
+  hollow.forEach(([px, py], i) => (i ? ctx.lineTo(px, py + 2) : ctx.moveTo(px, py + 2)));
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.filter = 'none';
+  const key = `cave_shade_${++caveSerial}`;
+  addTex(scene, key, cv);
+  keys.push(key);
+  return { key, x, y, w, h };
+}
+
+/**
+ * Die Rückwand im Hohlraum: dunkler Fels in genau der Form der Höhle (davor schwimmt man, darüber liegt der Schatten). Zur
+ * Öffnung (side: 1 rechts, -1 links) hin wird sie auf den letzten Bildpunkten durchscheinend – die Mündung geht ins Wasser über.
+ */
+export function caveBack(scene: Phaser.Scene, hollow: Poly, keys: string[], side: 1 | -1 = 1): ArtPiece {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of hollow) {
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  const pad = 6;
+  const x = Math.floor(x0 - pad), y = Math.floor(y0 - pad), w = Math.ceil(x1 - x0 + pad * 2), h = Math.ceil(y1 - y0 + pad * 2);
+  const [cv, ctx] = newCanvas(w, h);
+  ctx.translate(-x, -y);
+  ctx.beginPath();
+  // ein wenig größer als der Hohlraum, damit kein Spalt zum Fels bleibt
+  hollow.forEach(([px, py], i) => (i ? ctx.lineTo(px, py - 3) : ctx.moveTo(px, py - 3)));
+  ctx.closePath();
+  ctx.fillStyle = '#0a0d0e';
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = pattern(ctx, 'stone', 0.6);
+  ctx.fillRect(x, y, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(60,70,70,.12)';
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+  // die Mündung: auslaufen lassen
+  const open = side > 0 ? x1 : x0, fade = 46;
+  const g = ctx.createLinearGradient(open - side * fade, 0, open, 0);
+  g.addColorStop(0, 'rgba(0,0,0,1)');
+  g.addColorStop(1, 'rgba(0,0,0,0.15)');
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  const key = `cave_back_${++caveSerial}`;
+  addTex(scene, key, cv);
+  keys.push(key);
+  return { key, x, y, w, h };
 }

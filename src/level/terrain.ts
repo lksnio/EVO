@@ -1,4 +1,4 @@
-import { mulberry32, type Rect, type Rng } from '../util/math';
+import { clamp, mulberry32, type Rect, type Rng } from '../util/math';
 
 // Das Gelände des Meeresbodens: eine glatte Höhenlinie (in Säulen von 20 Bildpunkten Breite), Zonen aus Sand, Fels und
 // Schlamm und Felsbrocken. Die Hitboxen bleiben Rechtecke (Säulen bzw. schmale Scheiben eines Felsens) – aber so fein,
@@ -247,7 +247,92 @@ export function rockSlices(rock: RockSpec, groundY: (x: number) => number): Rect
 }
 
 // ---------------------------------------------------------------------------
-// Platten über Felsspalten
+// Der Fels über einer Höhle und Platten über Felsspalten
+
+const relative = (pts: Poly): { poly: Poly; x: number; y: number; rx: number; ry: number } => {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of pts) {
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  return { poly: pts.map(([x, y]) => [x - cx, y - cy]), x: cx, y: cy, rx: (x1 - x0) / 2, ry: (y1 - y0) / 2 };
+};
+
+/**
+ * Das Felsmassiv über einer Höhle: Der Hohlraum liegt zwischen x0 und x1 über dem Boden (floor). Seine Decke ist unregelmäßig
+ * (etwa high Bildpunkte hoch, in der Mitte höher), das hintere Ende ist rund und geschlossen – dahinter ein Pfeiler, der weich
+ * in den Boden ausläuft (foot). Auf der offenen Seite (side: 1 rechts, -1 links) endet der Fels nach einer kurzen Mündung
+ * (mouth) mit einer Lippe. Die Hitbox sind schmale Säulen über der Decke.
+ */
+export function caveRock(x0: number, x1: number, floor: number, high: number, foot: number, dome: number, mouth: number, side: 1 | -1, seed: number) {
+  const r = mulberry32(seed);
+  const p1 = r() * TAU, p2 = r() * TAU, p3 = r() * TAU, p4 = r() * TAU;
+  const len = x1 - x0;
+  // q: Abstand vom geschlossenen Ende ins Innere (negativ: der Pfeiler dahinter, über len: die Mündung)
+  const X = (q: number) => (side > 0 ? x0 + q : x1 - q);
+  const ceil0 = floor - high;
+  const THIN = 58, LIP = 30;
+  const R = Math.min(64, high * 0.55);
+  /** die Decke des Hohlraums: in der Mitte höher, unregelmäßig, am geschlossenen Ende rund bis zum Boden */
+  const roof = (q: number) => {
+    const u = clamp(q / len, 0, 1), x = X(q);
+    const h = high * (0.8 + 0.2 * Math.sin(Math.PI * u)) + 9 * Math.sin(x * 0.031 + p1) + 5 * Math.sin(x * 0.083 + p2);
+    const y = floor - h;
+    if (q >= R) return y;
+    const k = (R - Math.max(0, q)) / R;
+    return floor - (floor - y) * Math.sqrt(Math.max(0, 1 - k * k));
+  };
+  /** die Oberkante des Felsens */
+  const top = (q: number) => {
+    const x = X(q);
+    const n = 5 * Math.sin(x * 0.045 + p3) + 3 * Math.sin(x * 0.13 + p4);
+    if (q < 0) {
+      const s = Math.min(1, -q / foot);
+      const e = s * s * (3 - 2 * s);
+      return Math.min(floor - 3, ceil0 - THIN + (floor - ceil0 + THIN) * e + n * (1 - s));
+    }
+    if (q <= len) {
+      const u = (q - len / 2) / (len / 2);
+      return ceil0 - THIN - (dome - THIN) * (1 - u * u) + n;
+    }
+    // die Mündung: Der Fels senkt sich bis auf eine Lippe über der Öffnung
+    const s = Math.min(1, (q - len) / mouth);
+    const e = s * s * (3 - 2 * s);
+    const from = ceil0 - THIN + n;
+    return from + (roof(q) - LIP - from) * e;
+  };
+  const end = len + mouth;
+  const pts: Poly = [[X(-foot), floor + 24]];
+  for (let q = -foot; q < end; q += 10) pts.push([X(q), top(q)]);
+  pts.push([X(end), top(end)], [X(end), roof(end)]);
+  for (let q = end - 10; q > 0; q -= 10) pts.push([X(q), roof(q)]);
+  pts.push([X(0), floor], [X(0), floor + 24]);
+  // der Hohlraum als Umriss (für die dunkle Rückwand und den Schatten drinnen)
+  const hollow: Poly = [];
+  for (let q = 0; q <= end; q += 10) hollow.push([X(q), roof(q)]);
+  hollow.push([X(end), floor + 2], [X(0), floor + 2]);
+  const boxes: Rect[] = [];
+  const lo = Math.min(X(-foot), X(end)), hi = Math.max(X(-foot), X(end));
+  for (let xs = Math.floor(lo / STEP) * STEP; xs < hi; xs += STEP) {
+    // die Säule in q gemessen
+    const qa = side > 0 ? xs - x0 : x1 - (xs + STEP), qb = qa + STEP;
+    if (qb <= -foot || qa >= end) continue;
+    const qs = [Math.max(qa, -foot), (qa + qb) / 2, Math.min(qb, end)];
+    const t = Math.min(...qs.map(top));
+    if (t > floor - 4) continue;
+    const y = Math.round(t);
+    // über dem Hohlraum nur das Dach (bis zur höchsten Stelle der Decke in dieser Säule), dahinter der ganze Pfeiler
+    const bottom = qa >= 0 ? Math.min(...qs.map(roof)) : floor + 40;
+    if (bottom - y < 6) continue;
+    boxes.push({ x: xs, y, w: STEP, h: Math.round(bottom - y) });
+  }
+  const rel = relative(pts);
+  const rock: RockSpec = { x: rel.x, y: rel.y, rx: rel.rx, ry: rel.ry, seed, tone: 1, poly: rel.poly, form: 'arch' };
+  return { rock, boxes, top: (x: number) => top(side > 0 ? x - x0 : x1 - x), hollow, ceil: Math.min(...hollow.map(([, y]) => y)) };
+}
 
 
 /** Eine flache Felsplatte (Hitbox: das Rechteck, der Umriss etwas unregelmäßig und an den Enden abgerundet). */
