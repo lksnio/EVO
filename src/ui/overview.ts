@@ -6,11 +6,12 @@ import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { SPECIES } from '../data/species';
 import { dietIcon, preyIcon } from '../art/speciesArt';
-import { STAGE_NAME, stageOf } from '../sim/life';
+import { phases, STAGE_NAME, stageOf } from '../sim/life';
 import { BROOD } from '../data/karbon';
+import { placeOf } from '../data/world';
+import { clamp } from '../util/math';
 import { text, title } from './ui';
 import { upTrail } from './upTrail';
-import { habitatMap } from './habitatMap';
 
 export interface OverviewData {
   morph: Morph;
@@ -66,7 +67,8 @@ function rule(g: Phaser.GameObjects.Graphics, x0: number, x1: number, y: number,
  * Die Übersicht (Taste C) – wie der Charakterbogen alter Rollenspiele. Oben, wer dein Tier ist; darunter seine drei großen
  * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, die die große Muschel segnet –, dann seine Waffen und sein
  * Schutz: Gebiss, Schädel, Flossen und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
- * der Körper, das Leben, die Lebensraumkarte und die Muscheln. Nachwuchsdetails liegen am Laich.
+ * links das Tier und sein Körper, rechts sein Lebensweg und die Nachkommen (im Karbon: das Gelege); daneben Beute und
+ * Muscheln. Nahrung und Kosten je Ei stehen am Laich.
  */
 export class Overview {
   readonly c: Phaser.GameObjects.Container;
@@ -210,44 +212,111 @@ export class Overview {
     head(colL, y, 'KÖRPER');
     row(colL, (y += 32), 'Länge', length(m.cm));
     row(colL, (y += 28), 'Gewicht', weight(m.g));
-    if (!brood) row(colL, (y += 28), 'Geschwister', nf(game.pool.length));
     row(colL, (y += 28), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
     row(colL, (y += 28), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
 
-    // ---- rechts: Lebensraumkarte (im Karbon: das Gelege)
+    // ---- rechts: der Lebensweg und die Nachkommen (im Karbon: das Gelege) – die zweiten Überschriften auf einer Höhe mit „Körper“
     y = y0 + 334;
     if (brood) {
       head(colR, y, 'DAS GELEGE');
-      row(colR, (y += 32), 'Eier im Nest', nf(brood.eggs));
+      this.broodline(scene, g, colR + 6, y + 48, colW - 12);
+      row(colR, (y += 104), 'Eier im Nest', nf(brood.eggs));
       if (brood.phase === 'young') row(colR, (y += 28), 'Nahrung', `${nf(Math.floor(brood.food))} / ${nf(BROOD.food)}`);
       else row(colR, (y += 28), 'Neues Gelege in', `${Math.floor(brood.left / 60)}:${`${Math.ceil(brood.left) % 60}`.padStart(2, '0')}`);
-      y += 40;
+      y = y0 + 500;
       head(colR, y, 'DIESE GENERATION');
       row(colR, (y += 32), 'Erlegte Beute', nf(Math.floor(brood.train.prey)));
       row(colR, (y += 28), 'An Land gelaufen', `${nf(Math.round(brood.train.land / 40))} Schritte`);
       row(colR, (y += 28), 'Geklettert', `${nf(Math.round(brood.train.climb / 40))} Schritte`);
-      c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
-      c.setAlpha(0).setY(6);
-      scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
-      return;
+    } else {
+      head(colR, y, 'LEBENSWEG');
+      this.lifeline(scene, g, colR + 6, y + 48, colW - 12);
+      row(colR, (y += 104), 'Lebensabschnitt', STAGE_NAME[stageOf(life.age, life.gen)]);
+      row(colR, (y += 28), 'Ort', placeOf(ep, game.prog.place).name);
+      y = y0 + 500;
+      head(colR, y, 'NACHKOMMEN');
+      const eggs = game.roe.length, group = game.swarm?.members.length ?? 0;
+      row(colR, (y += 32), 'Geschwister', nf(game.pool.length));
+      row(colR, (y += 28), 'Nächste Generation', eggs ? `${nf(eggs)} ${eggs === 1 ? 'Ei' : 'Eier'}` : '—');
+      row(colR, (y += 28), 'Deine Gruppe', group ? nf(group) : '—');
     }
-    head(colR, y, 'KARTE');
-    c.add(habitatMap(scene, colR, y + 26, colW, 232));
-    g.fillStyle(0xb44045, 0.9);
-    g.fillCircle(colR + 5, y + 280, 4);
-    c.add(text(scene, colR + 17, y + 280, 'Dein Lebensraum', 14, UI.bone).setOrigin(0, 0.5));
-    g.fillStyle(0xfff7de, 1);
-    g.fillCircle(colR + 224, y + 280, 3);
-    c.add(text(scene, colR + 236, y + 280, 'Du bist hier', 14, UI.boneDim).setOrigin(0, 0.5));
-    c.add(text(scene, colR, y + 307, 'Mit deiner Stärke wächst dein Lebensraum.', 14, UI.boneDim).setOrigin(0, 0.5));
-    const group = game.swarm?.members.length ?? 0;
-    if (group > 0) c.add(text(scene, sx + sw / 2, y0 + ph + 114, `Deine Gruppe · ${nf(group)}`, 16, UI.boneDim).setOrigin(0.5));
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
 
     // sanft einblenden
     c.setAlpha(0).setY(6);
     scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
+  }
+
+  /**
+   * Der Lebensweg: dieselbe Linie wie oben im Bild, nur größer und beschriftet – Jugend (kühl), Laichzeit (Ocker) und Alter
+   * (rostrot); ein Lichtpunkt zeigt, wo das Tier gerade steht. Liegt schon Laich seiner Generation, leuchtet er warm.
+   */
+  private lifeline(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
+    const life = game.life;
+    const P = phases(life.gen);
+    const m = P.mature / P.span, o = P.old / P.span, f = clamp(life.age / P.span, 0, 1);
+    this.track(scene, g, x, y, w, f, [[m, 0x6fa8a0], [o, 0xc8913c], [1, 0xa4503a]], [
+      [0, 'Schlüpfen', f < m],
+      [m, 'Laichzeit', f >= m && f < o],
+      [o, 'Alter', f >= o],
+      [1, 'Ende', false],
+    ], game.roe.length > 0);
+  }
+
+  /** Karbon: die Brutlinie wie oben im Bild – die Jugend bis zur Metamorphose, dann die Gefahr bis zum neuen Gelege. */
+  private broodline(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
+    const b = game.brood!;
+    const meta = 0.32, young = b.phase === 'young';
+    const f = young ? meta * Math.min(1, b.food / BROOD.food) : meta + (1 - meta) * (1 - b.left / BROOD.danger);
+    this.track(scene, g, x, y, w, f, [[meta, 0x6fa8a0], [0.9, 0xc8913c], [1, 0xa4503a]], [
+      [0, 'Larve', young],
+      [meta, 'Metamorphose', false],
+      [1, 'Neues Gelege', !young],
+    ], false);
+  }
+
+  /**
+   * Eine beschriftete Linie: Abschnitte (bis wohin, Farbe) – matt, so weit schon vergangen kräftig –, Marken an den Grenzen,
+   * darunter die Namen (der gerade gültige heller) und ein Lichtpunkt bei f (0 … 1); glow: er leuchtet warm.
+   */
+  private track(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, f: number,
+    parts: [number, number][], labels: [number, string, boolean][], glow: boolean) {
+    const c = this.c;
+    const h = 6;
+    g.fillStyle(0x000000, 0.5);
+    g.fillRoundedRect(x - 2, y - h / 2 - 2, w + 4, h + 4, 5);
+    let a = 0;
+    for (const [b, col] of parts) {
+      g.fillStyle(col, 0.3);
+      g.fillRect(x + w * a, y - h / 2, w * (b - a), h);
+      const e = Math.min(b, f);
+      if (e > a) {
+        g.fillStyle(col, 0.95);
+        g.fillRect(x + w * a, y - h / 2, w * (e - a), h);
+        // ein Hauch Licht oben auf der Linie
+        g.fillStyle(0xffffff, 0.16);
+        g.fillRect(x + w * a, y - h / 2, w * (e - a), 1.5);
+      }
+      a = b;
+    }
+    for (const [k] of labels) {
+      if (k <= 0 || k >= 1) continue;
+      g.fillStyle(0xe6dcc4, 0.6);
+      g.fillRect(x + w * k - 0.5, y - 9, 1, 18);
+    }
+    diamond(g, x - 2, y, 3.5, 0.6);
+    diamond(g, x + w + 2, y, 3.5, 0.6);
+    for (const [k, str, on] of labels) {
+      c.add(text(scene, x + w * k, y + 22, str, 13, on ? UI.bone : UI.boneDim).setOrigin(k <= 0 ? 0 : k >= 1 ? 1 : 0.5, 0.5).setAlpha(on ? 0.9 : 0.6));
+    }
+    // wo das Tier gerade steht
+    const px = x + w * clamp(f, 0, 1);
+    if (glow) c.add(scene.add.image(px, y, 'glow').setTint(0xffe2a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(46, 30).setAlpha(0.55));
+    g.fillStyle(0x0d0b09, 1);
+    g.fillCircle(px, y, 7);
+    g.fillStyle(glow ? 0xfff0c0 : 0xffe0a0, 1);
+    g.fillCircle(px, y, 4.5);
   }
 
   /** Beute und Nahrungsanteile des ganzen Zeitalters, unabhängig von Ort und Generation. */

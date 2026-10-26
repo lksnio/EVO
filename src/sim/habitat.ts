@@ -32,9 +32,3 @@ export function passerDelay(place: PlaceDef, random = Math.random) {
   if (place.waterway === 0) return 180000 + random() * 120000;
   return (26000 + random() * 28000) * (place.waterway === 2 ? 0.7 : 1);
 }
-
-/** 0 = erster Fisch, 1 = sehr kräftiges Tier. Wächst mit dauerhaften Fähigkeiten und Segen. */
-export function habitatExtent(gain: number, blessings = 0): number {
-  const strength = Math.max(0, gain) + Math.max(0, blessings) * 0.16;
-  return 0.19 + 0.81 * (1 - Math.exp(-strength / 3));
-}

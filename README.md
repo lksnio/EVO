@@ -178,9 +178,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   10 (50 % stärker) heißt also 24 je Nachkomme, Gebiss 20 (doppelt so stark) 28.
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
   Jeder Nachkomme ist ein **Ei im Laich** (siehe unten, „Der Laich“). Die
-  **Übersicht (C)** trennt bereits befruchtete Eier dieses Lebens und verfügbare Nahrung. Dazu stehen der Bedarf je Ei
-  und die Zahl weiterer möglicher Eier. Generation und Lebensabschnitt stehen direkt über deinem Fisch,
-  wartende Geschwister unter Länge und Gewicht.
+  **Eiübersicht am Laich (E)** trennt bereits befruchtete Eier dieses Lebens und verfügbare Nahrung. Dazu stehen der
+  Bedarf je Ei und die Zahl weiterer möglicher Eier. In der **Übersicht (C)** stehen Generation und Lebensabschnitt über
+  deinem Fisch, wartende Geschwister und der Laich der nächsten Generation unter „Nachkommen“.
 - **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
   Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
   eines (`SPAWN.alwaysMale` in `src/data/life.ts`, auch in der Entwickler-Einstellung).
@@ -402,10 +402,6 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
     Korallengarten und von dort ins **Tiefental**. Dessen Boden fällt nach rechts immer weiter ab. Zurück geht es ebenso
     direkt nach links, ohne Overworld, Zielauswahl oder zusätzliche Reisezeit. Die Abschnitte werden mit einer kurzen
     Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Übergangsböden passen zusammen.
-  - **Die Karte liegt auf C:** Die frühere **Overworld mit Gondwana, den übrigen Kontinenten und den Meeren** steht
-    verkleinert bei den Werten. Der helle Punkt markiert deinen aktuellen Ort. **Rot ist der eigene Lebensraum im Meer**:
-    Mit dauerhaft besseren Fähigkeiten und Muschelsegen wächst die Fläche. Land wird dabei ausgespart.
-    Die Karte dient der Orientierung; zwischen den Wasserabschnitten schwimmt man weiterhin direkt hinüber.
   - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.
     Die größeren Schwarmbestände kleiner Beutefische sammeln sich im zweiten Gebiet, dem Flachwasser. Auch im
     Hintergrund ist der Laichfluss deutlich ruhiger und das Flachwasser belebter.
@@ -650,7 +646,12 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   **Schädel** (Stoßstärke), **Flossen** (Schwimmen und Wendigkeit) und
   **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
   **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
-  Gewicht, darunter Geschwister, Färbung und Kost), rechts die **Karte des Lebensraums**. Generation und Lebensabschnitt
+  Gewicht, Färbung und Kost). Rechts daneben der **Lebensweg**: dieselbe Linie wie oben im Bild, nur größer und beschriftet
+  (Schlüpfen, Laichzeit, Alter, Ende – Jugend kühl, Laichzeit ocker, Alter rostrot; ein Lichtpunkt zeigt, wo dein Tier
+  steht, und leuchtet warm, sobald Laich deiner Generation da ist), darunter Lebensabschnitt und Ort. Auf Höhe von „Körper“
+  stehen rechts die **Nachkommen**: wartende Geschwister, Eier der nächsten Generation und deine Gruppe. Im Karbon steht
+  rechts stattdessen **das Gelege** mit seiner Brutlinie (Larve, Metamorphose, neues Gelege) und darunter **diese
+  Generation**. Eine Weltkarte gibt es in der Übersicht nicht mehr. Generation und Lebensabschnitt
   stehen über dem bewegten Fischbild. Die Gewichtsanzeige ist um Faktor 100 skaliert, ohne die Kampfverhältnisse zu ändern.
   Nahrung, Eikosten und Nachwuchs stehen gemeinsam am Laich (E), nicht mehr auf C. Neben Gebiss, Schädel, Flossen und
   Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot; Null entfällt;
@@ -825,7 +826,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht); im Laichduell: laichen |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Werte, Körper, Muscheln und Lebensraumkarte; daneben „Beute: N“ mit der übrigen Nahrung |
+| C | Übersicht: Werte, Körper, Lebensweg, Nachkommen und Muscheln; daneben „Beute: N“ mit der übrigen Nahrung |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 
@@ -840,7 +841,7 @@ das Tier in dieser Zeit, zählt der Tod. Dann wird alles gespeichert, auch **die
 **Im Stammbaum:** ← → geht von Knoten zu Knoten. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.
 
 **Am Laich (E):** Geschwister und nächste Generation ansehen, Nahrung und Kosten je Ei ablesen, mit B befruchten.
-Ein Wechsel wird bestätigt; Esc kehrt zum lebenden Fisch zurück. Die Karte selbst öffnet sich mit C.
+Ein Wechsel wird bestätigt; Esc kehrt zum lebenden Fisch zurück. Die Übersicht öffnet sich mit C.
 
 Auf Handy und Tablet erscheinen im Level Bildschirm-Knöpfe (am besten im Querformat spielen).
 
@@ -1036,7 +1037,7 @@ src/
 │   ├── swarm.ts         Einstellungen bestehender Artgenossen-Gruppen
 │   ├── world.ts         Orte je Zeitalter (Bewuchs, Tiefe, Verbindungen; Lage kommt aus paleo.json)
 │   ├── biota.ts         was am Grund wächst: Gewichte je Ortsart, Zeitalter und Untergrund
-│   ├── paleo.json/.ts   Urzeit-Karten: Umrisse der Kontinente, Meere und die Lage der zehn Orte je Zeitalter
+│   ├── paleo.json/.ts   die Lage der Orte je Zeitalter (welcher Nachbar links bzw. rechts liegt), dazu Umrisse der Kontinente und Meere
 │   ├── life.ts          Welt und Leben: Weltsaat und Weltzeit (WORLD), Wachsen und Altern (LIFE), Laichen (SPAWN), Vererbung (INHERIT), Sonstiges (MISC)
 │   ├── karbon.ts        das Karbon: Gelege und Gefahr (BROOD), Sauerstoff (OXYGEN), Klettern (CLIMB), Evolution durch Verhalten (KTRAIN)
 │   └── tuning.ts        die Entwickler-Einstellung: alle Balancing-Werte mit Standard, Speichern, Export/Import
@@ -1059,9 +1060,6 @@ src/
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
 │   ├── shellArt.ts      die Muschel (eine Wellhornschnecke) und ihr Funkeln
-│   ├── mapArt.ts        Kartenmaße, Lage der Punkte, Gebiete um die Orte
-│   ├── paleoArt.ts      die Urzeit-Erde: Land, Küstenschelf, Nebel und Aufdecken
-│   ├── paleoGeo.ts      Küstenlinien, Land-Wasser-Raster und Wegsuche (A*) um das Land herum
 │   └── uiArt.ts         Symbole
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
@@ -1138,7 +1136,8 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
 - [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
       Beutefische ab 6 Lebenskraft × 1,2 – die kleinsten sind mit zwei Bissen erledigt, kleine brauchen drei und mehr);
       Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
-- [x] **Karte:** Verkleinerte Overworld mit Gondwana und Lebensraum auf C; direkte Gebietswechsel ohne Reisezeit.
+- [x] **Karte:** Die Weltkarte (Gondwana und der rote Lebensraum) ist aus der Übersicht entfernt – dort stehen jetzt Lebensweg
+      und Nachkommen; Gebietswechsel bleiben direkt und ohne Reisezeit.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
       eigene Tier verändert sich im Leben nicht.
 - [ ] **Lebenstempo:** Generation 1 ist nach 3 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 8

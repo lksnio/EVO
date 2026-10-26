@@ -4,7 +4,7 @@ import { SPECIES } from '../src/data/species';
 import { edgeNeighbor, placeOf, placesOf } from '../src/data/world';
 import { generateLevel } from '../src/level/LevelGen';
 import { oceanChart } from '../src/level/oceanChart';
-import { faunaAffinity, habitatExtent, nearNursery, passerDelay } from '../src/sim/habitat';
+import { faunaAffinity, nearNursery, passerDelay } from '../src/sim/habitat';
 import { WORLD } from '../src/data/life';
 import { game } from '../src/state/GameState';
 import { TILE } from '../src/config';
@@ -120,14 +120,6 @@ describe('Zusammenhängendes Meer', () => {
     expect(nearNursery(places[0], { x: 1200, y: 650 }, roe)).toBe(true);
     expect(nearNursery(places[0], { x: 2400, y: 600 }, roe)).toBe(false);
     expect(nearNursery(places[1], { x: 1000, y: 700 }, roe)).toBe(false);
-  });
-
-  it('erweitert den roten Lebensraum mit wachsender Stärke stetig bis fast zum ganzen Meer', () => {
-    const values = [-1, 0, 0.5, 1, 2, 4, 8, 100].map((gain) => habitatExtent(gain));
-    values.forEach((v, i) => { expect(v).toBeGreaterThan(0); expect(v).toBeLessThanOrEqual(1); if (i) expect(v).toBeGreaterThanOrEqual(values[i - 1]); });
-    expect(values[2]).toBeGreaterThan(values[1]);
-    expect(values.at(-1)).toBeGreaterThan(0.99);
-    expect(habitatExtent(0, 2)).toBeGreaterThan(habitatExtent(0, 1));
   });
 });
 
