@@ -365,8 +365,31 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
   Verdeckung (Vordergrundpflanzen und -felsen liegen über dem Fisch) bleiben, der Sichtschleier liegt weiterhin über ihm; Sichtweiten, `Sight.clarityAt`, Freigabe
   von Gegnern und Wahrnehmung der KI sind unverändert. (Der Modus MULTIPLY_TWO ergab in Phaser 4.2.1 auf `Mesh2D` fehlerhafte Lichtflecken und wurde verworfen.)
   Der Blitz bei Treffern (`flash`) überschreibt die Aufhellung kurz, die Palette (Färbung der Zeichnung) bleibt getrennt davon.
-* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Kopfpanzer und Weltfische folgen auf dieser
-  Grundlage (Kopfplatte hat noch eine gerade Hinterkante). Erzeugen eines neuen Aussehens kostet 15–50 ms (gemessen ohne Grafikkarte; programmiert 9–16 ms).
+* **Kopfpanzer** (`art/EVO_player_head_armor_v1`, Laufzeitbild `armor.webp`): Die gemalte Auflage ersetzt die programmierte Kopfplatte. Registriert wird am **Auge**
+  (`armorMapper` in `painted.ts`): die Augenmitte des Bildes liegt auf `A.eye`; vertikal gilt die Kopfhöhe, zur Schnauze hin die Kopflänge, die geschwungene Hinterkante bleibt
+  eine feste Strecke hinter dem Kopfursprung (sie wandert bei langem Maul nicht hinter den Körper), dazwischen wird weich übergeblendet. `A.plate` bleibt die Stärke: Deckung blendet
+  ein (0,04 … 0,4), die Auflage wird mit schwächerem Schild kleiner (kein gerader Schnitt). Aus der Fläche wird die Augenhöhle ausgespart und genau einmal gezeichnet
+  (`paintEyeSocket`), der Rand bekommt einen schmalen Tuschesaum, die Kiemenfurche verläuft hinter dem Panzer, die Lippen bleiben frei. Ohne Panzerbild bleibt die programmierte Platte der Rückfall.
+* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Mischformen mit extremen Werten (z. B. kurz **und** Kopfpanzer) sind
+  gestalterisch grenzwertig. Erzeugen eines neuen Aussehens kostet 15–50 ms (gemessen ohne Grafikkarte; programmiert 9–16 ms).
+
+**Feste Weltfische im Rig** (`src/art/fish/worldFish.ts`, `src/objects/WorldFishView.ts`; Pakete `art/EVO_world_rayfins_part2_v1`): Die acht normalen Strahlenflosser
+(Cheirolepis, Moythomasia, Elonichthys, Apsopelix, Gillicus, Enchodus, Protosphyraena, Xiphactinus) laufen im selben Rig (Wirbelsäule, Netz, Kiefer, Flossen) wie der Spielerfisch,
+ohne Evolutionswerte. `tools/world_fish_assets.py` schneidet die gemalten Körperflächen (`rig_bodies/`) und Sonderteile zu und schreibt `worldFish.json` (Zuschnitt und Verkleinerung je Datei).
+
+* **Adapter:** `PROFILES` hält je Art die Ansatzpunkte in Pixeln des Originals (aus `species_profiles.json`; die Flossenwurzeln werden an die Körperkante aus der Alpha-Maske gelegt), Flossenmaße,
+  Auge, Kiefer. `worldSpec` baut daraus eine `FishAnatomy` (90 Einheiten Gesamtlänge, ein Maßstab für beide Achsen – kein Verzerren); `worldFishTex` malt die Texturen **einmal je Art**.
+* **Maulmasken:** Der Körper wird unter der (schrägen) Maulspalte vor dem Gelenk weich ausgeblendet (`cutJaw`, keine neue Kante durch den Hals), eine feine Lippenlinie zeichnet die Spalte;
+  der bewegliche Unterkiefer (Standardkiefer, bei Xiphactinus der schwere Sonderkiefer mit Unterbiss) ersetzt das Kinn. `FishAnatomy.jawRest` neigt die Maulspalte, Kiefer und Maulhöhle öffnen von dort aus.
+  Der Fangzahn (Enchodus) gehört zur Kopfzeichnung und dreht sich nie mit dem Unterkiefer; Gillicus bekommt den langen Afterflossensaum, Protosphyraena die Sichelflosse und stabile Schwertschnauze.
+* **Koppelung:** Das Arcade-Sprite des Tiers (`Animal`) bleibt unsichtbarer Träger von Physik, Trefferfläche, Biss (`showJaw`, `jawOf`) und Verhalten; `WorldFishView` folgt ihm (Ort, Richtung, Winkel,
+  Größe samt Stauchen, Deckkraft, Tiefe, Einfärbung, Treffer-Blitz) und zeigt das Maul nach `showJaw` (0 zu, 1 Ausholen, 2 Zuschnappen). Physikgröße, Offset und Bissfläche sind nachweislich unverändert.
+  `?oldworld` zeigt die alten Bilder (Vergleich, Rückfall; ohne WebGL gilt er ohnehin).
+* **Werkstatt:** `?debug&gallery=world` (Parameter `ids`, `cols`, `zoom` oder `px`, `compare` – darunter das alte Bild, `jaw` 0/1/2 je Tier als Liste, `bite`, `speed`, `mode`).
+* **Messung** (Software-GL, ohne Grafikkarte; Level mit 18 bzw. 40 solchen Tieren, 5 s): 3,3 gegenüber 3,4 Bildern/s (18) und 2,5 gegenüber 3,2 (40); die Rechenzeit der Posen 0,4 bzw. 0,6 ms je Bild.
+  Pro Tier sind es etwa zwölf Zeichenobjekte statt eines Sprites – **auf echter GPU nicht gemessen.**
+
+Fehlerkorrektur im Rig: Bilder (Auge, Kiefer) wurden mit `A.s / FISH_RES` statt `1 / FISH_RES` skaliert und waren bei Größe ≠ 1 zu groß bzw. klein; bei Größe 1 (Standard) ändert sich nichts.
 
 **Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
 
@@ -374,10 +397,9 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
 `bite` (alle n Sekunden ein Biss), `hold` (Maul dauerhaft 0 … 1 öffnen), `lift` (Spieleraufhellung 0 … 0,5 zum Vergleichen), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
 `?debug&gallery=fish&mode=swim&speed=0.6&bite=1&set=[["Kiefer",{"jaw":1,"diet":1}],["Panzer",{"armor":1}]]`.
 
-**Noch offen (künstlerisch):** Die anderen Fischarten des Devons (Tiere der Welt, `speciesArt.ts`) sind weiterhin vorgemalte Bilder
-mit zwei Schwimmphasen und nutzen das Rig noch nicht; die Zeichnung des Spielfisches ist programmiert und kein handgemaltes
-Original – eine von Hand gemalte Vorlage ließe sich in `paint.ts` an die Stelle der Pfade setzen, solange Anatomie (Ansatzpunkte)
-und Netz gleich bleiben.
+**Noch offen (künstlerisch):** Die übrigen Tiere des Devons (Tiere der Welt, `speciesArt.ts`: Kieferlose, Panzerfische, Haie, Quastenflosser, Bosse, Gliederfüßer, Trilobiten, Kopffüßer)
+sind weiterhin vorgemalte Bilder mit zwei Schwimmphasen und nutzen das Rig noch nicht; die acht Strahlenflosser sind umgestellt. Die Zeichnung des Spielfisches ist aus gemalten Teilen und programmierten Merkmalen
+zusammengesetzt, kein Original aus einem Guss.
 
 ## Das Laichduell (Koop-Minispiel)
 

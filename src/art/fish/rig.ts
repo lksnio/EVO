@@ -61,7 +61,7 @@ export interface FishTex {
   lidEdge: number;
 }
 
-type Box = { x0: number; x1: number; y0: number; y1: number };
+export type Box = { x0: number; x1: number; y0: number; y1: number };
 
 /**
  * Völlig durchsichtige Pixel bekommen Alpha 1/255 (und Farbe schwarz). Der Tintmodus der Aufhellung (MULTIPLY_TWO) rechnet mit der
@@ -74,7 +74,7 @@ function floorAlpha(ctx: Ctx) {
   ctx.putImageData(id, 0, 0);
 }
 
-function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (ctx: Ctx) => void) {
+export function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (ctx: Ctx) => void) {
   if (scene.textures.exists(key)) return key;
   const R = FISH_RES * s;
   const [c, ctx] = newCanvas((box.x1 - box.x0) * R, (box.y1 - box.y0) * R, true);
@@ -245,10 +245,10 @@ export class FishRig {
       this.floor = new Grid(scene, MOUTH_KEY, unit, MOUTH_COLS, 1, [0.45, 0.6, 0.95, 0.88]);
     }
     const jb = T.box.jaw;
-    this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(this.s / FISH_RES);
+    this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(1 / FISH_RES);
     const pec = finGrid('pec');
     this.lid = new Phaser.GameObjects.Graphics(scene);
-    this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
+    this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(1 / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
     this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, ...(this.palate && this.floor ? [this.palate.mesh, this.floor.mesh] : []), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
@@ -344,9 +344,11 @@ export class FishRig {
     const J1 = Math.min(0.9, 0.8 * Math.pow(10.4 / Math.max(6, A.jawLen), 0.42) + 0.05);
     const rest = p.clench ? -p.clench * 0.06 : 0;
     const opening = p.open * J1 + rest + (idle ? Math.max(0, Math.sin(p.t * 1.3)) * 0.04 : 0);
-    this.jaw.setPosition(hj.x, hj.y).setRotation(hj.rot + opening);
-    if (this.palate && this.floor) this.drawMouth(hj.x, hj.y, hj.rot, opening);
-    else this.drawCavity(hj.x, hj.y, hj.rot, opening);
+    // feste Arten: Die Maulspalte kann schräg stehen (Winkel jawRest gegen die Körperachse); der Kiefer öffnet sich von dort aus
+    const lipRot = hj.rot + (A.jawRest ?? 0);
+    this.jaw.setPosition(hj.x, hj.y).setRotation(lipRot + opening);
+    if (this.palate && this.floor) this.drawMouth(hj.x, hj.y, lipRot, opening);
+    else this.drawCavity(hj.x, hj.y, lipRot, opening);
 
     // ---- Flossen
     const trail = 0.15 + 0.55 * sp; // bei Tempo legen sich die Flossen an

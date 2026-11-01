@@ -566,7 +566,7 @@ export function paintJawPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P
 }
 
 export function paintEyePainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
-  const h = eyeBall(A.eye.r) * 1.218;
+  const h = eyeBall(A.eye.r) * (A.eyeK ?? 1) * 1.218;
   // Der Blick: finster (fierce) färbt den hellen Augapfel zur Iris-Farbe
   const k = Math.min(1, A.m.fierce * 0.8);
   const c = layer(ctx, (x) => drawFitted(x, imgOf(scene, 'eye'), REG.eye, [-h, -h, h, h], NUDGE.eye), [255, 255, 255], k > 0 ? mix(0xffffff, P.eye, 0.6) : null, k);
@@ -603,10 +603,12 @@ export function paintOverlayPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatom
     c.globalAlpha = 1;
   };
   // weicher Schatten dahinter (auf dem Rumpf), die Furche selbst, ein Hauch Licht davor
+  // feste Weltarten (jawRest gesetzt): nur eine leise Kiemenspalte, kleiner Fisch, kein kräftiger Bogen
+  const q = A.jawRest !== undefined ? 0.6 : 1;
   const furrow = (c: Ctx) => {
-    stroke(c, -1.7, 2.6, 0.8, css(shadowOf(F.base)), 0.2);
-    stroke(c, 0, 1.25, 0.25, css(INK), 0.62);
-    stroke(c, 1.1, 0.6, 0.15, css(lightOf(F.base, 0.2)), 0.16, 0.05, 0.85);
+    stroke(c, -1.7, 2.6 * q, 0.8 * q, css(shadowOf(F.base)), 0.2 * q);
+    stroke(c, 0, 1.25 * q, 0.25 * q, css(INK), 0.62 * q);
+    stroke(c, 1.1, 0.6 * q, 0.15 * q, css(lightOf(F.base, 0.2)), 0.16 * q, 0.05, 0.85);
   };
   // Der Kopfpanzer liegt über der Falte (sie verläuft hinter ihm): dort wird die Furche ausgespart
   const arm = armorLayer(ctx, scene, A);

@@ -5,11 +5,14 @@ import { SPECIES } from '../data/species';
 import { EPOCHS, epochSpecies } from '../data/epochs';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
+import { WORLD_FISH_IDS } from '../art/fish/worldFish';
+import { WorldFishView } from '../objects/WorldFishView';
 import { text } from '../ui/ui';
 
 /** Nur für Entwickler (?debug&gallery): viele Ausprägungen der Spielfigur und alle Tierarten. Leertaste blättert. */
 export class GalleryScene extends Phaser.Scene {
   private views: CreatureView[] = [];
+  private worldViews: WorldFishView[] = [];
   private page = 0;
 
   constructor() {
@@ -60,8 +63,34 @@ export class GalleryScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * ?gallery=world: die acht festen Weltfische im Rig (art/fish/worldFish.ts). Parameter: ids (Komma), cols, zoom (Maßstab gegenüber dem alten
+   * Bild), compare (darunter das alte Bild), jaw (0 zu, 1 halb, 2 weit auf), speed, bite (alle n s Ausholen und Zuschnappen), mode.
+   */
+  private worldLab() {
+    const q = new URLSearchParams(location.search);
+    const ids = (q.get('ids') ?? WORLD_FISH_IDS.join(',')).split(',').filter((id) => SPECIES[id]);
+    const cols = Math.min(ids.length, Number(q.get('cols') ?? 4)), zoom = Number(q.get('zoom') ?? 2);
+    const rowH = q.has('compare') ? 230 : 150;
+    ids.forEach((id, i) => {
+      const def = SPECIES[id];
+      makeSpeciesTextures(this, def);
+      const old = this.textures.get(speciesKey(id, 0)).getSourceImage() as HTMLCanvasElement;
+      const x = this.scale.width * ((i % cols) + 0.5) / cols, y = 90 + Math.floor(i / cols) * rowH;
+      // px: Breite des Tieres auf dem Bildschirm in Pixeln (Größenvergleich, 1:1 bei Seitenverhältnis 1)
+      const px = Number(q.get('px') ?? 0), ratio = this.game.canvas.getBoundingClientRect().width / this.scale.width;
+      const k = px ? px / (ratio * old.width) : zoom;
+      const v = new WorldFishView(this, def, old.width);
+      v.root.setPosition(x, y).setScale(k * (q.has('flip') ? -1 : 1), k);
+      this.worldViews.push(v);
+      if (!q.has('nolabel')) text(this, x, y + (px ? 36 : 55), def.name, px ? 11 : 13).setOrigin(0.5, 0);
+      if (q.has('compare')) this.add.image(x, y + (px ? 70 : 115), speciesKey(id, 0)).setScale(k);
+    });
+  }
+
   private show() {
     if (new URLSearchParams(location.search).get('gallery') === 'fish') return this.lab();
+    if (new URLSearchParams(location.search).get('gallery') === 'world') return this.worldLab();
     if (this.page >= 1) {
       const ids = this.ids().slice((this.page - 1) * 18, this.page * 18);
       ids.forEach((id, i) => {
@@ -109,6 +138,11 @@ export class GalleryScene extends Phaser.Scene {
       for (const v of this.views) v.bite();
     }
     const hold = Number(q.get('hold') ?? 0);
+    if (this.worldViews.length) {
+      const jawL = (q.get('jaw') ?? '0').split(',').map(Number) as (0 | 1 | 2)[], cyc = bite ? this.biteClock : 0;
+      // Ausholen (0,18 s) und Zuschnappen (0,3 s) nach jedem Ablauf des Taktes
+      this.worldViews.forEach((v, i) => v.animate(dms / 1000, mode === 'idle' ? 0 : speed, bite ? (cyc < 0.18 ? 1 : cyc < 0.5 ? 2 : 0) : jawL[i % jawL.length]));
+    }
     for (const v of this.views) {
       v.holdOpen = hold;
       if (q.has('lift')) v.setLift(Number(q.get('lift')));

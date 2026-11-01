@@ -6,6 +6,8 @@ import { DEPTH } from '../config';
 import { BITE, bitePlan, biteRest, type BitePlan } from '../sim/bite';
 import { clamp, overlaps, type Rect } from '../util/math';
 import { Meat, type Plant } from './Food';
+import { isWorldFish, worldFishReady } from '../art/fish/worldFish';
+import { WorldFishView } from './WorldFishView';
 
 type Body = Phaser.Physics.Arcade.Body;
 
@@ -174,6 +176,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected atkHit = false;
   /** wie weit das Maul gerade offen ist (0 zu, 1 halb, 2 weit) */
   private jawNow = 0;
+  /** feste Weltfische (art/fish/worldFish.ts): die sichtbare Gestalt im Fisch-Rig; das Sprite bleibt unsichtbarer Träger von Physik und Verhalten */
+  private wview?: WorldFishView;
   /** dieser Angriff hat schon gewarnt */
   protected warned = false;
   protected trailAt = 0;
@@ -305,8 +309,35 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.anims.setProgress(Math.random());
     }
     this.setDepth(DEPTH.enemies);
+    if (!opts.texture && isWorldFish(def.id) && world.sys.game.renderer.type === Phaser.WEBGL && worldFishReady(world)) {
+      // Größe, Trefferfläche und Bisse hängen weiter an den alten Bildern (this.width/height, jawOf, showJaw): Das Sprite bleibt, nur nicht sichtbar
+      this.wview = new WorldFishView(world, def, this.width);
+      this.setVisible(false);
+      world.events.on(Phaser.Scenes.Events.POST_UPDATE, this.followRig, this);
+    }
     this.dir = Math.random() < 0.5 ? -1 : 1;
     this.nextSense = world.time.now + Math.random() * 300;
+  }
+
+
+  /** Die Rig-Ansicht (feste Weltfische) folgt dem Sprite: Ort, Richtung, Winkel, Größe, Deckkraft, Tiefe, Einfärbung, Maul und Tempo. */
+  private followRig() {
+    const v = this.wview;
+    if (!v || !this.active) return;
+    v.root.setPosition(this.x, this.y).setRotation(this.rotation).setScale(Math.abs(this.scaleX) * (this.flipX ? -1 : 1), this.scaleY).setAlpha(this.alpha).setDepth(this.depth);
+    v.setTintState(this.isTinted ? this.tintTopLeft : null, this.tintMode === Phaser.TintModes.FILL);
+    const b = this.body as Body | null;
+    const sp = b ? Math.min(1, Math.hypot(b.velocity.x, b.velocity.y) / Math.max(40, this.def.speed * 1.4)) : 0;
+    v.animate(Math.min(0.05, this.world.game.loop.delta / 1000), sp, this.jawNow as 0 | 1 | 2);
+  }
+
+  destroy(fromScene?: boolean) {
+    if (this.wview) {
+      this.world.events.off(Phaser.Scenes.Events.POST_UPDATE, this.followRig, this);
+      this.wview.destroy();
+      this.wview = undefined;
+    }
+    super.destroy(fromScene);
   }
 
   get b() {

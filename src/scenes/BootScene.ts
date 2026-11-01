@@ -5,6 +5,7 @@ import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { shellTexture } from '../art/shellArt';
 import { preloadPainted } from '../art/fish/painted';
+import { preloadWorldFish } from '../art/fish/worldFish';
 
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
@@ -16,6 +17,8 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // die gemalten Fischtexturen
     preloadPainted(this);
+    // die festen Weltfische (acht Strahlenflosser) im Rig
+    preloadWorldFish(this);
   }
 
   create() {
