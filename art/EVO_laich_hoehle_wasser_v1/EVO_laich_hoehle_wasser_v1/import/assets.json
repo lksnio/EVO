@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "laichplatz_komplett",
+      "file": "assets/laichplatz_komplett.png",
+      "role": "complete_static_prop",
+      "size": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        122,
+        172,
+        1658,
+        755
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": [
+        890.0,
+        754
+      ],
+      "sha256": "0cc6628f6ccf7376cd3fd178a69c0001ecac3a0b75eb9ca17e140a7c23cc9c1d"
+    },
+    {
+      "id": "laich_nest_leer",
+      "file": "assets/laich_nest_leer.png",
+      "role": "empty_nest_for_separate_eggs",
+      "size": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        46,
+        418,
+        1755,
+        791
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": [
+        900.5,
+        790
+      ],
+      "sha256": "323fce72c883964976d4de6d252f949beff0213e5abe4f67f5c3fcb08099f842"
+    },
+    {
+      "id": "laich_ei_einzeln",
+      "file": "assets/laich_ei_einzeln.png",
+      "role": "repeatable_egg",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaRange": [
+        0,
+        254
+      ],
+      "paintedBounds128": [
+        400,
+        191,
+        1142,
+        831
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": null,
+      "sha256": "603d660938c9ae29700fbd8871f01dc7fb3431bba7efc4a36e11e4a345127b76"
+    },
+    {
+      "id": "hoehle_komplett",
+      "file": "assets/hoehle_komplett.png",
+      "role": "complete_static_prop",
+      "size": [
+        1681,
+        935
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        35,
+        65,
+        1612,
+        876
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": [
+        823.5,
+        875
+      ],
+      "sha256": "ebf9b69f0ddd0a8a254e873e0a006467af58be97962e5550eeaeb3e05c0436dd"
+    },
+    {
+      "id": "hoehle_vordergrund",
+      "file": "assets/hoehle_vordergrund.png",
+      "role": "foreground_rock_frame",
+      "size": [
+        1682,
+        935
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        35,
+        64,
+        1614,
+        880
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": [
+        824.5,
+        879
+      ],
+      "sha256": "e6f764c7c7d0b1ce19c6cc16713995e583a79929a28a5f066f45ae3b73c895d0"
+    },
+    {
+      "id": "hoehle_hintergrund",
+      "file": "assets/hoehle_hintergrund.png",
+      "role": "interior_back_wall",
+      "size": [
+        1683,
+        935
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        101,
+        240,
+        1580,
+        863
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": [
+        840.5,
+        862
+      ],
+      "sha256": "720f880c0cb1259915896593038193d7b6c1379a9aae9ec60b29de1098bb0348"
+    },
+    {
+      "id": "wasser_stimmungsreferenz",
+      "file": "reference/wasser_stimmungsreferenz.png",
+      "role": "concept_only_not_runtime",
+      "size": [
+        2170,
+        725
+      ],
+      "alphaRange": [
+        255,
+        255
+      ],
+      "paintedBounds128": [
+        0,
+        0,
+        2170,
+        725
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), original pixels",
+      "groundAnchorHintPx": null,
+      "sha256": "61ba30e61c261da880d0a025cefab07179ccbd1b504e5c42a09d8cce4f5242a4"
+    }
+  ],
+  "caveLayerRegistration": {
+    "referenceCanvas": [
+      1681,
+      935
+    ],
+    "sharedOriginUvHint": [
+      0.5,
+      0.9358288770053476
+    ],
+    "note": "Near-identical full framing; widths differ by 1–2 pixels. Fit both layer CANVASES to the same reference frame, not their individual alpha bounds. Verify overlap visually in engine."
+  }
+}
