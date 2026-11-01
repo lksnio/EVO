@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { inkWorldOn } from '../art/ink';
+import { inkTexture } from '../art/inkFilter';
 import { DEPTH } from '../config';
 import { rgrad, tex, type Ctx } from '../util/canvas';
 import { game } from '../state/GameState';
@@ -118,7 +120,7 @@ export class Shrine {
     this.ray = scene.add.image(x, y - 640, 'lightray').setOrigin(0.5, 0).setScale(1.6, 1.25).setTint(0xffe6c0)
       .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.16).setDepth(DEPTH.plants - 0.3);
     // vor den Pflanzen (sie wachsen hinter ihr), auf dem Grund stehend
-    scene.add.image(x, y + 4, 'shrine_shell').setOrigin(S.hx / S.w, S.hy / S.h).setScale(0.58).setDepth(DEPTH.terrain + 0.5);
+    scene.add.image(x, y + 4, inkWorldOn() ? inkTexture(scene, 'shrine_shell', { bands: 5, outline: 5, sat: 1.1, water: 0.05 }) : 'shrine_shell').setOrigin(S.hx / S.w, S.hy / S.h).setScale(0.58).setDepth(DEPTH.terrain + 0.5);
     this.glow = scene.add.image(x, y - 12, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(150, 150).setAlpha(0.3).setDepth(DEPTH.pickups - 0.2);
     this.pearl = scene.add.image(x, y - 12, 'shrine_pearl').setScale(0.5).setDepth(DEPTH.pickups);
     scene.tweens.add({ targets: this.glow, alpha: 0.5, displayWidth: 180, displayHeight: 180, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });

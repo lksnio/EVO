@@ -5,7 +5,8 @@ import { groundCurve, rockBottom, rockOutline, type Material, type Poly, type Ro
 import { css, mix, shade } from '../util/color';
 import { type Ctx, addTex, newCanvas, smooth, vgrad } from '../util/canvas';
 import { mulberry32 } from '../util/math';
-import { innerShade, pattern, softShadow, type NoiseKind } from './paint';
+import { crescent, innerShade, pattern, softShadow, type NoiseKind } from './paint';
+import { grade, INK, lightOf, lineOf, outline, shadowOf } from './ink';
 
 // Der Meeresboden wird in Stücken von 640 Bildpunkten Breite gemalt: eine glatte Höhenlinie, darunter Sand, Fels oder Schlamm
 // (weich ineinander übergehend), nach unten dunkler werdend. Felsen sind eigene Bilder – mit Schatten, Schichten, Rissen und
@@ -83,6 +84,85 @@ export interface RockLook {
   variant: number;
   /** dunkle Silhouette im Vordergrund */
   dark?: boolean;
+  /** Tuschestil (Devon): flache Flächen mit dunkler Kontur */
+  ink?: boolean;
+}
+
+/** Die Erdfarben im Tuschestil: warmer Sand, kühler Fels, dunkler Schlamm – je nach Ort ins Grüne (bewachsen) bzw. Blaue (tief) gezogen. */
+const INK_GROUND: Record<Material, Mat> = {
+  sand: { top: 0xb8ab82, mid: 0x7d7358, deep: 0x38352c },
+  rock: { top: 0x8d9696, mid: 0x5a656b, deep: 0x2c333a },
+  mud: { top: 0x726d4e, mid: 0x4a483a, deep: 0x26251d },
+};
+
+function inkColors(variant: number, m: Material): Mat {
+  const b = INK_GROUND[m];
+  const t = (c: number) => (variant === 1 ? mix(c, 0x4a6a3a, 0.24) : variant === 2 ? shade(mix(c, 0x1a2c44, 0.46), -0.1) : mix(c, 0x6a8a84, 0.1));
+  return { top: t(b.top), mid: t(b.mid), deep: t(b.deep) };
+}
+
+/** Die Farbe, in der der Boden nach unten ausläuft (im Tuschestil fast schwarz, mit Farbstich des Ortes). */
+const inkDeep = (variant: number) => (variant === 2 ? 0x070d14 : variant === 1 ? 0x0b130f : 0x0c1214);
+
+/**
+ * Ein Felsen im Tuschestil: eine flache Fläche, ein harter Schattenstreifen unten und ein Lichtsaum oben, ein paar gezeichnete
+ * Risse und Schichtlinien – und eine kräftige Kontur. Die Felsen im Vordergrund sind fast schwarze Silhouetten mit schmalem
+ * Lichtrand (so liegen sie räumlich vor dem Geschehen und decken es kaum).
+ */
+function paintRockInk(ctx: Ctx, s: RockSpec, look: RockLook, path: () => void, outlineXY: [number, number][], r: () => number) {
+  const form = s.form ?? 'boulder';
+  const top = s.y - s.ry, ht = Math.max(8, s.ry * 2);
+  const m: Material = s.tone === 0 ? 'sand' : 'rock';
+  const c = inkColors(look.variant, m);
+  const base = look.dark ? mix(inkDeep(look.variant), c.mid, 0.16) : grade(s.tone === 2 ? c.mid : c.top, 0.06);
+  if (form === 'boulder' && !look.dark) softShadow(ctx, s.x, s.y + rockBottom(outlineXY) - 2, s.rx * 1.1, Math.max(3, s.ry * 0.16), 0.35);
+  path();
+  ctx.fillStyle = css(base);
+  ctx.fill();
+  ctx.save();
+  path();
+  ctx.clip();
+  if (!look.dark) {
+    // Schichtlinien und Risse als feste dunkle Striche
+    const layers = form === 'boulder' ? (s.rx > 60 ? 2 : s.rx > 34 ? 1 : 0) : Math.max(2, Math.round(ht / 34));
+    for (let k = 0; k < layers; k++) {
+      const y = top + ((k + 0.7 + r() * 0.5) / (layers + 0.6)) * ht;
+      const x0 = s.x - s.rx - 6, x1 = s.x + s.rx + 6, wob = (r() - 0.5) * 10;
+      ctx.beginPath();
+      ctx.moveTo(x0, y + wob);
+      ctx.bezierCurveTo(x0 + (x1 - x0) * 0.33, y - wob, x0 + (x1 - x0) * 0.66, y + wob * 0.6, x1, y - wob * 0.4);
+      ctx.strokeStyle = css(shadowOf(base, 0.5), 0.55);
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+    for (let k = 0, n = form === 'boulder' ? Math.min(2, Math.round(s.rx / 50)) : 2; k < n; k++) {
+      let x = s.x + (r() - 0.5) * s.rx * 1.3, y = top + ht * (0.12 + r() * 0.4);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let j = 0; j < 3; j++) {
+        x += (r() - 0.5) * 14;
+        y += 8 + r() * 10;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = css(INK, 0.7);
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  // harter Schatten unten (Licht kommt von oben) und schmaler Lichtsaum oben
+  crescent(ctx, path, -ht * 0.03, -ht * (look.dark ? 0.1 : 0.2), css(look.dark ? 0x050a0d : shadowOf(base, 0.5), look.dark ? 0.7 : 0.8));
+  crescent(ctx, path, 0, ht * (look.dark ? 0.05 : 0.09), css(look.dark ? 0x4a6a74 : lightOf(base, 0.2), look.dark ? 0.5 : 0.4));
+  outline(ctx, path, look.dark ? 0x03060a : lineOf(base, 0.08), look.dark ? 3 : Math.max(2.6, Math.min(4.4, s.rx / 24)));
+  if (form === 'arch') {
+    // die Pfeiler stecken im Boden: unten blenden sie in den Boden aus
+    const bot = s.y + s.ry;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = vgrad(ctx, bot - 26, bot, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,1)']]);
+    ctx.fillRect(s.x - s.rx - 4, bot - 26, s.rx * 2 + 8, 30);
+    ctx.restore();
+  }
 }
 
 const TONES = [0x9b9884, 0x70746d, 0x525957];
@@ -97,6 +177,7 @@ function paintRock(ctx: Ctx, s: RockSpec, look: RockLook) {
     if (form === 'boulder') smooth(ctx, pts, true);
     else roundedPoly(ctx, pts, form === 'slab' ? 9 : 16);
   };
+  if (look.ink) return paintRockInk(ctx, s, look, path, outline, r);
   let base = TONES[Math.max(0, Math.min(2, s.tone))];
   if (look.variant === 1) base = mix(base, 0x56683a, 0.16);
   else if (look.variant === 2) base = shade(mix(base, 0x10202e, 0.3), -0.1);
@@ -322,7 +403,207 @@ let serial = 0;
 /** Was zum Malen des Bodens gebraucht wird (ein Ort – oder das Becken des Laichduells). */
 export type TerrainSpec = Pick<LevelData, 'width' | 'terrain' | 'mats' | 'rocks' | 'fore'>;
 
-function paintChunk(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number, index: number, pebbles: RockSpec[], keys: string[], tag: number) {
+/**
+ * Ein Stück Boden im Tuschestil: Die Erde besteht aus wenigen flachen Schichten, deren Grenzen wie von Hand leicht wellen,
+ * oben ein heller Saum und eine kräftige dunkle Kontur; dazu sparsam gezeichnete Einzelheiten (Tupfen im Sand, Risse und
+ * Steine im Fels, Blasen im Schlamm). Alles ist ruhig und kontrastarm – Tiere und Pflanzen sollen davor lesbar bleiben.
+ */
+function paintChunkInk(scene: Phaser.Scene, L: TerrainSpec, variant: number, index: number, pebbles: RockSpec[], keys: string[], tag: number) {
+  const hp = L.terrain.hp, zones = L.terrain.zones;
+  const x0 = index * CHUNK, x1 = Math.min(L.width, x0 + CHUNK);
+  const gx0 = x0 - 6, gx1 = x1 + 6;
+  const xs: number[] = [];
+  for (let x = gx0; x < gx1; x += 10) xs.push(x);
+  xs.push(gx1);
+  const ys = xs.map((x) => groundCurve(hp, x));
+  let lo = Infinity, hi = -Infinity;
+  for (const y of ys) {
+    lo = Math.min(lo, y);
+    hi = Math.max(hi, y);
+  }
+  const oy = Math.floor(lo - 60), bottom = Math.ceil(hi + SKIN);
+  const w = gx1 - gx0, h = bottom - oy;
+  const res = w * h > 520000 ? 0.5 : 1;
+  const [cv, ctx] = newCanvas(w * res, h * res);
+  ctx.scale(res, res);
+  ctx.translate(-gx0, -oy);
+  const mats = { sand: inkColors(variant, 'sand'), rock: inkColors(variant, 'rock'), mud: inkColors(variant, 'mud') };
+  const deep = inkDeep(variant);
+  const at = (x: number) => Math.max(0, Math.min(1, x / L.width));
+  const matAt = (x: number): Material => zones.find((z) => x >= z.x0 && x < z.x1)?.kind ?? 'sand';
+  const wav = (x: number, k: number) => 3.2 * Math.sin(x * 0.031 + k * 1.7) + 1.8 * Math.sin(x * 0.083 + k * 3.1);
+  // die Schichten: Grenze (Tiefe unter der Oberfläche), Farbe aus top/mid/deep des Materials
+  const bands: [number, 'top' | 'mid' | 'low' | 'deep'][] = [[0, 'top'], [36, 'mid'], [92, 'low'], [SKIN - 4, 'deep']];
+  const band = (d: number, k: number) => {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], bottom + 2);
+    for (let i = 0; i < xs.length; i++) ctx.lineTo(xs[i], ys[i] + d + (d ? wav(xs[i], k) : 0));
+    ctx.lineTo(xs[xs.length - 1], bottom + 2);
+    ctx.closePath();
+  };
+  const colOf = (kind: Material, which: 'top' | 'mid' | 'low' | 'deep') => {
+    const m = mats[kind];
+    return which === 'top' ? grade(m.top, 0.06) : which === 'mid' ? grade(m.mid, 0.06) : which === 'low' ? mix(grade(m.mid, 0.06), deep, 0.55) : deep;
+  };
+  bands.forEach(([d, which], k) => {
+    const g = ctx.createLinearGradient(0, 0, L.width, 0);
+    const stops: [number, number][] = [];
+    for (const z of zones) {
+      const c = colOf(z.kind, which);
+      stops.push([at(z.x0 + BLEND), c], [at(z.x1 - BLEND), c]);
+    }
+    stops.sort((p, q) => p[0] - q[0]);
+    g.addColorStop(0, css(stops[0][1]));
+    for (const [p, c] of stops) g.addColorStop(p, css(c));
+    g.addColorStop(1, css(stops[stops.length - 1][1]));
+    band(d, k);
+    ctx.fillStyle = g;
+    ctx.fill();
+  });
+  ctx.save();
+  band(0, 0);
+  ctx.clip();
+  const r = mulberry32(index * 7919 + L.width);
+  const base = (x: number) => groundCurve(hp, x);
+  // Einzelheiten: sparsam, flach, dunkler (oder heller) als ihre Schicht
+  for (let x = x0 + 10; x < x1 - 30; x += 22 + r() * 34) {
+    const m = matAt(x);
+    const y = base(x);
+    const c = mats[m];
+    if (m === 'sand') {
+      // Tupfen und ein kurzer Rippelstrich
+      for (let k = 0, n = 2 + Math.floor(r() * 3); k < n; k++) {
+        ctx.beginPath();
+        ctx.arc(x + (r() - 0.5) * 26, y + 14 + r() * 46, 1.3 + r() * 1.3, 0, TAU);
+        ctx.fillStyle = css(shadowOf(c.mid, 0.3), 0.7);
+        ctx.fill();
+      }
+      if (r() < 0.55) {
+        const len = 20 + r() * 20, yy = y + 22 + r() * 30;
+        ctx.beginPath();
+        ctx.moveTo(x, yy);
+        ctx.quadraticCurveTo(x + len / 2, yy - 3, x + len, yy);
+        ctx.strokeStyle = css(lightOf(c.top, 0.1), 0.4);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else if (m === 'rock') {
+      // ein eingebetteter Stein mit Kontur, daneben ein Riss
+      const yy = y + 18 + r() * 52, rad = 6 + r() * 11;
+      const pts: number[][] = [];
+      for (let k = 0, nk = 6; k < nk; k++) {
+        const a = (k / nk) * Math.PI * 2, q = 0.74 + r() * 0.46;
+        pts.push([x + Math.cos(a) * rad * q * 1.3, yy + Math.sin(a) * rad * q * 0.82]);
+      }
+      const blob = () => smooth(ctx, pts, true);
+      blob();
+      ctx.fillStyle = css(shadowOf(c.mid, 0.22), 0.85);
+      ctx.fill();
+      ctx.strokeStyle = css(INK, 0.55);
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      if (r() < 0.45) {
+        ctx.beginPath();
+        let px = x + 30, py = y + 6;
+        ctx.moveTo(px, py);
+        for (let j = 0; j < 3; j++) {
+          px += (r() - 0.5) * 14;
+          py += 9 + r() * 11;
+          ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = css(INK, 0.5);
+        ctx.lineWidth = 1.7;
+        ctx.stroke();
+      }
+    } else {
+      // Schlamm: ein paar offene Blasen
+      for (let k = 0, n = 1 + Math.floor(r() * 2); k < n; k++) {
+        ctx.beginPath();
+        ctx.arc(x + (r() - 0.5) * 24, y + 16 + r() * 40, 2 + r() * 2.4, 0, TAU);
+        ctx.strokeStyle = css(lightOf(c.top, 0.08), 0.4);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+    }
+  }
+  // der Lichtsaum: ein heller Streifen unter der Kontur (so wölbt sich der Boden), und darunter ein dunkler Schatten
+  const edge = () => {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], ys[0]);
+    for (let i = 1; i < xs.length; i++) ctx.lineTo(xs[i], ys[i]);
+  };
+  ctx.lineJoin = 'round';
+  ctx.translate(0, 9);
+  edge();
+  ctx.strokeStyle = 'rgba(2,6,9,0.22)';
+  ctx.lineWidth = 12;
+  ctx.stroke();
+  ctx.translate(0, -7);
+  edge();
+  ctx.strokeStyle = css(lightOf(mats.sand.top, 0.1), 0.42);
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.translate(0, -2);
+  ctx.restore();
+  // die Kontur: breit und dunkel, mit einer zweiten, versetzten Linie – wie mit der Feder gezogen
+  const topLine = () => {
+    ctx.beginPath();
+    ctx.moveTo(xs[0], ys[0]);
+    for (let i = 1; i < xs.length; i++) ctx.lineTo(xs[i], ys[i] + 0.6 * Math.sin(xs[i] * 0.6));
+  };
+  outline(ctx, topLine, INK, 5.2);
+  for (const m of L.mats) if (m.x1 > gx0 && m.x0 < gx1) paintMatInk(ctx, hp, m);
+  const look: RockLook = { theme: 'ozean', variant, ink: true };
+  for (const p of pebbles) if (p.x >= x0 - 10 && p.x < x1 + 10) paintRock(ctx, p, look);
+
+  const key = `ter_${tag}_${index}`;
+  addTex(scene, key, cv);
+  keys.push(key);
+  return { key, x: gx0, y: oy, w, h, deepY: bottom };
+}
+
+/** Eine Mikrobenmatte im Tuschestil: ein flacher, farbiger Streifen auf dem Boden mit dunkler Kante und ein paar Blasen. */
+function paintMatInk(ctx: Ctx, hp: number[], m: MatSpec) {
+  const q = mulberry32(m.seed);
+  const t = MAT_TONES[m.tone % MAT_TONES.length];
+  const n = Math.ceil((m.x1 - m.x0) / 5);
+  const top: [number, number][] = [], bot: [number, number][] = [];
+  for (let i = 0; i <= n; i++) {
+    const x = m.x0 + (m.x1 - m.x0) * (i / n);
+    const taper = Math.pow(Math.sin((i / n) * Math.PI), 0.55);
+    const th = Math.max(0.6, (3.4 + 1.8 * Math.sin(x * 0.17 + (m.seed % 97))) * taper);
+    const y = groundCurve(hp, x);
+    top.push([x, y - th]);
+    bot.push([x, y + 3 * taper + 0.6]);
+  }
+  const path = () => {
+    ctx.beginPath();
+    top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    for (let i = bot.length - 1; i >= 0; i--) ctx.lineTo(bot[i][0], bot[i][1]);
+    ctx.closePath();
+  };
+  path();
+  ctx.fillStyle = css(grade(t.base, 0.04));
+  ctx.fill();
+  ctx.strokeStyle = css(INK, 0.85);
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  for (let i = 6; i < n - 5; i += 7 + Math.floor(q() * 8)) {
+    if (q() < 0.4) continue;
+    const [x, y] = top[i];
+    const rr = 1.8 + q() * 2;
+    ctx.beginPath();
+    ctx.arc(x, y - rr * 0.6, rr, 0, TAU);
+    ctx.fillStyle = css(grade(t.light, 0.04));
+    ctx.fill();
+    ctx.strokeStyle = css(INK, 0.8);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+}
+
+function paintChunk(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number, index: number, pebbles: RockSpec[], keys: string[], tag: number, ink = false) {
+  if (ink) return paintChunkInk(scene, L, variant, index, pebbles, keys, tag);
   const hp = L.terrain.hp, zones = L.terrain.zones;
   const x0 = index * CHUNK, x1 = Math.min(L.width, x0 + CHUNK);
   const gx0 = x0 - 6, gx1 = x1 + 6;
@@ -551,19 +832,19 @@ function rockPiece(scene: Phaser.Scene, s: RockSpec, look: RockLook, tag: string
 }
 
 /** Alle Bilder des Bodens und der Felsen eines Ortes. */
-export function terrainArt(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number): TerrainArt {
+export function terrainArt(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: number, ink = false): TerrainArt {
   const keys: string[] = [];
   const tag = ++serial;
   const pebbles = L.rocks.filter((s) => (s.form ?? 'boulder') === 'boulder' && s.rx < 30);
   const solid = L.rocks.filter((s) => !((s.form ?? 'boulder') === 'boulder' && s.rx < 30));
-  const look: RockLook = { theme, variant };
+  const look: RockLook = { theme, variant, ink };
   const chunks: TerrainArt['chunks'] = [];
-  for (let i = 0; i * CHUNK < L.width; i++) chunks.push(paintChunk(scene, L, theme, variant, i, pebbles, keys, tag));
+  for (let i = 0; i * CHUNK < L.width; i++) chunks.push(paintChunk(scene, L, theme, variant, i, pebbles, keys, tag, ink));
   // Platten und Bögen zuerst, die Brocken davor (sie lehnen an der Platte bzw. am Pfeiler)
   const order = (s: RockSpec) => ((s.form ?? 'boulder') === 'boulder' ? 1 : 0);
   const rocks = [...solid].sort((a, b) => order(a) - order(b)).map((s) => rockPiece(scene, s, look, tag + 'g', keys));
   const fore = L.fore.map((s) => rockPiece(scene, s, { ...look, dark: true }, tag + 'f', keys));
-  return { chunks, rocks, fore, deep: deepColor(theme, variant), keys };
+  return { chunks, rocks, fore, deep: ink ? inkDeep(variant) : deepColor(theme, variant), keys };
 }
 
 // ---------------------------------------------------------------------------

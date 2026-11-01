@@ -5,6 +5,7 @@ import { type Ctx, ell, newCanvas, smooth } from '../util/canvas';
 import { mulberry32 } from '../util/math';
 import { plateLevel } from '../state/GameState';
 import { eye, ivory, skin, tooth } from './paint';
+import { gradeAnimal as grade, INK, inkOn, lineOf, shadowOf, withInk } from './ink';
 
 // ---------------------------------------------------------------------------
 // Die Spielfigur. Sie wird aus stufenlosen Merkmalen gezeichnet:
@@ -464,14 +465,15 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
       if (m.cls === 'fish') {
         // Robustheit: größere, deutlich umrandete Schuppen mit hellem Glanz – bis zum Schuppenpanzer
         const ar = m.armor ?? 0;
-        const sc = 1 + 0.5 * ar;
+        // (im Tuschestil wenige, grobe Bögen statt eines dichten Schuppenmusters)
+        const sc = (1 + 0.5 * ar) * (inkOn() ? 1.9 : 1);
         for (let row = 0, y = -bh * 0.6; y < bh * 0.6; y += 4.6 * sc, row++) {
           for (let x = -bw * 0.55; x < bw * 0.5; x += 5.6 * sc) {
             const sx = x + (row % 2) * 2.8 * sc;
             c.beginPath();
             c.arc(sx, y, 3 * sc, 0.2 * Math.PI, 0.8 * Math.PI);
-            c.strokeStyle = css(P.dark, 0.16 + 0.42 * ar);
-            c.lineWidth = 0.8 + 0.9 * ar;
+            c.strokeStyle = css(inkOn() ? INK : P.dark, inkOn() ? 0.2 + 0.4 * ar : 0.16 + 0.42 * ar);
+            c.lineWidth = inkOn() ? 1.1 + 0.9 * ar : 0.8 + 0.9 * ar;
             c.stroke();
             if (ar > 0.15) {
               c.beginPath();
@@ -505,12 +507,14 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
           }
         }
         // Seitenlinie
-        c.beginPath();
-        c.moveTo(bw * 0.3, -bh * 0.05);
-        c.quadraticCurveTo(-bw * 0.05, bh * 0.02, -bw * 0.5, 0);
-        c.strokeStyle = css(P.belly, 0.25);
-        c.lineWidth = 1;
-        c.stroke();
+        if (!inkOn()) {
+          c.beginPath();
+          c.moveTo(bw * 0.3, -bh * 0.05);
+          c.quadraticCurveTo(-bw * 0.05, bh * 0.02, -bw * 0.5, 0);
+          c.strokeStyle = css(P.belly, 0.25);
+          c.lineWidth = 1;
+          c.stroke();
+        }
         // Schwarmfisch: ein dunkles Längsband an der Flanke mit hellem, silbrigem Saum – daran erkennt sich der Schwarm
         const school = plateLevel(m.sw ?? 0);
         if (school > 0.08) {
@@ -602,6 +606,21 @@ function drawBody(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
 }
 
 function finFill(ctx: Ctx, P: Pal, y0: number, y1: number) {
+  if (inkOn()) {
+    // Tuschestil: eine flache Fläche mit kräftiger Kontur (der Weg liegt schon im Pfad)
+    ctx.fillStyle = css(grade(P.fin));
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    // ein Schatten am Ansatz: die untere Hälfte des Bereichs ein wenig dunkler
+    ctx.fillStyle = css(shadowOf(grade(P.fin)), 0.28);
+    ctx.fillRect(-200, (y0 + y1) / 2, 400, Math.abs(y1 - y0));
+    ctx.restore();
+    ctx.strokeStyle = css(lineOf(P.fin, 0.2));
+    ctx.lineWidth = 1.9;
+    ctx.stroke();
+    return;
+  }
   const g = ctx.createLinearGradient(0, y0, 0, y1);
   g.addColorStop(0, css(shade(P.fin, -0.2), 0.75));
   g.addColorStop(1, css(P.fin, 0.92));
@@ -619,12 +638,14 @@ function scars(c: Ctx, m: Morph, bw: number, bh: number, r: () => number) {
     c.beginPath();
     c.moveTo(x, y);
     c.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
-    c.strokeStyle = 'rgba(40,14,10,0.6)';
-    c.lineWidth = 2.2;
+    c.strokeStyle = inkOn() ? css(INK, 0.8) : 'rgba(40,14,10,0.6)';
+    c.lineWidth = inkOn() ? 1.7 : 2.2;
     c.stroke();
-    c.strokeStyle = 'rgba(214,170,150,0.55)';
-    c.lineWidth = 1;
-    c.stroke();
+    if (!inkOn()) {
+      c.strokeStyle = 'rgba(214,170,150,0.55)';
+      c.lineWidth = 1;
+      c.stroke();
+    }
   }
 }
 
@@ -1049,9 +1070,9 @@ function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
     ctx.quadraticCurveTo(-lobe * 0.4, spread * 0.6, -4, 4);
     ctx.closePath();
     finFill(ctx, P, -spread, spread);
-    ctx.strokeStyle = css(P.dark, 0.35);
-    ctx.lineWidth = 0.7;
-    for (let i = -3; i <= 3; i++) {
+    ctx.strokeStyle = inkOn() ? css(INK, 0.55) : css(P.dark, 0.35);
+    ctx.lineWidth = inkOn() ? 1.1 : 0.7;
+    for (let i = inkOn() ? -2 : -3; i <= (inkOn() ? 2 : 3); i += inkOn() ? 2 : 1) {
       ctx.beginPath();
       ctx.moveTo(-5, i * 0.9);
       ctx.lineTo(-lobe * 0.85, i * spread * 0.27);
@@ -1065,7 +1086,20 @@ function drawTail(ctx: Ctx, m: Morph, P: Pal, g: Geo) {
       ctx.lineTo(6, g.bh * 0.12);
       ctx.closePath();
     };
-    skin(ctx, pd, { base: P.base, belly: P.belly, y0: -6, y1: 6, noise: 'mottle', noiseAlpha: 0.4, noiseScale: 0.28, seed: m.seed, edge: P.dark, edgeW: 0.01 });
+    // (im Tuschestil ohne eigene Kontur: Der Schwanzstiel gehört zum Körper und liegt unter dessen Linie)
+    if (inkOn()) {
+      pd();
+      ctx.fillStyle = css(grade(P.base));
+      ctx.fill();
+      ctx.strokeStyle = css(lineOf(P.base));
+      ctx.lineWidth = 1.9;
+      ctx.beginPath();
+      ctx.moveTo(6, -g.bh * 0.12);
+      ctx.lineTo(-6, -4.5);
+      ctx.moveTo(6, g.bh * 0.12);
+      ctx.lineTo(-6, 4.5);
+      ctx.stroke();
+    } else skin(ctx, pd, { base: P.base, belly: P.belly, y0: -6, y1: 6, noise: 'mottle', noiseAlpha: 0.4, noiseScale: 0.28, seed: m.seed, edge: P.dark, edgeW: 0.01 });
     return;
   }
   const len = m.cls === 'amphibian' ? 46 * (1 + 0.3 * st) : m.cls === 'reptile' ? 56 * (1 + 0.35 * st) : 30 * (1 + 0.45 * st);
@@ -1264,9 +1298,9 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
   ctx.quadraticCurveTo(-8 * k, 4 * k, -1, 3);
   ctx.closePath();
   finFill(ctx, P, -2, 10 * k);
-  ctx.strokeStyle = css(P.dark, 0.4);
-  ctx.lineWidth = 0.6;
-  for (let i = 0; i < 3; i++) {
+  ctx.strokeStyle = inkOn() ? css(INK, 0.6) : css(P.dark, 0.4);
+  ctx.lineWidth = inkOn() ? 1 : 0.6;
+  for (let i = 0; i < (inkOn() ? 2 : 3); i++) {
     ctx.beginPath();
     ctx.moveTo(-1, 0);
     ctx.lineTo((-8 - i * 2) * k, (4 + i * 2) * k);
@@ -1316,6 +1350,11 @@ function part(scene: Phaser.Scene, key: string, w: number, h: number, px: number
 
 /** Erzeugt (einmalig je Stufe) alle Teil-Texturen für dieses Aussehen. */
 export function creatureTextures(scene: Phaser.Scene, mIn: Morph): CreatureTex {
+  // der Fisch (das Devon) wird im Tuschestil gemalt, die Vierfüßer des Karbons wie bisher
+  return withInk(mIn.cls === 'fish', () => buildCreature(scene, mIn));
+}
+
+function buildCreature(scene: Phaser.Scene, mIn: Morph): CreatureTex {
   const m = quantize(mIn);
   const g = geo(m);
   const P = palette(m);

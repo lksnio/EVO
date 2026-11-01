@@ -51,7 +51,7 @@ export class Sight {
   cy = 0;
 
   /** murkKey: das trübe Wasser (ein Bild mit dem Farbverlauf des Wassers); full: so weit ist es vom Fisch bis zum Bildrand. */
-  constructor(private scene: Phaser.Scene, private murkKey: string, depth: number, readonly full: number) {
+  constructor(private scene: Phaser.Scene, private murkKey: string, depth: number, readonly full: number, private darkColor = 0x000000, private darkScale = 1) {
     const n = ++uid;
     this.fieldKey = `sight_field_${n}`;
     this.darkKey = `sight_fdark_${n}`;
@@ -95,7 +95,7 @@ export class Sight {
     if (!this.drawn || (moved && this.since > 0.1)) this.redraw(want);
     const ve = veil(this.v, this.water, this.deep);
     this.murkA = ve.murk;
-    this.darkA = ve.dark;
+    this.darkA = ve.dark * this.darkScale;
 
     const ahead = disc(this.v).ahead;
     this.cx = px + this.dir.x * ahead;
@@ -117,7 +117,7 @@ export class Sight {
     // hinter dem Rand das Dunkle: Es beginnt gleich am Rand und nimmt nach außen zu – in der Tiefe dunkler und früher
     const mx = KW / w, my = KH / h;
     this.dark.clear();
-    this.dark.fill(0x000000, this.darkA);
+    this.dark.fill(this.darkColor, this.darkA);
     this.dark.stamp(this.darkKey, undefined, (this.cx - x0) * mx, (this.cy - y0) * my, {
       scaleX: (this.halfDark * 2 * mx) / T, scaleY: (this.halfDark * 2 * my) / T, blendMode: Phaser.BlendModes.ERASE,
     });

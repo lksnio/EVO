@@ -32,7 +32,7 @@ export interface DriftCounts {
 }
 
 /** Wie viel treibt wo? Der Fluss am Start ist klar, im trüben Wasser wimmelt es, in der Tiefe rieselt vor allem Schnee. */
-export function driftCounts(kind: string, epochId: string): DriftCounts {
+export function driftCounts(kind: string, epochId: string, scale = 1): DriftCounts {
   const k: Record<string, DriftCounts> = {
     start: { plankton: 18, snow: 20, grapto: 0 },
     lush: { plankton: 64, snow: 36, grapto: 3 },
@@ -43,7 +43,7 @@ export function driftCounts(kind: string, epochId: string): DriftCounts {
   const c = k[kind] ?? k.lush;
   // Graptolithen: Blüte im Ordovizium und Silur, im Devon fast verschwunden
   const g = epochId === 'ordovizium' ? 1 : epochId === 'silur' ? 0.8 : 0.12;
-  return { plankton: c.plankton, snow: c.snow, grapto: Math.round(c.grapto * g) };
+  return { plankton: Math.round(c.plankton * scale), snow: Math.round(c.snow * scale), grapto: Math.round(c.grapto * g) };
 }
 
 export class Drift {

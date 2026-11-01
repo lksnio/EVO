@@ -5,6 +5,8 @@ import { type Ctx, ell, fillStroke, newCanvas, rgrad, smooth, tex, vgrad, wrapX 
 import { mulberry32, type Rng } from '../util/math';
 import { W, H } from '../config';
 import { noiseTex, pattern } from './paint';
+import { grade, INK, inkWorldOn, lightOf, shadowOf } from './ink';
+import { inkTexture } from './inkFilter';
 import { LIFE_SWAY } from './lifeArt';
 import { HEAL, TOXIC } from '../data/plants';
 
@@ -834,8 +836,13 @@ export function groundTextures(scene: Phaser.Scene, theme: Theme, v = 0) {
 // ---------------------------------------------------------------------------
 // Fressbare Pflanzen (3 Stufen: voll, angefressen, kahl)
 
+/** der Schlüssel des gemalten Bildes einer Pflanze (ohne Tusche-Fassung) */
+const foodBase = (theme: Theme, stage: number, variant = 0) => (variant ? `food_${theme}_${variant}_${stage}` : `food_${theme}_${stage}`);
+
+/** Das Bild einer Pflanze – im Devon (Tuschestil) ihre Tusche-Fassung (art/inkFilter.ts). */
 export function foodKey(theme: Theme, stage: number, variant = 0) {
-  return variant ? `food_${theme}_${variant}_${stage}` : `food_${theme}_${stage}`;
+  const k = foodBase(theme, stage, variant);
+  return inkWorldOn() ? 'ink_' + k : k;
 }
 
 export const PLANT_VARIANTS = 3;
@@ -854,14 +861,51 @@ export const ROE_TONES = [
   { egg: 0xe6e2d6, shell: 0xfbf9f2, yolk: 0xb4ab94 },
 ];
 
-export const roeKey = (tone: number, stage: number) => `roe_${tone}_${stage}`;
+const roeBase = (tone: number, stage: number) => `roe_${tone}_${stage}`;
+export const roeKey = (tone: number, stage: number) => (inkWorldOn() ? 'ink_' : '') + roeBase(tone, stage);
 
 const ROE_SPOTS: [number, number][] = [[15, 41], [29, 43], [43, 42], [57, 41], [22, 32], [36, 34], [50, 32], [29, 23], [43, 24], [36, 14]];
 
 export function roeTextures(scene: Phaser.Scene) {
   ROE_TONES.forEach((t, tone) => {
     for (let stage = 0; stage < 3; stage++) {
-      tex(scene, roeKey(tone, stage), 72, 52, (ctx) => {
+      if (inkWorldOn()) {
+        // Tuschestil: flache Eier mit Kontur und Dotter, dicht gepackt – ein heller Haufen, der aus dem Boden sticht
+        const keep = stage === 0 ? ROE_SPOTS : stage === 1 ? [ROE_SPOTS[0], ROE_SPOTS[2], ROE_SPOTS[4], ROE_SPOTS[6], ROE_SPOTS[8]] : [ROE_SPOTS[1]];
+        tex(scene, 'ink_' + roeBase(tone, stage), 72, 52, (ctx) => {
+          ctx.beginPath();
+          ctx.ellipse(36, 46, stage === 0 ? 34 : 26, 5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = css(INK, 0.35);
+          ctx.fill();
+          const egg = grade(mix(t.egg, 0xffffff, 0.12), 0.04);
+          for (const [x, y] of [...keep].sort((a, b) => a[1] - b[1])) {
+            ctx.beginPath();
+            ctx.arc(x, y, 7.6, 0, Math.PI * 2);
+            ctx.fillStyle = css(egg);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + 0.8, y + 1.8, 6, 0.1, Math.PI - 0.1);
+            ctx.strokeStyle = css(shadowOf(egg, 0.3), 0.75);
+            ctx.lineWidth = 2.4;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x, y, 7.6, 0, Math.PI * 2);
+            ctx.strokeStyle = css(INK);
+            ctx.lineWidth = 1.9;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x + 0.6, y + 0.8, 3, 0, Math.PI * 2);
+            ctx.fillStyle = css(grade(t.yolk, 0.02));
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x - 2.4, y - 2.6, 1.3, 0, Math.PI * 2);
+            ctx.fillStyle = css(lightOf(egg, 0.5), 0.95);
+            ctx.fill();
+          }
+        });
+        continue;
+      }
+      tex(scene, roeBase(tone, stage), 72, 52, (ctx) => {
         const r = mulberry32(tone * 31 + 7);
         const keep = stage === 0 ? ROE_SPOTS : stage === 1 ? [ROE_SPOTS[0], ROE_SPOTS[2], ROE_SPOTS[4], ROE_SPOTS[6], ROE_SPOTS[8]] : [ROE_SPOTS[1]];
         // eine glibberige Unterlage
@@ -894,10 +938,14 @@ export function roeTextures(scene: Phaser.Scene) {
 
 export function plantTextures(scene: Phaser.Scene, theme: Theme) {
   for (let stage = 0; stage < 3; stage++) {
-    tex(scene, foodKey(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));
-    for (let v = 1; v < PLANT_VARIANTS; v++) tex(scene, foodKey(theme, stage, v), 70, 64, (ctx) => drawPlant2(ctx, theme, stage, v));
-    tex(scene, foodKey(theme, stage, TOXIC), 70, 64, (ctx) => drawToxic(ctx, theme, stage));
-    tex(scene, foodKey(theme, stage, HEAL), 70, 64, (ctx) => drawHeal(ctx, theme, stage));
+    tex(scene, foodBase(theme, stage), 70, 64, (ctx) => drawPlant(ctx, theme, stage));
+    for (let v = 1; v < PLANT_VARIANTS; v++) tex(scene, foodBase(theme, stage, v), 70, 64, (ctx) => drawPlant2(ctx, theme, stage, v));
+    tex(scene, foodBase(theme, stage, TOXIC), 70, 64, (ctx) => drawToxic(ctx, theme, stage));
+    tex(scene, foodBase(theme, stage, HEAL), 70, 64, (ctx) => drawHeal(ctx, theme, stage));
+    // im Devon: die Tusche-Fassungen dazu. Nahrung soll auffallen: etwas kräftigere Farben und feinere Stufen
+    if (inkWorldOn()) {
+      for (const v of [0, ...Array.from({ length: PLANT_VARIANTS - 1 }, (_, i) => i + 1), TOXIC, HEAL]) inkTexture(scene, foodBase(theme, stage, v), { sat: 1.25, bands: 5, outline: 2, gain: 1.08 });
+    }
   }
 }
 

@@ -16,6 +16,9 @@ import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { caveBack, caveShade, terrainArt } from '../art/terrainArt';
+import { inkBackdrop, inkMurk, moodOf, MOODS, type Mood, type MoodId } from '../art/inkWorld';
+import { inkTexture } from '../art/inkFilter';
+import { setInkWorld } from '../art/ink';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import { Controls, touch } from '../objects/Controls';
@@ -167,6 +170,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private surfGlow?: Phaser.GameObjects.TileSprite;
   /** der Ort, an dem man gerade ist */
   place!: PlaceDef;
+  /** Tuschestil (Devon): die Stimmung des Ortes – sonst nichts (siehe art/inkWorld.ts) */
+  ink?: { id: MoodId; mood: Mood };
   /** Muscheln, die von erlegter Beute gefallen sind (sie bleiben, bis man den Ort verlässt) */
   private shells: Shell[] = [];
   private dropN = 0;
@@ -304,6 +309,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
     this.duelCave = undefined;
+    this.ink = undefined;
   }
 
   create() {
@@ -338,7 +344,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // im Startgebiet ist das Wasser sauber: heller, klar und hellblau
     // im Karbon (Land über dem Wasser) ein heller, dunstiger Tag über dem Sumpf
     const clean = this.place.kind === 'start' || this.amphibious;
-    const [far, mid, fog] = levelBackgrounds(this, L.theme, L.variant, clean);
+    // das Devon wird im Tuschestil gemalt: gestaffelte Silhouetten, je Ort eine eigene Stimmung
+    this.ink = ep.id === 'devon' ? { id: moodOf(this.place), mood: MOODS[moodOf(this.place)] } : undefined;
+    setInkWorld(!!this.ink);
+    const [far, mid, fog] = this.ink ? inkBackdrop(this, this.ink.id) : levelBackgrounds(this, L.theme, L.variant, clean);
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
@@ -352,7 +361,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     }
     this.buildDecor();
-    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id), this.place.kind === 'deep' || this.place.kind === 'abyss') : undefined;
+    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss') : undefined;
     if (this.amphibious) this.swampWater();
     else if (this.water && L.surfaceY > 0) {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
@@ -514,10 +523,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
-    this.sight = this.water && !this.amphibious ? new Sight(this, murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2) : undefined;
-    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.place.kind === 'start' ? 0.32 : 0.55);
+    this.sight = this.water && !this.amphibious
+      ? new Sight(this, this.ink ? inkMurk(this, this.ink.id, 1) : murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2, this.ink ? 0x07101c : 0x000000, this.ink ? 0.6 : 1) : undefined;
+    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.ink ? 0.36 : this.place.kind === 'start' ? 0.32 : 0.55);
     // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
-    if (this.place.kind === 'start' && this.water && !this.amphibious) {
+    if (this.place.kind === 'start' && this.water && !this.amphibious && !this.ink) {
       this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
     }
     // Schleier der Gebiete: links trüb, rechts dunkel – geht fließend ineinander über
@@ -630,7 +640,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private buildTerrain() {
     const L = this.L;
-    const art = terrainArt(this, L, L.theme, this.zoneAt(0).def.ground);
+    // im Devon wird der Boden im Tuschestil gemalt (art/ink.ts)
+    const art = terrainArt(this, L, L.theme, this.zoneAt(0).def.ground, this.ep.id === 'devon');
     this.terrainKeys = art.keys;
     for (const c of art.chunks) {
       const img = this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);
@@ -693,7 +704,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent. */
   private buildCover() {
-    const bushes = coverTextures(this, this.L.theme);
+    const bushes = coverTextures(this, this.L.theme).map((k) => (this.ink ? inkTexture(this, k, { outline: 3, bands: 4, water: 0.16 }) : k));
     let bi = 0;
     for (const c of this.L.cover) {
       const front: Phaser.GameObjects.Image[] = [];
@@ -843,9 +854,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const L = this.L;
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
     this.surfGlow = this.add.tileSprite(0, L.surfaceY - 8, L.width, 218, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
-      .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.34).setTileScale(1, 0.62);
+      .setBlendMode(Phaser.BlendModes.ADD).setAlpha(this.ink ? 0.2 : 0.34).setTileScale(1, 0.62);
     // zwei Lichtnetze in verschiedener Größe, die gegeneinander laufen – so wiederholt sich nichts sichtbar
-    for (const [key, a, v, sc] of [['caustics', 0.34, 9, 1], ['caustics2', 0.26, -6, 1.37]] as const) {
+    // im Tuschestil nur ein leiser Schimmer (das Lichtnetz soll nicht über der Zeichnung flimmern)
+    for (const [key, a, v, sc] of (this.ink ? [['caustics', 0.12, 9, 1.5], ['caustics2', 0.09, -6, 2]] : [['caustics', 0.34, 9, 1], ['caustics2', 0.26, -6, 1.37]]) as [string, number, number, number][]) {
       const s = this.add.tileSprite(0, L.surfaceY - 4, L.width, 194, key).setOrigin(0).setDepth(DEPTH.decoBack - 1)
         .setBlendMode(Phaser.BlendModes.ADD).setAlpha(a).setTileScale(sc, sc);
       this.caustics.push({ s, v, a });
@@ -896,14 +908,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const [g0, g1] of gaps) {
       const fade = 200;
       const w = Math.round(g1 - g0 + 2 * fade);
-      const key = `shade_gap_${w}`;
+      const key = `shade_gap_${w}${this.ink ? '_ink' : ''}`;
       if (!this.textures.exists(key)) {
         const cw = Math.ceil(w / 2), ch = 260;
         const ct = this.textures.createCanvas(key, cw, ch)!;
         const ctx = ct.getContext();
         const vg = ctx.createLinearGradient(0, 0, 0, ch);
-        vg.addColorStop(0, 'rgba(1,6,8,0.86)');
-        vg.addColorStop(0.5, 'rgba(1,6,8,0.46)');
+        const gk = this.ink ? 0.38 : 1;
+        vg.addColorStop(0, `rgba(1,6,8,${0.86 * gk})`);
+        vg.addColorStop(0.5, `rgba(1,6,8,${0.46 * gk})`);
         vg.addColorStop(1, 'rgba(1,6,8,0)');
         ctx.fillStyle = vg;
         ctx.fillRect(0, 0, cw, ch);
@@ -930,15 +943,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // reicht, desto schwärzer wird es ganz unten.
     const H0 = 3400;
     // In den Trichtern der Tiefe übernimmt der Lichtkreis um dich das Dunkel – der Grund selbst bleibt etwas heller
-    const key = this.place.kind === 'deep' || this.place.kind === 'abyss' ? 'depth_shade3v' : 'depth_shade3';
+    // im Tuschestil (Devon) wird es mit der Tiefe nicht schwarz, sondern bleibt Wasser in der Farbe des Ortes (blau-grün bis tintig)
+    const ink = this.ink;
+    const key = (this.place.kind === 'deep' || this.place.kind === 'abyss' ? 'depth_shade3v' : 'depth_shade3') + (ink ? `_ink_${ink.id}` : '');
     if (!this.textures.exists(key)) {
       const ct = this.textures.createCanvas(key, 4, H0)!;
       const ctx = ct.getContext();
       const g = ctx.createLinearGradient(0, 0, 0, H0);
-      const stops: [number, number][] = key === 'depth_shade3v'
+      const stops: [number, number][] = key.startsWith('depth_shade3v')
         ? [[0, 0], [400, 0], [1000, 0.3], [1424, 0.4], [1900, 0.47], [2400, 0.52], [H0, 0.55]]
         : [[0, 0], [400, 0], [1000, 0.42], [1424, 0.64], [1900, 0.72], [2400, 0.77], [H0, 0.8]];
-      for (const [y, a] of stops) g.addColorStop(y / H0, `rgba(1,5,9,${a})`);
+      const rgb = ink ? [(ink.mood.sky[2] >> 16) & 255, (ink.mood.sky[2] >> 8) & 255, ink.mood.sky[2] & 255].map((v) => Math.round(v * 0.45)).join(',') : '1,5,9';
+      const k = ink ? 0.3 : 1;
+      for (const [y, a] of stops) g.addColorStop(y / H0, `rgba(${rgb},${a * k})`);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 4, H0);
       ct.refresh();
@@ -946,7 +963,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.add.image(0, L.surfaceY, key).setOrigin(0).setDisplaySize(L.width, H0).setDepth(DEPTH.decoFront + 0.5);
     // tiefer als die Verlaufstextur: gleichmäßig dunkel weiter
     if (L.height - L.surfaceY > H0) {
-      this.add.rectangle(0, L.surfaceY + H0 - 1, L.width, L.height - L.surfaceY - H0 + 400, 0x010509, key === 'depth_shade3v' ? 0.55 : 0.8)
+      this.add.rectangle(0, L.surfaceY + H0 - 1, L.width, L.height - L.surfaceY - H0 + 400, 0x010509, (key.startsWith('depth_shade3v') ? 0.55 : 0.8) * (this.ink ? 0.3 : 1))
         .setOrigin(0).setDepth(DEPTH.decoFront + 0.5);
     }
   }
@@ -1076,15 +1093,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const hw = ((tx.getSourceImage().width as number) * sc) / 2;
       const at = this.settle(x, y - sink, hw);
       if (!at) return null;
-      const k = key.slice(3);
+      const k = key.replace(/^(ink_)?d2_/, '');
       const img = this.add.image(at.x, at.y + sink, key).setOrigin(0.5, 1).setDepth(depth).setScale(sc).setTint(tint).setAlpha(alpha).setFlipX(rnd() < 0.5);
       this.cullAdd(img, at.x - hw - 20, at.x + hw + 20);
       if (SWAYS.has(k)) this.swayList.push({ o: img, amp: ((this.water ? 3 : 1.6) + rnd() * (this.water ? 4 : 2)) * (k in LIFE_SWAY ? LIFE_SWAY[k] * 0.6 : 1), sp: 0.5 + rnd() * 0.9, ph: rnd() * 6 });
       return img;
     };
     for (const d of L.decor) {
-      const key = 'd2_' + d.k;
-      if (!this.textures.exists(key)) continue;
+      const base = 'd2_' + d.k;
+      if (!this.textures.exists(base)) continue;
+      // im Devon: die Tusche-Fassung (Pflanzen in drei, Riffbewohner in vier Stufen)
+      const key = this.ink ? inkTexture(this, base, { bands: SWAYS.has(d.k) ? 3 : 4, water: SWAYS.has(d.k) ? 0.2 : 0.1 }) : base;
       if (d.hang) {
         const img = this.add.image(d.x, d.y, key).setOrigin(0.5, 0).setDepth(DEPTH.decoBack).setScale(0.8 + rnd() * 0.5);
         this.cullAdd(img, d.x - 40, d.x + 40);
@@ -2097,8 +2116,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.meats = this.meats.filter((c) => !c.gone);
 
     const cam = this.cameras.main;
-    this.bgFar.tilePositionX = cam.scrollX * 0.08;
-    this.bgMid.tilePositionX = cam.scrollX * 0.28;
+    // im Tuschestil wiegen sich die Ebenen ganz leicht (der Tang der Ferne und Mitte, im Takt der Strömung)
+    const sway = this.ink ? Math.sin(this.t * 0.45) * 6 : 0;
+    this.bgFar.tilePositionX = cam.scrollX * 0.08 + sway * 0.4;
+    this.bgMid.tilePositionX = cam.scrollX * 0.28 + sway;
     this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
     // im Fluss am Start ist es still: die Fische in der Ferne tauchen erst zur Mündung hin auf
     const re = this.L.riverEnd ?? 0;

@@ -1,5 +1,6 @@
 import { newCanvas, type Ctx, ell } from '../util/canvas';
 import { css, mix, shade } from '../util/color';
+import { gradeAnimal, inkOn, INK, lightOf, lineOf, outline, shadowOf } from './ink';
 
 // ---------------------------------------------------------------------------
 // Malwerkzeuge für den dunklen, organischen Stil:
@@ -151,8 +152,64 @@ export interface SkinOpts {
   outline?: () => void;
 }
 
+/**
+ * Eine Sichel am Rand der Form: der Teil der Form, den die um (dx, dy) verschobene Kopie nicht bedeckt – ein harter, dem Umriss
+ * folgender Schatten bzw. Lichtstreifen, wie ihn eine Zeichnerin mit wenigen Strichen setzt. Die Form (path) darf mehrere Teile haben.
+ */
+export function crescent(ctx: Ctx, path: () => void, dx: number, dy: number, fill: string) {
+  ctx.save();
+  path();
+  ctx.clip();
+  path();
+  // die verschobene Kopie kommt zum selben Weg dazu (beginPath tut dabei nichts); „evenodd“ lässt nur die Sichel übrig
+  (ctx as unknown as { beginPath: () => void }).beginPath = () => undefined;
+  ctx.save();
+  ctx.translate(dx, dy);
+  path();
+  ctx.restore();
+  delete (ctx as unknown as { beginPath?: () => void }).beginPath;
+  ctx.clip('evenodd');
+  ctx.fillStyle = fill;
+  ctx.fillRect(-4000, -4000, 8000, 8000);
+  ctx.restore();
+}
+
+/**
+ * Tuschestil (Devon): eine ruhige Farbfläche, ein flacher Bauch, die Muster der Art, ein harter Schattenstreifen unten, ein
+ * schmales Licht oben – und eine kräftige dunkle Kontur, die die Silhouette trägt. Keine Verläufe, kein Rauschen, kein Glanz.
+ */
+function inkSkin(ctx: Ctx, path: () => void, o: SkinOpts) {
+  const base = gradeAnimal(o.base);
+  const ht = Math.max(4, o.y1 - o.y0);
+  const lw = Math.max(1.9, (o.edgeW ?? 1.3) * 2.1);
+  const op = o.outline ?? path;
+  path();
+  ctx.fillStyle = css(base);
+  ctx.fill();
+  ctx.save();
+  path();
+  ctx.clip();
+  // dunklerer Rücken: ein breiter Streifen entlang der Oberkante
+  if (o.top !== undefined && o.top !== o.base) crescent(ctx, path, 0, ht * 0.3, css(gradeAnimal(o.top), 0.9));
+  // heller Bauch: eine flache Fläche, kein Verlauf
+  if (o.belly !== undefined && o.bellyBand) {
+    const [cy, hh, hw, cx] = o.bellyBand;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + hh * 0.35, Math.max(1, hw), Math.max(1, hh * 0.95), 0, 0, Math.PI * 2);
+    ctx.fillStyle = css(gradeAnimal(o.belly));
+    ctx.fill();
+  }
+  o.inner?.(ctx);
+  ctx.restore();
+  // Schatten unten, schmales Licht oben
+  crescent(ctx, path, -ht * 0.03, -ht * 0.14, css(shadowOf(base), 0.85));
+  crescent(ctx, path, 0, ht * 0.08, css(lightOf(base, 0.3), 0.5));
+  outline(ctx, op, lineOf(o.edge ?? base), lw);
+}
+
 /** Füllt eine Körperform mit Verlauf, Textur, Randlicht und dunkler Kante. */
 export function skin(ctx: Ctx, path: () => void, o: SkinOpts) {
+  if (inkOn()) return inkSkin(ctx, path, o);
   path();
   const g = ctx.createLinearGradient(0, o.y0, 0, o.y1);
   g.addColorStop(0, css(o.top ?? shade(o.base, -0.35)));
@@ -251,7 +308,55 @@ export function innerShade(ctx: Ctx, clip: () => void, line: () => void, color: 
 }
 
 /** Ein Tierauge: wenig Weiß, dunkle Iris, kleiner Glanzpunkt. */
+/**
+ * Ein Auge im Tuschestil: groß, mit dunkler Kontur und einer großen Pupille. Beute hat helle Augen, Jäger tragen die Farbe ihrer
+ * Iris (das ist ein Akzent: Gefahr sieht man an den Augen). Ein winziger Lichtpunkt, sonst nichts.
+ */
+function inkEye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: { slit?: boolean; lid?: number; glow?: boolean; keen?: number }) {
+  const R = Math.max(2.6, r * 1.3);
+  const lw = Math.max(1.3, R * 0.3);
+  const white = o.glow ? mix(iris, 0xfff0c0, 0.25) : 0xe8e6d2;
+  ell(ctx, x, y, R, R);
+  ctx.fillStyle = css(white);
+  ctx.fill();
+  // heller Ring bei wachen Augen
+  if ((o.keen ?? 0) > 0.15) {
+    ell(ctx, x, y, R * 0.8, R * 0.8);
+    ctx.strokeStyle = 'rgba(255,248,214,0.7)';
+    ctx.lineWidth = R * 0.14;
+    ctx.stroke();
+  }
+  // Pupille
+  if (o.slit) ell(ctx, x + R * 0.08, y, R * 0.26, R * 0.86);
+  else ell(ctx, x + R * 0.16, y + R * 0.02, R * 0.56, R * 0.56);
+  ctx.fillStyle = css(INK);
+  ctx.fill();
+  // schweres Oberlid: ein flacher dunkler Keil
+  if (o.lid && o.lid > 0) {
+    ctx.save();
+    ell(ctx, x, y, R, R);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.moveTo(x - R * 1.3, y - R * 1.3);
+    ctx.lineTo(x + R * 1.3, y - R * 1.3);
+    ctx.lineTo(x + R * 1.3, y - R * (0.8 - Math.min(0.9, o.lid * 1.2)));
+    ctx.lineTo(x - R * 1.3, y - R * (0.8 - Math.min(0.9, o.lid * 0.6)));
+    ctx.closePath();
+    ctx.fillStyle = css(INK);
+    ctx.fill();
+    ctx.restore();
+  }
+  ell(ctx, x - R * 0.32, y - R * 0.36, R * 0.2, R * 0.2);
+  ctx.fillStyle = 'rgba(255,252,238,0.95)';
+  ctx.fill();
+  ell(ctx, x, y, R, R);
+  ctx.strokeStyle = css(INK);
+  ctx.lineWidth = lw;
+  ctx.stroke();
+}
+
 export function eye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: { slit?: boolean; lid?: number; glow?: boolean; keen?: number } = {}) {
+  if (inkOn()) return inkEye(ctx, x, y, r, iris, o);
   // keen (0 … 1): ein wacher, scharfer Blick – die Iris leuchtet kräftiger, ein heller Ring um die Pupille, der Lichtreflex
   // wird größer und bekommt einen zweiten, kleinen Glanzpunkt
   const kn = Math.max(0, Math.min(1, o.keen ?? 0));
@@ -316,7 +421,8 @@ export function eye(ctx: Ctx, x: number, y: number, r: number, iris: number, o: 
   ctx.stroke();
 }
 
-export function ivory(ctx: Ctx, y0: number, y1: number, old = 0) {
+export function ivory(ctx: Ctx, y0: number, y1: number, old = 0): CanvasGradient | string {
+  if (inkOn()) return old > 0.5 ? '#cfc4a2' : '#e8e0c8';
   const g = ctx.createLinearGradient(0, y0, 0, y1);
   g.addColorStop(0, old > 0.5 ? '#e4d6b4' : '#f2ead6');
   g.addColorStop(1, old > 0.5 ? '#a08a5c' : '#c2ae86');
@@ -339,8 +445,8 @@ export function tooth(ctx: Ctx, x: number, y: number, w: number, len: number, di
   ctx.closePath();
   ctx.fillStyle = ivory(ctx, Math.min(y, y + dir * len), Math.max(y, y + dir * len));
   ctx.fill();
-  ctx.strokeStyle = 'rgba(40,30,18,0.75)';
-  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = inkOn() ? css(INK, 0.95) : 'rgba(40,30,18,0.75)';
+  ctx.lineWidth = inkOn() ? 1.3 : 0.6;
   ctx.stroke();
 }
 

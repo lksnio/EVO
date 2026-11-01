@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
 import { foodKey, HEAL, MEAT_SIZES, roeKey, TOXIC } from '../art/worldArt';
+import { inkWorldOn } from '../art/ink';
+import { inkTexture } from '../art/inkFilter';
 import type { Animal } from './Animal';
 import { DEPTH } from '../config';
 import { MISC } from '../data/life';
@@ -347,7 +349,7 @@ export class Shell {
   /** from: Sie fällt von dort (der Beute) herab und sinkt zu Boden. */
   constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly id: string, from?: number) {
     this.halo = scene.add.image(x, y - 14, 'glow').setTint(0xffe6d6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setDisplaySize(80, 64).setAlpha(0.08);
-    this.img = scene.add.image(x, y + 3, 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(30, 33);
+    this.img = scene.add.image(x, y + 3, inkWorldOn() ? inkTexture(scene, 'shell', { bands: 5, outline: 2, sat: 1.1, water: 0.04, gain: 1.1 }) : 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(30, 33);
     this.glint = scene.add.image(x - 4, y - 22, 'shell_glint').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups + 0.1).setScale(0).setAlpha(0.9);
     scene.tweens.add({ targets: this.halo, alpha: 0.04, yoyo: true, repeat: -1, duration: 2400 + (x % 7) * 110, ease: 'Sine.inOut' });
     scene.tweens.add({

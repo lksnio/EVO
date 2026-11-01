@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
 import type { ClassId } from '../data/classes';
 import { SPECIES } from '../data/species';
+import { EPOCHS, epochSpecies } from '../data/epochs';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { CreatureView } from '../objects/CreatureView';
 import { text } from '../ui/ui';
@@ -16,20 +17,26 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#1a1814');
+    this.cameras.main.setBackgroundColor(new URLSearchParams(location.search).has('gallery') && new URLSearchParams(location.search).get('gallery') === 'devon' ? '#1b4048' : '#1a1814');
     this.views = [];
     this.show();
     this.input.keyboard!.on('keydown-SPACE', () => {
-      this.page = (this.page + 1) % (1 + Math.ceil(Object.keys(SPECIES).length / 18));
+      this.page = (this.page + 1) % (1 + Math.ceil(this.ids().length / 18));
       this.children.removeAll(true);
       this.views = [];
       this.show();
     });
   }
 
+  /** ?gallery=devon zeigt nur die Tiere des Devons (Reihenfolge wie in der Chronik) */
+  private ids() {
+    const only = new URLSearchParams(location.search).get('gallery');
+    return only === 'devon' ? epochSpecies(EPOCHS.find((e) => e.id === 'devon')!).filter((id) => SPECIES[id]) : Object.keys(SPECIES);
+  }
+
   private show() {
     if (this.page >= 1) {
-      const ids = Object.keys(SPECIES).slice((this.page - 1) * 18, this.page * 18);
+      const ids = this.ids().slice((this.page - 1) * 18, this.page * 18);
       ids.forEach((id, i) => {
         const def = SPECIES[id];
         makeSpeciesTextures(this, def);
@@ -37,6 +44,8 @@ export class GalleryScene extends Phaser.Scene {
         const img = this.add.image(110 + col * 212, 110 + row * 230, speciesKey(id, 0));
         const s = Math.min(1.6, 196 / img.width, 170 / img.height);
         img.setScale(s);
+        // daneben ein zweites Mal so groß, wie das Tier im Spiel zu sehen ist (Kamera 0,72)
+        this.add.image(110 + col * 212 + 80, 110 + row * 230 + 70, speciesKey(id, 0)).setScale(0.72).setAlpha(0.95);
         text(this, 110 + col * 212, 210 + row * 230, `${def.name} (${def.role})`, 14).setOrigin(0.5);
       });
       return;

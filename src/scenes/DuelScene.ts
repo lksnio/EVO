@@ -21,6 +21,7 @@ import { touchButton } from '../ui/touchPad';
 import { touch } from '../objects/Controls';
 import { fadeIn, fadeTo, text, title } from '../ui/ui';
 import { mix } from '../util/color';
+import { setInkWorld } from '../art/ink';
 import { clamp, mulberry32, overlaps, type Rect } from '../util/math';
 
 /** Was das Laichduell beim Start braucht (vom Ort, siehe LevelScene.startDuel). */
@@ -133,6 +134,7 @@ export class DuelScene extends Phaser.Scene implements PlayerHost {
 
   create() {
     fadeIn(this, 700);
+    setInkWorld(true);
     const A = ARENA;
     const world = this.physics.world;
     world.gravity.y = 0;
@@ -233,7 +235,7 @@ export class DuelScene extends Phaser.Scene implements PlayerHost {
     boulder(-20, 90, 220, 2, 10);
     for (let i = 0; i < 14; i++) boulder(20 + r() * (A.w / 3 + 60), 6 + r() * 10, 5 + r() * 6, r() < 0.5 ? 1 : 2, 4);
     for (let i = 0; i < 6; i++) boulder(A.w / 3 + r() * (A.w / 3), 5 + r() * 7, 4 + r() * 4, 0, 3);
-    const art = terrainArt(this, { width: A.w, terrain: { hp, zones }, mats: [{ x0: A.w * 0.7, x1: A.w * 0.95, tone: 0, seed: 77 }], rocks, fore: [] }, 'ozean', 0);
+    const art = terrainArt(this, { width: A.w, terrain: { hp, zones }, mats: [{ x0: A.w * 0.7, x1: A.w * 0.95, tone: 0, seed: 77 }], rocks, fore: [] }, 'ozean', 0, true);
     this.keys.push(...art.keys);
     for (const c of art.chunks) {
       this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);

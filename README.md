@@ -255,6 +255,37 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 - Alle Zahlen stehen an einer Stelle: `src/data/life.ts` (`WORLD`, `LIFE`, `SPAWN`, `INHERIT`, `MISC`) und `FOOD` in
   `src/state/GameState.ts` – und lassen sich im Spiel über die [Entwickler-Einstellung](#entwickler-einstellung) ändern.
 
+## Der Tuschestil des Devons
+
+Das **Devon** ist im Stil handgezeichneter 2D-Welten gemalt (Vorbild: *Hollow Knight*) – statt Verläufen, Rauschen und Glanz gibt es
+**ruhige Farbflächen, wenige harte Schattenstreifen und eine kräftige dunkle Kontur**, die jede Silhouette trägt. Alle anderen
+Zeitalter (Karbon, Kreidezeit …) behalten ihre bisherige Malweise. Wie das geht, steht in `src/art/ink.ts`: `withInk(true, …)`
+schaltet beim Malen eines Devon-Tiers (der Fisch der Spielfigur, alle Arten aus `epochSpecies(devon)`) den Stil ein; Welt-Bilder
+(Pflanzen, Riffbewohner, Laich, Muscheln) bekommen über `inkTexture` (`src/art/inkFilter.ts`) eine zweite, gezeichnete Fassung
+(`ink_<Schlüssel>`), die Szene wählt sie, solange `inkWorldOn()` gilt (Devon und das Becken des Laichduells).
+
+- **Tiere:** flache Körperfarbe, ein dunklerer Rücken und ein heller Bauch als feste Flächen, ein Schattenstreifen unten und ein
+  schmales Licht oben (`crescent` in `paint.ts`), dazu die Kontur (zwei leicht versetzte Linien – wie mit der Feder gezogen).
+  **Die Formen sind rundlicher und gedrungener** (kleine Beute am rundesten), die **Augen groß**: helle Augen bei Beute, bei Jägern
+  die Farbe der Iris als Akzent (Gefahr sieht man an den Augen). Flossen sind undurchsichtige Flächen mit zwei, drei Strahlen,
+  Panzerfische tragen nur noch die große Naht zwischen Kopf- und Rumpfpanzer, Schuppen sind wenige grobe Bögen. Tiere sind die
+  **hellsten Flächen** im Bild (`gradeAnimal`), die Welt ist kühl und dunkel. Seeskorpione, Trilobiten, Kopffüßer und Quallen
+  haben dieselbe Linienführung (`pen`, `inkJelly`).
+- **Gelände:** der Boden besteht aus wenigen flachen Schichten mit leicht welligen Grenzen, oben ein heller Saum unter einer
+  breiten dunklen Kontur; dazu sparsame Einzelheiten (Tupfen im Sand, eingebettete Steine und Risse im Fels, Blasen im
+  Schlamm). Felsen sind flache Flächen mit hartem Schatten, die Felsen im Vordergrund fast schwarze Silhouetten mit schmalem
+  Lichtrand (`paintChunkInk`, `paintRockInk` in `terrainArt.ts`).
+- **Ebenen und Stimmungen** (`src/art/inkWorld.ts`): ganz hinten blasse Silhouetten im Dunst (Lichtkegel, Bergketten, Säulen),
+  davor dunklere Tangwälder, Pfeiler und Kuppen, ganz vorn fast schwarze Pflanzen. Die Ebenen ziehen mit unterschiedlicher
+  Parallaxe (0,08 / 0,28 / Dunst 0,5) und wiegen sich leicht. Jeder Ort hat seine Stimmung: der **Laichfluss** klar und
+  hell-türkis mit viel Licht und warmen Akzenten (Laich, Muschel), das **Flachwasser** grün, dicht bewachsen, mit Korallenblüten
+  in Rosa, das **Tiefental** kühl blau-violett mit hohen Säulen. Die Sicht (Nebel jenseits des klaren Bereichs, Tiefenschatten) ist
+  in den Farben des Ortes gehalten und wird nicht schwarz.
+- **Bewegung und Licht:** Pflanzen schwingen weich (nach `SWAYS`), Schwebstoffe sind sparsam (55 %), das Lichtnetz an der
+  Oberfläche ist nur noch ein leiser Schimmer, breite Lichtkegel kommen von oben.
+- Mit `?debug&gallery=devon` zeigt die Galerie die Spielfigur und alle Tiere des Devons (Leertaste blättert), je einmal groß und
+  einmal so, wie sie im Spiel (Kamera 0,72) zu sehen sind.
+
 ## Das Laichduell (Koop-Minispiel)
 
 Im **Devon** liegt links vom Startort, gleich neben dem Laichhaufen, eine **dunkle Höhle** im Fels (`LevelData.cave`, gebaut in
@@ -1053,7 +1084,10 @@ src/
 │   ├── LevelGen.ts      erzeugt jeden Ort – für alle Spieler und in jedem Leben gleich (feste Weltsaat), ohne Phaser
 │   └── terrain.ts       der Meeresboden: glatte Höhenlinie, Zonen aus Sand/Fels/Schlamm, Felsbrocken, Bögen, Hitboxen
 ├── art/                 alle Grafiken, per Canvas gemalt (Rauschtexturen, Schattierung, Randlicht)
-│   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen
+│   ├── paint.ts         Malwerkzeuge: Haut, Augen, Zähne, Rauschen – und im Tuschestil flache Flächen, Sichel-Schatten, einfache Augen
+│   ├── ink.ts           der Tuschestil des Devons: Schalter (withInk, inkWorldOn), Farben (grade, gradeAnimal), Kontur (outline)
+│   ├── inkFilter.ts     macht aus einem vorhandenen Bild eine Tusche-Fassung: verwischen, in Stufen zerlegen, Kontur
+│   ├── inkWorld.ts      Hintergründe des Devons: Ebenen, Dunst, trübes Wasser – je Ort eine Stimmung (Laichfluss, Flachwasser, Tiefental)
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
 │   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten); Jäger mit Kiefer auch mit halb und weit offenem Maul (`openJaw`, `jawOf`)
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte

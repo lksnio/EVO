@@ -3,7 +3,9 @@ import type { Art, Role, SpeciesDef } from '../data/species';
 import { css, mix, shade } from '../util/color';
 import { type Ctx, ell, newCanvas, rgrad, smooth, trimCanvases } from '../util/canvas';
 import { mulberry32 } from '../util/math';
-import { eye, ivory, pattern, skin, tooth } from './paint';
+import { crescent, eye, ivory, pattern, skin, tooth } from './paint';
+import { gradeAnimal as grade, INK, inkOn, lineOf, lightOf, outline, shadowOf, withInk } from './ink';
+import { EPOCHS, epochSpecies } from '../data/epochs';
 
 // Alle Tierarten im dunklen, organischen Stil. Jede Art wird in zwei
 // Bewegungsphasen gezeichnet (Beine, Flügel, Flossen) und zugeschnitten.
@@ -22,6 +24,28 @@ function chitin(ctx: Ctx, path: () => void, c: number, y0: number, y1: number, s
   skin(ctx, path, { base: c, top: shade(c, -0.3), y0, y1, noise: 'mottle', noiseAlpha: 0.35, noiseScale: 0.3, seed, rim: 0.38, edge: dark(c), edgeW: 1.1 });
 }
 
+/**
+ * Ein Strich, wie ihn die Feder zieht: im Tuschestil erst dunkel und breiter (die Kontur), dann mit der Farbe darauf; sonst nur
+ * die Farbe. draw zeichnet den Weg (mit beginPath).
+ */
+function pen(ctx: Ctx, w: number, color: number, draw: () => void, a = 1) {
+  if (inkOn()) {
+    draw();
+    ctx.strokeStyle = css(INK);
+    ctx.lineWidth = w + Math.max(1.6, w * 0.9);
+    ctx.stroke();
+    draw();
+    ctx.strokeStyle = css(grade(color), a);
+    ctx.lineWidth = w;
+    ctx.stroke();
+    return;
+  }
+  draw();
+  ctx.strokeStyle = css(color, a);
+  ctx.lineWidth = w;
+  ctx.stroke();
+}
+
 // ---------------------------------------------------------------------------
 
 type P2 = [number, number];
@@ -30,7 +54,72 @@ type P2 = [number, number];
  * Eine Flosse: durchscheinende Haut zwischen Flossenstrahlen. root0/root1 sitzen am Körper,
  * edge ist der freie Rand (von root0 nach root1).
  */
+/**
+ * Tuschestil: eine Flosse als ruhige, undurchsichtige Fläche mit dunkler Kontur und wenigen Strahlen – statt durchscheinender
+ * Haut mit vielen feinen Linien. Die Strahlen laufen vom Ansatz zum Rand, nur an einigen Stellen.
+ */
+function inkFin(ctx: Ctx, root0: P2, edge: P2[], root1: P2, col: number, lw: number, spine: boolean) {
+  const c = grade(col);
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(root0[0], root0[1]);
+    const pts = [...edge, root1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const mid: P2 = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], mid[0], mid[1]);
+    }
+    ctx.lineTo(root1[0], root1[1]);
+    ctx.closePath();
+  };
+  path();
+  ctx.fillStyle = css(c);
+  ctx.fill();
+  // ein dunklerer Streifen am Ansatz (dort sitzt die Flosse im Schatten des Körpers) und drei Strahlen
+  ctx.save();
+  path();
+  ctx.clip();
+  const far = edge[Math.floor(edge.length / 2)];
+  ctx.beginPath();
+  ctx.moveTo(root0[0], root0[1]);
+  ctx.lineTo(root1[0], root1[1]);
+  ctx.lineTo((root1[0] * 2 + far[0]) / 3, (root1[1] * 2 + far[1]) / 3);
+  ctx.lineTo((root0[0] * 2 + far[0]) / 3, (root0[1] * 2 + far[1]) / 3);
+  ctx.closePath();
+  ctx.fillStyle = css(shadowOf(c), 0.55);
+  ctx.fill();
+  ctx.strokeStyle = css(lineOf(c, 0.3), 0.7);
+  ctx.lineWidth = Math.max(1, lw * 0.95);
+  for (const t of [0.22, 0.5, 0.78]) {
+    const k = t * (edge.length - 1);
+    const a = edge[Math.floor(k)], b = edge[Math.min(edge.length - 1, Math.ceil(k))];
+    const ex = a[0] + (b[0] - a[0]) * (k - Math.floor(k)), ey = a[1] + (b[1] - a[1]) * (k - Math.floor(k));
+    ctx.beginPath();
+    ctx.moveTo(root0[0] + (root1[0] - root0[0]) * t, root0[1] + (root1[1] - root0[1]) * t);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+  ctx.restore();
+  outline(ctx, path, lineOf(c), Math.max(1.7, lw * 1.9));
+  if (spine) {
+    // kräftiger Stachel an der Vorderkante: helles Bein mit dunkler Kontur
+    const sp = () => {
+      ctx.beginPath();
+      ctx.moveTo(root0[0], root0[1]);
+      ctx.quadraticCurveTo((root0[0] + edge[0][0]) / 2, (root0[1] + edge[0][1]) / 2 - lw, edge[0][0], edge[0][1]);
+    };
+    sp();
+    ctx.strokeStyle = css(INK);
+    ctx.lineWidth = lw * 2.4 + 1.2;
+    ctx.stroke();
+    sp();
+    ctx.strokeStyle = css(lightOf(c, 0.3));
+    ctx.lineWidth = Math.max(1, lw * 0.9);
+    ctx.stroke();
+  }
+}
+
 function finMembrane(ctx: Ctx, root0: P2, edge: P2[], root1: P2, col: number, lw: number, spine = false) {
+  if (inkOn()) return inkFin(ctx, root0, edge, root1, col, lw, spine);
   const path = () => {
     ctx.beginPath();
     ctx.moveTo(root0[0], root0[1]);
@@ -221,8 +310,19 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
     base: c, top: shade(c, -0.42), belly: p.belly, bellyBand: [hh * 0.72, hh * 0.55, hw * 0.95, hw * 0.08], y0: -hh, y1: hh,
     noise: 'mottle', noiseAlpha: 0.28, noiseScale: len > 150 ? 0.55 : 0.3, seed: len, wet: true, edge: D, edgeW: lw, rim: 0.32,
     inner: (cx) => {
-      // feine Schuppen (mit einem Hauch Glanz)
-      if (!p.shark) {
+      // feine Schuppen (mit einem Hauch Glanz) – im Tuschestil nur ein paar Bögen hinter dem Kopf
+      if (inkOn() && !p.shark && !p.armor && !p.jawless) {
+        cx.strokeStyle = css(shadowOf(grade(c)), 0.55);
+        cx.lineWidth = Math.max(1, lw * 0.9);
+        const step = Math.max(4, len / 11);
+        for (let row = 0; row < 3; row++) {
+          for (let x = hw * 0.25 - row * step * 0.4; x > -hw * 0.6; x -= step) {
+            cx.beginPath();
+            cx.arc(x, -hh * 0.3 + row * hh * 0.42, step * 0.55, -0.9, 0.9);
+            cx.stroke();
+          }
+        }
+      } else if (!p.shark && !inkOn()) {
         const step = Math.max(2.4, len / 18);
         for (let row = 0, y = -hh; y < hh; y += step * 0.7, row++) {
           for (let x = -hw; x < hw * 0.5; x += step) {
@@ -238,7 +338,20 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
           }
         }
       }
-      if (p.stripes) {
+      if (p.stripes && inkOn()) {
+        // flache, harte Querbinden
+        for (let i = 0; i < 5; i++) {
+          const x = hw * 0.35 - i * hw * 0.3;
+          cx.beginPath();
+          cx.moveTo(x - len * 0.03, -hh * 1.1);
+          cx.quadraticCurveTo(x + len * 0.02, 0, x - len * 0.02, hh * 0.5);
+          cx.lineTo(x + len * 0.03, hh * 0.5);
+          cx.quadraticCurveTo(x + len * 0.07, 0, x + len * 0.03, -hh * 1.1);
+          cx.closePath();
+          cx.fillStyle = css(shadowOf(grade(c)), 0.7);
+          cx.fill();
+        }
+      } else if (p.stripes) {
         for (let i = 0; i < 5; i++) {
           const x = hw * 0.35 - i * hw * 0.3;
           const g = cx.createLinearGradient(x - len * 0.04, 0, x + len * 0.04, 0);
@@ -257,12 +370,14 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
         }
       }
       // Seitenlinie
-      cx.beginPath();
-      cx.moveTo(hw * 0.42, -hh * 0.18);
-      cx.quadraticCurveTo(0, -hh * 0.3, -hw * 0.9, -hh * 0.02);
-      cx.strokeStyle = 'rgba(235,230,210,0.22)';
-      cx.lineWidth = Math.max(0.6, lw * 0.6);
-      cx.stroke();
+      if (!inkOn()) {
+        cx.beginPath();
+        cx.moveTo(hw * 0.42, -hh * 0.18);
+        cx.quadraticCurveTo(0, -hh * 0.3, -hw * 0.9, -hh * 0.02);
+        cx.strokeStyle = 'rgba(235,230,210,0.22)';
+        cx.lineWidth = Math.max(0.6, lw * 0.6);
+        cx.stroke();
+      }
       // Panzerplatten (Kopf und Brust)
       if (p.armor) {
         const back = p.arms ? -hw * 0.15 : p.eyesFront ? -hw * 0.05 : placo ? hw * 0.06 : hw * 0.12;
@@ -275,6 +390,17 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
           cx.closePath();
         };
         plate();
+        if (inkOn()) {
+          // Tuschestil: flache Knochenfläche mit hartem Schattenstreifen unten, Nähte als feste dunkle Linien
+          cx.fillStyle = css(grade(bone));
+          cx.fill();
+          cx.save();
+          plate();
+          cx.clip();
+          cx.fillStyle = css(shadowOf(grade(bone)), 0.55);
+          cx.fillRect(back, hh * 0.35, hw * 2, hh);
+          cx.restore();
+        } else {
         const pg = cx.createLinearGradient(0, -hh, 0, hh);
         pg.addColorStop(0, css(shade(bone, -0.15)));
         pg.addColorStop(0.5, css(bone));
@@ -289,17 +415,19 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
         cx.fillStyle = pattern(cx, 'stone', len > 150 ? 0.5 : 0.28, len, h);
         cx.fillRect(-hw * 2, -hh * 2, len * 2, h * 2);
         cx.restore();
+        }
         // Nähte zwischen den Platten und kleine Höcker
-        cx.strokeStyle = css(shade(bone, -0.55), 0.55);
-        cx.lineWidth = Math.max(0.6, lw * 0.8);
+        cx.strokeStyle = inkOn() ? css(INK, 0.85) : css(shade(bone, -0.55), 0.55);
+        cx.lineWidth = Math.max(inkOn() ? 1.3 : 0.6, lw * (inkOn() ? 1.2 : 0.8));
         const seams: [number, number, number, number][] = [[hw * 0.55, -hh, hw * 0.5, hh * 0.25], [back + hw * 0.25, -hh * 0.2, hw * 0.92, -hh * 0.25], [hw * 0.78, -hh * 0.95, hw * 0.8, -hh * 0.3]];
-        for (const [x0, y0, x1, y1] of seams) {
+        // im Tuschestil nur die große Naht zwischen Kopf- und Rumpfpanzer (die anderen wirken bei Spielgröße wie Schmutz)
+        for (const [x0, y0, x1, y1] of inkOn() ? [] : seams) {
           cx.beginPath();
           cx.moveTo(x0, y0);
           cx.quadraticCurveTo((x0 + x1) / 2 + 2, (y0 + y1) / 2, x1, y1);
           cx.stroke();
         }
-        for (let i = 0; i < 26; i++) {
+        for (let i = 0; i < (inkOn() ? 0 : 26); i++) {
           ell(cx, back + hw * 0.15 + r() * (hw * 0.85 - back), -hh + r() * hh * 1.7, lw * 0.6, lw * 0.6);
           cx.fillStyle = css(shade(bone, 0.25), 0.55);
           cx.fill();
@@ -309,17 +437,19 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
           const plateEdge = (pts: P2[]) => {
             cx.beginPath();
             pts.forEach(([x, y], i) => (i ? cx.lineTo(x, y) : cx.moveTo(x, y)));
-            cx.strokeStyle = 'rgba(0,0,0,0.42)';
-            cx.lineWidth = lw * 1.4;
+            cx.strokeStyle = inkOn() ? css(INK, 0.9) : 'rgba(0,0,0,0.42)';
+            cx.lineWidth = lw * (inkOn() ? 2 : 1.4);
             cx.stroke();
-            cx.save();
-            cx.translate(0, -lw * 0.9);
-            cx.beginPath();
-            pts.forEach(([x, y], i) => (i ? cx.lineTo(x, y) : cx.moveTo(x, y)));
-            cx.strokeStyle = 'rgba(235,235,220,0.28)';
-            cx.lineWidth = lw * 0.7;
-            cx.stroke();
-            cx.restore();
+            if (!inkOn()) {
+              cx.save();
+              cx.translate(0, -lw * 0.9);
+              cx.beginPath();
+              pts.forEach(([x, y], i) => (i ? cx.lineTo(x, y) : cx.moveTo(x, y)));
+              cx.strokeStyle = 'rgba(235,235,220,0.28)';
+              cx.lineWidth = lw * 0.7;
+              cx.stroke();
+              cx.restore();
+            }
           };
           plateEdge([[hw * 0.36, -hh * 1.1], [hw * 0.42, -hh * 0.5], [hw * 0.98, -hh * 0.32]]);
           plateEdge([[hw * 0.42, -hh * 0.5], [hw * 0.34, hh * 0.35], [hw * 0.52, hh * 0.9]]);
@@ -336,28 +466,30 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
         cx.beginPath();
         cx.moveTo(back + hw * 0.08, -hh * 1.2);
         cx.quadraticCurveTo(back - hw * 0.06, 0, back + hw * 0.08, hh * 1.2);
-        cx.strokeStyle = 'rgba(0,0,0,0.35)';
-        cx.lineWidth = lw * 2;
+        cx.strokeStyle = inkOn() ? css(INK, 0.9) : 'rgba(0,0,0,0.35)';
+        cx.lineWidth = lw * (inkOn() ? 2.4 : 2);
         cx.stroke();
       } else if (!p.shark && !p.jawless) {
         // Kiemendeckel
         cx.beginPath();
         cx.moveTo(hw * 0.5, -hh * 0.75);
         cx.quadraticCurveTo(hw * 0.36, 0, hw * 0.46, hh * 0.72);
-        cx.strokeStyle = 'rgba(0,0,0,0.3)';
-        cx.lineWidth = lw * 1.6;
+        cx.strokeStyle = inkOn() ? css(INK, 0.8) : 'rgba(0,0,0,0.3)';
+        cx.lineWidth = inkOn() ? Math.max(1.3, lw * 1.5) : lw * 1.6;
         cx.stroke();
-        cx.strokeStyle = 'rgba(255,245,220,0.16)';
-        cx.lineWidth = lw * 0.6;
-        cx.stroke();
+        if (!inkOn()) {
+          cx.strokeStyle = 'rgba(255,245,220,0.16)';
+          cx.lineWidth = lw * 0.6;
+          cx.stroke();
+        }
       } else if (p.shark) {
         for (let i = 0; i < 5; i++) {
           const x = hw * 0.5 - i * hw * 0.05;
           cx.beginPath();
           cx.moveTo(x, -hh * 0.3);
           cx.quadraticCurveTo(x - hw * 0.025, 0, x, hh * 0.3);
-          cx.strokeStyle = 'rgba(0,0,0,0.3)';
-          cx.lineWidth = lw * 0.9;
+          cx.strokeStyle = inkOn() ? css(INK, 0.75) : 'rgba(0,0,0,0.3)';
+          cx.lineWidth = inkOn() ? Math.max(1.2, lw * 1.2) : lw * 0.9;
           cx.stroke();
         }
       } else {
@@ -528,11 +660,46 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
   // ---- Auge
   const ex = p.eyesFront ? hw * 0.86 : p.shield ? hw * 0.62 : p.shark ? hw * 0.74 : hw * 0.68;
   const ey = p.eyesFront ? -hh * 0.02 : p.shield ? -hh * 0.62 : -hh * 0.2;
-  const er = Math.max(1.6, hh * (p.armor && !p.eyesFront ? 0.12 : p.shark ? 0.13 : 0.19));
+  const er = inkOn()
+    ? Math.max(2.2, hh * (p.armor && !p.eyesFront ? 0.17 : p.shark ? 0.17 : 0.26))
+    : Math.max(1.6, hh * (p.armor && !p.eyesFront ? 0.12 : p.shark ? 0.13 : 0.19));
   eye(ctx, ex, ey, er, E.iris, { glow: E.glow, lid: p.armor && !p.eyesFront ? 0.4 : p.shark ? 0.25 : 0 });
 }
 
+/** Tuschestil: eine Glocke aus ruhiger Fläche mit hellem Kern und dunkler Kontur, darunter wellende Fangfäden; nur ein schwacher Schein. */
+function inkJelly(ctx: Ctx, p: Extract<Art, { t: 'jelly' }>, f: number) {
+  const r = p.r, c = grade(p.c);
+  ctx.fillStyle = rgrad(ctx, 0, -r * 0.2, 1, r * 2, [[0, css(p.c, 0.16)], [1, css(p.c, 0)]]);
+  ctx.fillRect(-r * 2.4, -r * 2.4, r * 4.8, r * 4.8);
+  for (let i = 0; i < 6; i++) {
+    const x0 = -r * 0.7 + (i * r * 1.4) / 5;
+    pen(ctx, i % 2 ? 1.6 : 2.2, lightOf(c, 0.12), () => {
+      ctx.beginPath();
+      ctx.moveTo(x0, 0);
+      for (let k = 1; k <= 7; k++) ctx.lineTo(x0 + Math.sin(k * 1.2 + i * 1.4 + f * 1.7) * r * 0.16, (k * r * (i % 2 ? 1.5 : 2)) / 7);
+    }, 0.9);
+  }
+  const bell = () => {
+    ctx.beginPath();
+    ctx.moveTo(-r, 1);
+    ctx.bezierCurveTo(-r, -r * 1.35, r, -r * 1.35, r, 1);
+    for (let i = 0; i <= 6; i++) ctx.lineTo(r - (i * 2 * r) / 6, 1 + (i % 2 ? r * 0.14 : 0));
+    ctx.closePath();
+  };
+  bell();
+  ctx.fillStyle = css(c);
+  ctx.fill();
+  crescent(ctx, bell, -r * 0.05, -r * 0.3, css(shadowOf(c), 0.75));
+  // der helle Kern: ein flacher Fleck, kein Leuchten
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.12, -r * 0.5, r * 0.5, r * 0.34, -0.15, 0, Math.PI * 2);
+  ctx.fillStyle = css(lightOf(c, 0.3), 0.55);
+  ctx.fill();
+  outline(ctx, bell, lineOf(c), Math.max(1.9, r * 0.1));
+}
+
 function drawJelly(ctx: Ctx, p: Extract<Art, { t: 'jelly' }>, f: number) {
+  if (inkOn()) return inkJelly(ctx, p, f);
   const r = p.r;
   ctx.fillStyle = rgrad(ctx, 0, -r * 0.2, 1, r * 2.2, [[0, css(p.c, 0.25)], [1, css(p.c, 0)]]);
   ctx.fillRect(-r * 2.4, -r * 2.4, r * 4.8, r * 4.8);
@@ -569,10 +736,11 @@ function drawTrilo(ctx: Ctx, p: Extract<Art, { t: 'trilo' }>, f: number) {
   for (let i = 0; i < 7; i++) {
     const x = -hw * 0.75 + i * hw * 0.25;
     const a = (i % 2 ? 1 : -1) * (f ? 0.45 : -0.45);
-    ctx.beginPath();
-    ctx.moveTo(x, 2);
-    ctx.lineTo(x + Math.sin(a) * 5, 8);
-    ctx.stroke();
+    pen(ctx, inkOn() ? 1.9 : 1.3, dark(c), () => {
+      ctx.beginPath();
+      ctx.moveTo(x, 2);
+      ctx.lineTo(x + Math.sin(a) * 5, 8);
+    });
   }
   const path = () => {
     ctx.beginPath();
@@ -582,8 +750,8 @@ function drawTrilo(ctx: Ctx, p: Extract<Art, { t: 'trilo' }>, f: number) {
     ctx.closePath();
   };
   chitin(ctx, path, c, -hw * 0.6, 3, 3);
-  ctx.strokeStyle = css(dark(c), 0.7);
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = inkOn() ? css(INK, 0.8) : css(dark(c), 0.7);
+  ctx.lineWidth = inkOn() ? 1.5 : 1;
   for (let i = 1; i < 8; i++) {
     const x = -hw + i * hw * 0.18;
     ctx.beginPath();
@@ -591,30 +759,34 @@ function drawTrilo(ctx: Ctx, p: Extract<Art, { t: 'trilo' }>, f: number) {
     ctx.quadraticCurveTo(x + 2, -hw * 0.3, x, -hw * 0.52 + Math.abs(x) * 0.15);
     ctx.stroke();
   }
-  ell(ctx, hw * 0.55, -hw * 0.32, 2.6, 2);
-  ctx.fillStyle = '#0c0806';
-  ctx.fill();
-  ell(ctx, hw * 0.5, -hw * 0.37, 0.8, 0.6);
-  ctx.fillStyle = 'rgba(255,240,210,0.7)';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-hw, 2);
-  ctx.lineTo(-hw - 7, 4);
-  ctx.strokeStyle = css(dark(c));
-  ctx.stroke();
+  if (inkOn()) {
+    // zwei helle, große Augen am Kopfschild
+    eye(ctx, hw * 0.55, -hw * 0.3, 2.7, 0x3a3226);
+  } else {
+    ell(ctx, hw * 0.55, -hw * 0.32, 2.6, 2);
+    ctx.fillStyle = '#0c0806';
+    ctx.fill();
+    ell(ctx, hw * 0.5, -hw * 0.37, 0.8, 0.6);
+    ctx.fillStyle = 'rgba(255,240,210,0.7)';
+    ctx.fill();
+  }
+  pen(ctx, inkOn() ? 1.9 : 1, dark(c), () => {
+    ctx.beginPath();
+    ctx.moveTo(-hw, 2);
+    ctx.lineTo(-hw - 7, 4);
+  });
 }
 
 function drawCone(ctx: Ctx, p: Extract<Art, { t: 'cone' }>, f: number, E: Eyes) {
   const { len, c } = p;
   const hw = len / 2, r = len * 0.12;
   // Tentakel
-  ctx.strokeStyle = css(mix(c, 0x8a5a4a, 0.5));
-  ctx.lineWidth = 2;
   for (let i = 0; i < 6; i++) {
-    ctx.beginPath();
-    ctx.moveTo(hw * 0.75, -r * 0.4 + i * r * 0.18);
-    ctx.bezierCurveTo(hw * 0.95, -r * 0.5 + i * r * 0.25 + (f ? 3 : -2), hw * 1.05, i * r * 0.3 - r * 0.2, hw * 1.2 + (i % 2) * 3, -r * 0.3 + i * r * 0.34 + (f ? -2 : 3));
-    ctx.stroke();
+    pen(ctx, 2, mix(c, 0x8a5a4a, 0.5), () => {
+      ctx.beginPath();
+      ctx.moveTo(hw * 0.75, -r * 0.4 + i * r * 0.18);
+      ctx.bezierCurveTo(hw * 0.95, -r * 0.5 + i * r * 0.25 + (f ? 3 : -2), hw * 1.05, i * r * 0.3 - r * 0.2, hw * 1.2 + (i % 2) * 3, -r * 0.3 + i * r * 0.34 + (f ? -2 : 3));
+    });
   }
   // Kopf
   const head = () => ell(ctx, hw * 0.68, 0, r * 0.95, r * 0.85);
@@ -650,16 +822,15 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
   const segX = (i: number) => hw - h * 0.6 - (i * (len - h * 1.1)) / Math.max(1, segs - 1);
   const segR = (i: number) => (h / 2) * (1 - (i / segs) * 0.45);
   // Beine
-  ctx.strokeStyle = css(shade(c, -0.55));
-  ctx.lineWidth = lw * 1.3;
   for (let i = 0; i < p.legs; i++) {
     const x = hw - h - (i * len * 0.75) / Math.max(1, p.legs);
     const a = (i % 2 ? 1 : -1) * (f ? 0.35 : -0.35);
-    ctx.beginPath();
-    ctx.moveTo(x, h * 0.15);
-    ctx.lineTo(x + Math.sin(a) * h * 0.45 + h * 0.18, h * 0.62);
-    ctx.lineTo(x + Math.sin(a) * h * 0.85, h * 1.15);
-    ctx.stroke();
+    pen(ctx, lw * (inkOn() ? 1.7 : 1.3), shade(c, -0.55), () => {
+      ctx.beginPath();
+      ctx.moveTo(x, h * 0.15);
+      ctx.lineTo(x + Math.sin(a) * h * 0.45 + h * 0.18, h * 0.62);
+      ctx.lineTo(x + Math.sin(a) * h * 0.85, h * 1.15);
+    });
   }
   if (p.paddles) {
     ctx.save();
@@ -679,6 +850,11 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
     ctx.closePath();
     ctx.fillStyle = css(shade(c, -0.3));
     ctx.fill();
+    if (inkOn()) {
+      ctx.strokeStyle = css(INK);
+      ctx.lineWidth = lw * 1.6;
+      ctx.stroke();
+    }
   }
   for (let i = segs - 1; i >= 0; i--) {
     if (p.stinger === 'up' && i >= segs - 2) continue;
@@ -702,10 +878,10 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
     ctx.quadraticCurveTo(sx + h * 0.5, sy - h * 0.1, sx + h * 0.55, sy + h * 0.35);
     ctx.quadraticCurveTo(sx + h * 0.2, sy + h * 0.05, sx + 2, sy + 3);
     ctx.closePath();
-    ctx.fillStyle = '#8a6a2a';
+    ctx.fillStyle = inkOn() ? css(grade(0x9a7a30)) : '#8a6a2a';
     ctx.fill();
-    ctx.strokeStyle = '#140c04';
-    ctx.lineWidth = lw;
+    ctx.strokeStyle = inkOn() ? css(INK) : '#140c04';
+    ctx.lineWidth = inkOn() ? lw * 1.6 : lw;
     ctx.stroke();
   }
   // Kopf
@@ -713,13 +889,12 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
   chitin(ctx, () => ell(ctx, hx, 0, h * 0.55, h * 0.48), shade(c, 0.05), -h * 0.5, h * 0.5, 21);
   eye(ctx, hx + h * 0.18, -h * 0.14, h * 0.15, E.iris, { glow: E.glow });
   if (p.antenna) {
-    ctx.strokeStyle = css(shade(c, -0.4));
-    ctx.lineWidth = lw;
     for (const d of [0, 3]) {
-      ctx.beginPath();
-      ctx.moveTo(hx + h * 0.2, -h * 0.35);
-      ctx.quadraticCurveTo(hx + h * 0.8 + d, -h * 1.1, hx + h * 1.2 + d, -h * (f ? 0.95 : 1.05));
-      ctx.stroke();
+      pen(ctx, lw * (inkOn() ? 1.5 : 1), shade(c, -0.4), () => {
+        ctx.beginPath();
+        ctx.moveTo(hx + h * 0.2, -h * 0.35);
+        ctx.quadraticCurveTo(hx + h * 0.8 + d, -h * 1.1, hx + h * 1.2 + d, -h * (f ? 0.95 : 1.05));
+      });
     }
   }
   if (p.pincers) {
@@ -727,12 +902,11 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
       ctx.save();
       ctx.translate(hx + h * 0.35, h * dy);
       ctx.rotate(f ? -0.1 : 0.15);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(h * 0.7 * sc, -h * 0.1);
-      ctx.strokeStyle = css(dark(c));
-      ctx.lineWidth = lw * 2;
-      ctx.stroke();
+      pen(ctx, lw * 2, dark(c), () => {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(h * 0.7 * sc, -h * 0.1);
+      });
       const claw = () => {
         ctx.beginPath();
         ctx.moveTo(h * 0.6 * sc, -h * 0.1);
@@ -1242,6 +1416,16 @@ function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes, mouth = true) {
 
 export const speciesKey = (id: string, f: number) => `sp_${id}_${f}`;
 
+/**
+ * Die Formen im Tuschestil: Fische sind rundlicher und gedrungener, als sie in der Wirklichkeit waren – so lesen sich ihre
+ * Silhouetten auch bei kleiner Spielgröße (kleine Beute am rundesten, Jäger und Haie etwas schlanker, Aale bleiben schlank).
+ */
+function inkArt(art: Art): Art {
+  if (art.t !== 'fish' || art.eel) return art;
+  const minRatio = art.shark ? 0.27 : art.lobed || art.teeth || art.snout ? 0.27 : 0.34;
+  return { ...art, h: Math.max(art.h, Math.min(art.len * 0.42, art.len * minRatio)) };
+}
+
 // ---------------------------------------------------------------------------
 // Das offene Maul. Jäger mit Kiefer (Fische, Meeresechsen) bekommen drei Bilder mehr: halb offen (Bild 2, beim Ausholen) und
 // weit aufgerissen (Bild 3 und 4, mit schlagendem Schwanz – beim Vorschnellen). Gezeichnet wird das Tier dafür ohne Maul; der
@@ -1420,17 +1604,29 @@ export const JAW_HALF = 2;
 export const JAW_WIDE = 3;
 export const jawAnim = (id: string) => `jaw_${id}`;
 
+/** Die Tiere des Devons werden im Tuschestil gemalt (siehe art/ink.ts); die der anderen Zeitalter bleiben, wie sie sind. */
+let inkIds: Set<string> | undefined;
+export function isInkSpecies(id: string) {
+  inkIds ??= new Set(epochSpecies(EPOCHS.find((e) => e.id === 'devon')!));
+  return inkIds.has(id);
+}
+
 /** Erzeugt beide Bewegungsphasen einer Art und die Animation dazu (Jäger mit Kiefer auch die Bilder mit offenem Maul). */
 export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
+  withInk(isInkSpecies(def.id), () => buildSpeciesTextures(scene, def));
+}
+
+function buildSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   if (scene.textures.exists(speciesKey(def.id, 0))) return;
   // große Tiere (Herrscher, Meeresechsen, Riesenhaie …) brauchen mehr Platz
+  const art = inkOn() ? inkArt(def.art) : def.art;
   const big = !!def.boss || ((def.art as { len?: number }).len ?? 0) > 160;
   const W = big ? 900 : 380, H = big ? 760 : 320;
   const E = eyesFor(def.role);
   const draw = (f: number, mouth = true) => {
     const [c, ctx] = newCanvas(W, H, true);
     ctx.translate(W / 2, H / 2);
-    drawArt(ctx, def.art, f, E, mouth);
+    drawArt(ctx, art, f, E, mouth);
     return c;
   };
   const cs = [0, 1].map((f) => draw(f));
@@ -1442,7 +1638,7 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
     frameRate: def.boss ? 5 : 6,
     repeat: -1,
   });
-  const j = (def.role === 'predator' || def.role === 'apex') && def.habitat === 'water' ? jawShape(def.art) : null;
+  const j = (def.role === 'predator' || def.role === 'apex') && def.habitat === 'water' ? jawShape(art) : null;
   if (!j) return;
   const bare = [draw(0, false), draw(1, false)];
   const open = [openJaw(bare[0], j, j.half), openJaw(bare[0], j, j.wide), openJaw(bare[1], j, j.wide)];
@@ -1488,6 +1684,10 @@ export function makeSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
 
 /** Ein Tier groß und scharf gemalt – für die Seiten der Chronik des Lebens. Gibt den Schlüssel der Textur zurück. */
 export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target = 430) {
+  return withInk(isInkSpecies(def.id), () => buildPortrait(scene, def, target));
+}
+
+function buildPortrait(scene: Phaser.Scene, def: SpeciesDef, target: number) {
   const key = `aqp_${def.id}`;
   if (scene.textures.exists(key)) return key;
   const art = def.art as { len?: number; r?: number };
@@ -1497,7 +1697,7 @@ export function makeSpeciesPortrait(scene: Phaser.Scene, def: SpeciesDef, target
   const [c, ctx] = newCanvas(W, H, true);
   ctx.translate(W / 2, H / 2);
   ctx.scale(k, k);
-  drawArt(ctx, def.art, 0, eyesFor(def.role));
+  drawArt(ctx, inkOn() ? inkArt(def.art) : def.art, 0, eyesFor(def.role));
   const t = trimCanvases([c], 6);
   scene.textures.addCanvas(key, t.canvases[0]);
   return key;
