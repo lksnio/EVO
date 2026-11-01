@@ -11,7 +11,8 @@ import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { FLOW, INHERIT, LIFE, MISC, RAM, STAMINA, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
-import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
+import { type LevelData, type Zone } from '../level/LevelGen';
+import { loadLevel } from '../level/loadLevel';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt, type RockSpec } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
@@ -27,6 +28,7 @@ import { Controls, touch } from '../objects/Controls';
 import { Player, SLEEP_S } from '../objects/Player';
 import { BackSea } from '../objects/BackSea';
 import { ReefScenery } from '../objects/ReefScenery';
+import { MapScenery } from '../objects/MapScenery';
 import { paintedReef, reefKey, reefRock } from '../art/reefProps';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
@@ -136,6 +138,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
   private reefScenery?: ReefScenery;
+  private mapScenery?: MapScenery;
   /** Plankton, Meeresschnee und treibende Kolonien */
   private drift?: Drift;
   private fog!: Phaser.GameObjects.TileSprite;
@@ -338,7 +341,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.beginLife();
     const ep = this.ep;
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
-    const L = (this.L = generateLevel(ep, WORLD.seed, this.place, game.prog.edge));
+    const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge));
     this.water = L.mode === 'water';
     this.amphibious = !!L.amphibious;
     this.surfaceY = L.surfaceY;
@@ -729,6 +732,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent. */
   private buildCover() {
+    if (this.L.authoredObjects) { this.coverFront = this.L.cover.map(() => []); return; }
     const reef = this.ep.id === 'devon' && paintedReef(this);
     const bushes = reef ? [reefKey('kelp')] : coverTextures(this, this.L.theme).map((k) => (this.ink ? inkTexture(this, k, { outline: 3, bands: 4, water: 0.16 }) : k));
     let bi = 0;
@@ -1153,6 +1157,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private buildDecor() {
     const L = this.L;
+    this.mapScenery = undefined;
+    if (L.authoredObjects) {
+      this.reefScenery = undefined;
+      this.mapScenery = new MapScenery(this, L, L.authoredObjects, !!this.ink);
+      return;
+    }
     const reef = this.ep.id === 'devon' && paintedReef(this);
     const rnd = Math.random;
     const tintOf = (f: number) => {
@@ -2204,6 +2214,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.drift?.update(time, dt);
     this.waterAtmosphere?.update(time, dt);
     this.reefScenery?.update(time, dt, p);
+    this.mapScenery?.update(p);
     if (!p.dead && !this.ended) this.siltStep(time);
     for (const t of this.lava) t.tilePositionX += dt * 25;
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
@@ -2504,8 +2515,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     if (ci !== this.curCover) {
       // das Gestrüpp, in dem man steckt, wird lichter – man sieht sich selbst noch schemenhaft
-      if (this.curCover >= 0) this.tweens.add({ targets: this.coverFront[this.curCover], alpha: 0.82, duration: 300 });
-      if (ci >= 0) this.tweens.add({ targets: this.coverFront[ci], alpha: 0.5, duration: 300 });
+      if (this.curCover >= 0 && this.coverFront[this.curCover]?.length) this.tweens.add({ targets: this.coverFront[this.curCover], alpha: 0.82, duration: 300 });
+      if (ci >= 0 && this.coverFront[ci]?.length) this.tweens.add({ targets: this.coverFront[ci], alpha: 0.5, duration: 300 });
       this.curCover = ci;
     }
 

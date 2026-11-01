@@ -897,8 +897,8 @@ export function terrainArt(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, va
   for (let i = 0; i * CHUNK < L.width; i++) chunks.push(paintChunk(scene, L, theme, variant, i, pebbles, keys, tag, ink));
   // Platten und Bögen zuerst, die Brocken davor (sie lehnen an der Platte bzw. am Pfeiler)
   const order = (s: RockSpec) => ((s.form ?? 'boulder') === 'boulder' ? 1 : 0);
-  const rocks = [...solid].sort((a, b) => order(a) - order(b)).map((s) => rockPiece(scene, s, look, tag + 'g', keys));
-  const fore = L.fore.map((s) => rockPiece(scene, s, { ...look, dark: true }, tag + 'f', keys));
+  const rocks = [...solid].sort((a, b) => order(a) - order(b)).map((s, i) => rockPiece(scene, s, look, tag + 'g' + i, keys));
+  const fore = L.fore.map((s, i) => rockPiece(scene, s, { ...look, dark: true }, tag + 'f' + i, keys));
   return { chunks, rocks, fore, deep: ink ? inkDeep(variant) : deepColor(theme, variant), keys };
 }
 

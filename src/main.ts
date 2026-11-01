@@ -25,6 +25,7 @@ import { ExtinctScene } from './scenes/ExtinctScene';
 import { TreeScene } from './scenes/TreeScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GalleryScene } from './scenes/GalleryScene';
+import { WorldEditorScene } from './scenes/WorldEditorScene';
 import { AquapendiumScene } from './scenes/AquapendiumScene';
 import { EraScene } from './scenes/EraScene';
 import { matches } from './state/keymap';
@@ -80,7 +81,7 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, DuelScene, DuelPadScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene],
+    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, DuelScene, DuelPadScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene, WorldEditorScene],
   });
 
   // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren

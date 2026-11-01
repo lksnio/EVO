@@ -42,13 +42,13 @@ export class ReefScenery {
         back.setTint(0x47777b).setAlpha(0.3);
       }
     }
-    // Sparse foreground cadence leaves most of the swimming space open. Higher parallax makes the scene extend toward us.
+    // Sparse foreground cadence leaves most of the swimming space open; these plants share the ground's movement.
     for (let x = 320; x < level.width - 150; x += 850 + r() * 600) {
       if (blocked(x, 210) || floor(x) > level.height - 60) continue;
       const h = 260 + r() * 125;
       const img = make(r() < 0.5 ? 'frame' : 'kelp', x, floor(x) + 65, h, DEPTH.decoFront + 2);
       img.setTint(0x38515c).setAlpha(0.96);
-      this.near.push({ img, x, y: floor(x) + 65, f: 1.12 + r() * 0.06, height: h, phase: r() * 6 });
+      this.near.push({ img, x, y: floor(x) + 65, f: 1, height: h, phase: r() * 6 });
     }
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
@@ -62,7 +62,8 @@ export class ReefScenery {
     }
     for (const n of this.near) {
       const { img } = n;
-      img.setPosition(n.x + (n.x - cam.midPoint.x) * (n.f - 1), n.y + (n.y - cam.midPoint.y) * (n.f - 1));
+      // These plants root in the playable ground, so their feet must share its camera movement.
+      img.setPosition(n.x, n.y);
       const hw = img.displayWidth / 2;
       const visible = img.x + hw > v.x - 80 && img.x - hw < v.right + 80 && img.y > v.y && img.y - n.height < v.bottom;
       img.setVisible(visible);

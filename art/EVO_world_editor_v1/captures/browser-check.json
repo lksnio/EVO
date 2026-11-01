@@ -1,0 +1,15 @@
+{
+  "menu": true,
+  "drag": true,
+  "transform": true,
+  "undoRedo": true,
+  "browserDraft": true,
+  "epochPalette": true,
+  "fileRoundTrip": true,
+  "invalidImportPreservedDraft": true,
+  "previewPreservedRun": true,
+  "projectSave": true,
+  "mainGameObjects": 118,
+  "mainGamePhysics": 340,
+  "errors": []
+}

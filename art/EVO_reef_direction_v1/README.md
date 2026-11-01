@@ -38,3 +38,5 @@ Der Browservergleich bestätigt 16 → 6 Hintergrundgruppen, identische feste K�
 - `tools/check_fauna.cjs --quick`: gleiche Körper- und Bissgeometrie für 13 Arten, Tönung, Spiegelung, Lebenszyklus und Netzwerkansicht.
 
 `?oldreef` schaltet für den Vergleich die gemalten Weltbauteile, Sedimentstruktur, neuen Fernschwärme und zusätzlichen Fischkonturen ab. Die Korrektur der Spieleraufhellung bleibt aktiv. Die Software-WebGL-Prüfung ist kein Leistungsbenchmark auf einem Mobilgerät oder einer echten GPU. Es entstehen keine neuen Kontur-Zeichenaufrufe und nach Aufbau keine neuen Texturen durch den normalen Ebenen- oder Farbwechsel.
+
+Seit Einführung des Weltbaukastens bleiben im Spielboden verwurzelte Vordergrundpflanzen an derselben Kamerabewegung wie der Boden. Zusätzliche Parallaxe ist dort der separaten nahen Kulisse mit eigenem Bildrand-Untergrund vorbehalten; das behebt abwandernde Fußpunkte.

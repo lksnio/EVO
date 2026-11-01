@@ -6,6 +6,7 @@ import { uiTextures } from '../art/uiArt';
 import { shellTexture } from '../art/shellArt';
 import { preloadRiver } from '../art/riverProps';
 import { preloadReef } from '../art/reefProps';
+import { preloadEditorUnits } from '../editor/catalog';
 import { preloadWorldFish } from '../art/fish/worldFish';
 import { preloadPainted } from '../art/fish/painted';
 
@@ -21,6 +22,7 @@ export class BootScene extends Phaser.Scene {
     preloadPainted(this);
     preloadRiver(this);
     preloadReef(this);
+    preloadEditorUnits(this);
     preloadWorldFish(this);
   }
 
@@ -39,7 +41,7 @@ export class BootScene extends Phaser.Scene {
       decorTextures(this);
       lifeTextures(this);
       const q = new URLSearchParams(location.search);
-      this.scene.start(DEBUG && q.has('gallery') ? 'Gallery' : 'Title');
+      this.scene.start(q.has('editor') ? 'WorldEditor' : DEBUG && q.has('gallery') ? 'Gallery' : 'Title');
     });
   }
 }

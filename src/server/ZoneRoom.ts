@@ -4,7 +4,7 @@ import { EPOCHS } from '../data/epochs';
 import { WORLD } from '../data/life';
 import { SPECIES } from '../data/species';
 import { placesOf } from '../data/world';
-import { generateLevel } from '../level/LevelGen';
+import { loadLevel } from '../level/loadLevel';
 import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
 import type { Rect } from '../util/math';
 import type { DuelSeat } from './DuelRoom';
@@ -121,7 +121,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (!z) throw new Error('Diesen Ort gibt es nicht.');
     this.state.zone = `${z.epoch}/${z.place}`;
     const ep = EPOCHS[z.epoch];
-    const L = generateLevel(ep, WORLD.seed, placesOf(ep).find((p) => p.id === z.place)!);
+    const L = loadLevel(ep, WORLD.seed, placesOf(ep).find((p) => p.id === z.place)!);
     this.bounds = { x0: 0, x1: L.width, y0: Math.min(0, L.surfaceY) - 600, y1: L.height + 60, sx: L.start.x, sy: L.start.y };
     if (L.cave) this.cave = { x: L.cave.x, y: L.cave.y, w: L.cave.w, h: L.cave.h };
     // PATCH_HZ-mal je Sekunde gehen die Änderungen hinaus

@@ -435,9 +435,10 @@ export class TitleScene extends Phaser.Scene {
     if (game.hasTree()) entries.push(['Stammbaum', () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view', epoch: game.chosenEpoch }, 600), 'open']);
     entries.push(['Chronik des Lebens', () => !this.overlay && fadeTo(this, 'Aquapendium', { epoch: game.chosenEpoch }, 600), 'open']);
     entries.push(['Steuerung', () => this.showHelp(), 'select']);
+    entries.push(['Weltbaukasten', () => !this.overlay && fadeTo(this, 'WorldEditor', {}, 300), 'open']);
     const items: MenuItem[] = [];
     entries.forEach(([label, fn, sound], i) => {
-      const it = new MenuItem(this, X, 312 + i * 48, label, fn, () => !this.overlay && this.nav?.focus(i), sound);
+      const it = new MenuItem(this, X, 300 + i * 42, label, fn, () => !this.overlay && this.nav?.focus(i), sound);
       it.setDepth(60);
       items.push(it);
     });

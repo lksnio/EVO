@@ -51,7 +51,7 @@ fs.mkdirSync(folder,{recursive:true});
     if(s.reefScenery){
      const n=s.reefScenery.near[0],cam=s.cameras.main;
      cam.centerOn(n.x,n.y-200);cam.preRender();s.reefScenery.update(0,.016,s.player);const x=n.img.x-cam.scrollX;
-     const previous=cam.scrollX;cam.scrollX+=100;cam.preRender();s.reefScenery.update(16,.016,s.player);parallax=(x-(n.img.x-cam.scrollX))/(cam.scrollX-previous);if(Math.abs(parallax-n.f)>1e-6)throw Error('Foreground parallax mismatch');
+     const previous=cam.scrollX;cam.scrollX+=100;cam.preRender();s.reefScenery.update(16,.016,s.player);parallax=(x-(n.img.x-cam.scrollX))/(cam.scrollX-previous);if(Math.abs(parallax-1)>1e-6)throw Error('Grounded foreground footpoint moved relative to terrain');
      foreground=s.reefScenery.near.map(n=>({depth:n.img.depth,f:n.f}));
     }
     const c=s.L.crevices.at(-1),floor=c.y+c.h;
@@ -70,7 +70,7 @@ fs.mkdirSync(folder,{recursive:true});
    },legacy);
    assert.ok(result.lift.dark>30);assert.equal(result.lift.darkChanged,0);assert.ok(result.lift.brightened>30);assert.equal(result.lift.alphaChanged,0);
    assert.equal(result.noFrameTextures,true);console.log(JSON.stringify({legacy,schools:result.schools,lift:result.lift,noFrameTextures:result.noFrameTextures,parallax:result.parallax}));
-   if(!legacy){assert.equal(result.roofCount,result.crevices.length);assert.ok(result.parallax>1.1);assert.ok(result.foreground.every(n=>n.depth>20&&n.depth<50));}
+   if(!legacy){assert.equal(result.roofCount,result.crevices.length);assert.ok(Math.abs(result.parallax-1)<1e-6);assert.ok(result.foreground.every(n=>n.depth>20&&n.depth<50));}
    const frame=await page.evaluate(()=>{const g=window.__evo.game,s=g.scene.getScene('Level');s.cameras.main.setZoom(.72);s.cameras.main.preRender();return g.loop.frame;});
    await page.waitForFunction(f=>window.__evo.game.loop.frame>f+2,frame,{timeout:90000});
    await page.screenshot({path:path.join(folder,legacy?'shelter_before.png':'shelter_after.png')});

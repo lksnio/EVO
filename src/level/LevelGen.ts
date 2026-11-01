@@ -7,6 +7,7 @@ import { pickBio } from '../data/biota';
 import { faunaAffinity, nearNursery } from '../sim/habitat';
 import { hashStr, mulberry32, pick, rint, type Rect, type Rng } from '../util/math';
 import { buildHeightfield, caveRock, flatness, flatten, groundAt, groundRects, makeZones, rockBottom, rockPoly, rockSlices, slabRock, STEP, zoneAt as matAt, type RockSpec, type Terrain } from './terrain';
+import type { MapObject } from '../editor/document';
 
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
 // beide Richtungen durchstreifen kann – an seinen Rändern geht es direkt im Nachbargebiet weiter. Er wird für
@@ -49,6 +50,8 @@ export interface Decor {
 }
 
 export interface LevelData {
+  authoredObjects?: MapObject[];
+  editorSolids?: Rect[];
   mode: 'water' | 'land';
   theme: Theme;
   variant: 'normal' | 'dark' | 'cave';
@@ -527,7 +530,8 @@ function placeRocks(L: LevelData, place: PlaceDef, r: Rng, G: Ground, keep: [num
   };
   const solid = (rock: RockSpec) => {
     L.rocks.push(rock);
-    for (const sl of rockSlices(rock, (px) => G.at(px))) L.solids.push(sl);
+    rock.collision = rockSlices(rock, (px) => G.at(px));
+    L.solids.push(...rock.collision);
   };
   const WEIGHT = { rock: 1, sand: 0.4, mud: 0.2 };
   const dens = place.kind === 'abyss' || place.kind === 'deep' ? 1.1 : place.kind === 'murky' ? 0.9 : place.kind === 'lush' ? 0.55 : 0.6;
@@ -684,7 +688,8 @@ function addDuelCave(L: LevelData, r: Rng, G: Ground) {
   const c = caveRock(x0, x1, floor, 3.6 * T, 3 * T, 4 * T, mouth, 1, Math.floor(r() * 1e9));
   c.rock.paintedProp = 'cave';
   L.rocks.push(c.rock);
-  for (const b of c.boxes) L.solids.push(b);
+  c.rock.collision = c.boxes;
+  L.solids.push(...c.boxes);
   const top = Math.floor(c.ceil);
   L.cave = { x: x0, y: top, w: x1 + mouth - x0, h: floor - top, hollow: c.hollow };
 }
@@ -712,9 +717,11 @@ function addDescent(L: LevelData, r: Rng, G: Ground, cols: number, floorRow: num
   const mouth = 3 * T, x1 = (d.dc + 18) * T, x0 = x1 - 16 * T;
   const c = caveRock(x0, x1, floor, 8.5 * T, 3 * T, 12 * T, mouth, -1, Math.floor(r() * 1e9));
   L.rocks.push(c.rock);
-  for (const b of c.boxes) L.solids.push(b);
+  c.rock.collision = c.boxes;
+  L.solids.push(...c.boxes);
   const top = Math.floor(c.ceil);
   const left = x0 - mouth;
+  c.rock.paintedProp = 'deep-cave';
   L.deepCave = { x: left, y: top, w: x1 - left, h: floor - top, hollow: c.hollow, side: -1 };
   // der Platz davor: wer hier steht (vor und in der Öffnung), kann hinabtauchen
   L.descent = { x: left - 4.5 * T, y: floor - 8.5 * T, w: 9 * T, h: 8.5 * T };
@@ -725,7 +732,8 @@ function addDescent(L: LevelData, r: Rng, G: Ground, cols: number, floorRow: num
     for (let px = x - rx * 0.8; px <= x + rx * 0.8; px += STEP / 2) low = Math.max(low, G.at(px));
     const rock: RockSpec = { x, y: low + sink - rockBottom(rockPoly(seed, rx, ry)), rx, ry, seed, tone, form: 'boulder' };
     L.rocks.push(rock);
-    for (const sl of rockSlices(rock, (px) => G.at(px))) L.solids.push(sl);
+    rock.collision = rockSlices(rock, (px) => G.at(px));
+    L.solids.push(...rock.collision);
   };
   const dc = d.dc * T;
   giant(dc - 30 * T, 210, 250, 2, 40);
@@ -756,8 +764,10 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
     if (busy) continue;
     // der Boden darunter wird eben; die Felsplatte liegt auf einem Felsbrocken am einen Ende auf (dort ist der Spalt geschlossen)
     G.flatten(x0 - 2 * T, x1 + 2 * T, f * T, 120);
-    L.solids.push({ x: x0, y: slabY, w: W * T, h: 2 * T });
-    L.rocks.push(slabRock(x0, slabY, W * T, 2 * T, Math.floor(r() * 1e9)));
+    const slab = slabRock(x0, slabY, W * T, 2 * T, Math.floor(r() * 1e9));
+    slab.collision = [{ x: x0, y: slabY, w: W * T, h: 2 * T }];
+    L.solids.push(...slab.collision);
+    L.rocks.push(slab);
     L.crevices.push({ x: x0, y: f * T - gap, w: W * T, h: gap });
     const side = r() < 0.5 ? -1 : 1;
     const rx = 46 + r() * 8, ry = 60 + r() * 12;
@@ -765,7 +775,8 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
     const rock: RockSpec = { x: side < 0 ? x0 + 6 : x1 - 6, y: f * T + 10 - rockBottom(rockPoly(seed, rx, ry)), rx, ry, seed, tone: 1, form: 'boulder' };
     rock.paintedProp = 'shelter-support';
     L.rocks.push(rock);
-    for (const sl of rockSlices(rock, (px) => G.at(px))) L.solids.push(sl);
+    rock.collision = rockSlices(rock, (px) => G.at(px));
+    L.solids.push(...rock.collision);
   }
   // nichts in den Durchgang stellen
   const inside = (x: number, y: number) => L.crevices.some((c) => x > c.x - 20 && x < c.x + c.w + 20 && y > c.y - 2 * T - 10 && y <= c.y + c.h + 8);

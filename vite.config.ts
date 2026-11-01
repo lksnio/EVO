@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { colyseus } from 'colyseus/vite';
+import { mapEditorPlugin } from './tools/mapEditorPlugin';
 
 // Ein Vite für beides: das Spiel (Client) und den Spielserver (Colyseus).
 //   npm run dev   → Spiel und Server zusammen auf http://localhost:8080 (auch im lokalen Netz und über Tailscale)
@@ -15,5 +16,5 @@ export default defineConfig({
     allowedHosts: ['.ts.net'],
   },
   build: { assetsInlineLimit: 0, chunkSizeWarningLimit: 2000 },
-  plugins: [colyseus({ serverEntry: '/src/server/index.ts', serveClient: true, port: 2567 })],
+  plugins: [mapEditorPlugin(), colyseus({ serverEntry: '/src/server/index.ts', serveClient: true, port: 2567 })],
 });

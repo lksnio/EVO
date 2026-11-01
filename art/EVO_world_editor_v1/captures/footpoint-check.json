@@ -1,0 +1,8 @@
+{
+  "snapToGround": true,
+  "numericMovePreservedGroundOffset": true,
+  "cameraPreservedFeet": true,
+  "menuCleanup": true,
+  "unchangedRun": true,
+  "errors": []
+}
