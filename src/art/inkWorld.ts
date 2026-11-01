@@ -222,10 +222,12 @@ function fogLayer(ctx: Ctx, mood: Mood, w: number, h: number) {
 }
 
 /** Alle Bilder des Hintergrunds eines Ortes: fern, mittel, Dunst – wie levelBackgrounds in worldArt.ts. */
-export function inkBackdrop(scene: Phaser.Scene, id: MoodId): [string, string, string] {
-  const mood = MOODS[id];
-  const far = tex(scene, `inkbg_far_${id}`, W, H, (ctx) => farLayer(ctx, mood, id));
-  const mid = tex(scene, `inkbg_mid_${id}`, W, H, (ctx) => midLayer(ctx, mood, id));
+export function inkBackdrop(scene: Phaser.Scene, id: MoodId, softWater = false): [string, string, string] {
+  const base = MOODS[id];
+  const mood = softWater ? { ...base, rayA: 0, far: mix(base.far, base.fog, 0.2), mid: mix(base.mid, base.fog, 0.22) } : base;
+  const tag = id + (softWater ? '_water' : '');
+  const far = tex(scene, `inkbg_far_${tag}`, W, H, (ctx) => farLayer(ctx, mood, id));
+  const mid = tex(scene, `inkbg_mid_${tag}`, W, H, (ctx) => midLayer(ctx, mood, id));
   const FH = Math.round(H * 0.65);
   const fog = tex(scene, `inkbg_fog_${id}`, 512, FH, (ctx) => fogLayer(ctx, mood, 512, FH));
   return [far, mid, fog];

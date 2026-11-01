@@ -50,12 +50,14 @@ export class Drift {
   private motes: Mote[] = [];
   private t = 0;
   private seeded = false;
+  private riverStyle: boolean;
 
-  constructor(private scene: Phaser.Scene, private L: LevelData, counts: DriftCounts, deepWorld: boolean) {
+  constructor(private scene: Phaser.Scene, private L: LevelData, counts: DriftCounts, deepWorld: boolean, riverStyle = false) {
+    this.riverStyle = riverStyle;
     planktonAtlas(scene);
     graptoAtlas(scene);
     const make = (kind: 'plankton' | 'snow' | 'grapto') => {
-      const dl = [0.6, 0.78, 1, 1][Math.floor(Math.random() * 4)];
+      const dl = (riverStyle ? [0.45, 0.45, 0.75, 0.75, 0.75, 1] : [0.6, 0.78, 1, 1])[Math.floor(Math.random() * (riverStyle ? 6 : 4))];
       let atlas = 'plankton', frame: string;
       let base = 1, a = 1, vx: number, vy: number, sway: number, spin: number, glow = false;
       if (kind === 'plankton') {
@@ -86,7 +88,15 @@ export class Drift {
         sway = 2 + Math.random() * 4;
         spin = (Math.random() - 0.5) * 0.12;
       }
-      const img = scene.add.image(0, 0, atlas, frame).setDepth(DEPTH.carcass + 0.5).setScrollFactor(dl, dl);
+      const near = riverStyle && dl === 1;
+      if (riverStyle) {
+        a *= dl < 0.6 ? 0.3 : 0.55;
+        base *= dl < 0.6 ? 0.6 : 0.8;
+        glow = false;
+      }
+      const depth = !riverStyle ? DEPTH.carcass + 0.5 : dl < 0.6 ? DEPTH.bg + 3 : near ? DEPTH.fx + 1 : DEPTH.decoBack - 0.5;
+      const img = (near ? scene.add.image(0, 0, 'glow') : scene.add.image(0, 0, atlas, frame)).setDepth(depth).setScrollFactor(dl, dl);
+      if (near) { base = 0.025 + Math.random() * 0.025; a = 0.045; }
       if (glow) img.setBlendMode(Phaser.BlendModes.ADD);
       img.setRotation(Math.random() * Math.PI * 2);
       const m: Mote = {
@@ -96,9 +106,10 @@ export class Drift {
       img.setVisible(false);
       this.motes.push(m);
     };
-    for (let i = 0; i < counts.plankton; i++) make('plankton');
-    for (let i = 0; i < counts.snow; i++) make('snow');
-    for (let i = 0; i < counts.grapto; i++) make('grapto');
+    const budget = riverStyle ? Math.min(1, 48 / Math.max(1, counts.plankton + counts.snow + counts.grapto)) : 1;
+    for (let i = 0; i < Math.round(counts.plankton * budget); i++) make('plankton');
+    for (let i = 0; i < Math.round(counts.snow * budget); i++) make('snow');
+    for (let i = 0; i < Math.round(counts.grapto * budget); i++) make('grapto');
   }
 
   update(time: number, dt: number) {
@@ -122,7 +133,9 @@ export class Drift {
       const k = 1 - m.d;
       const lx0 = v.x - cam.scrollX * k, ly0 = v.y - cam.scrollY * k;
       const lx1 = lx0 + v.width, ly1 = ly0 + v.height;
-      m.x += (m.vx * (0.5 + 0.5 * m.d) + Math.sin(this.t * m.sp + m.ph) * m.sway * 0.5) * dt;
+      const wx0 = m.x + cam.scrollX * k, wy0 = m.y + cam.scrollY * k;
+      const flow = this.riverStyle ? L.currents.find(c => wx0 > c.x && wx0 < c.x + c.w && wy0 > c.y && wy0 < c.y + c.h) : undefined;
+      m.x += ((flow ? flow.dir * 32 * m.d : 0) + m.vx * (0.5 + 0.5 * m.d) + Math.sin(this.t * m.sp + m.ph) * m.sway * 0.5) * dt;
       m.y += (m.vy * (0.5 + 0.5 * m.d) + Math.cos(this.t * m.sp * 0.8 + m.ph) * m.sway * 0.3) * dt;
       // verlässt etwas das Bild, taucht es auf der anderen Seite wieder auf (an anderer Höhe bzw. Stelle) – auch nach einem Sprung der Kamera
       const spanX = v.width + 2 * M, spanY = v.height + 2 * M;

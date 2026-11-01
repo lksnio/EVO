@@ -405,6 +405,18 @@ Werkstatt: `?debug&gallery=fauna` (Leertaste blättert), optional `&ids=cladosel
 
 Laufzeitdateien reproduzieren: `python tools/fish_assets.py` und `python tools/world_fish_assets.py` (Pillow). Originalbilder unter `art/` bleiben unverändert. Prüfung: `npm run build`, `npm test -- --maxWorkers=2`; zusätzlich Browserprüfung mit lokal installiertem `playwright-core` und Chromium über `tools/check_fauna.cjs` (siehe dessen Kopfkommentar).
 
+### Gemalter Laichplatz, Höhle und Wasser
+
+Das Paket `art/EVO_laich_hoehle_wasser_v1` ist für das Devon eingebaut. Laich besteht aus dem leeren Nest und einzeln gesetzten Eiern, passend zum vorhandenen `Roe.units`-Stand. Die Positionen bleiben bei Verlust stabil; der bisherige Fußpunkt, die Trefferfläche, Befruchtung und das Schlüpfen bleiben erhalten. Die fertige Darstellung wird pro Eierstand gecacht, ohne dauerhaftes Pulsieren des Haufens.
+
+Die Höhle verwendet nur die getrennte Rückwand und den vorderen Felsrahmen. Beide vollständigen Leinwände werden in denselben Rahmen gesetzt; die alte Felszeichnung und der zusätzliche Höhlenschatten entfallen. Die bestehenden Dachkollisionen, Öffnung, Versteckwirkung und Laichduell-Aktionen bleiben. Im Eingang bleibt der Fisch lesbar, statt vor der gemalten Rückwand ein zweites Mal fast schwarz getönt zu werden.
+
+Das Wasser erhält langsam verformte Kaustiken ausschließlich auf schmalen, beleuchteten Gelände-/Felsoberflächen, weich auslaufende Lichtschächte und eine Trübung zwischen den Hintergrundebenen. Die bisher fest eingezeichneten Lichtdreiecke entfallen in dieser Variante. Drei Partikelebenen nutzen die vorhandene Strömung und ein begrenztes Budget; HUD, Sichtweite und Schadensberechnung werden nicht verzerrt. Das Wasser-Konzeptbild bleibt eine Referenz und wird nicht als Vollbild-Overlay geladen.
+
+Vergleich: `?oldprops` zeigt die bisherigen Requisiten, `?oldwater` das bisherige Wasser. Werkstatt: `?debug&gallery=river` (80/110/140 px, Eierstände und Höhlenebenen). Originale bleiben unverändert; `python tools/river_assets.py` erzeugt aus geprüften Quelldateien die WebP-Laufzeitbilder. Registrierung und Oberflächenmasken stehen in `riverGeometry.ts` und `waterGeometry.ts`; Darstellung und Bewegung in `riverProps.ts`, `WaterAtmosphere.ts` und `Drift.ts`.
+
+Echte Browseraufnahmen, Testumfang und Messgrenzen: `art/vorlagen/fluss/README.md`. Die reproduzierbare Browserprüfung liegt in `tools/check_river.cjs` (extern installiertes `playwright-core` und Chromium).
+
 ## Das Laichduell (Koop-Minispiel)
 
 Im **Devon** liegt links vom Startort, gleich neben dem Laichhaufen, eine **dunkle Höhle** im Fels (`LevelData.cave`, gebaut in

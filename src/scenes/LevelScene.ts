@@ -15,6 +15,8 @@ import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
 import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
+import { paintedRiver, riverCave } from '../art/riverProps';
+import { WaterAtmosphere } from '../objects/WaterAtmosphere';
 import { caveBack, caveShade, terrainArt } from '../art/terrainArt';
 import { inkBackdrop, inkMurk, moodOf, MOODS, type Mood, type MoodId } from '../art/inkWorld';
 import { inkTexture } from '../art/inkFilter';
@@ -168,6 +170,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Schleier je Gebiet (Trübung, Dunst, Dunkelheit) */
   private veil!: Phaser.GameObjects.Rectangle;
   private surfGlow?: Phaser.GameObjects.TileSprite;
+  private waterAtmosphere?: WaterAtmosphere;
+  private paintedCave = false;
   /** der Ort, an dem man gerade ist */
   place!: PlaceDef;
   /** Tuschestil (Devon): die Stimmung des Ortes – sonst nichts (siehe art/inkWorld.ts) */
@@ -288,6 +292,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = -1e9;
     this.redrawAt = 0;
     this.surfGlow = undefined;
+    this.waterAtmosphere = undefined;
+    this.paintedCave = false;
     this.shells = [];
     this.shrine = undefined;
     this.prayUntil = 0;
@@ -353,7 +359,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // das Devon wird im Tuschestil gemalt: gestaffelte Silhouetten, je Ort eine eigene Stimmung
     this.ink = ep.id === 'devon' ? { id: moodOf(this.place), mood: MOODS[moodOf(this.place)] } : undefined;
     setInkWorld(!!this.ink);
-    const [far, mid, fog] = this.ink ? inkBackdrop(this, this.ink.id) : levelBackgrounds(this, L.theme, L.variant, clean);
+    const [far, mid, fog] = this.ink ? inkBackdrop(this, this.ink.id, !new URLSearchParams(location.search).has('oldwater')) : levelBackgrounds(this, L.theme, L.variant, clean);
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
@@ -367,7 +373,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     }
     this.buildDecor();
-    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss') : undefined;
+    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink && new URLSearchParams(location.search).has('oldwater') ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss', ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) : undefined;
     if (this.amphibious) this.swampWater();
     else if (this.water && L.surfaceY > 0) {
       const s = this.add.tileSprite(0, L.surfaceY - 14, L.width, 30, 'surface').setOrigin(0).setDepth(DEPTH.decoFront);
@@ -647,7 +653,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private buildTerrain() {
     const L = this.L;
     // im Devon wird der Boden im Tuschestil gemalt (art/ink.ts)
-    const art = terrainArt(this, L, L.theme, this.zoneAt(0).def.ground, this.ep.id === 'devon');
+    const visual = this.ep.id === 'devon' && paintedRiver(this) ? { ...L, rocks: L.rocks.filter(r => r.paintedProp !== 'cave') } : L;
+    const art = terrainArt(this, visual, L.theme, this.zoneAt(0).def.ground, this.ep.id === 'devon');
     this.terrainKeys = art.keys;
     for (const c of art.chunks) {
       const img = this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);
@@ -759,6 +766,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private buildCave() {
     const c = this.L.cave;
     if (!c) return;
+    if (this.ep.id === 'devon' && paintedRiver(this)) {
+      this.paintedCave = true;
+      const prop = riverCave(this, c);
+      prop.back.setDepth(DEPTH.decoBack + 3);
+      prop.front.setDepth(DEPTH.cover);
+      this.cullAdd(prop.back, prop.box.x, prop.box.x + prop.box.w);
+      this.cullAdd(prop.front, prop.box.x, prop.box.x + prop.box.w);
+      return;
+    }
     const bk = caveBack(this, c.hollow, this.terrainKeys);
     const back = this.add.image(bk.x, bk.y, bk.key).setOrigin(0).setDisplaySize(bk.w, bk.h).setDepth(DEPTH.decoBack + 3);
     this.cullAdd(back, bk.x - 60, bk.x + bk.w + 60);
@@ -865,6 +881,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private surfaceLight() {
     const L = this.L;
+    if (this.ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) {
+      this.waterAtmosphere = new WaterAtmosphere(this, L);
+      return;
+    }
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
     this.surfGlow = this.add.tileSprite(0, L.surfaceY - 8, L.width, 218, 'surface_light').setOrigin(0).setDepth(DEPTH.fx + 1)
       .setBlendMode(Phaser.BlendModes.ADD).setAlpha(this.ink ? 0.2 : 0.34).setTileScale(1, 0.62);
@@ -2140,6 +2160,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
     this.backSea?.update(time, dt, this.deepK, quiet);
     this.drift?.update(time, dt);
+    this.waterAtmosphere?.update(time, dt);
     if (!p.dead && !this.ended) this.siltStep(time);
     for (const t of this.lava) t.tilePositionX += dt * 25;
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
@@ -2375,7 +2396,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     p.hidden = (p.inCrevice || camo) && p.speed01 < 0.55 && !p.sprinting;
     const b = p.body;
     p.grounded = !p.inCover && p.speed01 < 0.15 && (this.water ? this.solidAt(cx, b.bottom + 8) : b.blocked.down);
-    p.view.setShade(p.inCrevice ? 0x2a2a2a : p.hidden ? 0x4e4e4e : null);
+    const paintedShelter = this.paintedCave && this.duelCave?.inside(cx, cy);
+    p.view.setShade(p.inCrevice ? paintedShelter ? 0x999999 : 0x2a2a2a : p.hidden ? 0x4e4e4e : null);
     // Hinterhalt wie bei Teemo: Wer in seinem Versteck 1,5 Sekunden still hält, ist bereit – der nächste Angriff
     // (auch gleich nach dem Hervorbrechen) trifft viel härter. Ohne passende Farbe gibt es keinen Überraschungsangriff.
     const still = p.speed01 < 0.12 && !p.sprinting && !p.isRamming;
