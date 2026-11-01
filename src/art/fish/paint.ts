@@ -132,6 +132,13 @@ function caudalPath(ctx: Ctx, A: FishAnatomy) {
   const D: P2 = [rx - tail.lobe * 0.9, tail.spread * dn];
   const N: P2 = [rx - tail.lobe + tail.fork, -tail.spread * 0.04];
   ctx.beginPath();
+  if (tail.kind === 'lobed' || tail.kind === 'eel') {
+    ctx.moveTo(rx, -pedH);
+    ctx.quadraticCurveTo(rx - tail.lobe * 0.5, -tail.spread, rx - tail.lobe * 1.15, 0);
+    ctx.quadraticCurveTo(rx - tail.lobe * 0.5, tail.spread, rx, pedH);
+    ctx.closePath();
+    return { rx, U, D, N };
+  }
   ctx.moveTo(rx, -pedH);
   ctx.quadraticCurveTo(rx - tail.lobe * 0.42, -tail.spread * 0.55 * up, U[0], U[1]);
   ctx.quadraticCurveTo(U[0] + tail.fork * 0.4, -tail.spread * 0.3, N[0], N[1]);
@@ -142,7 +149,7 @@ function caudalPath(ctx: Ctx, A: FishAnatomy) {
 }
 
 /** Die Schwanzflosse: Sie schließt an den Stiel an (der Stiel läuft in die Flossenhaut über) und liegt über dessen Ende. */
-function paintCaudal(ctx: Ctx, A: FishAnatomy, P: Pal) {
+export function paintCaudal(ctx: Ctx, A: FishAnatomy, P: Pal) {
   const c = fillOf(P).fin;
   const path = () => caudalPath(ctx, A);
   const { rx, U, D, N } = caudalPath(ctx, A);
@@ -285,7 +292,7 @@ function bodyScales(ctx: Ctx, A: FishAnatomy, P: Pal) {
 }
 
 /** Kiemendeckel, Wange, Kopfplatten – die Gestalt des Kopfes, ohne ihn vom Rumpf abzutrennen. */
-function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
+function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal, platePaint?: () => boolean) {
   const { m, hx, hy, hg, bh } = A;
   const top = -hg.H / 2;
   const L = hg.L;
@@ -310,7 +317,7 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
 
   // Kopfplatten: wachsen mit dem Schädel (skull) und dem Kopfpanzer (spike < 0) zu einem Knochenschild über Stirn und Wange
   const pl = A.plate * A.plate * 0.7;
-  if (pl > 0.04) {
+  if (pl > 0.04 && !platePaint?.()) {
     const a = A.plate;
     const crown = hy + top - hg.dome;
     ctx.beginPath();
@@ -392,6 +399,8 @@ function scars(ctx: Ctx, A: FishAnatomy) {
 
 /** Die Zähne des Oberkiefers: Wurzeln unter der Lippenlinie (y-Versatz dy verschiebt sie, falls die gemalte Lippe anders liegt). */
 export function paintUpperTeeth(ctx: Ctx, A: FishAnatomy, dy = 0) {
+  if (A.jawless || A.teeth === 'none') return;
+  if (A.teeth === 'blades') { paintBlade(ctx, A, 1); return; }
   const T = teethOf(A);
   const x0 = A.hinge[0] + A.jawLen * 0.3, x1 = A.tip[0] - 1.6;
   for (let i = 0; i < T.n; i++) {
@@ -405,6 +414,8 @@ export function paintUpperTeeth(ctx: Ctx, A: FishAnatomy, dy = 0) {
 
 /** Die Zähne des Unterkiefers (Ursprung im Kiefergelenk): wachsen nach oben aus der Lippe. */
 export function paintLowerTeeth(ctx: Ctx, A: FishAnatomy) {
+  if (A.jawless || A.teeth === 'none') return;
+  if (A.teeth === 'blades') { paintBlade(ctx, A, -1); return; }
   const T = teethOf(A);
   const len = A.jawLen, n = 2;
   for (let i = 0; i < n; i++) {
@@ -415,13 +426,13 @@ export function paintLowerTeeth(ctx: Ctx, A: FishAnatomy) {
 }
 
 /** Die prozeduralen Merkmale auf dem Körper (Muster, Schuppen, Kopfplatten, Augenhöhle, Narben) – in der Silhouette des Körpers. */
-export function paintBodyFeatures(ctx: Ctx, A: FishAnatomy, P: Pal) {
+export function paintBodyFeatures(ctx: Ctx, A: FishAnatomy, P: Pal, platePaint?: () => boolean) {
   ctx.save();
   bodyPath(ctx, A);
   ctx.clip();
   bodyMarks(ctx, A, P);
   bodyScales(ctx, A, P);
-  headDetails(ctx, A, P);
+  headDetails(ctx, A, P, platePaint);
   scars(ctx, A);
   ctx.restore();
 }
@@ -606,7 +617,19 @@ export function paintMedianFin(ctx: Ctx, F: FinSpec, P: Pal, dir: number, dorsal
   const w = F.base, h = F.len;
   const path = () => {
     ctx.beginPath();
-    if (dorsal) {
+    if (F.shape === 'anvil') {
+      ctx.moveTo(-w * 0.18, 2);
+      ctx.lineTo(-w * 0.15, -h * 0.55);
+      ctx.lineTo(-w * 0.6, -h * 0.8);
+      ctx.lineTo(w * 0.5, -h);
+      ctx.lineTo(w * 0.48, -h * 0.65);
+      ctx.lineTo(w * 0.15, -h * 0.55);
+      ctx.lineTo(w * 0.18, 2);
+    } else if (F.shape === 'shark') {
+      ctx.moveTo(w * 0.5, -dir * 2);
+      ctx.quadraticCurveTo(w * 0.3, dir * h * 0.7, -w * 0.06, dir * h);
+      ctx.quadraticCurveTo(-w * 0.12, dir * h * 0.25, -w * 0.5, -dir * 2);
+    } else if (dorsal) {
       // vorn hoch, hinten flach auslaufend
       ctx.moveTo(w * 0.5, -dir * 2.5);
       ctx.bezierCurveTo(w * 0.42, dir * h * 0.55, w * 0.18, dir * h * 1.02, w * 0.04, dir * h);
@@ -645,6 +668,16 @@ export function paintPelvicFin(ctx: Ctx, F: FinSpec, P: Pal) {
 export function paintPectoral(ctx: Ctx, F: FinSpec & { lobed: boolean }, P: Pal, far: boolean) {
   const c = far ? shadowOf(fillOf(P).fin, 0.3) : fillOf(P).fin;
   const len = F.len;
+  if (F.shape === 'arm' || F.shape === 'shark') {
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(2, -2.5);
+      ctx.quadraticCurveTo(-len * 0.45, -1, -len, len * 0.65);
+      ctx.lineTo(-len * 0.35, len * 0.55);
+      ctx.lineTo(2, 2.5); ctx.closePath();
+    };
+    finPaint(ctx, path, c, [[[-1, 0], [-len * 0.8, len * 0.53]]], [0, -2]);
+    return;
+  }
   if (F.lobed) {
     // fleischiger Stiel, am Ende ein Flossensaum
     const w = 3.2;
@@ -716,3 +749,13 @@ export function finBox(kind: 'dorsal' | 'anal' | 'pelvic' | 'pectoral', F: FinSp
 }
 
 export { lightOf };
+
+/** Two continuous bony cutting edges, not a row of shark teeth. */
+function paintBlade(ctx: Ctx, A: FishAnatomy, dir: number) {
+  const x = dir > 0 ? A.hinge[0] : 0, y = dir > 0 ? A.hinge[1] : 0;
+  const l = A.jawLen, h = Math.min(5, A.jawH * 0.4);
+  ctx.beginPath(); ctx.moveTo(x + l * 0.18, y);
+  ctx.lineTo(x + l, y); ctx.lineTo(x + l * 0.94, y + dir * h);
+  ctx.lineTo(x + l * 0.7, y + dir * h * 0.4); ctx.lineTo(x + l * 0.18, y + dir * 0.6); ctx.closePath();
+  ctx.fillStyle = '#c6b99b'; ctx.fill(); ctx.strokeStyle = '#343b36'; ctx.lineWidth = 0.65; ctx.stroke();
+}

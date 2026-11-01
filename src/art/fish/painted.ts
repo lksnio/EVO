@@ -23,7 +23,7 @@ const JAW_TOP_C = -0.6;
 
 export type RegKey = 'body' | 'jaw' | 'eye' | 'overlay' | 'dorsal' | 'anal' | 'pelvic' | 'pectoral';
 /** Dazu die Sonderzeichnungen (art/im1–im4): Körper kurz/massig und lang/schlank, langer Unterkiefer, Maulinneres */
-export type PartKey = RegKey | 'body_kurz' | 'body_lang' | 'jaw_lang' | 'mouth';
+export type PartKey = RegKey | 'body_kurz' | 'body_lang' | 'jaw_lang' | 'mouth' | 'head_armor';
 
 export interface Reg {
   /** Pixel des Originals (vor der Verkleinerung in tools/fish_assets.py) */
@@ -58,6 +58,7 @@ const NEUTRAL = { base: 25.2, dLen: 14, aBase: 11.4, aLen: 11, vBase: 7, vLen: 6
 export const NUDGE: Partial<Record<RegKey | 'jawLang', { dx?: number; dy?: number; sx?: number; sy?: number }>> = {};
 
 export const FILES: Record<PartKey, string> = {
+  head_armor: new URL('../../assets/fish/fauna/head_armor.webp', import.meta.url).href,
   body: new URL('../../assets/fish/painted/body.webp', import.meta.url).href,
   jaw: new URL('../../assets/fish/painted/jaw.webp', import.meta.url).href,
   eye: new URL('../../assets/fish/painted/eye.webp', import.meta.url).href,
@@ -94,7 +95,7 @@ export function preloadPainted(scene: Phaser.Scene) {
   for (const k of PARTS) if (!scene.textures.exists(key(k))) scene.load.image(key(k), FILES[k]);
 }
 
-export const paintedReady = (scene: Phaser.Scene) => !FORCE_PROC && PARTS.every((k) => scene.textures.exists(key(k)));
+export const paintedReady = (scene: Phaser.Scene) => !FORCE_PROC && PARTS.filter(k => k !== 'head_armor').every((k) => scene.textures.exists(key(k)));
 
 const imgOf = (scene: Phaser.Scene, k: PartKey) => scene.textures.get(key(k)).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
 
@@ -405,7 +406,7 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
   ctx.drawImage(base, 0, 0);
   ctx.restore();
   // Merkmale auf eigener Ebene, auf die Fläche (ohne Kontur) begrenzt
-  const feat = layer(ctx, (x) => paintBodyFeatures(x, A, P), null, null);
+  const feat = layer(ctx, (x) => paintBodyFeatures(x, A, P, () => paintHeadArmor(x, scene, A, P)), null, null);
   applyMask(feat, mask);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -539,3 +540,27 @@ export const targetColors = (m: Morph) => {
   const P = palette(m);
   return { base: grade(P.base), fin: grade(P.fin), css: css(grade(P.base)) };
 };
+
+/** Eye-anchored mineral plate; curved rear alpha, dynamic round socket, cached with the body. */
+function paintHeadArmor(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
+  if (!scene.textures.exists(key('head_armor'))) return false;
+  const a = A.plate;
+  if (a <= 0.04) return true;
+  const sx = 0.040158598934182554 * A.hg.L / 28.4;
+  const sy = 0.040158598934182554 * A.hg.H / 39.192;
+  const r = { x: A.eye.x - 710.522233565205 * sx, y: A.eye.y - 638.4097006243917 * sy, w: 1334 * sx, h: 1179 * sy };
+  const plate = layer(ctx, x => {
+    x.save(); bodyPath(x, A); x.clip();
+    // Leave the lip and mobile jaw clear; the rear outline comes entirely from the painted alpha.
+    x.beginPath(); x.rect(A.bounds.x0, A.bounds.y0, A.bounds.x1 - A.bounds.x0, A.hinge[1] - A.bounds.y0 - 0.8); x.clip();
+    x.globalAlpha = a * a;
+    x.drawImage(imgOf(scene, 'head_armor'), r.x, r.y, r.w, r.h);
+    x.restore();
+    x.globalCompositeOperation = 'destination-out';
+    x.beginPath(); x.arc(A.eye.x, A.eye.y, Math.max(2.6, A.eye.r * 1.3) * 1.12, 0, Math.PI * 2); x.fill();
+  }, null, null);
+  // Retain the mineral values, only a faint lineage tint.
+  tint(plate.getContext('2d', { willReadFrequently: true })!, [165, 160, 143], mix(P.base, 0xc9c2ab, 0.8), 0.18);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(plate, 0, 0); ctx.restore();
+  return true;
+}

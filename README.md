@@ -366,7 +366,7 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
   von Gegnern und Wahrnehmung der KI sind unverändert. (Der Modus MULTIPLY_TWO ergab in Phaser 4.2.1 auf `Mesh2D` fehlerhafte Lichtflecken und wurde verworfen.)
   Der Blitz bei Treffern (`flash`) überschreibt die Aufhellung kurz, die Palette (Färbung der Zeichnung) bleibt getrennt davon.
 * **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Kopfpanzer und Weltfische folgen auf dieser
-  Grundlage (Kopfplatte hat noch eine gerade Hinterkante). Erzeugen eines neuen Aussehens kostet 15–50 ms (gemessen ohne Grafikkarte; programmiert 9–16 ms).
+  Grundlage. Die gemalte Kopfplatte besitzt eine organische Hinterkante und eine dynamische Augenöffnung; ihr Vorderkörper bleibt im Rig starr. Erzeugen eines neuen Aussehens kostet 15–50 ms (gemessen ohne Grafikkarte; programmiert 9–16 ms).
 
 **Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
 
@@ -374,10 +374,23 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
 `bite` (alle n Sekunden ein Biss), `hold` (Maul dauerhaft 0 … 1 öffnen), `lift` (Spieleraufhellung 0 … 0,5 zum Vergleichen), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
 `?debug&gallery=fish&mode=swim&speed=0.6&bite=1&set=[["Kiefer",{"jaw":1,"diet":1}],["Panzer",{"armor":1}]]`.
 
-**Noch offen (künstlerisch):** Die anderen Fischarten des Devons (Tiere der Welt, `speciesArt.ts`) sind weiterhin vorgemalte Bilder
-mit zwei Schwimmphasen und nutzen das Rig noch nicht; die Zeichnung des Spielfisches ist programmiert und kein handgemaltes
-Original – eine von Hand gemalte Vorlage ließe sich in `paint.ts` an die Stelle der Pfade setzen, solange Anatomie (Ansatzpunkte)
-und Netz gleich bleiben.
+**Darstellungswege:** Der Spieler verwendet die registrierten gemalten Einzeltexturen. Die Devon-Welttiere verwenden unter WebGL die unten beschriebenen Rig-Ansichten; im Canvas-Rückfall bleiben die bisherigen Zweibild-Sprites erhalten.
+
+### Devon-Welttiere und Kopfpanzer
+
+Der gemalte Kopfpanzer aus `art/EVO_player_head_armor_v1` ist im Körper-Cache registriert (`painted.ts`): Augenanker statt fester Aussparung, mineralische Färbung, weiche Stärke über `A.plate`, organische Hinterkante. Die alte prozedurale Platte bleibt der Rückfall bei fehlendem Asset. Platte und gepanzerter Vorderkörper behalten bei Biss und Schwimmen ihre Form.
+
+Die Weltfische des Devons verwenden unter WebGL das gemeinsame Fisch-Rig mit festen Artprofilen (`src/art/fauna/fish.ts`). Die acht gelieferten Strahlenflosser-Körper werden gleichmäßig anhand ihrer eigenen Quellkoordinaten registriert, nicht auf die Spielerform gestreckt. Gillicus-Afterflosse, Protosphyraena-Brustflosse, Enchodus-Fangzahn und Xiphactinus-Kiefer ergänzen die wiederverwendeten Einzelteile. Die Kreide-Arten lassen sich in der Werkstatt prüfen, ohne das Zeitalter freizuschalten.
+
+Haie besitzen asymmetrische Schwänze, gesonderte Flossen und Kiemenspalten; Stethacanthus seinen steifen Amboss. Lappenflosser besitzen fleischige Brustflossen, eine zweite Rückenflosse und einen spitzen Schwanzsaum. Kieferlose erhalten keinen beweglichen Unterkiefer; die Vorderkörper von Schild- und Panzerfischen bleiben starr. Dunkleosteus trägt Knochenklingen statt einer Zahnreihe; Hyneria und der ausdrücklich mit überarbeitete Karbon-Riese Rhizodus verwenden kräftige Lappenflosserprofile. Diese Familien passen die vorhandene Malerei und prozedurale Einzelteile an; sie haben keine neu gemalten Einzelbilder pro Art.
+
+Trilobiten, Seeskorpione, Orthoceras und Quallen haben eigene Gelenkaufbauten (`invertebrate.ts`): starre überlappende Panzersegmente, getrennte Beine/Ruder/Scheren, eine starre gekammerte Schale mit gegliederten Armen beziehungsweise ein pulsierender Schirm mit Tentakeln. Texturen entstehen einmal pro Art, nicht pro Bild.
+
+`FaunaView` rendert im bisherigen Display-List-Platz des Arcade-Sprites. Der Sprite behält Physik, Bissflächen, Animationstiming, Sichtbarkeit und Tiefenordnung; die Ansicht übernimmt Winkel, Spiegelung, Skalierung, Alpha und Trefferfärbung, auch bei Netzwerk-Stellvertretern. Beim Zerstören werden die Rig-Teile mit entfernt. `?oldfauna` sowie der Canvas-Renderer zeigen die bisherigen Sprites als Vergleich/Rückfall. Chronik-Porträts und Beute-Icons verwenden weiterhin ihren statischen Zeichenweg.
+
+Werkstatt: `?debug&gallery=fauna` (Leertaste blättert), optional `&ids=cladoselache,dunkleosteus,orthoceras`, `&hold=1` für ein offenes Maul, `&bite=2` für den Kieferzyklus und `&px=70` für eine Größenprobe. Spielerpanzer: `?debug&gallery=fish` mit den vorhandenen Morph-Parametern. Echte Browseraufnahmen liegen unter `art/vorlagen/fisch/aufnahmen/fauna/`.
+
+Laufzeitdateien reproduzieren: `python tools/fauna_assets.py` (Pillow). Originalbilder unter `art/` bleiben unverändert. Prüfung: `npm run build`, `npm test -- --maxWorkers=2`; zusätzlich Browserprüfung mit lokal installiertem `playwright-core` und Chromium über `tools/check_fauna.cjs` (siehe dessen Kopfkommentar).
 
 ## Das Laichduell (Koop-Minispiel)
 

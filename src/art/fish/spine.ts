@@ -32,6 +32,7 @@ export interface SpineIn {
    * zwei Spalten: Er darf die Innenkante einer Zelle nicht auf null stauchen (sonst klappt das Netz um und die Zeichnung faltet sich).
    */
   reach?: ArrayLike<number>;
+  rigidFrom?: number;
 }
 
 /** Anteil der Zellbreite, auf den die Innenkante bei einem Knick höchstens schrumpfen darf (0,1 = 10 % bleiben übrig). */
@@ -87,5 +88,19 @@ export function solveSpine(i: SpineIn, sx: Float32Array, sy: Float32Array, sb: F
   }
   // Vorstoß beim Biss: Der Kopf wandert nach vorn, der Hals streckt sich (die Spalten dazwischen folgen weich)
   for (let k = ia + 1; k < n; k++) sx[k] += i.lungeDx * smoothstep(xa, i.neckEnd, i.colX[k]);
+  if (i.rigidFrom !== undefined) {
+    const x = i.rigidFrom;
+    let k = 0;
+    while (k < n - 2 && i.colX[k + 1] < x) k++;
+    const f = Math.max(0, Math.min(1, (x - i.colX[k]) / (i.colX[k + 1] - i.colX[k])));
+    const px = sx[k] + (sx[k + 1] - sx[k]) * f;
+    const py = sy[k] + (sy[k + 1] - sy[k]) * f;
+    const a = i.pitch, c = Math.cos(a), s = Math.sin(a);
+    for (let j = 0; j < n; j++) if (i.colX[j] >= x) {
+      sx[j] = px + (i.colX[j] - x) * c;
+      sy[j] = py + (i.colX[j] - x) * s;
+      sb[j] = a;
+    }
+  }
   return ia;
 }

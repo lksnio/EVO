@@ -17,6 +17,8 @@ export type P2 = [number, number];
 export interface FinSpec {
   /** wie stark sie ausgeprägt ist (0 = fehlt) */
   k: number;
+  shape?: 'sail' | 'shark' | 'anvil' | 'arm';
+  stiffness?: number;
   /** Mitte des Ansatzes (Körperkoordinaten) */
   at: P2;
   /** Länge des Ansatzes entlang des Körpers, Höhe der Flosse */
@@ -26,6 +28,12 @@ export interface FinSpec {
 
 export interface FishAnatomy {
   m: Morph;
+  /** Starre Vorderpartie: ab hier keine Biegung, Streckung oder Stauchung. */
+  rigidFrom?: number;
+  jawless?: boolean;
+  jawRest?: number;
+  teeth?: 'none' | 'teeth' | 'blades';
+  dorsal2?: FinSpec;
   /** Größe des Tiers (Faktor auf alle Zeicheneinheiten) */
   s: number;
   bw: number;
@@ -40,7 +48,7 @@ export interface FishAnatomy {
   pedH: number;
   pedX: number;
   /** Schwanzflosse: Länge, halbe Spannweite, Einkerbung, Asymmetrie (oberer Lappen länger) */
-  tail: { lobe: number; spread: number; fork: number; up: number };
+  tail: { lobe: number; spread: number; fork: number; up: number; kind?: 'shark' | 'lobed' | 'eel' };
   /** Maul: Gelenk, Spitze des Oberkiefers (Körperkoordinaten), Länge des Unterkiefers ab Gelenk */
   hinge: P2;
   tip: P2;

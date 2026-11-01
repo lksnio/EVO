@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { newCanvas, type Ctx } from '../../util/canvas';
 import { clamp } from '../../util/math';
-import { palette, morphKey, quantize, type Morph } from '../creatureArt';
+import { palette, morphKey, quantize, type Morph, type Pal } from '../creatureArt';
 import { withInk } from '../ink';
 import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
 import { solveSpine } from './spine';
@@ -57,6 +57,7 @@ export interface FishTex {
   keys: { body: string; eye: string; overlay: string; jaw: string; dorsal: string; anal: string; pelvic: string; pec: string; pecFar: string };
   /** Umfang der Texturen in Zeicheneinheiten */
   box: Record<'body' | 'eye' | 'overlay' | 'jaw' | 'dorsal' | 'anal' | 'pelvic' | 'pec', { x0: number; x1: number; y0: number; y1: number }>;
+  secondary?: { key: string; box: Box };
   lid: number;
   lidEdge: number;
 }
@@ -87,12 +88,22 @@ function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (c
 }
 
 /** Alle Texturen dieses Fisches (einmal je Aussehen). */
-export function fishTextures(scene: Phaser.Scene, mIn: Morph): FishTex {
+export interface FishStyle {
+  id: string;
+  A: FishAnatomy;
+  P: Pal;
+  body?: (ctx: Ctx) => void;
+  overlay?: (ctx: Ctx) => void;
+  jaw?: (ctx: Ctx) => void;
+  fin?: (ctx: Ctx, kind: 'dorsal' | 'anal' | 'pelvic' | 'pectoral', far: boolean) => boolean;
+}
+
+export function fishTextures(scene: Phaser.Scene, mIn: Morph, style?: FishStyle): FishTex {
   return withInk(true, () => {
     const m = quantize(mIn);
-    const A = fishAnatomy(m);
-    const P = palette(m);
-    const id = 'cr2_' + morphKey(m);
+    const A = style?.A ?? fishAnatomy(m);
+    const P = style?.P ?? palette(m);
+    const id = style ? 'fauna_' + style.id : 'cr2_' + morphKey(m);
     const s = A.s;
     const bodyBox = A.bounds;
     // die Überlagerung (Kiemendeckel) umfasst nur die Wange
@@ -104,21 +115,25 @@ export function fishTextures(scene: Phaser.Scene, mIn: Morph): FishTex {
     const painted = paintedReady(scene);
     const id2 = painted ? id + 'P' : id;
     const keys = {
-      body: makeTex(scene, id2 + '_fb', bodyBox, s, (ctx) => (painted ? paintBodyPainted(ctx, scene, A, P) : paintBody(ctx, A, P))),
+      body: makeTex(scene, id2 + '_fb', bodyBox, s, (ctx) => (style?.body ? style.body(ctx) : painted ? paintBodyPainted(ctx, scene, A, P) : paintBody(ctx, A, P))),
       eye: makeTex(scene, id2 + '_fe', eyeB, s, (ctx) => (painted ? paintEyePainted(ctx, scene, A, P) : paintEye(ctx, A, P))),
-      overlay: makeTex(scene, id2 + '_fo', ovBox, s, (ctx) => (painted ? paintOverlayPainted(ctx, scene, A, P) : paintOverlay(ctx, A, P))),
-      jaw: makeTex(scene, id2 + '_fj', jawBox, s, (ctx) => (painted ? paintJawPainted(ctx, scene, A, P) : paintJaw(ctx, A, P))),
-      dorsal: makeTex(scene, id2 + '_fd', dBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'dorsal', A, P) : paintMedianFin(ctx, A.dorsal, P, -1, true))),
-      anal: makeTex(scene, id2 + '_fa', aBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'anal', A, P) : paintMedianFin(ctx, A.anal, P, 1, false))),
-      pelvic: makeTex(scene, id2 + '_fv', vBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'pelvic', A, P) : paintPelvicFin(ctx, A.pelvic, P))),
+      overlay: makeTex(scene, id2 + '_fo', ovBox, s, (ctx) => (style?.overlay ? style.overlay(ctx) : painted ? paintOverlayPainted(ctx, scene, A, P) : paintOverlay(ctx, A, P))),
+      jaw: makeTex(scene, id2 + '_fj', jawBox, s, (ctx) => (style?.jaw ? style.jaw(ctx) : painted ? paintJawPainted(ctx, scene, A, P) : paintJaw(ctx, A, P))),
+      dorsal: makeTex(scene, id2 + '_fd', dBox, s, (ctx) => (style?.fin?.(ctx, 'dorsal', false) ? undefined : painted && !A.dorsal.shape ? paintFinPainted(ctx, scene, 'dorsal', A, P) : paintMedianFin(ctx, A.dorsal, P, -1, true))),
+      anal: makeTex(scene, id2 + '_fa', aBox, s, (ctx) => (style?.fin?.(ctx, 'anal', false) ? undefined : painted && !A.anal.shape ? paintFinPainted(ctx, scene, 'anal', A, P) : paintMedianFin(ctx, A.anal, P, 1, false))),
+      pelvic: makeTex(scene, id2 + '_fv', vBox, s, (ctx) => (style?.fin?.(ctx, 'pelvic', false) ? undefined : painted && !A.pelvic.shape ? paintFinPainted(ctx, scene, 'pelvic', A, P) : paintPelvicFin(ctx, A.pelvic, P))),
       // (Stützflossen mit kräftigem Stiel bleiben programmiert)
-      pec: makeTex(scene, id2 + '_fp', pBox, s, (ctx) => (painted && !A.pectoral.lobed ? paintFinPainted(ctx, scene, 'pectoral', A, P) : paintPectoral(ctx, A.pectoral, P, false))),
-      pecFar: makeTex(scene, id2 + '_fq', pBox, s, (ctx) => (painted && !A.pectoral.lobed ? paintFinPainted(ctx, scene, 'pectoral', A, P, true) : paintPectoral(ctx, A.pectoral, P, true))),
+      pec: makeTex(scene, id2 + '_fp', pBox, s, (ctx) => (style?.fin?.(ctx, 'pectoral', false) ? undefined : painted && !A.pectoral.lobed && !A.pectoral.shape ? paintFinPainted(ctx, scene, 'pectoral', A, P) : paintPectoral(ctx, A.pectoral, P, false))),
+      pecFar: makeTex(scene, id2 + '_fq', pBox, s, (ctx) => (style?.fin?.(ctx, 'pectoral', true) ? undefined : painted && !A.pectoral.lobed && !A.pectoral.shape ? paintFinPainted(ctx, scene, 'pectoral', A, P, true) : paintPectoral(ctx, A.pectoral, P, true))),
     };
     return {
       A, keys,
+      secondary: A.dorsal2 ? {
+        key: makeTex(scene, id2 + '_fd2', finBox('dorsal', A.dorsal2), s, ctx => paintMedianFin(ctx, A.dorsal2!, P, -1, true)),
+        box: finBox('dorsal', A.dorsal2),
+      } : undefined,
       box: { body: bodyBox, eye: eyeB, overlay: ovBox, jaw: jawBox, dorsal: dBox, anal: aBox, pelvic: vBox, pec: pBox },
-      lid: palette(m).base, lidEdge: palette(m).dark,
+      lid: P.base, lidEdge: P.dark,
     };
   });
 }
@@ -166,6 +181,10 @@ class Grid {
     return m;
   }
 
+  setColumnUV(i: number, u: number) {
+    for (let j = 0; j <= this.rows; j++) this.v[(j * (this.cols + 1) + i) * 4 + 2] = u;
+  }
+
   set(i: number, j: number, x: number, y: number) {
     const k = (j * (this.cols + 1) + i) * 4;
     this.v[k] = x;
@@ -192,7 +211,7 @@ export class FishRig {
   private floor?: Grid;
   private eyeImg: Phaser.GameObjects.Image;
   private jaw: Phaser.GameObjects.Image;
-  private fins: { grid: Grid; kind: 'dorsal' | 'anal' | 'pelvic' | 'pec' | 'pecFar' }[] = [];
+  private fins: { grid: Grid; kind: 'dorsal' | 'dorsal2' | 'anal' | 'pelvic' | 'pec' | 'pecFar' }[] = [];
   private s: number;
 
   // Zustand der Bewegung: Phasen werden aufsummiert, Pose und Netz aber nie
@@ -222,6 +241,15 @@ export class FishRig {
     this.sb = new Float32Array(COLS + 1);
     this.colX = new Float32Array(COLS + 1);
     for (let i = 0; i <= COLS; i++) this.colX[i] = lerp(b.x0, b.x1, i / COLS);
+    const rigid = A.rigidFrom ?? (A.plate > 0.04 ? A.hx - 12 : undefined);
+    if (rigid !== undefined) {
+      let nearest = 1;
+      for (let i = 2; i < COLS; i++) if (Math.abs(this.colX[i] - rigid) < Math.abs(this.colX[nearest] - rigid)) nearest = i;
+      this.colX[nearest] = rigid;
+      // Nonuniform columns must use matching rest UV positions.
+      for (let j = 0; j <= ROWS; j++) this.body.vx[j * (COLS + 1) + nearest] = rigid;
+      this.body.setColumnUV(nearest, (rigid - b.x0) / (b.x1 - b.x0));
+    }
     // Reichweite des Netzes senkrecht zur Wirbelsäule je Spalte (hinter dem Stiel die Schwanzflosse, sonst der Körper)
     this.reach = new Float32Array(COLS + 1).map((_, i) => (this.colX[i] < A.pedX ? Math.max(A.tail.spread * 1.1, 6) : Math.max(Math.abs(b.y0), Math.abs(b.y1)) * 0.85));
 
@@ -236,6 +264,11 @@ export class FishRig {
     const pelvic = finGrid('pelvic');
     const dorsal = finGrid('dorsal');
     const anal = finGrid('anal');
+    if (T.secondary) {
+      const grid = new Grid(scene, T.secondary.key, T.secondary.box, 4, 2);
+      this.fins.push({ grid, kind: 'dorsal2' });
+      this.parts.push(grid.mesh);
+    }
     this.cavity = new Phaser.GameObjects.Graphics(scene);
     // gemaltes Maulinneres (ein Netz, das zwischen Oberlippe und Unterkiefer aufgespannt wird); ohne gemalte Texturen die dunkle Fläche
     if (paintedReady(scene)) {
@@ -251,6 +284,16 @@ export class FishRig {
     this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
+    if (A.jawless) {
+      this.jaw.setVisible(false);
+      this.cavity.setVisible(false);
+      this.palate?.mesh.setVisible(false);
+      this.floor?.mesh.setVisible(false);
+    }
+    for (const f of this.fins) {
+      const spec = f.kind === 'dorsal2' ? A.dorsal2! : f.kind === 'pec' || f.kind === 'pecFar' ? A.pectoral : A[f.kind];
+      f.grid.mesh.setVisible(spec.k > 0);
+    }
     this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, ...(this.palate && this.floor ? [this.palate.mesh, this.floor.mesh] : []), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
@@ -258,8 +301,9 @@ export class FishRig {
 
   /** Spalte → Position am Netz in Pixeln. */
   private colAt(x: number) {
-    const k = clamp((x - this.T.box.body.x0) / (this.T.box.body.x1 - this.T.box.body.x0), 0, 1) * COLS;
-    const i = Math.min(COLS - 1, Math.floor(k)), f = k - i;
+    let i = 0;
+    while (i < COLS - 1 && this.colX[i + 1] < x) i++;
+    const f = clamp((x - this.colX[i]) / (this.colX[i + 1] - this.colX[i]), 0, 1);
     return { i, f };
   }
 
@@ -299,14 +343,14 @@ export class FishRig {
     // bei hohem Tempo wird mehr vom Rumpf in die Welle einbezogen (steilerer Anstieg weiter vorn)
     const pw = 2.5 - 0.7 * sp;
     solveSpine(
-      { colX: this.colX, xa, bw, Ls, amp, kw, ph: this.ph, pw, coil: p.coil, pitch: hp0(p, this.ph, calm, idle), bob: bobOf(p, crawl, calm), neckEnd: A.neckX + bw * 0.1, lungeDx: p.lunge * (3 + 3 * A.m.jaw) * calm, reach: this.reach },
+      { colX: this.colX, xa, bw, Ls, amp, kw, ph: this.ph, pw, coil: p.coil, pitch: hp0(p, this.ph, calm, idle), bob: bobOf(p, crawl, calm), neckEnd: A.neckX + bw * 0.1, lungeDx: p.lunge * (3 + 3 * A.m.jaw) * calm, reach: this.reach, rigidFrom: A.rigidFrom ?? (A.plate > 0.04 ? A.hx - 12 : undefined) },
       this.sx, this.sy, this.sb,
     );
     const J = A.m.jaw;
 
     // das Netz: jede Zeile folgt ihrer Spalte (senkrecht zur Wirbelsäule); beim Zubeißen presst sich der Kopf zusammen
     const neckEnd = A.neckX + bw * 0.1;
-    const squash = p.clench * (0.05 + 0.07 * J);
+    const squash = A.rigidFrom !== undefined || A.plate > 0.04 ? 0 : p.clench * (0.05 + 0.07 * J);
     const gb = this.body;
     for (let j = 0; j <= ROWS; j++) {
       for (let i = 0; i <= COLS; i++) {
@@ -344,9 +388,11 @@ export class FishRig {
     const J1 = Math.min(0.9, 0.8 * Math.pow(10.4 / Math.max(6, A.jawLen), 0.42) + 0.05);
     const rest = p.clench ? -p.clench * 0.06 : 0;
     const opening = p.open * J1 + rest + (idle ? Math.max(0, Math.sin(p.t * 1.3)) * 0.04 : 0);
-    this.jaw.setPosition(hj.x, hj.y).setRotation(hj.rot + opening);
-    if (this.palate && this.floor) this.drawMouth(hj.x, hj.y, hj.rot, opening);
-    else this.drawCavity(hj.x, hj.y, hj.rot, opening);
+    this.jaw.setPosition(hj.x, hj.y).setRotation(hj.rot + (A.jawRest ?? 0) + opening);
+    if (!A.jawless) {
+      if (this.palate && this.floor) this.drawMouth(hj.x, hj.y, hj.rot + (A.jawRest ?? 0), opening);
+      else this.drawCavity(hj.x, hj.y, hj.rot + (A.jawRest ?? 0), opening);
+    }
 
     // ---- Flossen
     const trail = 0.15 + 0.55 * sp; // bei Tempo legen sich die Flossen an
@@ -358,6 +404,7 @@ export class FishRig {
       let flap = 0;
       const lag = (x: number) => Math.sin(this.fph * 0.9 - (xa - x) * kw * 0.9 - 0.8);
       switch (f.kind) {
+        case 'dorsal2': spec = A.dorsal2!; ax_ = 0; ay_ = -1; break;
         case 'dorsal': spec = A.dorsal; ax_ = 0; ay_ = -1; break;
         case 'anal': spec = A.anal; ax_ = 0; ay_ = 1; break;
         case 'pelvic': spec = A.pelvic; ax_ = 0; ay_ = 1; break;
@@ -366,6 +413,7 @@ export class FishRig {
       at = this.mapPoint(spec.at[0], spec.at[1]);
       const bodyRot = at.rot;
       switch (f.kind) {
+        case 'dorsal2':
         case 'dorsal': swayK = lag(spec.at[0]) * 0.28 * calm + trail * 0.5; break;
         case 'anal': swayK = lag(spec.at[0] - 4) * 0.3 * calm + trail * 0.45; break;
         case 'pelvic': swayK = lag(spec.at[0]) * 0.2 * calm + trail * 0.5; rootRot = 0.1; break;
@@ -378,6 +426,8 @@ export class FishRig {
           break;
         }
       }
+      swayK *= 1 - (spec.stiffness ?? 0);
+      flap *= 1 - (spec.stiffness ?? 0);
       const len = spec.len;
       const cb = Math.cos(bodyRot + flap + rootRot), sb = Math.sin(bodyRot + flap + rootRot);
       const ox = at.x, oy = at.y + (f.kind === 'pecFar' ? -1.2 * s : 0);

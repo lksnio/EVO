@@ -4,6 +4,7 @@ import { Interp } from '../src/net/Interp';
 import type { AnimalRow } from '../src/net/protocol';
 
 vi.mock('phaser', () => ({ default: { Physics: { Arcade: { Sprite: class {} } }, TintModes: { MULTIPLY: 0, FILL: 1 } } }));
+vi.mock('../src/objects/FaunaView', () => ({ FaunaView: { supports: () => false } }));
 vi.mock('../src/audio/Audio', () => ({ audio: { sfx() {} } }));
 
 function ghost() {

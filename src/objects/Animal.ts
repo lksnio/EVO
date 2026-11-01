@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { FaunaView } from './FaunaView';
 import type { SpeciesDef } from '../data/species';
 import { JAW_HALF, jawAnim, jawOf, speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
@@ -273,6 +274,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** geduckt unter einem Überhang hindurch (der Körper ist dann niedriger) */
   protected crouched = false;
   protected crouchUntil = 0;
+  readonly faunaView?: FaunaView;
   private bodyDim = { w: 0, h: 0, ox: 0, oy: 0 };
 
   constructor(world: World, def: SpeciesDef, x: number, y: number, opts: { texture?: string } = {}) {
@@ -307,6 +309,18 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(DEPTH.enemies);
     this.dir = Math.random() < 0.5 ? -1 : 1;
     this.nextSense = world.time.now + Math.random() * 300;
+    if (!opts.texture && FaunaView.supports(world, def)) {
+      const view = this.faunaView = new FaunaView(world, def);
+      const width = this.width;
+      // Render through the original display-list slot. Its visibility, depth, camera filter and lifecycle stay authoritative.
+      this.renderWebGLStep = (renderer, _src, context, parentMatrix, step, list, index) => {
+        const dt = Math.min(0.05, world.game.loop.delta / 1000);
+        view.follow(this, dt, width, 'ghost' in this ? (this.attacking ? 1 : this.glowing ? 0.4 : 0) : this.jawNow / 2);
+        view.renderWebGLStep(renderer, view, context, parentMatrix, step, list, index);
+      };
+      this.once(Phaser.GameObjects.Events.DESTROY, () => view.destroy(true));
+    }
+
   }
 
   get b() {

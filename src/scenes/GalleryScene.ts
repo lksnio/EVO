@@ -4,6 +4,7 @@ import type { ClassId } from '../data/classes';
 import { SPECIES } from '../data/species';
 import { EPOCHS, epochSpecies } from '../data/epochs';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
+import { FaunaView } from '../objects/FaunaView';
 import { CreatureView } from '../objects/CreatureView';
 import { text } from '../ui/ui';
 
@@ -11,6 +12,7 @@ import { text } from '../ui/ui';
 export class GalleryScene extends Phaser.Scene {
   private views: CreatureView[] = [];
   private page = 0;
+  private fauna: FaunaView[] = [];
 
   constructor() {
     super('Gallery');
@@ -19,11 +21,16 @@ export class GalleryScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(new URLSearchParams(location.search).has('gallery') && new URLSearchParams(location.search).get('gallery') === 'devon' ? '#1b4048' : '#1a1814');
     this.views = [];
+    this.fauna = [];
+    this.page = Number(new URLSearchParams(location.search).get('page') ?? 0);
     this.show();
     this.input.keyboard!.on('keydown-SPACE', () => {
-      this.page = (this.page + 1) % (1 + Math.ceil(this.ids().length / 18));
+      const fauna = new URLSearchParams(location.search).get('gallery') === 'fauna';
+      const pages = fauna ? Math.ceil(this.faunaIds().length / 12) : 1 + Math.ceil(this.ids().length / 18);
+      this.page = (this.page + 1) % Math.max(1, pages);
       this.children.removeAll(true);
       this.views = [];
+      this.fauna = [];
       this.show();
     });
   }
@@ -60,7 +67,35 @@ export class GalleryScene extends Phaser.Scene {
     });
   }
 
+  private faunaIds() {
+    return new URLSearchParams(location.search).get('ids')?.split(',')
+      ?? [...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus'];
+  }
+
+  /** Living fauna, including future rayfins, without unlocking another epoch. */
+  private faunaLab() {
+    const q = new URLSearchParams(location.search);
+    const ids = this.faunaIds();
+    const subset = ids.slice(this.page * 12, this.page * 12 + 12);
+    this.cameras.main.setBackgroundColor('#24464b');
+    subset.forEach((id, i) => {
+      const def = SPECIES[id];
+      if (!def) return;
+      const x = 160 + i % 4 * 320, y = 105 + Math.floor(i / 4) * 230;
+      makeSpeciesTextures(this, def);
+      const ratio = this.game.canvas.getBoundingClientRect().width / this.scale.width;
+      const width = q.has('px') ? Number(q.get('px')) / ratio : 225;
+      if (FaunaView.supports(this, def)) {
+        const view = new FaunaView(this, def);
+        this.add.existing(view); view.setPosition(x, y).setScale(width / view.naturalWidth);
+        this.fauna.push(view);
+      } else this.add.image(x, y, speciesKey(id, 0)).setDisplaySize(width, width * 0.4);
+      text(this, x, y + 82, def.name, 16).setOrigin(0.5);
+    });
+  }
+
   private show() {
+    if (new URLSearchParams(location.search).get('gallery') === 'fauna') return this.faunaLab();
     if (new URLSearchParams(location.search).get('gallery') === 'fish') return this.lab();
     if (this.page >= 1) {
       const ids = this.ids().slice((this.page - 1) * 18, this.page * 18);
@@ -109,6 +144,7 @@ export class GalleryScene extends Phaser.Scene {
       for (const v of this.views) v.bite();
     }
     const hold = Number(q.get('hold') ?? 0);
+    for (const view of this.fauna) view.advance(dms / 1000, mode === 'idle' ? 0 : speed, hold || (bite ? Math.max(0, Math.sin(this.biteClock / bite * Math.PI * 2)) : 0));
     for (const v of this.views) {
       v.holdOpen = hold;
       if (q.has('lift')) v.setLift(Number(q.get('lift')));
