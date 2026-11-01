@@ -563,14 +563,15 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   - **Natürliche Verstecke:** Niedrige **Felsspalten** und dichter Bewuchs bieten Deckung. Farbhöhlen, verschüttete
     Eingänge und aufbrechbare Wände gibt es nicht mehr. Bestehende Färbungen und vorgemerkte Farben älterer Spielstände
     bleiben für die Vererbung erhalten.
-  - **Ein zusammenhängendes Meer im Devon, mit einem Schlund in der Mitte:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
-    Korallengarten (und zurück nach links). **Rechts im Korallengarten geht es nicht weiter.** Das **Tiefental** erreicht man nur durch den **Schlund** in der Mitte
-    des Korallengartens: Der Grund senkt sich dort zu einer tiefen Mulde, an deren Ende eine **riesige Höhle** im Fels liegt (Öffnung nach links, `LevelData.deepCave`);
-    links und rechts türmen sich **riesige Felsen**, damit man spürt, dass das Meer hier richtig tief wird. Wer **vor der Höhle** steht (`LevelData.descent`), drückt
-    **F** („In die Tiefe“) und taucht ins Tiefental hinab – man kommt oben in der Mitte an. Das Tal hat links und rechts Wände; man **verlässt es nur nach oben**: Wer bis
-    unter das Dach aus Wasser schwimmt, kommt im Korallengarten wieder **vor der Höhle** heraus (`PlaceDef.descent`/`ascent`/`closed`, `LevelScene.descentStep`/`edgeStep`).
-    Die Abschnitte werden mit einer kurzen Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Das Tal ist ein Trichter (an den Rändern hoch, in
-    der Mitte tief).
+  - **Ein zusammenhängendes Meer im Devon, mit einer Schlucht in der Mitte:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
+    Korallengarten (und zurück nach links). **Rechts im Korallengarten geht es nicht weiter.** Das **Tiefental** erreicht man nur durch die **Schlucht** in der Mitte
+    des Korallengartens – keine Höhle, kein Knopf: Der Boden ist dort **offen** (`LevelData.chasm`), das Meer wird an dieser Stelle schlagartig tief. Der Grund bricht
+    an der Kante ab, die Flanken fallen steil zu einem breiten Schlund hinab, und links und rechts türmen sich **riesige Felsen** (`addDescent`), damit man spürt, dass es hier
+    richtig in die Tiefe geht. Man **schwimmt einfach hinunter**: Ganz unten (unter `chasm.exitY`) geht das Wasser ins Tiefental über – man kommt dort oben in der Mitte an
+    (`LevelScene.chasmStep`). Das Tal hat links und rechts Wände; man **verlässt es nur nach oben**: Wer bis unter das Dach aus Wasser schwimmt, kommt im Korallengarten
+    **mitten in der Schlucht** wieder heraus (`PlaceDef.descent`/`ascent`/`closed`, `LevelScene.edgeStep`). Beim Hinabschwimmen wird es sichtbar dunkler (Schattenverlauf über der
+    Schlucht, `buildChasm`), Fische, Bewuchs und Deko meiden die Öffnung. Die Abschnitte werden mit einer kurzen Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten.
+    Das Tal ist ein Trichter (an den Rändern hoch, in der Mitte tief).
   - **Keine Wasseroberfläche:** Auf keiner Karte sieht man die Oberfläche. Nach oben ist es zu – das Wasser geht über dem oberen Rand weiter (die Kamera darf dort hinausschauen,
     Lichtstrahlen beginnen weit darüber), man schwimmt aber nicht hindurch: ein Dach aus Wasser. Man merkt, dass es noch weiter hinaufginge, bevor man an der Oberfläche wäre.
   - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.

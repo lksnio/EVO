@@ -503,11 +503,31 @@ function paintChunkInk(scene: Phaser.Scene, L: TerrainSpec, variant: number, ind
       g.addColorStop(1, css(deep));
       ctx.fillStyle = g; ctx.fillRect(x, y - 4, 3.1, bottom - y + 8);
     }
-    const source = reefMaterial(scene);
-    const brush = ctx.createPattern(source, 'repeat')!;
+    // Der Pinselauftrag läuft mit der Tiefe unter der Oberfläche aus (bei SKIN ist er weg): Unter dem gemalten Stück liegt nur eine einfarbige Fläche, und an
+    // steilen Hängen (Schlucht, Tal) reicht der Boden eines Stücks weit unter das des Nachbarn – ohne Auslaufen stünde dort eine Kante zwischen beiden.
+    const [lay, lctx] = newCanvas(w * res, h * res);
+    lctx.scale(res, res);
+    lctx.translate(-gx0, -oy);
+    for (let x = gx0; x < gx1; x += 3) {
+      const y = groundCurve(hp, x + 1.5);
+      const g = lctx.createLinearGradient(0, y, 0, y + SKIN);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.55, 'rgba(0,0,0,1)');
+      g.addColorStop(0.96, 'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      lctx.fillRect(x, oy, 3.1, h);
+    }
+    // die Maske steht; der Pinsel wird nur dort aufgetragen, wo sie deckt
+    const brush = lctx.createPattern(reefMaterial(scene), 'repeat')!;
     brush.setTransform(new DOMMatrix().scale(0.7));
+    lctx.globalCompositeOperation = 'source-in';
+    lctx.fillStyle = brush;
+    lctx.fillRect(gx0, oy, w, h);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.65;
-    ctx.fillStyle = brush; ctx.fillRect(gx0, oy, w, h);
+    ctx.drawImage(lay, 0, 0);
+    ctx.restore();
     ctx.restore();
   }
   ctx.save();

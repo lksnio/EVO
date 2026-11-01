@@ -234,7 +234,7 @@ export interface EpochProg {
   /** bekannte Wege zwischen zwei Orten (linkKey) – sie entstehen, wenn man von einem Ort in den anderen schwimmt */
   links: string[];
   /** über den Rand hereingeschwommen: über welche Seite man den anderen Ort verlassen hat und wie tief man war */
-  edge?: { side: 'left' | 'right' | 'top' | 'cave'; frac: number };
+  edge?: { side: 'left' | 'right' | 'top' | 'chasm'; frac: number };
   /** zum Hauptmenü gegangen: Hier geht es weiter, wenn man wiederkommt (einmalig) */
   resume?: { x: number; y: number };
   /** Hier beginnt das Leben (ein neues Jungtier schlüpft aus seinem Gelege) – gilt nur einmal */
@@ -1889,7 +1889,7 @@ class GameState {
   }
 
   /** Direkt in einen Nachbarabschnitt, ohne zusätzliche Reisezeit. */
-  enterPlace(id: string, edge?: { side: 'left' | 'right' | 'top' | 'cave'; frac: number }) {
+  enterPlace(id: string, edge?: { side: 'left' | 'right' | 'top' | 'chasm'; frac: number }) {
     const run = this.r;
     const p = run.prog;
     p.place = placeOf(EPOCHS[run.epoch], id).id;

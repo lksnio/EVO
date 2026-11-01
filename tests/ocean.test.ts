@@ -34,9 +34,9 @@ describe('Zusammenhängendes Meer', () => {
       expect(levels[0].ground.at(-10)).toBeCloseTo(levels[1].ground[9], 3);
       const shelf = levels[1].ground, n = shelf.length;
       // außerhalb der Mulde liegt der Grund eben
-      const flat = [...shelf.slice(0, Math.round(n * 0.3)), ...shelf.slice(Math.round(n * 0.85))];
+      const flat = [...shelf.slice(0, Math.round(n * 0.3)), ...shelf.slice(Math.round(n * 0.7))];
       expect(Math.max(...flat) - Math.min(...flat)).toBeLessThan(2 * TILE);
-      expect(shelf[Math.round(n * 0.5)]).toBeGreaterThan(Math.max(...flat) + 6 * TILE);
+      expect(shelf[Math.round(n * 0.5)]).toBeGreaterThan(Math.max(...flat) + 20 * TILE);
       // das Tal: an den Rändern hoch, in der Mitte tief – nach beiden Seiten abfallend, und von oben zu erreichen
       const valley = levels[2].ground;
       const at = (f: number) => valley[Math.floor((valley.length - 1) * f)];

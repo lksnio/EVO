@@ -188,8 +188,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** zum Hauptmenü: so viele Sekunden noch (< 0: niemand will gehen) */
   private quitLeft = -1;
   private shrineNear = false;
-  /** vor der Schlund-Höhle im Korallengarten: F taucht hinab ins Tiefental */
-  private descentNear = false;
   /** Dunkelheit in der Tiefe: Je weiter man hinabschwimmt, desto weniger sieht man */
   private deepDark?: Phaser.GameObjects.Image;
   /** die Sicht unter Wasser: trübes Wasser überall, wohin der Fisch nicht blickt (siehe objects/Sight.ts) */
@@ -303,7 +301,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.shrine = undefined;
     this.prayUntil = 0;
     this.shrineNear = false;
-    this.descentNear = false;
     this.deepDark = undefined;
     this.deepK = 0;
     this.deepBeatAt = this.deepRumbleAt = 0;
@@ -791,16 +788,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * zur Öffnung hin heller. Drinnen sieht man von den Fischen fast nur noch die Augen (objects/DuelCave.ts).
    */
   private buildCave() {
-    const dcv = this.L.deepCave;
-    if (dcv) {
-      // die Schlund-Höhle im Korallengarten: dunkle Rückwand im Hohlraum und – vor den Fischen – der Schatten, hinten fast schwarz
-      const bk = caveBack(this, dcv.hollow, this.terrainKeys, dcv.side);
-      const back = this.add.image(bk.x, bk.y, bk.key).setOrigin(0).setDisplaySize(bk.w, bk.h).setDepth(DEPTH.decoBack + 3);
-      this.cullAdd(back, bk.x - 60, bk.x + bk.w + 60);
-      const sh = caveShade(this, dcv.hollow, dcv.side, this.terrainKeys);
-      const shade = this.add.image(sh.x, sh.y, sh.key).setOrigin(0).setDisplaySize(sh.w, sh.h).setDepth(DEPTH.cover);
-      this.cullAdd(shade, sh.x - 20, sh.x + sh.w + 20);
-    }
+    this.buildChasm();
     const c = this.L.cave;
     if (!c) return;
     if (this.ep.id === 'devon' && paintedRiver(this)) {
@@ -2146,7 +2134,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     else this.controls.clear();
     p.update(time, dt, this.controls);
     this.shrineStep(time, dt);
-    this.descentStep(time);
+    this.chasmStep();
     this.quitStep(dt);
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
@@ -2727,7 +2715,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.water || this.ended) return;
     const L = this.L;
     // Das Tiefental verlässt man nur nach oben: Wer bis unter das Dach aus Wasser schwimmt, kommt im Korallengarten vor der Höhle heraus
-    if (this.place.ascent && p.y < L.surfaceY + 118) return this.leave(this.place.ascent, { side: 'cave', frac: 0 });
+    if (this.place.ascent && p.y < L.surfaceY + 118) return this.leave(this.place.ascent, { side: 'chasm', frac: 0 });
     const side = p.x < -34 ? 'left' : p.x > L.width + 34 ? 'right' : null;
     if (!side) return;
     const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
@@ -2737,7 +2725,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /** Zustand sichern und ohne Reiseauswahl im benachbarten Abschnitt weiterschwimmen. */
-  private leave(to: string, edge: { side: 'left' | 'right' | 'top' | 'cave'; frac: number }) {
+  private leave(to: string, edge: { side: 'left' | 'right' | 'top' | 'chasm'; frac: number }) {
     if (this.ended) return;
     this.ended = true;
     this.saveProgress();
@@ -2824,24 +2812,44 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   // ---------------------------------------------------------------- die große Muschel
 
   /**
-   * Die Schlund-Höhle im Korallengarten: Wer davor steht (L.descent), kann mit F ins Tiefental hinabtauchen. Zurück geht es nur
-   * durch das Wasser nach oben (edgeStep) – dann kommt man wieder vor der Höhle heraus.
+   * Die Schlucht im Korallengarten (Devon): Der Boden ist dort „auf“ – wer sie hinabschwimmt und unten ankommt (unter L.chasm.exitY), ist im Tiefental.
+   * Zurück geht es nur nach oben (edgeStep), dann kommt man mitten in der Schlucht wieder heraus.
    */
-  private descentStep(time: number) {
-    const z = this.L.descent, to = this.place.descent;
-    if (!z || !to) return;
+  private chasmStep() {
+    const ch = this.L.chasm, to = this.place.descent;
+    if (!ch || !to || this.ended) return;
     const p = this.player;
-    const near = !p.dead && !this.ended && this.quitLeft < 0 && overlaps(p.hitRect(), z);
-    if (near !== this.descentNear) {
-      this.descentNear = near;
-      bus.emit('talk', near, 'In die Tiefe');
-    }
-    if (near && time > 400 && (this.controls.pressed.talk || touch.talk)) {
-      this.controls.clear();
-      this.descentNear = false;
-      bus.emit('talk', false, '');
-      this.leave(to, { side: 'top', frac: 0 });
-    }
+    if (!p.dead && p.y > ch.exitY && p.x > ch.x0 && p.x < ch.x1) this.leave(to, { side: 'top', frac: 0 });
+  }
+
+  /**
+   * Die Schlucht sieht man von Weitem: Je tiefer, desto dunkler (ein weicher Schatten über der Öffnung und in der Tiefe), damit man spürt, dass das Meer
+   * hier richtig tief wird – und nichts davon hat eine Kante: oben blendet er aus, an den Seiten ebenso.
+   */
+  private buildChasm() {
+    const ch = this.L.chasm;
+    if (!ch) return;
+    const w = Math.round(ch.x1 - ch.x0 + 520), h = Math.round(ch.floorY - ch.rimY + 560);
+    const key = `chasm_shade_${w}x${h}`;
+    tex(this, key, Math.ceil(w / 2), Math.ceil(h / 2), (ctx, cw, ch2) => {
+      const g = ctx.createLinearGradient(0, 0, 0, ch2);
+      g.addColorStop(0, 'rgba(2,10,22,0)');
+      g.addColorStop(0.28, 'rgba(2,10,22,0.18)');
+      g.addColorStop(0.62, 'rgba(2,8,20,0.55)');
+      g.addColorStop(1, 'rgba(1,5,14,0.86)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, cw, ch2);
+      ctx.globalCompositeOperation = 'destination-in';
+      const hg = ctx.createLinearGradient(0, 0, cw, 0);
+      hg.addColorStop(0, 'rgba(0,0,0,0)');
+      hg.addColorStop(0.2, 'rgba(0,0,0,1)');
+      hg.addColorStop(0.8, 'rgba(0,0,0,1)');
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, 0, cw, ch2);
+    });
+    const img = this.add.image(ch.x0 - 260, ch.rimY - 380, key).setOrigin(0).setDisplaySize(w, h).setDepth(DEPTH.decoFront + 0.3);
+    this.cullAdd(img, ch.x0 - 300, ch.x1 + 300);
   }
 
   /** Wer an der großen Muschel die Interaktionstaste drückt, tritt vor sie: Dort verteilt man seine Muscheln (im HUD). */
