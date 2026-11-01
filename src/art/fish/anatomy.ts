@@ -78,7 +78,8 @@ export function fishAnatomy(m: Morph): FishAnatomy {
   const ym = hy + hg.mouthY;
   const top = -hg.H / 2;
   const crownY = hy + top - hg.dome - 0.4;
-  const backY = Math.min(-bh * 0.56, crownY + 0.6 + 0.3 * bh * 0.1);
+  // der Rücken wölbt sich hinter dem Kopf zu einem flachen Buckel (die Stirn liegt etwas tiefer): kein gerader Kasten
+  const backY = Math.min(-bh * 0.64, crownY - 1.6);
   const pedH = Math.max(2.4, bh * 0.1 + 1);
   const pedX = -bw * 0.5;
 
@@ -100,9 +101,9 @@ export function fishAnatomy(m: Morph): FishAnatomy {
     [hx + hg.L * 0.74, ym - hg.snoutH * 0.97 - hg.dome * 0.3],
     [hx + hg.L * 0.42, hy + top * 0.99 - hg.dome * 0.82],
     [hx + hg.L * 0.1, crownY],
-    [hx - bw * 0.11, (crownY + backY) * 0.5 - 0.3],
+    [hx - bw * 0.1, crownY * 0.4 + backY * 0.6],
     [bw * 0.08, backY],
-    [-bw * 0.16, -bh * 0.48],
+    [-bw * 0.15, -bh * 0.5],
     [-bw * 0.32, -bh * 0.3],
     [-bw * 0.425, -pedH * 1.6],
     [pedX + 1, -pedH],
