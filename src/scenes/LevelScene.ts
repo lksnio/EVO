@@ -9,7 +9,7 @@ import { speciesEnd } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
-import { LIFE, MISC, STAMINA, WORLD } from '../data/life';
+import { INHERIT, LIFE, MISC, STAMINA, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
@@ -240,6 +240,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   constructor() {
     super('Level');
+  }
+
+  preload() {
+    Shrine.preload(this);
   }
 
   init(d: { epoch?: number; place?: string }) {
@@ -2406,6 +2410,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Überstandene Treffer (schwere zählen mehr): Die Nachkommen bekommen robustere Schuppen
     this.train.hurt += p.takeEndured();
+    // Dem Tod nahe: Je länger man mit kaum Lebenskraft überlebt, desto robuster werden die Schuppen der Nachkommen
+    if (!p.dead && p.hp > 0 && p.hp < p.stats.maxHp * INHERIT.bonus.dangerHp) this.train.danger = (this.train.danger ?? 0) + dt;
     // Bodenkontakt: Wer sich am Grund abstützt und dort entlangläuft, bekommt kräftige Stützflossen
     // (an Land: Wer viel läuft, statt zu springen, bekommt kräftigere Beine)
     if (p.bottomWalk) game.grow('limb', 0.0045 * dt);

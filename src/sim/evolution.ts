@@ -33,14 +33,47 @@ export function evolutionBudget(eaten: { plant: number; meat: number }, defeats:
   return out;
 }
 
-/** Nur der Zugewinn streut. Der Gegenwert verliert immer die Hälfte der unteren Schranke, unabhängig vom Wurf. */
-export function evolutionStep(base: Gains, random = Math.random): Gains {
-  const out = { ...base };
-  for (const key of ['hp', ...COMBAT_SKILLS] as const) out[key] = base[key] > 0 ? base[key] * (1 + INHERIT.vary * (2 * random() - 1)) : 0;
-  const cost = (key: CombatSkill) => base[key] * (1 - INHERIT.vary) / 2;
+const KEYS = ['hp', ...COMBAT_SKILLS] as const;
+
+/** Was Schuppen und Tempo (Flossen) unabhängig von erlegten Gegnern aus der Spielweise bringen – feste Zuwächse ohne Streuung. */
+export interface Effort {
+  /** überstandene Treffer (gewichtet nach Schwere) */
+  hurt?: number;
+  /** Sekunden nahe am Tod (unter INHERIT.bonus.dangerHp der Lebenskraft) */
+  danger?: number;
+  /** Strecke mit Tempo und eingeholte Flüchtende */
+  swim?: number;
+  chase?: number;
+}
+
+export function evolutionBonus(e: Effort): Gains {
+  const B = INHERIT.bonus;
+  const out: Gains = { hp: 0, bite: 0, skull: 0, fins: 0, scales: 0 };
+  const hurt = Math.max(0, e.hurt ?? 0), danger = Math.max(0, e.danger ?? 0);
+  const near = danger > 0 ? 1 : 0;
+  // +2 bis +3 für überstandene Kämpfe; war man dem Tod nahe, mindestens volle Stufe und noch mehr je nach Dauer (bis +5)
+  out.scales = B.scalesHurt * Math.max(clamp(hurt / B.hurtRef, 0, 1), near) + near * (B.dangerMin + (B.dangerMax - B.dangerMin) * clamp(danger / B.dangerRef, 0, 1));
+  out.fins = B.finsSwim * clamp((e.swim ?? 0) / B.swimRef, 0, 1) + B.finsChase * clamp((e.chase ?? 0) / B.chaseRef, 0, 1);
+  return out;
+}
+
+/**
+ * Gewichtung, dann Streuung (nur des erspielten Zugewinns), dann fester Bonus – und als letzter Schritt bekommt jedes Feld
+ * +1 oder −1. Der Gegenwert verliert immer die Hälfte der unteren Schranke, unabhängig vom Wurf. random: 0,5 gibt die
+ * neutrale Vorschau (keine Streuung, keine ±1).
+ */
+export function evolutionStep(base: Gains, random = Math.random, fixed?: Partial<Gains>): Gains {
+  const W = INHERIT.weight;
+  const w = { ...base };
+  for (const key of KEYS) w[key] = base[key] * W[key];
+  const out = { ...w };
+  for (const key of KEYS) out[key] = w[key] > 0 ? w[key] * (1 + INHERIT.vary * (2 * random() - 1)) : 0;
+  const cost = (key: CombatSkill) => w[key] * (1 - INHERIT.vary) / 2;
   out.bite -= cost('skull');
   out.skull -= cost('bite');
   out.fins -= cost('scales');
   out.scales -= cost('fins');
+  for (const key of KEYS) out[key] += fixed?.[key] ?? 0;
+  for (const key of KEYS) out[key] += INHERIT.final * Math.sign(random() - 0.5);
   return out;
 }

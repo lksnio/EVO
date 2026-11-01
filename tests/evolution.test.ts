@@ -4,8 +4,17 @@ import { ADULT, phases } from '../src/sim/life';
 import { COMBAT_SKILLS, evolutionBudget, evolutionStep, recordDefeat, type Defeats } from '../src/sim/evolution';
 import { game, newStyle } from '../src/state/GameState';
 
-beforeEach(() => { game.resetAll(); game.newRun(); });
-afterEach(() => { INHERIT.points = 15; INHERIT.vary = 0.5; });
+/** Die alten Rechenwege prüfen wir ohne Gewichtung, Bonus und ±1 – die neuen in tests/bonus.test.ts. */
+const REAL = { weight: { ...INHERIT.weight }, bonus: { ...INHERIT.bonus }, final: INHERIT.final };
+const neutral = () => {
+  INHERIT.weight = { hp: 1, bite: 1, skull: 1, fins: 1, scales: 1 };
+  INHERIT.bonus = { ...REAL.bonus, scalesHurt: 0, dangerMin: 0, dangerMax: 0, finsSwim: 0, finsChase: 0 };
+  INHERIT.final = 0;
+};
+const restore = () => { INHERIT.weight = { ...REAL.weight }; INHERIT.bonus = { ...REAL.bonus }; INHERIT.final = REAL.final; };
+
+beforeEach(() => { game.resetAll(); game.newRun(); neutral(); });
+afterEach(() => { INHERIT.points = 15; INHERIT.vary = 0.5; restore(); });
 
 describe('Punktebudget und Varianz', () => {
   it('entspricht auch dem 10-Punkte-Beispiel: 6 Leben, 4 Gebiss, Wurf 2–6, Gegenwert −1', () => {

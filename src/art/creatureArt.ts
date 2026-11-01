@@ -258,17 +258,19 @@ function geoOf(m: Morph): Geo {
   // ein harter (gepanzerter) Kopf wird im Verhältnis zum Körper größer
   const hk = 1 + 0.28 * sk + 0.14 * Math.max(0, -(m.spike ?? 0)) * sk;
   const sn = m.snout ?? 0;
+  // Fische: Ein stärkeres Gebiss heißt ein größeres Maul (längerer, tieferer Kiefer) – nicht mehr oder längere Zähne
+  const jawK = fishJawK(m);
   switch (m.cls) {
     case 'fish': {
       const bw = 60 * (1 + 0.06 * st) * lk, bh = 28 * slim;
       const bb = bh * bellyK;
-      const H = (bh * 0.95 + 1) * hk * (1 + 0.1 * jaw) * (1 - 0.1 * sn), L = (20 + 16 * jaw) * hk * (1 + 0.34 * sn);
+      const H = (bh * 0.95 + 1) * hk * (1 + 0.12 * jawK) * (1 - 0.1 * sn), L = (20 + 20 * jawK) * hk * (1 + 0.34 * sn);
       return {
         s, bw, bh,
         pts: [[bw * 0.38, -bh * 0.42], [bw * 0.12, -bh * 0.56], [-bw * 0.2, -bh * 0.45], [-bw * 0.44, -bh * 0.17], [-bw * 0.52, -bh * 0.1],
           [-bw * 0.52, bh * 0.1], [-bw * 0.4, bb * 0.26], [-bw * 0.05, bb * 0.5], [bw * 0.28, bb * 0.44], [bw * 0.4, bh * 0.3]],
         neck: [bw * 0.34, -bh * 0.03], tailAt: [-bw * 0.5, 0], legF: [0, 0], legB: [0, 0], legLen: 0, legW: 0,
-        hg: { L, H, mouthY: H * 0.14, hingeX: L * (0.42 - 0.16 * jaw), jawH: 4 + 9 * jaw, dome: 4.5 * sk, snoutH: H * 0.3, ex: L * 0.4, ey: -H * 0.14, er: 2.8 * (1 + 0.25 * st) * (1 + 0.45 * Math.max(0, -(m.light ?? 0))) },
+        hg: { L, H, mouthY: H * 0.14, hingeX: L * (0.42 - 0.2 * Math.min(1.2, jawK)), jawH: 4 + 10 * jawK, dome: 4.5 * sk, snoutH: H * 0.3, ex: L * 0.4, ey: -H * 0.14, er: 2.8 * (1 + 0.25 * st) * (1 + 0.45 * Math.max(0, -(m.light ?? 0))) },
       };
     }
     case 'amphibian': {
@@ -981,9 +983,20 @@ function drawSkullGrowth(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   }
 }
 
+/**
+ * Wie groß das Maul eines Fisches ist: aus der Kieferausprägung und den Gebiss-Stufen (jede Stufe ein Stück mehr, später
+ * langsamer). Ersetzt die wachsenden Zähne – die bleiben klein.
+ */
+export function fishJawK(m: Morph) {
+  return m.jaw + 0.35 * Math.log2(1 + 0.15 * Math.max(0, Math.floor(m.toothTier ?? 0))) + 0.2 * (m.fang ?? 0);
+}
+
+/** Die Zähne eines Fisches: immer dieselben kleinen Zähne (ein Fisch bekommt nicht mehr Zähne, sondern ein größeres Maul). */
+const FISH_TEETH = 5, FISH_TOOTH = 1.7;
+
 function teethCount(m: Morph) {
   switch (m.cls) {
-    case 'fish': return Math.round(2 + 10 * m.jaw);
+    case 'fish': return FISH_TEETH;
     case 'amphibian': return Math.round(3 + 7 * m.jaw);
     case 'reptile': return Math.round(4 + 8 * m.jaw);
     case 'mammal': return Math.round(3 + 4 * m.jaw);
@@ -992,6 +1005,7 @@ function teethCount(m: Morph) {
 
 /** Jede Stufe bleibt sichtbar; später wächst das Gebiss langsamer, damit es zum Kopf passt. */
 function frontToothGrowth(m: Morph) {
+  if (m.cls === 'fish') return 0;
   return 12 * Math.log2(1 + 0.15 * Math.max(0, Math.floor(m.toothTier ?? 0)));
 }
 
@@ -1000,7 +1014,7 @@ function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
   const herb = m.diet < -0.3;
   const carn = Math.max(0, m.diet);
   const n = teethCount(m);
-  const len = (0.8 + (m.cls === 'fish' ? 6.5 : 4.5) * m.jaw) * (herb ? 0.6 : 1) * (1 + 0.3 * carn);
+  const len = (m.cls === 'fish' ? FISH_TOOTH : 0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * (1 + (m.cls === 'fish' ? 0.1 : 0.3) * carn);
   const span = L - hingeX - 4;
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n;
@@ -1011,7 +1025,7 @@ function drawTeeth(ctx: Ctx, m: Morph, hg: HeadGeo) {
   // Vorderzähne wachsen auch nach voller Kieferausprägung weiter, in Zehnerschritten des Gebisswerts.
   const fg = m.fang ?? 0;
   const tier = m.toothTier ?? 0;
-  if (tier > 0 || (fg > 0.1 && !herb)) {
+  if (m.cls !== 'fish' && (tier > 0 || (fg > 0.1 && !herb))) {
     const fl = Math.max(fg > 0.1 && !herb ? 3 + 13 * fg : 0, tier > 0 ? len + frontToothGrowth(m) : 0);
     tooth(ctx, L * 0.9 - 1, mouthY - 0.6, 1.8 + fl * 0.2, fl, 1, herb, 0.32);
     if (fg > 0.35 || tier >= 2) tooth(ctx, L * 0.72, mouthY - 0.6, 1.6 + fl * 0.16, fl * 0.75, 1, herb, 0.28);
@@ -1029,20 +1043,20 @@ function drawJaw(ctx: Ctx, m: Morph, P: Pal, hg: HeadGeo) {
   const h = hg.jawH;
   const herb = m.diet < -0.3;
   const n = Math.max(0, teethCount(m) - 1);
-  const tl = (0.8 + (m.cls === 'fish' ? 6.5 : 4.5) * m.jaw) * (herb ? 0.6 : 1) * 0.75;
+  const tl = (m.cls === 'fish' ? FISH_TOOTH : 0.8 + 4.5 * m.jaw) * (herb ? 0.6 : 1) * 0.75;
   for (let i = 0; i < n; i++) {
     const x = 3 + ((i + 0.5) * (len - 7)) / n;
     tooth(ctx, x, 0.4, 1.4 + tl * 0.45, tl, -1, herb, -0.2);
   }
   // unterer Reißzahn, der über die Oberlippe ragt
   const fg = m.fang ?? 0;
-  if (fg > 0.45 && !herb) tooth(ctx, len - 5, 0.4, 1.6 + fg * 2.4, 3 + 9 * fg, -1, false, -0.3);
+  if (m.cls !== 'fish' && fg > 0.45 && !herb) tooth(ctx, len - 5, 0.4, 1.6 + fg * 2.4, 3 + 9 * fg, -1, false, -0.3);
   const path = () => {
     ctx.beginPath();
     ctx.moveTo(-2, -0.4);
     ctx.lineTo(len, -0.4);
     ctx.quadraticCurveTo(len + 1.5, h * 0.55, len - 4, h);
-    ctx.quadraticCurveTo(len * 0.45, h * (1.2 + m.jaw * 0.2), -3, h * 0.8);
+    ctx.quadraticCurveTo(len * 0.45, h * (1.2 + (m.cls === 'fish' ? fishJawK(m) : m.jaw) * 0.2), -3, h * 0.8);
     ctx.closePath();
   };
   skin(ctx, path, { base: shade(P.base, -0.05), belly: P.belly, bellyBand: [h, h * 0.8, len * 0.6, len * 0.45], y0: 0, y1: h * 1.2, noise: 'mottle', noiseAlpha: 0.35, noiseScale: 0.28, seed: m.seed + 2, edge: P.dark, rim: 0.15 });

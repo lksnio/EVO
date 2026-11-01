@@ -223,16 +223,16 @@ export class RoeScene extends Phaser.Scene {
       this.low[g] = spanOf(vs, Math.min);
     }
     const pg = game.poolGen, own = this.gen, ahead = pg > own;
-    const run = game.run!;
     const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-    this.group('pool', 60, 120, pool,
-      ahead ? `GENERATION ${pg} · DEIN ARTGENOSSE IST SCHON DORT` : `GESCHWISTER · GENERATION ${own}`,
-      ahead
-        ? `Generation ${own} gibt es nicht mehr – nur hier geht es weiter (${plural(pool.length, 'Ei', 'Eier')})`
-        : pool.length ? `${plural(pool.length, 'Ei wartet', 'Eier warten')} – du bleibst in Generation ${own}`
-        : own <= 1 && !run.history.length ? 'Der Urfisch hat keine Geschwister.' : 'Keine Geschwister mehr.',
-      ahead);
-    this.group('next', 60, 340, roe,
+    // Nur ein Laichhaufen: Geschwister zeigt man nur, wenn es welche gibt (oder der Artgenosse schon weiter ist)
+    const sibs = pool.length > 0 || ahead;
+    if (sibs) {
+      this.group('pool', 60, 120, pool,
+        ahead ? `GENERATION ${pg} · DEIN ARTGENOSSE IST SCHON DORT` : `GESCHWISTER · GENERATION ${own}`,
+        ahead ? `Generation ${own} gibt es nicht mehr – nur hier geht es weiter (${plural(pool.length, 'Ei', 'Eier')})` : '',
+        ahead);
+    }
+    this.group('next', 60, sibs ? 340 : 190, roe,
       `NÄCHSTE GENERATION · GENERATION ${pg + 1}`,
       roe.length ? `${plural(roe.length, 'Ei', 'Eier')} aus eurem Laich – kein Weg zurück zu Generation ${pg}` : `Kein Laich – in Generation ${pg} hat noch niemand gelaicht.`,
       false);
@@ -442,8 +442,8 @@ export class RoeScene extends Phaser.Scene {
         : `Mit diesem Ei beginnt Generation ${gen}. Generation ${pg} ist zu Ende – es gibt kein Zurück.`
       : pg > own
         ? `Dein Artgenosse ist schon in Generation ${pg} – mit diesem Ei folgst du ihm. Zurück zu Generation ${own} führt kein Weg.`
-        : `Ein Geschwister: Du bleibst in Generation ${gen}${game.roe.length ? ' – euer Laich wartet weiter' : ''}.`;
-    c.add(text(this, 0, 224, note, 15, next || pg > own ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
+        : '';
+    if (note) c.add(text(this, 0, 224, note, 15, next || pg > own ? '#e0b070' : UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5, 0));
   }
 
   update(_t: number, delta: number) {

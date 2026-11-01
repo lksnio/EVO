@@ -5,6 +5,15 @@ import { game, meatChunks, meatOf, newStyle, noteBest, plateCeil, type Clutch, t
 import { SPECIES } from '../src/data/species';
 import { evolutionBudget, recordDefeat, type CombatSkill } from '../src/sim/evolution';
 
+/** Die alten Rechenwege prüfen wir ohne Gewichtung, Bonus und ±1 – die neuen in tests/bonus.test.ts. */
+const REAL = { weight: { ...INHERIT.weight }, bonus: { ...INHERIT.bonus }, final: INHERIT.final };
+const neutral = () => {
+  INHERIT.weight = { hp: 1, bite: 1, skull: 1, fins: 1, scales: 1 };
+  INHERIT.bonus = { ...REAL.bonus, scalesHurt: 0, dangerMin: 0, dangerMax: 0, finsSwim: 0, finsChase: 0 };
+  INHERIT.final = 0;
+};
+const restore = () => { INHERIT.weight = { ...REAL.weight }; INHERIT.bonus = { ...REAL.bonus }; INHERIT.final = REAL.final; };
+
 /**
  * Die nächste Generation schlüpft: Die Eier dieses Geleges kommen auf den Stapel (ohne Streuung, damit es nachprüfbar
  * bleibt), und das erste davon schlüpft. Gibt die Eier zurück.
@@ -24,8 +33,9 @@ describe('Generationswechsel', () => {
     game.resetAll();
     game.newRun();
     SPAWN.gold = 0;
+    neutral();
   });
-  afterEach(() => { SPAWN.gold = 0.05; INHERIT.vary = 0.5; });
+  afterEach(() => { SPAWN.gold = 0.05; INHERIT.vary = 0.5; restore(); });
 
   it('ein Jungtier ist klein und schwach, ausgewachsen stark – Artgenossen sind immer ausgewachsen', () => {
     const young = game.stats();

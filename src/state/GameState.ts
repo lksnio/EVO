@@ -5,7 +5,7 @@ import { SWARM } from '../data/swarm';
 import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
-import { evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
+import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
 import { INHERIT, LIFE, MOVEMENT, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN, OXYGEN } from '../data/karbon';
@@ -330,7 +330,7 @@ export type RoeGroup = 'pool' | 'next';
 /** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern (zur Laichzeit). */
 export interface Heir {
   /** Grundwerte und Zuwächse vor dem individuellen Wurf jedes Eis. */
-  evolution?: { traits: Traits; gains: Gains };
+  evolution?: { traits: Traits; gains: Gains; fixed?: Gains };
   traits: Traits;
   sex: Sex;
   seed: number;
@@ -731,6 +731,8 @@ export interface PlayStyle {
   pack: number;
   /** überstandene Treffer, gewichtet nach ihrer Schwere */
   hurt: number;
+  /** Sekunden nahe am Tod (wenig Lebenskraft) – je länger, desto mehr Schuppen für die Nachkommen */
+  danger?: number;
   /** Sekunden, in denen nach oben bzw. unten geschwommen wurde, schnell nach vorn, und wie oft die Richtung wechselte */
   up: number;
   down: number;
@@ -1424,7 +1426,7 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      const e: RoeEgg = { id: eggId(), traits: packTraits(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains) : h.traits), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
+      const e: RoeEgg = { id: eggId(), traits: packTraits(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains, Math.random, h.evolution.fixed) : h.traits), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
       // eine goldene Geburt: ein Segen mehr in einer Richtung, die noch wachsen kann
       if (Math.random() < SPAWN.gold) {
         const keys = this.upKeys.filter((k) => !this.upMaxed(k));
@@ -1457,8 +1459,8 @@ class GameState {
     this.save();
   }
 
-  private applyEvolution(start: Traits, gains: Gains, random = Math.random): Traits {
-    const d = evolutionStep(gains, random);
+  private applyEvolution(start: Traits, gains: Gains, random = Math.random, fixed?: Gains): Traits {
+    const d = evolutionStep(gains, random, fixed);
     const t = full({ ...start });
     t.vitality = (t.vitality ?? 0) + d.hp;
     t.biteGain = (t.biteGain ?? 0) + d.bite;
@@ -1527,6 +1529,7 @@ class GameState {
       t.diet = clamp(start.diet + lim(target - start.diet, S.diet) * sure, -DIET_MAX, DIET_MAX);
     }
     const gains = evolutionBudget(eaten, style.defeats ?? {});
+    const fixed = evolutionBonus(style);
     const fit = plateFit(style);
     // der Partner: ein wenig von seinem Aussehen (nicht von Größe, Kost, Robustheit oder den Platten)
     if (partner) {
@@ -1537,8 +1540,8 @@ class GameState {
       }
     }
     return {
-      traits: this.applyEvolution(t, gains, () => 0.5),
-      evolution: { traits: t, gains },
+      traits: this.applyEvolution(t, gains, () => 0.5, fixed),
+      evolution: { traits: t, gains, fixed },
       sex: newSex(),
       seed: Math.floor(Math.random() * 100000),
       fit,

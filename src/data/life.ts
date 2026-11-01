@@ -136,6 +136,31 @@ export const INHERIT = {
   ceilBase: 0.3,
   ceilPer: 0.45,
   step: { diet: 0.15, carry: 0.04 },
+  /**
+   * Gewichtung der Zuwächse: Schuppen, Flossen (und damit das Tempo) und der Schädel zählen etwas mehr, Gebiss und Lebenskraft
+   * etwas weniger.
+   */
+  weight: { hp: 0.85, bite: 0.85, skull: 1.15, fins: 1.25, scales: 1.3 },
+  /**
+   * Schuppen und Tempo kommen auch ohne erlegte Gegner: Wer Treffer überstanden hat, bekommt bis zu +scalesHurt (ab hurtRef
+   * überstandenen Treffern voll) – wer dem Tod nahe war (unter dangerHp der Lebenskraft), gleich +dangerMin und je nach Dauer
+   * (bis dangerRef Sekunden) bis zu +dangerMax obendrauf. Das Tempo ähnlich, nur kleiner: bis zu +finsSwim für viel schnelles
+   * Schwimmen (swimRef) und +finsChase für eingeholte Flüchtende (chaseRef).
+   */
+  bonus: {
+    scalesHurt: 3,
+    hurtRef: 8,
+    dangerHp: 0.25,
+    dangerMin: 1,
+    dangerMax: 2,
+    dangerRef: 15,
+    finsSwim: 1.5,
+    swimRef: 20,
+    finsChase: 1,
+    chaseRef: 3,
+  },
+  /** Am Ende bekommt jedes Feld noch +1 oder −1 (nach Gewichtung, Varianz und Bonus). */
+  final: 1,
   /** Varianz ausschließlich des neu erspielten Zugewinns (± Anteil), individuell je Ei. */
   vary: 0.5,
 };

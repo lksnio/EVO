@@ -223,8 +223,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     bringen würde (+2,5 % Lebenskraft, +25 % Ausdauer, +5 % Sicht, im Karbon +15 % Sauerstoff). Er gilt **nur für dieses
     Tier**, nicht für die Linie, und macht den nächsten Segen nicht teurer. In der Laich-Wahl leuchtet das Ei golden, die
     Karte trägt ein goldenes Band.
-  - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – der Urfisch hat keine), unten
-    der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Erbgutwerte** (Lebenskraft,
+  - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – gibt es keine, fehlt der
+    Kasten, und es steht nur **ein** Laich da), darunter der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Erbgutwerte** (Lebenskraft,
     Ausdauer, Gebiss, Stoß, Tempo, Schuppen), daneben den Unterschied zu deinem Tier; die besten Werte einer Gruppe
     leuchten ocker, die stärksten Eier stehen vorn. Werte und Reihenfolge sind für alle Spieler identisch: Angezeigt wird
     das ausgewachsene Erbgut einschließlich eines goldenen Ei-Segens. Persönliche Muschelsegen kommen beim Schlüpfen hinzu;
@@ -246,6 +246,13 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Zuwachs: Acht ebenbürtige Siege erschließen das volle Fleischbudget; stärkere Gegner zählen entsprechend mehr.
   Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
   Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
+  **Gewichtung** (`INHERIT.weight`): Schuppen ×1,3, Flossen/Tempo ×1,25 und Schädel ×1,15 zählen mehr, Gebiss und Lebenskraft
+  ×0,85 weniger. **Schuppen und Tempo auch ohne Sieg** (`INHERIT.bonus`, fester Zuwachs ohne Streuung): Überstandene
+  Treffer bringen bis **+3 Schuppen** (ab 8 Treffer-Punkten); wer **dem Tod nahe** war (unter 25 % Lebenskraft), bekommt
+  mindestens **+4**, je nach Dauer bis **+5** (ab 15 Sekunden). Viel schnelles Schwimmen (bis +1,5) und eingeholte
+  Flüchtende (bis +1) geben etwas Tempo – weniger als die Schuppen. **Als letzter Schritt** bekommt jedes Feld
+  (Lebenskraft, Gebiss, Schädel, Flossen, Schuppen) noch **+1 oder −1**. Ein stärkeres **Gebiss** zeigt sich bei Fischen
+  als **größeres Maul** (längerer, tieferer Kiefer), nicht mehr als mehr oder längere Zähne.
 - **Die Weltzeit** läuft für alle gleich (heute nach der Uhr des Rechners, im Mehrspieler nach der des Servers): Die
   12 Millionen Jahre des Devons (vor 383 bis 371 Millionen Jahren) dauern etwa 30 echte Tage. Oben im Bild stehen die Jahre – sie laufen **Jahr für Jahr**
   rückwärts –, darunter die **Lebenslinie** deines Tiers (mit Marken bei „ausgewachsen“ und „alt“; sie leuchtet warm, sobald
@@ -530,7 +537,8 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   **Weil sie so selten sind, gehören die Muscheln dir – nicht deiner Linie:** Sie bleiben über **alle Läufe** hinweg, auch
   wenn deine Linie ausstirbt.
 - **Die große Muschel – Muscheln verteilen:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
-  Fächermuschel**, perlmuttfarben, mit einer leise glühenden **Perle** davor, Lichtfunken steigen auf, von oben fällt ein
+  Fächermuschel** (gezeichnetes Bild `src/assets/shrine/muschel.webp`, rund 118 Bildpunkte breit), perlmuttfarben, mit einer
+  leise glühenden **Perle** in der Mitte, Lichtfunken steigen auf, von oben fällt ein
   Lichtschacht. Wer davor die Interaktionstaste drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
   viele Muscheln **frei** sind, und **drei Richtungen**, in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
   danach („27 → 28“):
