@@ -214,7 +214,7 @@ describe('Werte nach Verhalten (Stoß, Strömung, Strecke)', () => {
     const far = game.inherit({ plant: 0, meat: 0 }, { ...newStyle(), distance: INHERIT.endDistance });
     expect(none.traits.endGain ?? 0).toBe(0);
     expect(far.traits.endGain).toBeCloseTo(INHERIT.endStep);
-    expect(game.morph({ traits: far.traits }).crest).toBeGreaterThan(game.morph({ traits: none.traits }).crest);
-    expect(game.morph({ traits: { ...far.traits, finGain: 8 } }).fin).toBeGreaterThan(game.morph({ traits: far.traits }).fin);
+    expect(game.morph({ traits: far.traits }).crest ?? 0).toBeGreaterThan(game.morph({ traits: none.traits }).crest ?? 0);
+    expect(game.morph({ traits: { ...far.traits, finGain: 8 } }).fin ?? 0).toBeGreaterThan(game.morph({ traits: far.traits }).fin ?? 0);
   });
 });

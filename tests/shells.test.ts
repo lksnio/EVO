@@ -188,7 +188,7 @@ describe('Sicht wächst nur in der Tiefe', () => {
     expect(full.traits.scaleGain ?? 0).toBeCloseTo(none.traits.scaleGain ?? 0);
     expect(sightOf(full.traits.sightGain!)).toBeGreaterThan(sightOf(0));
     // größere Augen für die Nachkommen
-    expect(game.morph({ traits: full.traits }).eye).toBeGreaterThan(game.morph({ traits: none.traits }).eye);
+    expect(game.morph({ traits: full.traits }).eye ?? 0).toBeGreaterThan(game.morph({ traits: none.traits }).eye ?? 0);
   });
 
   it('alte Segen in Sicht zählen nicht mehr: die Muscheln sind wieder frei', () => {
