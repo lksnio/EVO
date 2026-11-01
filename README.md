@@ -380,7 +380,7 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
 
 Der gemalte Kopfpanzer aus `art/EVO_player_head_armor_v1` ist im Körper-Cache registriert (`painted.ts`): Augenanker statt fester Aussparung, mineralische Färbung, weiche Stärke über `A.plate`, organische Hinterkante. Die alte prozedurale Platte bleibt der Rückfall bei fehlendem Asset. Platte und gepanzerter Vorderkörper behalten bei Biss und Schwimmen ihre Form.
 
-Die Weltfische des Devons verwenden unter WebGL das gemeinsame Fisch-Rig mit festen Artprofilen (`src/art/fauna/fish.ts`). Die acht gelieferten Strahlenflosser-Körper werden gleichmäßig anhand ihrer eigenen Quellkoordinaten registriert, nicht auf die Spielerform gestreckt. Gillicus-Afterflosse, Protosphyraena-Brustflosse, Enchodus-Fangzahn und Xiphactinus-Kiefer ergänzen die wiederverwendeten Einzelteile. Die Kreide-Arten lassen sich in der Werkstatt prüfen, ohne das Zeitalter freizuschalten.
+Die Weltfische des Devons verwenden unter WebGL das gemeinsame Fisch-Rig mit festen Artprofilen (`src/art/fish/worldFish.ts` für Strahlenflosser, `src/art/fauna/fish.ts` für die übrigen Familien). Die acht gelieferten Strahlenflosser-Körper werden gleichmäßig anhand ihrer eigenen Quellkoordinaten registriert, nicht auf die Spielerform gestreckt. Gillicus-Afterflosse, Protosphyraena-Brustflosse, Enchodus-Fangzahn und Xiphactinus-Kiefer ergänzen die wiederverwendeten Einzelteile. Die Kreide-Arten lassen sich in der Werkstatt prüfen, ohne das Zeitalter freizuschalten.
 
 Haie besitzen asymmetrische Schwänze, gesonderte Flossen und Kiemenspalten; Stethacanthus seinen steifen Amboss. Lappenflosser besitzen fleischige Brustflossen, eine zweite Rückenflosse und einen spitzen Schwanzsaum. Kieferlose erhalten keinen beweglichen Unterkiefer; die Vorderkörper von Schild- und Panzerfischen bleiben starr. Dunkleosteus trägt Knochenklingen statt einer Zahnreihe; Hyneria und der ausdrücklich mit überarbeitete Karbon-Riese Rhizodus verwenden kräftige Lappenflosserprofile. Diese Familien passen die vorhandene Malerei und prozedurale Einzelteile an; sie haben keine neu gemalten Einzelbilder pro Art.
 
@@ -390,7 +390,7 @@ Trilobiten, Seeskorpione, Orthoceras und Quallen haben eigene Gelenkaufbauten (`
 
 Werkstatt: `?debug&gallery=fauna` (Leertaste blättert), optional `&ids=cladoselache,dunkleosteus,orthoceras`, `&hold=1` für ein offenes Maul, `&bite=2` für den Kieferzyklus und `&px=70` für eine Größenprobe. Spielerpanzer: `?debug&gallery=fish` mit den vorhandenen Morph-Parametern. Echte Browseraufnahmen liegen unter `art/vorlagen/fisch/aufnahmen/fauna/`.
 
-Laufzeitdateien reproduzieren: `python tools/fauna_assets.py` (Pillow). Originalbilder unter `art/` bleiben unverändert. Prüfung: `npm run build`, `npm test -- --maxWorkers=2`; zusätzlich Browserprüfung mit lokal installiertem `playwright-core` und Chromium über `tools/check_fauna.cjs` (siehe dessen Kopfkommentar).
+Laufzeitdateien reproduzieren: `python tools/fish_assets.py` und `python tools/world_fish_assets.py` (Pillow). Originalbilder unter `art/` bleiben unverändert. Prüfung: `npm run build`, `npm test -- --maxWorkers=2`; zusätzlich Browserprüfung mit lokal installiertem `playwright-core` und Chromium über `tools/check_fauna.cjs` (siehe dessen Kopfkommentar).
 
 ## Das Laichduell (Koop-Minispiel)
 
@@ -1299,3 +1299,5 @@ Der Workflow in `.github/workflows/deploy.yml` prüft und testet das Spiel bei j
 veröffentlicht `dist/client` auf GitHub Pages (Settings → Pages → Source: **GitHub Actions**). Dort gibt es keinen
 Spielserver – die Pages-Fassung spielt man allein. Für das gemeinsame Spiel läuft der Server auf deinem Rechner
 (siehe [Mehrspieler](#mehrspieler-prototyp)).
+
+Die zusammengeführte Strahlenflosser-Werkstatt bleibt unter `?debug&gallery=world` erreichbar (optional `compare`, `jaw`, `ids`). `?oldworld` schaltet nur diese acht Arten auf den bisherigen Sprite-Pfad zurück.

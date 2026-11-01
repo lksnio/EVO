@@ -34,3 +34,11 @@ for name, (f, k) in EXTRA.items():
     out = os.path.join(DST, f'{name}.webp')
     im.save(out, 'WEBP', quality=88 if name == 'mouth' else 90, method=6)
     print(name, im.size, os.path.getsize(out) // 1024, 'KB')
+
+# Dritter Satz: gemalter Kopfpanzer des Spielerfisches (art/EVO_player_head_armor_v1, geschlossene Basis ohne Augenöffnung)
+ARMOR = os.path.join(ART, 'EVO_player_head_armor_v1', 'EVO_player_head_armor_v1', 'textures', 'kopfpanzer_basis.png')
+im = Image.open(ARMOR).convert('RGBA')
+im = im.resize((round(im.width * 0.5), round(im.height * 0.5)), Image.LANCZOS)
+out = os.path.join(DST, 'armor.webp')
+im.save(out, 'WEBP', quality=90, method=6)
+print('armor', im.size, os.path.getsize(out) // 1024, 'KB')

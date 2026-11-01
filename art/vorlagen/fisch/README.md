@@ -163,6 +163,22 @@ Alle Aufnahmen ohne Grafikkarte (Software-GL, Chromium `--disable-gpu`).
 | `spiel_verdeckung.png` | Spielfisch frei / hinter Vordergrundpflanze / hinter Vordergrundfels (beide mit `DEPTH.decoFront` über dem Fisch) |
 | `spiel_drehen.png` | Wechsel der Schwimmrichtung bei nachlaufender Kamera: keine Helligkeitssprünge (die Aufhellung ist ein weich nachgeführter Wert, kein Wert je Bild) |
 
+### Kopfpanzer und feste Weltfische (`aufnahmen/kopfpanzer/`, `aufnahmen/weltfische/`)
+
+Alle Aufnahmen ohne Grafikkarte (Software-GL, Chromium `--disable-gpu`).
+
+| Datei | Inhalt |
+|---|---|
+| `kopfpanzer/werkstatt_ohne_mittel_max.png`, `werkstatt_stufen.png` | ohne / mittel / maximal und die stufenlose Entwicklung (Schädel 0,1 … 1) |
+| `kopfpanzer/werkstatt_mischformen.png` | schwach, stark, mit Gebiss, kurz, lang, mit Schuppenpanzer |
+| `kopfpanzer/werkstatt_biss.png`, `spiel_max_biss.png`, `spiel_mittel.png` | Biss geschlossen / halb / offen, Werkstatt und Spiel |
+| `kopfpanzer/groessen_45_70_90.png`, `detail_max.png` | Lesbarkeit bei 45 / 70 / 90 px, Detail der Hinterkante und der Augenhöhle |
+| `weltfische/werkstatt_alle_neu_alt.png` | die acht Arten im Rig (oben) und als altes Bild (unten) |
+| `weltfische/werkstatt_jaeger_zu_offen.png` | Cheirolepis, Enchodus, Protosphyraena, Gillicus: Maul zu / offen |
+| `weltfische/groessen_45_70_90.png` | Vorlage (masters/) – neu (Rig) – alt bei 45 / 70 / 90 px |
+| `weltfische/spiel_biss_zustaende.png` | Jäger im Spiel: Schwimmen, Ausholen (Krümmung), Zuschnappen |
+| `weltfische/spiel_neu.png`, `spiel_alt.png` | dieselbe Szene im Level mit Rig und mit den alten Bildern |
+
 ## Prüfungen
 
 * **Spielstände:** Ein Spielstand, geschrieben vom Stand `a6def21` (vor dem Fisch-Rig), lädt im neuen Spiel (Schädel 0,4, Kiefer 0,35, Gebisszuwachs 14 …), Level, Laich, Übersicht (C),

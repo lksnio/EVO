@@ -3,36 +3,13 @@ import type { Art, SpeciesDef } from '../../data/species';
 import { fishAnatomy, type FishAnatomy, type P2 } from '../fish/anatomy';
 import type { Morph, Pal } from '../creatureArt';
 import { fishTextures } from '../fish/rig';
-import { bodyPath, paintBody, paintCaudal, paintJaw, paintOverlay, paintUpperTeeth, paintLowerTeeth } from '../fish/paint';
+import { bodyPath, paintBody, paintCaudal, paintJaw, paintOverlay } from '../fish/paint';
 import { paintBodyPainted, paintJawPainted, paintedReady } from '../fish/painted';
 import { css, mix, shade } from '../../util/color';
 import type { Ctx } from '../../util/canvas';
-import registration from './registration.json';
-
-const images: Record<string, string> = {
-  apsopelix: new URL('../../assets/fish/fauna/apsopelix.webp', import.meta.url).href,
-  cheirolepis: new URL('../../assets/fish/fauna/cheirolepis.webp', import.meta.url).href,
-  elonichthys: new URL('../../assets/fish/fauna/elonichthys.webp', import.meta.url).href,
-  enchodus: new URL('../../assets/fish/fauna/enchodus.webp', import.meta.url).href,
-  enchodus_fang: new URL('../../assets/fish/fauna/enchodus_fang.webp', import.meta.url).href,
-  gillicus: new URL('../../assets/fish/fauna/gillicus.webp', import.meta.url).href,
-  gillicus_anal: new URL('../../assets/fish/fauna/gillicus_anal.webp', import.meta.url).href,
-  moythomasia: new URL('../../assets/fish/fauna/moythomasia.webp', import.meta.url).href,
-  protosphyraena: new URL('../../assets/fish/fauna/protosphyraena.webp', import.meta.url).href,
-  protosphyraena_pectoral: new URL('../../assets/fish/fauna/protosphyraena_pectoral.webp', import.meta.url).href,
-  xiphactinus: new URL('../../assets/fish/fauna/xiphactinus.webp', import.meta.url).href,
-  xiphactinus_jaw: new URL('../../assets/fish/fauna/xiphactinus_jaw.webp', import.meta.url).href,
-};
-export function preloadFauna(scene: Phaser.Scene) {
-  for (const [path, url] of Object.entries(images)) {
-    const id = path.split('/').pop()!.replace('.webp', '');
-    if (id !== 'head_armor' && !scene.textures.exists('fauna_src_' + id)) scene.load.image('fauna_src_' + id, url);
-  }
-}
+import { isWorldFish, worldFishTex } from '../fish/worldFish';
 
 type FishArt = Extract<Art, { t: 'fish' }>;
-type Registered = (typeof registration)[keyof typeof registration];
-export const rayRegistration = (id: string): Registered | undefined => (registration as Record<string, Registered>)[id];
 
 /** Fixed species share the player's skeleton, never its evolution or gameplay values. */
 export function speciesAnatomy(def: SpeciesDef): FishAnatomy {
@@ -46,44 +23,18 @@ export function speciesAnatomy(def: SpeciesDef): FishAnatomy {
     snout: p.snout ?? (def.id === 'rhizodus' ? 0.8 : p.shark ? 0.5 : 0), len: p.eel ? 1 : 0, girth: p.eel ? -1 : 0 };
   const A = fishAnatomy(m);
   A.s = 1;
-  const r = rayRegistration(def.id);
-  if (r) {
-    // Uniform registration preserves the new paintings' proportions and alpha silhouette.
-    const k = 100 / (r.bounds[2] - r.bounds[0]);
-    const ox = (r.bounds[0] + r.bounds[2]) / 2, oy = r.points.tailRoot[1];
-    const pt = (v: number[]): P2 => [(v[0] - ox) * k, (v[1] - oy) * k];
-    const at = (name: keyof typeof r.points) => pt(r.points[name]);
-    A.bounds = { x0: -52, x1: 52, y0: (r.bounds[1] - oy) * k - 3, y1: (r.bounds[3] - oy) * k + 4 };
-    [A.hx, A.hy] = at('headStart');
-    A.tip = at('upperLip'); A.hinge = at('jawHinge');
-    // Lip angle belongs to the species; keep the jaw pivot below the eye.
-    const e = at('eye');
-    A.eye = { x: e[0], y: e[1], r: Math.max(1.1, Math.min(1.9, (A.bounds.y1 - A.bounds.y0) * 0.065)) };
-    A.pedX = at('tailRoot')[0];
-    A.bw = (A.hx - A.pedX) * 1.65; A.bh = (A.bounds.y1 - A.bounds.y0) * 0.65; A.bb = A.bh;
-    A.hg = { ...A.hg, L: A.tip[0] - A.hx, H: A.bh * 0.9, ey: e[1] - A.hy, mouthY: A.hinge[1] - A.hy };
-    A.jawRest = Math.atan2(A.tip[1] - A.hinge[1], A.tip[0] - A.hinge[0]);
-    A.jawLen = Math.max(4, Math.hypot(A.tip[0] - A.hinge[0], A.tip[1] - A.hinge[1]));
-    A.jawH = Math.max(2.4, Math.min(5, (A.bounds.y1 - A.hinge[1] - 4) * 0.55));
-    A.dorsal.at = at('dorsalRoot'); A.anal.at = at('analRoot'); A.pelvic.at = at('pelvicRoot'); A.pectoral.at = at('pectoralRoot');
-    A.dorsal.base = 19; A.dorsal.len = 12; A.anal.base = 13; A.anal.len = 9;
-    A.pelvic.len = 7; A.pectoral.len = 15;
-    A.anchorX = A.hx - 18; A.neckX = A.hx - 5;
-    A.plate = 0;
-  } else {
-    // Keep each family slender/deep according to its species profile, with a readable head at game scale.
-    const h = Math.max(p.h / p.len, p.eel ? 0.1 : 0.25);
-    const bodyHeight = Math.max(...A.loop.map(q => q[1])) - Math.min(...A.loop.map(q => q[1]));
-    const ky = h * (A.tip[0] - A.pedX) / bodyHeight;
-    const map = (q: P2): P2 => [q[0], q[1] * ky];
-    A.bh *= ky; A.bb *= ky; A.hy *= ky; A.pedH *= ky;
-    A.hg = { ...A.hg, H: A.hg.H * ky, mouthY: A.hg.mouthY * ky, jawH: A.hg.jawH * ky, dome: A.hg.dome * ky, snoutH: A.hg.snoutH * ky, ey: A.hg.ey * ky };
-    A.loop = A.loop.map(map); A.hinge = map(A.hinge); A.tip = map(A.tip); A.jawH *= ky;
-    A.tail.spread *= Math.max(0.5, ky);
-    A.eye.y *= ky;
-    for (const f of [A.dorsal, A.anal, A.pelvic, A.pectoral]) f.at = map(f.at);
-    A.bounds.y0 *= ky; A.bounds.y1 *= ky;
-  }
+  // Keep each family slender/deep according to its species profile, with a readable head at game scale.
+  const h = Math.max(p.h / p.len, p.eel ? 0.1 : 0.25);
+  const bodyHeight = Math.max(...A.loop.map(q => q[1])) - Math.min(...A.loop.map(q => q[1]));
+  const ky = h * (A.tip[0] - A.pedX) / bodyHeight;
+  const map = (q: P2): P2 => [q[0], q[1] * ky];
+  A.bh *= ky; A.bb *= ky; A.hy *= ky; A.pedH *= ky;
+  A.hg = { ...A.hg, H: A.hg.H * ky, mouthY: A.hg.mouthY * ky, jawH: A.hg.jawH * ky, dome: A.hg.dome * ky, snoutH: A.hg.snoutH * ky, ey: A.hg.ey * ky };
+  A.loop = A.loop.map(map); A.hinge = map(A.hinge); A.tip = map(A.tip); A.jawH *= ky;
+  A.tail.spread *= Math.max(0.5, ky);
+  A.eye.y *= ky;
+  for (const f of [A.dorsal, A.anal, A.pelvic, A.pectoral]) f.at = map(f.at);
+  A.bounds.y0 *= ky; A.bounds.y1 *= ky;
   A.jawless = !!p.jawless;
   A.teeth = p.jawless || !p.teeth ? 'none' : p.armor ? 'blades' : 'teeth';
   if (p.shark) {
@@ -135,40 +86,19 @@ export function speciesAnatomy(def: SpeciesDef): FishAnatomy {
   if (p.spiny || p.spines) { A.dorsal.shape = 'shark'; A.dorsal.stiffness = 0.85; }
   if (def.id === 'gillicus') { A.anal.base = 40; A.anal.len = 13; }
   // Include asymmetrical caudal tips and all solid plate silhouettes in the mesh bounds.
-  if (!r) {
-    A.bounds.x0 = Math.min(A.bounds.x0, A.pedX - A.tail.lobe * (1 + A.tail.up * 0.6) - 4);
-    A.bounds.y0 = Math.min(A.bounds.y0, -A.tail.spread * (1 + A.tail.up) - 4);
-  }
+  A.bounds.x0 = Math.min(A.bounds.x0, A.pedX - A.tail.lobe * (1 + A.tail.up * 0.6) - 4);
+  A.bounds.y0 = Math.min(A.bounds.y0, -A.tail.spread * (1 + A.tail.up) - 4);
   return A;
 }
 
 const paletteOf = (p: FishArt, def: SpeciesDef): Pal => ({ base: p.c, belly: p.belly, fin: p.fin,
   dark: shade(p.c, -0.7), camo: shade(p.c, -0.25), eye: def.boss ? 0xcb8b37 : def.role === 'predator' ? 0xbf9a49 : 0x6c7250 });
 
-function image(scene: Phaser.Scene, id: string) {
-  return scene.textures.get('fauna_src_' + id).getSourceImage() as HTMLImageElement;
-}
-
 export function speciesFishTextures(scene: Phaser.Scene, def: SpeciesDef) {
+  if (isWorldFish(def.id)) return worldFishTex(scene, def, 90).T;
   const A = speciesAnatomy(def), p = def.art as FishArt, P = paletteOf(p, def);
-  const r = rayRegistration(def.id);
   return fishTextures(scene, A.m, { id: def.id, A, P,
     body: ctx => {
-      if (r && scene.textures.exists('fauna_src_' + def.id)) {
-        const k = 100 / (r.bounds[2] - r.bounds[0]);
-        paintUpperTeeth(ctx, A);
-        ctx.save();
-        // Remove the immobile chin without drawing a seam through the neck.
-        ctx.beginPath(); ctx.moveTo(-200, -200); ctx.lineTo(200, -200);
-        ctx.lineTo(200, A.tip[1]); ctx.lineTo(A.tip[0], A.tip[1]);
-        ctx.lineTo(A.hinge[0], A.hinge[1]); ctx.lineTo(A.hinge[0] - 1, 200); ctx.lineTo(-200, 200); ctx.closePath(); ctx.clip();
-        ctx.drawImage(image(scene, def.id), -(r.bounds[0] + r.bounds[2]) * k / 2, -r.points.tailRoot[1] * k, r.size[0] * k, r.size[1] * k);
-        ctx.restore();
-        if (def.id === 'enchodus' && scene.textures.exists('fauna_src_enchodus_fang')) {
-          ctx.drawImage(image(scene, 'enchodus_fang'), A.tip[0] - 6, A.tip[1] - 0.5, 4, 6);
-        }
-        return;
-      }
       // Shared painted skin with family-specific caudal and skull; no whole-fish sprite is stretched.
       if (paintedReady(scene)) {
         ctx.save(); ctx.beginPath(); ctx.rect(A.pedX - 3, -500, 700, 1000); ctx.clip();
@@ -186,29 +116,11 @@ export function speciesFishTextures(scene: Phaser.Scene, def: SpeciesDef) {
         ctx.restore();
       }
     },
-    overlay: ctx => {
-      if (r) {
-        ctx.beginPath(); ctx.moveTo(A.hx + 2, A.eye.y - 2);
-        ctx.quadraticCurveTo(A.hx - 3, A.hy, A.hx + 2, A.pectoral.at[1]);
-        ctx.strokeStyle = css(P.dark, 0.5); ctx.lineWidth = 0.55; ctx.stroke();
-      } else if (!p.shark && !p.jawless && !p.armor) paintOverlay(ctx, A, P);
-    },
+    overlay: ctx => { if (!p.shark && !p.jawless && !p.armor) paintOverlay(ctx, A, P); },
     jaw: ctx => {
       if (A.jawless) return;
-      if (def.id === 'xiphactinus' && scene.textures.exists('fauna_src_xiphactinus_jaw')) {
-        paintLowerTeeth(ctx, A);
-        ctx.drawImage(image(scene, 'xiphactinus_jaw'), -2, -A.jawH * 0.2, A.jawLen + 3, A.jawH * 1.2);
-      } else if (paintedReady(scene)) paintJawPainted(ctx, scene, A, P);
+      if (paintedReady(scene)) paintJawPainted(ctx, scene, A, P);
       else paintJaw(ctx, A, P);
-    },
-    fin: (ctx, kind, far) => {
-      const id = def.id === 'gillicus' && kind === 'anal' ? 'gillicus_anal'
-        : def.id === 'protosphyraena' && kind === 'pectoral' ? 'protosphyraena_pectoral' : '';
-      if (!id || !scene.textures.exists('fauna_src_' + id)) return false;
-      if (far) ctx.globalAlpha = 0.6;
-      if (kind === 'anal') ctx.drawImage(image(scene, id), -A.anal.base / 2, -2, A.anal.base, A.anal.len + 2);
-      else ctx.drawImage(image(scene, id), -A.pectoral.len, -3, A.pectoral.len + 2, A.pectoral.len * 0.7);
-      return true;
     },
   });
 }

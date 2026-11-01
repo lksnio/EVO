@@ -3,6 +3,7 @@ import type { SpeciesDef } from '../data/species';
 import { FishRig, type FishPose } from '../art/fish/rig';
 import { InvertebrateRig } from '../art/fauna/invertebrate';
 import { speciesFishTextures } from '../art/fauna/fish';
+import { WORLD_FISH_IDS } from '../art/fish/worldFish';
 import { EPOCHS, epochSpecies } from '../data/epochs';
 
 const supported = new Set([...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus',
@@ -23,13 +24,17 @@ export class FaunaView extends Phaser.GameObjects.Container {
 
   static supports(scene: Phaser.Scene, def: SpeciesDef) {
     return scene.sys.game.renderer.type === Phaser.WEBGL && supported.has(def.id)
-      && !new URLSearchParams(location.search).has('oldfauna');
+      && !new URLSearchParams(location.search).has('oldfauna')
+      && !(WORLD_FISH_IDS.includes(def.id as typeof WORLD_FISH_IDS[number]) && new URLSearchParams(location.search).has('oldworld'));
   }
 
   constructor(scene: Phaser.Scene, readonly def: SpeciesDef) {
     super(scene, 0, 0);
     this.rig = def.art.t === 'fish' ? new FishRig(scene, speciesFishTextures(scene, def)) : new InvertebrateRig(scene, def);
-    this.add(this.rig.parts);
+    if (this.rig instanceof FishRig && WORLD_FISH_IDS.includes(def.id as typeof WORLD_FISH_IDS[number])) {
+      const A = this.rig.A, b = A.bounds;
+      this.add(new Phaser.GameObjects.Container(scene, -(b.x0 + b.x1) * A.s / 2, -(b.y0 + b.y1) * A.s / 2, this.rig.parts));
+    } else this.add(this.rig.parts);
     this.naturalWidth = this.rig instanceof FishRig ? (this.rig.A.bounds.x1 - this.rig.A.bounds.x0) * this.rig.A.s : this.rig.width;
   }
 

@@ -18,6 +18,7 @@ const base=process.env.EVO_BASE_URL || 'http://127.0.0.1:8080';
  const folder=path.resolve(__dirname, '../art/vorlagen/fisch/aufnahmen/fauna') + '/';
  require('node:fs').mkdirSync(folder,{recursive:true});
  const cases=[
+ ['strahlenflosser','gallery=world&cols=4&zoom=1.3'],
  ['gruppen','gallery=fauna&ids=cheirolepis,moythomasia,cladoselache,stethacanthus,osteolepis,hyneria,dunkleosteus,rhizodus,bothriolepis,cephalaspis,orthoceras,pterygotus'],
  ['devon_weitere','gallery=fauna&ids=acanthodes,thelodus,kieferlos,cheiracanthus,drepanaspis,dipterus,pteraspis,pterichthyodes,climatius,conodont,trilobit,dalmanites'],
  ['biss','gallery=fauna&hold=1&ids=cladoselache,stethacanthus,rolfosteus,eusthenopteron,holoptychius,tiktaalik,dunkleosteus,hyneria,rhizodus,orthoceras,seeskorpion,megalograptus'],
@@ -25,13 +26,13 @@ const base=process.env.EVO_BASE_URL || 'http://127.0.0.1:8080';
  ['kopfpanzer_biss','gallery=fish&hold=1&set='+encodeURIComponent(JSON.stringify([['Panzer',{skull:1,spike:-1}],['Panzer + Gebiss',{skull:1,spike:-1,jaw:1,diet:1}]]))],
  ['kopfpanzer','gallery=fish&set='+encodeURIComponent(JSON.stringify([['ohne',{}],['mittel',{skull:.35,spike:-.3}],['maximal',{skull:1,spike:-1}],['Panzer + Gebiss',{skull:1,spike:-1,jaw:1,diet:1}],['kurz + Panzer',{skull:1,spike:-1,len:-1,girth:1}],['lang + Panzer',{skull:1,spike:-1,len:1,girth:-1}]]))],
  ];
- for(const [name,query] of (process.argv.includes('--quick') ? [['quick','gallery=fauna&ids=cladoselache']] : process.argv.includes('--sizes') ? cases.filter(([name])=>name.startsWith('klein_')||name==='kopfpanzer_biss') : cases)){
+ for(const [name,query] of (process.argv.includes('--quick') ? [['quick','gallery=fauna&ids=cladoselache']] : process.argv.includes('--merge') ? cases.filter(([name])=>['gruppen','strahlenflosser','kopfpanzer','kopfpanzer_biss'].includes(name)) : process.argv.includes('--sizes') ? cases.filter(([name])=>name.startsWith('klein_')||name==='kopfpanzer_biss') : cases)){
    await page.goto(base+'/?debug&'+query);
    await page.waitForFunction(()=>window.__evo?.game.scene.isActive('Gallery'),null,{timeout:60000});
    await page.waitForTimeout(1200);
    await page.screenshot({path:folder+name+'.png'});
  }
- if(process.argv.includes('--sizes')){await browser.close();assert.deepEqual(errors,[]);console.log('45/70/90 px and armored bite captures passed');return;}
+ if(process.argv.includes('--sizes')||process.argv.includes('--merge')){await browser.close();assert.deepEqual(errors,[]);console.log('Visual captures passed');return;}
  // The real Level scene, with existing player, sight layer, physics and NPC lifecycle.
  await page.evaluate(async()=>{
    const e=window.__evo;
@@ -46,10 +47,12 @@ const base=process.env.EVO_BASE_URL || 'http://127.0.0.1:8080';
    const {Animal}=await import('/src/objects/Animal.ts');
    const {GhostAnimal}=await import('/src/net/GhostAnimal.ts');
    const {SPECIES}=await import('/src/data/species.ts');
+   const {makeSpeciesTextures}=await import('/src/art/speciesArt.ts');
    const sc=window.__evo.game.scene.getScene('Level');
    const snapshot=a=>({w:a.b.sourceWidth,h:a.b.sourceHeight,ox:a.b.offset.x,oy:a.b.offset.y,bite:a.biteRect()});
    const tests=[];
-   for(const id of ['cladoselache','dunkleosteus','bothriolepis','orthoceras','trilobit','pterygotus','qualle']){
+   for(const id of ['cheirolepis','moythomasia','gillicus','enchodus','protosphyraena','xiphactinus','cladoselache','dunkleosteus','bothriolepis','orthoceras','trilobit','pterygotus','qualle']){
+     makeSpeciesTextures(sc,SPECIES[id]);
      history.replaceState(null,'','/?debug&oldfauna');
      const old=new Animal(sc,SPECIES[id],sc.player.x+200,sc.player.y);old.setScale(1);old.b.updateFromGameObject();old.dir=1;
      history.replaceState(null,'','/?debug');

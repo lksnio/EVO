@@ -262,3 +262,96 @@ describe('Spieleraufhellung (LIFT)', () => {
     expect(LIFT.rate).toBeLessThanOrEqual(4);
   });
 });
+
+describe('Gemalter Kopfpanzer (Registrierung)', () => {
+  const MAXP = { skull: 1, spike: -1 } as Partial<Morph>;
+  it('die Augenmitte des Bildes liegt auf A.eye, die Abbildung ist streng wachsend (keine Faltung) – auch bei Mischformen', async () => {
+    const { armorMapper, ARMOR } = await import('../src/art/fish/painted');
+    for (const v of [MAXP, { ...MAXP, len: -1, girth: 1 }, { ...MAXP, len: 1, girth: -1 }, { ...MAXP, jaw: 1, diet: 1, toothTier: 9 }, { skull: 0.3, spike: -0.3 }]) {
+      const a = A(v), map = armorMapper(a);
+      expect(map(ARMOR.eye[0])).toBeCloseTo(a.eye.x, 6);
+      let prev = -Infinity;
+      for (let px = 0; px <= ARMOR.w; px += 20) {
+        const x = map(px);
+        expect(x).toBeGreaterThan(prev);
+        prev = x;
+      }
+    }
+  });
+  it('die Referenzform liefert die Maße des Pakets (Augenmitte, Hinterkante), die Hinterkante bleibt am Kopf, nicht an der Schnauze', async () => {
+    const { armorMapper } = await import('../src/art/fish/painted');
+    const ref = A(MAXP), long = A({ ...MAXP, jaw: 1, diet: 1, toothTier: 9 });
+    const rearRef = armorMapper(ref)(0) - ref.hx, rearLong = armorMapper(long)(0) - long.hx;
+    expect(rearRef).toBeGreaterThan(-20);
+    expect(rearRef).toBeLessThan(-14);
+    expect(Math.abs(rearLong - rearRef)).toBeLessThan(3);
+  });
+  it('die Deckung wächst mit A.plate von 0 (ohne Panzer) bis 1 und bleibt dazwischen stetig', async () => {
+    const { armorCover } = await import('../src/art/fish/painted');
+    expect(armorCover(A({}))).toBe(0);
+    expect(armorCover(A(MAXP))).toBe(1);
+    let prev = 0;
+    for (let k = 0; k <= 10; k++) {
+      const c = armorCover(A({ skull: k / 10, spike: -k / 10 }));
+      expect(c).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = c;
+    }
+  });
+});
+
+describe('Feste Weltfische (Strahlenflosser Teil 2)', () => {
+  it('alle acht Arten existieren als Fische in den Artdaten, die Bilder und ihre Registrierung sind vollständig', async () => {
+    const { PROFILES, WORLD_FISH_IDS } = await import('../src/art/fish/worldFish');
+    const { SPECIES } = await import('../src/data/species');
+    const { existsSync } = await import('node:fs');
+    const reg = (await import('../src/art/fish/worldFish.json')).default as Record<string, { w: number; h: number; k: number; bounds: number[] }>;
+    expect(WORLD_FISH_IDS.length).toBe(8);
+    for (const id of WORLD_FISH_IDS) {
+      expect(SPECIES[id]?.art.t).toBe('fish');
+      expect(PROFILES[id]).toBeTruthy();
+      expect(existsSync(`src/assets/fish/world/${id}.webp`)).toBe(true);
+      expect(reg[id].k).toBeGreaterThan(0);
+      expect(reg[id].bounds[2]).toBeGreaterThan(reg[id].bounds[0]);
+    }
+    for (const k of ['protosphyraena_pectoral', 'gillicus_anal', 'xiphactinus_jaw', 'enchodus_fang']) expect(existsSync(`src/assets/fish/world/${k}.webp`)).toBe(true);
+  });
+
+  it.each(['cheirolepis', 'moythomasia', 'elonichthys', 'apsopelix', 'gillicus', 'enchodus', 'protosphyraena', 'xiphactinus'] as const)(
+    '%s: Ansatzpunkte liegen im Bild und in sinnvoller Reihenfolge, Maße im Rahmen des Spielerfisches', async (id) => {
+      const { PROFILES, profileMetrics } = await import('../src/art/fish/worldFish');
+      const reg = (await import('../src/art/fish/worldFish.json')).default as Record<string, { bounds: number[] }>;
+      const p = PROFILES[id].pts, b = reg[id].bounds;
+      for (const [k, [x, y]] of Object.entries(p)) {
+        expect(x, k).toBeGreaterThan(b[0] - 20);
+        expect(x, k).toBeLessThan(b[2] + 20);
+        expect(y, k).toBeGreaterThan(b[1] - 20);
+        expect(y, k).toBeLessThan(b[3] + 20);
+      }
+      // von hinten nach vorn: Schwanzstiel, Kopfbeginn, Auge; das Maulgelenk hinter der Lippenspitze; die Maulspalte steigt zur Schnauze an (oder liegt flach)
+      expect(p.tail[0]).toBeLessThan(p.head[0]);
+      expect(p.head[0]).toBeLessThan(p.eye[0]);
+      expect(p.hinge[0]).toBeLessThan(p.lip[0]);
+      expect(p.lip[1]).toBeLessThanOrEqual(p.hinge[1] + 4);
+      expect(p.dorsal[0]).toBeGreaterThan(p.tail[0]);
+      expect(p.dorsal[0]).toBeLessThan(p.head[0]);
+      const m = profileMetrics(id);
+      expect(m.bw).toBeGreaterThan(42);
+      expect(m.bw).toBeLessThan(58);
+      expect(m.jawLen).toBeGreaterThan(4);
+      expect(m.jawLen).toBeLessThan(22);
+      expect(m.jawRest).toBeLessThanOrEqual(0.05);
+      expect(m.jawRest).toBeGreaterThan(-0.7);
+    });
+
+  it('Sonderteile gehören zu den richtigen Arten', async () => {
+    const { PROFILES } = await import('../src/art/fish/worldFish');
+    expect(PROFILES.gillicus.specialAnal).toBe(true);
+    expect(PROFILES.protosphyraena.specialPec).toBe(true);
+    expect(PROFILES.xiphactinus.heavyJaw).toBe(true);
+    expect(PROFILES.enchodus.fang).toBeTruthy();
+    // der Fangzahn sitzt vor dem Maulgelenk und über der Maulspalte
+    const e = PROFILES.enchodus;
+    expect(e.fang![0]).toBeGreaterThan(e.pts.hinge[0]);
+    expect(e.fang![1]).toBeLessThan(e.pts.hinge[1]);
+  });
+});

@@ -62,7 +62,7 @@ export interface FishTex {
   lidEdge: number;
 }
 
-type Box = { x0: number; x1: number; y0: number; y1: number };
+export type Box = { x0: number; x1: number; y0: number; y1: number };
 
 /**
  * Völlig durchsichtige Pixel bekommen Alpha 1/255 (und Farbe schwarz). Der Tintmodus der Aufhellung (MULTIPLY_TWO) rechnet mit der
@@ -75,7 +75,7 @@ function floorAlpha(ctx: Ctx) {
   ctx.putImageData(id, 0, 0);
 }
 
-function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (ctx: Ctx) => void) {
+export function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (ctx: Ctx) => void) {
   if (scene.textures.exists(key)) return key;
   const R = FISH_RES * s;
   const [c, ctx] = newCanvas((box.x1 - box.x0) * R, (box.y1 - box.y0) * R, true);
@@ -278,10 +278,10 @@ export class FishRig {
       this.floor = new Grid(scene, MOUTH_KEY, unit, MOUTH_COLS, 1, [0.45, 0.6, 0.95, 0.88]);
     }
     const jb = T.box.jaw;
-    this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(this.s / FISH_RES);
+    this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(1 / FISH_RES);
     const pec = finGrid('pec');
     this.lid = new Phaser.GameObjects.Graphics(scene);
-    this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
+    this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(1 / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
     if (A.jawless) {

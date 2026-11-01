@@ -31,7 +31,6 @@ export interface FishAnatomy {
   /** Starre Vorderpartie: ab hier keine Biegung, Streckung oder Stauchung. */
   rigidFrom?: number;
   jawless?: boolean;
-  jawRest?: number;
   teeth?: 'none' | 'teeth' | 'blades';
   dorsal2?: FinSpec;
   /** Größe des Tiers (Faktor auf alle Zeicheneinheiten) */
@@ -54,6 +53,10 @@ export interface FishAnatomy {
   tip: P2;
   jawLen: number;
   jawH: number;
+  /** feste Weltarten: Neigung der Maulspalte gegen die Körperachse (Bogenmaß, negativ = zur Schnauze hin ansteigend); der Spieler hat 0 */
+  jawRest?: number;
+  /** feste Weltarten: Größe des gemalten Augapfels gegenüber eyeBall(eye.r) (der Spieler hat 1) */
+  eyeK?: number;
   /** Stützpunkte der Silhouette: vom Maul über Stirn, Rücken, Schwanzstiel und Bauch zur Kehle */
   loop: P2[];
   /** Auge (Mitte und Radius des Rohwerts; der gezeichnete Augapfel ist etwas größer, siehe eyeBall) */

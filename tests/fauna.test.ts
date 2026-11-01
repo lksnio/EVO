@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EPOCHS, epochSpecies } from '../src/data/epochs';
 import { SPECIES } from '../src/data/species';
-import { speciesAnatomy, rayRegistration } from '../src/art/fauna/fish';
+import { speciesAnatomy } from '../src/art/fauna/fish';
+import { WORLD_FISH_IDS } from '../src/art/fish/worldFish';
 import { solveSpine, type SpineIn } from '../src/art/fish/spine';
 
 vi.mock('phaser', () => ({ default: {} }));
 
 const ids = [...new Set([...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus', 'gillicus', 'enchodus', 'protosphyraena', 'xiphactinus'])]
-  .filter(id => SPECIES[id].art.t === 'fish');
+  .filter(id => SPECIES[id].art.t === 'fish' && !WORLD_FISH_IDS.includes(id as typeof WORLD_FISH_IDS[number]));
 
 describe('Devon fauna anatomy', () => {
   it.each(ids)('%s: bounded silhouette and finite attachments without mutating the species', id => {
@@ -22,15 +23,6 @@ describe('Devon fauna anatomy', () => {
     expect(a.jawLen).toBeGreaterThan(0);
     expect(a.bounds.x1).toBeGreaterThan(a.bounds.x0);
     expect(JSON.stringify(def)).toBe(before);
-  });
-
-  it('registered rayfins preserve aspect ratio and their sloping upper lip', () => {
-    for (const id of ['cheirolepis', 'moythomasia', 'gillicus']) {
-      const a = speciesAnatomy(SPECIES[id]), r = rayRegistration(id)!;
-      const k = 100 / (r.bounds[2] - r.bounds[0]);
-      expect(a.tip[0] - a.hinge[0]).toBeCloseTo((r.points.upperLip[0] - r.points.jawHinge[0]) * k);
-      expect(a.jawRest).toBeCloseTo(Math.atan2(a.tip[1] - a.hinge[1], a.tip[0] - a.hinge[0]));
-    }
   });
 
   it('has distinct shark, lobe, shield and boss anatomy', () => {
