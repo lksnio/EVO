@@ -69,8 +69,13 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private baseScale: number;
   private facing = 1;
   private shade: number | null = null;
+  private flashCol: number | null = null;
+  /** begrenzte Aufhellung der Fischzeichnung (0 … 0,5), siehe setLift */
+  private lift = 0;
   private tm?: Phaser.Textures.TextureManager;
   headTilt = 0;
+  /** Entwickler (Werkstatt): hält das Maul auf diesem Öffnungsgrad (0 … 1) */
+  holdOpen = 0;
   /** 0..1: Erschöpfung/Verletzung verlangsamt die Bewegungen */
   weary = 0;
   /** 0..1: Das Tier kommt zur Ruhe (am Ende des Lebens) – alle Bewegungen ebben ab */
@@ -270,8 +275,8 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   /** Färbt alle Teile kurz ein (rot bei Treffer) – null stellt zurück. */
   flash(color: number | null) {
-    this.tintAll(color);
-    if (color === null) this.applyTint();
+    this.flashCol = color;
+    this.applyTint();
   }
 
   /** Abdunkeln, wenn die Figur im Dickicht versteckt ist. */
@@ -282,23 +287,54 @@ export class CreatureView extends Phaser.GameObjects.Container {
   }
 
   private applyTint() {
-    this.tintAll(this.shade);
+    this.tintAll(this.flashCol ?? this.shade);
+  }
+
+  /**
+   * Begrenzte Aufhellung der Zeichnung (nur Fische mit Rig, nur wenn jemand sie setzt – der Spieler): Phaser-Tintmodus SCREEN, jede
+   * Teil-Fläche rechnet c' = c + lift · (1 − c). Das hebt Schatten an, lässt Weiß, wie es ist (kein Ausbrennen), erhält die Reihenfolge
+   * der gezeichneten Helligkeiten und verkleinert den Kontrast höchstens um den Faktor 1 − lift; keine Kontur, keine Pixelrücklesung,
+   * keine neue Textur. Der Wert wird weich nachgeführt (LevelScene.sightStep); Tiefe und Verdeckung des Spielers bleiben unberührt.
+   * (MULTIPLY_TWO leistet dasselbe mit zusätzlicher Farbe, zeichnet in Phaser 4.2.1 aber einzelne Zellen falsch – getestet, verworfen.)
+   * Solange der Fisch rot aufblitzt oder im Dickicht abgedunkelt ist, gilt die Tönung dafür und die Aufhellung ruht.
+   */
+  setLift(v: number) {
+    const k = Math.max(0, Math.min(0.5, v));
+    if (Math.abs(k - this.lift) < 0.004) return this;
+    this.lift = k;
+    this.applyTint();
+    return this;
   }
 
   private tintAll(color: number | null) {
+    const lift = this.rig && color === null ? this.lift : 0;
+    const g = Math.round(lift * 255);
+    const screen = (g << 16) | (g << 8) | g;
     const apply = (o: Phaser.GameObjects.GameObject) => {
       if (o instanceof Phaser.GameObjects.Container) o.list.forEach(apply);
       else if (o instanceof Phaser.GameObjects.Mesh2D) {
         // (Mesh2D kennt Einfärbung, die Typen von Phaser führen sie noch nicht auf)
-        const mesh = o as unknown as { clearTint(): void; setTint(c: number): void };
-        if (color === null) mesh.clearTint();
-        else mesh.setTint(color);
+        const mesh = o as unknown as { clearTint(): void; setTint(c: number): void; setTintMode(m: number): void };
+        if (lift > 0) {
+          mesh.setTintMode(Phaser.TintModes.SCREEN);
+          mesh.setTint(screen);
+        } else if (color === null) mesh.clearTint();
+        else {
+          mesh.setTintMode(Phaser.TintModes.MULTIPLY);
+          mesh.setTint(color);
+        }
       } else if (o instanceof Phaser.GameObjects.Image) {
         const far = this.legs[0] === o || this.legs[1] === o;
-        if (color === null) {
+        if (lift > 0) {
+          o.setTintMode(Phaser.TintModes.SCREEN);
+          o.setTint(screen);
+        } else if (color === null) {
           if (far) o.setTint(FAR_TINT);
           else o.clearTint();
-        } else o.setTint(far ? Phaser.Display.Color.GetColor(((color >> 16) & 255) * 0.6, ((color >> 8) & 255) * 0.6, (color & 255) * 0.6) : color);
+        } else {
+          o.setTintMode(Phaser.TintModes.MULTIPLY);
+          o.setTint(far ? Phaser.Display.Color.GetColor(((color >> 16) & 255) * 0.6, ((color >> 8) & 255) * 0.6, (color & 255) * 0.6) : color);
+        }
       }
     };
     this.list.forEach(apply);
@@ -353,6 +389,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
       if (this.shakeT > 0.5) this.shakeT = -1;
     }
     if (mode === 'crawl') this.phase += dt * (6 + speed01 * 6) * slow;
+    if (this.holdOpen > 0) open = Math.max(open, this.holdOpen);
     rig.pose({
       t, dt: dt * slow, speed01, mode: mode === 'swim' || mode === 'crawl' || mode === 'idle' ? mode : 'swim',
       open, lunge, clench, grind, coil, dip, pitch: this.headTilt + shake + biteTilt, still: this.still, crawlPhase: this.phase,

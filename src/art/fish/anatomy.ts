@@ -1,4 +1,4 @@
-import { FIN_UP, geo, type HeadGeo, type Morph } from '../creatureArt';
+import { FIN_UP, fishJawK, geo, type HeadGeo, type Morph } from '../creatureArt';
 
 // ---------------------------------------------------------------------------
 // Die Anatomie des Fisches: aus den Evolutionswerten (Morph) werden hier alle Maße und Ansatzpunkte bestimmt – als reine
@@ -66,6 +66,7 @@ export interface FishAnatomy {
 }
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Die Maße eines Fisches aus seinen Evolutionswerten. */
 export function fishAnatomy(m: Morph): FishAnatomy {
@@ -81,7 +82,10 @@ export function fishAnatomy(m: Morph): FishAnatomy {
   const top = -hg.H / 2;
   const crownY = hy + top - hg.dome - 0.4;
   // der Rücken wölbt sich hinter dem Kopf zu einem flachen Buckel (die Stirn liegt etwas tiefer): kein gerader Kasten
-  const backY = Math.min(-bh * 0.64, crownY - 1.6);
+  // Massige Formen (hoch im Verhältnis zur Länge) werden rund statt spitz: Die Rückenlinie nähert sich einer Ellipse, der Buckel hinter
+  // dem Kopf flacht ab, Schulter und Bauch werden voller (fat: 0 schlank/normal … 1 kurz und hoch).
+  const fat = Math.max(0, Math.min(1, (bh / bw - 0.5) / 0.85));
+  const backY = Math.min(-bh * (0.64 - 0.1 * fat), crownY - 1.0 - 0.6 * (1 - fat));
   const pedH = Math.max(2.4, bh * 0.1 + 1);
   const pedX = -bw * 0.5;
 
@@ -92,10 +96,32 @@ export function fishAnatomy(m: Morph): FishAnatomy {
   const spread = (13 + 9 * st) * sw * (1 + 0.65 * tw) * (1 + 0.5 * ft);
 
   // der Unterkiefer reicht bis zur Kehle hinunter, damit Kinn und Hals eine Linie bilden
-  const throat = (hg.H * 0.5 - hg.mouthY) * 0.66;
-  const jawH = Math.min(Math.max(hg.jawH, throat), throat * 1.45);
+  // Bei starkem Gebiss sitzt die Kehle tiefer (kräftiger Vorderkopf und Kieferwurzel).
+  const deepK = 1 + 0.14 * Math.min(1, fishJawK(m));
+  const throat = (hg.H * 0.5 * deepK - hg.mouthY) * 0.78;
+  const jawH = Math.min(Math.max(hg.jawH, throat), throat * 1.5);
   const tip: P2 = [hx + hg.L, ym - 0.2];
   const hinge: P2 = [hx + hg.hingeX, ym];
+
+  // Die Linie von der Schulter zum Schwanzstiel: schlanke Formen laufen spindelförmig aus, massige halten eine Ellipse (Ansatz des Stiels nach
+  // ein paar Einheiten wie bei einem runden Körper mit schmalem Stiel). dir −1: Rücken, +1: Bauch. Von vorn nach hinten.
+  const span = hx - pedX;
+  const topPeak = -backY * 0.98, botPeak = bb * (0.6 - 0.07 * fat);
+  const ell = (x: number, peak: number) => {
+    const xc = pedX + 0.66 * span, a = xc - pedX;
+    const r = Math.max(-1, Math.min(1, (x - xc) / a));
+    return pedH + (peak - pedH) * Math.sqrt(1 - r * r);
+  };
+  const taper = (dir: number): P2[] => {
+    const peak = dir < 0 ? topPeak : botPeak;
+    const base = dir < 0 ? [-pedH * 1.8, -bh * 0.32, -bh * 0.5] : [pedH * 1.7, bb * 0.34, bb * 0.5];
+    const nx = [-bw * 0.15, -bw * 0.3, -bw * 0.41], fx = [pedX + 18, pedX + 11.5, pedX + 5.5];
+    return [0, 1, 2].map((k): P2 => {
+      const x = mix(nx[k], fx[k], fat);
+      const y = mix(Math.abs(base[2 - k]), ell(x, peak), fat);
+      return [x, dir * y];
+    });
+  };
 
   const loop: P2[] = [
     tip,
@@ -105,20 +131,16 @@ export function fishAnatomy(m: Morph): FishAnatomy {
     [hx + hg.L * 0.1, crownY],
     [hx - bw * 0.1, crownY * 0.4 + backY * 0.6],
     [bw * 0.08, backY],
-    [-bw * 0.15, -bh * 0.5],
-    [-bw * 0.32, -bh * 0.3],
-    [-bw * 0.425, -pedH * 1.6],
+    ...taper(-1),
     [pedX + 1, -pedH],
     [pedX - 5, -pedH * 0.82],
     [pedX - 6, 0],
     [pedX - 5, pedH * 0.82],
     [pedX + 1, pedH],
-    [-bw * 0.425, pedH * 1.55],
-    [-bw * 0.32, bb * 0.3],
-    [-bw * 0.15, bb * 0.47],
-    [bw * 0.08, bb * 0.52],
-    [bw * 0.26, bb * 0.45],
-    [hx - 0.5, hy + hg.H * 0.5],
+    ...taper(1).reverse(),
+    [bw * 0.08, bb * 0.55],
+    [bw * 0.26, bb * 0.47],
+    [hx - 0.5, hy + hg.H * 0.5 * deepK],
   ];
 
   // Kopfpanzer: die Platten wachsen mit dem Schädel und dem Kopfschild (Stoßfisch); das Auge wird mit ihnen größer, damit es lesbar bleibt

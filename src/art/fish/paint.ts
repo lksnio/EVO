@@ -292,11 +292,19 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
   const ym = hy + hg.mouthY;
   const base = fillOf(P).base;
 
-  // Beißfisch: ein Kaumuskel wölbt die Wange hinter dem Maulwinkel
+  // Beißfisch: ein Kaumuskel wölbt die Wange hinter dem Maulwinkel – als Volumen: eine Lichtfläche oben, darunter ein weicher Schatten,
+  // der das Gelenk verdeckt (kein dunkler Fleck)
   if (m.jaw > 0.2) {
     const a = Math.min(1, (m.jaw - 0.2) / 0.5);
-    ell(ctx, A.hinge[0] + 1.5, ym - 2.2 - 1.2 * a, 3.4 + 3.6 * a, 2.2 + 2.2 * a, -0.25);
-    ctx.fillStyle = css(shadowOf(base), 0.28 + 0.3 * a);
+    const cx = A.hinge[0] - 1.2, cy = ym - 2.6 - 1.6 * a, rx = 4.6 + 4.4 * a, ry = 3.2 + 3.2 * a;
+    ell(ctx, cx + 0.5, cy + 1.3, rx * 0.95, ry * 0.85, -0.2);
+    ctx.fillStyle = css(shadowOf(base), 0.16 + 0.1 * a);
+    ctx.fill();
+    ell(ctx, cx, cy, rx, ry, -0.2);
+    ctx.fillStyle = css(lightOf(base, 0.12), 0.2 + 0.12 * a);
+    ctx.fill();
+    ell(ctx, cx - rx * 0.18, cy - ry * 0.3, rx * 0.5, ry * 0.4, -0.2);
+    ctx.fillStyle = css(lightOf(base, 0.34), 0.24 + 0.14 * a);
     ctx.fill();
   }
 

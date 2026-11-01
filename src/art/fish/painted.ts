@@ -4,6 +4,7 @@ import { type Ctx, newCanvas } from '../../util/canvas';
 import { palette, type Morph, type Pal } from '../creatureArt';
 import { gradeAnimal as grade } from '../ink';
 import { eyeBall, fishAnatomy, type FishAnatomy } from './anatomy';
+import { INK, lightOf, shadowOf } from '../ink';
 import { bodyPath, fillOf, gillCurve, paintBodyFeatures, paintLowerTeeth, paintUpperTeeth } from './paint';
 
 // ---------------------------------------------------------------------------
@@ -18,7 +19,7 @@ import { bodyPath, fillOf, gillCurve, paintBodyFeatures, paintLowerTeeth, paintU
 // ---------------------------------------------------------------------------
 
 /** (siehe oben) */
-const JAW_TOP_C = -0.9;
+const JAW_TOP_C = -0.6;
 
 export type RegKey = 'body' | 'jaw' | 'eye' | 'overlay' | 'dorsal' | 'anal' | 'pelvic' | 'pectoral';
 /** Dazu die Sonderzeichnungen (art/im1–im4): Körper kurz/massig und lang/schlank, langer Unterkiefer, Maulinneres */
@@ -237,19 +238,90 @@ function sample(d: ImageData, u: number, v: number, out: number[]) {
   return true;
 }
 
+/** Halbe Strichstärke der gemalten Kontur (Einheiten): Die äußere Kante der gemalten Fläche liegt so weit außerhalb der Mitte der Linie. */
+const OUTER = 0.58;
+
+/** Ober- und Unterkante einer Fläche je Spalte (Einheiten, Spaltenabstand step, erste Spalte bei x0); NaN, wo es keine Fläche gibt. */
+interface Profile { x0: number; step: number; top: Float32Array; bot: Float32Array }
+
+/** Silhouette des gemalten Körpers in den Einheiten seiner Referenzform (aus dem Alpha-Kanal, Kontur eingeschlossen). */
+const srcProfiles = new Map<string, Profile>();
+function sourceProfile(img: HTMLImageElement | HTMLCanvasElement, name: string, r: Reg): Profile {
+  const hit = srcProfiles.get(name);
+  if (hit) return hit;
+  const lvl = pixelsOf(img, 0.5), d = lvl.d, k = lvl.k * (img.width / r.orig[0]);
+  const sxN = (r.dst[2] - r.dst[0]) / (r.src[2] - r.src[0]), syN = (r.dst[3] - r.dst[1]) / (r.src[3] - r.src[1]);
+  const step = 0.25, x0 = r.dst[0], n = Math.floor((r.dst[2] - r.dst[0]) / step);
+  const top = new Float32Array(n).fill(NaN), bot = new Float32Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    const px = Math.round((((x0 + (i + 0.5) * step) - r.dst[0]) / sxN + r.src[0]) * k);
+    if (px < 0 || px >= d.width) continue;
+    let y0 = -1, y1 = -1;
+    for (let y = 0; y < d.height; y++) if (d.data[(y * d.width + px) * 4 + 3] >= 128) { if (y0 < 0) y0 = y; y1 = y; }
+    if (y0 < 0) continue;
+    top[i] = r.dst[1] + (y0 / k - r.src[1]) * syN;
+    bot[i] = r.dst[1] + ((y1 + 1) / k - r.src[1]) * syN;
+  }
+  const p = { x0, step, top: smoothArr(top), bot: smoothArr(bot) };
+  srcProfiles.set(name, p);
+  return p;
+}
+
+/** Das Formprofil des Tiers: Silhouette der programmierten Form (bodyPath) + halbe Kontur, Spalte für Spalte. */
+function targetProfile(A: FishAnatomy): Profile {
+  const ppu = 4, b = A.bounds;
+  const [c, x] = newCanvas((b.x1 - b.x0) * ppu, (b.y1 - b.y0) * ppu, true);
+  x.scale(ppu, ppu);
+  x.translate(-b.x0, -b.y0);
+  bodyPath(x, A);
+  x.fillStyle = '#fff';
+  x.fill();
+  const d = x.getImageData(0, 0, c.width, c.height).data;
+  const step = 1 / ppu, top = new Float32Array(c.width).fill(NaN), bot = new Float32Array(c.width).fill(NaN);
+  for (let i = 0; i < c.width; i++) {
+    let y0 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) if (d[(y * c.width + i) * 4 + 3] >= 128) { if (y0 < 0) y0 = y; y1 = y; }
+    if (y0 < 0) continue;
+    top[i] = b.y0 + y0 / ppu - OUTER;
+    bot[i] = b.y0 + (y1 + 1) / ppu + OUTER;
+  }
+  return { x0: b.x0, step, top: smoothArr(top), bot: smoothArr(bot) };
+}
+
+function smoothArr(a: Float32Array) {
+  const o = new Float32Array(a.length).fill(NaN);
+  for (let i = 0; i < a.length; i++) {
+    if (Number.isNaN(a[i])) continue;
+    let s = 0, n = 0;
+    for (let j = Math.max(0, i - 2); j <= Math.min(a.length - 1, i + 2); j++) if (!Number.isNaN(a[j])) { s += a[j]; n++; }
+    o[i] = s / n;
+  }
+  return o;
+}
+
+const at = (p: Profile, x: number): [number, number] | null => {
+  const i = Math.floor((x - p.x0) / p.step);
+  if (i < 0 || i >= p.top.length) return null;
+  const t = p.top[i], bt = p.bot[i];
+  return Number.isNaN(t) || Number.isNaN(bt) ? null : [t, bt];
+};
+
 /**
- * Die gemalte Körperfläche, abschnittsweise an die Anatomie des Tiers angepasst – als Rückwärtsabbildung Pixel für Pixel
- * (jedes Pixel des Ziels fragt das Bild, mit 2 × 2 Stichproben gegen Kanten): x stückweise linear durch Schwanzflosse – Stielende –
- * Hals – Schnauze, in der Höhe nach Spannweite der Flosse, Stielhöhe, Körperhöhe und Kopfhöhe, dazwischen weich.
+ * Die gemalte Körperfläche, an die Anatomie des Tiers angepasst – als Rückwärtsabbildung Pixel für Pixel (eine gefilterte Stichprobe
+ * aus der passenden Verkleinerungsstufe des Bildes):
+ *   x: stückweise linear durch Schwanzflosse – Stielende – Hals – Schnauze;
+ *   y im Schwanz: nach Spannweite der Flosse; ab dem Stiel nach dem FORMPROFIL: Ober- und Unterkante der gemalten Fläche werden Spalte
+ *   für Spalte auf die Silhouette der programmierten Form gelegt (src → Ziel, dazwischen linear). So bestimmt die Anatomie die Gestalt
+ *   (rund oder schlank, Schulter, Kehle, Schnauze), die Malerei trägt Licht, Kontur und Material.
  */
-function warpBody(dest: HTMLCanvasElement, tr: DOMMatrix, img: HTMLImageElement | HTMLCanvasElement, A: FishAnatomy, N: FishAnatomy, r: Reg) {
+function warpBody(dest: HTMLCanvasElement, tr: DOMMatrix, img: HTMLImageElement | HTMLCanvasElement, A: FishAnatomy, N: FishAnatomy, r: Reg, name: string) {
   const sxN = (r.dst[2] - r.dst[0]) / (r.src[2] - r.src[0]), syN = (r.dst[3] - r.dst[1]) / (r.src[3] - r.src[1]);
   const xn = [N.bounds.x0, N.pedX - 1, N.hx - 6, N.tip[0], N.bounds.x1];
   const xa = [A.bounds.x0, A.pedX - 1, A.hx - 6, A.tip[0], A.bounds.x1];
-  const finK = A.tail.spread / N.tail.spread, pedK = A.pedH / N.pedH, bhK = A.bh / N.bh, hK = A.hg.H / N.hg.H;
-  const kx = [N.bounds.x0, N.pedX - 1 - N.tail.lobe * 0.6, N.pedX - 1, N.pedX + 12, N.hx - 6, N.hx + 4, N.bounds.x1];
-  const kv = [finK, finK, pedK, bhK, bhK, hK, hK];
-  // Pixel je Einheit im Ziel (Maßstab der Leinwand) gegenüber Pixel je Einheit im Bild
+  const finK = A.tail.spread / N.tail.spread, pedK = A.pedH / N.pedH;
+  const kx = [N.bounds.x0, N.pedX - 1 - N.tail.lobe * 0.6, N.pedX - 1];
+  const kv = [finK, finK, pedK];
+  const sp = sourceProfile(img, name, r), tp = targetProfile(A);
   const pxPerUnitSrc = (img.width / r.orig[0]) / sxN;
   const lvl = pixelsOf(img, (tr.a * 1.1) / pxPerUnitSrc);
   const src = lvl.d;
@@ -257,24 +329,25 @@ function warpBody(dest: HTMLCanvasElement, tr: DOMMatrix, img: HTMLImageElement 
   const dx = dest.getContext('2d', { willReadFrequently: true })!;
   const out = dx.createImageData(dest.width, dest.height), od = out.data;
   const tmp = [0, 0, 0, 0];
-  const offs = [0.5];
+  const joint0 = A.pedX - 1, joint1 = A.pedX + 4;
   for (let j = 0; j < dest.height; j++) {
     for (let i = 0; i < dest.width; i++) {
-      let R = 0, G = 0, B = 0, Al = 0;
-      for (const oy of offs) {
-        for (const ox of offs) {
-          const xu = (i + ox - tr.e) / tr.a, yu = (j + oy - tr.f) / tr.d;
-          const xN = pw(xa, xn, xu);
-          const yN = yu / pw(kx, kv, xN);
-          const u = ((xN - r.dst[0]) / sxN + r.src[0]) * k2 - 0.5, v = ((yN - r.dst[1]) / syN + r.src[1]) * k2 - 0.5;
-          if (sample(src, u, v, tmp)) {
-            R += tmp[0]; G += tmp[1]; B += tmp[2]; Al += tmp[3];
-          }
+      const xu = (i + 0.5 - tr.e) / tr.a, yu = (j + 0.5 - tr.f) / tr.d;
+      const xN = pw(xa, xn, xu);
+      // Höhe: Flossenmaß im Schwanz, Formprofil ab dem Stiel (weich am Übergang)
+      let yN = yu / pw(kx, kv, xN);
+      if (xu > joint0) {
+        const t = at(tp, xu), s = at(sp, xN);
+        if (t && s) {
+          const w = Math.max(0, Math.min(1, (xu - joint0) / (joint1 - joint0)));
+          const yP = s[0] + (yu - t[0]) * ((s[1] - s[0]) / Math.max(1, t[1] - t[0]));
+          yN = yN + (yP - yN) * (w * w * (3 - 2 * w));
         }
       }
-      if (Al > 0) {
-        const o = (j * dest.width + i) * 4;
-        od[o] = R / Al; od[o + 1] = G / Al; od[o + 2] = B / Al; od[o + 3] = (Al / offs.length / offs.length) * 255;
+      const u = ((xN - r.dst[0]) / sxN + r.src[0]) * k2 - 0.5, v = ((yN - r.dst[1]) / syN + r.src[1]) * k2 - 0.5;
+      if (sample(src, u, v, tmp)) {
+        const o = (j * dest.width + i) * 4, al = tmp[3];
+        if (al > 0) { od[o] = tmp[0] / al; od[o + 1] = tmp[1] / al; od[o + 2] = tmp[2] / al; od[o + 3] = al * 255; }
       }
     }
   }
@@ -318,7 +391,7 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
   fx.globalCompositeOperation = bx.globalCompositeOperation = 'lighter';
   for (const v of src) {
     const [one] = newCanvas(ctx.canvas.width, ctx.canvas.height, true);
-    warpBody(one, ctx.getTransform(), imgOf(scene, v.key), A, v.N, v.reg);
+    warpBody(one, ctx.getTransform(), imgOf(scene, v.key), A, v.N, v.reg, v.key);
     fx.globalAlpha = v.weight;
     fx.drawImage(one, 0, 0);
     tint(one.getContext('2d', { willReadFrequently: true })!, reference(scene, v.key), F.base);
@@ -343,7 +416,7 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
 }
 
 /** y-Versatz der oberen Zähne gegenüber der programmierten Lippenlinie (die gemalte Lippe liegt etwas anders) */
-const TEETH_DY = -0.8;
+const TEETH_DY = 0;
 /** (siehe oben) */
 const JAW_TOP = JAW_TOP_C;
 
@@ -354,9 +427,9 @@ export function paintJawPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P
   // untere Zähne zuerst: Der gemalte Kiefer deckt ihre Wurzeln
   paintLowerTeeth(ctx, A);
   const F = fillOf(P);
-  const target = mix(F.belly, F.base, 0.55);
+  const target = mix(F.belly, F.base, 0.8); // der Kiefer ist ähnlich schattiert wie die benachbarte Haut, keine helle Klinge
   const wl = jawLongWeight(A);
-  // Die gemalte Oberlippe liegt 0,9 Einheiten über der programmierten Maulspalte: Der Kiefer wird um so viel angehoben. Sein hinterer
+  // Die Silhouette des Körpers wird auf die programmierte Form gelegt (Formprofil), die gemalte Lippenmitte liegt dann auf der Maulspalte; die Kieferoberkante (Kontur) sitzt 0,6 Einheiten darüber. Sein hinterer
   // Teil reicht weit unter den Körper (die gemalte Kehle deckt ihn), vorn endet er an der Schnauzenspitze; die Tiefe folgt jawH.
   const draw = (key: 'jaw' | 'jaw_lang', reg: Reg, to: [number, number, number, number], weight: number) => {
     const c = layer(ctx, (x) => drawFitted(x, imgOf(scene, key), reg, to, key === 'jaw' ? NUDGE.jaw : NUDGE.jawLang), reference(scene, key), target);
@@ -380,15 +453,39 @@ export function paintEyePainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P
   blit(ctx, c);
 }
 
-export function paintOverlayPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
-  const { hx, hy, hg } = A;
+/**
+ * Die Kiemenfalte: eine dünne, nach unten auslaufende dunkle Furche (oben kräftiger, unten dünn) mit einem kaum sichtbaren Schatten dahinter
+ * – kein heller Ring, kein eigenes Teil. Die gemalte Sichel (art/EVO_fish_painted_v1/textures/teil_overlay.png) wird dafür nicht mehr
+ * verwendet: Ihre helle Kante machte die Falte zum angesetzten Bogen.
+ */
+export function paintOverlayPainted(ctx: Ctx, _scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
   const F = fillOf(P);
-  const to: [number, number, number, number] = [hx - 3.0, hy - hg.H * 0.285, hx + 5.2, hy + hg.H * 0.34];
-  const c = layer(ctx, (x) => drawFitted(x, imgOf(scene, 'overlay'), REG.overlay, to, NUDGE.overlay), reference(scene, 'overlay'), F.base);
-  ctx.save();
-  ctx.globalAlpha = 0.72;
-  blit(ctx, c);
-  ctx.restore();
+  const { hx, hy, hg } = A;
+  const pt = (t: number, dx: number): [number, number] => {
+    const P0: [number, number] = [hx + 5.6 + dx, hy - hg.H * 0.27], C1: [number, number] = [hx - 4.5 + dx, hy - hg.H * 0.2], C2: [number, number] = [hx - 5.5 + dx, hy + hg.H * 0.28], P3: [number, number] = [hx + 3.4 + dx, hy + hg.H * 0.46];
+    const u = 1 - t;
+    return [u * u * u * P0[0] + 3 * u * u * t * C1[0] + 3 * u * t * t * C2[0] + t * t * t * P3[0], u * u * u * P0[1] + 3 * u * u * t * C1[1] + 3 * u * t * t * C2[1] + t * t * t * P3[1]];
+  };
+  const stroke = (dx: number, w0: number, w1: number, color: string, aMul: number, from = 0, to = 1) => {
+    const n = 26;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const t0 = from + (to - from) * (i / n), t1 = from + (to - from) * ((i + 1) / n), tm = (t0 + t1) / 2;
+      const a = pt(t0, dx), b = pt(t1, dx);
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.lineWidth = w0 + (w1 - w0) * tm;
+      ctx.globalAlpha = aMul * (1 - 0.65 * tm * tm);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  };
+  // weicher Schatten dahinter (auf dem Rumpf), die Furche selbst, ein Hauch Licht davor
+  stroke(-1.7, 2.6, 0.8, css(shadowOf(F.base)), 0.2);
+  stroke(0, 1.25, 0.25, css(INK), 0.62);
+  stroke(1.1, 0.6, 0.15, css(lightOf(F.base, 0.2)), 0.16, 0.05, 0.85);
 }
 
 export function paintFinPainted(ctx: Ctx, scene: Phaser.Scene, kind: 'dorsal' | 'anal' | 'pelvic' | 'pectoral', A: FishAnatomy, P: Pal, far = false) {

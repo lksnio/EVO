@@ -202,3 +202,63 @@ describe('Körperzeichnung je Form', () => {
     expect(jawLongWeight(A({ jaw: 1, toothTier: 9 }))).toBe(1);
   });
 });
+
+describe('Rumpfform (Überarbeitung v3)', () => {
+  /** Obere und untere Kante der Silhouette bei x (Schnitt der Linie mit dem Polygon). */
+  const edgeAt = (loop: [number, number][], x: number): [number, number] => {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < loop.length; i++) {
+      const [x1, y1] = loop[i], [x2, y2] = loop[(i + 1) % loop.length];
+      if ((x1 - x) * (x2 - x) > 0 || x1 === x2) continue;
+      const y = y1 + ((x - x1) / (x2 - x1)) * (y2 - y1);
+      lo = Math.min(lo, y);
+      hi = Math.max(hi, y);
+    }
+    return [lo, hi];
+  };
+
+  it.each([['normal', {}], ['kurz/massig', { len: -1, girth: 1 }], ['kurz, mittel', { len: -0.5, girth: 0.5 }], ['Gebiss + kurz', { len: -1, girth: 1, jaw: 1, diet: 1, toothTier: 9 }], ['Panzer + kurz', { len: -0.6, girth: 0.6, armor: 1 }]] as [string, Partial<Morph>][])(
+    '%s: vom Schwanzstiel bis zur Rückenhöhe wird der Körper stetig höher, kein Buckel, keine Raute', (_n, v) => {
+      const a = A(v);
+      const x0 = a.pedX + 1.5, x1 = a.bw * 0.08;
+      let prevT = Infinity, prevB = -Infinity;
+      for (let x = x0; x <= x1; x += 0.5) {
+        const [t, b] = edgeAt(a.loop, x);
+        expect(t).toBeLessThanOrEqual(prevT + 0.35);
+        expect(b).toBeGreaterThanOrEqual(prevB - 0.35);
+        prevT = t;
+        prevB = b;
+      }
+    });
+
+  it('massige Form: rund und zusammenhängend – Höhe und Länge stehen im Verhältnis, der Bauch hängt nicht tiefer als der Rücken ragt', () => {
+    const a = A({ len: -1, girth: 1 });
+    const [t, b] = edgeAt(a.loop, 0);
+    expect(b - t).toBeGreaterThan(a.bw * 0.55);
+    expect(Math.abs(b)).toBeLessThanOrEqual(Math.abs(t) * 1.25);
+  });
+
+  it('der Unterkiefer behält Masse: Tiefe bei starkem Gebiss nicht unter der des normalen Fisches, und er reicht bis zur Kehle', () => {
+    const n = A({}), g = A({ jaw: 1, diet: 1, toothTier: 9 }), k = A({ len: -1, girth: 1, jaw: 1, diet: 1, toothTier: 9 });
+    expect(g.jawH).toBeGreaterThanOrEqual(n.jawH);
+    expect(k.jawH).toBeGreaterThanOrEqual(g.jawH * 0.9);
+    // die Kehle (letzter Punkt der Linie) liegt unter der Maulspalte; der Kiefer reicht zu mindestens 78 % bis dorthin, höchstens 117 % (der Rest deckt die Wange)
+    for (const a of [n, g, k]) {
+      const d = a.loop[a.loop.length - 1][1] - a.hinge[1];
+      expect(a.jawH).toBeGreaterThanOrEqual(0.78 * d - 0.01);
+      expect(a.jawH).toBeLessThanOrEqual(1.17 * d + 0.01);
+    }
+  });
+});
+
+describe('Spieleraufhellung (LIFT)', () => {
+  it('begrenzt, ruhig nachgeführt und nur von der Sicht abhängig', async () => {
+    const { LIFT } = await import('../src/sim/sight');
+    expect(LIFT.base).toBeGreaterThan(0);
+    expect(LIFT.range).toBeGreaterThanOrEqual(0);
+    // setLift begrenzt auf 0 … 0,5; der Höchstwert bleibt darunter, damit Augen und Flossen nicht ausbrennen
+    expect(LIFT.base + LIFT.range).toBeLessThanOrEqual(0.4);
+    expect(LIFT.rate).toBeGreaterThan(0);
+    expect(LIFT.rate).toBeLessThanOrEqual(4);
+  });
+});

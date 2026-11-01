@@ -108,7 +108,12 @@ export class GalleryScene extends Phaser.Scene {
       this.biteClock = 0;
       for (const v of this.views) v.bite();
     }
-    for (const v of this.views) v.animate(dms / 1000, v.L.land ? 'walk' : mode, speed);
+    const hold = Number(q.get('hold') ?? 0);
+    for (const v of this.views) {
+      v.holdOpen = hold;
+      if (q.has('lift')) v.setLift(Number(q.get('lift')));
+      v.animate(dms / 1000, v.L.land ? 'walk' : mode, speed);
+    }
     // ?perf: Bildrate und Zeit je Bild, damit man die Leistung auf der eigenen Grafikkarte prüfen kann
     if (q.has('perf')) {
       this.perfT += dms;

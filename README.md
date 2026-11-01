@@ -347,15 +347,31 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
   Maulinneres (diese Zuordnung folgt dem Inhalt der Bilder). Welche Körperzeichnung gilt, entscheidet das Seitenverhältnis des Körpers gegenüber der neutralen Form
   (`bodyWeights`): bis etwa ±0,15 (Logarithmus des Verhältnisses) die neutrale, darüber wird übergeblendet, ab ±0,55 gilt allein die Sonderzeichnung; jede wird mit
   derselben Verzerrung an die Anatomie des Tiers angepasst, nur mit ihrer eigenen Referenzform als Ausgang. Der lange Unterkiefer löst den neutralen zwischen
-  14 und 24 Einheiten Kieferlänge ab (`jawLongWeight`). Das Maulinnere ist ein Netz (`MOUTH_COLS` Spalten) zwischen Oberlippe und Unterkiefer: Der Rachen liegt hinten
-  am Gelenk, der Gaumen vorn; es folgt dem Öffnungswinkel.
-* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Kopfpanzer und Mischformen (z. B. kurz **und**
-  großer Kiefer) haben keine eigene Zeichnung. Erzeugen eines neuen Aussehens kostet 20–70 ms (gemessen ohne Grafikkarte).
+  14 und 24 Einheiten Kieferlänge ab (`jawLongWeight`).
+* **Formprofil (Überarbeitung `art/EVO_fish_direction_v3`):** Die Bildtafeln legen nur die Zielwirkung fest und werden nicht als Textur eingebaut. Die Form kommt aus
+  der Anatomie: `anatomy.ts` zieht die Umrisslinie des Körpers (`loop`) bei tiefen Körpern rund und zusammenhängend (Rücken- und Bauchbogen als Ellipsen, die zum
+  Stiel hin auslaufen – kein Buckel, keine Raute); der Kiefer behält über die Kehle Masse (`jawH` ≥ Kehlentiefe, bei starkem Gebiss etwas tiefer). `painted.ts`
+  (`warpBody`) verzerrt das gemalte Körperbild nach dem Spaltenprofil der Zeichnung (Ober-/Unterkante aus dem Alpha) auf dieses Zielprofil; Übergänge zwischen
+  Varianten bleiben stetig (kein Sprung, keine doppelte Kontur).
+* **Kiemenfalte und Wange:** Die Falte ist eine dünne, auslaufende Furche (Schattenstrich, Tuschelinie 1,25 → 0,25 Einheiten, schwaches Gegenlicht), kein heller
+  C-Ring; die Brustflosse wird an ihr beschnitten. Die Wangenmuskulatur (`m.jaw > 0,2`) ist ein Volumen aus Schatten- und Lichtfläche statt eines dunklen Ovals.
+* **Mund:** Das Maul ist eine dunkle Höhle (`drawMouth` in `rig.ts`: dunkles Vieleck samt dunklerem Kern, nach hinten abfallend, weich vom Backenrand
+  verdeckt) mit schmalen Gaumen- und Mundbodenstreifen (`im3`, Netz mit `MOUTH_COLS` Spalten) entlang der Lippen; Streifenbreite und Sichtbarkeit wachsen mit der
+  Öffnung und sind bei geschlossenem Maul ganz verschwunden (keine gespannte rote Haut). Der Öffnungswinkel hängt von der Kieferlänge ab (`J1`), damit der
+  Unterkiefer bei starkem Gebiss nicht weit über die Kehle hinaus aufklappt.
+* **Spieleraufhellung (nur eigener Fisch):** `LIFT` in `sim/sight.ts` (Grundwert 0,24, bei schlechter Sicht bis 0,36; Nachführung weich, `LIFT.rate`). `LevelScene.sightStep`
+  liest nur `Sight.clarityAt` und gibt den Wert an `CreatureView.setLift`; der Fisch wird mit **SCREEN** (`c' = c + L·(1 − c)`, grauer Tint auf Netz und Bildern)
+  aufgehellt – im bestehenden Renderpfad, ohne Zusatzebene, ohne Auslesen der Grafikkarte, ohne neue Textur je Bild und ohne helle Randlinie. Tiefe und
+  Verdeckung (Vordergrundpflanzen und -felsen liegen über dem Fisch) bleiben, der Sichtschleier liegt weiterhin über ihm; Sichtweiten, `Sight.clarityAt`, Freigabe
+  von Gegnern und Wahrnehmung der KI sind unverändert. (Der Modus MULTIPLY_TWO ergab in Phaser 4.2.1 auf `Mesh2D` fehlerhafte Lichtflecken und wurde verworfen.)
+  Der Blitz bei Treffern (`flash`) überschreibt die Aufhellung kurz, die Palette (Färbung der Zeichnung) bleibt getrennt davon.
+* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Kopfpanzer und Weltfische folgen auf dieser
+  Grundlage (Kopfplatte hat noch eine gerade Hinterkante). Erzeugen eines neuen Aussehens kostet 15–50 ms (gemessen ohne Grafikkarte; programmiert 9–16 ms).
 
 **Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
 
 **Werkstatt:** `?debug&gallery=fish` zeigt Fische groß in Bewegung. Parameter: `cols`, `px` (Bildschirmbreite), `perf`, `n` (Anzahl), `zoom`, `mode` (swim, idle, crawl), `speed` (0 … 1),
-`bite` (alle n Sekunden ein Biss), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
+`bite` (alle n Sekunden ein Biss), `hold` (Maul dauerhaft 0 … 1 öffnen), `lift` (Spieleraufhellung 0 … 0,5 zum Vergleichen), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
 `?debug&gallery=fish&mode=swim&speed=0.6&bite=1&set=[["Kiefer",{"jaw":1,"diet":1}],["Panzer",{"armor":1}]]`.
 
 **Noch offen (künstlerisch):** Die anderen Fischarten des Devons (Tiere der Welt, `speciesArt.ts`) sind weiterhin vorgemalte Bilder

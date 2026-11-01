@@ -149,3 +149,11 @@ export function sensed(d: number, threat: boolean) {
   const t = Math.max(0, (d - reach * (2 / 3)) / (reach / 3));
   return (threat ? SIGHT.feelThreatClarity : SIGHT.feelClarity) * (1 - t);
 }
+
+/**
+ * Lesbarkeit des Spielers im Sichtschleier: Die Zeichnung des eigenen Fisches wird – vor dem Schleier, in ihrer eigenen Tiefe, mit
+ * unveränderter Verdeckung – begrenzt aufgehellt (CreatureView.setLift). Wie stark, folgt aus der Klarheit an seinem Ort (der klare
+ * Bereich liegt vor dem Fisch, er selbst sitzt am hinteren Rand): base immer, range zusätzlich, je trüber es dort ist; weich nachgeführt.
+ * Die Sicht selbst (Reichweite, clarityAt, Freigabe und Wahrnehmung der Tiere) bleibt unberührt – die Klarheit wird nur gelesen.
+ */
+export const LIFT = { base: 0.24, range: 0.12, rate: 2.2 };

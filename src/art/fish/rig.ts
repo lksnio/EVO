@@ -63,13 +63,25 @@ export interface FishTex {
 
 type Box = { x0: number; x1: number; y0: number; y1: number };
 
+/**
+ * Völlig durchsichtige Pixel bekommen Alpha 1/255 (und Farbe schwarz). Der Tintmodus der Aufhellung (MULTIPLY_TWO) rechnet mit der
+ * unvormultiplizierten Farbe, also Farbe ÷ Alpha: Bei Alpha 0 wäre das 0 ÷ 0 und je nach Grafikkarte ein heller Fleck um die Zeichnung.
+ */
+function floorAlpha(ctx: Ctx) {
+  const c = ctx.canvas;
+  const id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 3; i < d.length; i += 4) if (d[i] === 0) d[i] = 1;
+  ctx.putImageData(id, 0, 0);
+}
+
 function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, draw: (ctx: Ctx) => void) {
   if (scene.textures.exists(key)) return key;
   const R = FISH_RES * s;
-  const [c, ctx] = newCanvas((box.x1 - box.x0) * R, (box.y1 - box.y0) * R);
+  const [c, ctx] = newCanvas((box.x1 - box.x0) * R, (box.y1 - box.y0) * R, true);
   ctx.scale(R, R);
   ctx.translate(-box.x0, -box.y0);
   draw(ctx);
+  floorAlpha(ctx);
   scene.textures.addCanvas(key, c);
   return key;
 }
@@ -119,14 +131,14 @@ class Grid {
   readonly vx: Float32Array;
   readonly vy: Float32Array;
   private v: number[];
-  constructor(scene: Phaser.Scene, key: string, readonly box: Box, readonly cols: number, readonly rows: number) {
+  constructor(scene: Phaser.Scene, key: string, readonly box: Box, readonly cols: number, readonly rows: number, uv: [number, number, number, number] = [0, 0, 1, 1]) {
     this.vx = new Float32Array((cols + 1) * (rows + 1));
     this.vy = new Float32Array((cols + 1) * (rows + 1));
     const v: number[] = [];
     for (let j = 0; j <= rows; j++) {
       for (let i = 0; i <= cols; i++) {
         const u = i / cols, w = j / rows;
-        v.push(0, 0, u, w);
+        v.push(0, 0, uv[0] + (uv[2] - uv[0]) * u, uv[1] + (uv[3] - uv[1]) * w);
         this.vx[j * (cols + 1) + i] = box.x0 + (box.x1 - box.x0) * u;
         this.vy[j * (cols + 1) + i] = box.y0 + (box.y1 - box.y0) * w;
       }
@@ -175,7 +187,9 @@ export class FishRig {
   readonly cavity: Phaser.GameObjects.Graphics;
   private body: Grid;
   private overlay: Grid;
-  private mouth?: Grid;
+  /** gemaltes Maul (nur mit gemalten Texturen): schmale Gaumenfläche oben und Mundboden unten; die Höhle dazwischen ist `cavity` */
+  private palate?: Grid;
+  private floor?: Grid;
   private eyeImg: Phaser.GameObjects.Image;
   private jaw: Phaser.GameObjects.Image;
   private fins: { grid: Grid; kind: 'dorsal' | 'anal' | 'pelvic' | 'pec' | 'pecFar' }[] = [];
@@ -224,7 +238,12 @@ export class FishRig {
     const anal = finGrid('anal');
     this.cavity = new Phaser.GameObjects.Graphics(scene);
     // gemaltes Maulinneres (ein Netz, das zwischen Oberlippe und Unterkiefer aufgespannt wird); ohne gemalte Texturen die dunkle Fläche
-    if (paintedReady(scene)) this.mouth = new Grid(scene, MOUTH_KEY, { x0: 0, x1: 1, y0: 0, y1: 1 }, MOUTH_COLS, 1);
+    if (paintedReady(scene)) {
+      const unit = { x0: 0, x1: 1, y0: 0, y1: 1 };
+      // aus der gemalten Innenfläche nur zwei schmale Streifen: die hellere obere Fläche als Gaumen, die untere als Mundboden
+      this.palate = new Grid(scene, MOUTH_KEY, unit, MOUTH_COLS, 1, [0.45, 0.1, 0.95, 0.4]);
+      this.floor = new Grid(scene, MOUTH_KEY, unit, MOUTH_COLS, 1, [0.45, 0.6, 0.95, 0.88]);
+    }
     const jb = T.box.jaw;
     this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(this.s / FISH_RES);
     const pec = finGrid('pec');
@@ -232,7 +251,7 @@ export class FishRig {
     this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
-    this.parts.push(pecFar, pelvic, dorsal, anal, ...(this.mouth ? [this.mouth.mesh] : [this.cavity]), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
+    this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, ...(this.palate && this.floor ? [this.palate.mesh, this.floor.mesh] : []), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
   }
@@ -321,11 +340,12 @@ export class FishRig {
 
     // ---- Maul: Unterkiefer im Gelenk, Mundhöhle dazwischen
     const hj = this.mapPoint(A.hinge[0], A.hinge[1]);
-    const J1 = 0.95 + 0.45 * J;
+    // größter Öffnungswinkel: kurze Kiefer öffnen weit, lange schmaler (die Spitze soll nicht ausufern; Länge und Winkel gemeinsam parametriert)
+    const J1 = Math.min(0.9, 0.8 * Math.pow(10.4 / Math.max(6, A.jawLen), 0.42) + 0.05);
     const rest = p.clench ? -p.clench * 0.06 : 0;
     const opening = p.open * J1 + rest + (idle ? Math.max(0, Math.sin(p.t * 1.3)) * 0.04 : 0);
     this.jaw.setPosition(hj.x, hj.y).setRotation(hj.rot + opening);
-    if (this.mouth) this.drawMouth(hj.x, hj.y, hj.rot, opening);
+    if (this.palate && this.floor) this.drawMouth(hj.x, hj.y, hj.rot, opening);
     else this.drawCavity(hj.x, hj.y, hj.rot, opening);
 
     // ---- Flossen
@@ -380,24 +400,67 @@ export class FishRig {
     }
   }
 
-  /** Maulinneres als gemaltes Netz: ein Viereck Gelenk – Lippenspitze – Kieferspitze, das Bild läuft vom dunklen Rachen (hinten) zum Gaumen. */
+  /**
+   * Das Maul nach den Bissreferenzen: eine DUNKLE, zurückliegende Höhle (gebogene Fläche zwischen Oberlippe und Unterkiefer, hinten weich
+   * unter Wange und Kieferwurzel verschwindend), dazu nur zwei schmale gemalte Innenflächen – oben der Gaumen an der Oberlippe, unten der
+   * Mundboden am Kiefer. Beide folgen ihren Lippen, laufen an den Enden aus und wachsen mit der Öffnung. Beim Schließen verschwindet alles.
+   */
   private drawMouth(hx: number, hy: number, rot: number, opening: number) {
-    const m = this.mouth!;
+    const pal = this.palate!, flo = this.floor!, g = this.cavity;
     const vis = opening >= 0.03;
-    m.mesh.setVisible(vis);
+    pal.mesh.setVisible(vis);
+    flo.mesh.setVisible(vis);
+    g.clear();
     if (!vis) return;
     const s = this.s, A = this.A;
-    const len = A.jawLen * 0.94;
-    const c = Math.cos(opening), sn = Math.sin(opening);
-    const to = (x: number, y: number): [number, number] => [hx + (x * Math.cos(rot) - y * Math.sin(rot)) * s, hy + (x * Math.sin(rot) + y * Math.cos(rot)) * s];
-    // oben die Lippenlinie (leicht in den Kopf hinein, damit keine Lücke bleibt), unten der Kiefer (um den Öffnungswinkel gedreht)
-    const topA = to(-2.2, -1.0), topB = to(len, -1.0);
-    const botA = to(-2.2, 3.4), botB = to(len * c + 0.3 * -sn, 0.3 * c + len * sn);
+    const len = A.jawLen * 0.97;
+    const fade = Math.min(1, opening / 0.12);
+    const c0 = Math.cos(rot), s0 = Math.sin(rot), c1 = Math.cos(rot + opening), s1 = Math.sin(rot + opening);
+    // Punkte im Rahmen des Kopfes (Oberlippe) bzw. des Kiefers (Unterlippe), beide mit dem Gelenk als Ursprung
+    const up = (x: number, y: number): [number, number] => [hx + (x * c0 - y * s0) * s, hy + (x * s0 + y * c0) * s];
+    const jw = (x: number, y: number): [number, number] => [hx + (x * c1 - y * s1) * s, hy + (x * s1 + y * c1) * s];
+    const LIP = -0.2, JAW = -0.3;
+    // die Höhle: oben die Lippe, vorn eine nach innen gewölbte Kante, unten die Kieferoberkante, hinten ein weicher Bogen unter der Wange
+    const pts: [number, number][] = [];
+    const bez = (p0: [number, number], p1: [number, number], p2: [number, number], n = 8) => { for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; pts.push([u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1]]); } };
+    const uL = up(-3.4, LIP - 0.8), uF = up(len, LIP), jF = jw(len, JAW), jL = jw(-3.4, JAW + 1.2);
+    pts.push(uL);
+    pts.push(uF);
+    // vorn nach innen gewölbt: Die Öffnung ist offen, man sieht keine Kante
+    bez(uF, [(uF[0] + jF[0]) / 2 - (c0 + c1) * 0.5 * len * 0.22 * s, (uF[1] + jF[1]) / 2 - (s0 + s1) * 0.5 * len * 0.22 * s], jF);
+    pts.push(jL);
+    bez(jL, up(-7.5, (LIP + JAW) / 2 + opening * 4), uL);
+    g.fillStyle(0x140709, 0.96 * fade);
+    g.beginPath();
+    g.moveTo(pts[0][0], pts[0][1]);
+    for (const p of pts.slice(1)) g.lineTo(p[0], p[1]);
+    g.closePath();
+    g.fillPath();
+    // tiefer im Rachen noch dunkler: ein zweiter, kleinerer Bogen
+    g.fillStyle(0x08030a, 0.55 * fade);
+    g.beginPath();
+    const mid = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const q = [mid(uL, uF, 0.04), mid(uL, uF, 0.5), mid(jL, jF, 0.5), mid(jL, jF, 0.04)];
+    g.moveTo(q[0][0], q[0][1]);
+    g.lineTo(q[1][0], q[1][1]);
+    g.lineTo(q[2][0], q[2][1]);
+    g.lineTo(q[3][0], q[3][1]);
+    g.closePath();
+    g.fillPath();
+    // Gaumen: schmaler Streifen an der Oberlippe (dicker in der Mitte, läuft vorn und hinten aus)
+    const th = 1.0 + 1.7 * opening;
     for (let i = 0; i <= MOUTH_COLS; i++) {
-      const t = i / MOUTH_COLS;
-      m.set(i, 0, topA[0] + (topB[0] - topA[0]) * t, topA[1] + (topB[1] - topA[1]) * t);
-      m.set(i, 1, botA[0] + (botB[0] - botA[0]) * t, botA[1] + (botB[1] - botA[1]) * t);
+      const t = i / MOUTH_COLS, x = -1.5 + (len - 1.5 + 1.5) * t, prof = Math.pow(Math.sin(Math.PI * Math.min(1, t * 0.92 + 0.04)), 0.7);
+      const a1 = up(x, LIP - 0.2), a2 = up(x, LIP - 0.2 + th * prof);
+      pal.set(i, 0, a1[0], a1[1]);
+      pal.set(i, 1, a2[0], a2[1]);
+      // Mundboden: Streifen an der Kieferoberkante, nach oben (in die Öffnung) gerichtet
+      const b1 = jw(x, JAW + 0.3), b2 = jw(x, JAW + 0.3 - th * 0.85 * prof);
+      flo.set(i, 0, b2[0], b2[1]);
+      flo.set(i, 1, b1[0], b1[1]);
     }
+    pal.mesh.setAlpha(fade);
+    flo.mesh.setAlpha(fade);
   }
 
   /** Mundhöhle: dunkle Fläche zwischen Oberlippe und Unterkiefer, nur wenn das Maul offen ist. */

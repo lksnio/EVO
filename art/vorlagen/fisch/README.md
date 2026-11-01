@@ -145,14 +145,34 @@ Daraus ergibt sich als **Liste der Zeichenassets** (mindestens → ideal):
 | `EVO_gebiss_entwicklung.png` | Gebiss 10 → 20 → 40 → 70: Maul wird länger und tiefer, die Zähne wachsen mit (nur in der Größe) |
 | `EVO_szenen_alter_spielstand.png` | Level, Übersicht, Stammbaum, Ende, Aussterben mit einem Spielstand, den der Stand **vor** dem Fisch-Rig geschrieben hat |
 
+### Überarbeitung v3 (`aufnahmen/v3/`)
+
+Vorher = Stand `08901b9` (vor der Überarbeitung), nachher = Stand der Abnahme; Werkstatt mit `?debug&gallery=fish`, Spiel im Devon (Laichfluss) mit echtem Spielfisch.
+Alle Aufnahmen ohne Grafikkarte (Software-GL, Chromium `--disable-gpu`).
+
+| Datei | Inhalt |
+|---|---|
+| `werkstatt_formen_vorher_nachher.png` | normal, kurz/massig, starkes Gebiss – geschlossen nebeneinander |
+| `werkstatt_misch_vorher_nachher.png` | Mischformen: kurz + Gebiss, Kopfpanzer + Gebiss, lang + Gebiss, Panzer + kurz |
+| `werkstatt_biss_vorher_nachher.png` | starkes Gebiss geschlossen / halb / maximal offen |
+| `werkstatt_uebergaenge.png` | Stufen 0 … 1 von kurz/massig, Gebiss und lang/schlank (Werte um die Schwellen von `bodyWeights` und `jawLongWeight`): keine Sprünge, keine doppelten Konturen |
+| `groessen_vorher_nachher.png` | fünf Formen bei 45 / 70 / 90 Pixeln Bildschirmbreite |
+| `spiel_start_vorher_nachher.png`, `spiel_licht_vorher_nachher.png` | Spielfisch (normal, kurz/massig, Gebiss) im Spiel am Start und in der Tiefe; nachher mit der begrenzten Aufhellung |
+| `spiel_gebiss_offen.png` | Gebiss im Spiel geschlossen / halb / maximal offen (`holdOpen`, nur Entwicklung) |
+| `spiel_schwimmen_biss.png` | Schwimmen → Spurt → Biss (13 Einzelbilder aus dem Spiel; Software-GL schafft nur wenige Bilder je Sekunde, der Biss dauert etwa 0,2 s, deshalb ist nur ein Bild weit offen) |
+| `spiel_verdeckung.png` | Spielfisch frei / hinter Vordergrundpflanze / hinter Vordergrundfels (beide mit `DEPTH.decoFront` über dem Fisch) |
+| `spiel_drehen.png` | Wechsel der Schwimmrichtung bei nachlaufender Kamera: keine Helligkeitssprünge (die Aufhellung ist ein weich nachgeführter Wert, kein Wert je Bild) |
+
 ## Prüfungen
 
 * **Spielstände:** Ein Spielstand, geschrieben vom Stand `a6def21` (vor dem Fisch-Rig), lädt im neuen Spiel (Schädel 0,4, Kiefer 0,35, Gebisszuwachs 14 …), Level, Laich, Übersicht (C),
   Stammbaum, Ende und Aussterben laufen ohne einen Fehler in der Konsole. Das Speicherformat hat sich durch das Rig nicht geändert (die Darstellung wird aus den Werten abgeleitet).
 * **Duell:** Zwei Spieler (Server im Entwicklungsbetrieb): Höhle, Einloggen, Duell, Biss, Laichen, Schlüpfen, Ergebnis, zurück in die Höhle – Fische sichtbar und mit Treffer-Einfärbung.
-* **Leistung:** Hier (ohne Grafikkarte, Software-GL) 18 Fische: 20,8 gegenüber 21,7 Bildern pro Sekunde mit dem alten Fisch, die Rechenzeit der Posen 0,2 ms je Bild. **Auf echter Grafikhardware ist es nicht gemessen** –
-  in dieser Umgebung gibt es keine. Messhilfe: `http://localhost:8080/?debug&gallery=fish&perf&n=40&mode=swim&speed=0.7&bite=1&zoom=0.9` zeigt oben links
-  Fischzahl, Bilder pro Sekunde, Millisekunden je Bild und ob WebGL läuft; zum Vergleich dieselbe Adresse mit `&oldfish`.
+* **Leistung** (ohne Grafikkarte, Software-GL, 18 Fische im Schwimmen mit Bissen): 22,5 Bilder pro Sekunde gegenüber 24,3 mit dem alten Fisch, Rechenzeit der Posen
+  0,17 ms je Bild für alle 18; neues Aussehen erzeugen (gemalt, mit Profilverzerrung) 16 … 47 ms je nach Größe (Größe 0,5 … 1,6), programmiert 9 … 16 ms – nur beim Wechsel des
+  Aussehens, danach aus dem Zwischenspeicher. Die Spieleraufhellung kostet nichts je Bild (ein Tint-Wert, nur bei Änderung gesetzt; kein Auslesen der Grafikkarte,
+  keine Textur je Bild). **Auf echter Grafikhardware ist nichts davon gemessen** – in dieser Umgebung gibt es keine. Messhilfe: `http://localhost:8080/?debug&gallery=fish&perf&n=40&mode=swim&speed=0.7&bite=1&zoom=0.9`
+  zeigt oben links Fischzahl, Bilder pro Sekunde, Millisekunden je Bild und ob WebGL läuft; zum Vergleich dieselbe Adresse mit `&oldfish`.
 
 ## Erzeugung
 

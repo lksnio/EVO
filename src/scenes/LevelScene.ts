@@ -40,7 +40,7 @@ import { Sight } from '../objects/Sight';
 import { Nest } from '../objects/Nest';
 import { BROOD, OXYGEN } from '../data/karbon';
 import { eatEggs, tick as broodTick } from '../sim/brood';
-import { clearness, depthOf, sensed, SIGHT } from '../sim/sight';
+import { clearness, depthOf, LIFT, sensed, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
 import { clamp, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
@@ -185,6 +185,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private deepDark?: Phaser.GameObjects.Image;
   /** die Sicht unter Wasser: trübes Wasser überall, wohin der Fisch nicht blickt (siehe objects/Sight.ts) */
   private sight?: Sight;
+  /** aktuelle Aufhellung des Spielerfisches (weich nachgeführt) */
+  private lift = LIFT.base;
   /** wann das Herz das nächste Mal schlägt (es schlägt nur, wenn dich etwas jagt) */
   private beatAt = 0;
   private deepK = 0;
@@ -2535,6 +2537,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
     const water = SIGHT.water[this.place.kind] ?? 1, deep = depthOf(p.y - this.L.surfaceY);
     sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep);
+    // Spieleraufhellung: begrenzt, weich nachgeführt, nur für die Zeichnung des eigenen Fisches (siehe sim/sight.ts, LIFT)
+    this.lift += (LIFT.base + LIFT.range * (1 - sg.clarityAt(p.x, p.y, 0)) - this.lift) * (1 - Math.exp(-dt * LIFT.rate));
+    p.view.setLift(this.lift);
     // die Fische in der Ferne: In klarem Wasser dicht unter der Oberfläche sieht man sie gut, im Trüben und in der Tiefe kaum
     if (this.backSea) this.backSea.see += (clearness(water, deep) - this.backSea.see) * Math.min(1, dt * 1.5);
     const now = this.time.now;
