@@ -1,0 +1,9 @@
+{
+  "fileRoundTrip": true,
+  "projectSave": true,
+  "openChasmPreserved": true,
+  "rotatedStoneCollisionInMainGame": true,
+  "mainGameObjects": 129,
+  "mainGamePhysics": 331,
+  "errors": []
+}

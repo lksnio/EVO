@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import { terrainArt, caveBack } from '../art/terrainArt';
+import { chasmArt } from '../art/chasmArt';
+import { terrainArt } from '../art/terrainArt';
 import { paintedRiver, riverCave } from '../art/riverProps';
 import { paintedReef, reefRock } from '../art/reefProps';
 import { MapScenery } from '../objects/MapScenery';
@@ -36,7 +37,7 @@ export class MapView {
     for (const k of art.fore) this.images.push(scene.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(42));
     if (reef) for (const r of L.rocks) if (r.form === 'slab' || r.paintedProp === 'shelter-support') this.images.push(reefRock(scene, r).setDepth(.5));
     if (L.cave && ink && paintedRiver(scene)) { const cave = riverCave(scene, L.cave); cave.back.setDepth(-7); cave.front.setDepth(40); this.images.push(cave.back, cave.front); }
-    if (L.deepCave) { const c = caveBack(scene, L.deepCave.hollow, this.keys, L.deepCave.side); this.images.push(scene.add.image(c.x, c.y, c.key).setOrigin(0).setDepth(-6)); }
+    if (L.chasm) this.images.push(chasmArt(scene, L.chasm));
     this.scenery = new MapScenery(scene, L, map.objects, ink);
     for (const p of L.plants) this.images.push(new Plant(scene, p.x, p.y, L.theme, 3, p.v).img);
     for (const r of L.roe) this.images.push(new Roe(scene, r.x, r.y, r.species, r.tone, 4, r.own).img);

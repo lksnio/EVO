@@ -114,9 +114,14 @@ export function parseWorldMap(input: unknown): WorldMap {
     currents: array(l.currents, v => { const a = record(v); return { ...rect(a), dir: a.dir === -1 ? -1 : 1 }; }),
   };
   for (const k of ['shrine', 'nest'] as const) if (l[k] !== undefined) L[k] = point(l[k]);
-  for (const k of ['descent', 'summit'] as const) if (l[k] !== undefined) L[k] = rect(l[k]);
+  for (const k of ['summit'] as const) if (l[k] !== undefined) L[k] = rect(l[k]);
   if (l.cave !== undefined) { const c = record(l.cave); L.cave = { ...rect(c), hollow: poly(c.hollow) }; }
-  if (l.deepCave !== undefined) { const c = record(l.deepCave); L.deepCave = { ...rect(c), hollow: poly(c.hollow), side: c.side === 1 ? 1 : -1 }; }
+  if (l.deepCave !== undefined) throw Error('Diese Karte nutzt die alte Schlund-Höhle. Bitte die aktuelle Vorlage mit offener Schlucht verwenden.');
+  if (l.chasm !== undefined) {
+    const c = record(l.chasm);
+    L.chasm = { x0: num(c.x0, 0, width), x1: num(c.x1, 0, width), rimY: num(c.rimY), floorY: num(c.floorY), exitY: num(c.exitY) };
+    if (L.chasm.x1 <= L.chasm.x0 || L.chasm.floorY <= L.chasm.rimY || L.chasm.exitY >= L.chasm.floorY || L.chasm.exitY <= L.chasm.rimY) throw Error('Der Tiefenzugang hat ungültige Grenzen.');
+  }
   if (l.riverEnd !== undefined) L.riverEnd = num(l.riverEnd, 0, width);
   if (l.amphibious === true) L.amphibious = true;
   if (l.land !== undefined) L.land = array(l.land, v => { const a = record(v); return { x0: num(a.x0), x1: num(a.x1) }; });
@@ -169,9 +174,8 @@ export function transformRock(L: LevelData, index: number, x: number, y: number,
   for (const b of r.collision ?? []) box(b);
   if (r.poly) r.poly = r.poly.map(([px, py]) => [px * sx, py * sy]);
   r.x = x; r.y = y; r.rx *= sx; r.ry *= sy;
-  const c = r.paintedProp === 'cave' ? L.cave : r.paintedProp === 'deep-cave' ? L.deepCave : undefined;
+  const c = r.paintedProp === 'cave' ? L.cave : undefined;
   if (c) { box(c); c.hollow = c.hollow.map(([px, py]) => [x + (px - ox) * sx, y + (py - oy) * sy]); }
-  if (r.paintedProp === 'deep-cave' && L.descent) box(L.descent);
   rebuildSolids(L);
 }
 export function rockBounds(r: RockSpec) {

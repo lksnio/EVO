@@ -8,7 +8,7 @@ export function items(map: WorldMap): EditorItem[] {
   const out: EditorItem[] = [], L = map.layout;
   for (const o of map.objects) { const y = objectY(o, L); out.push({ key: 'obj:' + o.id, name: o.asset.replace(/^(reef_unit_|reef_|d2_)/, ''), x: o.x, y, width: o.width, height: o.height, bounds: { x: o.x - o.width / 2, y: y - o.height, w: o.width, h: o.height }, object: o }); }
   for (const kind of ['rock', 'fore'] as const) (kind === 'rock' ? L.rocks : L.fore).forEach((r, i) => {
-    const b = rockBounds(r); out.push({ key: kind + ':' + i, name: r.paintedProp === 'cave' ? 'Laichhöhle' : r.paintedProp === 'deep-cave' ? 'Schlund-Höhle' : kind === 'fore' ? 'Fels im Vordergrund' : 'Fels', x: r.x, y: r.y, width: r.rx * 2, height: r.ry * 2, bounds: b });
+    const b = rockBounds(r); out.push({ key: kind + ':' + i, name: r.paintedProp === 'cave' ? 'Laichhöhle' : kind === 'fore' ? 'Fels im Vordergrund' : 'Fels', x: r.x, y: r.y, width: r.rx * 2, height: r.ry * 2, bounds: b });
   });
   for (const [kind, field] of Object.entries(kinds)) (L[field as keyof typeof L] as unknown[] ?? []).forEach((value, i) => {
     const v = value as { x: number; y: number; w?: number; h?: number; id?: string; species?: string };
@@ -18,6 +18,7 @@ export function items(map: WorldMap): EditorItem[] {
   for (const [key, name] of Object.entries(pointNames)) {
     const p = L[key as 'start' | 'shrine' | 'nest']; if (p) out.push({ key, name, ...p, width: 30, height: 30, bounds: { x: p.x - 15, y: p.y - 15, w: 30, h: 30 } });
   }
+  if (L.chasm) { const c = L.chasm; out.push({ key: 'chasm', name: 'Tiefenzugang · Schlucht', x: (c.x0 + c.x1) / 2, y: c.floorY, width: c.x1 - c.x0, height: c.floorY - c.rimY, bounds: { x: c.x0, y: c.rimY, w: c.x1 - c.x0, h: c.floorY - c.rimY } }); }
   return out;
 }
 export function moveItem(map: WorldMap, key: string, x: number, y: number, width?: number, height?: number) {
@@ -36,6 +37,9 @@ export function moveItem(map: WorldMap, key: string, x: number, y: number, width
     if (v.w !== undefined) { v.w = width ?? v.w; v.h = height ?? v.h; v.x = x - v.w / 2; v.y = y - v.h!; }
     else { v.x = x; v.y = y; }
     if (kind === 'solid') rebuildSolids(L);
+  } else if (kind === 'chasm' && L.chasm) {
+    const c = L.chasm, w = width ?? c.x1 - c.x0, h = height ?? c.floorY - c.rimY, t = (c.exitY - c.rimY) / (c.floorY - c.rimY);
+    c.x0 = x - w / 2; c.x1 = x + w / 2; c.rimY = y - h; c.floorY = y; c.exitY = c.rimY + h * t;
   } else {
     const p = L[kind as 'start' | 'shrine' | 'nest']; if (p) { p.x = x; p.y = y; }
   }
@@ -48,11 +52,11 @@ export function deleteItems(map: WorldMap, keys: Set<string>) {
     const removed = arr.filter((_, i) => keys.has(kind + ':' + i));
     if (kind === 'rock') for (const r of removed as typeof map.layout.rocks) {
       if (r.paintedProp === 'cave') delete map.layout.cave;
-      if (r.paintedProp === 'deep-cave') { delete map.layout.deepCave; delete map.layout.descent; }
     }
     (map.layout[field] as unknown[]) = arr.filter((_, i) => !keys.has(kind + ':' + i));
   }
   for (const key of ['shrine', 'nest'] as const) if (keys.has(key)) delete map.layout[key];
+  if (keys.has('chasm')) delete map.layout.chasm;
   rebuildSolids(map.layout);
 }
 export function duplicateObjects(map: WorldMap, keys: Set<string>): string[] {

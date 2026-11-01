@@ -21,6 +21,7 @@ describe('World editor / persistent runtime maps', () => {
       expect(parsed.layout.mode, ep.id).toBe(m.layout.mode);
       expect(parsed.layout.terrain).toEqual(m.layout.terrain);
       expect(parsed.layout.amphibious).toBe(m.layout.amphibious);
+      expect(parsed.layout.chasm).toEqual(m.layout.chasm);
       expect(parsed.objects).toEqual(m.objects);
     }
   });

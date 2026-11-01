@@ -70,7 +70,7 @@ export interface PlaceDef {
   sky?: number;
   /** Abschnitt des zusammenhängenden Devon-Meeres, von links nach rechts. */
   waterway?: 0 | 1 | 2;
-  /** der Ort, in den man durch die Schlund-Höhle (F) hinabtaucht – und von dort nur nach oben zurückkommt (ascent) */
+  /** der Ort, in den man durch die Schlucht im Boden hinabschwimmt – und von dort nur nach oben zurückkommt (ascent) */
   descent?: string;
   ascent?: string;
   /** Ränder, über die man nicht hinausschwimmen kann (kein Nachbar, eine Wand) */
@@ -198,10 +198,10 @@ function buildPlaces(epId: string): PlaceDef[] {
   if (epId !== 'devon') return places;
   // Ein Meer, drei direkt verbundene Abschnitte. Die alten IDs bleiben für Spielstände erhalten.
   const river = places[0], shelf = places[1], valley = places[5];
-  // Das Tiefental erreicht man nur durch die große Schlund-Höhle in der Mitte des Korallengartens (F) – und verlässt es nur nach oben:
+  // Das Tiefental erreicht man nur durch die Schlucht in der Mitte des Korallengartens (der Boden ist dort „auf“) – und verlässt es nur nach oben:
   // Rechts im Korallengarten geht es nicht weiter, das Tal selbst hat rechts und links Wände.
   Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28], duelCave: true });
-  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 14, waterway: 1, seabed: [28, 28], descent: valley.id, closed: { right: true } });
+  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 24, waterway: 1, seabed: [28, 28], descent: valley.id, closed: { right: true } });
   Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: undefined, ascent: shelf.id, closed: { left: true, right: true }, apex: true });
   valley.def.name = valley.name;
   return [river, shelf, valley];

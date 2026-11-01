@@ -37,7 +37,7 @@ Sand, nach links läuft das Bild weich ins Dunkel aus – dort stehen Titel und 
 Von oben fällt ein **Lichtstrahl** herein und malt ein Lichtnetz auf den Grund, Schwebeteilchen treiben, aus einer Spalte
 steigen Blasen, vorn wiegen sich Algen, in der Ferne zieht ab und zu ein Schwarm vorbei. Ganz langsam kommt die Kamera
 näher und weicht wieder zurück. Das Menü: **Weiterleben**, **Zeitalter** (für das erste Leben „Leben beginnen“),
-**Stammbaum**, **Chronik des Lebens**, **Steuerung** – die angewählte Zeile leuchtet warm auf, rückt ein, davor erscheint eine feine
+**Stammbaum**, **Chronik des Lebens**, **Steuerung**, **Weltbaukasten** – die angewählte Zeile leuchtet warm auf, rückt ein, davor erscheint eine feine
 Linie mit einer kleinen Raute, und ein Glanz streicht einmal über die Buchstaben. Unten links stehen das gewählte Zeitalter
 und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie und ihre Generation (das Bild:
 `src/assets/title/fossil.webp`).
@@ -46,6 +46,14 @@ und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie 
 > es werden keine Original-Inhalte verwendet.
 
 **Online spielen:** https://lksnio.github.io/EVO/
+
+## Weltbaukasten
+
+Im Hauptmenü unter **Weltbaukasten** Orte von Hand gestalten: Bauteile hineinziehen, skalieren, drehen, spiegeln, gruppieren und auf Ebenen verteilen. Kleine gemalte Pflanzen und Steine lassen sich einzeln kombinieren. Bodenpinsel, Kollisionsflächen, Verstecke, Tiere, Laich und Startpunkte gehören zur Karte; eine Begehung prüft das Gelände mit einer Testfigur, ohne den Spielstand zu ändern. Die Grundlage gilt für alle Epochen mit den jeweiligen Bauteilpaletten.
+
+Entwürfe werden im Browser gesichert und lassen sich als Datei exportieren oder importieren. Bei `npm run dev` übernimmt **Im Projekt speichern** die Karte in `src/data/maps/worlds.json`; Hauptspiel und Server laden danach dieselbe veröffentlichte Karte. Auf der statischen Website die Datei exportieren und zur Übernahme im lokalen Entwicklungsserver öffnen. Auch der offene Tiefenzugang im Korallengarten bleibt in der Kartendatei erhalten.
+
+[Bedienung und Speicherweg](src/editor/README.md) · [Editoraufnahme](art/EVO_world_editor_v1/captures/editor.png)
 
 ## Zeitalter wählen
 
@@ -563,14 +571,15 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   - **Natürliche Verstecke:** Niedrige **Felsspalten** und dichter Bewuchs bieten Deckung. Farbhöhlen, verschüttete
     Eingänge und aufbrechbare Wände gibt es nicht mehr. Bestehende Färbungen und vorgemerkte Farben älterer Spielstände
     bleiben für die Vererbung erhalten.
-  - **Ein zusammenhängendes Meer im Devon, mit einem Schlund in der Mitte:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
-    Korallengarten (und zurück nach links). **Rechts im Korallengarten geht es nicht weiter.** Das **Tiefental** erreicht man nur durch den **Schlund** in der Mitte
-    des Korallengartens: Der Grund senkt sich dort zu einer tiefen Mulde, an deren Ende eine **riesige Höhle** im Fels liegt (Öffnung nach links, `LevelData.deepCave`);
-    links und rechts türmen sich **riesige Felsen**, damit man spürt, dass das Meer hier richtig tief wird. Wer **vor der Höhle** steht (`LevelData.descent`), drückt
-    **F** („In die Tiefe“) und taucht ins Tiefental hinab – man kommt oben in der Mitte an. Das Tal hat links und rechts Wände; man **verlässt es nur nach oben**: Wer bis
-    unter das Dach aus Wasser schwimmt, kommt im Korallengarten wieder **vor der Höhle** heraus (`PlaceDef.descent`/`ascent`/`closed`, `LevelScene.descentStep`/`edgeStep`).
-    Die Abschnitte werden mit einer kurzen Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Das Tal ist ein Trichter (an den Rändern hoch, in
-    der Mitte tief).
+  - **Ein zusammenhängendes Meer im Devon, mit einer Schlucht in der Mitte:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
+    Korallengarten (und zurück nach links). **Rechts im Korallengarten geht es nicht weiter.** Das **Tiefental** erreicht man nur durch die **Schlucht** in der Mitte
+    des Korallengartens – keine Höhle, kein Knopf: Der Boden ist dort **offen** (`LevelData.chasm`), das Meer wird an dieser Stelle schlagartig tief. Der Grund bricht
+    an der Kante ab, die Flanken fallen steil zu einem breiten Schlund hinab, und links und rechts türmen sich **riesige Felsen** (`addDescent`), damit man spürt, dass es hier
+    richtig in die Tiefe geht. Man **schwimmt einfach hinunter**: Ganz unten (unter `chasm.exitY`) geht das Wasser ins Tiefental über – man kommt dort oben in der Mitte an
+    (`LevelScene.chasmStep`). Das Tal hat links und rechts Wände; man **verlässt es nur nach oben**: Wer bis unter das Dach aus Wasser schwimmt, kommt im Korallengarten
+    **mitten in der Schlucht** wieder heraus (`PlaceDef.descent`/`ascent`/`closed`, `LevelScene.edgeStep`). Beim Hinabschwimmen wird es sichtbar dunkler (Schattenverlauf über der
+    Schlucht, `buildChasm`), Fische, Bewuchs und Deko meiden die Öffnung. Die Abschnitte werden mit einer kurzen Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten.
+    Das Tal ist ein Trichter (an den Rändern hoch, in der Mitte tief).
   - **Keine Wasseroberfläche:** Auf keiner Karte sieht man die Oberfläche. Nach oben ist es zu – das Wasser geht über dem oberen Rand weiter (die Kamera darf dort hinausschauen,
     Lichtstrahlen beginnen weit darüber), man schwimmt aber nicht hindurch: ein Dach aus Wasser. Man merkt, dass es noch weiter hinaufginge, bevor man an der Oberfläche wäre.
   - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.

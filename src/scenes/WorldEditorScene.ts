@@ -44,7 +44,7 @@ export class WorldEditorScene extends Phaser.Scene {
   private catalog: MapAsset[] = [];
   private thumbs = new Map<string, string>();
   private search = '';
-  private tool: 'select' | 'ground' | 'solid' | 'cover' | 'crevice' | 'plant' | 'animal' | 'roe' | 'start' = 'select';
+  private tool: 'select' | 'ground' | 'solid' | 'cover' | 'crevice' | 'plant' | 'animal' | 'roe' | 'start' | 'chasm' = 'select';
   private snap = true;
   private regions = true;
   private grid = false;
@@ -183,7 +183,8 @@ export class WorldEditorScene extends Phaser.Scene {
     this.palette.append(search, listing); this.fillAssets(listing);
     this.palette.append(el('h3', 'Gelände & Spielbereiche'));
     const tools = el('div'); tools.className = 'grid';
-    for (const [key, label] of Object.entries({ select: 'Auswählen', ground: 'Boden formen', solid: 'Kollision', cover: 'Versteck', crevice: 'Felsspalte', plant: 'Futterpflanze', animal: 'Tier', roe: 'Laich', start: 'Startpunkt' })) {
+    for (const [key, label] of Object.entries({ select: 'Auswählen', ground: 'Boden formen', solid: 'Kollision', cover: 'Versteck', crevice: 'Felsspalte', plant: 'Futterpflanze', animal: 'Tier', roe: 'Laich', start: 'Startpunkt', chasm: 'Tiefenzugang' })) {
+      if (key === 'chasm' && !this.place.descent) continue;
       this.button(tools, label, () => { this.tool = key as typeof this.tool; this.renderPalette(); this.say(label + ' · auf die Karte klicken.' ); }, this.tool === key ? 'active' : '');
     }
     this.palette.append(tools, el('p', 'Bauteile ins Bild ziehen oder anklicken. Umschalt: mehrere auswählen. Kleine Teile lassen sich frei kombinieren.'));
@@ -232,6 +233,11 @@ export class WorldEditorScene extends Phaser.Scene {
       else this.field(fields, o ? 'Y · Fußpunkt' : 'Y', i.y, v => this.edit(() => moveItem(this.map, i.key, i.x, v)));
       this.field(fields, 'Breite', i.width, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, v, i.height)), 2, 5000);
       this.field(fields, 'Höhe', i.height, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, i.width, v)), 2, 5000);
+      if (i.key === 'chasm' && this.map.layout.chasm) {
+        const ch = this.map.layout.chasm;
+        this.field(fields, 'Austrittshöhe Y', ch.exitY, v => this.edit(() => { ch.exitY = v; }), ch.rimY + 1, ch.floorY - 1);
+        this.inspector.append(el('p', 'Wer in diesem Bereich unter die Austrittshöhe schwimmt, gelangt ins Tiefental. Den freien Weg dorthin mit dem Bodenpinsel gestalten.'));
+      }
       if (o) {
         this.field(fields, 'Drehung °', o.angle, v => this.edit(() => { o.angle = v; }), -360, 360);
         this.field(fields, 'Deckkraft %', o.alpha * 100, v => this.edit(() => { o.alpha = v / 100; }), 0, 100);
@@ -345,6 +351,7 @@ export class WorldEditorScene extends Phaser.Scene {
     this.edit(() => {
       const L = this.map.layout;
       if (this.tool === 'start') L.start = { x, y };
+      else if (this.tool === 'chasm' && this.place.descent) { L.chasm = { x0: x - 320, x1: x + 320, rimY: y - 900, floorY: y, exitY: y - 250 }; this.selected = new Set(['chasm']); }
       else if (this.tool === 'solid') { (L.editorSolids ??= []).push({ x: x - 60, y: y - 60, w: 120, h: 60 }); L.solids.push(L.editorSolids.at(-1)!); this.selected = new Set(['solid:' + (L.editorSolids.length - 1)]); }
       else if (this.tool === 'cover' || this.tool === 'crevice') { const key = this.tool === 'cover' ? 'cover' : 'crevices'; L[key].push({ x: x - 80, y: y - 90, w: 160, h: 90 }); this.selected = new Set([this.tool + ':' + (L[key].length - 1)]); }
       else if (this.tool === 'plant') { L.plants.push({ x, y, v: 0 }); this.selected = new Set(['plant:' + (L.plants.length - 1)]); }

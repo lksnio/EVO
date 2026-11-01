@@ -17,9 +17,9 @@ export class ReefScenery {
     const r = mulberry32(hashStr('reef/' + place));
     const floor = (x: number) => groundCurve(level.terrain.hp, x);
     const blocked = (x: number, margin: number) => {
-      const c = level.cave, d = level.deepCave;
+      const c = level.cave, d = level.chasm;
       return (c && x > c.x - margin && x < c.x + c.w + margin)
-        || (d && x > d.x - margin && x < d.x + d.w + margin)
+        || (d && x > d.x0 - margin && x < d.x1 + margin)
         || level.crevices.some(c => x > c.x - margin && x < c.x + c.w + margin);
     };
     const make = (part: ReefPart, x: number, y: number, h: number, depth: number) => {

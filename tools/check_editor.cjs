@@ -13,10 +13,30 @@ const output=path.resolve(__dirname,'../art/EVO_world_editor_v1/captures');fs.mk
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
  const errors=[];let wrote=false;
- const page=await browser.newPage({viewport:{width:1600,height:1000}});
+ const page=await browser.newPage({viewport:{width:1600,height:1000}});page.setDefaultTimeout(90000);
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   const frames=async(n=2)=>{const f=await page.evaluate(()=>window.__evo.game.loop.frame);await page.waitForFunction(({f,n})=>window.__evo.game.loop.frame>f+n,{f,n},{timeout:90000});};
  try{
+  if(process.argv.includes('--storage')){
+   console.log('Latest map: file / project / main-game / chasm');
+   await page.goto(base+'/?offline&editor=devon:garten');await page.waitForSelector('[data-asset="reef_unit_stone"]',{timeout:90000});
+   await page.locator('[data-asset="reef_unit_stone"]').click();
+   await page.getByLabel('Drehung °',{exact:true}).fill('12');await page.getByLabel('Drehung °',{exact:true}).press('Tab');
+   const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Datei exportieren',exact:true}).click();const download=await downloadEvent;
+   const file=path.join(output,'roundtrip.evo-map.json');await download.saveAs(file);const map=JSON.parse(fs.readFileSync(file,'utf8'));assert.ok(map.layout.chasm);assert.ok(!map.layout.deepCave);
+   await page.locator('input[type=file]').setInputFiles(file);await page.waitForFunction(()=>document.querySelector('.status').textContent.includes('importiert'));
+   const id=map.objects.at(-1).id;assert.equal(map.objects.at(-1).solid,true);
+   await page.evaluate(id=>{const s=window.__evo.game.scene.getScene('WorldEditor');s.selected=new Set(['obj:'+id]);s.renderInspector();},id);await frames();await page.screenshot({path:path.join(output,'editor.png')});
+   const denied=await page.request.post(base+'/__evo/maps',{headers:{origin:'https://elsewhere.invalid'},data:map});assert.equal(denied.status(),403);
+   const response=await page.request.post(base+'/__evo/maps',{data:map});assert.equal(response.status(),200);wrote=true;
+   await page.reload();await page.waitForSelector('.evo-editor .asset',{timeout:90000});
+   await page.evaluate(async()=>{const e=window.__evo,{EPOCHS}=await import('/src/data/epochs.ts');const epoch=EPOCHS.findIndex(e=>e.id==='devon');e.state.newRun(epoch);e.state.life.age=180;e.game.scene.stop('WorldEditor');e.game.scene.start('Level',{epoch,place:'garten'});});
+   await page.waitForFunction(()=>window.__evo.game.scene.getScene('Level').mapScenery?.images.size>0,null,{timeout:90000});
+   const main=await page.evaluate(id=>{const s=window.__evo.game.scene.getScene('Level');return {objects:s.L.authoredObjects.length,found:s.mapScenery.images.has(id),solids:s.L.solids.length,chasm:s.L.chasm,ground:s.L.terrain.hp,physics:s.solids.getLength()};},id);
+   assert.deepEqual(main.chasm,map.layout.chasm);assert.deepEqual(main.ground,map.layout.terrain.hp);assert.equal(main.objects,map.objects.length);assert.ok(main.solids>map.layout.solids.length);assert.equal(main.found,true);assert.ok(main.physics>=main.solids);assert.deepEqual(errors,[]);
+   const report={fileRoundTrip:true,projectSave:true,openChasmPreserved:true,rotatedStoneCollisionInMainGame:true,mainGameObjects:main.objects,mainGamePhysics:main.physics,errors};
+   fs.writeFileSync(path.join(output,'storage-check.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));return;
+  }
   if(process.argv.includes('--footpoints')){
    await page.goto(base+'/?offline&editor=devon:garten');await page.waitForSelector('[data-asset="reef_unit_ribbon"]',{timeout:90000});
    const before=await page.evaluate(()=>JSON.stringify(window.__evo.state.data));

@@ -17,7 +17,7 @@ export function loadLevel(ep: EpochDef, salt: string | number, place: PlaceDef, 
   L.authoredObjects = cloneMap(map.objects);
   L.solids.push(...objectSolids(map));
   if (edge?.side === 'top') L.start = { x: L.width / 2, y: L.surfaceY + 300 };
-  else if (edge?.side === 'cave' && L.descent) L.start = { x: L.descent.x + L.descent.w * 0.35, y: L.descent.y + L.descent.h * 0.45 };
+  else if (edge?.side === 'chasm' && L.chasm) L.start = { x: (L.chasm.x0 + L.chasm.x1) / 2, y: L.chasm.exitY - 280 };
   else if (edge?.side === 'left' || edge?.side === 'right') {
     const x = edge.side === 'left' ? L.width - 380 : 380;
     const y = L.ground[Math.max(0, Math.min(L.ground.length - 1, Math.floor(x / 40)))];
