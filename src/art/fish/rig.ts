@@ -7,6 +7,7 @@ import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anato
 import { solveSpine } from './spine';
 import { MOUTH_KEY, paintBodyPainted, paintEyePainted, paintFinPainted, paintJawPainted, paintOverlayPainted, paintedReady } from './painted';
 import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
+import { fishContour, liftKey, LIFT_STEPS, prepareFishLift } from './finish';
 
 // ---------------------------------------------------------------------------
 // Das Fisch-Rig: Die Zeichnung (paint.ts) liegt als EIN Netz über Kopf, Rumpf, Schwanzstiel und Schwanzflosse. Das Netz
@@ -82,6 +83,11 @@ export function makeTex(scene: Phaser.Scene, key: string, box: Box, s: number, d
   ctx.scale(R, R);
   ctx.translate(-box.x0, -box.y0);
   draw(ctx);
+  // Shared contour language for painted player, ray-fins, sharks, lobe-fins and armoured fish.
+  // Gill overlays and eyes stay inside the silhouette and must not gain their own outside border.
+  if (!new URLSearchParams(globalThis.location?.search ?? '').has('oldreef') && /_f[bjdavpq]|_fd2$/.test(key)) {
+    fishContour(ctx, Math.max(2.4, R * (/_fb$/.test(key) ? 1.45 : 0.8)));
+  }
   floorAlpha(ctx);
   scene.textures.addCanvas(key, c);
   return key;
@@ -204,6 +210,8 @@ export class FishRig {
   readonly parts: Phaser.GameObjects.GameObject[] = [];
   readonly lid: Phaser.GameObjects.Graphics;
   readonly cavity: Phaser.GameObjects.Graphics;
+  private liftParts?: { part: Phaser.GameObjects.Image; key: string }[];
+  private liftStep = -1;
   private body: Grid;
   private overlay: Grid;
   /** gemaltes Maul (nur mit gemalten Texturen): schmale Gaumenfläche oben und Mundboden unten; die Höhle dazwischen ist `cavity` */
@@ -297,6 +305,22 @@ export class FishRig {
     this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, ...(this.palate && this.floor ? [this.palate.mesh, this.floor.mesh] : []), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
+  }
+
+  /** Switch cached colour grades; mesh vertices, UVs, pose and number of draw calls are unchanged. */
+  setLift(value: number) {
+    const step = Math.round(clamp(value, 0, 0.5) * 2 * LIFT_STEPS);
+    if (step === this.liftStep) return;
+    if (!this.liftParts) {
+      this.liftParts = this.parts.filter(o => o instanceof Phaser.GameObjects.Image || o instanceof Phaser.GameObjects.Mesh2D)
+        .map(o => ({ part: o as Phaser.GameObjects.Image, key: (o as Phaser.GameObjects.Image).texture.key }))
+        .filter(o => o.key !== MOUTH_KEY);
+    }
+    for (const { part, key } of this.liftParts) {
+      if (step) prepareFishLift(part.scene, key);
+      part.setTexture(liftKey(key, step));
+    }
+    this.liftStep = step;
   }
 
   /** Spalte → Position am Netz in Pixeln. */

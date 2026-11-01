@@ -31,7 +31,7 @@ export interface RockSpec {
   poly?: Poly;
   form?: 'boulder' | 'slab' | 'arch';
   /** Visual replacement only; collision geometry stays authoritative. */
-  paintedProp?: 'cave';
+  paintedProp?: 'cave' | 'shelter-support';
 }
 
 export interface Terrain {

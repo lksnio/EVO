@@ -5,6 +5,7 @@ import {
 } from '../art/creatureArt';
 import { eyeBall } from '../art/fish/anatomy';
 import { FishRig, fishTextures } from '../art/fish/rig';
+import { liftKey, LIFT_STEPS } from '../art/fish/finish';
 
 /** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
 export type AnimMode = 'swim' | 'walk' | 'air' | 'idle' | 'crawl';
@@ -41,7 +42,10 @@ function release(tm: Phaser.Textures.TextureManager, key: string) {
   unused.push(key);
   while (unused.length > KEEP_UNUSED) {
     const old = unused.shift()!;
-    for (const p of PARTS) for (const sfx of ['', 'P']) if (tm.exists('cr2_' + old + sfx + p)) tm.remove('cr2_' + old + sfx + p);
+    for (const p of [...PARTS, '_fd2']) for (const sfx of ['', 'P']) for (let step = 0; step <= LIFT_STEPS; step++) {
+      const key = liftKey('cr2_' + old + sfx + p, step);
+      if (tm.exists(key)) tm.remove(key);
+    }
   }
 }
 
@@ -291,11 +295,8 @@ export class CreatureView extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Begrenzte Aufhellung der Zeichnung (nur Fische mit Rig, nur wenn jemand sie setzt – der Spieler): Phaser-Tintmodus SCREEN, jede
-   * Teil-Fläche rechnet c' = c + lift · (1 − c). Das hebt Schatten an, lässt Weiß, wie es ist (kein Ausbrennen), erhält die Reihenfolge
-   * der gezeichneten Helligkeiten und verkleinert den Kontrast höchstens um den Faktor 1 − lift; keine Kontur, keine Pixelrücklesung,
-   * keine neue Textur. Der Wert wird weich nachgeführt (LevelScene.sightStep); Tiefe und Verdeckung des Spielers bleiben unberührt.
-   * (MULTIPLY_TWO leistet dasselbe mit zusätzlicher Farbe, zeichnet in Phaser 4.2.1 aber einzelne Zellen falsch – getestet, verworfen.)
+   * Begrenzte Aufhellung der Zeichnung in acht vorberechneten Stufen. Nur Mitteltöne und helle Flächen werden angehoben;
+   * dunkle Konturen bleiben erhalten. Kein Canvas-Zugriff nach dem ersten Aufbau, kein zusätzlicher Renderdurchgang.
    * Solange der Fisch rot aufblitzt oder im Dickicht abgedunkelt ist, gilt die Tönung dafür und die Aufhellung ruht.
    */
   setLift(v: number) {
@@ -308,27 +309,20 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   private tintAll(color: number | null) {
     const lift = this.rig && color === null ? this.lift : 0;
-    const g = Math.round(lift * 255);
-    const screen = (g << 16) | (g << 8) | g;
+    this.rig?.setLift(lift);
     const apply = (o: Phaser.GameObjects.GameObject) => {
       if (o instanceof Phaser.GameObjects.Container) o.list.forEach(apply);
       else if (o instanceof Phaser.GameObjects.Mesh2D) {
         // (Mesh2D kennt Einfärbung, die Typen von Phaser führen sie noch nicht auf)
         const mesh = o as unknown as { clearTint(): void; setTint(c: number): void; setTintMode(m: number): void };
-        if (lift > 0) {
-          mesh.setTintMode(Phaser.TintModes.SCREEN);
-          mesh.setTint(screen);
-        } else if (color === null) mesh.clearTint();
+        if (color === null) mesh.clearTint();
         else {
           mesh.setTintMode(Phaser.TintModes.MULTIPLY);
           mesh.setTint(color);
         }
       } else if (o instanceof Phaser.GameObjects.Image) {
         const far = this.legs[0] === o || this.legs[1] === o;
-        if (lift > 0) {
-          o.setTintMode(Phaser.TintModes.SCREEN);
-          o.setTint(screen);
-        } else if (color === null) {
+        if (color === null) {
           if (far) o.setTint(FAR_TINT);
           else o.clearTint();
         } else {

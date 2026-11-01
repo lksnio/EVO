@@ -42,8 +42,11 @@ export class FaunaView extends Phaser.GameObjects.Container {
     dt = Math.min(0.05, Math.max(0, dt));
     this.clock += dt;
     this.open += (open - this.open) * Math.min(1, dt * 18);
+    const winding = Math.max(0, Math.min(1, (this.open - 0.15) / 0.55)) * (open >= this.open ? 1 : 0);
+    const snapping = Math.max(0, this.open - open);
     const p: FishPose = { t: this.clock, dt, speed01, mode: speed01 < 0.04 ? 'idle' : this.def.crawl ? 'crawl' : 'swim',
-      open: this.open, lunge: open > 0.7 ? 0.2 : 0, clench: 0, grind: 0, coil, dip: 0, pitch: 0, still: 0, crawlPhase: this.clock * 5 };
+      open: this.open, lunge: snapping * 0.8 - winding * 0.2, clench: snapping * 0.3, grind: 0,
+      coil: Math.max(coil, winding * 0.45), dip: 0, pitch: -winding * 0.05, still: 0, crawlPhase: this.clock * 5 };
     this.rig.pose(p);
   }
 

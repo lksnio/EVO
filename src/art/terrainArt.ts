@@ -7,6 +7,7 @@ import { type Ctx, addTex, newCanvas, smooth, vgrad } from '../util/canvas';
 import { mulberry32 } from '../util/math';
 import { crescent, innerShade, pattern, softShadow, type NoiseKind } from './paint';
 import { grade, INK, lightOf, lineOf, outline, shadowOf } from './ink';
+import { paintedReef, reefKey, reefMaterial } from './reefProps';
 
 // Der Meeresboden wird in Stücken von 640 Bildpunkten Breite gemalt: eine glatte Höhenlinie, darunter Sand, Fels oder Schlamm
 // (weich ineinander übergehend), nach unten dunkler werdend. Felsen sind eigene Bilder – mit Schatten, Schichten, Rissen und
@@ -86,6 +87,8 @@ export interface RockLook {
   dark?: boolean;
   /** Tuschestil (Devon): flache Flächen mit dunkler Kontur */
   ink?: boolean;
+  material?: CanvasImageSource;
+  stone?: HTMLImageElement;
 }
 
 /** Die Erdfarben im Tuschestil: warmer Sand, kühler Fels, dunkler Schlamm – je nach Ort ins Grüne (bewachsen) bzw. Blaue (tief) gezogen. */
@@ -122,10 +125,26 @@ function paintRockInk(ctx: Ctx, s: RockSpec, look: RockLook, path: () => void, o
   ctx.save();
   path();
   ctx.clip();
+  if (look.stone && form === 'boulder') {
+    // Painted faces inside the original outline: even the incidental rocks share the cave's material and light.
+    const src = look.stone;
+    ctx.save(); ctx.globalAlpha = look.dark ? 0.16 : 1;
+    ctx.drawImage(src, src.width * 0.19, src.height * 0.12, src.width * 0.65, src.height * 0.78,
+      s.x - s.rx * 1.3, top - ht * 0.04, s.rx * 2.6, ht * 1.15);
+    ctx.restore();
+  }
   if (!look.dark) {
+    if (look.material) {
+      ctx.save();
+      const brush = ctx.createPattern(look.material, 'repeat')!;
+      brush.setTransform(new DOMMatrix().scale(0.55));
+      ctx.fillStyle = brush; ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.8;
+      ctx.fillRect(s.x - s.rx - 4, top - 4, s.rx * 2 + 8, ht + 8);
+      ctx.restore();
+    }
     // Schichtlinien und Risse als feste dunkle Striche
     const layers = form === 'boulder' ? (s.rx > 60 ? 2 : s.rx > 34 ? 1 : 0) : Math.max(2, Math.round(ht / 34));
-    for (let k = 0; k < layers; k++) {
+    for (let k = 0; k < (look.stone && form === 'boulder' ? 0 : layers); k++) {
       const y = top + ((k + 0.7 + r() * 0.5) / (layers + 0.6)) * ht;
       const x0 = s.x - s.rx - 6, x1 = s.x + s.rx + 6, wob = (r() - 0.5) * 10;
       ctx.beginPath();
@@ -460,6 +479,37 @@ function paintChunkInk(scene: Phaser.Scene, L: TerrainSpec, variant: number, ind
     ctx.fillStyle = g;
     ctx.fill();
   });
+  const painted = paintedReef(scene);
+  if (painted) {
+    // Continuous sediment shading follows the real heightfield, instead of three flat cut-out bands.
+    // All brushwork is baked into the existing terrain chunks at location creation.
+    ctx.save(); band(0, 0); ctx.clip();
+    const blended = (x: number): Mat => {
+      const found = zones.findIndex(z => x < z.x1), i = found < 0 ? zones.length - 1 : found;
+      const z = zones[i], m = mats[z.kind];
+      const other = x - z.x0 < BLEND && i > 0 ? zones[i - 1] : z.x1 - x < BLEND && i < zones.length - 1 ? zones[i + 1] : undefined;
+      if (!other) return m;
+      const edge = other.x0 < z.x0 ? z.x0 : z.x1;
+      const k = Math.max(0, Math.min(0.5, (BLEND - Math.abs(x - edge)) / (2 * BLEND)));
+      const n = mats[other.kind];
+      return { top: mix(m.top, n.top, k), mid: mix(m.mid, n.mid, k), deep: mix(m.deep, n.deep, k) };
+    };
+    for (let x = gx0; x < gx1; x += 3) {
+      const y = groundCurve(hp, x + 1.5), m = blended(x);
+      const g = ctx.createLinearGradient(0, y, 0, y + SKIN);
+      g.addColorStop(0, css(grade(m.top, 0.06)));
+      g.addColorStop(0.2, css(grade(m.mid, 0.06)));
+      g.addColorStop(0.62, css(mix(m.mid, deep, 0.7)));
+      g.addColorStop(1, css(deep));
+      ctx.fillStyle = g; ctx.fillRect(x, y - 4, 3.1, bottom - y + 8);
+    }
+    const source = reefMaterial(scene);
+    const brush = ctx.createPattern(source, 'repeat')!;
+    brush.setTransform(new DOMMatrix().scale(0.7));
+    ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.65;
+    ctx.fillStyle = brush; ctx.fillRect(gx0, oy, w, h);
+    ctx.restore();
+  }
   ctx.save();
   band(0, 0);
   ctx.clip();
@@ -819,9 +869,12 @@ function paintChunk(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, variant: 
 
 /** Das Bild eines Felsen: eine eigene Textur, ein Stück größer als der Umriss. */
 function rockPiece(scene: Phaser.Scene, s: RockSpec, look: RockLook, tag: string, keys: string[]): ArtPiece {
-  const pad = 14;
-  const w = Math.ceil(s.rx * 2 + pad * 2), h = Math.ceil(s.ry * 2 + pad * 2);
-  const x = Math.round(s.x - w / 2), y = Math.round(s.y - h / 2);
+  // Natural rock vertices can extend past rx/ry; the large rocks at the descent used to get flat, clipped tops.
+  const pts = rockOutline(s), pad = Math.max(14, Math.max(s.rx, s.ry) * 0.06);
+  const minX = Math.min(-s.rx * 1.12, ...pts.map(p => p[0])), maxX = Math.max(s.rx * 1.12, ...pts.map(p => p[0]));
+  const minY = Math.min(-s.ry, ...pts.map(p => p[1])), maxY = Math.max(s.ry, ...pts.map(p => p[1]));
+  const x = Math.floor(s.x + minX - pad), y = Math.floor(s.y + minY - pad);
+  const w = Math.ceil(s.x + maxX + pad - x), h = Math.ceil(s.y + maxY + pad - y);
   const [cv, ctx] = newCanvas(w, h);
   ctx.translate(-x, -y);
   paintRock(ctx, s, look);
@@ -837,7 +890,9 @@ export function terrainArt(scene: Phaser.Scene, L: TerrainSpec, theme: Theme, va
   const tag = ++serial;
   const pebbles = L.rocks.filter((s) => (s.form ?? 'boulder') === 'boulder' && s.rx < 30);
   const solid = L.rocks.filter((s) => !((s.form ?? 'boulder') === 'boulder' && s.rx < 30));
-  const look: RockLook = { theme, variant, ink };
+  const look: RockLook = { theme, variant, ink,
+    material: ink && paintedReef(scene) ? reefMaterial(scene) : undefined,
+    stone: ink && paintedReef(scene) ? scene.textures.get(reefKey('support_tall')).getSourceImage() as HTMLImageElement : undefined };
   const chunks: TerrainArt['chunks'] = [];
   for (let i = 0; i * CHUNK < L.width; i++) chunks.push(paintChunk(scene, L, theme, variant, i, pebbles, keys, tag, ink));
   // Platten und Bögen zuerst, die Brocken davor (sie lehnen an der Platte bzw. am Pfeiler)

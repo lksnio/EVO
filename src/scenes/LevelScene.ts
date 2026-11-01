@@ -13,7 +13,7 @@ import { FLOW, INHERIT, LIFE, MISC, RAM, STAMINA, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
-import { groundAt, groundCurve, zoneAt as matAt } from '../level/terrain';
+import { groundAt, groundCurve, zoneAt as matAt, type RockSpec } from '../level/terrain';
 import { coverTextures, foodKey, groundTextures, levelBackgrounds, murkTexture, plantTextures, roeTextures, SILHOUETTE, SWAYS, THEME_TINT } from '../art/worldArt';
 import { paintedRiver, riverCave } from '../art/riverProps';
 import { WaterAtmosphere } from '../objects/WaterAtmosphere';
@@ -26,6 +26,8 @@ import { makeSpeciesTextures } from '../art/speciesArt';
 import { Controls, touch } from '../objects/Controls';
 import { Player, SLEEP_S } from '../objects/Player';
 import { BackSea } from '../objects/BackSea';
+import { ReefScenery } from '../objects/ReefScenery';
+import { paintedReef, reefKey, reefRock } from '../art/reefProps';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
@@ -44,7 +46,7 @@ import { BROOD, OXYGEN } from '../data/karbon';
 import { eatEggs, tick as broodTick } from '../sim/brood';
 import { clearness, depthOf, LIFT, sensed, SIGHT } from '../sim/sight';
 import { fadeIn, fadeTo, text } from '../ui/ui';
-import { clamp, overlaps, pick, type Rect } from '../util/math';
+import { clamp, hashStr, overlaps, pick, type Rect } from '../util/math';
 import { reportError } from '../util/guard';
 import { mix as mixColor } from '../util/color';
 import { rrect, tex } from '../util/canvas';
@@ -133,6 +135,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private bgMid!: Phaser.GameObjects.TileSprite;
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
+  private reefScenery?: ReefScenery;
   /** Plankton, Meeresschnee und treibende Kolonien */
   private drift?: Drift;
   private fog!: Phaser.GameObjects.TileSprite;
@@ -656,7 +659,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private buildTerrain() {
     const L = this.L;
     // im Devon wird der Boden im Tuschestil gemalt (art/ink.ts)
-    const visual = this.ep.id === 'devon' && paintedRiver(this) ? { ...L, rocks: L.rocks.filter(r => r.paintedProp !== 'cave') } : L;
+    const reef = this.ep.id === 'devon' && paintedReef(this);
+    const replaces = (r: RockSpec) => reef && (r.form === 'slab' || r.paintedProp === 'shelter-support');
+    const visual = { ...L, rocks: L.rocks.filter(r => !(this.ep.id === 'devon' && paintedRiver(this) && r.paintedProp === 'cave') && !replaces(r)) };
     const art = terrainArt(this, visual, L.theme, this.zoneAt(0).def.ground, this.ep.id === 'devon');
     this.terrainKeys = art.keys;
     for (const c of art.chunks) {
@@ -672,6 +677,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const k of art.fore) {
       const img = this.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(DEPTH.decoFront);
       this.cullAdd(img, k.x, k.x + k.w);
+    }
+    for (const rock of L.rocks.filter(replaces)) {
+      const img = reefRock(this, rock).setDepth(DEPTH.terrain + 0.5);
+      this.cullAdd(img, img.x - img.displayWidth / 2, img.x + img.displayWidth / 2);
     }
     // am Rand weiter als das Bild: Wer über den Rand schwimmt, soll nicht plötzlich im freien Fall unter dem Boden sein
     const gr = L.groundRects.map((r) => ({ ...r }));
@@ -720,12 +729,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent. */
   private buildCover() {
-    const bushes = coverTextures(this, this.L.theme).map((k) => (this.ink ? inkTexture(this, k, { outline: 3, bands: 4, water: 0.16 }) : k));
+    const reef = this.ep.id === 'devon' && paintedReef(this);
+    const bushes = reef ? [reefKey('kelp')] : coverTextures(this, this.L.theme).map((k) => (this.ink ? inkTexture(this, k, { outline: 3, bands: 4, water: 0.16 }) : k));
     let bi = 0;
     for (const c of this.L.cover) {
       const front: Phaser.GameObjects.Image[] = [];
       this.coverFront.push(front);
-      const n = Math.max(2, Math.round(c.w / 55));
+      const n = Math.max(2, Math.round(c.w / (reef ? 150 : 55)));
       for (let layer = 0; layer < 2; layer++) {
         for (let i = 0; i < n; i++) {
           const key = bushes[(bi++ * 7 + i) % bushes.length];
@@ -733,15 +743,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
           const hgt = (c.h + 24 + ((bi * 53) % 30)) * (layer ? 1 : 1.08);
           const gy = Math.min(c.y + c.h, groundAt(this.L.terrain.hp, x)) + 4;
           const img = this.add.image(x + (layer ? 0 : 14), gy, key).setOrigin(0.5, 1);
-          img.setScale((((c.w / n) * 1.9) / 150) * (layer ? 1 : 1.1), hgt / 210);
+          if (reef) img.setScale(hgt / img.height);
+          else img.setScale((((c.w / n) * 1.9) / 150) * (layer ? 1 : 1.1), hgt / 210);
           if ((bi + i) % 2) img.setFlipX(true);
-          if (layer === 0) img.setDepth(DEPTH.decoBack + 1).setTint(0x5a5a5a);
+          if (layer === 0) img.setDepth(DEPTH.decoBack + 1).setTint(reef ? 0x647e83 : 0x5a5a5a);
           else {
             img.setDepth(DEPTH.cover).setAlpha(0.82);
             front.push(img);
           }
           this.cullAdd(img, img.x - img.displayWidth / 2, img.x + img.displayWidth / 2);
-          if (this.water) this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, yoyo: true, repeat: -1, duration: 2200 + ((bi * 131) % 900), ease: 'Sine.inOut' });
+          if (this.water) this.tweens.add({ targets: img, angle: { from: reef ? -0.9 : -2.5, to: reef ? 0.9 : 2.5 }, yoyo: true, repeat: -1,
+            duration: (reef ? 3400 : 2200) + ((bi * 131) % 900), ease: 'Sine.inOut' });
         }
       }
     }
@@ -749,8 +761,20 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
   private buildCrevices() {
+    const painted = this.ep.id === 'devon' && paintedReef(this);
     for (const c of this.L.crevices) {
-      const dark = tex(this, `crev_dark_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
+      const dark = tex(this, `crev_${painted ? 'painted' : 'dark'}_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
+        if (painted) {
+          const shade = ctx.createLinearGradient(0, 0, 0, h);
+          shade.addColorStop(0, 'rgba(3,18,25,0.36)'); shade.addColorStop(0.55, 'rgba(3,18,25,0.12)');
+          shade.addColorStop(1, 'rgba(3,18,25,0.3)');
+          ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
+          const feather = ctx.createLinearGradient(0, 0, w, 0);
+          feather.addColorStop(0, 'transparent'); feather.addColorStop(0.16, '#fff');
+          feather.addColorStop(0.84, '#fff'); feather.addColorStop(1, 'transparent');
+          ctx.globalCompositeOperation = 'destination-in'; ctx.fillStyle = feather; ctx.fillRect(0, 0, w, h);
+          return;
+        }
         const g = ctx.createLinearGradient(0, 0, w, 0);
         for (const [o, a] of [[0, 0.25], [0.1, 0.62], [0.9, 0.62], [1, 0.25]]) g.addColorStop(o, `rgba(2,4,4,${a})`);
         ctx.fillStyle = g;
@@ -1129,6 +1153,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private buildDecor() {
     const L = this.L;
+    const reef = this.ep.id === 'devon' && paintedReef(this);
     const rnd = Math.random;
     const tintOf = (f: number) => {
       const c = Math.round(255 * f);
@@ -1146,6 +1171,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       return img;
     };
     for (const d of L.decor) {
+      // The painted garden has space between vignettes; retain small fauna, hanging growth and edible gameplay plants.
+      if (reef && !d.hang && (SWAYS.has(d.k) || d.k === 'coral' || d.k === 'sponge') && hashStr(d.k + '/' + d.x) % 4 !== 0) continue;
       const base = 'd2_' + d.k;
       if (!this.textures.exists(base)) continue;
       // im Devon: die Tusche-Fassung (Pflanzen in drei, Riffbewohner in vier Stufen)
@@ -1171,7 +1198,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const sil = SILHOUETTE[L.theme].map((k) => 'd2_' + k).filter((k) => this.textures.exists(k));
     const backTint = this.water ? 0x1e3a36 : L.theme === 'eis' ? 0x3a4652 : 0x1c2414;
     const foreTint = this.water ? 0x040a09 : 0x040503;
-    if (sil.length) {
+    if (sil.length && !reef) {
       for (let x = 30 + rnd() * 80; x < L.width; x += 60 + rnd() * 130) {
         const col = clamp(Math.floor(x / TILE), 0, L.ground.length - 1);
         if (L.ground[col] >= L.height) continue;
@@ -1185,6 +1212,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         put(pick(rnd, low), x, L.ground[col], 1.5 + rnd() * 0.8, DEPTH.decoFront, foreTint, 0.88, -14);
       }
     }
+    this.reefScenery = reef ? new ReefScenery(this, L, this.place.id) : undefined;
   }
 
   /** Gebiet: Schleier, Nebel und Licht gehen beim Durchschwimmen fließend ineinander über. */
@@ -2175,6 +2203,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.backSea?.update(time, dt, this.deepK, quiet);
     this.drift?.update(time, dt);
     this.waterAtmosphere?.update(time, dt);
+    this.reefScenery?.update(time, dt, p);
     if (!p.dead && !this.ended) this.siltStep(time);
     for (const t of this.lava) t.tilePositionX += dt * 25;
     for (const c of this.caustics) c.s.tilePositionX += dt * c.v;

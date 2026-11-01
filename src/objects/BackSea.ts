@@ -5,6 +5,7 @@ import { SPECIES, type SpeciesDef } from '../data/species';
 import { placeOf, type PlaceKind } from '../data/world';
 import { faunaAffinity } from '../sim/habitat';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
+import { backdropFish } from '../art/backdropFish';
 import { clamp, hashStr } from '../util/math';
 
 /**
@@ -39,6 +40,10 @@ interface Layer {
 const LAYERS: Layer[] = [
   { f: 0.2, depth: DEPTH.bg + 0.5, tint: 0x243f4e, alpha: 0.6, scale: [0.7, 0.9], speed: [9, 20], schools: 12 },
   { f: 0.42, depth: DEPTH.bg + 1.3, tint: 0x2f5266, alpha: 0.62, scale: [0.86, 1.06], speed: [19, 42], schools: 9 },
+];
+const PAINTED_LAYERS: Layer[] = [
+  { f: 0.16, depth: DEPTH.bg + 0.5, tint: 0x66979b, alpha: 0.26, scale: [0.52, 0.7], speed: [8, 16], schools: 5 },
+  { f: 0.36, depth: DEPTH.bg + 1.3, tint: 0x46797e, alpha: 0.39, scale: [0.7, 0.9], speed: [16, 32], schools: 3 },
 ];
 
 /** wie dicht es in den Orten wimmelt */
@@ -78,6 +83,11 @@ export class BackSea {
   /** wie schnell sich die Kamera gerade bewegt (geglättet, Pixel pro Sekunde) – bestimmt, von wo neue Gruppen hereinschwimmen */
   private camV = 0;
   private enabled = true;
+  private painted = false;
+  private layers = LAYERS;
+  private frameKey(def: SpeciesDef, phase: number) {
+    return this.painted ? backdropFish(this.scene, def, phase) : speciesKey(def.id, phase);
+  }
 
   constructor(
     private scene: Phaser.Scene,
@@ -90,13 +100,15 @@ export class BackSea {
     /** im sicheren Startgebiet: Dort lebt außer der eigenen Art kein Tier – auch in der Ferne zieht keines vorbei */
     calm = false,
   ) {
+    this.painted = ep.id === 'devon' && !new URLSearchParams(globalThis.location?.search ?? '').has('oldreef');
+    this.layers = this.painted ? PAINTED_LAYERS : LAYERS;
     if (!calm) this.buildPool(ep);
     if (!this.pool.length) {
       this.enabled = false;
       return;
     }
     const k = DENSITY[kind] * (dim ? 0.5 : 1);
-    LAYERS.forEach((l, i) => {
+    this.layers.forEach((l, i) => {
       const n = Math.round(l.schools * k);
       for (let s = 0; s < n; s++) this.spawn(i, true);
     });
@@ -137,7 +149,10 @@ export class BackSea {
       fishes.sort((a, b) => (b.art as { len: number }).len - (a.art as { len: number }).len);
       if (fishes[0]) this.bigPool.push(fishes[0]);
     }
-    for (const d of [...this.pool.map((p) => p.def), ...this.bigPool]) makeSpeciesTextures(this.scene, d);
+    for (const d of [...this.pool.map((p) => p.def), ...this.bigPool]) {
+      makeSpeciesTextures(this.scene, d);
+      if (this.painted) { this.frameKey(d, 0); this.frameKey(d, 1); }
+    }
   }
 
   private pickSpecies() {
@@ -160,7 +175,7 @@ export class BackSea {
   }
 
   private spawn(li: number, anywhere: boolean, big = false, old?: School) {
-    const layer = LAYERS[li];
+    const layer = this.layers[li];
     const v = this.view;
     const def = big ? this.bigPool[Math.floor(Math.random() * this.bigPool.length)] : this.pickSpecies();
     const art = def.art;
@@ -168,12 +183,14 @@ export class BackSea {
     let n = 1;
     if (!big && def.herd) n = Math.max(2, Math.round((def.herd[0] + Math.random() * (def.herd[1] - def.herd[0])) * 0.8));
     else if (!big && art.t === 'jelly') n = 2 + Math.floor(Math.random() * 3);
+    if (this.painted) n = Math.min(n, 7);
     const sc = layer.scale[0] + Math.random() * (layer.scale[1] - layer.scale[0]);
     // Große Fische: so groß, dass sie auch aus der Ferne eindrucksvoll sind
     const baseLen = (art as { len?: number }).len ?? ((art as { r?: number }).r ?? 16) * 2;
     const bigK = big ? Math.max(1, 190 / baseLen) * (0.8 + Math.random() * 0.5) : 1;
     const spread = n > 1 ? 24 + n * 9 : 0;
-    const half = spread + baseLen * sc * bigK * 0.6;
+    const half = this.painted ? (n - 1) * (baseLen * sc * 0.6 + 15) / 2 + baseLen * sc * bigK * 0.6
+      : spread + baseLen * sc * bigK * 0.6;
     const speed = layer.speed[0] + Math.random() * (layer.speed[1] - layer.speed[0]);
     const b = this.band();
     // Beim Aufbau überall im Bild, später von einer Seite außerhalb hereinschwimmend
@@ -187,9 +204,10 @@ export class BackSea {
     const old2 = old?.members ?? [];
     for (let i = 0; i < n; i++) {
       let img = old2[i]?.img;
-      if (!img) img = this.scene.add.image(0, 0, speciesKey(def.id, 0)).setScrollFactor(0);
-      img.setTexture(speciesKey(def.id, 0)).setDepth(layer.depth).setTint(big ? 0x4a7a90 : layer.tint).setAlpha(layer.alpha).setScale(sc * bigK * (0.86 + Math.random() * 0.28));
-      members.push({ img, ox: (Math.random() - 0.5) * 2 * spread, oy: (Math.random() - 0.5) * (spread * 0.6 + 10), ph: Math.random() * 6, fr: 0 });
+      if (!img) img = this.scene.add.image(0, 0, this.frameKey(def, 0)).setScrollFactor(0);
+      img.setTexture(this.frameKey(def, 0)).setDepth(layer.depth).setTint(big && !this.painted ? 0x4a7a90 : layer.tint).setAlpha(layer.alpha).setScale(sc * bigK * (0.86 + Math.random() * 0.28));
+      members.push({ img, ox: this.painted ? (i - (n - 1) / 2) * (baseLen * sc * 0.6 + 15) : (Math.random() - 0.5) * 2 * spread,
+        oy: (Math.random() - 0.5) * (spread * (this.painted ? 0.3 : 0.6) + 10), ph: Math.random() * 6, fr: 0 });
     }
     // überzählige Bilder einer Gruppe, die vorher größer war
     for (let i = n; i < old2.length; i++) old2[i].img.destroy();
@@ -225,7 +243,7 @@ export class BackSea {
     }
 
     for (const s of [...this.schools]) {
-      const layer = LAYERS[s.layer];
+      const layer = this.layers[s.layer];
       s.x += s.vx * dt - dx * layer.f;
       s.y += -dy * layer.f;
       // Wer weit aus dem Bild ist, schwimmt als neue Gruppe auf der anderen Seite wieder herein (Große verschwinden einfach)
@@ -249,7 +267,7 @@ export class BackSea {
         const fr = Math.floor(this.t * 5.5 + m.ph) & 1;
         if (fr !== m.fr) {
           m.fr = fr;
-          m.img.setTexture(speciesKey(s.def.id, fr));
+          m.img.setTexture(this.frameKey(s.def, fr));
         }
         // über der Wasseroberfläche gibt es keine Fische
         const vis = my > Math.max(surfaceScreen, v.y) + 22 && my < b.bottom + 240;

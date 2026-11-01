@@ -5,6 +5,7 @@ import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { shellTexture } from '../art/shellArt';
 import { preloadRiver } from '../art/riverProps';
+import { preloadReef } from '../art/reefProps';
 import { preloadWorldFish } from '../art/fish/worldFish';
 import { preloadPainted } from '../art/fish/painted';
 
@@ -19,6 +20,7 @@ export class BootScene extends Phaser.Scene {
     // die gemalten Fischtexturen
     preloadPainted(this);
     preloadRiver(this);
+    preloadReef(this);
     preloadWorldFish(this);
   }
 

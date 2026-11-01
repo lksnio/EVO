@@ -5,6 +5,7 @@ import { css, mix, shade } from '../util/color';
 import { noiseTex } from './paint';
 import { type Ctx, tex, vgrad, wrapX } from '../util/canvas';
 import { mulberry32, type Rng } from '../util/math';
+import { paintedReef } from './reefProps';
 
 // ---------------------------------------------------------------------------
 // Die Welt des Devons im Tuschestil: gestaffelte Ebenen aus flachen Silhouetten – ganz hinten blass und kontrastarm im Dunst,
@@ -194,13 +195,14 @@ function farLayer(ctx: Ctx, mood: Mood, id: MoodId) {
 }
 
 /** Das mittlere Bild (durchsichtig): dunklere, schärfere Silhouetten: Tangwälder, Pfeiler, Kuppen. */
-function midLayer(ctx: Ctx, mood: Mood, id: MoodId) {
+function midLayer(ctx: Ctx, mood: Mood, id: MoodId, ribbons = false) {
   const r = mulberry32(id.length * 331 + 7);
   const col = css(mood.mid);
   if (id === 'valley') for (let i = 0; i < 5; i++) pillar(ctx, r, (i + 0.2 + r() * 0.6) * (W / 5), H - 60, 260 + r() * 260, 30 + r() * 30, col);
   if (id === 'garden') for (let i = 0; i < 5; i++) domes(ctx, r, r() * W, H - 40, 50 + r() * 60, col);
   if (id === 'river') for (let i = 0; i < 3; i++) domes(ctx, r, r() * W, H - 40, 40 + r() * 40, css(mix(mood.mid, mood.far, 0.35)));
-  for (let i = 0; i < mood.weed; i++) kelp(ctx, r, r() * W, H - 30 - r() * 40, 160 + r() * 200 * mood.tall, 6 + r() * 6, col);
+  for (let i = 0; i < mood.weed * (ribbons ? 0.7 : 1); i++) kelp(ctx, r, r() * W, H - 30 - r() * 40,
+    160 + r() * 200 * mood.tall, (ribbons ? 11 : 6) + r() * 6, col, !ribbons);
   // der Dunst am Boden, damit die Silhouetten dort in den Grund übergehen
   ctx.fillStyle = grad(ctx, H - 220, H, [[0, css(mood.mid, 0)], [1, css(mix(mood.mid, mood.fog, 0.4), 0.7)]]);
   ctx.fillRect(0, H - 220, W, 220);
@@ -225,9 +227,10 @@ function fogLayer(ctx: Ctx, mood: Mood, w: number, h: number) {
 export function inkBackdrop(scene: Phaser.Scene, id: MoodId, softWater = false): [string, string, string] {
   const base = MOODS[id];
   const mood = softWater ? { ...base, rayA: 0, far: mix(base.far, base.fog, 0.2), mid: mix(base.mid, base.fog, 0.22) } : base;
-  const tag = id + (softWater ? '_water' : '');
+  const ribbons = paintedReef(scene);
+  const tag = id + (softWater ? '_water' : '') + (ribbons ? '_reef' : '');
   const far = tex(scene, `inkbg_far_${tag}`, W, H, (ctx) => farLayer(ctx, mood, id));
-  const mid = tex(scene, `inkbg_mid_${tag}`, W, H, (ctx) => midLayer(ctx, mood, id));
+  const mid = tex(scene, `inkbg_mid_${tag}`, W, H, (ctx) => midLayer(ctx, mood, id, ribbons));
   const FH = Math.round(H * 0.65);
   const fog = tex(scene, `inkbg_fog_${id}`, 512, FH, (ctx) => fogLayer(ctx, mood, 512, FH));
   return [far, mid, fog];

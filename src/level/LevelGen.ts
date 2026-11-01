@@ -763,6 +763,7 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
     const rx = 46 + r() * 8, ry = 60 + r() * 12;
     const seed = Math.floor(r() * 1e9);
     const rock: RockSpec = { x: side < 0 ? x0 + 6 : x1 - 6, y: f * T + 10 - rockBottom(rockPoly(seed, rx, ry)), rx, ry, seed, tone: 1, form: 'boulder' };
+    rock.paintedProp = 'shelter-support';
     L.rocks.push(rock);
     for (const sl of rockSlices(rock, (px) => G.at(px))) L.solids.push(sl);
   }

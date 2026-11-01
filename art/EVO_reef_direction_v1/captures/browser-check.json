@@ -1,0 +1,64 @@
+{
+  "reports": [
+    {
+      "legacy": true,
+      "roofCount": 0,
+      "lift": {
+        "dark": 845,
+        "darkChanged": 0,
+        "brightened": 6465,
+        "alphaChanged": 0
+      },
+      "noFrameTextures": true,
+      "parallax": null,
+      "foreground": [],
+      "schools": 16,
+      "backdropFish": 85,
+      "canvasTextures": 647,
+      "objects": 994
+    },
+    {
+      "legacy": false,
+      "roofCount": 2,
+      "lift": {
+        "dark": 2272,
+        "darkChanged": 0,
+        "brightened": 6465,
+        "alphaChanged": 0
+      },
+      "noFrameTextures": true,
+      "parallax": 1.168109559621662,
+      "foreground": [
+        {
+          "depth": 44,
+          "f": 1.168109559621662
+        },
+        {
+          "depth": 44,
+          "f": 1.1350727998046206
+        },
+        {
+          "depth": 44,
+          "f": 1.144498553387821
+        },
+        {
+          "depth": 44,
+          "f": 1.12619178078603
+        },
+        {
+          "depth": 44,
+          "f": 1.1422656617267057
+        },
+        {
+          "depth": 44,
+          "f": 1.1784965121140705
+        }
+      ],
+      "schools": 6,
+      "backdropFish": 25,
+      "canvasTextures": 677,
+      "objects": 858
+    }
+  ],
+  "errors": []
+}

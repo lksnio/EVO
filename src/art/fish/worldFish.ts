@@ -258,7 +258,7 @@ export function worldSpec(scene: Phaser.Scene, def: SpeciesDef, texW: number): W
   const hinge = u(prof.pts.hinge), tip = u(prof.pts.lip), eyeP = u(prof.pts.eye);
   const jawRest = Math.atan2(tip[1] - hinge[1], tip[0] - hinge[0]) + (prof.jawTilt ?? 0);
   const jawLen = Math.hypot(tip[0] - hinge[0], tip[1] - hinge[1]) * 0.99;
-  const bounds = { x0: (R.bounds[0] - mid) * U - 1, x1: (R.bounds[2] - mid) * U + 1, y0: (R.bounds[1] - axis) * U - 1, y1: (R.bounds[3] - axis) * U + 1 };
+  const bounds = { x0: (R.bounds[0] - mid) * U - 3, x1: (R.bounds[2] - mid) * U + 3, y0: (R.bounds[1] - axis) * U - 3, y1: (R.bounds[3] - axis) * U + 3 };
   const bh = al.ext(prof.pts.tail[0] + 80, prof.pts.head[0]) * U * 0.5;
   const pedH = Math.max(1.6, (al.bottom(prof.pts.tail[0] + 20) - al.top(prof.pts.tail[0] + 20)) * U * 0.5);
   const spread = Math.max(6, al.ext(R.bounds[0], prof.pts.tail[0] - 40) * U * 0.5);
