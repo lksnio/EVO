@@ -1,0 +1,45 @@
+{
+  "sourceRepository": "lksnio/EVO",
+  "sourceCommit": "08901b9",
+  "deliveryType": "art_direction_and_implementation_handoff",
+  "runtimeTextures": false,
+  "runtimeImplementationIncluded": false,
+  "referenceImages": {
+    "00_ist_original.png": {
+      "size": [
+        1921,
+        390
+      ],
+      "mode": "RGBA",
+      "role": "unmodified_original",
+      "notUvRegistered": true
+    },
+    "01_befund_markiert.png": {
+      "size": [
+        2170,
+        725
+      ],
+      "mode": "RGB",
+      "role": "generated_annotation",
+      "notUvRegistered": true
+    },
+    "02_zielbild_formen.png": {
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "role": "generated_art_reference",
+      "notUvRegistered": true
+    },
+    "03_zielbild_biss.png": {
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "role": "generated_art_reference",
+      "notUvRegistered": true
+    }
+  }
+}
