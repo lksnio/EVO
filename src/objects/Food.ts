@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Theme } from '../data/epochs';
 import { foodKey, HEAL, MEAT_SIZES, roeKey, TOXIC } from '../art/worldArt';
+import { paintedRiver, riverRoeTexture } from '../art/riverProps';
 import { inkWorldOn } from '../art/ink';
 import { inkTexture } from '../art/inkFilter';
 import type { Animal } from './Animal';
@@ -103,6 +104,7 @@ export class Roe {
   img: Phaser.GameObjects.Image;
   units: number;
   readonly max: number;
+  private painted = false;
   /** Eltern, die über dem Gelege wachen */
   guards: Animal[] = [];
   /** wann es schlüpft (Spielzeit in ms), unendlich = nie */
@@ -114,7 +116,8 @@ export class Roe {
   constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly species: string, readonly tone: number, units = 4, readonly own = false) {
     this.max = units;
     this.units = units;
-    this.img = scene.add.image(x, y, roeKey(tone, 0)).setOrigin(0.5, 1).setDepth(DEPTH.plants + 1);
+    this.painted = inkWorldOn() && paintedRiver(scene);
+    this.img = scene.add.image(x, y, this.painted ? riverRoeTexture(scene, units, units) : roeKey(tone, 0)).setOrigin(0.5, 1).setDepth(DEPTH.plants + 1);
     if (x % 2 > 1) this.img.setFlipX(true);
   }
 
@@ -132,8 +135,8 @@ export class Roe {
     this.units--;
     if (this.units <= 0) {
       this.scene.tweens.add({ targets: this.img, alpha: 0, duration: 400, onComplete: () => this.img.destroy() });
-    } else this.img.setTexture(roeKey(this.tone, this.stage));
-    this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.8, to: 1 }, duration: 180 });
+    } else this.img.setTexture(this.painted ? riverRoeTexture(this.scene, this.units, this.max) : roeKey(this.tone, this.stage));
+    if (!this.painted) this.scene.tweens.add({ targets: this.img, scaleY: { from: 0.8, to: 1 }, duration: 180 });
     return true;
   }
 
@@ -141,7 +144,7 @@ export class Roe {
   vanish() {
     this.hatched = true;
     this.units = 0;
-    this.scene.tweens.add({ targets: this.img, alpha: 0, scaleY: 0.4, duration: 600, onComplete: () => this.img.destroy() });
+    this.scene.tweens.add({ targets: this.img, alpha: 0, ...(this.painted ? {} : { scaleY: 0.4 }), duration: 600, onComplete: () => this.img.destroy() });
   }
 }
 

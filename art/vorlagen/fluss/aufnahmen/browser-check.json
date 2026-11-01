@@ -1,0 +1,63 @@
+{
+  "reports": [
+    {
+      "legacy": true,
+      "initial": "ink_roe_1_0",
+      "after": "ink_roe_1_1",
+      "remaining": 3,
+      "exhausted": true,
+      "hatched": true,
+      "rect": {
+        "x": 968,
+        "y": 562,
+        "w": 64,
+        "h": 42
+      },
+      "noFrameTextures": true,
+      "canEnter": true,
+      "events": [
+        true,
+        false
+      ],
+      "animals": 18,
+      "painted": false,
+      "frames": 0,
+      "waterSurfaces": 0,
+      "particles": 21,
+      "timing": {
+        "frames": 12,
+        "medianMs": 2.2999999998137355
+      }
+    },
+    {
+      "legacy": false,
+      "initial": "river_roe_4_4",
+      "after": "river_roe_4_3",
+      "remaining": 3,
+      "exhausted": true,
+      "hatched": true,
+      "rect": {
+        "x": 968,
+        "y": 562,
+        "w": 64,
+        "h": 42
+      },
+      "noFrameTextures": true,
+      "canEnter": true,
+      "events": [
+        true,
+        false
+      ],
+      "animals": 18,
+      "painted": true,
+      "frames": 1,
+      "waterSurfaces": 16,
+      "particles": 38,
+      "timing": {
+        "frames": 12,
+        "medianMs": 5.099999999627471
+      }
+    }
+  ],
+  "errors": []
+}

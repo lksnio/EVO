@@ -30,6 +30,8 @@ export interface RockSpec {
   /** eigener Umriss (relativ zum Mittelpunkt) statt des rundlichen Brockens – für Platten und Bögen */
   poly?: Poly;
   form?: 'boulder' | 'slab' | 'arch';
+  /** Visual replacement only; collision geometry stays authoritative. */
+  paintedProp?: 'cave';
 }
 
 export interface Terrain {

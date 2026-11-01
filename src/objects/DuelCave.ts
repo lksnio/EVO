@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { paintedRiver } from '../art/riverProps';
 import { DEPTH, FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { Prompt } from '../ui/InteractionPrompt';
@@ -20,8 +21,10 @@ export class DuelCave {
   /** Augenleuchten der Fische im Dunkeln der Höhle */
   private glints = new Map<object, Phaser.GameObjects.Image>();
   private t = 0;
+  private painted: boolean;
 
   constructor(private host: LevelScene, private net: NetSync | undefined) {
+    this.painted = paintedRiver(host);
     const touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
     this.prompt = new Prompt(host, touchMode, 'bite');
     const c = host.L.cave!;
@@ -63,7 +66,7 @@ export class DuelCave {
     else if (ready) msg = `${ready.name} ist bereit zum Laichduell`;
     if (msg && this.note.text !== msg) this.note.setText(msg);
     this.note.setAlpha(this.note.alpha + ((msg ? 0.95 : 0) - this.note.alpha) * Math.min(1, dt * 5));
-    this.glintStep();
+    if (!this.painted) this.glintStep();
   }
 
   /** Aktionstaste (E): in der Höhle einloggen. Gibt true zurück, wenn sie dafür gebraucht wurde. */

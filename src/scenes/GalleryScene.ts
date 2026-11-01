@@ -4,6 +4,7 @@ import type { ClassId } from '../data/classes';
 import { SPECIES } from '../data/species';
 import { EPOCHS, epochSpecies } from '../data/epochs';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
+import { riverCave, riverRoeTexture } from '../art/riverProps';
 import { FaunaView } from '../objects/FaunaView';
 import { CreatureView } from '../objects/CreatureView';
 import { WORLD_FISH_IDS } from '../art/fish/worldFish';
@@ -124,7 +125,28 @@ export class GalleryScene extends Phaser.Scene {
     });
   }
 
+  private riverLab() {
+    this.cameras.main.setBackgroundColor('#24464b');
+    const ratio = this.game.canvas.getBoundingClientRect().width / this.scale.width;
+    for (const [i, width] of [80, 110, 140].entries()) {
+      this.add.image(210 + i * 350, 180, riverRoeTexture(this, 5, 5)).setOrigin(0.5, 1).setScale(width / (72 * ratio));
+      text(this, 210 + i * 350, 205, `${width} px · 5 Eier`, 16).setOrigin(0.5);
+      this.add.image(210 + i * 350, 290, riverRoeTexture(this, i, 5)).setOrigin(0.5, 1).setScale(1.5);
+      text(this, 210 + i * 350, 310, `${i} Eier`, 16).setOrigin(0.5);
+    }
+    const cave = riverCave(this, { x: 300, y: 500, w: 320, h: 150 });
+    cave.back.setDepth(-7); cave.front.setDepth(40);
+    this.add.rectangle(300, 655, 680, 25, 0x747c69).setDepth(41);
+    const m: Morph = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 1, seed: 7 };
+    for (const [x, y, depth] of [[285, 510, 20], [410, 590, 20], [680, 570, 45]]) {
+      const view = new CreatureView(this, x, y, m, 1.1).setDepth(depth);
+      this.views.push(view);
+    }
+    text(this, 840, 460, 'Gemeinsamer Höhlenrahmen\nRückwand → Fisch → Felsrand', 20).setOrigin(0.5);
+  }
+
   private show() {
+    if (new URLSearchParams(location.search).get('gallery') === 'river') return this.riverLab();
     if (new URLSearchParams(location.search).get('gallery') === 'world') return this.worldLab();
     if (new URLSearchParams(location.search).get('gallery') === 'fauna') return this.faunaLab();
     if (new URLSearchParams(location.search).get('gallery') === 'fish') return this.lab();

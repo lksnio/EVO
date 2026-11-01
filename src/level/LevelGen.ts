@@ -655,6 +655,7 @@ function addDuelCave(L: LevelData, r: Rng, G: Ground) {
   const x0 = 3 * T, x1 = 12 * T, mouth = 1.5 * T;
   G.flatten(0, x1 + mouth + T, floor, 120);
   const c = caveRock(x0, x1, floor, 3.6 * T, 3 * T, 4 * T, mouth, 1, Math.floor(r() * 1e9));
+  c.rock.paintedProp = 'cave';
   L.rocks.push(c.rock);
   for (const b of c.boxes) L.solids.push(b);
   const top = Math.floor(c.ceil);
