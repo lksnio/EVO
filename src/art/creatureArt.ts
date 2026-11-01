@@ -141,7 +141,7 @@ export function morphKey(m: Morph) {
   return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
 }
 
-interface Pal {
+export interface Pal {
   base: number;
   belly: number;
   dark: number;
@@ -157,7 +157,7 @@ const LINEAGE: Pal[] = [
   { base: 0x3a564e, belly: 0x8e9e8e, dark: 0x101a16, camo: 0x1e302a, eye: 0xc8b85e, fin: 0x4a5e44 },
 ];
 
-function palette(m: Morph): Pal {
+export function palette(m: Morph): Pal {
   const p0 = LINEAGE[m.hue % LINEAGE.length];
   // jede Linie kann im Farbton etwas abweichen
   const hs = (m.tint ?? 0) * 34;
@@ -224,7 +224,7 @@ export interface HeadGeo {
   er: number;
 }
 
-interface Geo {
+export interface Geo {
   s: number;
   bw: number;
   bh: number;
@@ -239,9 +239,9 @@ interface Geo {
 }
 
 /** Wie viel größer die Augen je Segen in Sicht werden – und die Flossen je Segen in Ausdauer. */
-const EYE_UP = 0.035, FIN_UP = 0.07;
+export const EYE_UP = 0.035, FIN_UP = 0.07;
 
-function geo(m: Morph): Geo {
+export function geo(m: Morph): Geo {
   const g = geoOf(m);
   g.hg.er *= 1 + EYE_UP * (m.eye ?? 0);
   return g;
@@ -1328,7 +1328,7 @@ function drawFin(ctx: Ctx, m: Morph, P: Pal) {
 export const CREATURE_RES = 2;
 
 /** Wie wach der Blick ist (0 … 1): nach den Segen in Sicht. */
-const keenOf = (m: Morph) => Math.min(1, (m.eye ?? 0) / 10);
+export const keenOf = (m: Morph) => Math.min(1, (m.eye ?? 0) / 10);
 
 export interface PartTex {
   key: string;

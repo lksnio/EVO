@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import {
   type CreatureTex, type Layout, type Morph, type PartTex,
-  CREATURE_RES, creatureTextures, morphKey,
+  CREATURE_RES, creatureTextures, layoutOf, morphKey,
 } from '../art/creatureArt';
+import { FishRig, fishTextures } from '../art/fish/rig';
 
 /** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
 export type AnimMode = 'swim' | 'walk' | 'air' | 'idle' | 'crawl';
@@ -11,6 +12,9 @@ type Img = Phaser.GameObjects.Image;
 
 const FAR_TINT = 0x8a8a8a;
 
+/** Entwickler: ?oldfish zeigt den Fisch wie früher (starre Teile) – für Vorher/Nachher-Vergleiche; sonst gilt es ohne WebGL */
+const LEGACY_FISH = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldfish');
+
 /**
  * Wie viele Ansichten ein Aussehen gerade nutzen. Jedes neue Aussehen kostet einige Texturen (zusammen
  * gut ein Megabyte); unbenutzte werden behalten, bis es zu viele sind – dann fliegen die ältesten raus.
@@ -18,7 +22,7 @@ const FAR_TINT = 0x8a8a8a;
 const users = new Map<string, number>();
 const unused: string[] = [];
 const KEEP_UNUSED = 8;
-const PARTS = ['_b', '_h', '_t', '_j', '_s', '_l', '_f'];
+const PARTS = ['_b', '_h', '_t', '_j', '_s', '_l', '_f', '_fb', '_fo', '_fj', '_fd', '_fa', '_fv', '_fp', '_fq'];
 
 function retain(key: string) {
   users.set(key, (users.get(key) ?? 0) + 1);
@@ -54,6 +58,8 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private tailImg!: Img;
   private legs: Img[] = [];
   private fin?: Img;
+  /** der Fisch (WebGL): ein verformbares Netz statt starrer Teile – siehe art/fish/rig.ts */
+  private rig?: FishRig;
   private t = Math.random() * 10;
   private phase = 0;
   private biteT = -1;
@@ -94,6 +100,21 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.removeAll(true);
     this.legs = [];
     this.fin = undefined;
+    this.rig = undefined;
+    if (m.cls === 'fish' && this.scene.sys.game.renderer.type === Phaser.WEBGL && !LEGACY_FISH) {
+      const FT = fishTextures(this.scene, m);
+      if (old) release(this.tm, old);
+      this.L = layoutOf(m);
+      this.rig = new FishRig(this.scene, FT);
+      this.lid = this.rig.lid;
+      this.lidCol = FT.lid;
+      this.lidEdge = FT.lidEdge;
+      this.add(this.rig.parts);
+      this.drawLid();
+      this.applyScale();
+      this.applyTint();
+      return this;
+    }
     const T: CreatureTex = creatureTextures(this.scene, m);
     if (old) release(this.tm, old);
     const L = T.layout;
@@ -173,7 +194,8 @@ export class CreatureView extends Phaser.GameObjects.Container {
     const k = Math.max(this.lidK, this.squintK);
     if (k <= 0.01) return;
     const hg = this.L.hg, s = this.L.s;
-    const x = hg.ex * s, y = hg.ey * s, r = hg.er * s * 1.14;
+    // am Netz-Fisch sitzt die Grafik schon im Auge (und folgt ihm); der Tuschestil-Augapfel ist etwas größer als der Rohwert
+    const x = this.rig ? 0 : hg.ex * s, y = this.rig ? 0 : hg.ey * s, r = this.rig ? Math.max(2.6, hg.er * 1.3) * s * 1.02 : hg.er * s * 1.14;
     // das Oberlid senkt sich weit, das Unterlid hebt sich ein Stück – sie treffen sich bei y + r/4
     const up = y - r + 1.25 * r * k, low = y + r - 0.75 * r * k;
     const seg = (edge: number, above: boolean) => {
@@ -260,7 +282,12 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private tintAll(color: number | null) {
     const apply = (o: Phaser.GameObjects.GameObject) => {
       if (o instanceof Phaser.GameObjects.Container) o.list.forEach(apply);
-      else if (o instanceof Phaser.GameObjects.Image) {
+      else if (o instanceof Phaser.GameObjects.Mesh2D) {
+        // (Mesh2D kennt Einfärbung, die Typen von Phaser führen sie noch nicht auf)
+        const mesh = o as unknown as { clearTint(): void; setTint(c: number): void };
+        if (color === null) mesh.clearTint();
+        else mesh.setTint(color);
+      } else if (o instanceof Phaser.GameObjects.Image) {
         const far = this.legs[0] === o || this.legs[1] === o;
         if (color === null) {
           if (far) o.setTint(FAR_TINT);
@@ -271,9 +298,71 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.list.forEach(apply);
   }
 
+  /**
+   * Die Bewegung des Fisches (Netz-Rig): Biss in drei Zügen – kurzes Ausholen (Maul auf, Kopf zurück, Körper krümmt sich),
+   * schneller Zugriff (Vorstoß, Maul zu), kontrollierte Rückkehr mit Knirschen, das abklingt. Kauen und Kopfschütteln wie bisher.
+   */
+  private animateFish(dt: number, mode: AnimMode, speed01: number, slow: number) {
+    const rig = this.rig!;
+    const t = this.t;
+    let open = 0, lunge = 0, clench = 0, grind = 0, coil = 0, biteTilt = 0;
+    const ease = (k: number) => 1 - (1 - k) * (1 - k);
+    if (this.biteT >= 0) {
+      this.biteT += dt;
+      const b = this.biteT;
+      if (b < 0.09) {
+        const k = b / 0.09;
+        open = ease(k);
+        lunge = -0.5 * ease(k);
+        coil = ease(k);
+        biteTilt = -0.14 * ease(k);
+      } else if (b < 0.15) {
+        const k = (b - 0.09) / 0.06;
+        open = 1 - k * k;
+        lunge = -0.5 + 1.7 * k * k;
+        coil = 1 - k;
+        biteTilt = -0.14 + 0.2 * k;
+      } else {
+        const k = Math.min(1, (b - 0.15) / 0.35);
+        clench = 1 - k;
+        lunge = 1.2 * (1 - k) * (1 - k);
+        grind = Math.sin((b - 0.15) * 46) * (1 - k);
+        open = Math.max(0, grind) * 0.3;
+        biteTilt = 0.06 * (1 - k) + grind * (0.05 + 0.05 * this.m.jaw);
+      }
+      if (b > 0.5) this.biteT = -1;
+    }
+    let dip = 0;
+    if (this.chewT >= 0) {
+      this.chewT += dt;
+      const c = this.chewT;
+      open = Math.max(open, Math.abs(Math.sin(c * 14)) * 0.45);
+      dip = Math.min(1, c * 6) * (c > 0.5 ? Math.max(0, 1 - (c - 0.5) * 5) : 1);
+      if (c > 0.7) this.chewT = -1;
+    }
+    let shake = 0;
+    if (this.shakeT >= 0) {
+      this.shakeT += dt;
+      shake = Math.sin(this.shakeT * 30) * 0.18 * (1 - this.shakeT / 0.5);
+      if (this.shakeT > 0.5) this.shakeT = -1;
+    }
+    if (mode === 'crawl') this.phase += dt * (6 + speed01 * 6) * slow;
+    rig.pose({
+      t, dt: dt * slow, speed01, mode: mode === 'swim' || mode === 'crawl' || mode === 'idle' ? mode : 'swim',
+      open, lunge, clench, grind, coil, dip, pitch: this.headTilt + shake + biteTilt, still: this.still, crawlPhase: this.phase,
+    });
+    this.lidFollow();
+  }
+
+  /** Das Lid sitzt im Auge und wird mit der Pose gezeichnet (Position und Neigung setzt das Rig). */
+  private lidFollow() {
+    if (this.lidK > 0.01 || this.squintK > 0.01) this.drawLid();
+  }
+
   animate(dt: number, mode: AnimMode, speed01 = 0) {
     const slow = (1 - this.weary * 0.4) * (1 - 0.85 * this.still);
     this.t += dt * slow;
+    if (this.rig) return this.animateFish(dt, mode, speed01, slow);
     const t = this.t;
     const L = this.L;
     // Biss: Maul weit aufreißen (der Kopf holt kurz aus), vorstoßen und zuschnappen – dann knirschen

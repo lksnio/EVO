@@ -293,6 +293,47 @@ schaltet beim Malen eines Devon-Tiers (der Fisch der Spielfigur, alle Arten aus 
 - Mit `?debug&gallery=devon` zeigt die Galerie die Spielfigur und alle Tiere des Devons (Leertaste blättert), je einmal groß und
   einmal so, wie sie im Spiel (Kamera 0,72) zu sehen sind.
 
+## Das Fisch-Rig (der Fisch als zusammenhängendes Tier)
+
+Der Fisch der Spielfigur (und jeder Artgenosse, jeder Mitspieler, die Vorschau im Laich) ist **kein Stapel starrer Teile** mehr,
+sondern ein verformbares Netz (`Phaser.GameObjects.Mesh2D`, Phaser 4.2) über **einer** Zeichnung. Ohne WebGL (oder mit `?oldfish`)
+bleibt der frühere Fisch aus starren Teilen als Rückfall erhalten (`CreatureView.build`). Die Arbeit ist in drei Schichten getrennt,
+alle in `src/art/fish/`:
+
+| Schicht | Datei | Was sie weiß |
+|---|---|---|
+| **Anatomie** | `anatomy.ts` | Aus den Evolutionswerten (`Morph`) werden Maße und Ansatzpunkte: eine Silhouette (`loop`) für Kopf, Rumpf und Schwanzstiel, Maulwinkel (`hinge`) und Schnauze, Auge, Schwanzflosse, Ansätze der Flossen, Umfang des Netzes, Drehpunkt (`anchorX`) und Halszone (`neckX`). Reine Rechnung, getestet (`tests/fish.test.ts`). |
+| **Grundgestaltung** | `paint.ts` | Die Zeichnungen im Tuschestil, alle aus Anatomie und Palette: Körper (mit Schwanzflosse und den Zähnen des Oberkiefers), Unterkiefer, Rücken-, After-, Bauch- und Brustflosse, die Überlagerung des Kiemendeckels. Hier ändert man die Zeichnung. |
+| **Bewegung** | `spine.ts`, `rig.ts` | `spine.ts` berechnet die Wirbelsäule (reine Rechnung); `rig.ts` baut die Netze, legt die Flossen, den Kiefer und das Lid an die Wirbelsäule und setzt die Pose. Die Bewegung kennt keine Evolutionswerte, nur Zeit, Tempo und Biss. |
+
+**Wie die Verformung arbeitet:** Das Netz hat 16 Spalten (je ein Gelenk) und 3 Zeilen. Jede Pose wird **jedes Mal neu aus der Ruheform**
+berechnet (`solveSpine`) – nichts summiert sich über die Zeit auf, und die Länge der Wirbelsäule bleibt erhalten (kein Gummi). Vorn
+(Kopf) bleibt alles ruhig, nach hinten läuft eine Welle, die zum Schwanz hin anschwillt (die Schwanzflosse hängt dahinter und
+flext am stärksten). Bei Tempo schlägt der Fisch schneller und weiter, die Welle bezieht mehr vom Rumpf ein, die Flossen legen
+sich an; ein Antritt gibt kurz mehr Ausschlag. Flossen sind eigene kleine Netze, die an der Wirbelsäule hängen und mit Verzögerung
+nachschwingen; Rücken-, After- und Bauchflosse liegen **hinter** dem Körper (der Ansatz steckt unter der Haut), die Brustflosse
+kommt **unter dem hinteren Rand des Kiemendeckels** hervor (`paintOverlay`). Der Unterkiefer hängt im Maulwinkel; beim Öffnen füllt
+eine dunkle Mundhöhle den Spalt, die Zähne des Oberkiefers sitzen in der Lippe, die des Unterkiefers im Kiefer. Auge, Lid, Gelenk
+und Mundhöhle folgen der Pose (`mapPoint`).
+
+**Bewegungsabläufe** (`CreatureView.animateFish`): ruhiges Schwimmen, Treiben (Idle), Kriechen auf den Stützflossen, Kauen, Kopfschütteln.
+Der **Biss** hat drei Züge: kurzes Ausholen (Maul auf, Kopf zurück, Körper krümmt sich), schneller Zugriff (Vorstoß, Maul zu),
+kontrollierte Rückkehr mit abklingendem Knirschen.
+
+**Evolution:** Ein stärkeres Gebiss macht das **Maul größer** (längerer, tieferer Kiefer), die Zähne bleiben klein; Schädel →
+höhere Stirn und Kopfplatten; Panzerung → deutlichere Schuppen und Schilde; Körperbau (`len`, `girth`) → Länge und Tiefe;
+Flossenwerte → Größe der Flossen. Die Texturen entstehen **einmal je Aussehen** (gestufte Werte, `morphKey`) und werden
+wiederverwendet; pro Bild wird nur die Pose gerechnet (rund 0,01 ms je Fisch), ein Fisch besteht aus etwa 100 Vierecken.
+
+**Werkstatt:** `?debug&gallery=fish` zeigt Fische groß in Bewegung. Parameter: `zoom`, `mode` (swim, idle, crawl), `speed` (0 … 1),
+`bite` (alle n Sekunden ein Biss), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
+`?debug&gallery=fish&mode=swim&speed=0.6&bite=1&set=[["Kiefer",{"jaw":1,"diet":1}],["Panzer",{"armor":1}]]`.
+
+**Noch offen (künstlerisch):** Die anderen Fischarten des Devons (Tiere der Welt, `speciesArt.ts`) sind weiterhin vorgemalte Bilder
+mit zwei Schwimmphasen und nutzen das Rig noch nicht; die Zeichnung des Spielfisches ist programmiert und kein handgemaltes
+Original – eine von Hand gemalte Vorlage ließe sich in `paint.ts` an die Stelle der Pfade setzen, solange Anatomie (Ansatzpunkte)
+und Netz gleich bleiben.
+
 ## Das Laichduell (Koop-Minispiel)
 
 Im **Devon** liegt links vom Startort, gleich neben dem Laichhaufen, eine **dunkle Höhle** im Fels (`LevelData.cave`, gebaut in
@@ -1096,7 +1137,8 @@ src/
 │   ├── ink.ts           der Tuschestil des Devons: Schalter (withInk, inkWorldOn), Farben (grade, gradeAnimal), Kontur (outline)
 │   ├── inkFilter.ts     macht aus einem vorhandenen Bild eine Tusche-Fassung: verwischen, in Stufen zerlegen, Kontur
 │   ├── inkWorld.ts      Hintergründe des Devons: Ebenen, Dunst, trübes Wasser – je Ort eine Stimmung (Laichfluss, Flachwasser, Tiefental)
-│   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen
+│   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen (Vierfüßer; der Fisch hat sein eigenes Rig)
+│   ├── fish/            das Fisch-Rig: anatomy.ts (Maße), paint.ts (Zeichnung), spine.ts (Wirbelsäule), rig.ts (Netze, Flossen, Kiefer, Pose)
 │   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten); Jäger mit Kiefer auch mit halb und weit offenem Maul (`openJaw`, `jawOf`)
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen

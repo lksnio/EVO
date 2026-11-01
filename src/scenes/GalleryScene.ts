@@ -34,7 +34,24 @@ export class GalleryScene extends Phaser.Scene {
     return only === 'devon' ? epochSpecies(EPOCHS.find((e) => e.id === 'devon')!).filter((id) => SPECIES[id]) : Object.keys(SPECIES);
   }
 
+  /** ?gallery=fish: die Fisch-Werkstatt – wenige Fische groß, jede Taste 1–5 stellt eine Bewegung ein (siehe art/fish/rig.ts) */
+  private lab() {
+    const q = new URLSearchParams(location.search);
+    const extra = q.get('morph') ? (JSON.parse(q.get('morph')!) as Partial<Morph>) : {};
+    const zoom = Number(q.get('zoom') ?? 3.2);
+    const base: Morph = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 1, seed: 7, ...extra };
+    const set: [string, Partial<Morph>][] = JSON.parse(q.get('set') ?? '[["neu",{}]]');
+    set.forEach(([name, v], i) => {
+      const view = new CreatureView(this, 0, 0, { ...base, ...v }, zoom);
+      const cols = Math.min(set.length, 3);
+      view.setPosition(this.scale.width * ((i % cols) + 0.5) / cols, 140 + Math.floor(i / cols) * 230);
+      this.views.push(view);
+      text(this, view.x, view.y + 95, name, 14).setOrigin(0.5, 0);
+    });
+  }
+
   private show() {
+    if (new URLSearchParams(location.search).get('gallery') === 'fish') return this.lab();
     if (this.page >= 1) {
       const ids = this.ids().slice((this.page - 1) * 18, this.page * 18);
       ids.forEach((id, i) => {
@@ -72,6 +89,17 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   update(_t: number, dms: number) {
-    for (const v of this.views) v.animate(dms / 1000, v.L.land ? 'walk' : 'swim', 0.5);
+    const q = new URLSearchParams(location.search);
+    const mode = (q.get('mode') ?? 'swim') as 'swim' | 'idle' | 'crawl';
+    const speed = Number(q.get('speed') ?? 0.5);
+    const bite = q.get('bite') ? Number(q.get('bite')) : 0;
+    this.biteClock += dms / 1000;
+    if (bite && this.biteClock > bite) {
+      this.biteClock = 0;
+      for (const v of this.views) v.bite();
+    }
+    for (const v of this.views) v.animate(dms / 1000, v.L.land ? 'walk' : mode, speed);
   }
+
+  private biteClock = 0;
 }
