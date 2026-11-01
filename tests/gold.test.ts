@@ -58,17 +58,17 @@ describe('Goldene Geburt', () => {
     expect(game.upTrail).toEqual([
       { key: 'hp', gold: false }, { key: 'hp', gold: false }, { key: 'hp', gold: false }, { key: 'stam', gold: false }, { key: 'hp', gold: true },
     ]);
-    // er findet Muscheln und wählt Sicht für 16: rot, rot, rot, grau, rot (golden), schwarz
+    // er findet Muscheln und wählt Ausdauer für 16: rot, rot, rot, grau, rot (golden), grau
     for (let i = 0; i < 11; i++) game.addShell();
-    expect(game.buyUp('sight')).toBe(true);
+    expect(game.buyUp('stam')).toBe(true);
     expect(game.shellsSpent).toBe(31);
-    expect(game.upTrail.map((d) => (d.gold ? `${d.key}*` : d.key))).toEqual(['hp', 'hp', 'hp', 'stam', 'hp*', 'sight']);
+    expect(game.upTrail.map((d) => (d.gold ? `${d.key}*` : d.key))).toEqual(['hp', 'hp', 'hp', 'stam', 'hp*', 'stam']);
     // das nächste Tier (ohne Gold) hat ihn nicht mehr – die gekauften Segen bleiben
     game.ageBy(phases(2).mature);
     lay(1, 0);
     expect(game.hatch('next', 0)).toBe(true);
     expect(game.ups.hp).toBe(3);
-    expect(game.upTrail.map((d) => d.key)).toEqual(['hp', 'hp', 'hp', 'stam', 'sight']);
+    expect(game.upTrail.map((d) => d.key)).toEqual(['hp', 'hp', 'hp', 'stam', 'stam']);
     expect(UPGRADES.max).toBeGreaterThanOrEqual(5);
   });
 });

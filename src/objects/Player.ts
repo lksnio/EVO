@@ -6,7 +6,7 @@ import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
 import { approach, clamp, type Rect } from '../util/math';
 import { DEPTH, GRAVITY } from '../config';
-import { STAMINA } from '../data/life';
+import { FLOW, STAMINA } from '../data/life';
 import { CLIMB } from '../data/karbon';
 import { breathe, climbCost } from '../sim/brood';
 
@@ -119,6 +119,8 @@ export class Player {
   private ramDir = { x: 1, y: 0 };
   /** Spurt: je länger man kräftig schlägt, desto schneller wird man (0..1) */
   private surge = 0;
+  /** Strömungsschub (0..1): wächst in einer Strömung, klingt außerhalb langsam ab (LevelScene.flowStep, siehe FLOW) – macht schneller, Spurt und Stoß noch mehr */
+  flow = 0;
   /** Wenden (im Wasser): in diese Richtung dreht sich das Tier gerade (0 = nicht), und wie weit es schon ist (0..1) */
   private turnDir = 0;
   private turnT = 0;
@@ -383,7 +385,7 @@ export class Player {
       this.exhausted = false;
     }
     const ramRecovery = 1 - 0.4 * clamp((this.ramReady - time) / RAM_RECOVERY_MS, 0, 1);
-    const sp = this.stats.speed * (1 + 0.45 * this.surge) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) * ramRecovery;
+    const sp = this.stats.speed * (1 + 0.45 * this.surge) * (1 + FLOW.speed * this.flow * (1 + FLOW.sprint * this.surge)) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) * ramRecovery;
 
     this.slipping = false;
     this.climbing = false;
@@ -510,7 +512,7 @@ export class Player {
       this.dashV = this.dashV0;
       const skull = clamp(this.src.traits.skull + (this.src.traits.ramGain ?? 0) / 40, 0, 1);
       this.dashChargeMs = CHARGE_MS - 100 * skull;
-      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade;
+      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade * (wet ? 1 + FLOW.ram * this.flow : 1);
       this.surge = 0;
       this.sprinting = false;
       const dy = wet ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;

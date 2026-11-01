@@ -59,6 +59,10 @@ export interface Morph {
   tint?: number;
   /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
   snout?: number;
+  /** Farbabweichung von Körper, Flossen und Kopfpanzer (-1 … +1, versteckt): wandert von Ei zu Ei in kleinen Schritten, siehe GameState.driftColors */
+  cb?: number;
+  cf?: number;
+  cp?: number;
   /** Färbung durch eine Höhle: 0 natürlich, 1 grün (wie ein Barsch: Querbinden), 2 schwarz */
   coat?: number;
   /** Körperrobustheit (0 … 1): robustere Schuppen bis zum Schuppenpanzer */
@@ -120,6 +124,9 @@ export function quantize(m: Morph): Morph {
     tint: q(m.tint ?? 0, 0.2),
     snout: q(m.snout ?? 0, 0.25),
     coat: Math.round(m.coat ?? 0),
+    cb: q(m.cb ?? 0, 0.1),
+    cf: q(m.cf ?? 0, 0.1),
+    cp: q(m.cp ?? 0, 0.1),
     armor: q(m.armor ?? 0, 0.1),
     st: q(m.st ?? 0, 0.25),
     bs: q(m.bs ?? 0, 0.25),
@@ -138,7 +145,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
+  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.stamUp, k.grip, k.gills].join('_');
 }
 
 export interface Pal {
@@ -148,6 +155,8 @@ export interface Pal {
   camo: number;
   eye: number;
   fin: number;
+  /** Farbe des Kopfpanzers (Knochen) – sonst ein helles Beige */
+  plate?: number;
 }
 
 const LINEAGE: Pal[] = [
@@ -157,11 +166,26 @@ const LINEAGE: Pal[] = [
   { base: 0x3a564e, belly: 0x8e9e8e, dark: 0x101a16, camo: 0x1e302a, eye: 0xc8b85e, fin: 0x4a5e44 },
 ];
 
+/** Wie weit sich die versteckten Farbabweichungen (-1 … +1) auswirken: Grad Farbton und Aufhellung (shade) an den Enden. */
+export const COLOR = { hueBody: 26, lightBody: 0.07, hueFin: 34, lightFin: 0.1, huePlate: 20, lightPlate: 0.07 };
+/** das Beige des Kopfpanzers, bevor die Linie es verschiebt */
+export const PLATE_BASE = 0xb9ae9a;
+
 export function palette(m: Morph): Pal {
   const p0 = LINEAGE[m.hue % LINEAGE.length];
   // jede Linie kann im Farbton etwas abweichen
   const hs = (m.tint ?? 0) * 34;
   const p: Pal = { ...p0, base: hueShift(p0.base, hs), camo: hueShift(p0.camo, hs), fin: hueShift(p0.fin, hs * 1.3), belly: hueShift(p0.belly, hs * 0.5) };
+  // Von Ei zu Ei wandern Körper-, Flossen- und Panzerfarbe in kleinen Schritten (versteckt, nur natürliche Fischfarben: ein paar Grad
+  // Farbton und etwas heller oder dunkler) – erst nach Generationen fällt auf, dass die Linie anders aussieht
+  const cb = m.cb ?? 0, cf = m.cf ?? 0, cp = m.cp ?? 0;
+  if (cb) {
+    p.base = shade(hueShift(p.base, cb * COLOR.hueBody), cb * COLOR.lightBody);
+    p.camo = shade(hueShift(p.camo, cb * COLOR.hueBody), cb * COLOR.lightBody * 0.8);
+    p.belly = shade(hueShift(p.belly, cb * COLOR.hueBody * 0.4), cb * COLOR.lightBody * 0.4);
+  }
+  if (cf) p.fin = shade(hueShift(p.fin, cf * COLOR.hueFin), cf * COLOR.lightFin);
+  p.plate = shade(hueShift(PLATE_BASE, cp * COLOR.huePlate), cp * COLOR.lightPlate);
   const st = m.stealth;
   const male = m.sex === 1;
   // Wer sich viel versteckt, nimmt die Farben seiner Verstecke an
@@ -177,6 +201,7 @@ export function palette(m: Morph): Pal {
     camo: camoBase(p.camo),
     eye: mix(p.eye, 0xc8401c, m.fierce * 0.75),
     fin: mix(camoBase(p.fin), p.camo, st * 0.3),
+    plate: p.plate,
   };
   // Die Evolutionsplatten färben mit: Stoßfisch stahlgrau, Beißfisch dunkel bronzefarben mit rostigen Flossen,
   // Verfolgungsfisch blaugrau mit hellem Bauch, Schwarmfisch silbrig

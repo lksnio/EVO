@@ -220,7 +220,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Goldene Geburt:** Jedes Ei leuchtet mit **5 %** Wahrscheinlichkeit golden (`SPAWN.gold`). Schon beim Laichen sieht man
     es: Das Gelege färbt sich golden, goldene Funken steigen auf, „GOLDENE GEBURT · +25 % Ausdauer“. Das Tier aus einem
     goldenen Ei hat **einen Segen mehr** in einer Richtung der großen Muschel – genau so viel, wie der nächste Segen
-    bringen würde (+2,5 % Lebenskraft, +25 % Ausdauer, +5 % Sicht, im Karbon +15 % Sauerstoff). Er gilt **nur für dieses
+    bringen würde (+2,5 % Lebenskraft, +25 % Ausdauer, im Karbon +15 % Sauerstoff). Er gilt **nur für dieses
     Tier**, nicht für die Linie, und macht den nächsten Segen nicht teurer. In der Laich-Wahl leuchtet das Ei golden, die
     Karte trägt ein goldenes Band.
   - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – gibt es keine, fehlt der
@@ -246,6 +246,19 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Zuwachs: Acht ebenbürtige Siege erschließen das volle Fleischbudget; stärkere Gegner zählen entsprechend mehr.
   Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
   Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
+
+  **Werte nach Verhalten (Überarbeitung Werte):** Leben und Ausdauer kommen von der großen Muschel (Segen), Gebiss vom Beißen. Dazu:
+  - **Stoß (Schädel):** schadet mehr (`RAM.damage` 0,95 statt 0,625 × Schädelwert) und zählt für den Schädel wie **3,5 Bisse** (`RAM.credit`): Ein Sieg mit
+    einem Stoß und drei Bissen gibt dem Schädel jetzt fast die Hälfte der Punkte statt ein Viertel.
+  - **Tempo (Flossen) aus Strömungen:** Wer in einer lokalen Strömung schwimmt, bekommt **Schub** (0 … 1; in 1,4 s voll, außerhalb klingt er mit 6 s Zeitkonstante
+    **langsam ab**): +30 % Tempo, dazu mit Spurt bis +60 % davon extra und +35 % Spitze beim Kopfstoß (`FLOW`, `Player.flow`, `LevelScene.flowStep`). Die Sekunden im Schub
+    (Spurt oder Stoß darin 1,6-fach) geben bis zu **+3 Flossenpunkte** je Generation (`bonus.finsFlow` bei `flowRef` 40 s). Flossenpunkte machen schneller, die Flossen wachsen mit
+    dem Tempo, und sie kosten **etwas Ausdauer** (−4 % bei +10 Punkten, `MOVEMENT.finEndurance`).
+  - **Ausdauer aus Strecke:** Weite Strecken (`INHERIT.endDistance`, 90 000 Bildpunkte) geben bis zu **+3 Ausdauerpunkte** je Generation (+3 % Ausdauer je Punkt) – der **Kamm am Rücken**
+    (Rückenflosse) wächst mit ihnen – und kosten **etwas Tempo** (−0,4 % je Punkt, `MOVEMENT.endSpeed`).
+  - **Versteckte Farbabweichung:** Körper, Flossen und Kopfpanzer wandern **von Ei zu Ei** in kleinen Zufallsschritten (`driftColors`, Streuung `INHERIT.colorStep` 0,1; Werte −1 … +1 in
+    `cb`, `cf`, `cp`), ohne Anzeige: höchstens ±26° Farbton und ±7 % Helligkeit am Körper, ±34° an den Flossen, ±20° am Panzer (`COLOR` in `creatureArt.ts`) – der Fisch bleibt erkennbar
+    derselbe, aber nach ein paar Generationen fragt man sich, wann er die Farbe bekommen hat.
   **Gewichtung** (`INHERIT.weight`): Schuppen ×1,3, Flossen/Tempo ×1,25 und Schädel ×1,15 zählen mehr, Gebiss und Lebenskraft
   ×0,85 weniger. **Schuppen und Tempo auch ohne Sieg** (`INHERIT.bonus`, fester Zuwachs ohne Streuung): Überstandene
   Treffer bringen bis **+3 Schuppen** (ab 8 Treffer-Punkten); wer **dem Tod nahe** war (unter 25 % Lebenskraft), bekommt
@@ -639,12 +652,11 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   Fächermuschel** (gezeichnetes Bild `src/assets/shrine/muschel.webp`, rund 118 Bildpunkte breit), perlmuttfarben, mit einer
   leise glühenden **Perle** in der Mitte, Lichtfunken steigen auf, von oben fällt ein
   Lichtschacht. Wer davor die Interaktionstaste drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
-  viele Muscheln **frei** sind, und **drei Richtungen**, in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
+  viele Muscheln **frei** sind, und **zwei Richtungen** (im Karbon drei), in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
   danach („27 → 28“):
   - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird je Segen um 1,8 % größer**.
   - **Ausdauer:** ein Viertelkreis mehr (höchstens drei Kreise) – und die **Flossen werden größer und kräftiger**.
-  - **Sicht:** von **20 %** aus je Segen **5 %** mehr (höchstens 100 %, siehe „Sicht“ unten) – und die **Augen werden
-    größer**, die Iris leuchtet kräftiger, mit hellem Ring und einem zweiten, kleinen Lichtreflex.
+  - (**Sicht** ist kein Segen mehr – sie wächst nur durch Zeit in der Tiefe, siehe „Sicht“ unten.)
 
   **Was ein Segen kostet:** Der erste **1 Muschel**, jeder weitere **doppelt so viele** wie der vorige – **gleich, in welche
   Richtung**: 1, 2, 4, 8, 16 … Vorerst gibt es **höchstens 10 Segen** je Linie: Der zehnte kostet 512 Muscheln, alle zehn
@@ -657,7 +669,15 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   ihr aus. Alle Zahlen stehen in `SHELLS`, `UPGRADES` und `STAMINA` (`src/data/life.ts`) und in der
   [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
   das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
-- **Sicht unter Wasser:** Ein Fisch sieht vor allem dorthin, wohin er schwimmt – aber auch ein Stück hinter sich. Wie auf
+- **Sicht gibt es nur in der Tiefe:** Oben – im Laichfluss, auf dem Schelf, in trübem Wasser, im oberen Tiefental – ist die Sicht **immer ganz frei**: kein
+  Trübe, kein Dunkel, alles im Bild klar (die Wasserfarben bleiben, sie sind Stimmung, keine Sichtgrenze). Erst **in der Tiefe** (der Anteil der Tiefe des Ortes,
+  ab dem das Dunkel einsetzt, `LevelScene.deepK`; Gate 0 oben … 1 unten, weich) gilt die Sicht des Tiers – so wie bisher, nur **ein Zehntel weiter**
+  (`SIGHT.deepBonus` 1,1). Der Übergang ist stetig (`vision(…, gate)`), die Seitenlinie bleibt. **Training:** Sicht ist **kein Segen der Muschel** und hat keinen
+  Kompromiss; sie wächst nur dadurch, dass man **lange in der Tiefe** schwimmt (Sekunden mit `deepK` über `SIGHT.trainFrom`, 0,35): Bei `INHERIT.deepRef` (90 s) bekommen die Nachkommen
+  `INHERIT.sightStep` (2) Sichtpunkte (+5 % Sicht je Punkt, `UPGRADES.sightPer`), bei weniger anteilig; die Augen wachsen mit. Ältere Spielstände mit Sicht-Segen bekommen die
+  Muscheln zurück (frei zum neu Verteilen).
+
+- **Sicht in der Tiefe (die Rechnung):** Ein Fisch sieht vor allem dorthin, wohin er schwimmt – aber auch ein Stück hinter sich. Wie auf
   einem **Zeitstrahl von 0 bis 10**: Steht der Fisch auf 5 und schaut Richtung 10, sieht er **4, 5, 6, 7**; dreht er sich
   um, sieht er **3, 4, 5, 6**. Nach vorn reicht der Blick also **doppelt so weit wie nach hinten**. In der Fläche ist das ein
   **runder klarer Bereich, dessen Mitte ein Stück vor dem Fisch liegt** – beim Umdrehen gleitet er weich auf die andere
@@ -665,7 +685,7 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   liegt **trübes Wasser** in den Farben des Ortes, und gleich am Rand beginnt es **dunkel** zu werden – nach außen immer
   dunkler. **Tiere** sind im Trüben nicht zu sehen, am Rand erscheinen sie als blasser, verschwommener Umriss, im Blick
   deutlich. **Wie weit man sieht, hängt an drei Dingen:**
-  - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Segen in Sicht gibt **5 %** mehr (100 % hieße bis zum
+  - **an deinem Tier – seiner Sicht:** zu Beginn **20 %**, jeder Sichtpunkt aus der Tiefe gibt **5 %** mehr (100 % hieße bis zum
     Bildrand bei guten Bedingungen). Nach vorn sieht jedes Tier dazu ein Grundstück (ein Zehntel der Weite),
     das ebenso wie die eigene Sicht mit Wasserqualität und Tiefe verrechnet wird.
   - **an der Wasserqualität:** Der **Laichfluss** hat **sehr klares Wasser** – man sieht es ihm an: Das Wasser ist dort

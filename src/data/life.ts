@@ -49,11 +49,34 @@ export const MOVEMENT = {
   hatchSpeed: 0.6,
   /** Tempofaktor je vererbtem Flossenpunkt: +10 Punkte → +20 % Schwimmtempo */
   finPerPoint: 0.02,
-  /** Ausdauer je vererbtem Flossenpunkt: kräftigere Flossen ermüden langsamer (+10 Punkte → +5 % Ausdauer) */
-  finEndurance: 0.005,
   /** Anteil des Längenzuwachses, der Tempo gibt: +10 % Länge → +3 % Tempo */
   lengthSpeed: 0.3,
+  /** Kompromiss: Tempo kostet etwas Ausdauer (je Flossenpunkt, negativ: +10 Punkte → −4 % Ausdauer) … */
+  finEndurance: -0.004,
+  /** … Ausdauer aus weiten Strecken (je Punkt: +3 Punkte → +9 %) kostet etwas Tempo (je Punkt: +3 Punkte → −1,2 %) */
+  endPerPoint: 0.03,
+  endSpeed: 0.004,
 };
+
+/**
+ * Strömungen (lokale Wasserströme im Ort): Wer darin schwimmt, bekommt Schub (flow 0 … 1), der in ein paar Sekunden anwächst und nach dem
+ * Verlassen nur langsam abklingt. Er macht schneller (speed), wirkt auf den Spurt noch stärker (sprint, Anteil von speed zusätzlich bei
+ * vollem Spurt) und auf den Kopfstoß (ram). Die Sekunden im Schub (und dabei Spurt oder Stoß, zählen mehr) trainieren das Tempo der Nachkommen.
+ */
+export const FLOW = {
+  speed: 0.3,
+  sprint: 0.6,
+  ram: 0.35,
+  /** Sekunden bis zum vollen Schub in der Strömung */
+  rise: 1.4,
+  /** Zeitkonstante des Abklingens außerhalb (Sekunden) */
+  fade: 6,
+  /** Spurt bzw. Stoß im Schub zählen so viel mehr für das Training */
+  boostedCredit: 1.6,
+};
+
+/** Der Kopfstoß: mehr Schaden – und ein Stoß zählt für den Schädel so viel wie mehrere Bisse (3–4). */
+export const RAM = { damage: 0.95, credit: 3.5 };
 
 /**
  * Laichen: Gelaicht wird im Laichfluss (dem Startort, flussaufwärts der Mündung), dicht am Grund. Weibchen legen ein Gelege,
@@ -119,6 +142,15 @@ export const INHERIT = {
   defeats: 8,
   /** Verborgener Längenzuwachs pro Generation bei dieser Schwimmstrecke (Bildpunkte). */
   swimDistance: 60000,
+  /** Farbe: Streuung der versteckten Farbabweichung je Ei (Körper, Flossen, Kopfpanzer; Bereich −1 … +1) */
+  colorStep: 0.1,
+  /** Sicht: Punkte je Generation bei so vielen Sekunden in der Tiefe (deepRef; wer weniger unten war, bekommt anteilig). Nur so wächst die Sicht. */
+  sightStep: 2,
+  deepRef: 90,
+  /** Ausdauer aus Strecke: Punkte je Generation bei dieser Schwimmstrecke (Bildpunkte, wie swimDistance) */
+  endStep: 3,
+  endDistance: 90000,
+
   lengthStep: 0.1,
   /** Gewichtszuwachs: dieser Anteil × mittlere relative Wassertiefe. */
   massStep: 0.1,
@@ -158,6 +190,9 @@ export const INHERIT = {
     swimRef: 20,
     finsChase: 1,
     chaseRef: 3,
+    /** Tempo aus Strömungen: bis zu so viele Flossenpunkte je Generation bei flowRef Sekunden im Schub */
+    finsFlow: 3,
+    flowRef: 40,
   },
   /** Am Ende bekommt jedes Feld noch +1 oder −1 (nach Gewichtung, Varianz und Bonus). */
   final: 1,
@@ -194,7 +229,7 @@ export const SHELLS = {
 };
 
 /**
- * Die Segen der großen Muschel im Laichfluss: Dort verteilt man seine Muscheln auf Lebenskraft, Ausdauer und Sicht. Der erste
+ * Die Segen der großen Muschel im Laichfluss: Dort verteilt man seine Muscheln auf Lebenskraft und Ausdauer (im Karbon: und Sauerstoff). Die Sicht ist kein Segen mehr: Sie wächst nur durch Zeit in der Tiefe. Der erste
  * Segen kostet eine Muschel, jeder weitere doppelt so viele wie der vorige – gleich, wofür: 1, 2, 4, 8 … bis 512 für den
  * zehnten (vorerst gibt es höchstens zehn Segen je Linie, zusammen 1023 Muscheln). Die Segen gelten für die ganze Linie (über
  * alle Generationen); beginnt eine neue Linie, sind alle Muscheln wieder frei und werden neu verteilt.
@@ -210,9 +245,9 @@ export const UPGRADES = {
   hp: 0.025,
   /** so viel größer wird der Körper je Segen in Lebenskraft (Anteil) */
   hpSize: 0.018,
-  /** Sicht (Anteil des ganzen Bildes vor dir): zu Beginn … */
+  /** Sicht (Anteil des ganzen Bildes vor dir, gilt nur in der Tiefe): zu Beginn … */
   sight: 0.2,
-  /** … und so viel mehr je Segen … */
+  /** … und so viel mehr je erworbenem Sichtpunkt (siehe INHERIT.sightStep: Sicht wächst nur durch Zeit in der Tiefe, keine Segen) … */
   sightPer: 0.05,
   /** … höchstens so viel (das ganze Bild) */
   sightMax: 1,

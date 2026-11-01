@@ -527,7 +527,7 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Die große Muschel
 
   /**
-   * Vor der großen Muschel: Man verteilt seine Muscheln auf Lebenskraft, Ausdauer und Sicht. Jeder Segen kostet doppelt so
+   * Vor der großen Muschel: Man verteilt seine Muscheln auf Lebenskraft und Ausdauer (im Karbon auch Sauerstoff). Jeder Segen kostet doppelt so
    * viele wie der vorige (1, 2, 4, 8 … – gleich, wofür). Die Welt steht so lange still.
    */
   private openShrine() {
@@ -554,15 +554,13 @@ export class HudScene extends Phaser.Scene {
     const now = game.shown(ups);
     const cols: { k: UpKey; name: string; what: string; val: (v: ReturnType<typeof game.shown>) => number }[] = [
       { k: 'hp', name: 'Lebenskraft', what: `+${nf(UPGRADES.hp * 100, 1)} %  ·  ein größerer Körper`, val: (v) => v.hpMax },
-      // im Karbon: Sauerstoff statt Sicht – länger an Land, ohne auszutrocknen
-      game.upKeys.includes('oxy')
-        ? { k: 'oxy', name: 'Sauerstoff', what: `+${Math.round(OXYGEN.perUp * 100)} %  ·  länger an Land`, val: (v) => v.oxy }
-        : { k: 'sight', name: 'Sicht', what: `+${Math.round(UPGRADES.sightPer * 100)} %  ·  größere Augen`, val: (v) => v.sight },
+      // im Karbon zusätzlich Sauerstoff – länger an Land, ohne auszutrocknen (die Sicht gibt es nicht mehr als Segen: sie wächst in der Tiefe)
+      ...(game.upKeys.includes('oxy') ? [{ k: 'oxy' as UpKey, name: 'Sauerstoff', what: `+${Math.round(OXYGEN.perUp * 100)} %  ·  länger an Land`, val: (v: ReturnType<typeof game.shown>) => v.oxy }] : []),
       { k: 'stam', name: 'Ausdauer', what: '+¼ Kreis  ·  kräftigere Flossen', val: (v) => v.stam },
     ];
     const items: Button[] = [];
     cols.forEach((col, i) => {
-      const cx = W / 2 + (i - 1) * 282, top = y0 + 152;
+      const cx = W / 2 + (i - (cols.length - 1) / 2) * 282, top = y0 + 152;
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.22);
       g.fillRoundedRect(cx - 128, top, 256, 262, 10);

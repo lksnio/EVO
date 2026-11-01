@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { INHERIT, LIFE, MOVEMENT } from '../src/data/life';
 import { ADULT, phases } from '../src/sim/life';
-import { COMBAT_SKILLS, evolutionBudget, evolutionStep, recordDefeat, type Defeats } from '../src/sim/evolution';
+import { COMBAT_SKILLS, evolutionBonus, evolutionBudget, evolutionStep, recordDefeat, type Defeats } from '../src/sim/evolution';
 import { game, newStyle } from '../src/state/GameState';
 
 /** Die alten Rechenwege prüfen wir ohne Gewichtung, Bonus und ±1 – die neuen in tests/bonus.test.ts. */
@@ -110,7 +110,9 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     const ma = game.measure(game.cls, start), mb = game.measure(game.cls, h.traits);
     expect(mb.cm / ma.cm).toBeCloseTo(1.1);
     expect(mb.g).toBeCloseTo(ma.g);
-    expect(b.speed / a.speed).toBeCloseTo(1 + MOVEMENT.lengthSpeed * INHERIT.lengthStep);
+    // weite Strecken schenken auch Ausdauer, die ein klein wenig Tempo kostet (MOVEMENT.endSpeed)
+    const endPts = INHERIT.endStep * (INHERIT.swimDistance / INHERIT.endDistance);
+    expect(b.speed / a.speed).toBeCloseTo((1 + MOVEMENT.lengthSpeed * INHERIT.lengthStep) * (1 - MOVEMENT.endSpeed * endPts));
     expect(game.roeShown({ traits: h.traits }).scales).toBe(10); // 9.5 wird für die Anzeige gerundet
     expect(b.defense / a.defense).toBeCloseTo(1 / 0.95);
     expect(game.inheritedDelta()).toBeNull();
@@ -134,7 +136,7 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
   it('Muschel-Segen ändern nur ihren Wert und verursachen keine Abzüge an den anderen Werten', () => {
     game.ageBy(250);
     game.data.shells = 1024;
-    expect(game.upKeys).toEqual(['hp', 'sight', 'stam']);
+    expect(game.upKeys).toEqual(['hp', 'stam']);
     for (const key of game.upKeys) {
       const before = game.shown(), st = game.stats();
       expect(game.buyUp(key)).toBe(true);
@@ -161,5 +163,58 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     expect(game.inheritedDelta()).not.toHaveProperty('length');
     expect(game.inheritedDelta()).not.toHaveProperty('weight');
     expect(game.run?.sex).toBe(1);
+  });
+});
+
+describe('Werte nach Verhalten (Stoß, Strömung, Strecke)', () => {
+  it('ein Stoß schadet mehr als früher und zählt für den Schädel wie drei bis vier Bisse', async () => {
+    const { RAM } = await import('../src/data/life');
+    expect(RAM.damage).toBeGreaterThan(0.625);
+    expect(RAM.credit).toBeGreaterThanOrEqual(3);
+    expect(RAM.credit).toBeLessThanOrEqual(4);
+    // ein Sieg mit einem Stoß und drei Bissen: der Schädel bekommt jetzt fast die Hälfte, früher ein Viertel
+    const defeats: Record<string, { count: number; strength: number }> = {};
+    recordDefeat(defeats, { skull: 1 * RAM.credit, bite: 3 }, 1);
+    expect(defeats.skull!.strength / (defeats.skull!.strength + defeats.bite!.strength)).toBeGreaterThan(0.45);
+  });
+
+  it('Zeit im Strömungsschub bringt Flossenpunkte (Tempo), anteilig und bis zu einer Grenze', () => {
+    const B = INHERIT.bonus;
+    expect(evolutionBonus({ flowTime: 0 }).fins).toBe(0);
+    expect(evolutionBonus({ flowTime: B.flowRef / 2 }).fins).toBeCloseTo(B.finsFlow / 2);
+    expect(evolutionBonus({ flowTime: B.flowRef * 5 }).fins).toBeCloseTo(B.finsFlow);
+  });
+
+  it('Schub: der Strömungsschub macht schneller, Spurt und Stoß im Schub noch mehr, und er klingt langsam ab', async () => {
+    const { FLOW } = await import('../src/data/life');
+    expect(FLOW.speed).toBeGreaterThan(0);
+    expect(FLOW.sprint).toBeGreaterThan(0);
+    expect(FLOW.ram).toBeGreaterThan(0);
+    expect(FLOW.fade).toBeGreaterThan(FLOW.rise * 2); // klingt viel langsamer ab, als er anwächst
+    // nach FLOW.fade Sekunden ist noch gut ein Drittel des Schubs übrig
+    expect(Math.exp(-1)).toBeGreaterThan(0.3);
+  });
+
+  it('Tempo und Ausdauer sind Kompromisse: mehr Flossenpunkte kosten etwas Ausdauer, mehr Ausdauerpunkte etwas Tempo', () => {
+    const t = { ...game.traits };
+    const base = game.stats(game.cls, t, undefined, false);
+    const fast = game.stats(game.cls, { ...t, finGain: 10 }, undefined, false);
+    const long = game.stats(game.cls, { ...t, endGain: 10 }, undefined, false);
+    const tempo = (x: typeof base) => x.speed * x.cruise;
+    expect(tempo(fast)).toBeGreaterThan(tempo(base));
+    expect(fast.endurance).toBeLessThan(base.endurance);
+    expect(fast.endurance).toBeGreaterThan(base.endurance * 0.9);
+    expect(long.endurance).toBeGreaterThan(base.endurance);
+    expect(tempo(long)).toBeLessThan(tempo(base));
+    expect(tempo(long)).toBeGreaterThan(tempo(base) * 0.95);
+  });
+
+  it('weite Strecken: Ausdauerpunkte für die Nachkommen, anteilig; der Kamm am Rücken wächst mit ihnen, die Flossen mit dem Tempo', () => {
+    const none = game.inherit({ plant: 0, meat: 0 }, { ...newStyle(), distance: 0 });
+    const far = game.inherit({ plant: 0, meat: 0 }, { ...newStyle(), distance: INHERIT.endDistance });
+    expect(none.traits.endGain ?? 0).toBe(0);
+    expect(far.traits.endGain).toBeCloseTo(INHERIT.endStep);
+    expect(game.morph({ traits: far.traits }).crest).toBeGreaterThan(game.morph({ traits: none.traits }).crest);
+    expect(game.morph({ traits: { ...far.traits, finGain: 8 } }).fin).toBeGreaterThan(game.morph({ traits: far.traits }).fin);
   });
 });

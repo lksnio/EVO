@@ -63,3 +63,48 @@ describe('Sichtbare Entwicklung', () => {
     expect(b.ramStun).toBe(1000);
   });
 });
+
+describe('Versteckte Farbabweichung je Ei', () => {
+  it('Körper, Flossen und Panzer wandern in kleinen Schritten und bleiben im natürlichen Bereich', async () => {
+    const { driftColors } = await import('../src/state/GameState');
+    const { INHERIT } = await import('../src/data/life');
+    const { palette, COLOR, PLATE_BASE } = await import('../src/art/creatureArt');
+    // Zufall deterministisch (einfacher Zähler), Schritte nie größer als drei Streuungen
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    let t = { cb: 0, cf: 0, cp: 0 } as never as import('../src/state/GameState').Traits;
+    const path: number[] = [];
+    for (let g = 0; g < 400; g++) {
+      const n = driftColors(t, rnd);
+      for (const k of ['cb', 'cf', 'cp'] as const) {
+        expect(Math.abs((n[k] ?? 0) - (t[k] ?? 0))).toBeLessThanOrEqual(3 * INHERIT.colorStep + 1e-9);
+        expect(Math.abs(n[k] ?? 0)).toBeLessThanOrEqual(1);
+      }
+      t = n;
+      path.push(t.cb ?? 0);
+    }
+    // sie wandert wirklich (nicht dauernd null) und die drei Farben sind unabhängig
+    expect(Math.max(...path) - Math.min(...path)).toBeGreaterThan(0.3);
+    const a = driftColors({ cb: 0, cf: 0, cp: 0 } as never, rnd), b = driftColors({ cb: 0, cf: 0, cp: 0 } as never, rnd);
+    expect(a.cb).not.toBe(b.cb);
+    // Palette: Körper und Flossen folgen den Werten, an den Enden nur wenige Grad – dieselbe Art Fisch
+    const m = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 1, seed: 7 } as const;
+    const base = palette({ ...m }), hi = palette({ ...m, cb: 1, cf: 1, cp: 1 }), lo = palette({ ...m, cb: -1, cf: -1, cp: -1 });
+    expect(hi.base).not.toBe(base.base);
+    expect(lo.fin).not.toBe(base.fin);
+    expect(hi.plate).not.toBe(lo.plate);
+    expect(palette({ ...m }).plate).toBe(palette({ ...m, cp: 0 }).plate);
+    expect(COLOR.hueBody).toBeLessThanOrEqual(30);
+    expect(COLOR.huePlate).toBeLessThanOrEqual(25);
+    expect(PLATE_BASE).toBe(0xb9ae9a);
+  });
+
+  it('jedes Ei bekommt seinen eigenen Wert (Aussehen je Ei, ohne Anzeige)', async () => {
+    const { morphKey } = await import('../src/art/creatureArt');
+    const m = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 1, seed: 7 } as const;
+    expect(morphKey({ ...m, cb: 0.5 })).not.toBe(morphKey({ ...m, cb: 0 }));
+    expect(morphKey({ ...m, cp: 0.3 })).not.toBe(morphKey({ ...m }));
+    // sehr kleine Unterschiede teilen sich eine Textur (Quantisierung)
+    expect(morphKey({ ...m, cb: 0.51 })).toBe(morphKey({ ...m, cb: 0.5 }));
+  });
+});

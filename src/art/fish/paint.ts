@@ -306,7 +306,7 @@ export function paintEyeSocket(ctx: Ctx, A: FishAnatomy, P: Pal, soft = false) {
   const a = A.plate, R = eyeBall(A.eye.r), ex = A.eye.x, ey = A.eye.y;
   const [rx, ry] = socketRadius(A);
   ell(ctx, ex, ey, rx, ry);
-  ctx.fillStyle = css(shadowOf(mix(grade(P.base), 0xbab09a, 0.4)), soft ? 0.96 : 0.92);
+  ctx.fillStyle = css(shadowOf(mix(grade(P.base), P.plate ?? 0xbab09a, 0.4)), soft ? 0.96 : 0.92);
   ctx.fill();
   ctx.strokeStyle = css(INK, soft ? 0.8 : 0.9);
   ctx.lineWidth = soft ? 0.9 : 1.1;
@@ -371,7 +371,7 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal, armor = false) {
     ctx.bezierCurveTo(hx - 1, hy + hg.H * 0.18, hx - 12, hy + hg.H * 0.1, hx - 11, hy + top * 0.1);
     ctx.bezierCurveTo(hx - 12, hy + top * 0.55, hx - 12, hy + top * 0.8, hx - 9, hy + top * 0.9);
     ctx.closePath();
-    ctx.fillStyle = css(mix(grade(P.base), 0xbab09a, 0.35 + 0.35 * a), 0.55 + 0.4 * a);
+    ctx.fillStyle = css(mix(grade(P.base), P.plate ?? 0xbab09a, 0.35 + 0.35 * a), 0.55 + 0.4 * a);
     ctx.fill();
     ctx.strokeStyle = css(INK, 0.5 + 0.3 * a);
     ctx.lineWidth = 0.9 + 0.7 * a;

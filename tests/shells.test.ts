@@ -24,7 +24,7 @@ describe('Muscheln', () => {
     game.newRun(0);
     for (let i = 0; i < 2000; i++) game.addShell();
     let n = 0;
-    while (game.buyUp((['hp', 'sight', 'stam'] as const)[n % 3])) n++;
+    while (game.buyUp((['hp', 'stam'] as const)[n % 2])) n++;
     expect(n).toBe(10);
     expect(game.upCount).toBe(10);
     expect(game.shellsFree).toBe(2000 - 1023);
@@ -38,20 +38,20 @@ describe('Muscheln', () => {
     expect(game.canUp()).toBe(false);
     game.addShell();
     expect(game.upCost).toBe(1);
-    expect(game.buyUp('sight')).toBe(true);
+    expect(game.buyUp('stam')).toBe(true);
     expect(game.shellsFree).toBe(0);
     expect(game.upCost).toBe(2);
     expect(game.buyUp('hp')).toBe(false);
     game.addShell();
     game.addShell();
     expect(game.buyUp('hp')).toBe(true);
-    expect(game.ups).toEqual({ hp: 1, stam: 0, sight: 1, oxy: 0 });
+    expect(game.ups).toEqual({ hp: 1, stam: 1, sight: 0, oxy: 0 });
     expect(game.upCost).toBe(4);
     expect(game.shells).toBe(3);
     expect(game.shellsFree).toBe(0);
   });
 
-  it('Lebenskraft wächst um 2,5 % je Segen, Ausdauer um einen Viertelkreis, Sicht von 20 % um je 5 %', () => {
+  it('Lebenskraft wächst um 2,5 % je Segen, Ausdauer um einen Viertelkreis; Sicht von 20 % um je 5 % je Sichtpunkt (nur durch die Tiefe)', () => {
     game.newRun(0);
     const hp0 = game.stats().maxHp, size0 = game.stats().size;
     for (let i = 0; i < 15; i++) game.addShell();
@@ -77,7 +77,7 @@ describe('Muscheln', () => {
     for (let i = 0; i < 7; i++) game.addShell();
     game.buyUp('stam');
     game.buyUp('stam');
-    game.buyUp('sight');
+    game.buyUp('hp');
     expect(game.shellsFree).toBe(0);
     expect(game.staminaMax).toBe(1 + 2 * STAMINA.perBlessing);
     game.extinct(0.5, 'Test');
@@ -94,13 +94,14 @@ describe('Muscheln', () => {
     game.life.age = phases(1).mature + 30;
     const v = game.shown();
     expect(v.sight).toBe(20);
+    // die Sicht ist kein Segen mehr (die Vorschau der Muschel ändert sie nicht), sie wächst nur durch Zeit in der Tiefe
+    expect(game.shown({ hp: 0, stam: 0, sight: 1, oxy: 0 }).sight).toBe(20);
     expect(v.bite).toBe(10);
     expect(v.skull).toBe(10);
     expect(v.swarm).toBe(0);
     expect(v.scales).toBe(10);
     expect(v.stam).toBe(30);
     // die Vorschau der großen Muschel: was ein Segen brächte
-    expect(game.shown({ hp: 0, stam: 0, sight: 1, oxy: 0 }).sight).toBe(25);
     expect(game.shown({ hp: 0, stam: 1, sight: 0, oxy: 0 }).stam).toBeGreaterThan(v.stam);
     expect(game.shown({ hp: 4, stam: 0, sight: 0, oxy: 0 }).hpMax).toBeGreaterThan(v.hpMax);
   });
@@ -165,5 +166,37 @@ describe('ältere Spielstände', () => {
     };
     expect(save(P.mature + 100)).toBe(P.mature + 100);
     expect(save(P.span + 50)).toBe(P.old);
+  });
+});
+
+describe('Sicht wächst nur in der Tiefe', () => {
+  it('kein Segen, kein Muschelkauf – aber Zeit in der Tiefe bringt Sichtpunkte für die Nachkommen, anteilig und ohne Kompromiss', async () => {
+    const { INHERIT } = await import('../src/data/life');
+    const { newStyle } = await import('../src/state/GameState');
+    game.newRun(0);
+    for (let i = 0; i < 4; i++) game.addShell();
+    expect(game.upKeys).not.toContain('sight');
+    expect(game.buyUp('sight')).toBe(false);
+    const none = game.inherit({ plant: 5, meat: 5 }, { ...newStyle(), deepTime: 0 });
+    const half = game.inherit({ plant: 5, meat: 5 }, { ...newStyle(), deepTime: INHERIT.deepRef / 2 });
+    const full = game.inherit({ plant: 5, meat: 5 }, { ...newStyle(), deepTime: INHERIT.deepRef * 3 });
+    expect(none.traits.sightGain ?? 0).toBe(0);
+    expect(half.traits.sightGain).toBeCloseTo(INHERIT.sightStep / 2);
+    expect(full.traits.sightGain).toBeCloseTo(INHERIT.sightStep);
+    // keine Abzüge bei den anderen Werten
+    expect(full.traits.biteGain ?? 0).toBeCloseTo(none.traits.biteGain ?? 0);
+    expect(full.traits.scaleGain ?? 0).toBeCloseTo(none.traits.scaleGain ?? 0);
+    expect(sightOf(full.traits.sightGain!)).toBeGreaterThan(sightOf(0));
+    // größere Augen für die Nachkommen
+    expect(game.morph({ traits: full.traits }).eye).toBeGreaterThan(game.morph({ traits: none.traits }).eye);
+  });
+
+  it('alte Segen in Sicht zählen nicht mehr: die Muscheln sind wieder frei', () => {
+    game.newRun(0);
+    game.data.shells = 10;
+    game.data.run!.ups = { hp: 1, stam: 0, sight: 2, oxy: 0 };
+    expect(game.ups.sight).toBe(0);
+    expect(game.upCount).toBe(1);
+    expect(game.sight).toBeCloseTo(0.2);
   });
 });

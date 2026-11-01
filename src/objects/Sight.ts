@@ -36,6 +36,8 @@ export class Sight {
   /** Wasserqualität und Tiefe, wie sie gerade gelten (sie folgen dem Ort und der Tiefe weich) */
   water = -1;
   deep = -1;
+  /** wie sehr die Sicht gilt (0 oben … 1 tief unten), sie folgt weich */
+  gate = -1;
   /** der klare Bereich, wie er gezeichnet ist (und für die Tiere gilt) */
   v: Vision = { front: 1, back: 1, fade: 1 };
   /** wie dicht das trübe Wasser ist und wie dunkel es hinter dem Rand wird */
@@ -79,7 +81,7 @@ export class Sight {
    * Jedes Bild: Der klare Bereich folgt dem Fisch (px, py) und liegt in Blickrichtung (look, Bogenmaß) vor ihm. sight: die
    * Sicht des Tiers (wächst nach einem Segen langsam heran); water: die Wasserqualität des Ortes; deep: wie tief (0 … 1).
    */
-  update(dt: number, px: number, py: number, look: number, sight: number, water: number, deep: number) {
+  update(dt: number, px: number, py: number, look: number, sight: number, water: number, deep: number, gate = 1) {
     // die Blickrichtung gleitet (statt sich zu drehen): Beim Umdrehen wandert der klare Bereich durch den Fisch hindurch
     const k = Math.min(1, dt * 7);
     this.dir.x += (Math.cos(look) - this.dir.x) * k;
@@ -88,18 +90,24 @@ export class Sight {
     this.shown = ease(this.shown, sight, 0.08);
     this.water = ease(this.water, water, 0.5);
     this.deep = ease(this.deep, deep, 0.4);
+    this.gate = ease(this.gate, gate, 0.6);
     // den klaren Bereich neu zeichnen, wenn er sich merklich geändert hat (höchstens etwa zehnmal je Sekunde)
     this.since += dt;
-    const want = vision(this.shown, this.full, this.water, this.deep);
+    const want = vision(this.shown, this.full, this.water, this.deep, this.gate);
     const moved = Math.abs(want.front - this.v.front) / this.v.front > 0.012 || Math.abs(want.fade - this.v.fade) / this.v.fade > 0.03;
     if (!this.drawn || (moved && this.since > 0.1)) this.redraw(want);
     const ve = veil(this.v, this.water, this.deep);
-    this.murkA = ve.murk;
-    this.darkA = ve.dark * this.darkScale;
+    // nur in der Tiefe gibt es das Trübe und das Dunkle; oben liegt nichts über dem Bild
+    this.murkA = ve.murk * this.gate;
+    this.darkA = ve.dark * this.darkScale * this.gate;
+    const on = this.gate > 0.004;
+    this.murkImg.setVisible(on);
+    this.shade.setVisible(on);
 
     const ahead = disc(this.v).ahead;
     this.cx = px + this.dir.x * ahead;
     this.cy = py + this.dir.y * ahead;
+    if (!on) return;
     // die Bilder hängen an der Welt: Sie decken den Bildausschnitt und ein Stück darüber hinaus
     const wv = this.scene.cameras.main.worldView;
     const x0 = wv.x - M, y0 = wv.y - M, w = wv.width + 2 * M, h = wv.height + 2 * M;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clarity, clearness, depthOf, disc, farthest, sensed, SIGHT, veil, vision } from '../src/sim/sight';
+import { clarity, clearness, depthOf, disc, farthest, free, sensed, SIGHT, veil, vision } from '../src/sim/sight';
 import { placesOf } from '../src/data/world';
 import { EPOCHS } from '../src/data/epochs';
 import { generateLevel } from '../src/level/LevelGen';
@@ -128,5 +128,34 @@ describe('Sicht', () => {
     // ein Angreifer mit nachlaufendem Bild (Netz) liegt noch weit innerhalb der Reichweite
     const deepMurk = vision(0.2, FULL, 0.5, 1);
     expect(SIGHT.feelThreat).toBeGreaterThan(disc(deepMurk).r + 200);
+  });
+});
+
+describe('Sicht gibt es nur in der Tiefe', () => {
+  it('oben (gate 0) ist alles klar – bis weit über den Bildrand, unabhängig von Sicht, Wasser und Tiefe', () => {
+    for (const sight of [0.2, 0.6]) for (const water of [1, 0.5]) {
+      const v = vision(sight, FULL, water, 0.8, 0);
+      expect(v).toEqual(free(FULL));
+      expect(clarity(FULL * 1.4, 300, v)).toBe(1);
+      expect(clarity(-FULL * 1.2, 0, v)).toBe(1);
+    }
+  });
+
+  it('unten (gate 1) gilt die Sicht wie bisher, ein Zehntel weiter', () => {
+    const now = vision(0.2, FULL, 0.7, 0.6, 1), prev = SIGHT.deepBonus;
+    SIGHT.deepBonus = 1;
+    const before = vision(0.2, FULL, 0.7, 0.6, 1);
+    SIGHT.deepBonus = prev;
+    expect(now.front / before.front).toBeCloseTo(1.1, 5);
+    expect(now.fade).toBeCloseTo(before.fade, 5);
+  });
+
+  it('dazwischen geht es stetig: je tiefer, desto enger der klare Bereich', () => {
+    let last = Infinity;
+    for (let g = 0; g <= 1.0001; g += 0.1) {
+      const v = vision(0.2, FULL, 0.7, 0.6, g);
+      expect(v.front).toBeLessThanOrEqual(last + 1e-6);
+      last = v.front;
+    }
   });
 });

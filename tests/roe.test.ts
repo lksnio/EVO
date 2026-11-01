@@ -48,8 +48,10 @@ describe('Gemeinsamer Laich: Werte und Reihenfolge', () => {
     game.run!.gold = { key: 'stam', at: 0 };
     game.traits.biteGain = 40;
     expect(game.roeShown(egg).stam).toBe(a);
-    // kräftigere Flossen halten etwas länger durch
-    expect(a).toBeGreaterThan(game.roeShown({ ...egg, traits: {} }).stam);
+    // Tempo kostet etwas Ausdauer: kräftigere Flossen ermüden ein wenig früher (aber nur ein wenig)
+    const plain = game.roeShown({ ...egg, traits: {} }).stam;
+    expect(a).toBeLessThan(plain);
+    expect(a).toBeGreaterThan(plain * 0.9);
     // geschlüpft: dieselbe Ausdauer im Spiel, ob Jungtier oder ausgewachsen (ohne Muschelsegen)
     game.run!.ups = { hp: 0, stam: 0, sight: 0, oxy: 0 };
     game.hatchRoe(egg, 2);

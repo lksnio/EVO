@@ -57,6 +57,10 @@ export interface Traits {
   /** Verborgene relative Körperzuwächse: Länge aus Strecke, Masse aus mittlerer Tiefe. */
   lengthGain?: number;
   massGain?: number;
+  /** Sicht in der Tiefe (Punkte): wächst nur durch Zeit in der Tiefe – kein Segen, kein Kompromiss */
+  sightGain?: number;
+  /** Ausdauer aus weiten Strecken (Punkte): lässt den Rückenkamm wachsen, kostet etwas Tempo */
+  endGain?: number;
   jaw: number;
   skull: number;
   stealth: number;
@@ -91,6 +95,10 @@ export interface Traits {
   crest: number;
   /** Farbton (-1 … +1) */
   tint: number;
+  /** versteckte Farbabweichung von Körper, Flossen und Kopfpanzer (-1 … +1): wandert von Ei zu Ei (driftColors) */
+  cb?: number;
+  cf?: number;
+  cp?: number;
   /** Kopfform: -1 kurz und stumpf … +1 lang und spitz */
   snout: number;
   /** Färbung aus älteren Spielständen: 0 natürlich, 1 grün (Gras), 2 schwarz (Dunkelheit) */
@@ -718,6 +726,10 @@ export const bus = new Emitter();
 export interface PlayStyle {
   defeats?: Defeats;
   distance?: number;
+  /** Sekunden in der Tiefe (deepK über SIGHT.trainFrom) – daraus wächst die Sicht der Nachkommen */
+  deepTime?: number;
+  /** Sekunden im Strömungsschub (Tempo der Nachkommen), dazu Sekunden Sprint bzw. Stoß im Schub */
+  flowTime?: number;
   depthTime?: number;
   waterTime?: number;
   /** Treffer mit einem Stoß bzw. einem Biss – gewichtet nach der Stärke des Gegners; wer ihn damit erlegt, zählt dreifach */
@@ -1106,7 +1118,7 @@ class GameState {
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
       speed: b.speed * (1 + 0.38 * t.stealth) * sizeDrag * body * (land ? 1 + 0.14 * limb : 1) * swimMul
-        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth,
+        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth * Math.max(0.5, 1 - MOVEMENT.endSpeed * (t.endGain ?? 0)),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // Mehr vererbte Lebenskraft und Lebenssegen: ein etwas größerer Körper, ohne zusätzliche Kampf-/Tempoboni.
       size: size * sizeBoost * vitalitySize,
@@ -1121,7 +1133,7 @@ class GameState {
       // Schwere Waffen und Panzer ermüden: starke Kiefer, ein harter Kopf und Schuppenpanzer kosten Kraft, schlanke Verfolger halten länger durch
       // Gemessen am Erbgut (ausgewachsene Größe), nicht am Wachstumsstand: Ei, Übersicht und Spiel zeigen dieselbe Ausdauer
       endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
-        + MOVEMENT.finEndurance * (t.finGain ?? 0), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
+        + MOVEMENT.finEndurance * (t.finGain ?? 0) + MOVEMENT.endPerPoint * (t.endGain ?? 0), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
       recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, adult - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
       climb: (1 + 0.45 * (t.fUp ?? 0)) * finSpeed,
@@ -1169,8 +1181,12 @@ class GameState {
       gills: !o.traits && run?.brood?.phase === 'young' ? 1 : 0,
       fin: clamp((t.fin ?? 0) + (t.finGain ?? 0) / 20, -1, 1),
       tail: t.tail ?? 0,
-      crest: t.crest ?? 0,
+      // der Rückenkamm wächst mit der Ausdauer aus weiten Strecken
+      crest: clamp((t.crest ?? 0) + (t.endGain ?? 0) / 20, -1, 1),
       tint: t.tint ?? 0,
+      cb: t.cb ?? 0,
+      cf: t.cf ?? 0,
+      cp: t.cp ?? 0,
       snout: t.snout ?? 0,
       coat: t.coat ?? 0,
       armor: clamp((t.armor ?? 0) + (t.scaleGain ?? 0) / 20, 0, 1),
@@ -1183,7 +1199,7 @@ class GameState {
       fSide: t.fSide ?? 0,
       fTail: t.fTail ?? 0,
       // die Segen der großen Muschel sieht man nur dem eigenen Tier an: größere Augen (Sicht), größere Flossen (Ausdauer)
-      eye: o.traits ? 0 : this.ups.sight,
+      eye: t.sightGain ?? 0,
       stamUp: o.traits ? 0 : this.ups.stam,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? (run.life.fierce ?? this.fear()) : 0),
@@ -1426,7 +1442,7 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      const e: RoeEgg = { id: eggId(), traits: packTraits(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains, Math.random, h.evolution.fixed) : h.traits), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
+      const e: RoeEgg = { id: eggId(), traits: packTraits(driftColors(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains, Math.random, h.evolution.fixed) : h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
       // eine goldene Geburt: ein Segen mehr in einer Richtung, die noch wachsen kann
       if (Math.random() < SPAWN.gold) {
         const keys = this.upKeys.filter((k) => !this.upMaxed(k));
@@ -1521,6 +1537,9 @@ class GameState {
     t.lengthGain = (start.lengthGain ?? 0) + INHERIT.lengthStep * clamp((style.distance ?? 0) / Math.max(1, INHERIT.swimDistance), 0, 1);
     const depth = (style.waterTime ?? 0) > 0 ? (style.depthTime ?? 0) / style.waterTime! : 0;
     t.massGain = (start.massGain ?? 0) + INHERIT.massStep * clamp(depth, 0, 1);
+    // Sicht wächst nur durch Zeit in der Tiefe; Ausdauer durch weite Strecken (ohne Tempo-Gewinn dabei)
+    t.sightGain = (start.sightGain ?? 0) + INHERIT.sightStep * clamp((style.deepTime ?? 0) / Math.max(1, INHERIT.deepRef), 0, 1);
+    t.endGain = (start.endGain ?? 0) + INHERIT.endStep * clamp((style.distance ?? 0) / Math.max(1, INHERIT.endDistance), 0, 1);
     // Ernährung aus der aufgenommenen Energie – Schritt für Schritt und nie ganz bis zum Äußersten
     const total = eaten.meat + eaten.plant;
     if (total > 0) {
@@ -1981,7 +2000,8 @@ class GameState {
 
   /** Die Segen, die die große Muschel der laufenden Linie gegeben hat (gekauft mit Muscheln). */
   get bought(): Ups {
-    return { ...noUps(), ...(this.data.run ?? this.ghost)?.ups };
+    // die Sicht gibt es nicht mehr als Segen (sie wächst nur durch Zeit in der Tiefe): alte Käufe zählen nicht, die Muscheln sind wieder frei
+    return { ...noUps(), ...(this.data.run ?? this.ghost)?.ups, sight: 0 };
   }
 
   /** Die Segen deines Tiers: die der Linie – und, war es eine goldene Geburt, einer mehr in dieser Richtung. */
@@ -2035,7 +2055,7 @@ class GameState {
   /** Ist diese Richtung schon so stark, wie sie werden kann? */
   upMaxed(k: UpKey) {
     const u = this.ups;
-    return k === 'stam' ? staminaMax(u.stam) >= STAMINA.max : k === 'sight' ? sightOf(u.sight) >= UPGRADES.sightMax : false;
+    return k === 'stam' ? staminaMax(u.stam) >= STAMINA.max : k === 'sight';
   }
 
   /** Reichen die freien Muscheln für einen Segen in diese Richtung (bzw. in irgendeine)? */
@@ -2059,7 +2079,7 @@ class GameState {
   /** Wofür die große Muschel in diesem Zeitalter segnet: Lebenskraft, Ausdauer und Sicht – im Karbon Sauerstoff statt Sicht. */
   get upKeys(): UpKey[] {
     const ep = EPOCHS[this.data.run?.epoch ?? this.chosenEpoch];
-    return ['hp', ep?.meta === 'oxy' ? 'oxy' : 'sight', 'stam'];
+    return ep?.meta === 'oxy' ? ['hp', 'oxy', 'stam'] : ['hp', 'stam'];
   }
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
@@ -2072,9 +2092,9 @@ class GameState {
     return staminaMax(this.ups.stam);
   }
 
-  /** Wie weit dein Tier sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, je Segen in Sicht mehr. */
+  /** Wie weit dein Tier in der Tiefe sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, mehr durch Zeit in der Tiefe. */
   get sight() {
-    return sightOf(this.ups.sight);
+    return sightOf(this.r.traits.sightGain ?? 0);
   }
 
   /**
@@ -2092,7 +2112,7 @@ class GameState {
     return {
       hpMax: st.maxHp,
       /** wie weit du siehst: Anteil des ganzen Bildes vor dir (in Prozent) */
-      sight: Math.round(100 * sightOf(ups.sight)),
+      sight: Math.round(100 * sightOf(t.sightGain ?? 0)),
       /** so lange reicht die Kraft für einen Spurt (in Zehntelsekunden: ein Kreis, normaler Körperbau → 30) */
       stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
       bite: Math.round((10 * st.bite) / s0.bite),
@@ -2219,12 +2239,28 @@ class GameState {
 
 export const game = new GameState();
 
+/**
+ * Jedes Ei weicht in Körper-, Flossen- und Panzerfarbe ein wenig von seinem Elterntier ab (versteckt, nirgends angezeigt): ein
+ * Zufallsschritt je Farbe (ungefähr normalverteilt, Streuung INHERIT.colorStep, nie mehr als das Dreifache), begrenzt auf −1 … +1 – das
+ * sind nur ein paar Grad Farbton und etwas heller oder dunkler (creatureArt.COLOR). Es gibt keinen Zug zur Mitte: Die Farbe wandert
+ * über die Generationen, bis man sich fragt, wann der Fisch sie eigentlich bekommen hat.
+ */
+export function driftColors(t: Traits, random: () => number = Math.random): Traits {
+  const out = { ...t };
+  for (const k of ['cb', 'cf', 'cp'] as const) {
+    // Summe dreier Zufallszahlen: glockenförmig, von −1,5 … 1,5 mit Streuung 0,5
+    const g = (random() + random() + random() - 1.5) * 2;
+    out[k] = clamp((t[k] ?? 0) + clamp(g, -3, 3) * INHERIT.colorStep, -1, 1);
+  }
+  return out;
+}
+
 /** Die größte Ausdauer (in Kreisen) nach so vielen Segen in Ausdauer. */
 export function staminaMax(n: number) {
   return Math.min(STAMINA.max, 1 + Math.max(0, n) * STAMINA.perBlessing);
 }
 
-/** Die Sicht (Anteil des ganzen Bildes vor dir) nach so vielen Segen in Sicht: 20 %, 25 %, 30 % … bis 100 %. */
+/** Die Sicht (Anteil des ganzen Bildes vor dir) nach so vielen erworbenen Sichtpunkten: 20 %, 25 %, 30 % … bis 100 %. */
 export function sightOf(n: number) {
   return Math.min(UPGRADES.sightMax, UPGRADES.sight + Math.max(0, n) * UPGRADES.sightPer);
 }

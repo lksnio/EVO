@@ -34,6 +34,10 @@ export const SIGHT = {
   depth: 0.32,
   /** in der Tiefe wird der Übergang so viel kürzer (Anteil): Die Sicht hört plötzlicher auf */
   steep: 0.6,
+  /** In der Tiefe sieht man so viel weiter als nach dem alten Stand (Faktor auf die Sicht nach vorn) – oben gibt es keine Sichtgrenze mehr */
+  deepBonus: 1.1,
+  /** so tief (deepK: Anteil der Tiefe des Ortes) zählt die Zeit unten für das Training der Sicht */
+  trainFrom: 0.35,
   /** so dicht ist das trübe Wasser jenseits der Sicht: in ganz klarem Wasser dicht unter der Oberfläche … */
   murkClear: 0.42,
   /** … und in trübem oder tiefem Wasser */
@@ -82,18 +86,29 @@ export function clearness(water = 1, deep = 0) {
  * Was man sieht: sight – die Sicht deines Tiers (0 … 1); full – so weit ist es bis zum Bildrand vor dir; water – die
  * Wasserqualität (1 = sauber); deep – wie tief (0 … 1, siehe depthOf).
  */
-export function vision(sight: number, full: number, water = 1, deep = 0): Vision {
+export function vision(sight: number, full: number, water = 1, deep = 0, gate = 1): Vision {
+  // Oben gibt es keine Sichtgrenze: Die Sicht (und das Trübe dahinter) beginnt erst in der Tiefe – gate 0 (oben) … 1 (tief unten)
+  const g = Math.max(0, Math.min(1, gate));
+  if (g <= 0) return free(full);
   const d = Math.pow(deep, 0.8);
   const q = clearness(water, deep);
   const far = (SIGHT.surface + (SIGHT.depth - SIGHT.surface) * d) * Math.pow(water, SIGHT.waterPower);
   // Auch die Nähe wird in dunklem Wasser enger; ein fester Sockel würde bei jungen Fischen die Tiefe wieder aufheben.
   const near = SIGHT.back * (0.5 + 0.5 * q);
-  const front = Math.max(near * 1.4, full * (SIGHT.front0 + (1 - SIGHT.front0) * sight) * far);
-  return {
+  const front = Math.max(near * 1.4, full * (SIGHT.front0 + (1 - SIGHT.front0) * sight) * far) * (1 + (SIGHT.deepBonus - 1) * g);
+  const deepV: Vision = {
     front,
     back: Math.max(near, front * SIGHT.backShare),
     fade: Math.max(24, SIGHT.fade * full * (1 - SIGHT.steep * d) * (0.5 + 0.5 * q)),
   };
+  if (g >= 1) return deepV;
+  const f = free(full), s = g * g * (3 - 2 * g);
+  return { front: f.front + (deepV.front - f.front) * s, back: f.back + (deepV.back - f.back) * s, fade: f.fade + (deepV.fade - f.fade) * s };
+}
+
+/** Ohne Sichtgrenze (oben, nicht in der Tiefe): alles im Bild ist klar. */
+export function free(full: number): Vision {
+  return { front: full * 3, back: full * 1.5, fade: full * 0.4 };
 }
 
 /** Wo die Mitte des klaren Bereichs liegt (so weit vor dem Fisch) und wie groß er ist (Halbmesser). */

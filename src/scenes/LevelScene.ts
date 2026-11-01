@@ -9,7 +9,7 @@ import { speciesEnd } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
-import { INHERIT, LIFE, MISC, STAMINA, WORLD } from '../data/life';
+import { FLOW, INHERIT, LIFE, MISC, RAM, STAMINA, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { generateLevel, type LevelData, type Zone } from '../level/LevelGen';
 import { faunaAffinity, nearNursery, passerDelay } from '../sim/habitat';
@@ -798,6 +798,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const t = game.traits;
     const pm = 1 + 1.3 * Math.max(0, t.girth) + 0.6 * t.growth + 0.8 * Math.max(0, p.stats.size - 0.85);
     const pf = !p.dead ? inFlow(p.x, p.y) : undefined;
+    // Schub: in der Strömung wächst er in FLOW.rise Sekunden, danach klingt er mit der Zeitkonstante FLOW.fade ab (auch außerhalb).
+    // Wer ihn nutzt, trainiert das Tempo der Nachkommen: Sekunden im Schub, mit Spurt oder Stoß darin anderthalbfach.
+    if (!p.dead) {
+      p.flow = pf ? Math.min(1, p.flow + dt / FLOW.rise) : p.flow * Math.exp(-dt / FLOW.fade);
+      if (p.flow < 0.004) p.flow = 0;
+      if (p.flow > 0.05) this.train.flowTime = (this.train.flowTime ?? 0) + dt * p.flow * (p.sprinting || p.isRamming ? FLOW.boostedCredit : 1);
+    }
     if (pf) {
       // wer sich mit kräftigen Flossen am Grund festhält, wird kaum mitgerissen
       const grip = p.bottomWalk ? 1 + 2.5 * t.limb : 1;
@@ -2043,10 +2050,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fightAt = this.time.now;
     const plates = Math.max(0, -t.spike) * t.skull;
     const sneak = this.time.now < this.ambushUntil && !a.seesPlayer;
-    // 25 % mehr Trefferschaden; der Schädelwert und seine Betäubung verwenden weiterhin dieselbe Skala.
-    const dealt = st.ram * 0.625 * sf;
+    // Stoß: RAM.damage × Schädelwert (der Schädelwert und seine Betäubung verwenden dieselbe Skala); er zählt für den Schädel wie
+    // RAM.credit Bisse – ein Stoß ist selten und riskant, deshalb trainiert er viel mehr als ein einzelner Biss.
+    const dealt = st.ram * RAM.damage * sf;
     const ran = a.runningFor(this.time.now);
-    this.scoreHit('ram', a, ran, sf);
+    this.scoreHit('ram', a, ran, sf * RAM.credit);
     a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
     if (!a.dead) a.stun(st.ramStun);
     if (sneak) {
@@ -2536,12 +2544,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const rot = p.view.rotation;
     // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
     const water = SIGHT.water[this.place.kind] ?? 1, deep = depthOf(p.y - this.L.surfaceY);
-    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep);
+    // Sicht gibt es nur in der Tiefe (gate = deepK): oben ist alles klar; unten gilt sie wie bisher, ein Zehntel weiter
+    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep, this.deepK);
     // Spieleraufhellung: begrenzt, weich nachgeführt, nur für die Zeichnung des eigenen Fisches (siehe sim/sight.ts, LIFT)
     this.lift += (LIFT.base + LIFT.range * (1 - sg.clarityAt(p.x, p.y, 0)) - this.lift) * (1 - Math.exp(-dt * LIFT.rate));
     p.view.setLift(this.lift);
     // die Fische in der Ferne: In klarem Wasser dicht unter der Oberfläche sieht man sie gut, im Trüben und in der Tiefe kaum
-    if (this.backSea) this.backSea.see += (clearness(water, deep) - this.backSea.see) * Math.min(1, dt * 1.5);
+    if (this.backSea) this.backSea.see += (clearness(1 - (1 - water) * this.deepK, deep * this.deepK) - this.backSea.see) * Math.min(1, dt * 1.5);
     const now = this.time.now;
     for (const a of this.animals) {
       if (a.dead) continue;
@@ -2624,6 +2633,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const target = clamp((frac - (abyss ? 0.23 : 0.38)) / (abyss ? 0.58 : 0.62), 0, 1);
     this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
     const k = this.deepK;
+    // Wer lange unten ist, bekommt bessere Augen für die Nachkommen (nur so wächst die Sicht)
+    if (k > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
     this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;

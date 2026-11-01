@@ -24,7 +24,7 @@ describe('Karbon im Spielstand', () => {
     // an der großen Muschel: Sauerstoff statt Sicht
     expect(game.upKeys).toEqual(['hp', 'oxy', 'stam']);
     game.newRun(0);
-    expect(game.upKeys).toEqual(['hp', 'sight', 'stam']);
+    expect(game.upKeys).toEqual(['hp', 'stam']);
   });
 
   it('Fressen, Metamorphose, ein Ei wählen: das neue Tier trägt das Erbgut seines Eis und schlüpft am Nest', () => {

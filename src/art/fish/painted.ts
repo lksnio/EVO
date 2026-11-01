@@ -472,7 +472,7 @@ function paintArmor(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal, mask:
   const F = fillOf(P);
   // helleres mineralisches Material: nur zum Teil auf die Hautfarbe gefärbt, damit die gemalte Modellierung bleibt
   const lx = lay.getContext('2d', { willReadFrequently: true })!;
-  tint(lx, reference(scene, 'armor'), mix(0xb9ae9a, F.base, 0.2), 0.9);
+  tint(lx, reference(scene, 'armor'), mix(P.plate ?? 0xb9ae9a, F.base, 0.2), 0.9);
   // Tuschekante: ein schmaler dunkler Saum um die Auflage (auf der Haut), so wie die gemalten Flossen und der Körper umrandet sind
   const ring = ringOf(ctx, lay, 0.5);
   applyMask(ring, mask);

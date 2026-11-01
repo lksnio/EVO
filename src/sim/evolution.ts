@@ -44,6 +44,8 @@ export interface Effort {
   /** Strecke mit Tempo und eingeholte Flüchtende */
   swim?: number;
   chase?: number;
+  /** Sekunden im Strömungsschub (gewichtet: Spurt und Stoß darin zählen mehr) */
+  flowTime?: number;
 }
 
 export function evolutionBonus(e: Effort): Gains {
@@ -53,7 +55,7 @@ export function evolutionBonus(e: Effort): Gains {
   const near = danger > 0 ? 1 : 0;
   // +2 bis +3 für überstandene Kämpfe; war man dem Tod nahe, mindestens volle Stufe und noch mehr je nach Dauer (bis +5)
   out.scales = B.scalesHurt * Math.max(clamp(hurt / B.hurtRef, 0, 1), near) + near * (B.dangerMin + (B.dangerMax - B.dangerMin) * clamp(danger / B.dangerRef, 0, 1));
-  out.fins = B.finsSwim * clamp((e.swim ?? 0) / B.swimRef, 0, 1) + B.finsChase * clamp((e.chase ?? 0) / B.chaseRef, 0, 1);
+  out.fins = B.finsSwim * clamp((e.swim ?? 0) / B.swimRef, 0, 1) + B.finsChase * clamp((e.chase ?? 0) / B.chaseRef, 0, 1) + B.finsFlow * clamp((e.flowTime ?? 0) / B.flowRef, 0, 1);
   return out;
 }
 
