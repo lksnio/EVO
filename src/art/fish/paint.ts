@@ -44,7 +44,7 @@ export function bodyPath(ctx: Ctx, A: FishAnatomy) {
   ctx.quadraticCurveTo((hinge[0] + tip[0]) * 0.5, hinge[1] + 0.7, tip[0], tip[1]);
   through(ctx, loop);
   // von der Kehle hinauf zum Maulwinkel
-  ctx.quadraticCurveTo(hinge[0] - 2.6, hinge[1] + jawH * 0.62, hinge[0], hinge[1]);
+  ctx.quadraticCurveTo(hinge[0] + 0.2, hinge[1] + jawH * 0.86, hinge[0], hinge[1]);
   ctx.closePath();
 }
 
@@ -284,8 +284,51 @@ function bodyScales(ctx: Ctx, A: FishAnatomy, P: Pal) {
   }
 }
 
+/** Radien der Augenhöhle im Kopfschild (Einheiten): Der gemalte Kopfpanzer wird mit diesem Maß ausgespart. */
+export function socketRadius(A: FishAnatomy): [number, number] {
+  const a = A.plate, R = eyeBall(A.eye.r);
+  return [R * (1.45 + 0.2 * a), R * (1.4 + 0.2 * a)];
+}
+
+/**
+ * Augenhöhle im Kopfschild: ein dunkler Ring mit Knochenbraue – das Auge bleibt auch auf der hellen Platte das Erste, was man sieht.
+ * `soft`: auf dem gemalten Kopfpanzer (hat eigenes Volumen) – dünnere Braue, Ring weicher.
+ */
+export function paintEyeSocket(ctx: Ctx, A: FishAnatomy, P: Pal, soft = false) {
+  if (A.plate <= 0.04) return;
+  const a = A.plate, R = eyeBall(A.eye.r), ex = A.eye.x, ey = A.eye.y;
+  const [rx, ry] = socketRadius(A);
+  ell(ctx, ex, ey, rx, ry);
+  ctx.fillStyle = css(shadowOf(mix(grade(P.base), 0xbab09a, 0.4)), soft ? 0.96 : 0.92);
+  ctx.fill();
+  ctx.strokeStyle = css(INK, soft ? 0.8 : 0.9);
+  ctx.lineWidth = soft ? 0.9 : 1.1;
+  ctx.stroke();
+  if (soft) {
+    // innerer Schatten oben: die Höhle ist in den Knochen eingetieft
+    const g = ctx.createRadialGradient(ex, ey - ry * 0.25, ry * 0.2, ex, ey, ry);
+    g.addColorStop(0, 'rgba(8,10,14,0)');
+    g.addColorStop(1, 'rgba(8,10,14,0.45)');
+    ell(ctx, ex, ey, rx, ry);
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(ex - R * 1.75, ey - R * 0.7);
+  ctx.quadraticCurveTo(ex - R * 0.2, ey - R * (2.1 + 0.4 * a), ex + R * 1.9, ey - R * 0.55);
+  ctx.strokeStyle = css(INK, soft ? 0.55 : 0.9);
+  ctx.lineWidth = soft ? 0.9 + 0.4 * a : 1.5 + 0.8 * a;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ex - R * 1.4, ey - R * 1.0);
+  ctx.quadraticCurveTo(ex - R * 0.1, ey - R * (1.75 + 0.35 * a), ex + R * 1.5, ey - R * 0.7);
+  ctx.strokeStyle = `rgba(255,244,220,${(soft ? 0.18 : 0.3) + 0.25 * a})`;
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+}
+
 /** Kiemendeckel, Wange, Kopfplatten – die Gestalt des Kopfes, ohne ihn vom Rumpf abzutrennen. */
-function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
+function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal, armor = false) {
   const { m, hx, hy, hg, bh } = A;
   const top = -hg.H / 2;
   const L = hg.L;
@@ -310,7 +353,7 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
 
   // Kopfplatten: wachsen mit dem Schädel (skull) und dem Kopfpanzer (spike < 0) zu einem Knochenschild über Stirn und Wange
   const pl = A.plate * A.plate * 0.7;
-  if (pl > 0.04) {
+  if (pl > 0.04 && !armor) {
     const a = A.plate;
     const crown = hy + top - hg.dome;
     ctx.beginPath();
@@ -343,28 +386,8 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
     }
   }
 
-  // Augenhöhle im Kopfschild: ein dunkler Ring mit Knochenbraue – das Auge bleibt auch auf der hellen Platte das Erste, was man sieht
-  if (A.plate > 0.04) {
-    const a = A.plate, R = eyeBall(A.eye.r), ex = A.eye.x, ey = A.eye.y;
-    ell(ctx, ex, ey, R * (1.45 + 0.2 * a), R * (1.4 + 0.2 * a));
-    ctx.fillStyle = css(shadowOf(mix(grade(P.base), 0xbab09a, 0.4)), 0.92);
-    ctx.fill();
-    ctx.strokeStyle = css(INK, 0.9);
-    ctx.lineWidth = 1.1;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ex - R * 1.75, ey - R * 0.7);
-    ctx.quadraticCurveTo(ex - R * 0.2, ey - R * (2.1 + 0.4 * a), ex + R * 1.9, ey - R * 0.55);
-    ctx.strokeStyle = css(INK, 0.9);
-    ctx.lineWidth = 1.5 + 0.8 * a;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ex - R * 1.4, ey - R * 1.0);
-    ctx.quadraticCurveTo(ex - R * 0.1, ey - R * (1.75 + 0.35 * a), ex + R * 1.5, ey - R * 0.7);
-    ctx.strokeStyle = `rgba(255,244,220,${0.3 + 0.25 * a})`;
-    ctx.lineWidth = 0.9;
-    ctx.stroke();
-  }
+  // Augenhöhle im Kopfschild (bei gemaltem Kopfpanzer zeichnet ihn painted.ts über der Panzerfläche – genau einmal)
+  if (!armor) paintEyeSocket(ctx, A, P);
 
   // Männchen: ein farbiger Kehlfleck
   if (m.sex === 1) {
@@ -415,13 +438,13 @@ export function paintLowerTeeth(ctx: Ctx, A: FishAnatomy) {
 }
 
 /** Die prozeduralen Merkmale auf dem Körper (Muster, Schuppen, Kopfplatten, Augenhöhle, Narben) – in der Silhouette des Körpers. */
-export function paintBodyFeatures(ctx: Ctx, A: FishAnatomy, P: Pal) {
+export function paintBodyFeatures(ctx: Ctx, A: FishAnatomy, P: Pal, armor = false) {
   ctx.save();
   bodyPath(ctx, A);
   ctx.clip();
   bodyMarks(ctx, A, P);
   bodyScales(ctx, A, P);
-  headDetails(ctx, A, P);
+  headDetails(ctx, A, P, armor);
   scars(ctx, A);
   ctx.restore();
 }

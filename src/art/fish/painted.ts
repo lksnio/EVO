@@ -5,7 +5,7 @@ import { palette, type Morph, type Pal } from '../creatureArt';
 import { gradeAnimal as grade } from '../ink';
 import { eyeBall, fishAnatomy, type FishAnatomy } from './anatomy';
 import { INK, lightOf, shadowOf } from '../ink';
-import { bodyPath, fillOf, gillCurve, paintBodyFeatures, paintLowerTeeth, paintUpperTeeth } from './paint';
+import { bodyPath, fillOf, gillCurve, paintBodyFeatures, paintEyeSocket, paintLowerTeeth, paintUpperTeeth, socketRadius } from './paint';
 
 // ---------------------------------------------------------------------------
 // Die gemalten Fischtexturen (art/EVO_fish_painted_v1, Laufzeitfassung in src/assets/fish/painted) im Rig.
@@ -23,7 +23,7 @@ const JAW_TOP_C = -0.6;
 
 export type RegKey = 'body' | 'jaw' | 'eye' | 'overlay' | 'dorsal' | 'anal' | 'pelvic' | 'pectoral';
 /** Dazu die Sonderzeichnungen (art/im1–im4): Körper kurz/massig und lang/schlank, langer Unterkiefer, Maulinneres */
-export type PartKey = RegKey | 'body_kurz' | 'body_lang' | 'jaw_lang' | 'mouth';
+export type PartKey = RegKey | 'body_kurz' | 'body_lang' | 'jaw_lang' | 'mouth' | 'armor';
 
 export interface Reg {
   /** Pixel des Originals (vor der Verkleinerung in tools/fish_assets.py) */
@@ -70,6 +70,7 @@ export const FILES: Record<PartKey, string> = {
   body_lang: new URL('../../assets/fish/painted/body_lang.webp', import.meta.url).href,
   jaw_lang: new URL('../../assets/fish/painted/jaw_lang.webp', import.meta.url).href,
   mouth: new URL('../../assets/fish/painted/mouth.webp', import.meta.url).href,
+  armor: new URL('../../assets/fish/painted/armor.webp', import.meta.url).href,
 };
 
 /**
@@ -374,6 +375,123 @@ function applyMask(c: HTMLCanvasElement, m: Uint8ClampedArray) {
   x.putImageData(id, 0, 0);
 }
 
+
+// ---------------------------------------------------------------------------
+// Kopfpanzer (art/EVO_player_head_armor_v1): gemalte Auflage statt der programmierten Kopfplatte
+//
+// Registrierung am AUGE (stabilster Bezugspunkt): Der Mittelpunkt der gemessenen Öffnung der Alternativzeichnung liegt auf A.eye. Vertikal
+// skaliert das Bild mit der Kopfhöhe, zur Schnauze hin mit der Kopflänge; die Hinterkante hängt nicht an der Schnauze, sondern bleibt eine feste
+// Strecke hinter dem Kopfursprung (sonst würde sie bei langem Maul hinter den Körper wandern). Dazwischen wird weich übergeblendet.
+// A.plate bleibt die Stärke: Deckung blendet ein, die Auflage wird mit schwächerem Schild kleiner (Hinterkante zieht sich zum Auge zurück).
+
+/** Maße des gelieferten Bildes (Pixel des Originals), Augenmitte darin, g-Einheiten je Pixel und die Referenzform (skull 1, spike −1) */
+export const ARMOR = { w: 1334, h: 1179, eye: [710.522, 638.41] as [number, number], gpp: 0.0401586, L: 28.4, H: 39.192, hx: 20.4, eyeX: 30.908 };
+/** Strecke der Hinterkante hinter dem Kopfursprung (Einheiten) in der Referenzform */
+const ARMOR_REAR = ARMOR.eye[0] * ARMOR.gpp - (ARMOR.eyeX - ARMOR.hx);
+/** Nachstellbare Korrektur (Einheiten, Faktor) der Auflage nach der Registrierung */
+export const ARMOR_NUDGE = { dx: 0, dy: 0, sx: 1, sy: 1 };
+
+/** Wie stark die Auflage deckt (0 … 1): blendet zwischen A.plate 0,04 und 0,4 ein. */
+export const armorCover = (A: FishAnatomy) => { const t = Math.max(0, Math.min(1, (A.plate - 0.04) / 0.36)); return t * t * (3 - 2 * t); };
+
+/** Größe der Auflage nach der Stärke: ein schwacher Schild ist kleiner (Hinterkante näher am Auge), behält aber seine geschwungene Kante. */
+const armorGrow = (A: FishAnatomy, min: number) => { const t = Math.max(0, Math.min(1, (A.plate - 0.15) / 0.75)); return min + (1 - min) * t * t * (3 - 2 * t); };
+
+/** x-Einheit (im Körperrahmen) der Pixelspalte px des Bildes: Abbildung mit zwei Maßstäben (hinten Körper, vorn Kopf), weich verbunden. */
+export function armorMapper(A: FishAnatomy) {
+  const kR = (ARMOR.gpp * A.hg.L / ARMOR.L) * ARMOR_NUDGE.sx;
+  const kL = (((A.eye.x - A.hx) + ARMOR_REAR) / ARMOR.eye[0]) * ARMOR_NUDGE.sx * armorGrow(A, 0.5);
+  const e = ARMOR.eye[0];
+  const k = (px: number) => { const t = Math.max(0, Math.min(1, (px - (e - 120)) / 240)); const w = t * t * (3 - 2 * t); return kL + (kR - kL) * w; };
+  // Stammfunktion ab der Augenspalte, numerisch (Schritt 4 Pixel)
+  return (px: number) => {
+    let x = 0;
+    const dir = px >= e ? 1 : -1, n = Math.ceil(Math.abs(px - e) / 4);
+    for (let i = 0; i < n; i++) {
+      const a = e + dir * i * 4, b = e + dir * Math.min(Math.abs(px - e), (i + 1) * 4);
+      x += (b - a) * k((a + b) / 2);
+    }
+    return A.eye.x + x + ARMOR_NUDGE.dx;
+  };
+}
+
+/**
+ * Die geformte Auflage (ungefärbt) auf einer eigenen Leinwand von der Größe von ctx (Transform wie ctx): registriert, mit Rückkante
+ * nach A.plate (Größe und Deckung), mit Aussparung für die Augenhöhle. null, wenn kein Panzer.
+ */
+function armorLayer(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy): HTMLCanvasElement | null {
+  if (A.plate <= 0.04) return null;
+  const img = imgOf(scene, 'armor'), f = img.width / ARMOR.w;
+  const [c, x] = newCanvas(ctx.canvas.width, ctx.canvas.height, true);
+  x.setTransform(ctx.getTransform());
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = 'high';
+  const map = armorMapper(A);
+  const sy = (ARMOR.gpp * A.hg.H / ARMOR.H) * ARMOR_NUDGE.sy * armorGrow(A, 0.78), y0 = A.eye.y - ARMOR.eye[1] * sy + ARMOR_NUDGE.dy;
+  const STEP = 6, ov = 0.7 / Math.max(1, x.getTransform().a); // Streifen überlappen um knapp einen Bildschirmpixel: keine Fugen
+  for (let px = 0; px < ARMOR.w; px += STEP) {
+    const x0 = map(px), x1 = map(Math.min(ARMOR.w, px + STEP));
+    const k = (x1 - x0) / Math.max(1, Math.min(STEP, ARMOR.w - px)); // Einheiten je Bildpixel in diesem Streifen
+    const pad = Math.min(2.5, ov / Math.max(1e-6, k)); // Bildpixel Zugabe an beiden Seiten
+    const sx0 = Math.max(0, px - pad), sx1 = Math.min(ARMOR.w, px + Math.min(STEP, ARMOR.w - px) + pad);
+    x.drawImage(img, sx0 * f, 0, (sx1 - sx0) * f, img.height, x0 - (px - sx0) * k, y0, (sx1 - sx0) * k, ARMOR.h * sy);
+  }
+  // die Augenhöhle wird ausgespart (das Auge sitzt in der Öffnung, die gezeichnet wird – nicht im Bild)
+  const [rx, ry] = socketRadius(A);
+  x.save();
+  x.globalCompositeOperation = 'destination-out';
+  x.beginPath();
+  x.ellipse(A.eye.x, A.eye.y, rx * 0.98, ry * 0.98, 0, 0, Math.PI * 2);
+  x.fillStyle = '#000';
+  x.fill();
+  x.restore();
+  return c;
+}
+
+
+/** Ein dunkler Saum der Breite w (Einheiten) um die Form eines Bildes, ohne die Form selbst. */
+function ringOf(ctx: Ctx, shape: HTMLCanvasElement, w: number) {
+  const [c, x] = newCanvas(shape.width, shape.height, true);
+  const ppu = ctx.getTransform().a, r = w * ppu;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    x.drawImage(shape, Math.cos(a) * r, Math.sin(a) * r);
+  }
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = css(INK);
+  x.fillRect(0, 0, c.width, c.height);
+  x.globalCompositeOperation = 'destination-out';
+  x.drawImage(shape, 0, 0);
+  return c;
+}
+
+/** Zeichnet den Kopfpanzer auf den fertig gemalten Körper (nur auf die Fläche ohne Kontur, `mask`), danach die Augenhöhle einmal. */
+function paintArmor(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal, mask: Uint8ClampedArray) {
+  const lay = armorLayer(ctx, scene, A);
+  if (!lay) return;
+  const F = fillOf(P);
+  // helleres mineralisches Material: nur zum Teil auf die Hautfarbe gefärbt, damit die gemalte Modellierung bleibt
+  const lx = lay.getContext('2d', { willReadFrequently: true })!;
+  tint(lx, reference(scene, 'armor'), mix(0xb9ae9a, F.base, 0.2), 0.9);
+  // Tuschekante: ein schmaler dunkler Saum um die Auflage (auf der Haut), so wie die gemalten Flossen und der Körper umrandet sind
+  const ring = ringOf(ctx, lay, 0.5);
+  applyMask(ring, mask);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = armorCover(A) * 0.8;
+  ctx.drawImage(ring, 0, 0);
+  ctx.restore();
+  applyMask(lay, mask);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = armorCover(A);
+  ctx.drawImage(lay, 0, 0);
+  ctx.restore();
+  const soc = layer(ctx, (x) => paintEyeSocket(x, A, P, true), null, null);
+  applyMask(soc, mask);
+  blit(ctx, soc);
+}
+
 export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
   const F = fillOf(P);
   // Zähne zuerst: Die gemalte Oberlippe deckt ihre Wurzeln
@@ -405,13 +523,15 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
   ctx.drawImage(base, 0, 0);
   ctx.restore();
   // Merkmale auf eigener Ebene, auf die Fläche (ohne Kontur) begrenzt
-  const feat = layer(ctx, (x) => paintBodyFeatures(x, A, P), null, null);
+  const feat = layer(ctx, (x) => paintBodyFeatures(x, A, P, true), null, null);
   applyMask(feat, mask);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(feat, 0, 0);
   ctx.restore();
   ctx.setTransform(t);
+  // gemalter Kopfpanzer über Haut und Merkmalen, mit der Augenhöhle
+  paintArmor(ctx, scene, A, P, mask);
   void bodyPath;
 }
 
@@ -458,7 +578,7 @@ export function paintEyePainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P
  * – kein heller Ring, kein eigenes Teil. Die gemalte Sichel (art/EVO_fish_painted_v1/textures/teil_overlay.png) wird dafür nicht mehr
  * verwendet: Ihre helle Kante machte die Falte zum angesetzten Bogen.
  */
-export function paintOverlayPainted(ctx: Ctx, _scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
+export function paintOverlayPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {
   const F = fillOf(P);
   const { hx, hy, hg } = A;
   const pt = (t: number, dx: number): [number, number] => {
@@ -466,26 +586,38 @@ export function paintOverlayPainted(ctx: Ctx, _scene: Phaser.Scene, A: FishAnato
     const u = 1 - t;
     return [u * u * u * P0[0] + 3 * u * u * t * C1[0] + 3 * u * t * t * C2[0] + t * t * t * P3[0], u * u * u * P0[1] + 3 * u * u * t * C1[1] + 3 * u * t * t * C2[1] + t * t * t * P3[1]];
   };
-  const stroke = (dx: number, w0: number, w1: number, color: string, aMul: number, from = 0, to = 1) => {
+  const stroke = (c: Ctx, dx: number, w0: number, w1: number, color: string, aMul: number, from = 0, to = 1) => {
     const n = 26;
-    ctx.lineCap = 'round';
+    c.lineCap = 'round';
     for (let i = 0; i < n; i++) {
       const t0 = from + (to - from) * (i / n), t1 = from + (to - from) * ((i + 1) / n), tm = (t0 + t1) / 2;
       const a = pt(t0, dx), b = pt(t1, dx);
-      ctx.beginPath();
-      ctx.moveTo(a[0], a[1]);
-      ctx.lineTo(b[0], b[1]);
-      ctx.lineWidth = w0 + (w1 - w0) * tm;
-      ctx.globalAlpha = aMul * (1 - 0.65 * tm * tm);
-      ctx.strokeStyle = color;
-      ctx.stroke();
+      c.beginPath();
+      c.moveTo(a[0], a[1]);
+      c.lineTo(b[0], b[1]);
+      c.lineWidth = w0 + (w1 - w0) * tm;
+      c.globalAlpha = aMul * (1 - 0.65 * tm * tm);
+      c.strokeStyle = color;
+      c.stroke();
     }
-    ctx.globalAlpha = 1;
+    c.globalAlpha = 1;
   };
   // weicher Schatten dahinter (auf dem Rumpf), die Furche selbst, ein Hauch Licht davor
-  stroke(-1.7, 2.6, 0.8, css(shadowOf(F.base)), 0.2);
-  stroke(0, 1.25, 0.25, css(INK), 0.62);
-  stroke(1.1, 0.6, 0.15, css(lightOf(F.base, 0.2)), 0.16, 0.05, 0.85);
+  const furrow = (c: Ctx) => {
+    stroke(c, -1.7, 2.6, 0.8, css(shadowOf(F.base)), 0.2);
+    stroke(c, 0, 1.25, 0.25, css(INK), 0.62);
+    stroke(c, 1.1, 0.6, 0.15, css(lightOf(F.base, 0.2)), 0.16, 0.05, 0.85);
+  };
+  // Der Kopfpanzer liegt über der Falte (sie verläuft hinter ihm): dort wird die Furche ausgespart
+  const arm = armorLayer(ctx, scene, A);
+  if (!arm) return furrow(ctx);
+  const lay = layer(ctx, furrow, null, null);
+  const lx = lay.getContext('2d')!;
+  lx.setTransform(1, 0, 0, 1, 0, 0);
+  lx.globalCompositeOperation = 'destination-out';
+  lx.globalAlpha = armorCover(A);
+  lx.drawImage(arm, 0, 0);
+  blit(ctx, lay);
 }
 
 export function paintFinPainted(ctx: Ctx, scene: Phaser.Scene, kind: 'dorsal' | 'anal' | 'pelvic' | 'pectoral', A: FishAnatomy, P: Pal, far = false) {

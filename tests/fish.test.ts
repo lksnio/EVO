@@ -262,3 +262,39 @@ describe('Spieleraufhellung (LIFT)', () => {
     expect(LIFT.rate).toBeLessThanOrEqual(4);
   });
 });
+
+describe('Gemalter Kopfpanzer (Registrierung)', () => {
+  const MAXP = { skull: 1, spike: -1 } as Partial<Morph>;
+  it('die Augenmitte des Bildes liegt auf A.eye, die Abbildung ist streng wachsend (keine Faltung) – auch bei Mischformen', async () => {
+    const { armorMapper, ARMOR } = await import('../src/art/fish/painted');
+    for (const v of [MAXP, { ...MAXP, len: -1, girth: 1 }, { ...MAXP, len: 1, girth: -1 }, { ...MAXP, jaw: 1, diet: 1, toothTier: 9 }, { skull: 0.3, spike: -0.3 }]) {
+      const a = A(v), map = armorMapper(a);
+      expect(map(ARMOR.eye[0])).toBeCloseTo(a.eye.x, 6);
+      let prev = -Infinity;
+      for (let px = 0; px <= ARMOR.w; px += 20) {
+        const x = map(px);
+        expect(x).toBeGreaterThan(prev);
+        prev = x;
+      }
+    }
+  });
+  it('die Referenzform liefert die Maße des Pakets (Augenmitte, Hinterkante), die Hinterkante bleibt am Kopf, nicht an der Schnauze', async () => {
+    const { armorMapper } = await import('../src/art/fish/painted');
+    const ref = A(MAXP), long = A({ ...MAXP, jaw: 1, diet: 1, toothTier: 9 });
+    const rearRef = armorMapper(ref)(0) - ref.hx, rearLong = armorMapper(long)(0) - long.hx;
+    expect(rearRef).toBeGreaterThan(-20);
+    expect(rearRef).toBeLessThan(-14);
+    expect(Math.abs(rearLong - rearRef)).toBeLessThan(3);
+  });
+  it('die Deckung wächst mit A.plate von 0 (ohne Panzer) bis 1 und bleibt dazwischen stetig', async () => {
+    const { armorCover } = await import('../src/art/fish/painted');
+    expect(armorCover(A({}))).toBe(0);
+    expect(armorCover(A(MAXP))).toBe(1);
+    let prev = 0;
+    for (let k = 0; k <= 10; k++) {
+      const c = armorCover(A({ skull: k / 10, spike: -k / 10 }));
+      expect(c).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = c;
+    }
+  });
+});
