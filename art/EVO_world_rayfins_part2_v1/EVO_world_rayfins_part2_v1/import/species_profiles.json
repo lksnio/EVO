@@ -1,0 +1,536 @@
+{
+  "version": 1,
+  "scope": "eight fixed world species; not player evolution states",
+  "runtimeReady": false,
+  "species": [
+    {
+      "id": "cheirolepis",
+      "name": "Cheirolepis",
+      "epoch": "Devon",
+      "role": "predator",
+      "originalArt": {
+        "t": "fish",
+        "len": 64,
+        "h": 14,
+        "c": 9206332,
+        "belly": 14733466,
+        "fin": 6180386,
+        "teeth": true,
+        "stripes": true
+      },
+      "master": "masters/cheirolepis.png",
+      "body": "rig_bodies/cheirolepis.png",
+      "design": "Schlanker Jäger; längerer oberer Schwanzlappen; hintere Rückenflosse.",
+      "paletteFamily": "warm",
+      "jawStyle": "long",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            408.78,
+            474.0
+          ],
+          "headStart": [
+            1294.96,
+            444.0
+          ],
+          "eye": [
+            1520.18,
+            464.0
+          ],
+          "jawHinge": [
+            1425.52,
+            554.0
+          ],
+          "upperLip": [
+            1645.84,
+            489.0
+          ],
+          "dorsalRoot": [
+            821.68,
+            324.0
+          ],
+          "analRoot": [
+            772.72,
+            634.0
+          ],
+          "pelvicRoot": [
+            1066.48,
+            664.0
+          ],
+          "pectoralRoot": [
+            1343.92,
+            579.0
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": []
+    },
+    {
+      "id": "moythomasia",
+      "name": "Moythomasia",
+      "epoch": "Devon",
+      "role": "prey",
+      "originalArt": {
+        "t": "fish",
+        "len": 26,
+        "h": 8,
+        "c": 10259026,
+        "belly": 15260842,
+        "fin": 6970416,
+        "stripes": true
+      },
+      "master": "masters/moythomasia.png",
+      "body": "rig_bodies/moythomasia.png",
+      "design": "Kleiner rundlicher Bronzefisch; kurzer Kopf; asymmetrischer Schwanz.",
+      "paletteFamily": "warm",
+      "jawStyle": "small",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            420.49,
+            499.02
+          ],
+          "headStart": [
+            1295.77,
+            463.11
+          ],
+          "eye": [
+            1483.33,
+            493.89
+          ],
+          "jawHinge": [
+            1514.59,
+            550.32
+          ],
+          "upperLip": [
+            1616.18,
+            540.06
+          ],
+          "dorsalRoot": [
+            858.13,
+            288.69
+          ],
+          "analRoot": [
+            764.35,
+            673.44
+          ],
+          "pelvicRoot": [
+            1061.32,
+            714.48
+          ],
+          "pectoralRoot": [
+            1327.03,
+            611.88
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": []
+    },
+    {
+      "id": "elonichthys",
+      "name": "Elonichthys",
+      "epoch": "Karbon",
+      "role": "prey",
+      "originalArt": {
+        "t": "fish",
+        "len": 32,
+        "h": 10,
+        "c": 9075794,
+        "belly": 14866088,
+        "fin": 6181426,
+        "stripes": true
+      },
+      "master": "masters/elonichthys.png",
+      "body": "rig_bodies/elonichthys.png",
+      "design": "Schlanker Schwarmfisch; länglicherer Kopf; asymmetrischer Schwanz.",
+      "paletteFamily": "warm",
+      "jawStyle": "small",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            373.96,
+            477.35
+          ],
+          "headStart": [
+            1329.6,
+            444.98
+          ],
+          "eye": [
+            1518.43,
+            479.84
+          ],
+          "jawHinge": [
+            1526.64,
+            549.56
+          ],
+          "upperLip": [
+            1653.07,
+            499.76
+          ],
+          "dorsalRoot": [
+            886.26,
+            340.4
+          ],
+          "analRoot": [
+            771.32,
+            629.24
+          ],
+          "pelvicRoot": [
+            1066.88,
+            669.08
+          ],
+          "pectoralRoot": [
+            1329.6,
+            589.4
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": []
+    },
+    {
+      "id": "apsopelix",
+      "name": "Apsopelix",
+      "epoch": "Kreide",
+      "role": "prey",
+      "originalArt": {
+        "t": "fish",
+        "len": 30,
+        "h": 10,
+        "c": 8030872,
+        "belly": 14476522,
+        "fin": 5661294,
+        "stripes": true
+      },
+      "master": "masters/apsopelix.png",
+      "body": "rig_bodies/apsopelix.png",
+      "design": "Kleiner silberner Schwarmfisch; gegabelter symmetrischer Schwanz.",
+      "paletteFamily": "cool",
+      "jawStyle": "small",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            418.0,
+            405.5
+          ],
+          "headStart": [
+            1549.0,
+            394.2
+          ],
+          "eye": [
+            1765.78,
+            411.15
+          ],
+          "jawHinge": [
+            1794.05,
+            478.95
+          ],
+          "upperLip": [
+            1920.35,
+            405.5
+          ],
+          "dorsalRoot": [
+            1002.35,
+            190.8
+          ],
+          "analRoot": [
+            851.55,
+            631.5
+          ],
+          "pelvicRoot": [
+            1228.55,
+            671.05
+          ],
+          "pectoralRoot": [
+            1567.85,
+            558.05
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": []
+    },
+    {
+      "id": "gillicus",
+      "name": "Gillicus",
+      "epoch": "Kreide",
+      "role": "prey",
+      "originalArt": {
+        "t": "fish",
+        "len": 74,
+        "h": 22,
+        "c": 6847112,
+        "belly": 13687004,
+        "fin": 4872294
+      },
+      "master": "masters/gillicus.png",
+      "body": "rig_bodies/gillicus.png",
+      "design": "Kleines schräges Maul; langer niedriger Afterflossensaum.",
+      "paletteFamily": "cool",
+      "jawStyle": "small_upturned",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            380.2,
+            477.5
+          ],
+          "headStart": [
+            1321.0,
+            458.66
+          ],
+          "eye": [
+            1497.0,
+            496.34
+          ],
+          "jawHinge": [
+            1545.0,
+            543.44
+          ],
+          "upperLip": [
+            1636.2,
+            505.76
+          ],
+          "dorsalRoot": [
+            873.0,
+            317.36
+          ],
+          "analRoot": [
+            1017.0,
+            689.45
+          ],
+          "pelvicRoot": [
+            1129.0,
+            698.87
+          ],
+          "pectoralRoot": [
+            1369.0,
+            604.67
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": [
+        "special_parts/gillicus_anal.png"
+      ]
+    },
+    {
+      "id": "enchodus",
+      "name": "Enchodus",
+      "epoch": "Kreide",
+      "role": "predator",
+      "originalArt": {
+        "t": "fish",
+        "len": 62,
+        "h": 15,
+        "c": 6188152,
+        "belly": 13160660,
+        "fin": 4082260,
+        "teeth": true
+      },
+      "master": "masters/enchodus.png",
+      "body": "rig_bodies/enchodus.png",
+      "design": "Langer niedriger Schädel; einzelner großer Fangzahn am oberen Gaumen.",
+      "paletteFamily": "cool",
+      "jawStyle": "long",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            443.12,
+            393.0
+          ],
+          "headStart": [
+            1567.16,
+            387.38
+          ],
+          "eye": [
+            1784.08,
+            387.38
+          ],
+          "jawHinge": [
+            1646.04,
+            482.92
+          ],
+          "upperLip": [
+            1995.08,
+            398.62
+          ],
+          "fangRoot": [
+            1949.73,
+            421.1
+          ],
+          "dorsalRoot": [
+            896.68,
+            308.7
+          ],
+          "analRoot": [
+            758.64,
+            595.32
+          ],
+          "pelvicRoot": [
+            1172.76,
+            651.52
+          ],
+          "pectoralRoot": [
+            1567.16,
+            539.12
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": [
+        "special_parts/enchodus_fang.png"
+      ]
+    },
+    {
+      "id": "protosphyraena",
+      "name": "Protosphyraena",
+      "epoch": "Kreide",
+      "role": "predator",
+      "originalArt": {
+        "t": "fish",
+        "len": 128,
+        "h": 24,
+        "c": 5135984,
+        "belly": 12897492,
+        "fin": 3424334,
+        "teeth": true,
+        "snout": 0.38
+      },
+      "master": "masters/protosphyraena.png",
+      "body": "rig_bodies/protosphyraena.png",
+      "design": "Schwertschnauze; lange sichelförmige Brustflosse; schmaler Schwanzstiel.",
+      "paletteFamily": "cool",
+      "jawStyle": "long",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            374.21,
+            386.5
+          ],
+          "headStart": [
+            1390.86,
+            386.5
+          ],
+          "eye": [
+            1493.76,
+            370.0
+          ],
+          "jawHinge": [
+            1452.6,
+            469.0
+          ],
+          "upperLip": [
+            1699.56,
+            436.0
+          ],
+          "rostrumTip": [
+            2067.94,
+            381.0
+          ],
+          "dorsalRoot": [
+            814.62,
+            276.5
+          ],
+          "analRoot": [
+            649.98,
+            568.0
+          ],
+          "pelvicRoot": [
+            1102.74,
+            656.0
+          ],
+          "pectoralRoot": [
+            1390.86,
+            518.5
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": [
+        "special_parts/protosphyraena_pectoral.png"
+      ]
+    },
+    {
+      "id": "xiphactinus",
+      "name": "Xiphactinus",
+      "epoch": "Kreide",
+      "role": "predator",
+      "originalArt": {
+        "t": "fish",
+        "len": 190,
+        "h": 46,
+        "c": 5793914,
+        "belly": 13949660,
+        "fin": 3819092,
+        "teeth": true
+      },
+      "master": "masters/xiphactinus.png",
+      "body": "rig_bodies/xiphactinus.png",
+      "design": "Massiver länglicher Räuber; kräftiger vorspringender Unterkiefer.",
+      "paletteFamily": "cool",
+      "jawStyle": "heavy",
+      "anchorHints": {
+        "space": "original body PNG canvas, pixels",
+        "status": "artist-selected approximate; calibrate in assembled neutral pose",
+        "points": {
+          "tailRoot": [
+            344.31,
+            484.36
+          ],
+          "headStart": [
+            1306.43,
+            459.71
+          ],
+          "eye": [
+            1516.64,
+            469.57
+          ],
+          "jawHinge": [
+            1435.79,
+            587.89
+          ],
+          "upperLip": [
+            1639.53,
+            504.08
+          ],
+          "dorsalRoot": [
+            837.5,
+            306.88
+          ],
+          "analRoot": [
+            643.46,
+            651.98
+          ],
+          "pelvicRoot": [
+            1031.54,
+            706.21
+          ],
+          "pectoralRoot": [
+            1322.6,
+            622.4
+          ]
+        }
+      },
+      "runtimeBodyMaskRequired": true,
+      "specialParts": [
+        "special_parts/xiphactinus_jaw.png"
+      ]
+    }
+  ]
+}

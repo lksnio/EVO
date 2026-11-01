@@ -1,0 +1,49 @@
+{
+  "space": "u/v relative to each paintedBounds128, approximate",
+  "parts": {
+    "protosphyraena_pectoral": {
+      "root": [
+        0.94,
+        0.04
+      ],
+      "tip": [
+        0.04,
+        0.98
+      ],
+      "note": "Wurzel oben rechts; Spitze unten links; hinter den Kiemen verankern."
+    },
+    "gillicus_anal": {
+      "frontRoot": [
+        0.99,
+        0.02
+      ],
+      "rearRoot": [
+        0.02,
+        0.02
+      ],
+      "note": "Ansatzkante oben; vorderer Lappen rechts, langer flacher Saum nach links."
+    },
+    "xiphactinus_jaw": {
+      "pivot": [
+        0.035,
+        0.2
+      ],
+      "lipTip": [
+        0.975,
+        0.32
+      ],
+      "note": "Gelenk links, Kinn/Lippe rechts. Root im Kopf verstecken; Zähne im Code."
+    },
+    "enchodus_fang": {
+      "root": [
+        0.62,
+        0.035
+      ],
+      "tip": [
+        0.035,
+        0.99
+      ],
+      "note": "Am OBEREN Gaumen befestigen. Keine Kieferdrehung übernehmen."
+    }
+  }
+}

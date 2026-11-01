@@ -1,0 +1,445 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "cheirolepis",
+      "role": "full",
+      "file": "masters/cheirolepis.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        11,
+        165,
+        1664,
+        730
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.729288,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "51e218e0f5729d7029336f3787be8b8c296c7c306a4e3ccf2603979c6a10cc6a",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "moythomasia",
+      "role": "full",
+      "file": "masters/moythomasia.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        87,
+        154,
+        1597,
+        798
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.681858,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "fe9c929aeed59291885725586a421dcccfb5a4527b2636c1df177fdab99910ff",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "elonichthys",
+      "role": "full",
+      "file": "masters/elonichthys.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        32,
+        214,
+        1641,
+        745
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.74365,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "acc43790a19ad9e1cd4a1235406ff6575aebf5885188d5ad4a580771246d276b",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "apsopelix",
+      "role": "full",
+      "file": "masters/apsopelix.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        45,
+        167,
+        1631,
+        756
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.699223,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "4f6a378848e09cf13d81fab7923a8396fe3c39616c0a6063f66afb2cf08e28f5",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "gillicus",
+      "role": "full",
+      "file": "masters/gillicus.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        47,
+        224,
+        1636,
+        724
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.70602,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "a70bf7e6986ae1f267622fa9c20182fd67c83b98ad73338ff2e578a6b6e1f86d",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "enchodus",
+      "role": "full",
+      "file": "masters/enchodus.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        32,
+        210,
+        1640,
+        695
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.758623,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "4b80ff960a02ecad803795510ca7b16b4cc6f998582f62782e8cbcf717afd32b",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "protosphyraena",
+      "role": "full",
+      "file": "masters/protosphyraena.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        11,
+        214,
+        1668,
+        727
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.815613,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "cd27043bf993eaa24b8dbf256f80b706f902d192bd5d91b829802ed324a235a1",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "xiphactinus",
+      "role": "full",
+      "file": "masters/xiphactinus.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        43,
+        186,
+        1641,
+        746
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.679978,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "742864c10903c76e64a35909f5fc7a24f93a1d954537b6c50d967ef8f3839517",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "cheirolepis",
+      "role": "body",
+      "file": "rig_bodies/cheirolepis.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        22,
+        184,
+        1654,
+        684
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.72996,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "2eea421aaba15b129b77d0da9458c1e80bea8ae8c469c2768657f63c57592471",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "moythomasia",
+      "role": "body",
+      "file": "rig_bodies/moythomasia.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        61,
+        222,
+        1624,
+        735
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.693822,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "be9832b7a5e1f5a31abfd5d93cb99f039bd3ddf1130a530525b53b9767da1f01",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "elonichthys",
+      "role": "body",
+      "file": "rig_bodies/elonichthys.png",
+      "width": 1674,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        16,
+        191,
+        1658,
+        689
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.730611,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "7d10cfda3bf33866838f7a9643392d020066fbabce462cdb73868172219255db",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "apsopelix",
+      "role": "body",
+      "file": "rig_bodies/apsopelix.png",
+      "width": 1964,
+      "height": 801,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        41,
+        123,
+        1926,
+        688
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.610152,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "70955886289b5bc04a9d885ff09eebd4bcd6628f79c7e4010ff614a2fa4097ce",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "gillicus",
+      "role": "body",
+      "file": "rig_bodies/gillicus.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        41,
+        242,
+        1641,
+        713
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.730322,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "10e9333bd200ba13074d7f427522572e273649867487192eaf4b6c1e548736aa",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "enchodus",
+      "role": "body",
+      "file": "rig_bodies/enchodus.png",
+      "width": 2048,
+      "height": 768,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        29,
+        112,
+        2001,
+        674
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.671427,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "sha256": "b7f866f60ffba8f6e8235a8038c8d785c3dfce452d3597a9ed628479025421e0",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "protosphyraena",
+      "role": "body",
+      "file": "rig_bodies/protosphyraena.png",
+      "width": 2083,
+      "height": 755,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        12,
+        117,
+        2070,
+        667
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.749009,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "a79948bc961c1762c5d112243d0b92677554f8fc1e572c504d41400a334e186d",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "xiphactinus",
+      "role": "body",
+      "file": "rig_bodies/xiphactinus.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        29,
+        228,
+        1646,
+        721
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.705979,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "5acd75bc1aa81cc5ec01815e758b83087bd32fb378f88efe01d8c9e1de46234a",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "protosphyraena_pectoral",
+      "role": "special",
+      "file": "special_parts/protosphyraena_pectoral.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        246,
+        113,
+        1371,
+        919
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.862564,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "sha256": "dafbe8301d8c0216d7c6a1d98fcfea44d8676c44b38ade964ad7339b7afa2676",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "gillicus_anal",
+      "role": "special",
+      "file": "special_parts/gillicus_anal.png",
+      "width": 2172,
+      "height": 724,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        103,
+        178,
+        2060,
+        628
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.743521,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "41ea308e8351be723c3e8ac85aafa350d8925836e0a64fea0c4e01c4e38856bf",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "xiphactinus_jaw",
+      "role": "special",
+      "file": "special_parts/xiphactinus_jaw.png",
+      "width": 1675,
+      "height": 939,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        98,
+        235,
+        1608,
+        823
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.658784,
+      "alphaRange": [
+        0,
+        255
+      ],
+      "sha256": "018d9a51c11a067593f2ef431da2702f66e23ddab2b54b5f59d1a53ffb5bc33f",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    },
+    {
+      "id": "enchodus_fang",
+      "role": "special",
+      "file": "special_parts/enchodus_fang.png",
+      "width": 1024,
+      "height": 1536,
+      "mode": "RGBA",
+      "paintedBounds128": [
+        350,
+        165,
+        700,
+        1346
+      ],
+      "boundsConvention": "[x0,y0,x1,y1), pixels",
+      "fullyTransparentFraction": 0.909374,
+      "alphaRange": [
+        0,
+        254
+      ],
+      "sha256": "2aabe675f1dbb396dbbb56b8292b5ebd7428bc476d26f35fdeffdf67a2fd29a0",
+      "registrationStatus": "measured bounds; artistic anchor hints require in-engine calibration"
+    }
+  ]
+}

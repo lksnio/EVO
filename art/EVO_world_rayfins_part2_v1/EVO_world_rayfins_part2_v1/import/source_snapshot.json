@@ -1,0 +1,27 @@
+{
+  "repository": "lksnio/EVO",
+  "branch": "claude/sleepy-clarke-ffews7",
+  "checked_date": "2026-11-01",
+  "files": [
+    {
+      "path": "src/data/species.ts",
+      "sha": "bda331dd52e5e13f28aabcbb139db105599bbd3c"
+    },
+    {
+      "path": "src/art/speciesArt.ts",
+      "sha": "d7314ecfa0b1a76dd28b6828f7edd07e5d527ba1"
+    },
+    {
+      "path": "src/objects/Animal.ts",
+      "sha": "053f4b9bc3dc4201842dab1419c6030b81b06ee7"
+    },
+    {
+      "path": "src/art/fish/rig.ts",
+      "sha": "e0a8daa734930b9d8101bd2da6c9b286952d7928"
+    },
+    {
+      "path": "src/art/fish/painted.ts",
+      "sha": "f2820b7acee12f6c5c3ae3e7ac6bfe5fc8856df1"
+    }
+  ]
+}
