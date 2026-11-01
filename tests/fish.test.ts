@@ -163,3 +163,22 @@ describe('Netz klappt nicht um', () => {
     }
   });
 });
+
+describe('Gemalte Fischtexturen (Registrierung)', () => {
+  it('jedes Bild existiert, passt zur Registrierung und die Verkleinerung ist bei allen Teilen gleichmäßig', async () => {
+    const { existsSync, readFileSync } = await import('node:fs');
+    const { REG } = await import('../src/art/fish/painted');
+    const reg = JSON.parse(readFileSync('art/EVO_fish_painted_v1/EVO_fish_painted_v1/registration.json', 'utf8')).assets;
+    for (const [k, r] of Object.entries(REG)) {
+      expect(existsSync(`src/assets/fish/painted/${k}.webp`), k).toBe(true);
+      // die Pixelmaße des Originals und die gemalte Begrenzung stehen so im mitgelieferten Registrierungsbogen
+      expect(r.orig, k).toEqual(reg[k].nativeSize);
+      expect(r.src, k).toEqual(reg[k].paintedBounds128);
+      expect(r.src[0]).toBeGreaterThanOrEqual(0);
+      expect(r.src[2]).toBeLessThanOrEqual(r.orig[0]);
+      expect(r.src[3]).toBeLessThanOrEqual(r.orig[1]);
+      expect(r.dst[2]).toBeGreaterThan(r.dst[0]);
+      expect(r.dst[3]).toBeGreaterThan(r.dst[1]);
+    }
+  });
+});

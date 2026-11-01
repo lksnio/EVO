@@ -5,6 +5,7 @@ import { palette, morphKey, quantize, type Morph } from '../creatureArt';
 import { withInk } from '../ink';
 import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
 import { solveSpine } from './spine';
+import { paintBodyPainted, paintEyePainted, paintFinPainted, paintJawPainted, paintOverlayPainted, paintedReady } from './painted';
 import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
 
 // ---------------------------------------------------------------------------
@@ -86,16 +87,20 @@ export function fishTextures(scene: Phaser.Scene, mIn: Morph): FishTex {
     const eyeB = eyeBox(A);
     const jawBox: Box = { x0: -4, x1: A.jawLen + 4, y0: -(A.m.diet < -0.3 ? 3 : 5), y1: A.jawH + 3 };
     const dBox = finBox('dorsal', A.dorsal), aBox = finBox('anal', A.anal), vBox = finBox('pelvic', A.pelvic), pBox = finBox('pectoral', A.pectoral);
+    // gemalte Texturen (art/EVO_fish_painted_v1), sobald sie geladen sind; sonst (und mit ?procfish) die programmierte Zeichnung
+    const painted = paintedReady(scene);
+    const id2 = painted ? id + 'P' : id;
     const keys = {
-      body: makeTex(scene, id + '_fb', bodyBox, s, (ctx) => paintBody(ctx, A, P)),
-      eye: makeTex(scene, id + '_fe', eyeB, s, (ctx) => paintEye(ctx, A, P)),
-      overlay: makeTex(scene, id + '_fo', ovBox, s, (ctx) => paintOverlay(ctx, A, P)),
-      jaw: makeTex(scene, id + '_fj', jawBox, s, (ctx) => paintJaw(ctx, A, P)),
-      dorsal: makeTex(scene, id + '_fd', dBox, s, (ctx) => paintMedianFin(ctx, A.dorsal, P, -1, true)),
-      anal: makeTex(scene, id + '_fa', aBox, s, (ctx) => paintMedianFin(ctx, A.anal, P, 1, false)),
-      pelvic: makeTex(scene, id + '_fv', vBox, s, (ctx) => paintPelvicFin(ctx, A.pelvic, P)),
-      pec: makeTex(scene, id + '_fp', pBox, s, (ctx) => paintPectoral(ctx, A.pectoral, P, false)),
-      pecFar: makeTex(scene, id + '_fq', pBox, s, (ctx) => paintPectoral(ctx, A.pectoral, P, true)),
+      body: makeTex(scene, id2 + '_fb', bodyBox, s, (ctx) => (painted ? paintBodyPainted(ctx, scene, A, P) : paintBody(ctx, A, P))),
+      eye: makeTex(scene, id2 + '_fe', eyeB, s, (ctx) => (painted ? paintEyePainted(ctx, scene, A, P) : paintEye(ctx, A, P))),
+      overlay: makeTex(scene, id2 + '_fo', ovBox, s, (ctx) => (painted ? paintOverlayPainted(ctx, scene, A, P) : paintOverlay(ctx, A, P))),
+      jaw: makeTex(scene, id2 + '_fj', jawBox, s, (ctx) => (painted ? paintJawPainted(ctx, scene, A, P) : paintJaw(ctx, A, P))),
+      dorsal: makeTex(scene, id2 + '_fd', dBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'dorsal', A, P) : paintMedianFin(ctx, A.dorsal, P, -1, true))),
+      anal: makeTex(scene, id2 + '_fa', aBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'anal', A, P) : paintMedianFin(ctx, A.anal, P, 1, false))),
+      pelvic: makeTex(scene, id2 + '_fv', vBox, s, (ctx) => (painted ? paintFinPainted(ctx, scene, 'pelvic', A, P) : paintPelvicFin(ctx, A.pelvic, P))),
+      // (Stützflossen mit kräftigem Stiel bleiben programmiert)
+      pec: makeTex(scene, id2 + '_fp', pBox, s, (ctx) => (painted && !A.pectoral.lobed ? paintFinPainted(ctx, scene, 'pectoral', A, P) : paintPectoral(ctx, A.pectoral, P, false))),
+      pecFar: makeTex(scene, id2 + '_fq', pBox, s, (ctx) => (painted && !A.pectoral.lobed ? paintFinPainted(ctx, scene, 'pectoral', A, P, true) : paintPectoral(ctx, A.pectoral, P, true))),
     };
     return {
       A, keys,

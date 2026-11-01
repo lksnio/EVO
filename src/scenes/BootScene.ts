@@ -4,12 +4,18 @@ import { commonTextures, decorTextures } from '../art/worldArt';
 import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { shellTexture } from '../art/shellArt';
+import { preloadPainted } from '../art/fish/painted';
 
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  preload() {
+    // die gemalten Fischtexturen
+    preloadPainted(this);
   }
 
   create() {

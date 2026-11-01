@@ -325,6 +325,27 @@ höhere Stirn und Kopfplatten; Panzerung → deutlichere Schuppen und Schilde; K
 Flossenwerte → Größe der Flossen. Die Texturen entstehen **einmal je Aussehen** (gestufte Werte, `morphKey`) und werden
 wiederverwendet; pro Bild wird nur die Pose gerechnet (rund 0,01 ms je Fisch), ein Fisch besteht aus etwa 100 Vierecken.
 
+**Gemalte Zeichnung (Assetsatz `art/EVO_fish_painted_v1`):** Das Rig nutzt die acht gemalten Einzeltexturen (Körper, Unterkiefer, Auge, Kiemenfalte,
+Rücken-, After-, Bauch- und Brustflosse), sobald sie geladen sind (`BootScene` lädt sie, Laufzeitfassung als WebP in `src/assets/fish/painted/`, erzeugt
+mit `tools/fish_assets.py`). Mit `?procfish` erscheint stattdessen die programmierte Zeichnung (zum Vergleichen und als Rückfall), mit `?oldfish` der
+alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`:
+
+* **Registrierung** (`REG`, `NUDGE`): Jedes Bild wird nach seinen **Ansatzpunkten** in den ursprünglichen Vorlagenrahmen gelegt, nicht nach den
+  Bildrändern. Körper: gemalte Fläche auf die Fläche der Vorlage; Kiefer: Oberkante auf die gemalte Oberlippe (0,9 Einheiten über der programmierten
+  Maulspalte), das hintere Ende reicht weit unter den Körper, die gemalte Kehle deckt es (kein Spalt am Kieferanschluss); Kiemenfalte: Bogen vom Ansatz
+  hinter dem Auge zur Kehle; Brustflosse: Wurzel unter dem Rand der Kiemenfalte (alles davor wird abgeschnitten); Rücken-/After-/Bauchflosse: Wurzel
+  2–4 Einheiten unter der Haut; Auge: Mitte und Durchmesser des Augapfels. Alle Zahlen sind je Teil nachstellbar (`NUDGE`).
+* **Anpassung an die Anatomie:** Flossen, Kiefer, Auge und Kiemenfalte folgen den Maßen des Tiers (Länge, Tiefe, Größe). Der Körper wird abschnittsweise
+  verzerrt (Schwanzflosse – Stielende – Hals – Schnauze, die Höhe nach Flossenspannweite, Stielhöhe, Körperhöhe und Kopfhöhe), Pixel für Pixel aus einer
+  passenden Verkleinerungsstufe des Bildes.
+* **Farbe:** Die Bilder sind neutral grau; sie werden so eingefärbt, dass ihr Mittelwert zur Palette der Linie wird (Licht und Schatten der Zeichnung bleiben):
+  Körper, Flossen, Kiefer, Kiemenfalte; beim finsteren Blick (`fierce`) färbt sich der Augapfel zur Iris-Farbe.
+* **Prozedurale Evolution bleibt:** Tarnbänder, Schwarmband, Hungerrippen, Schuppen und Schilde, Kopfplatten und Augenhöhle, Männchen-Kehlfleck und
+  Narben werden auf einer eigenen Ebene gemalt und **nur auf die gemalte Fläche ohne ihre Kontur** gelegt (aus der Zeichnung berechnete Maske). Zähne sind
+  eigene Bilder in Lippe und Kiefer; ihre Wurzeln liegen unter der gemalten Lippe bzw. dem gemalten Kiefer. Stützflossen (`limb`) bleiben programmiert.
+* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Die gemeinsame Zeichnung trägt etwa ±25 % in Länge und Höhe; für kurz/massig, lang/schlank und das
+  stärkste Gebiss sind eigene gestaltete Varianten der nächste Schritt. Erzeugen eines neuen Aussehens kostet 20–65 ms (gemessen ohne Grafikkarte).
+
 **Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
 
 **Werkstatt:** `?debug&gallery=fish` zeigt Fische groß in Bewegung. Parameter: `cols`, `px` (Bildschirmbreite), `perf`, `n` (Anzahl), `zoom`, `mode` (swim, idle, crawl), `speed` (0 … 1),
@@ -1140,7 +1161,7 @@ src/
 │   ├── inkFilter.ts     macht aus einem vorhandenen Bild eine Tusche-Fassung: verwischen, in Stufen zerlegen, Kontur
 │   ├── inkWorld.ts      Hintergründe des Devons: Ebenen, Dunst, trübes Wasser – je Ort eine Stimmung (Laichfluss, Flachwasser, Tiefental)
 │   ├── creatureArt.ts   die Spielfigur aus Einzelteilen, stufenlos aus den Merkmalen (Vierfüßer; der Fisch hat sein eigenes Rig)
-│   ├── fish/            das Fisch-Rig: anatomy.ts (Maße), paint.ts (Zeichnung), spine.ts (Wirbelsäule), rig.ts (Netze, Flossen, Kiefer, Pose)
+│   ├── fish/            das Fisch-Rig: anatomy.ts (Maße), paint.ts (programmierte Zeichnung), painted.ts (gemalte Texturen: Registrierung, Anpassung, Farbe), spine.ts (Wirbelsäule), rig.ts (Netze, Flossen, Kiefer, Pose), export.ts (Vorlagen)
 │   ├── speciesArt.ts    alle anderen Tiere (Fische, Haie, Kopffüßer, Seeskorpione, Trilobiten, Mosasaurier, Plesiosaurier, Schildkröten, Ammoniten); Jäger mit Kiefer auch mit halb und weit offenem Maul (`openJaw`, `jawOf`)
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen

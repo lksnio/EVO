@@ -82,7 +82,7 @@ function ring(ctx: Ctx, path: () => void, yc: number, k: number, setFill: (top: 
   }
 }
 
-function fillOf(P: Pal) {
+export function fillOf(P: Pal) {
   return { base: grade(P.base), top: grade(mix(shade(P.base, -0.4), P.camo, 0.3)), belly: grade(P.belly), fin: grade(P.fin) };
 }
 
@@ -382,13 +382,8 @@ function scars(ctx: Ctx, A: FishAnatomy) {
   }
 }
 
-/** Die ganze Körpertextur: Schwanzflosse, Zähne des Oberkiefers, Körper mit Kopf – ein zusammenhängendes Bild. */
-export function paintBody(ctx: Ctx, A: FishAnatomy, P: Pal) {
-  const { bh } = A;
-  const F = fillOf(P);
-  const path = () => bodyPath(ctx, A);
-
-  // 2) Zähne des Oberkiefers: Die Wurzeln liegen unter der Lippe, die Lippenlinie des Körpers deckt sie
+/** Die Zähne des Oberkiefers: Wurzeln unter der Lippenlinie (y-Versatz dy verschiebt sie, falls die gemalte Lippe anders liegt). */
+export function paintUpperTeeth(ctx: Ctx, A: FishAnatomy, dy = 0) {
   const T = teethOf(A);
   const x0 = A.hinge[0] + A.jawLen * 0.3, x1 = A.tip[0] - 1.6;
   for (let i = 0; i < T.n; i++) {
@@ -396,8 +391,41 @@ export function paintBody(ctx: Ctx, A: FishAnatomy, P: Pal) {
     const x = x0 + t * (x1 - x0);
     // vorn die längsten Zähne (Fangzähne), hinten kurze
     const len = T.len * (0.55 + 0.6 * t);
-    tooth(ctx, x, lipY(A, x) - 0.9, T.w, len + 0.9, 1, T.blunt);
+    tooth(ctx, x, lipY(A, x) - 0.9 + dy, T.w, len + 0.9 - dy, 1, T.blunt);
   }
+}
+
+/** Die Zähne des Unterkiefers (Ursprung im Kiefergelenk): wachsen nach oben aus der Lippe. */
+export function paintLowerTeeth(ctx: Ctx, A: FishAnatomy) {
+  const T = teethOf(A);
+  const len = A.jawLen, n = 2;
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const x = len * 0.32 + t * (len * 0.66 - 1.2);
+    tooth(ctx, x, 1, T.w * 0.9, T.len * 0.8 * (0.55 + 0.5 * t) + 1, -1, T.blunt, -0.2);
+  }
+}
+
+/** Die prozeduralen Merkmale auf dem Körper (Muster, Schuppen, Kopfplatten, Augenhöhle, Narben) – in der Silhouette des Körpers. */
+export function paintBodyFeatures(ctx: Ctx, A: FishAnatomy, P: Pal) {
+  ctx.save();
+  bodyPath(ctx, A);
+  ctx.clip();
+  bodyMarks(ctx, A, P);
+  bodyScales(ctx, A, P);
+  headDetails(ctx, A, P);
+  scars(ctx, A);
+  ctx.restore();
+}
+
+/** Die ganze Körpertextur: Schwanzflosse, Zähne des Oberkiefers, Körper mit Kopf – ein zusammenhängendes Bild. */
+export function paintBody(ctx: Ctx, A: FishAnatomy, P: Pal) {
+  const { bh } = A;
+  const F = fillOf(P);
+  const path = () => bodyPath(ctx, A);
+
+  // 2) Zähne des Oberkiefers: Die Wurzeln liegen unter der Lippe, die Lippenlinie des Körpers deckt sie
+  paintUpperTeeth(ctx, A);
 
   // 3) der Körper: Grundfarbe, Rücken, Bauch
   path();
@@ -450,7 +478,7 @@ export function paintEye(ctx: Ctx, A: FishAnatomy, P: Pal) {
 // Überlagerung: der Kiemendeckel liegt ÜBER dem Ansatz der Brustflosse – sie kommt unter seinem hinteren Rand hervor
 
 /** Rückwärtsbogen des Kiemendeckels: setzt hinter dem Auge an, holt nach hinten aus und läuft zur Kehle. */
-function gillCurve(ctx: Ctx, A: FishAnatomy, dx: number, from = 0) {
+export function gillCurve(ctx: Ctx, A: FishAnatomy, dx: number, from = 0) {
   const { hx, hy, hg } = A;
   const P0: P2 = [hx + 5.6 + dx, hy - hg.H * 0.27], C1: P2 = [hx - 4.5 + dx, hy - hg.H * 0.2], C2: P2 = [hx - 5.5 + dx, hy + hg.H * 0.28], P3: P2 = [hx + 3.4 + dx, hy + hg.H * 0.46];
   if (from === 0) {
@@ -525,13 +553,7 @@ export function paintJaw(ctx: Ctx, A: FishAnatomy, P: Pal) {
   const path = () => jawPath(ctx, A);
   const len = A.jawLen;
   // Zähne des Unterkiefers wachsen nach oben aus der Lippe
-  const T = teethOf(A);
-  const n = 2;
-  for (let i = 0; i < n; i++) {
-    const t = (i + 0.5) / n;
-    const x = len * 0.32 + t * (len * 0.66 - 1.2);
-    tooth(ctx, x, 1, T.w * 0.9, T.len * 0.8 * (0.55 + 0.5 * t) + 1, -1, T.blunt, -0.2);
-  }
+  paintLowerTeeth(ctx, A);
   path();
   ctx.fillStyle = css(mix(F.belly, F.base, 0.55));
   ctx.fill();

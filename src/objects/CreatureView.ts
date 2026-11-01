@@ -41,7 +41,7 @@ function release(tm: Phaser.Textures.TextureManager, key: string) {
   unused.push(key);
   while (unused.length > KEEP_UNUSED) {
     const old = unused.shift()!;
-    for (const p of PARTS) if (tm.exists('cr2_' + old + p)) tm.remove('cr2_' + old + p);
+    for (const p of PARTS) for (const sfx of ['', 'P']) if (tm.exists('cr2_' + old + sfx + p)) tm.remove('cr2_' + old + sfx + p);
   }
 }
 
