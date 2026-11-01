@@ -1,0 +1,200 @@
+{
+  "deliveryScope": "step_1_player_head_armor_only",
+  "runtimeIntegration": "pending",
+  "recommendedTexture": "textures/kopfpanzer_basis.png",
+  "alternateTexture": "textures/kopfpanzer_mit_augenoeffnung.png",
+  "source": {
+    "repository": "lksnio/EVO",
+    "branch": "claude/sleepy-clarke-ffews7",
+    "files": {
+      "src/art/fish/paint.ts": "e5a8368e1fdbe3664f5833659bd298afec626749",
+      "src/art/fish/anatomy.ts": "c26795fff8e6c652a18ed7085c8970e0c3f4dbfa",
+      "src/art/fish/painted.ts": "f2820b7acee12f6c5c3ae3e7ac6bfe5fc8856df1",
+      "src/art/creatureArt.ts": "85983682e8ef959bec5326adf0608b78fabedc40",
+      "art/vorlagen/fisch/kopfpanzer_max/manifest.json": "f81e68b9e0b696f7eb69f4052ee8625741ea9334"
+    }
+  },
+  "template": {
+    "referenceForm": {
+      "cls": "fish",
+      "size": 0.28,
+      "jaw": 0,
+      "skull": 1,
+      "stealth": 0,
+      "diet": 0,
+      "scars": 0,
+      "belly": 1,
+      "fierce": 0,
+      "hue": 1,
+      "seed": 7,
+      "sex": 0,
+      "spike": -1,
+      "green": 0,
+      "sand": 0,
+      "len": 0,
+      "girth": 0,
+      "swift": 0,
+      "fang": 0,
+      "toothTier": 0,
+      "light": 0,
+      "limb": 0,
+      "fin": 0,
+      "tail": 0,
+      "crest": 0,
+      "tint": 0,
+      "snout": 0,
+      "coat": 0,
+      "armor": 0,
+      "st": 0,
+      "bs": 0,
+      "vf": 0,
+      "sw": 0,
+      "fUp": 0,
+      "fDown": 0,
+      "fSide": 0,
+      "fTail": 0,
+      "eye": 0,
+      "stamUp": 0,
+      "grip": 0,
+      "gills": 0
+    },
+    "head": {
+      "hx": 20.4,
+      "hy": -0.84,
+      "L": 28.4,
+      "H": 39.192,
+      "dome": 4.5
+    },
+    "box": {
+      "x0": 4,
+      "x1": 56,
+      "y0": -31,
+      "y1": 15
+    },
+    "pixelsPerUnit": 24,
+    "templateSize": [
+      1248,
+      1104
+    ],
+    "eye": {
+      "centerG": [
+        30.907999999999998,
+        -5.8879296000000005
+      ],
+      "centerPx": [
+        645.7919999999999,
+        602.6896896000001
+      ],
+      "holeRadiusG": 4.65,
+      "holeRadiusPx": 111.60000000000001,
+      "eyeballRadiusG": 3.7271
+    },
+    "jawHingeG": [
+      32.328,
+      4.6468799999999995
+    ],
+    "mouthTipG": [
+      48.8,
+      4.446879999999999
+    ],
+    "normalizedEye": {
+      "u": 0.37,
+      "v": -0.12880000000000003
+    },
+    "path": "M 11.4 -18.4764 C 23.24 -25.936 36.02 -24.986 46.528 -6.17011 L 50.8 4.14688 Q 38.008 0.67312 26.08 2.63312 C 18.4 6.9984 8.4 3.47112 9.4 -2.7996 C 7.6 -6.7188 8.7 -9.85416 9.6 -12.20568 C 8.2 -14.94912 9.7 -17.69256 11.4 -18.4764 Z",
+    "note": "Technical template newly generated from inspected head dimensions and a curved posterior edge. Final painting requires registration; clip to current body silhouette."
+  },
+  "measuredAperture": {
+    "file": "textures/kopfpanzer_mit_augenoeffnung.png",
+    "centerNativePx": [
+      710.522233565205,
+      638.4097006243917
+    ],
+    "bboxNativePx": [
+      594,
+      523,
+      828,
+      754
+    ],
+    "areaPx": 42121,
+    "equivalentRadiusPx": 115.79089219773482,
+    "alphaThreshold": 128
+  },
+  "initialEyeAlignedReferenceMap": {
+    "note": "Initial mapping inferred from the measured aperture and source reference radius, not validated in the runtime rig. Register rear edge, crown and snout afterward.",
+    "gUnitsPerNativePixel": 0.040158598934182554,
+    "referenceEyeCenterG": [
+      30.907999999999998,
+      -5.8879296000000005
+    ],
+    "referenceEyeCenterUV": {
+      "u": 0.37,
+      "v": -0.12880000000000003
+    },
+    "referenceHead": {
+      "hx": 20.4,
+      "hy": -0.84,
+      "L": 28.4,
+      "H": 39.192,
+      "dome": 4.5
+    }
+  },
+  "images": {
+    "textures/kopfpanzer_basis.png": {
+      "size": [
+        1334,
+        1179
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        111,
+        201,
+        1244,
+        907
+      ],
+      "eyeAnchorNativePxInferred": [
+        710.522233565205,
+        638.4097006243917
+      ],
+      "eyeAnchorNote": "Inferred from paired aperture artwork; cut/shape the actual socket from A.eye during integration."
+    },
+    "textures/kopfpanzer_mit_augenoeffnung.png": {
+      "size": [
+        1334,
+        1179
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        112,
+        203,
+        1240,
+        905
+      ]
+    },
+    "referenzen/kopfpanzer_zielbild.png": {
+      "size": [
+        1681,
+        936
+      ],
+      "mode": "RGBA",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "paintedBounds128": [
+        56,
+        122,
+        1645,
+        811
+      ]
+    }
+  }
+}
