@@ -40,13 +40,23 @@ export class GalleryScene extends Phaser.Scene {
     const extra = q.get('morph') ? (JSON.parse(q.get('morph')!) as Partial<Morph>) : {};
     const zoom = Number(q.get('zoom') ?? 3.2);
     const base: Morph = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 1, seed: 7, ...extra };
-    const set: [string, Partial<Morph>][] = JSON.parse(q.get('set') ?? '[["neu",{}]]');
+    let set: [string, Partial<Morph>][] = JSON.parse(q.get('set') ?? '[["neu",{}]]');
+    // n: so viele Fische (die Liste wird wiederholt, jeder mit eigenem Saatwert) – für Leistungsmessungen
+    const n = Number(q.get('n') ?? 0);
+    if (n) set = Array.from({ length: n }, (_, i) => [`${set[i % set.length][0]}`, { ...set[i % set.length][1], seed: i }] as [string, Partial<Morph>]);
     set.forEach(([name, v], i) => {
       const view = new CreatureView(this, 0, 0, { ...base, ...v }, zoom);
-      const cols = Math.min(set.length, 3);
-      view.setPosition(this.scale.width * ((i % cols) + 0.5) / cols, 140 + Math.floor(i / cols) * 230);
+      const cols = Math.min(set.length, Number(q.get('cols') ?? 3));
+      // px: Das Tier soll auf dem Bildschirm so viele Pixel breit sein (Größenvergleich), unabhängig von seiner Größe
+      const px = Number(q.get('px') ?? 0);
+      if (px && view.fishAnatomy) {
+        const ratio = this.game.canvas.getBoundingClientRect().width / this.scale.width;
+        const A = view.fishAnatomy!, b = A.bounds;
+        view.setBaseScale(px / (ratio * (b.x1 - b.x0) * A.s));
+      }
+      view.setPosition(this.scale.width * ((i % cols) + 0.5) / cols, (px ? 70 : 140) + Math.floor(i / cols) * (px ? 120 : 230));
       this.views.push(view);
-      text(this, view.x, view.y + 95, name, 14).setOrigin(0.5, 0);
+      text(this, view.x, view.y + (px ? 40 : 95), name, 14).setOrigin(0.5, 0);
     });
   }
 
@@ -99,7 +109,19 @@ export class GalleryScene extends Phaser.Scene {
       for (const v of this.views) v.bite();
     }
     for (const v of this.views) v.animate(dms / 1000, v.L.land ? 'walk' : mode, speed);
+    // ?perf: Bildrate und Zeit je Bild, damit man die Leistung auf der eigenen Grafikkarte prüfen kann
+    if (q.has('perf')) {
+      this.perfT += dms;
+      this.perfText ??= text(this, 10, 6, '', 14).setScrollFactor(0).setDepth(100);
+      if (this.perfT > 500) {
+        this.perfT = 0;
+        const l = this.game.loop;
+        this.perfText.setText(`${this.views.length} Fische · ${l.actualFps.toFixed(0)} B/s · ${(1000 / Math.max(1, l.actualFps)).toFixed(1)} ms/Bild · ${this.game.renderer.type === Phaser.WEBGL ? 'WebGL' : 'Canvas'}`);
+      }
+    }
   }
 
   private biteClock = 0;
+  private perfText?: Phaser.GameObjects.Text;
+  private perfT = 0;
 }

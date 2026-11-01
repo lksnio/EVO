@@ -5,7 +5,7 @@ import { palette, morphKey, quantize, type Morph } from '../creatureArt';
 import { withInk } from '../ink';
 import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
 import { solveSpine } from './spine';
-import { finBox, jawPath, paintBody, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
+import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
 
 // ---------------------------------------------------------------------------
 // Das Fisch-Rig: Die Zeichnung (paint.ts) liegt als EIN Netz über Kopf, Rumpf, Schwanzstiel und Schwanzflosse. Das Netz
@@ -52,9 +52,9 @@ export interface FishPose {
 
 export interface FishTex {
   A: FishAnatomy;
-  keys: { body: string; overlay: string; jaw: string; dorsal: string; anal: string; pelvic: string; pec: string; pecFar: string };
+  keys: { body: string; eye: string; overlay: string; jaw: string; dorsal: string; anal: string; pelvic: string; pec: string; pecFar: string };
   /** Umfang der Texturen in Zeicheneinheiten */
-  box: Record<'body' | 'overlay' | 'jaw' | 'dorsal' | 'anal' | 'pelvic' | 'pec', { x0: number; x1: number; y0: number; y1: number }>;
+  box: Record<'body' | 'eye' | 'overlay' | 'jaw' | 'dorsal' | 'anal' | 'pelvic' | 'pec', { x0: number; x1: number; y0: number; y1: number }>;
   lid: number;
   lidEdge: number;
 }
@@ -83,10 +83,12 @@ export function fishTextures(scene: Phaser.Scene, mIn: Morph): FishTex {
     const bodyBox = A.bounds;
     // die Überlagerung (Kiemendeckel) umfasst nur die Wange
     const ovBox: Box = { x0: A.hx - 13, x1: A.hx + 9, y0: A.hy - A.hg.H * 0.34, y1: A.hy + A.hg.H * 0.54 };
+    const eyeB = eyeBox(A);
     const jawBox: Box = { x0: -4, x1: A.jawLen + 4, y0: -(A.m.diet < -0.3 ? 3 : 5), y1: A.jawH + 3 };
     const dBox = finBox('dorsal', A.dorsal), aBox = finBox('anal', A.anal), vBox = finBox('pelvic', A.pelvic), pBox = finBox('pectoral', A.pectoral);
     const keys = {
       body: makeTex(scene, id + '_fb', bodyBox, s, (ctx) => paintBody(ctx, A, P)),
+      eye: makeTex(scene, id + '_fe', eyeB, s, (ctx) => paintEye(ctx, A, P)),
       overlay: makeTex(scene, id + '_fo', ovBox, s, (ctx) => paintOverlay(ctx, A, P)),
       jaw: makeTex(scene, id + '_fj', jawBox, s, (ctx) => paintJaw(ctx, A, P)),
       dorsal: makeTex(scene, id + '_fd', dBox, s, (ctx) => paintMedianFin(ctx, A.dorsal, P, -1, true)),
@@ -97,7 +99,7 @@ export function fishTextures(scene: Phaser.Scene, mIn: Morph): FishTex {
     };
     return {
       A, keys,
-      box: { body: bodyBox, overlay: ovBox, jaw: jawBox, dorsal: dBox, anal: aBox, pelvic: vBox, pec: pBox },
+      box: { body: bodyBox, eye: eyeB, overlay: ovBox, jaw: jawBox, dorsal: dBox, anal: aBox, pelvic: vBox, pec: pBox },
       lid: palette(m).base, lidEdge: palette(m).dark,
     };
   });
@@ -167,6 +169,7 @@ export class FishRig {
   readonly cavity: Phaser.GameObjects.Graphics;
   private body: Grid;
   private overlay: Grid;
+  private eyeImg: Phaser.GameObjects.Image;
   private jaw: Phaser.GameObjects.Image;
   private fins: { grid: Grid; kind: 'dorsal' | 'anal' | 'pelvic' | 'pec' | 'pecFar' }[] = [];
   private s: number;
@@ -181,6 +184,7 @@ export class FishRig {
   private sy: Float32Array;
   private sb: Float32Array;
   private colX: Float32Array;
+  private reach: Float32Array;
   private lastOpen = 0;
   /** Augenposition (Pixel, im Container) und Neigung der letzten Pose */
   eyeX = 0;
@@ -197,6 +201,8 @@ export class FishRig {
     this.sb = new Float32Array(COLS + 1);
     this.colX = new Float32Array(COLS + 1);
     for (let i = 0; i <= COLS; i++) this.colX[i] = lerp(b.x0, b.x1, i / COLS);
+    // Reichweite des Netzes senkrecht zur Wirbelsäule je Spalte (hinter dem Stiel die Schwanzflosse, sonst der Körper)
+    this.reach = new Float32Array(COLS + 1).map((_, i) => (this.colX[i] < A.pedX ? Math.max(A.tail.spread * 1.1, 6) : Math.max(Math.abs(b.y0), Math.abs(b.y1)) * 0.85));
 
     const finGrid = (kind: 'dorsal' | 'anal' | 'pelvic' | 'pec' | 'pecFar') => {
       const box = T.box[kind === 'pecFar' ? 'pec' : kind];
@@ -214,9 +220,10 @@ export class FishRig {
     this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(this.s / FISH_RES);
     const pec = finGrid('pec');
     this.lid = new Phaser.GameObjects.Graphics(scene);
+    this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
-    this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, this.jaw, this.body.mesh, pec, overlay, this.lid);
+    this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
   }
@@ -264,7 +271,7 @@ export class FishRig {
     // bei hohem Tempo wird mehr vom Rumpf in die Welle einbezogen (steilerer Anstieg weiter vorn)
     const pw = 2.5 - 0.7 * sp;
     solveSpine(
-      { colX: this.colX, xa, bw, Ls, amp, kw, ph: this.ph, pw, coil: p.coil, pitch: hp0(p, this.ph, calm, idle), bob: bobOf(p, crawl, calm), neckEnd: A.neckX + bw * 0.1, lungeDx: p.lunge * (3 + 3 * A.m.jaw) * calm },
+      { colX: this.colX, xa, bw, Ls, amp, kw, ph: this.ph, pw, coil: p.coil, pitch: hp0(p, this.ph, calm, idle), bob: bobOf(p, crawl, calm), neckEnd: A.neckX + bw * 0.1, lungeDx: p.lunge * (3 + 3 * A.m.jaw) * calm, reach: this.reach },
       this.sx, this.sy, this.sb,
     );
     const J = A.m.jaw;
@@ -301,6 +308,7 @@ export class FishRig {
     this.eyeY = eye.y;
     this.eyeRot = eye.rot;
     this.lid.setPosition(eye.x, eye.y).setRotation(eye.rot);
+    this.eyeImg.setPosition(eye.x, eye.y).setRotation(eye.rot);
 
     // ---- Maul: Unterkiefer im Gelenk, Mundhöhle dazwischen
     const hj = this.mapPoint(A.hinge[0], A.hinge[1]);

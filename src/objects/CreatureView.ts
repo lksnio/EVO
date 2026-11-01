@@ -3,6 +3,7 @@ import {
   type CreatureTex, type Layout, type Morph, type PartTex,
   CREATURE_RES, creatureTextures, layoutOf, morphKey,
 } from '../art/creatureArt';
+import { eyeBall } from '../art/fish/anatomy';
 import { FishRig, fishTextures } from '../art/fish/rig';
 
 /** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
@@ -22,7 +23,7 @@ const LEGACY_FISH = typeof location !== 'undefined' && new URLSearchParams(locat
 const users = new Map<string, number>();
 const unused: string[] = [];
 const KEEP_UNUSED = 8;
-const PARTS = ['_b', '_h', '_t', '_j', '_s', '_l', '_f', '_fb', '_fo', '_fj', '_fd', '_fa', '_fv', '_fp', '_fq'];
+const PARTS = ['_b', '_h', '_t', '_j', '_s', '_l', '_f', '_fb', '_fe', '_fo', '_fj', '_fd', '_fa', '_fv', '_fp', '_fq'];
 
 function retain(key: string) {
   users.set(key, (users.get(key) ?? 0) + 1);
@@ -86,6 +87,11 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.baseScale = scale;
     scene.add.existing(this);
     this.build(m);
+  }
+
+  /** Die Anatomie des Fisches (nur mit dem Netz-Rig), z. B. für Vorlagen und Größenvergleiche. */
+  get fishAnatomy() {
+    return this.rig?.A;
   }
 
   /** Baut die Figur neu, wenn sich das Aussehen (in Stufen) verändert hat. */
@@ -195,7 +201,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
     if (k <= 0.01) return;
     const hg = this.L.hg, s = this.L.s;
     // am Netz-Fisch sitzt die Grafik schon im Auge (und folgt ihm); der Tuschestil-Augapfel ist etwas größer als der Rohwert
-    const x = this.rig ? 0 : hg.ex * s, y = this.rig ? 0 : hg.ey * s, r = this.rig ? Math.max(2.6, hg.er * 1.3) * s * 1.02 : hg.er * s * 1.14;
+    const x = this.rig ? 0 : hg.ex * s, y = this.rig ? 0 : hg.ey * s, r = this.rig ? eyeBall(this.rig.A.eye.r) * s * 1.02 : hg.er * s * 1.14;
     // das Oberlid senkt sich weit, das Unterlid hebt sich ein Stück – sie treffen sich bei y + r/4
     const up = y - r + 1.25 * r * k, low = y + r - 0.75 * r * k;
     const seg = (edge: number, above: boolean) => {

@@ -1,0 +1,468 @@
+{
+  "name": "starkes_gebiss",
+  "pxPerUnit": 16,
+  "koordinaten": "g-Einheiten; Ursprung Körpermitte, +x zur Schnauze (Blick nach rechts), +y nach unten; Bildpixel = (x − union.x0) · pxPerUnit",
+  "blickrichtung": "nach rechts",
+  "hintergrund": "transparent (Alpha), Ränder ≥ 4 Einheiten leer",
+  "union": {
+    "x0": -59,
+    "x1": 77,
+    "y0": -33,
+    "y1": 31
+  },
+  "bildPx": [
+    2176,
+    1024
+  ],
+  "morph": {
+    "cls": "fish",
+    "size": 0.28,
+    "jaw": 1,
+    "skull": 0,
+    "stealth": 0,
+    "diet": 1,
+    "scars": 0,
+    "belly": 1,
+    "fierce": 1,
+    "hue": 1,
+    "seed": 7,
+    "sex": 0,
+    "spike": 0,
+    "green": 0,
+    "sand": 0,
+    "len": 0,
+    "girth": 0,
+    "swift": 0,
+    "fang": 0,
+    "toothTier": 9,
+    "light": 0,
+    "limb": 0,
+    "fin": 0,
+    "tail": 0,
+    "crest": 0,
+    "tint": 0,
+    "snout": 0,
+    "coat": 0,
+    "armor": 0,
+    "st": 0,
+    "bs": 0,
+    "vf": 0,
+    "sw": 0,
+    "fUp": 0,
+    "fDown": 0,
+    "fSide": 0,
+    "fTail": 0,
+    "eye": 0,
+    "stamUp": 0,
+    "grip": 0,
+    "gills": 0
+  },
+  "anker": {
+    "auge": {
+      "x": 38.39259136008681,
+      "y": -5.005507964986142,
+      "radiusRoh": 2.35,
+      "augapfel": 3.055
+    },
+    "kiefergelenk": [
+      29.15315255355575,
+      3.6877260488979804
+    ],
+    "maulspitzeOberkiefer": [
+      69.02862529753193,
+      3.48772604889798
+    ],
+    "unterkieferLaenge": 38.67547274397617,
+    "unterkieferTiefe": 11.142086988330943,
+    "kopfUrsprungNacken": [
+      20.400000000000002,
+      -0.84
+    ],
+    "drehpunktVerformung_x": 7.200000000000003,
+    "halszoneBeginn_x": 16.800000000000004,
+    "schwanzstielEnde_x": -30,
+    "schwanzstielHalbeHoehe": 3.8000000000000003,
+    "schwanzflosse": {
+      "lobe": 16,
+      "spread": 13,
+      "fork": 3,
+      "up": 0.14
+    },
+    "rueckenflosse": {
+      "k": 1,
+      "at": [
+        -6,
+        -11.200000000000001
+      ],
+      "base": 25.2,
+      "len": 14
+    },
+    "afterflosse": {
+      "k": 1,
+      "at": [
+        -16.200000000000003,
+        8.4
+      ],
+      "base": 11.4,
+      "len": 11
+    },
+    "bauchflosse": {
+      "k": 0.55,
+      "at": [
+        0,
+        11.200000000000001
+      ],
+      "base": 7,
+      "len": 6
+    },
+    "brustflosse": {
+      "k": 1,
+      "at": [
+        17.000000000000004,
+        4.3345440558834065
+      ],
+      "base": 6,
+      "len": 15,
+      "lobed": false
+    },
+    "kopfpanzer": 0
+  },
+  "netz": {
+    "koerper": {
+      "spalten": 16,
+      "zeilen": 3,
+      "box": {
+        "x0": -55,
+        "x1": 72.02862529753193,
+        "y0": -23.010450174635643,
+        "y1": 26.65617523414203
+      }
+    },
+    "uv": "u = (x − box.x0)/(box.x1 − box.x0), v = (y − box.y0)/(box.y1 − box.y0); v wird beim Zeichnen gespiegelt (flipV)"
+  },
+  "silhouette": [
+    [
+      69.02862529753193,
+      3.48772604889798
+    ],
+    [
+      66.11090777968,
+      -1.6485225087317819
+    ],
+    [
+      56.38518272017363,
+      -5.723475952739964
+    ],
+    [
+      40.82402262496341,
+      -16.848745672889287
+    ],
+    [
+      25.262862529753196,
+      -17.410450174635642
+    ],
+    [
+      14.400000000000002,
+      -18.370450174635643
+    ],
+    [
+      4.8,
+      -19.010450174635643
+    ],
+    [
+      -9,
+      -14
+    ],
+    [
+      -19.2,
+      -8.4
+    ],
+    [
+      -25.5,
+      -6.080000000000001
+    ],
+    [
+      -29,
+      -3.8000000000000003
+    ],
+    [
+      -35,
+      -3.116
+    ],
+    [
+      -36,
+      0
+    ],
+    [
+      -35,
+      3.116
+    ],
+    [
+      -29,
+      3.8000000000000003
+    ],
+    [
+      -25.5,
+      5.890000000000001
+    ],
+    [
+      -19.2,
+      8.4
+    ],
+    [
+      -9,
+      13.16
+    ],
+    [
+      4.8,
+      14.56
+    ],
+    [
+      15.600000000000001,
+      12.6
+    ],
+    [
+      19.900000000000002,
+      15.330450174635644
+    ]
+  ],
+  "teile": [
+    {
+      "name": "pectoral_far",
+      "file": "teil_pectoral_far.png",
+      "box": {
+        "x0": -18,
+        "x1": 6,
+        "y0": -8,
+        "y1": 15
+      },
+      "placedAt": [
+        17.000000000000004,
+        4.3345440558834065
+      ],
+      "size": [
+        384,
+        368
+      ],
+      "originPx": [
+        288,
+        128
+      ],
+      "mesh": {
+        "cols": 3,
+        "rows": 2
+      },
+      "note": "ferne Brustflosse (dunkler), liegt hinter dem Körper; Ursprung = Flossenansatz"
+    },
+    {
+      "name": "pelvic",
+      "file": "teil_pelvic.png",
+      "box": {
+        "x0": -6.5,
+        "x1": 6.5,
+        "y0": -4,
+        "y1": 9
+      },
+      "placedAt": [
+        0,
+        11.200000000000001
+      ],
+      "size": [
+        208,
+        208
+      ],
+      "originPx": [
+        104,
+        64
+      ],
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      },
+      "note": "Bauchflosse, hinter dem Körper; Ursprung = Ansatz an der Bauchlinie"
+    },
+    {
+      "name": "dorsal",
+      "file": "teil_dorsal.png",
+      "box": {
+        "x0": -15.6,
+        "x1": 15.6,
+        "y0": -17,
+        "y1": 4
+      },
+      "placedAt": [
+        -6,
+        -11.200000000000001
+      ],
+      "size": [
+        500,
+        336
+      ],
+      "originPx": [
+        249.6,
+        272
+      ],
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      },
+      "note": "Rückenflosse, hinter dem Körper; Ursprung = Mitte des Ansatzes (liegt 2–4 Einheiten unter der Haut)"
+    },
+    {
+      "name": "anal",
+      "file": "teil_anal.png",
+      "box": {
+        "x0": -8.7,
+        "x1": 8.7,
+        "y0": -4,
+        "y1": 14
+      },
+      "placedAt": [
+        -16.200000000000003,
+        8.4
+      ],
+      "size": [
+        279,
+        288
+      ],
+      "originPx": [
+        139.2,
+        64
+      ],
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      },
+      "note": "Afterflosse, hinter dem Körper"
+    },
+    {
+      "name": "jaw",
+      "file": "teil_jaw.png",
+      "box": {
+        "x0": -4,
+        "x1": 42.67547274397617,
+        "y0": -5,
+        "y1": 14.142086988330943
+      },
+      "placedAt": [
+        29.15315255355575,
+        3.6877260488979804
+      ],
+      "size": [
+        747,
+        307
+      ],
+      "originPx": [
+        64,
+        80
+      ],
+      "mesh": null,
+      "note": "Unterkiefer; Ursprung = Kiefergelenk; dreht sich beim Öffnen um diesen Punkt; trägt die unteren Zähne"
+    },
+    {
+      "name": "body",
+      "file": "teil_body.png",
+      "box": {
+        "x0": -55,
+        "x1": 72.02862529753193,
+        "y0": -23.010450174635643,
+        "y1": 26.65617523414203
+      },
+      "placedAt": [
+        0,
+        0
+      ],
+      "size": [
+        2033,
+        795
+      ],
+      "originPx": [
+        880,
+        368.1672027941703
+      ],
+      "mesh": {
+        "cols": 16,
+        "rows": 3
+      },
+      "note": "Kopf, Rumpf, Schwanzstiel und Schwanzflosse mit den oberen Zähnen – ohne Auge, ohne Kiemendeckel-Überlagerung; verformt sich als Netz"
+    },
+    {
+      "name": "pectoral",
+      "file": "teil_pectoral.png",
+      "box": {
+        "x0": -18,
+        "x1": 6,
+        "y0": -8,
+        "y1": 15
+      },
+      "placedAt": [
+        17.000000000000004,
+        4.3345440558834065
+      ],
+      "size": [
+        384,
+        368
+      ],
+      "originPx": [
+        288,
+        128
+      ],
+      "mesh": {
+        "cols": 3,
+        "rows": 2
+      },
+      "note": "nahe Brustflosse, liegt vor dem Körper, unter der Überlagerung"
+    },
+    {
+      "name": "overlay",
+      "file": "teil_overlay.png",
+      "box": {
+        "x0": 7.400000000000002,
+        "x1": 29.400000000000002,
+        "y0": -11.835906118752238,
+        "y1": 16.624086188606498
+      },
+      "placedAt": [
+        0,
+        0
+      ],
+      "size": [
+        352,
+        456
+      ],
+      "originPx": [
+        -118.40000000000003,
+        189.3744979000358
+      ],
+      "mesh": {
+        "cols": 5,
+        "rows": 3
+      },
+      "note": "Kiemendeckel: liegt über dem Ansatz der Brustflosse; folgt dem Körper"
+    },
+    {
+      "name": "eye",
+      "file": "teil_eye.png",
+      "box": {
+        "x0": -4.655,
+        "x1": 4.655,
+        "y0": -4.655,
+        "y1": 4.655
+      },
+      "placedAt": [
+        38.39259136008681,
+        -5.005507964986142
+      ],
+      "size": [
+        149,
+        149
+      ],
+      "originPx": [
+        74.48,
+        74.48
+      ],
+      "mesh": null,
+      "note": "Auge (Augapfel, Iris, Pupille, Glanz); Ursprung = Augenmitte; wird als Bild an den Kopf gehängt"
+    }
+  ]
+}

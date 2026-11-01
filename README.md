@@ -325,7 +325,9 @@ höhere Stirn und Kopfplatten; Panzerung → deutlichere Schuppen und Schilde; K
 Flossenwerte → Größe der Flossen. Die Texturen entstehen **einmal je Aussehen** (gestufte Werte, `morphKey`) und werden
 wiederverwendet; pro Bild wird nur die Pose gerechnet (rund 0,01 ms je Fisch), ein Fisch besteht aus etwa 100 Vierecken.
 
-**Werkstatt:** `?debug&gallery=fish` zeigt Fische groß in Bewegung. Parameter: `zoom`, `mode` (swim, idle, crawl), `speed` (0 … 1),
+**Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
+
+**Werkstatt:** `?debug&gallery=fish` zeigt Fische groß in Bewegung. Parameter: `cols`, `px` (Bildschirmbreite), `perf`, `n` (Anzahl), `zoom`, `mode` (swim, idle, crawl), `speed` (0 … 1),
 `bite` (alle n Sekunden ein Biss), `set` (JSON-Liste `[["Name", {Morph-Werte}], …]`). Beispiel:
 `?debug&gallery=fish&mode=swim&speed=0.6&bite=1&set=[["Kiefer",{"jaw":1,"diet":1}],["Panzer",{"armor":1}]]`.
 

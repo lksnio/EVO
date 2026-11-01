@@ -28,6 +28,7 @@ import { GalleryScene } from './scenes/GalleryScene';
 import { AquapendiumScene } from './scenes/AquapendiumScene';
 import { EraScene } from './scenes/EraScene';
 import { matches } from './state/keymap';
+import { fishTemplates } from './art/fish/export';
 
 async function start() {
   // Schriften laden, bevor Texte gezeichnet werden (max. 2 Sekunden warten)
@@ -86,7 +87,7 @@ async function start() {
   keepAlive(g);
 
   // Für Tests und Entwickler-Konsole
-  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, OceanScore, debug: DEBUG };
+  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, OceanScore, debug: DEBUG, fishTemplates };
 }
 
 start();

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fishAnatomy } from '../src/art/fish/anatomy';
-import { solveSpine, wave, type SpineIn } from '../src/art/fish/spine';
+import { MIN_INNER, solveSpine, wave, type SpineIn } from '../src/art/fish/spine';
 import type { Morph } from '../src/art/creatureArt';
 import { quantize } from '../src/art/creatureArt';
 
@@ -141,5 +141,25 @@ describe('Wirbelsäule (Verformung)', () => {
     }
     expect(bite.sx[n - 1]).toBeGreaterThan(rest.sx[n - 1] + 3);
     expect(bite.sb[n - 1]).toBeCloseTo(-0.15, 6);
+  });
+});
+
+describe('Netz klappt nicht um', () => {
+  it.each(EXTREMES)('%s: auch bei stärkstem Ausschlag und Ausholen bleibt die Innenkante jeder Zelle erhalten', (_n, v) => {
+    const a = A(v);
+    const n = 17;
+    const colX = Array.from({ length: n }, (_, k) => a.bounds.x0 + ((a.bounds.x1 - a.bounds.x0) * k) / (n - 1));
+    const reach = colX.map((x) => (x < a.pedX ? Math.max(a.tail.spread * 1.1, 6) : Math.max(Math.abs(a.bounds.y0), Math.abs(a.bounds.y1)) * 0.85));
+    for (let t = 0; t < 80; t++) {
+      const { i } = spineIn(a, { colX, amp: a.bw * 0.3, ph: t * 0.37, coil: t % 2, pitch: 0.2 * Math.sin(t), reach, pw: 1.8 });
+      const sx = new Float32Array(n), sy = new Float32Array(n), sb = new Float32Array(n);
+      solveSpine(i, sx, sy, sb);
+      for (let k = 1; k < n; k++) {
+        const dx = colX[k] - colX[k - 1];
+        // Innenkante einer Zelle in der größten Entfernung von der Wirbelsäule
+        const inner = dx - Math.max(reach[k], reach[k - 1]) * Math.abs(sb[k] - sb[k - 1]);
+        expect(inner).toBeGreaterThanOrEqual(MIN_INNER * dx - 1e-4);
+      }
+    }
   });
 });

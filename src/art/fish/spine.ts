@@ -27,7 +27,15 @@ export interface SpineIn {
   lungeDx: number;
   /** Verschiebung des ganzen Tiers nach unten */
   bob: number;
+  /**
+   * Wie weit das Netz an jeder Spalte senkrecht zur Wirbelsäule reicht (Zeicheneinheiten). Daraus folgt der größte Knick zwischen
+   * zwei Spalten: Er darf die Innenkante einer Zelle nicht auf null stauchen (sonst klappt das Netz um und die Zeichnung faltet sich).
+   */
+  reach?: ArrayLike<number>;
 }
+
+/** Anteil der Zellbreite, auf den die Innenkante bei einem Knick höchstens schrumpfen darf (0,1 = 10 % bleiben übrig). */
+export const MIN_INNER = 0.1;
 
 /** Lage der Welle (seitliche Auslenkung) im Abstand s hinter dem Drehpunkt. */
 export function wave(i: SpineIn, s: number) {
@@ -50,6 +58,17 @@ export function solveSpine(i: SpineIn, sx: Float32Array, sy: Float32Array, sb: F
       const s = xa - x, d = 0.5, s0 = Math.max(0, s - d);
       sb[k] = -Math.atan((wave(i, s + d) - wave(i, s0)) / (s + d - s0));
     } else sb[k] = i.pitch * smoothstep(xa, i.neckEnd, x);
+  }
+  // Knick begrenzen: reach · Δwinkel ≤ (1 − MIN_INNER) · Zellbreite – sonst faltet sich das Netz an der Innenseite der Kurve
+  if (i.reach) {
+    for (let k = ia - 1; k >= 0; k--) {
+      const lim = ((1 - MIN_INNER) * (i.colX[k + 1] - i.colX[k])) / Math.max(1, i.reach[k], i.reach[k + 1]);
+      sb[k] = sb[k + 1] + Math.max(-lim, Math.min(lim, sb[k] - sb[k + 1]));
+    }
+    for (let k = ia + 1; k < n; k++) {
+      const lim = ((1 - MIN_INNER) * (i.colX[k] - i.colX[k - 1])) / Math.max(1, i.reach[k], i.reach[k - 1]);
+      sb[k] = sb[k - 1] + Math.max(-lim, Math.min(lim, sb[k] - sb[k - 1]));
+    }
   }
   sx[ia] = xa;
   sy[ia] = i.bob;

@@ -48,8 +48,10 @@ export interface FishAnatomy {
   jawH: number;
   /** Stützpunkte der Silhouette: vom Maul über Stirn, Rücken, Schwanzstiel und Bauch zur Kehle */
   loop: P2[];
-  /** Auge */
+  /** Auge (Mitte und Radius des Rohwerts; der gezeichnete Augapfel ist etwas größer, siehe eyeBall) */
   eye: { x: number; y: number; r: number };
+  /** Kopfpanzer 0 … 1: Stirn- und Wangenplatten (aus Schädel und Kopfpanzer) */
+  plate: number;
   /** Rückenflosse, Afterflosse, Bauchflosse, Brustflosse */
   dorsal: FinSpec;
   anal: FinSpec;
@@ -119,6 +121,9 @@ export function fishAnatomy(m: Morph): FishAnatomy {
     [hx - 0.5, hy + hg.H * 0.5],
   ];
 
+  // Kopfpanzer: die Platten wachsen mit dem Schädel und dem Kopfschild (Stoßfisch); das Auge wird mit ihnen größer, damit es lesbar bleibt
+  const plate = Math.min(1, Math.sqrt((Math.max(0, -(m.spike ?? 0)) * (0.4 + sk) + (sk > 0.15 ? (sk - 0.15) * 0.9 : 0)) / 0.7));
+
   const su = 1 + FIN_UP * (m.stamUp ?? 0);
   const kd = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0)) * su;
   const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0)) * su;
@@ -144,13 +149,17 @@ export function fishAnatomy(m: Morph): FishAnatomy {
     tail: { lobe, spread, fork, up: 0.14 + 0.1 * sk },
     hinge, tip, jawLen: Math.max(6, hg.L - hg.hingeX - 1.2), jawH,
     loop,
-    eye: { x: hx + hg.L * 0.37, y: hy + hg.ey * 0.92, r: Math.min(hg.er, 2.35) },
+    eye: { x: hx + hg.L * 0.37, y: hy + hg.ey * 0.92, r: Math.min(hg.er, 2.35) * (1 + 0.22 * plate) },
+    plate,
     dorsal, anal, pelvic, pectoral,
     bounds: { x0, x1, y0: yTop, y1: yBot },
     anchorX: hx - bw * 0.22,
     neckX: hx - bw * 0.06,
   };
 }
+
+/** Radius des gezeichneten Augapfels (Zeicheneinheiten, so wie ihn eye() im Tuschestil malt). */
+export const eyeBall = (r: number) => Math.max(2.6, r * 1.3);
 
 /** Wie breit (in Zeicheneinheiten) eine Fläche zwischen zwei Werten ausgeblendet wird – für sanfte Übergänge der Verformung. */
 export const smoothstep = (a: number, b: number, x: number) => {

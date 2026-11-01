@@ -5,7 +5,7 @@ import { plateLevel } from '../../state/GameState';
 import { keenOf, type Pal } from '../creatureArt';
 import { gradeAnimal as grade, INK, lightOf, lineOf, outline, shadowOf } from '../ink';
 import { crescent, eye } from '../paint';
-import type { FishAnatomy, FinSpec, P2 } from './anatomy';
+import { eyeBall, type FishAnatomy, type FinSpec, type P2 } from './anatomy';
 
 // ---------------------------------------------------------------------------
 // Die Zeichnung des Fisches im Tuschestil des Devons – die Quelle aller Texturen des Fischs. Alles wird aus der Anatomie
@@ -114,7 +114,11 @@ function tooth(ctx: Ctx, x: number, y: number, w: number, len: number, dir: numb
 function teethOf(A: FishAnatomy) {
   const m = A.m;
   const herb = m.diet < -0.3, carn = Math.max(0, m.diet);
-  return { n: 3, len: (herb ? 1.5 : 2.4) * (1 + 0.1 * carn), w: herb ? 2.5 : 2.2, blunt: herb };
+  // Das Gebiss entwickelt sich über Kiefer UND Zähne: Das Maul wird größer (anatomy.ts), die Zähne wachsen mit – nur in Größe und
+  // Breite, in kleinen Schritten (Stufen des Gebisswerts), nie in der Zahl; so bleibt die Reihe geordnet und kein Kamm entsteht.
+  const tier = Math.max(0, Math.floor(m.toothTier ?? 0));
+  const grow = (1 + 0.4 * Math.log2(1 + 0.15 * tier)) * (1 + 0.22 * m.jaw);
+  return { n: 3, len: (herb ? 1.5 : 2.4) * (1 + 0.1 * carn) * grow, w: (herb ? 2.5 : 2.2) * (1 + 0.5 * (grow - 1)), blunt: herb };
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +287,6 @@ function bodyScales(ctx: Ctx, A: FishAnatomy, P: Pal) {
 /** Kiemendeckel, Wange, Kopfplatten – die Gestalt des Kopfes, ohne ihn vom Rumpf abzutrennen. */
 function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
   const { m, hx, hy, hg, bh } = A;
-  const sk = m.skull;
   const top = -hg.H / 2;
   const L = hg.L;
   const ym = hy + hg.mouthY;
@@ -298,9 +301,9 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
   }
 
   // Kopfplatten: wachsen mit dem Schädel (skull) und dem Kopfpanzer (spike < 0) zu einem Knochenschild über Stirn und Wange
-  const pl = Math.max(0, -(m.spike ?? 0)) * (0.4 + sk) + (sk > 0.15 ? (sk - 0.15) * 0.9 : 0);
+  const pl = A.plate * A.plate * 0.7;
   if (pl > 0.04) {
-    const a = Math.min(1, Math.sqrt(pl / 0.7));
+    const a = A.plate;
     const crown = hy + top - hg.dome;
     ctx.beginPath();
     ctx.moveTo(hx - 9, hy + top * 0.9);
@@ -332,6 +335,29 @@ function headDetails(ctx: Ctx, A: FishAnatomy, P: Pal) {
     }
   }
 
+  // Augenhöhle im Kopfschild: ein dunkler Ring mit Knochenbraue – das Auge bleibt auch auf der hellen Platte das Erste, was man sieht
+  if (A.plate > 0.04) {
+    const a = A.plate, R = eyeBall(A.eye.r), ex = A.eye.x, ey = A.eye.y;
+    ell(ctx, ex, ey, R * (1.45 + 0.2 * a), R * (1.4 + 0.2 * a));
+    ctx.fillStyle = css(shadowOf(mix(grade(P.base), 0xbab09a, 0.4)), 0.92);
+    ctx.fill();
+    ctx.strokeStyle = css(INK, 0.9);
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ex - R * 1.75, ey - R * 0.7);
+    ctx.quadraticCurveTo(ex - R * 0.2, ey - R * (2.1 + 0.4 * a), ex + R * 1.9, ey - R * 0.55);
+    ctx.strokeStyle = css(INK, 0.9);
+    ctx.lineWidth = 1.5 + 0.8 * a;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ex - R * 1.4, ey - R * 1.0);
+    ctx.quadraticCurveTo(ex - R * 0.1, ey - R * (1.75 + 0.35 * a), ex + R * 1.5, ey - R * 0.7);
+    ctx.strokeStyle = `rgba(255,244,220,${0.3 + 0.25 * a})`;
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+  }
+
   // Männchen: ein farbiger Kehlfleck
   if (m.sex === 1) {
     ell(ctx, hx + L * 0.34, hy + hg.H * 0.34, L * 0.22, hg.H * 0.13, -0.12);
@@ -358,7 +384,7 @@ function scars(ctx: Ctx, A: FishAnatomy) {
 
 /** Die ganze Körpertextur: Schwanzflosse, Zähne des Oberkiefers, Körper mit Kopf – ein zusammenhängendes Bild. */
 export function paintBody(ctx: Ctx, A: FishAnatomy, P: Pal) {
-  const { m, bh } = A;
+  const { bh } = A;
   const F = fillOf(P);
   const path = () => bodyPath(ctx, A);
 
@@ -405,9 +431,19 @@ export function paintBody(ctx: Ctx, A: FishAnatomy, P: Pal) {
   // 4b) Die Schwanzflosse schließt an den Stiel an
   paintCaudal(ctx, A, P);
 
-  // 5) Auge
-  const e = A.eye;
-  eye(ctx, e.x, e.y, e.r, P.eye, { lid: (0.15 + m.fierce * 0.45) * (1 - 0.5 * keenOf(m)), keen: keenOf(m) });
+  // (Das Auge ist eine eigene Ebene – siehe paintEye –, damit es der Verformung folgt und unabhängig von der Körperzeichnung bleibt)
+}
+
+/** Umfang der Augentextur (Ursprung in der Augenmitte). */
+export function eyeBox(A: FishAnatomy) {
+  const R = eyeBall(A.eye.r) + 1.6;
+  return { x0: -R, x1: R, y0: -R, y1: R };
+}
+
+/** Das Auge: Augapfel mit Iris, Pupille und Glanz (Tuschestil). Wacher Blick (keen) und finsterer Blick (fierce) kommen aus den Merkmalen. */
+export function paintEye(ctx: Ctx, A: FishAnatomy, P: Pal) {
+  const m = A.m;
+  eye(ctx, 0, 0, A.eye.r, P.eye, { lid: (0.15 + m.fierce * 0.45) * (1 - 0.5 * keenOf(m)), keen: keenOf(m) });
 }
 
 // ---------------------------------------------------------------------------
@@ -433,7 +469,7 @@ export function paintOverlay(ctx: Ctx, A: FishAnatomy, P: Pal) {
   const flap = () => {
     ctx.beginPath();
     gillCurve(ctx, A, 0, 0);
-    gillCurve(ctx, A, -3, 1);
+    gillCurve(ctx, A, -2.4, 1);
     ctx.closePath();
   };
   // der Deckel wirft einen Schatten nach hinten (auf Rumpf und Flossenansatz)
@@ -451,8 +487,11 @@ export function paintOverlay(ctx: Ctx, A: FishAnatomy, P: Pal) {
   ctx.fillStyle = css(F.base);
   ctx.fillRect(hx - 20, hy - hg.H, 40, hg.H * 2);
   ring(ctx, path, -A.bh * 0.03, 0.52, (top) => {
-    ctx.fillStyle = css(top ? F.top : F.belly, 0.97);
+    ctx.fillStyle = css(top ? F.top : F.belly, 1);
   });
+  // dieselben harten Licht- und Schattenstreifen wie am Körper, damit die Kante nicht als Fleck auffällt
+  crescent(ctx, path, -A.bh * 0.04, -A.bh * 0.17, css(shadowOf(F.base), 0.7));
+  crescent(ctx, path, 0.4, A.bh * 0.07, css(lightOf(F.base, 0.3), 0.55));
   ctx.restore();
   // Linie des Deckelrandes, eine helle Kante davor und zwei kurze Kiemenstriche
   ctx.save();
