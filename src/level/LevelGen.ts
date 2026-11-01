@@ -594,7 +594,9 @@ function dressGround(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Gro
   for (let c = 0; c < cols; c += rint(r, 1, 2)) {
     const x = (c + 0.25 + r() * 0.5) * T;
     const m = matAt(zones, x);
-    if (r() >= (lush ? 1 : 0.85) * (m === 'rock' ? 0.85 : 1)) continue;
+    // im Korallengarten dicht bewachsen, in den Tiefen deutlich weniger (im Abgrund kaum noch etwas)
+    const grow = lush ? 1 : place.kind === 'deep' ? 0.38 : place.kind === 'abyss' ? 0.2 : 0.85;
+    if (r() >= grow * (m === 'rock' ? 0.85 : 1)) continue;
     if (!free(x, 6)) continue;
     const b = pickBio(r, place.kind, ep.id, m, !!ep.reef);
     if (!b) continue;

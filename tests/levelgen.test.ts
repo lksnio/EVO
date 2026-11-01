@@ -147,3 +147,20 @@ describe('Karbon: Land über dem Wasser', () => {
     expect(maxSlope(0.8, 0.8)).toBeGreaterThan(steepTop);
   });
 });
+
+describe('Bewuchs je Ort', () => {
+  // Pflanzen und Deko je 1000 Bildpunkte Breite: im Korallengarten dicht, in den Tiefen deutlich weniger
+  const dens = (kind: string) => {
+    const place = placesOf(ep).find((p) => p.kind === kind)!;
+    let n = 0, w = 0;
+    for (const seed of ['bewuchs-a', 'bewuchs-b', 'bewuchs-c']) {
+      const L = generateLevel(ep, seed, place);
+      n += L.plants.length + L.decor.length;
+      w += L.width;
+    }
+    return (n / w) * 1000;
+  };
+  it('im Korallengarten wächst viel, in den Tiefen deutlich weniger', () => {
+    expect(dens('deep')).toBeLessThan(dens('lush') * 0.7);
+  });
+});

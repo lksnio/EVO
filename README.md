@@ -256,6 +256,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     dem Tempo, und sie kosten **etwas Ausdauer** (−4 % bei +10 Punkten, `MOVEMENT.finEndurance`).
   - **Ausdauer aus Strecke:** Weite Strecken (`INHERIT.endDistance`, 90 000 Bildpunkte) geben bis zu **+3 Ausdauerpunkte** je Generation (+3 % Ausdauer je Punkt) – der **Kamm am Rücken**
     (Rückenflosse) wächst mit ihnen – und kosten **etwas Tempo** (−0,4 % je Punkt, `MOVEMENT.endSpeed`).
+  - **Jäger im Kampf (Räuber und Herrscher):** Sie schwimmen normal, solange sie nur umherziehen; **verfolgen** sie ein Ziel oder sind sie im Kampf, **steigern sie ihr Tempo**
+    (`sim/pace.ts`, `HUNT`): in 3,5 s voll, das Verfolgen bis **+40 %**, Ausholen und Zuschnappen (der Biss, `Animal.atkSpeed`) bis **+30 %**; nach dem Kampf klingt es in 6 s
+    ab. Wer lange hinter dir her ist, beißt also schneller zu als einer, der gerade erst losschwimmt (und ermüdet dabei früher: die Ausdauer rechnet mit dem höheren Tempo).
   - **Versteckte Farbabweichung:** Körper, Flossen und Kopfpanzer wandern **von Ei zu Ei** in kleinen Zufallsschritten (`driftColors`, Streuung `INHERIT.colorStep` 0,1; Werte −1 … +1 in
     `cb`, `cf`, `cp`), ohne Anzeige: höchstens ±26° Farbton und ±7 % Helligkeit am Körper, ±34° an den Flossen, ±20° am Panzer (`COLOR` in `creatureArt.ts`) – der Fisch bleibt erkennbar
     derselbe, aber nach ein paar Generationen fragt man sich, wann er die Farbe bekommen hat.
@@ -681,13 +684,17 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   ihr aus. Alle Zahlen stehen in `SHELLS`, `UPGRADES` und `STAMINA` (`src/data/life.ts`) und in der
   [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
   das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
-- **Sicht gibt es nur in der Tiefe:** Oben – im Laichfluss, auf dem Schelf, in trübem Wasser, im oberen Tiefental – ist die Sicht **immer ganz frei**: kein
-  Trübe, kein Dunkel, alles im Bild klar (die Wasserfarben bleiben, sie sind Stimmung, keine Sichtgrenze). Erst **in der Tiefe** (der Anteil der Tiefe des Ortes,
-  ab dem das Dunkel einsetzt, `LevelScene.deepK`; Gate 0 oben … 1 unten, weich) gilt die Sicht des Tiers – so wie bisher, nur **ein Zehntel weiter**
-  (`SIGHT.deepBonus` 1,1). Der Übergang ist stetig (`vision(…, gate)`), die Seitenlinie bleibt. **Training:** Sicht ist **kein Segen der Muschel** und hat keinen
-  Kompromiss; sie wächst nur dadurch, dass man **lange in der Tiefe** schwimmt (Sekunden mit `deepK` über `SIGHT.trainFrom`, 0,35): Bei `INHERIT.deepRef` (90 s) bekommen die Nachkommen
-  `INHERIT.sightStep` (2) Sichtpunkte (+5 % Sicht je Punkt, `UPGRADES.sightPer`), bei weniger anteilig; die Augen wachsen mit. Ältere Spielstände mit Sicht-Segen bekommen die
-  Muscheln zurück (frei zum neu Verteilen).
+- **Sicht gibt es nur in den Tiefen-Orten:** In allen anderen Orten – im Laichfluss, auf dem Schelf, im trüben Flachwasser – ist die Sicht **immer ganz frei**: kein Trübe,
+  kein Dunkel, alles im Bild klar (die Wasserfarben bleiben, sie sind Stimmung, keine Sichtgrenze). Im **Tiefental** (Orte der Art `deep` und `abyss`) gilt die Sicht
+  dagegen **vom Einstieg an**: Oben ist sie schon deutlich begrenzt (Tiefenwert `SIGHT.deepTop` 0,3), und mit jedem Schritt nach unten wird sie **enger** – bis zu einem
+  Mindestmaß am Grund (der klare Bereich schrumpft auf etwa 120 Bildpunkte, das Dunkel liegt dicht und fast schwarz an den Rändern). Wie bisher gilt die Sicht des Tiers –
+  nur **ein Zehntel weiter** (`SIGHT.deepBonus` 1,1); Übergänge sind stetig (`vision(…, gate)`, `LevelScene.sightStep`), die Seitenlinie bleibt. **Training:** Sicht ist **kein
+  Segen der Muschel** und hat keinen Kompromiss; sie wächst nur dadurch, dass man **lange unten** schwimmt (Sekunden unterhalb von `SIGHT.trainFrom`, einem Viertel der Tiefe des
+  Ortes): Bei `INHERIT.deepRef` (90 s) bekommen die Nachkommen `INHERIT.sightStep` (2) Sichtpunkte (+5 % Sicht je Punkt), bei weniger anteilig; die Augen wachsen mit. Ältere
+  Spielstände mit Sicht-Segen bekommen die Muscheln zurück (frei zum neu Verteilen).
+
+- **Bewuchs und Hintergrund:** Der Korallengarten ist dicht bewachsen; im Tiefental wächst **deutlich weniger** (Deko je Spalte nur noch 38 %, im Abgrund 20 %, `dressGround`). Im
+  Hintergrund ziehen im Korallengarten **nur noch halb so viele** Fischschwärme wie zuvor (`BackSea.DENSITY.lush` 0,75).
 
 - **Sicht in der Tiefe (die Rechnung):** Ein Fisch sieht vor allem dorthin, wohin er schwimmt – aber auch ein Stück hinter sich. Wie auf
   einem **Zeitstrahl von 0 bis 10**: Steht der Fisch auf 5 und schaut Richtung 10, sieht er **4, 5, 6, 7**; dreht er sich

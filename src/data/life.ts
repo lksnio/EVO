@@ -75,6 +75,12 @@ export const FLOW = {
   boostedCredit: 1.6,
 };
 
+/**
+ * Jäger im Kampf werden schneller (sim/pace.ts): Das Verfolgungstempo wächst in rise Sekunden um bis zu chase (Anteil), der Angriff (Ausholen und
+ * Zuschnappen) um bis zu attack; nach dem Kampf klingt es in fade Sekunden ab. Gilt für Räuber und Herrscher, nicht für Beute.
+ */
+export const HUNT = { rise: 3.5, fade: 6, chase: 0.4, attack: 0.3 };
+
 /** Der Kopfstoß: mehr Schaden – und ein Stoß zählt für den Schädel so viel wie mehrere Bisse (3–4). */
 export const RAM = { damage: 0.95, credit: 3.5 };
 

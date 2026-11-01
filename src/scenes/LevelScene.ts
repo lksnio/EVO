@@ -2565,14 +2565,19 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const p = this.player;
     const rot = p.view.rotation;
     // wie weit man sieht: nach der Sicht des Tiers, der Wasserqualität des Ortes und der Tiefe (nah an der Oberfläche weiter)
-    const water = SIGHT.water[this.place.kind] ?? 1, deep = depthOf(p.y - this.L.surfaceY);
-    // Sicht gibt es nur in der Tiefe (gate = deepK): oben ist alles klar; unten gilt sie wie bisher, ein Zehntel weiter
-    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep, this.deepK);
+    // Sicht gibt es nur in den Tiefen-Orten (gate 1): Dort ist sie vom Einstieg an begrenzt und wird mit jedem Schritt nach unten enger – bis zu einem
+    // Mindestmaß, mit schwarzen Rändern. In allen anderen Orten ist die Sicht ganz frei (gate 0).
+    const inDeep = this.place.kind === 'deep' || this.place.kind === 'abyss';
+    const water = SIGHT.water[this.place.kind] ?? 1;
+    const frac = clamp((p.y - this.L.surfaceY) / Math.max(400, this.L.height - this.L.surfaceY), 0, 1);
+    const deep = inDeep ? SIGHT.deepTop + (1 - SIGHT.deepTop) * frac : depthOf(p.y - this.L.surfaceY);
+    const gate = inDeep ? 1 : 0;
+    sg.update(dt, p.x, p.y, p.facing > 0 ? rot : Math.PI + rot, game.sight, water, deep, gate);
     // Spieleraufhellung: begrenzt, weich nachgeführt, nur für die Zeichnung des eigenen Fisches (siehe sim/sight.ts, LIFT)
     this.lift += (LIFT.base + LIFT.range * (1 - sg.clarityAt(p.x, p.y, 0)) - this.lift) * (1 - Math.exp(-dt * LIFT.rate));
     p.view.setLift(this.lift);
     // die Fische in der Ferne: In klarem Wasser dicht unter der Oberfläche sieht man sie gut, im Trüben und in der Tiefe kaum
-    if (this.backSea) this.backSea.see += (clearness(1 - (1 - water) * this.deepK, deep * this.deepK) - this.backSea.see) * Math.min(1, dt * 1.5);
+    if (this.backSea) this.backSea.see += (clearness(inDeep ? water : 1, inDeep ? deep : 0) - this.backSea.see) * Math.min(1, dt * 1.5);
     const now = this.time.now;
     for (const a of this.animals) {
       if (a.dead) continue;
@@ -2656,7 +2661,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
     const k = this.deepK;
     // Wer lange unten ist, bekommt bessere Augen für die Nachkommen (nur so wächst die Sicht)
-    if (k > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
+    if (frac > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
     this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;

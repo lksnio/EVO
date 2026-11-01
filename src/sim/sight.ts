@@ -36,8 +36,10 @@ export const SIGHT = {
   steep: 0.6,
   /** In der Tiefe sieht man so viel weiter als nach dem alten Stand (Faktor auf die Sicht nach vorn) – oben gibt es keine Sichtgrenze mehr */
   deepBonus: 1.1,
-  /** so tief (deepK: Anteil der Tiefe des Ortes) zählt die Zeit unten für das Training der Sicht */
-  trainFrom: 0.35,
+  /** so tief (Anteil der Tiefe des Tiefen-Ortes) zählt die Zeit unten für das Training der Sicht */
+  trainFrom: 0.25,
+  /** in einem Tiefen-Ort gilt schon oben die Tiefe 0,3 (die Sicht ist gleich beim Einstieg begrenzt), ganz unten 1 (Mindestmaß) */
+  deepTop: 0.3,
   /** so dicht ist das trübe Wasser jenseits der Sicht: in ganz klarem Wasser dicht unter der Oberfläche … */
   murkClear: 0.42,
   /** … und in trübem oder tiefem Wasser */

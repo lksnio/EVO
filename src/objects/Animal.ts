@@ -5,6 +5,7 @@ import { JAW_HALF, jawAnim, jawOf, speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { BITE, bitePlan, biteRest, type BitePlan } from '../sim/bite';
+import { attackPace, chasePace, surgeStep } from '../sim/pace';
 import { clamp, overlaps, type Rect } from '../util/math';
 import { Meat, type Plant } from './Food';
 
@@ -392,8 +393,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   }
 
   /** Tempo bei Angriffen – die Tiere schwimmen gemächlicher als früher, greifen aber so schnell an wie eh und je */
+  /** Kampf-Beschleunigung der Jäger (0 … 1, sim/pace.ts): Wer lange verfolgt oder kämpft, wird schneller */
+  protected surge = 0;
+
   protected get atkSpeed() {
-    return this.def.atkSpeed ?? this.def.speed;
+    return (this.def.atkSpeed ?? this.def.speed) * attackPace(this.surge);
   }
 
   protected get swims() {
@@ -455,6 +459,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.threatObj && !this.isPlayer(this.threatObj) && this.threatObj.dead) this.threatObj = null;
     this.t += dt;
     this.stT += dt;
+    // Jäger schwimmen normal, im Kampf (Verfolgung, Angriff, Ansturm) steigern sie ihr Tempo
+    this.surge = surgeStep(this.surge, (this.role === 'predator' || this.role === 'apex') && (this.st === 'hunt' || !!this.atk || !!this.mv), dt);
     // Jäger werden nur langsam wieder hungrig – sie jagen nicht den ganzen Tag
     const hr = this.role === 'apex' ? 0.006 : this.role === 'predator' ? 0.0085 : 0.009;
     this.hunger = Math.min(1, this.hunger + dt * hr);
@@ -973,7 +979,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.go('hunt');
         this.huntingPlayer = this.isPlayer(this.target);
       }
-      this.chase(this.target, this.def.speed * 1.25);
+      this.chase(this.target, this.def.speed * 1.25 * chasePace(this.surge));
       this.tryBite(time, this.target);
       return;
     }
@@ -1412,7 +1418,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     }
     if (this.st !== 'hunt') this.go('hunt');
-    this.chase(tg, this.def.speed * 1.1);
+    this.chase(tg, this.def.speed * 1.1 * chasePace(this.surge));
     this.tryBite(time, tg, this.role === 'apex' ? 1.2 : 1);
     const d = this.dist(tg);
     const moves = APEX_MOVES[this.def.id];
