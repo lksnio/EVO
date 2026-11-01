@@ -1,0 +1,380 @@
+{
+  "status": "artwork_import_candidates_not_runtime_verified",
+  "sourceRepository": "lksnio/EVO",
+  "sourceCommit": "780cdea",
+  "alphaThreshold": 128,
+  "note": "Native artwork pixels are unchanged. Bounds are measurement aids for registration, not verified pivots. The original template canvas and UV frames remain authoritative.",
+  "assets": {
+    "master": {
+      "file": "fish_master_reference.png",
+      "nativeSize": [
+        1675,
+        939
+      ],
+      "paintedBounds128": [
+        133,
+        105,
+        1597,
+        812
+      ],
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    "body": {
+      "file": "textures/teil_body.png",
+      "nativeSize": [
+        1954,
+        805
+      ],
+      "paintedBounds128": [
+        113,
+        58,
+        1872,
+        714
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        1575,
+        648
+      ],
+      "templateBounds128": [
+        93,
+        48,
+        1540,
+        598
+      ],
+      "templateOriginPx": [
+        880,
+        350.72
+      ],
+      "placedAt": [
+        0,
+        0
+      ],
+      "box": {
+        "x0": -55,
+        "x1": 43.400000000000006,
+        "y0": -21.92,
+        "y1": 18.560000000000002
+      },
+      "mesh": {
+        "cols": 16,
+        "rows": 3
+      }
+    },
+    "jaw": {
+      "file": "textures/teil_jaw.png",
+      "nativeSize": [
+        1411,
+        1115
+      ],
+      "paintedBounds128": [
+        265,
+        526,
+        1170,
+        842
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        295,
+        233
+      ],
+      "templateBounds128": [
+        8,
+        46,
+        256,
+        194
+      ],
+      "templateOriginPx": [
+        64,
+        80
+      ],
+      "placedAt": [
+        28.800000000000004,
+        3.024
+      ],
+      "box": {
+        "x0": -4,
+        "x1": 14.4,
+        "y0": -5,
+        "y1": 9.55776
+      },
+      "mesh": null
+    },
+    "eye": {
+      "file": "textures/teil_eye.png",
+      "nativeSize": [
+        1254,
+        1254
+      ],
+      "paintedBounds128": [
+        254,
+        254,
+        999,
+        987
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        149,
+        149
+      ],
+      "templateBounds128": [
+        15,
+        15,
+        134,
+        134
+      ],
+      "templateOriginPx": [
+        74.48,
+        74.48
+      ],
+      "placedAt": [
+        27.800000000000004,
+        -4.394880000000001
+      ],
+      "box": {
+        "x0": -4.655,
+        "x1": 4.655,
+        "y0": -4.655,
+        "y1": 4.655
+      },
+      "mesh": null
+    },
+    "overlay": {
+      "file": "textures/teil_overlay.png",
+      "nativeSize": [
+        1193,
+        1319
+      ],
+      "paintedBounds128": [
+        380,
+        122,
+        782,
+        1164
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        352,
+        389
+      ],
+      "templateBounds128": [
+        126,
+        19,
+        309,
+        351
+      ],
+      "templateOriginPx": [
+        -118.40000000000003,
+        163.584
+      ],
+      "placedAt": [
+        0,
+        0
+      ],
+      "box": {
+        "x0": 7.400000000000002,
+        "x1": 29.400000000000002,
+        "y0": -10.224,
+        "y1": 14.064
+      },
+      "mesh": {
+        "cols": 5,
+        "rows": 3
+      }
+    },
+    "dorsal": {
+      "file": "textures/teil_dorsal.png",
+      "nativeSize": [
+        1530,
+        1028
+      ],
+      "paintedBounds128": [
+        122,
+        172,
+        1410,
+        869
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        500,
+        336
+      ],
+      "templateBounds128": [
+        35,
+        35,
+        464,
+        325
+      ],
+      "templateOriginPx": [
+        249.6,
+        272
+      ],
+      "placedAt": [
+        -6,
+        -11.200000000000001
+      ],
+      "box": {
+        "x0": -15.6,
+        "x1": 15.6,
+        "y0": -17,
+        "y1": 4
+      },
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      }
+    },
+    "anal": {
+      "file": "textures/teil_anal.png",
+      "nativeSize": [
+        1234,
+        1274
+      ],
+      "paintedBounds128": [
+        149,
+        132,
+        1096,
+        1149
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        279,
+        288
+      ],
+      "templateBounds128": [
+        35,
+        11,
+        243,
+        253
+      ],
+      "templateOriginPx": [
+        139.2,
+        64
+      ],
+      "placedAt": [
+        -16.200000000000003,
+        8.4
+      ],
+      "box": {
+        "x0": -8.7,
+        "x1": 8.7,
+        "y0": -4,
+        "y1": 14
+      },
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      }
+    },
+    "pelvic": {
+      "file": "textures/teil_pelvic.png",
+      "nativeSize": [
+        1254,
+        1254
+      ],
+      "paintedBounds128": [
+        324,
+        237,
+        994,
+        1021
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        208,
+        208
+      ],
+      "templateBounds128": [
+        35,
+        11,
+        167,
+        173
+      ],
+      "templateOriginPx": [
+        104,
+        64
+      ],
+      "placedAt": [
+        0,
+        11.200000000000001
+      ],
+      "box": {
+        "x0": -6.5,
+        "x1": 6.5,
+        "y0": -4,
+        "y1": 9
+      },
+      "mesh": {
+        "cols": 4,
+        "rows": 2
+      }
+    },
+    "pectoral": {
+      "file": "textures/teil_pectoral.png",
+      "nativeSize": [
+        1281,
+        1227
+      ],
+      "paintedBounds128": [
+        237,
+        294,
+        1118,
+        968
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "templateSize": [
+        384,
+        368
+      ],
+      "templateBounds128": [
+        55,
+        64,
+        335,
+        289
+      ],
+      "templateOriginPx": [
+        288,
+        128
+      ],
+      "placedAt": [
+        17.000000000000004,
+        3.5759999999999996
+      ],
+      "box": {
+        "x0": -18,
+        "x1": 6,
+        "y0": -8,
+        "y1": 15
+      },
+      "mesh": {
+        "cols": 3,
+        "rows": 2
+      }
+    }
+  }
+}
