@@ -11,6 +11,13 @@ from PIL import Image
 SRC = os.path.join(os.path.dirname(__file__), '..', 'art', 'EVO_fish_painted_v1', 'EVO_fish_painted_v1', 'textures')
 DST = os.path.join(os.path.dirname(__file__), '..', 'src', 'assets', 'fish', 'painted')
 SCALE = {'body': 0.6, 'jaw': 0.5, 'eye': 0.4, 'overlay': 0.5, 'dorsal': 0.5, 'anal': 0.5, 'pelvic': 0.4, 'pectoral': 0.5}
+# Zweiter Satz (art/im1–im4): Sonderzeichnungen für die Extremformen und das Maulinnere
+EXTRA = {
+    'body_kurz': ('im1.png', 0.65),   # kurz/massiger Körper (len −1, girth 1)
+    'body_lang': ('im2.png', 0.65),   # lang/schlanker Körper (len 1, girth −1, swift 1)
+    'mouth': ('im3.png', 0.3),        # Maulinnenraum (Rachen links dunkel, Gaumen rechts)
+    'jaw_lang': ('im4.png', 0.3),     # langer Unterkiefer (starkes Gebiss)
+}
 
 os.makedirs(DST, exist_ok=True)
 for name, k in SCALE.items():
@@ -18,4 +25,12 @@ for name, k in SCALE.items():
     im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
     out = os.path.join(DST, f'{name}.webp')
     im.save(out, 'WEBP', quality=90, method=6)
+    print(name, im.size, os.path.getsize(out) // 1024, 'KB')
+
+ART = os.path.join(os.path.dirname(__file__), '..', 'art')
+for name, (f, k) in EXTRA.items():
+    im = Image.open(os.path.join(ART, f)).convert('RGBA' if name != 'mouth' else 'RGB')
+    im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+    out = os.path.join(DST, f'{name}.webp')
+    im.save(out, 'WEBP', quality=88 if name == 'mouth' else 90, method=6)
     print(name, im.size, os.path.getsize(out) // 1024, 'KB')

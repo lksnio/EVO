@@ -5,7 +5,7 @@ import { palette, morphKey, quantize, type Morph } from '../creatureArt';
 import { withInk } from '../ink';
 import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
 import { solveSpine } from './spine';
-import { paintBodyPainted, paintEyePainted, paintFinPainted, paintJawPainted, paintOverlayPainted, paintedReady } from './painted';
+import { MOUTH_KEY, paintBodyPainted, paintEyePainted, paintFinPainted, paintJawPainted, paintOverlayPainted, paintedReady } from './painted';
 import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
 
 // ---------------------------------------------------------------------------
@@ -22,6 +22,7 @@ import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin,
 // ---------------------------------------------------------------------------
 
 export const FISH_RES = 3;
+const MOUTH_COLS = 8;
 const COLS = 16;
 const ROWS = 3;
 
@@ -174,6 +175,7 @@ export class FishRig {
   readonly cavity: Phaser.GameObjects.Graphics;
   private body: Grid;
   private overlay: Grid;
+  private mouth?: Grid;
   private eyeImg: Phaser.GameObjects.Image;
   private jaw: Phaser.GameObjects.Image;
   private fins: { grid: Grid; kind: 'dorsal' | 'anal' | 'pelvic' | 'pec' | 'pecFar' }[] = [];
@@ -221,6 +223,8 @@ export class FishRig {
     const dorsal = finGrid('dorsal');
     const anal = finGrid('anal');
     this.cavity = new Phaser.GameObjects.Graphics(scene);
+    // gemaltes Maulinneres (ein Netz, das zwischen Oberlippe und Unterkiefer aufgespannt wird); ohne gemalte Texturen die dunkle Fläche
+    if (paintedReady(scene)) this.mouth = new Grid(scene, MOUTH_KEY, { x0: 0, x1: 1, y0: 0, y1: 1 }, MOUTH_COLS, 1);
     const jb = T.box.jaw;
     this.jaw = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.jaw).setOrigin(-jb.x0 / (jb.x1 - jb.x0), -jb.y0 / (jb.y1 - jb.y0)).setScale(this.s / FISH_RES);
     const pec = finGrid('pec');
@@ -228,7 +232,7 @@ export class FishRig {
     this.eyeImg = new Phaser.GameObjects.Image(scene, 0, 0, T.keys.eye).setScale(this.s / FISH_RES);
     this.overlay = new Grid(scene, T.keys.overlay, T.box.overlay, 5, 3);
     const overlay = this.overlay.mesh;
-    this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
+    this.parts.push(pecFar, pelvic, dorsal, anal, ...(this.mouth ? [this.mouth.mesh] : [this.cavity]), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
   }
@@ -321,7 +325,8 @@ export class FishRig {
     const rest = p.clench ? -p.clench * 0.06 : 0;
     const opening = p.open * J1 + rest + (idle ? Math.max(0, Math.sin(p.t * 1.3)) * 0.04 : 0);
     this.jaw.setPosition(hj.x, hj.y).setRotation(hj.rot + opening);
-    this.drawCavity(hj.x, hj.y, hj.rot, opening);
+    if (this.mouth) this.drawMouth(hj.x, hj.y, hj.rot, opening);
+    else this.drawCavity(hj.x, hj.y, hj.rot, opening);
 
     // ---- Flossen
     const trail = 0.15 + 0.55 * sp; // bei Tempo legen sich die Flossen an
@@ -372,6 +377,26 @@ export class FishRig {
           g.set(i, j, ox + (px * cb - py * sb) * s, oy + (px * sb + py * cb) * s);
         }
       }
+    }
+  }
+
+  /** Maulinneres als gemaltes Netz: ein Viereck Gelenk – Lippenspitze – Kieferspitze, das Bild läuft vom dunklen Rachen (hinten) zum Gaumen. */
+  private drawMouth(hx: number, hy: number, rot: number, opening: number) {
+    const m = this.mouth!;
+    const vis = opening >= 0.03;
+    m.mesh.setVisible(vis);
+    if (!vis) return;
+    const s = this.s, A = this.A;
+    const len = A.jawLen * 0.94;
+    const c = Math.cos(opening), sn = Math.sin(opening);
+    const to = (x: number, y: number): [number, number] => [hx + (x * Math.cos(rot) - y * Math.sin(rot)) * s, hy + (x * Math.sin(rot) + y * Math.cos(rot)) * s];
+    // oben die Lippenlinie (leicht in den Kopf hinein, damit keine Lücke bleibt), unten der Kiefer (um den Öffnungswinkel gedreht)
+    const topA = to(-2.2, -1.0), topB = to(len, -1.0);
+    const botA = to(-2.2, 3.4), botB = to(len * c + 0.3 * -sn, 0.3 * c + len * sn);
+    for (let i = 0; i <= MOUTH_COLS; i++) {
+      const t = i / MOUTH_COLS;
+      m.set(i, 0, topA[0] + (topB[0] - topA[0]) * t, topA[1] + (topB[1] - topA[1]) * t);
+      m.set(i, 1, botA[0] + (botB[0] - botA[0]) * t, botA[1] + (botB[1] - botA[1]) * t);
     }
   }
 

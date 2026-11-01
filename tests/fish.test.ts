@@ -182,3 +182,23 @@ describe('Gemalte Fischtexturen (Registrierung)', () => {
     }
   });
 });
+
+describe('Körperzeichnung je Form', () => {
+  it('die Gewichte der gemalten Körper: neutral in der Mitte, kurz/massig und lang/schlank an den Enden, dazwischen weich – immer Summe 1', async () => {
+    const { bodyWeights, jawLongWeight } = await import('../src/art/fish/painted');
+    const w = (v: Partial<Morph>) => bodyWeights(A(v));
+    expect(w({}).neutral).toBe(1);
+    expect(w({ len: 0.2, girth: -0.2 }).neutral).toBeGreaterThan(0.9);
+    expect(w({ len: -1, girth: 1 }).kurz).toBe(1);
+    expect(w({ len: 1, girth: -1, swift: 1 }).lang).toBe(1);
+    let last = 1;
+    for (let k = 0; k <= 10; k++) {
+      const x = w({ len: -k / 10, girth: k / 10 });
+      expect(x.neutral + x.kurz + x.lang).toBeCloseTo(1, 6);
+      expect(x.neutral).toBeLessThanOrEqual(last + 1e-9);
+      last = x.neutral;
+    }
+    expect(jawLongWeight(A({ jaw: 0 }))).toBe(0);
+    expect(jawLongWeight(A({ jaw: 1, toothTier: 9 }))).toBe(1);
+  });
+});

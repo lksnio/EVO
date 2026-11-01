@@ -17,7 +17,12 @@ import { bodyPath, fillOf, gillCurve, paintBodyFeatures, paintLowerTeeth, paintU
 // Alles hier ist Registrierung: Die Zahlen lassen sich pro Teil nachstellen, ohne ein Bild anzufassen.
 // ---------------------------------------------------------------------------
 
-export type PartKey = 'body' | 'jaw' | 'eye' | 'overlay' | 'dorsal' | 'anal' | 'pelvic' | 'pectoral';
+/** (siehe oben) */
+const JAW_TOP_C = -0.9;
+
+export type RegKey = 'body' | 'jaw' | 'eye' | 'overlay' | 'dorsal' | 'anal' | 'pelvic' | 'pectoral';
+/** Dazu die Sonderzeichnungen (art/im1–im4): Körper kurz/massig und lang/schlank, langer Unterkiefer, Maulinneres */
+export type PartKey = RegKey | 'body_kurz' | 'body_lang' | 'jaw_lang' | 'mouth';
 
 export interface Reg {
   /** Pixel des Originals (vor der Verkleinerung in tools/fish_assets.py) */
@@ -34,7 +39,7 @@ export interface Reg {
  *   jaw     dst: Oberkante = Maulspalte (y 0), Gelenk links, Kinn/Spitze rechts – nicht die Zähne der alten Vorlage;
  *   overlay dst: der Bogen läuft vom Ansatz hinter dem Auge (oben) zur Kehle (unten) und holt hinten zur Kiemenfalte aus.
  */
-export const REG: Record<PartKey, Reg> = {
+export const REG: Record<RegKey, Reg> = {
   body: { orig: [1954, 805], src: [113, 58, 1872, 714], dst: [-49.19, -18.92, 41.25, 15.45] },
   jaw: { orig: [1411, 1115], src: [265, 526, 1170, 842], dst: [-2.4, 0, 10.75, 6.9] },
   eye: { orig: [1254, 1254], src: [254, 254, 999, 987], dst: [-3.72, -3.72, 3.72, 3.72] },
@@ -49,7 +54,7 @@ export const REG: Record<PartKey, Reg> = {
 const NEUTRAL = { base: 25.2, dLen: 14, aBase: 11.4, aLen: 11, vBase: 7, vLen: 6, pLen: 15 };
 
 /** Nachstellbare Korrekturen je Teil (Einheiten, im Teilrahmen): Verschiebung und Skalierung nach der Registrierung. */
-export const NUDGE: Partial<Record<PartKey, { dx?: number; dy?: number; sx?: number; sy?: number }>> = {};
+export const NUDGE: Partial<Record<RegKey | 'jawLang', { dx?: number; dy?: number; sx?: number; sy?: number }>> = {};
 
 export const FILES: Record<PartKey, string> = {
   body: new URL('../../assets/fish/painted/body.webp', import.meta.url).href,
@@ -60,9 +65,26 @@ export const FILES: Record<PartKey, string> = {
   anal: new URL('../../assets/fish/painted/anal.webp', import.meta.url).href,
   pelvic: new URL('../../assets/fish/painted/pelvic.webp', import.meta.url).href,
   pectoral: new URL('../../assets/fish/painted/pectoral.webp', import.meta.url).href,
+  body_kurz: new URL('../../assets/fish/painted/body_kurz.webp', import.meta.url).href,
+  body_lang: new URL('../../assets/fish/painted/body_lang.webp', import.meta.url).href,
+  jaw_lang: new URL('../../assets/fish/painted/jaw_lang.webp', import.meta.url).href,
+  mouth: new URL('../../assets/fish/painted/mouth.webp', import.meta.url).href,
+};
+
+/**
+ * Sonderzeichnungen. Jede gehört zu einer Referenzform (Morph), deren Anatomie die Zeichnung trägt; `dst` ist die Begrenzung der gemalten
+ * Fläche in der Vorlage dieser Form (art/vorlagen/fisch/<form>/teil_*.png, Alpha ≥ 128, in Einheiten), `src` die im Bild (Alpha ≥ 128).
+ */
+export const VARIANTS = {
+  kurz: { file: 'body_kurz' as PartKey, morph: { len: -1, girth: 1 }, reg: { orig: [1322, 1190], src: [98, 72, 1285, 1114], dst: [-36.65, -33.53, 32.72, 29.9] } as Reg },
+  lang: { file: 'body_lang' as PartKey, morph: { len: 1, girth: -1, swift: 1 }, reg: { orig: [2084, 754], src: [96, 68, 2036, 677], dst: [-67.89, -20.91, 49.86, 17.09] } as Reg },
+  /** langer Unterkiefer: Gelenk-Rahmen wie beim neutralen Kiefer; Maße der Form „starkes Gebiss“ (jawLen 38,7, jawH 11,1) */
+  jawLang: { file: 'jaw_lang' as PartKey, reg: { orig: [1956, 804], src: [97, 228, 1896, 655], dst: [-4.2, JAW_TOP_C, 40.0, JAW_TOP_C + 10.4] } as Reg },
 };
 const PARTS = Object.keys(FILES) as PartKey[];
 const key = (k: PartKey) => 'fishp_' + k;
+/** Textur des gemalten Maulinneren (Schlüssel im Texturmanager) */
+export const MOUTH_KEY = 'fishp_mouth';
 
 /** Entwickler: ?procfish zeigt den Fisch mit der programmierten Zeichnung (statt der gemalten) – für Vergleiche */
 const FORCE_PROC = typeof location !== 'undefined' && new URLSearchParams(location.search).has('procfish');
@@ -150,6 +172,29 @@ function pw(xs: number[], ys: number[], x: number) {
 let neutralA: FishAnatomy | undefined;
 const neutral = () => (neutralA ??= fishAnatomy({ cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 1, sex: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, fang: 0, toothTier: 0, light: 0, limb: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0, eye: 0, stamUp: 0, grip: 0, gills: 0 } as Morph));
 
+const refAnat = new Map<string, FishAnatomy>();
+const BASE_MORPH = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 1, sex: 0 } as Morph;
+function variantAnatomy(name: 'kurz' | 'lang') {
+  let a = refAnat.get(name);
+  if (!a) refAnat.set(name, (a = fishAnatomy({ ...BASE_MORPH, ...VARIANTS[name].morph } as Morph)));
+  return a;
+}
+
+/**
+ * Welche Körperzeichnung gilt für diese Anatomie: Das Seitenverhältnis des Körpers (Länge : Höhe) gegenüber der neutralen Form entscheidet.
+ * Zwischen den Zeichnungen wird übergeblendet (kurz → neutral → lang), damit die Entwicklung keinen Sprung macht.
+ */
+export function bodyWeights(A: FishAnatomy) {
+  const N = neutral();
+  const q = Math.log((A.bw / A.bh) / (N.bw / N.bh));
+  const sm = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const kurz = sm(-0.15, -0.55, q), lang = sm(0.15, 0.55, q);
+  return { kurz, lang, neutral: 1 - kurz - lang };
+}
+
+/** Der lange Unterkiefer löst den neutralen ab, wenn das Maul sehr lang wird (Gebiss). */
+export const jawLongWeight = (A: FishAnatomy) => { const t = Math.max(0, Math.min(1, (A.jawLen - 14) / 10)); return t * t * (3 - 2 * t); };
+
 // ---------------------------------------------------------------------------
 // Körper: gemalte Fläche, abschnittsweise an die Anatomie angepasst
 
@@ -197,8 +242,7 @@ function sample(d: ImageData, u: number, v: number, out: number[]) {
  * (jedes Pixel des Ziels fragt das Bild, mit 2 × 2 Stichproben gegen Kanten): x stückweise linear durch Schwanzflosse – Stielende –
  * Hals – Schnauze, in der Höhe nach Spannweite der Flosse, Stielhöhe, Körperhöhe und Kopfhöhe, dazwischen weich.
  */
-function warpBody(dest: HTMLCanvasElement, tr: DOMMatrix, img: HTMLImageElement | HTMLCanvasElement, A: FishAnatomy) {
-  const N = neutral(), r = REG.body;
+function warpBody(dest: HTMLCanvasElement, tr: DOMMatrix, img: HTMLImageElement | HTMLCanvasElement, A: FishAnatomy, N: FishAnatomy, r: Reg) {
   const sxN = (r.dst[2] - r.dst[0]) / (r.src[2] - r.src[0]), syN = (r.dst[3] - r.dst[1]) / (r.src[3] - r.src[1]);
   const xn = [N.bounds.x0, N.pedX - 1, N.hx - 6, N.tip[0], N.bounds.x1];
   const xa = [A.bounds.x0, A.pedX - 1, A.hx - 6, A.tip[0], A.bounds.x1];
@@ -261,13 +305,27 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
   const F = fillOf(P);
   // Zähne zuerst: Die gemalte Oberlippe deckt ihre Wurzeln
   paintUpperTeeth(ctx, A, TEETH_DY);
-  const [base] = newCanvas(ctx.canvas.width, ctx.canvas.height, true);
-  warpBody(base, ctx.getTransform(), imgOf(scene, 'body'), A);
-  // Maske aus dem ungefärbten Bild, dann einfärben
-  const mask = interiorMask(base);
-  const bx = base.getContext('2d', { willReadFrequently: true })!;
-  tint(bx, reference(scene, 'body'), F.base);
-  const dst = ctx.canvas;
+  const w = bodyWeights(A);
+  type Src = { weight: number; key: PartKey; N: FishAnatomy; reg: Reg };
+  const src = ([
+    { weight: w.neutral, key: 'body', N: neutral(), reg: REG.body },
+    { weight: w.kurz, key: 'body_kurz', N: variantAnatomy('kurz'), reg: VARIANTS.kurz.reg },
+    { weight: w.lang, key: 'body_lang', N: variantAnatomy('lang'), reg: VARIANTS.lang.reg },
+  ] as Src[]).filter((v) => v.weight > 0.003);
+  const [flat] = newCanvas(ctx.canvas.width, ctx.canvas.height, true); // ungefärbte Mischung (für die Maske)
+  const [base] = newCanvas(ctx.canvas.width, ctx.canvas.height, true); // gefärbte Mischung
+  const fx = flat.getContext('2d', { willReadFrequently: true })!, bx = base.getContext('2d', { willReadFrequently: true })!;
+  fx.globalCompositeOperation = bx.globalCompositeOperation = 'lighter';
+  for (const v of src) {
+    const [one] = newCanvas(ctx.canvas.width, ctx.canvas.height, true);
+    warpBody(one, ctx.getTransform(), imgOf(scene, v.key), A, v.N, v.reg);
+    fx.globalAlpha = v.weight;
+    fx.drawImage(one, 0, 0);
+    tint(one.getContext('2d', { willReadFrequently: true })!, reference(scene, v.key), F.base);
+    bx.globalAlpha = v.weight;
+    bx.drawImage(one, 0, 0);
+  }
+  const mask = interiorMask(flat);
   const t = ctx.getTransform();
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -281,14 +339,13 @@ export function paintBodyPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, 
   ctx.drawImage(feat, 0, 0);
   ctx.restore();
   ctx.setTransform(t);
-  void dst;
   void bodyPath;
 }
 
 /** y-Versatz der oberen Zähne gegenüber der programmierten Lippenlinie (die gemalte Lippe liegt etwas anders) */
 const TEETH_DY = -0.8;
-/** Höhe der gemalten Kieferoberkante im Kiefergelenk-Rahmen (Einheiten) */
-const JAW_TOP = -0.9;
+/** (siehe oben) */
+const JAW_TOP = JAW_TOP_C;
 
 // ---------------------------------------------------------------------------
 // Die übrigen Teile
@@ -297,10 +354,22 @@ export function paintJawPainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P
   // untere Zähne zuerst: Der gemalte Kiefer deckt ihre Wurzeln
   paintLowerTeeth(ctx, A);
   const F = fillOf(P);
+  const target = mix(F.belly, F.base, 0.55);
+  const wl = jawLongWeight(A);
   // Die gemalte Oberlippe liegt 0,9 Einheiten über der programmierten Maulspalte: Der Kiefer wird um so viel angehoben. Sein hinterer
   // Teil reicht weit unter den Körper (die gemalte Kehle deckt ihn), vorn endet er an der Schnauzenspitze; die Tiefe folgt jawH.
-  const c = layer(ctx, (x) => drawFitted(x, imgOf(scene, 'jaw'), REG.jaw, [-4.2, JAW_TOP, A.jawLen * 1.034, JAW_TOP + 6.1 * (A.jawH / 6.56)], NUDGE.jaw), reference(scene, 'jaw'), mix(F.belly, F.base, 0.55));
-  blit(ctx, c);
+  const draw = (key: 'jaw' | 'jaw_lang', reg: Reg, to: [number, number, number, number], weight: number) => {
+    const c = layer(ctx, (x) => drawFitted(x, imgOf(scene, key), reg, to, key === 'jaw' ? NUDGE.jaw : NUDGE.jawLang), reference(scene, key), target);
+    ctx.save();
+    ctx.globalAlpha = weight;
+    blit(ctx, c);
+    ctx.restore();
+  };
+  const len = A.jawLen * 1.034;
+  const depth = 6.1 * (A.jawH / 6.56);
+  // (zwei Lagen mit Gewichten w und 1 − w ergeben bei w = 0 oder 1 genau eine Zeichnung; dazwischen eine Überblendung)
+  if (wl < 0.997) draw('jaw', REG.jaw, [-4.2, JAW_TOP, len, JAW_TOP + depth], 1 - wl);
+  if (wl > 0.003) draw('jaw_lang', VARIANTS.jawLang.reg, [-4.2, JAW_TOP, len, JAW_TOP + depth], wl);
 }
 
 export function paintEyePainted(ctx: Ctx, scene: Phaser.Scene, A: FishAnatomy, P: Pal) {

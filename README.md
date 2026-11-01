@@ -343,8 +343,14 @@ alte Fisch aus starren Teilen. Die Einbindung steht in `src/art/fish/painted.ts`
 * **Prozedurale Evolution bleibt:** Tarnbänder, Schwarmband, Hungerrippen, Schuppen und Schilde, Kopfplatten und Augenhöhle, Männchen-Kehlfleck und
   Narben werden auf einer eigenen Ebene gemalt und **nur auf die gemalte Fläche ohne ihre Kontur** gelegt (aus der Zeichnung berechnete Maske). Zähne sind
   eigene Bilder in Lippe und Kiefer; ihre Wurzeln liegen unter der gemalten Lippe bzw. dem gemalten Kiefer. Stützflossen (`limb`) bleiben programmiert.
-* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Die gemeinsame Zeichnung trägt etwa ±25 % in Länge und Höhe; für kurz/massig, lang/schlank und das
-  stärkste Gebiss sind eigene gestaltete Varianten der nächste Schritt. Erzeugen eines neuen Aussehens kostet 20–65 ms (gemessen ohne Grafikkarte).
+* **Sonderzeichnungen** (`art/im1–im4.png`, im Code `VARIANTS`): `im1` = Körper kurz/massig, `im2` = Körper lang/schlank, `im4` = langer Unterkiefer, `im3` =
+  Maulinneres (diese Zuordnung folgt dem Inhalt der Bilder). Welche Körperzeichnung gilt, entscheidet das Seitenverhältnis des Körpers gegenüber der neutralen Form
+  (`bodyWeights`): bis etwa ±0,15 (Logarithmus des Verhältnisses) die neutrale, darüber wird übergeblendet, ab ±0,55 gilt allein die Sonderzeichnung; jede wird mit
+  derselben Verzerrung an die Anatomie des Tiers angepasst, nur mit ihrer eigenen Referenzform als Ausgang. Der lange Unterkiefer löst den neutralen zwischen
+  14 und 24 Einheiten Kieferlänge ab (`jawLongWeight`). Das Maulinnere ist ein Netz (`MOUTH_COLS` Spalten) zwischen Oberlippe und Unterkiefer: Der Rachen liegt hinten
+  am Gelenk, der Gaumen vorn; es folgt dem Öffnungswinkel.
+* **Grenzen** (siehe `art/vorlagen/fisch/README.md`): Zwischen den Referenzformen verzerrt sich die Zeichnung maßvoll; Kopfpanzer und Mischformen (z. B. kurz **und**
+  großer Kiefer) haben keine eigene Zeichnung. Erzeugen eines neuen Aussehens kostet 20–70 ms (gemessen ohne Grafikkarte).
 
 **Vorlagen für die gemalte Zeichnung:** `art/vorlagen/fisch/` (Neutralpose, Hilfslinien getrennt, Einzelteile, Koordinaten, Verformungsgrenzen, Liste der Zeichenassets).
 
