@@ -70,6 +70,11 @@ export interface PlaceDef {
   sky?: number;
   /** Abschnitt des zusammenhängenden Devon-Meeres, von links nach rechts. */
   waterway?: 0 | 1 | 2;
+  /** der Ort, in den man durch die Schlund-Höhle (F) hinabtaucht – und von dort nur nach oben zurückkommt (ascent) */
+  descent?: string;
+  ascent?: string;
+  /** Ränder, über die man nicht hinausschwimmen kann (kein Nachbar, eine Wand) */
+  closed?: { left?: boolean; right?: boolean };
   /** Bodenhöhe an den beiden Übergängen (Kacheln); dieselbe Höhe an benachbarten Rändern. */
   seabed?: [number, number];
   /** links im Laichfluss liegt die dunkle Höhle des Laichduells (siehe LevelData.cave, sim/duel.ts) */
@@ -193,9 +198,11 @@ function buildPlaces(epId: string): PlaceDef[] {
   if (epId !== 'devon') return places;
   // Ein Meer, drei direkt verbundene Abschnitte. Die alten IDs bleiben für Spielstände erhalten.
   const river = places[0], shelf = places[1], valley = places[5];
+  // Das Tiefental erreicht man nur durch die große Schlund-Höhle in der Mitte des Korallengartens (F) – und verlässt es nur nach oben:
+  // Rechts im Korallengarten geht es nicht weiter, das Tal selbst hat rechts und links Wände.
   Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28], duelCave: true });
-  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 3, waterway: 1, seabed: [28, 28] });
-  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: [28, 107], apex: true });
+  Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 14, waterway: 1, seabed: [28, 28], descent: valley.id, closed: { right: true } });
+  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: undefined, ascent: shelf.id, closed: { left: true, right: true }, apex: true });
   valley.def.name = valley.name;
   return [river, shelf, valley];
 }
@@ -229,6 +236,7 @@ export const linkKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${
  * frac: 0 an der Oberfläche … 1 am Grund.
  */
 export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left' | 'right', frac: number): PlaceDef | undefined {
+  if (from.closed?.[side]) return undefined;
   if (from.waterway !== undefined) return placesOf(ep)[from.waterway + (side === 'left' ? -1 : 1)];
   const nb = from.links.map((id) => placeOf(ep, id));
   if (!nb.length) return undefined;

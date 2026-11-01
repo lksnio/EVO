@@ -12,30 +12,38 @@ import { TILE } from '../src/config';
 const ep = EPOCHS[0], places = placesOf(ep);
 
 describe('Zusammenhängendes Meer', () => {
-  it('verbindet Laichfluss, Flachwasser und Tiefental direkt und ohne Abzweigungen', () => {
+  it('verbindet Laichfluss und Flachwasser über den Rand; das Tiefental erreicht man nur durch die Höhle und verlässt es nur nach oben', () => {
     expect(places.map((p) => p.id)).toEqual(['riff', 'garten', 'wand']);
-    for (let i = 0; i < places.length; i++) for (const depth of [0, 0.5, 1]) {
-      expect(edgeNeighbor(ep, places[i], 'left', depth)).toBe(places[i - 1]);
-      expect(edgeNeighbor(ep, places[i], 'right', depth)).toBe(places[i + 1]);
+    for (const depth of [0, 0.5, 1]) {
+      expect(edgeNeighbor(ep, places[0], 'left', depth)).toBeUndefined();
+      expect(edgeNeighbor(ep, places[0], 'right', depth)).toBe(places[1]);
+      expect(edgeNeighbor(ep, places[1], 'left', depth)).toBe(places[0]);
+      // rechts im Korallengarten geht es nicht weiter – das Tiefental liegt nicht am Rand
+      expect(edgeNeighbor(ep, places[1], 'right', depth)).toBeUndefined();
+      for (const side of ['left', 'right'] as const) expect(edgeNeighbor(ep, places[2], side, depth)).toBeUndefined();
     }
+    expect(places[1].descent).toBe(places[2].id);
+    expect(places[2].ascent).toBe(places[1].id);
     expect(placeOf(ep, 'bank')).toBe(places[1]);
     expect(placeOf(ep, 'grund')).toBe(places[2]);
   });
 
-  it('hat passende Übergangsböden, ein flaches zweites Gebiet und ein nach rechts fallendes Tal', () => {
+  it('hat einen passenden Übergangsboden zum Flachwasser, ein ebenes Riff mit tiefer Mulde in der Mitte und ein Tal wie ein Trichter', () => {
     for (const seed of ['ozean-a', 'ozean-b', 'ozean-c']) {
       const levels = places.map((p) => generateLevel(ep, seed, p));
-      for (let i = 0; i < levels.length - 1; i++) {
-        expect(levels[i].ground.at(-10)).toBeCloseTo(levels[i + 1].ground[9], 3);
-      }
-      const shelf = levels[1].ground;
-      expect(Math.max(...shelf) - Math.min(...shelf)).toBeLessThan(2 * TILE);
+      expect(levels[0].ground.at(-10)).toBeCloseTo(levels[1].ground[9], 3);
+      const shelf = levels[1].ground, n = shelf.length;
+      // außerhalb der Mulde liegt der Grund eben
+      const flat = [...shelf.slice(0, Math.round(n * 0.3)), ...shelf.slice(Math.round(n * 0.85))];
+      expect(Math.max(...flat) - Math.min(...flat)).toBeLessThan(2 * TILE);
+      expect(shelf[Math.round(n * 0.5)]).toBeGreaterThan(Math.max(...flat) + 6 * TILE);
+      // das Tal: an den Rändern hoch, in der Mitte tief – nach beiden Seiten abfallend, und von oben zu erreichen
       const valley = levels[2].ground;
       const at = (f: number) => valley[Math.floor((valley.length - 1) * f)];
-      expect(at(0.2)).toBeLessThan(at(0.45));
-      expect(at(0.45)).toBeLessThan(at(0.7));
-      expect(at(0.7)).toBeLessThan(at(0.95));
-      expect(at(0.95) - at(0.05)).toBeGreaterThan(60 * TILE);
+      expect(at(0.5) - at(0.05)).toBeGreaterThan(60 * TILE);
+      expect(at(0.5) - at(0.95)).toBeGreaterThan(60 * TILE);
+      expect(at(0.2)).toBeLessThan(at(0.4));
+      expect(at(0.8)).toBeLessThan(at(0.6));
     }
   });
 

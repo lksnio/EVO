@@ -29,7 +29,8 @@ function textures(scene: Phaser.Scene) {
   for (let y = 0; y < 512; y += 4) {
     const t = y / 512, w = 24 + t * 60;
     const g = ctx.createLinearGradient(96 - w, 0, 96 + w, 0);
-    const alpha = (1 - t) ** 1.8 * (0.4 + 0.3 * Math.sin(t * 18) ** 2);
+    // oben blendet der Strahl weich ein (keine Oberkante: Das Wasser geht über dem Dach weiter), nach unten läuft er aus
+    const fadeIn = Math.min(1, t / 0.14), alpha = fadeIn * fadeIn * (3 - 2 * fadeIn) * (1 - t) ** 1.8 * (0.4 + 0.3 * Math.sin(t * 18) ** 2);
     g.addColorStop(0, 'rgba(182,221,209,0)'); g.addColorStop(0.5, `rgba(182,221,209,${alpha})`); g.addColorStop(1, 'rgba(182,221,209,0)');
     ctx.fillStyle = g; ctx.fillRect(0, y, 192, 4);
   }
@@ -65,7 +66,8 @@ export class WaterAtmosphere {
       const x = (lit.x0 + lit.x1) / 2;
       if (L.cave && x < L.cave.x + L.cave.w + 100) continue;
       const reach = Math.min(650, Math.max(140, groundAt(L.terrain.hp, x) - L.surfaceY - 20));
-      const image = scene.add.image(x, L.surfaceY, 'river_soft_ray').setOrigin(0.5, 0).setDisplaySize(120 + (i % 3) * 40, reach)
+      // das Licht kommt von weiter oben, als man sieht: Der Strahl beginnt über dem Dach aus Wasser
+      const image = scene.add.image(x, L.surfaceY - 200, 'river_soft_ray').setOrigin(0.5, 0).setDisplaySize(120 + (i % 3) * 40, reach + 200)
         .setDepth(DEPTH.decoBack - 1).setBlendMode(Phaser.BlendModes.ADD);
       this.rays.push({ image, alpha: 0.10, angle: -9 + i % 3 * 3, phase: i * 1.7 });
     }

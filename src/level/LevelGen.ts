@@ -98,6 +98,12 @@ export interface LevelData {
    */
   cave?: Rect & { hollow: [number, number][] };
   /**
+   * Die Schlund-Höhle in der Mitte des Korallengartens (Devon): ein riesiger Hohlraum am Grund einer tiefen Mulde, zwischen hohen Felsen. Wer
+   * davor steht und F drückt (descent), taucht ins Tiefental hinab – nur so kommt man hin. side: −1, die Öffnung zeigt nach links.
+   */
+  deepCave?: Rect & { hollow: [number, number][]; side: 1 | -1 };
+  descent?: Rect;
+  /**
    * Land über dem Wasser (Karbon): Über der Wasserlinie (surfaceY) liegt Himmel, das Land ragt hinein – wer dort ist, läuft
    * (siehe Player). land: die Abschnitte, in denen der Boden über der Wasserlinie liegt.
    */
@@ -325,7 +331,8 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   const L = base(ep, 'water', cols * T, rows * T);
   L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
   // Ohne Randübergang beginnt man etwas weiter im Gebiet.
-  const startCol = Math.round(cols * 0.16);
+  // (das Tiefental betritt man von oben, in der Mitte)
+  const startCol = place.ascent ? Math.round(cols * 0.5) : Math.round(cols * 0.16);
   L.startCol = startCol;
   // Der Fluss am Start reicht gut ein Drittel des Ortes weit
   const riverEndCol = place.shape === 'river' || (!place.shape && SHAPE_OF[place.kind] === 'river') ? Math.round(cols * 0.36) : 0;
@@ -364,7 +371,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
     // Das Tal steigt rechts nicht wieder an: Es fällt vom Schelf bis in den tiefsten Teil ab.
     const [entry, exit] = place.seabed;
     undulate = 0.2;
-    prof = (c) => entry + (exit - entry) * Math.pow(clampN(c / (cols - 1), 0, 1), 1.15);
+    // Mit Schlund (Korallengarten): In der Mitte senkt sich der Boden zu einer tiefen Mulde – dort liegt die große Höhle
+    const dip = place.descent ? descentDip(cols) : undefined;
+    prof = (c) => entry + (exit - entry) * Math.pow(clampN(c / (cols - 1), 0, 1), 1.15) + (dip ? dip.rows * dip.at(c) : 0);
   } else if (shape === 'vee') {
     undulate = 1;
     const rim = 21;
@@ -397,10 +406,17 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   if (place.seabed) {
     if (!riverEndCol) G.flatten(0, 14 * T, place.seabed[0] * T, 80);
     G.flatten((cols - 14) * T, cols * T, place.seabed[1] * T, 80);
+    // die Mulde des Schlunds hat einen ebenen Grund (davor steht man, in ihm liegt die Höhle)
+    if (place.descent) {
+      const d = descentDip(cols);
+      G.flatten(d.c0 * T, d.c1 * T, (place.seabed[0] + d.rows) * T, 100);
+    }
   }
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };
   // (mit eigener Saat – so bleibt der Rest des Ortes, wie er war)
   if (cave) addDuelCave(L, mulberry32(hashStr(`${ep.id}_${place.id}_höhle`)), G);
+  // (mit eigener Saat – so bleibt der Rest des Ortes, wie er war)
+  if (place.descent && place.seabed) addDescent(L, mulberry32(hashStr(`${ep.id}_${place.id}_schlund`)), G, cols, place.seabed[0]);
   addCrevices(L, 2, r, cols, G, startCol);
   addCurrents(L, r, cols, G.heights, startCol);
   if (L.surfaceY > 0) placeSun(L, place.sun, r, cols, startCol);
@@ -409,7 +425,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   const arrCols = [startCol, 9, cols - 10];
   // Felsen und Kiesel – nicht dort, wo man ankommt
   const shrine = shrineCol(L, place, G, startCol);
-  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T]), ...(shrine >= 0 ? [[(shrine - 9) * T, (shrine + 9) * T] as [number, number]] : [])], riverEndCol);
+  placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...(L.deepCave ? [[L.deepCave.x - 40 * T, L.deepCave.x + L.deepCave.w + 30 * T] as [number, number]] : []), ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T]), ...(shrine >= 0 ? [[(shrine - 9) * T, (shrine + 9) * T] as [number, number]] : [])], riverEndCol);
   placeMats(L, place, r, G, riverEndCol);
   dressGround(L, ep, place, r, G, riverEndCol);
   placeShrine(L, G, startCol, shrine);
@@ -423,7 +439,13 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   if (sx !== undefined) L.cover = L.cover.filter((c) => c.x > sx + 150 || c.x + c.w < sx - 150);
   // Wo man selbst ankommt (das Einzige, was davon abhängt, von wo man kommt): wer über den Rand hereinschwimmt, am Gegenrand
   // auf derselben Höhe (soweit es dort Wasser gibt)
-  if (edge) {
+  if (edge?.side === 'top') {
+    // von oben (hinabgetaucht): in der Mitte des Tiefentals, dicht unter dem oberen Rand
+    L.start = { x: (Math.round(cols * 0.5) + 0.5) * T, y: L.surfaceY + 300 };
+  } else if (edge?.side === 'cave' && L.descent) {
+    // von unten zurück: vor der Schlund-Höhle
+    L.start = { x: L.descent.x + L.descent.w * 0.35, y: L.descent.y + L.descent.h * 0.45 };
+  } else if (edge && (edge.side === 'left' || edge.side === 'right')) {
     const col = edge.side === 'left' ? cols - 10 : 9;
     const floorY = G.at((col + 0.5) * T);
     const top = L.surfaceY + 120, bot = Math.max(top + 10, floorY - 130);
@@ -446,6 +468,9 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   // … und die Höhle des Laichduells samt ihrem Eingang bleibt frei
   const cv = L.cave;
   if (cv) L.spawns = L.spawns.filter((s) => s.x > cv.x + cv.w + 400);
+  // … und der Schlund: in der Mulde und in der Höhle leben keine Tiere (sie ziehen nur hindurch)
+  const dc = L.deepCave;
+  if (dc) L.spawns = L.spawns.filter((s) => s.x < dc.x - 8 * T || s.x > dc.x + dc.w + 6 * T);
   // der Laichfluss bleibt dünn besiedelt: höchstens RIVER_MAX Tiere (ein Schwarm kommt ganz oder gar nicht)
   if (place.waterway === 0) L.spawns = capHerds(L.spawns, RIVER_MAX);
   L.groundRects = groundRects(hp, rows * T);
@@ -664,6 +689,53 @@ function addDuelCave(L: LevelData, r: Rng, G: Ground) {
   L.cave = { x: x0, y: top, w: x1 + mouth - x0, h: floor - top, hollow: c.hollow };
 }
 
+/** Lage und Form der Mulde des Schlunds (Korallengarten): Mitte, ebener Grund [c0, c1], Tiefe in Kacheln, weiche Flanken (at: 0 Rand … 1 Grund). */
+export function descentDip(cols: number) {
+  const dc = Math.round(cols * 0.5);
+  const c0 = dc - 6, c1 = dc + 20, rows = 10, flank = 16;
+  const at = (c: number) => {
+    const d = c < c0 ? c0 - c : c > c1 ? c - c1 : 0;
+    const t = clampN(1 - d / flank, 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  return { dc, c0, c1, rows, at };
+}
+
+/**
+ * Der Schlund im Korallengarten: Der Boden senkt sich zu einer tiefen Mulde, an deren Ende eine riesige Höhle im Fels liegt
+ * (Öffnung nach links, hinten geschlossen). Davor steht man und drückt F, um ins Tiefental zu tauchen. Links und rechts der Mulde
+ * türmen sich riesige Felsen, damit man spürt, dass hier das Meer richtig tief wird.
+ */
+function addDescent(L: LevelData, r: Rng, G: Ground, cols: number, floorRow: number) {
+  const d = descentDip(cols);
+  const floor = (floorRow + d.rows) * T;
+  const mouth = 3 * T, x1 = (d.dc + 18) * T, x0 = x1 - 16 * T;
+  const c = caveRock(x0, x1, floor, 8.5 * T, 3 * T, 12 * T, mouth, -1, Math.floor(r() * 1e9));
+  L.rocks.push(c.rock);
+  for (const b of c.boxes) L.solids.push(b);
+  const top = Math.floor(c.ceil);
+  const left = x0 - mouth;
+  L.deepCave = { x: left, y: top, w: x1 - left, h: floor - top, hollow: c.hollow, side: -1 };
+  // der Platz davor: wer hier steht (vor und in der Öffnung), kann hinabtauchen
+  L.descent = { x: left - 4.5 * T, y: floor - 8.5 * T, w: 9 * T, h: 8.5 * T };
+  // riesige Felsen: eine Wand links vom Rand der Mulde, eine rechts dahinter – und große Brocken an den Flanken
+  const giant = (x: number, rx: number, ry: number, tone: number, sink: number) => {
+    const seed = Math.floor(r() * 1e9);
+    let low = -Infinity;
+    for (let px = x - rx * 0.8; px <= x + rx * 0.8; px += STEP / 2) low = Math.max(low, G.at(px));
+    const rock: RockSpec = { x, y: low + sink - rockBottom(rockPoly(seed, rx, ry)), rx, ry, seed, tone, form: 'boulder' };
+    L.rocks.push(rock);
+    for (const sl of rockSlices(rock, (px) => G.at(px))) L.solids.push(sl);
+  };
+  const dc = d.dc * T;
+  giant(dc - 30 * T, 210, 250, 2, 40);
+  giant(dc - 24 * T, 150, 170, 1, 30);
+  giant(dc - 17 * T, 120, 120, 2, 24);
+  giant(dc + 31 * T, 230, 270, 2, 40);
+  giant(dc + 38 * T, 160, 190, 1, 30);
+  giant(dc + 25 * T, 120, 110, 2, 22);
+}
+
 /**
  * Felsspalten: Eine Felsplatte liegt knapp über dem Grund. Darunter bleibt ein niedriger Durchgang,
  * in den große Jäger nicht hineinkommen – und wer selbst zu massig ist, auch nicht.
@@ -674,6 +746,7 @@ function addCrevices(L: LevelData, n: number, r: Rng, cols: number, G: Ground, s
     const c0 = rint(r, 6, cols - W - 6);
     if (Math.abs(c0 - startCol) < 12) continue;
     if (L.cave && c0 * T < L.cave.x + L.cave.w + 4 * T) continue;
+    if (L.deepCave && c0 * T > L.deepCave.x - 44 * T && c0 * T < L.deepCave.x + L.deepCave.w + 28 * T) continue;
     if (G.flat((c0 - 2) * T, (c0 + W + 2) * T) > (k < 200 ? 70 : 110)) continue;
     const f = Math.round(G.at((c0 + W / 2) * T) / T);
     const x0 = c0 * T, x1 = (c0 + W) * T;
@@ -752,7 +825,8 @@ function placeShrine(L: LevelData, G: Ground, startCol: number, col: number) {
 
 /** Wie man in einen Ort gekommen ist, wenn man über den Rand eines anderen hinausgeschwommen ist (side = dort verlassene Seite). */
 export interface EdgeEntry {
-  side: 'left' | 'right';
+  /** left/right: über den Rand; top: von oben (hinabgetaucht in die Tiefen); cave: von unten durch den Schlund zurück ins Korallenriff */
+  side: 'left' | 'right' | 'top' | 'cave';
   /** Tiefe beim Verlassen: 0 Oberfläche … 1 Grund */
   frac: number;
 }

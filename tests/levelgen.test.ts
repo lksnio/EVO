@@ -164,3 +164,59 @@ describe('Bewuchs je Ort', () => {
     expect(dens('deep')).toBeLessThan(dens('lush') * 0.7);
   });
 });
+
+describe('Der Schlund im Korallengarten', () => {
+  const [river, shelf, valley] = placesOf(ep);
+
+  it('das Tiefental erreicht man nur durch die Höhle – rechts im Korallengarten und im Tal selbst geht es nicht weiter', async () => {
+    const { edgeNeighbor } = await import('../src/data/world');
+    expect(shelf.descent).toBe(valley.id);
+    expect(valley.ascent).toBe(shelf.id);
+    expect(edgeNeighbor(ep, river, 'right', 0.5)?.id).toBe(shelf.id);
+    expect(edgeNeighbor(ep, shelf, 'left', 0.5)?.id).toBe(river.id);
+    for (const frac of [0, 0.5, 1]) expect(edgeNeighbor(ep, shelf, 'right', frac)).toBeUndefined();
+    for (const side of ['left', 'right'] as const) for (const frac of [0, 0.5, 1]) expect(edgeNeighbor(ep, valley, side, frac)).toBeUndefined();
+  });
+
+  it('in der Mitte senkt sich der Grund zu einer tiefen Mulde mit Höhle, links und rechts riesige Felsen', () => {
+    const L = generateLevel(ep, 'test-welt', shelf);
+    const cols = L.ground.length, mid = Math.round(cols * 0.5);
+    const rim = (L.ground[Math.round(cols * 0.25)] + L.ground[Math.round(cols * 0.8)]) / 2;
+    expect(L.ground[mid + 4]).toBeGreaterThan(rim + 300);
+    expect(L.deepCave).toBeTruthy();
+    expect(L.descent).toBeTruthy();
+    const c = L.deepCave!, z = L.descent!;
+    // die Mitte des Korallengartens, die Öffnung zeigt nach links, davor liegt der Platz zum Hinabtauchen auf dem Grund der Mulde
+    expect(c.x + c.w / 2).toBeGreaterThan(L.width * 0.42);
+    expect(c.x + c.w / 2).toBeLessThan(L.width * 0.62);
+    expect(c.side).toBe(-1);
+    expect(z.x + z.w).toBeLessThan(c.x + c.w * 0.5);
+    expect(z.y + z.h).toBeLessThan(L.height);
+    expect(c.h).toBeGreaterThan(240);
+    expect(c.w).toBeGreaterThan(560);
+    const giants = L.rocks.filter((r) => r.rx >= 110);
+    expect(giants.some((r) => r.x < c.x - 8 * 40)).toBe(true);
+    expect(giants.some((r) => r.x > c.x + c.w + 4 * 40)).toBe(true);
+    // keine Tiere in der Mulde
+    expect(L.spawns.some((s) => s.x > c.x - 8 * 40 && s.x < c.x + c.w + 6 * 40)).toBe(false);
+  });
+
+  it('von oben kommt man in der Mitte des Tals an, von unten zurück vor der Höhle', () => {
+    const v = generateLevel(ep, 'test-welt', valley, { side: 'top', frac: 0 });
+    expect(Math.abs(v.start.x - v.width / 2)).toBeLessThan(80);
+    expect(v.start.y).toBeLessThan(v.surfaceY + 400);
+    expect(v.start.y).toBeGreaterThan(v.surfaceY + 100);
+    expect(v.deepCave).toBeUndefined();
+    const s = generateLevel(ep, 'test-welt', shelf, { side: 'cave', frac: 0 });
+    const z = s.descent!;
+    expect(s.start.x).toBeGreaterThan(z.x);
+    expect(s.start.x).toBeLessThan(z.x + z.w);
+    expect(s.start.y).toBeGreaterThan(z.y);
+    expect(s.start.y).toBeLessThan(z.y + z.h);
+  });
+
+  it('der Rest der Welt ändert sich nicht, je nachdem, wie man kommt (auch durch die Höhle)', () => {
+    const base = generateLevel(ep, 'test-welt', shelf);
+    for (const side of ['cave', 'top'] as const) expect(shape(generateLevel(ep, 'test-welt', shelf, { side, frac: 0 }))).toEqual(shape(base));
+  });
+});

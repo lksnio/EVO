@@ -563,10 +563,16 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   - **Natürliche Verstecke:** Niedrige **Felsspalten** und dichter Bewuchs bieten Deckung. Farbhöhlen, verschüttete
     Eingänge und aufbrechbare Wände gibt es nicht mehr. Bestehende Färbungen und vorgemerkte Farben älterer Spielstände
     bleiben für die Vererbung erhalten.
-  - **Ein zusammenhängendes Meer im Devon:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
-    Korallengarten und von dort ins **Tiefental**. Dessen Boden fällt nach rechts immer weiter ab. Zurück geht es ebenso
-    direkt nach links, ohne Overworld, Zielauswahl oder zusätzliche Reisezeit. Die Abschnitte werden mit einer kurzen
-    Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Übergangsböden passen zusammen.
+  - **Ein zusammenhängendes Meer im Devon, mit einem Schlund in der Mitte:** Vom Laichfluss schwimmt man nach rechts direkt in den noch flachen
+    Korallengarten (und zurück nach links). **Rechts im Korallengarten geht es nicht weiter.** Das **Tiefental** erreicht man nur durch den **Schlund** in der Mitte
+    des Korallengartens: Der Grund senkt sich dort zu einer tiefen Mulde, an deren Ende eine **riesige Höhle** im Fels liegt (Öffnung nach links, `LevelData.deepCave`);
+    links und rechts türmen sich **riesige Felsen**, damit man spürt, dass das Meer hier richtig tief wird. Wer **vor der Höhle** steht (`LevelData.descent`), drückt
+    **F** („In die Tiefe“) und taucht ins Tiefental hinab – man kommt oben in der Mitte an. Das Tal hat links und rechts Wände; man **verlässt es nur nach oben**: Wer bis
+    unter das Dach aus Wasser schwimmt, kommt im Korallengarten wieder **vor der Höhle** heraus (`PlaceDef.descent`/`ascent`/`closed`, `LevelScene.descentStep`/`edgeStep`).
+    Die Abschnitte werden mit einer kurzen Überblendung geladen; Tiefe, Nahrung, Lebenskraft und Gruppe bleiben erhalten. Das Tal ist ein Trichter (an den Rändern hoch, in
+    der Mitte tief).
+  - **Keine Wasseroberfläche:** Auf keiner Karte sieht man die Oberfläche. Nach oben ist es zu – das Wasser geht über dem oberen Rand weiter (die Kamera darf dort hinausschauen,
+    Lichtstrahlen beginnen weit darüber), man schwimmt aber nicht hindurch: ein Dach aus Wasser. Man merkt, dass es noch weiter hinaufginge, bevor man an der Oberfläche wäre.
   - **Bewohner nach Tiefe:** Im Laichfluss leben nur wenige kleine Fische zwischen Krabbeltieren, keine großen ansässigen Jäger.
     Die größeren Schwarmbestände kleiner Beutefische sammeln sich im zweiten Gebiet, dem Flachwasser. Auch im
     Hintergrund ist der Laichfluss deutlich ruhiger und das Flachwasser belebter.
