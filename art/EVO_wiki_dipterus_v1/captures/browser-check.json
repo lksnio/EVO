@@ -1,0 +1,37 @@
+{
+  "report": {
+    "first": {
+      "id": "dipterus",
+      "latin": "Dipterus valenciennesi"
+    },
+    "unknown": {
+      "texture": "aqp_dipterus",
+      "customTexture": false,
+      "known": false
+    },
+    "next": {
+      "id": "drepanaspis",
+      "texture": "aqp_drepanaspis"
+    },
+    "known": {
+      "texture": "aqpimg_dipterus",
+      "sourceWidth": 1024,
+      "sourceHeight": 819,
+      "width": 432.6056166056166,
+      "height": 346,
+      "x": 145.6971916971917,
+      "y": 134,
+      "right": 578.3028083028083,
+      "bottom": 480,
+      "paintings": 1,
+      "pending": 0
+    },
+    "revisit": {
+      "texture": "aqpimg_dipterus",
+      "sameTextures": true,
+      "paintings": 1
+    }
+  },
+  "paintingRequests": 1,
+  "errors": []
+}

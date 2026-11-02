@@ -609,10 +609,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   zarte Töne. Kommen mehrere Einträge zusammen, erscheinen sie nacheinander. Das bleibt über alle Leben erhalten. Blättern mit
   ← → (oder A/D, Mausrad, Wischen oder den Pfeilknöpfen) – durch alle Teile hindurch; **1 bis 7**, **Tab** oder die
   Lesezeichen springen zu einem Teil, **I** zum Inhalt des aufgeschlagenen, Esc zurück.
-  Die Bilder sind vorerst **Platzhalter** (das Tier aus dem Spiel, groß gemalt); eigene Bilder kommen als `pteraspis.png`
-  usw. nach `src/assets/aquapendium/` (siehe dort die README; im Code heißt die Chronik weiter „Aquapendium“) und werden
-  automatisch eingebunden. Größen und Zeiten der
-  Urtiere sind grobe Näherungen.
+  Die erste Tierseite, **Dipterus valenciennesi**, zeigt nach der Entdeckung eine gemalte Rekonstruktion in einem devonischen Süßwasserlebensraum. Weitere Seiten verwenden zunächst das groß gemalte Spieltier. Eigene Porträts oder Lebensraumszenen kommen mit der Artkennung als Dateiname nach `src/assets/aquapendium/` und werden automatisch eingebunden. Unbekannte Tiere behalten ihren freigestellten Umriss; die Landschaft wird erst nach der Entdeckung geladen. Bildquelle und Rekonstruktionshinweise stehen in `art/EVO_wiki_dipterus_v1/`. Größen und Zeiten der Urtiere sind grobe Näherungen.
 - **Wachsen von Generation zu Generation:** Im Leben wächst dein Tier nur heran (und altert); die **Art** verändert sich
   erst beim **Generationswechsel** – sanft, **nie zu stark** auf einmal, und die Merkmale bauen über viele Generationen
   aufeinander auf. Was

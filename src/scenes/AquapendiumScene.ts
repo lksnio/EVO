@@ -13,7 +13,8 @@ import { Button, fadeIn, fadeTo } from '../ui/ui';
 // Die Chronik des Lebens (im Code noch „Aquapendium“) – ein Buch mit einer Seite für jedes Tier der Urzeit. Außerhalb des Spiels, wie der Stammbaum.
 // Es hat sieben Teile, einen je Zeitalter (oben als Lesezeichen); jeder beginnt mit seinem Inhalt. Links das Bild, rechts der
 // Steckbrief. Teile ruhender Zeitalter ohne Tiere sind noch leer – ihr Inhalt sagt es. Wer ein Tier noch nie gesehen hat, sieht nur seinen schwarzen Umriss.
-// Eigene Bilder: PNG/WebP/JPG mit dem Namen der Art (z. B. "pteraspis.png") in src/assets/aquapendium/ ablegen.
+// Eigene Bilder: PNG/WebP/JPG mit dem Namen der Art in src/assets/aquapendium/ ablegen.
+// Lebensraumszenen erscheinen nach der Entdeckung; unbekannte Tiere behalten ihren freigestellten Spielumriss.
 // ---------------------------------------------------------------------------
 
 const IMAGES = import.meta.glob('../assets/aquapendium/*.{png,webp,jpg,jpeg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
@@ -501,34 +502,40 @@ export class AquapendiumScene extends Phaser.Scene {
   /** Das Bild des Tieres: ein eigenes Bild, wenn eines da ist, sonst der Platzhalter (das Tier aus dem Spiel). Unbekannte nur als Umriss. */
   private picture(c: Phaser.GameObjects.Container, e: Entry, known: boolean, cx: number, cy: number) {
     const maxW = FRAME.w - 40, maxH = FRAME.h - 50;
-    const own = imageUrl(e.id);
+    // An opaque habitat painting would turn into a black rectangle when tinted. Keep the real animal silhouette until discovery.
+    const own = known ? imageUrl(e.id) : undefined;
     const place = (key: string, real: boolean) => {
       if (!c.active) return;
-      const img = this.add.image(cx, cy - 6, key);
-      const k = Math.min(maxW / img.width, maxH / img.height);
+      const img = this.add.image(cx, cy - (real ? 0 : 6), key).setName(`aqp-picture-${e.id}`);
+      const k = Math.min((real ? FRAME.w - 24 : maxW) / img.width, (real ? FRAME.h - 24 : maxH) / img.height);
       img.setScale(real ? k : Math.min(k, 3.4));
       if (!known) img.setTint(0x120a05).setTintMode(Phaser.TintModes.FILL).setAlpha(0.96);
       c.add(img);
       this.pictures.set(e.id, img);
+      return img;
     };
     if (own) {
       const key = `aqpimg_${e.id}`;
       if (this.textures.exists(key)) place(key, true);
-      else if (!this.pending.has(key)) {
-        // erst der Platzhalter, dann das echte Bild, sobald es geladen ist
-        this.pending.add(key);
-        this.load.image(key, own);
-        this.load.once(`filecomplete-image-${key}`, () => {
-          this.pending.delete(key);
-          this.pictures.get(e.id)?.destroy();
-          if (this.cur === c || c.active) place(key, true);
-        });
-        this.load.start();
-        place(makeSpeciesPortrait(this, e.def), false);
-      } else place(makeSpeciesPortrait(this, e.def), false);
-    } else {
-      place(makeSpeciesPortrait(this, e.def), false);
-    }
+      else {
+        const placeholder = place(makeSpeciesPortrait(this, e.def), false);
+        const event = `filecomplete-image-${key}`;
+        // Every live page gets its own completion callback, even while the shared texture request is already running.
+        const ready = () => {
+          if (!c.active) return;
+          placeholder?.destroy();
+          place(key, true);
+        };
+        this.load.once(event, ready);
+        c.once('destroy', () => this.load.off(event, ready));
+        if (!this.pending.has(key)) {
+          this.pending.add(key);
+          this.load.once(event, () => this.pending.delete(key));
+          this.load.image(key, own);
+          this.load.start();
+        }
+      }
+    } else place(makeSpeciesPortrait(this, e.def), false);
     if (!known) {
       // Tinte, die den Umriss verdeckt: ein kleines Fragezeichen
       const q = this.add.text(cx, fy(cy, FRAME.h), '?', { fontFamily: TITLE_FONT, fontSize: '40px', color: '#7a5a3a', fontStyle: '700', resolution: 2 }).setOrigin(0.5).setAlpha(0.55);
