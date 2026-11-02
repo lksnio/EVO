@@ -1,4 +1,4 @@
-/** Vite + playwright-core/Chromium. Real sprites, rigs, hitboxes, replicas, centimetre ratios and spawn clearance. */
+/** Vite + playwright-core/Chromium. Real sprites, rigs, hitboxes, replicas, readable size ratios and spawn clearance. */
 const {chromium}=require('playwright-core');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -19,7 +19,7 @@ const folder=path.resolve(__dirname,'../art/EVO_real_sizes_v1/captures');fs.mkdi
   report.animals=await p.evaluate(async()=>{
    const e=window.__evo,s=e.game.scene.getScene('Level');s.scene.pause();s.physics.world.pause();e.game.loop.sleep();
    const {SPECIES}=await import('/src/data/species.ts');
-   const {worldLength,spriteReferenceSpan}=await import('/src/data/animalSize.ts');
+   const {adultLengthCm,playLengthCm,worldLength,spriteReferenceSpan}=await import('/src/data/animalSize.ts');
    const {makeSpeciesTextures}=await import('/src/art/speciesArt.ts');
    const {GhostAnimal}=await import('/src/net/GhostAnimal.ts');
    const rows=[];
@@ -35,12 +35,18 @@ const folder=path.resolve(__dirname,'../art/EVO_real_sizes_v1/captures');fs.mkdi
     const row={id:999,sp:def.id,x:a.x,y:a.y,d:1,an:0,hp,mh,sz:.93,tn:0,al:100,at:false};
     const g=new GhostAnimal(s,def,row,1000);if(Math.abs(g.scaleX-base*.93)>.001)throw Error('replica '+def.id);
     g.destroy();
-    rows.push({id:def.id,cm:expected,bodyPixels:width,bodyScale:base,collisionWidth:bw,collisionHeight:a.b.height,textureWidth:a.width,textureHeight:a.height});
+    rows.push({id:def.id,cm:adultLengthCm(def),playCm:playLengthCm(def),worldLength:expected,bodyPixels:width,bodyScale:base,collisionWidth:bw,collisionHeight:a.b.height,textureWidth:a.width,textureHeight:a.height});
     s.dropAnimal(a);a.destroy();
    }
    e.game.loop.wake();return rows;
   });
   assert.equal(report.animals.length,68);
+  const smallest=report.animals.find(a=>a.id==='moythomasia'),largest=report.animals.find(a=>a.id==='mosasaurus');
+  assert.ok(smallest.bodyPixels*.72*.86>=20);
+  assert.ok(report.animals.every(a=>a.bodyPixels*.72*.86>=14));
+  assert.ok(largest.bodyPixels>1500);
+  assert.ok(largest.bodyPixels/smallest.bodyPixels<1500/6);
+  assert.ok(report.animals.find(a=>a.id==='dunkleosteus').playCm===340);
   report.resources=await p.evaluate(()=>{
    const e=window.__evo,s=e.game.scene.getScene('Level');const n=Object.keys(s.textures.list).length;
    const actors=s.animals.filter(a=>!a.kin);for(let f=0;f<80;f++)for(const a of actors){a.setSizeFactor(a.sz*1.04,a.sz*.96);a.setSizeFactor(a.sz);}

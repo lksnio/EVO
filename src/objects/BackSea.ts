@@ -186,7 +186,7 @@ export class BackSea {
     else if (!big && art.t === 'jelly') n = 2 + Math.floor(Math.random() * 3);
     if (this.painted) n = Math.min(n, 7);
     const sc = layer.scale[0] + Math.random() * (layer.scale[1] - layer.scale[0]);
-    // Gemeinsamer Zentimetermaßstab; nur die Tiefenebene verkleinert die Perspektive.
+    // Gemeinsamer Spielmaßstab; nur die Tiefenebene verkleinert die Perspektive.
     const baseLen = worldLength(def);
     const bigK = big ? 0.95 + Math.random() * 0.1 : 1;
     const spread = n > 1 ? 24 + n * 9 : 0;

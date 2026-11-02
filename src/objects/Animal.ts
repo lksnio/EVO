@@ -329,7 +329,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   }
 
-  /** Apply a pose/individual factor without losing the species' centimetre scale. */
+  /** Apply a pose/individual factor without losing the species' display scale. */
   setSizeFactor(x = this.sz, y = x) {
     return this.setScale(x * this.bodyScale, y * this.bodyScale);
   }

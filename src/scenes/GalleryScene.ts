@@ -1,4 +1,4 @@
-import { animalScale, spriteReferenceSpan, worldLength } from '../data/animalSize';
+import { adultLengthCm, animalScale, playLengthCm, spriteReferenceSpan, worldLength } from '../data/animalSize';
 import { lengthText } from '../data/aquapendium';
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
@@ -154,7 +154,7 @@ export class GalleryScene extends Phaser.Scene {
       : (raw ?? 'moythomasia,cheirolepis,cladoselache,hyneria,dunkleosteus,rhizodus').split(',').filter(id => SPECIES[id]);
   }
 
-  /** Same centimetre scale for every row. Portrait galleries intentionally fit specimens into equal cells. */
+  /** Shared play scale; scientific lengths stay labelled separately from the compressed display. */
   private sizeLab() {
     const defs = this.sizeIds().slice(this.page * 6, this.page * 6 + 6).map(id => SPECIES[id]);
     this.cameras.main.setBackgroundColor('#173b43');
@@ -166,20 +166,22 @@ export class GalleryScene extends Phaser.Scene {
     });
     let k = Math.min(.72, 900 / max);
     while (heights.reduce((n, h) => n + Math.max(74, h * k + 32), 100) > 705) k *= .92;
-    text(this, 35, 20, 'Körpergrößen · ein gemeinsamer Maßstab', 22);
-    text(this, 35, 51, `Fossilgrößen sind Näherungen · Leertaste blättert · ${Math.round(k * 100)} Bildpixel je Meter`, 14);
+    text(this, 35, 20, 'Körpergrößen · gestauchter Spielmaßstab', 22);
+    text(this, 35, 51, 'Kleine Tiere vergrößert · gemeinsame Spielansicht · Leertaste blättert', 14);
     const ruler = this.add.graphics();
     ruler.lineStyle(1, 0x91b5b5, .5).lineBetween(300, 87, 300 + max * k, 87);
-    for (let cm = 0; cm <= max; cm += 100) {
-      const x = 300 + cm * k; ruler.lineBetween(x, 82, x, 92);
-      text(this, x, 66, `${cm / 100} m`, 11).setOrigin(.5, 0);
+    for (let pixels = 0; pixels <= max; pixels += 200) {
+      const x = 300 + pixels * k; ruler.lineBetween(x, 82, x, 92);
+      text(this, x, 66, `${pixels} px`, 11).setOrigin(.5, 0);
     }
     let y = 105;
     defs.forEach((def, i) => {
       const h = Math.max(74, heights[i] * k + 32), span = worldLength(def);
       const x = 300 + span * k / 2, cy = y + h / 2;
       text(this, 35, cy - 15, def.name, 17);
-      text(this, 35, cy + 9, lengthText(span), 14);
+      const reference = adultLengthCm(def), chosen = playLengthCm(def);
+      text(this, 35, cy + 6, `Referenz: ${lengthText(reference)}`, 13);
+      if (chosen !== reference) text(this, 35, cy + 23, `Spielauswahl: ${lengthText(chosen)}`, 11);
       if (FaunaView.supports(this, def)) {
         const view = new FaunaView(this, def);
         this.add.existing(view); view.setPosition(x, cy).setScale(span * k / view.referenceSpan); this.fauna.push(view);
