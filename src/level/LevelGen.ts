@@ -1,3 +1,4 @@
+import { openWaterEdges } from './waterBounds';
 import { TILE } from '../config';
 import { SPECIES } from '../data/species';
 import type { EpochDef, Theme } from '../data/epochs';
@@ -96,8 +97,7 @@ export interface LevelData {
   /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
   riverEnd?: number;
   /**
-   * Die dunkle Höhle ganz links im Laichfluss (Devon): Wer zu zweit hineinschwimmt, kann sich zum Laichduell einloggen (siehe
-   * sim/duel.ts). Darüber liegt freies Wasser bis zum Rand – dort ziehen Tiere aus dem Bild, die Spielerfische nicht.
+   * Die dunkle Höhle ganz links im Laichfluss (Devon): Hier liegt der geschützte Laichplatz. Darüber liegt freies Wasser bis zum Rand – dort ziehen Tiere aus dem Bild, die Spielerfische nicht.
    */
   cave?: Rect & { hollow: [number, number][] };
   /**
@@ -294,7 +294,8 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
   if (riverEndCol) {
     // die eigene Brut: ein einziger Laichhaufen am Schlüpfplatz – hierher kommen alle zum Laichen
     const c = nearFlat(startCol + 2, 4, 24);
-    L.roe.push(spot(c >= 0 ? c : startCol + 2, 1, 'own', true));
+    const cave = L.cave;
+    L.roe.push(cave ? { x: cave.x + cave.w * .6, y: cave.y + cave.h + 3, species: 'own', tone: 1, own: true } : spot(c >= 0 ? c : startCol + 2, 1, 'own', true));
   }
   // Gelege der Bewohner (Hazards wie Quallen laichen nicht, die Herrscher ziehen nur durch) – im sicheren Startgebiet keine
   if (place.safe) return;
@@ -340,7 +341,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   // Der Fluss am Start reicht gut ein Drittel des Ortes weit
   const riverEndCol = place.shape === 'river' || (!place.shape && SHAPE_OF[place.kind] === 'river') ? Math.round(cols * 0.36) : 0;
   if (riverEndCol) L.riverEnd = riverEndCol * T;
-  const cave = !!place.duelCave && riverEndCol > 0;
+  const cave = !!place.spawningCave && riverEndCol > 0;
 
   // Jeder Ort hat seine eigene Form: eine Mulde (Start), eine flache Wiese (bewachsen), Hügelketten (trüb), ein Trichter
   // in V-Form (tief) oder ein Schacht zwischen zwei Rändern (Abgrund). Wer hineinschwimmt, wird tiefer und dunkler.
@@ -417,7 +418,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   }
   L.start = { x: (startCol + 0.5) * T, y: riverEndCol ? G.at((startCol + 0.5) * T) - 130 : 12 * T };
   // (mit eigener Saat – so bleibt der Rest des Ortes, wie er war)
-  if (cave) addDuelCave(L, mulberry32(hashStr(`${ep.id}_${place.id}_höhle`)), G);
+  if (cave) addSpawningCave(L, mulberry32(hashStr(`${ep.id}_${place.id}_höhle`)), G);
   // (mit eigener Saat – so bleibt der Rest des Ortes, wie er war)
   if (place.descent && place.seabed) addDescent(L, mulberry32(hashStr(`${ep.id}_${place.id}_schlund`)), G, cols, place.seabed[0]);
   addCrevices(L, 2, r, cols, G, startCol);
@@ -468,7 +469,7 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   }
   // Erst nach dem Verschieben aus Felsen prüfen: Auch einzelne Schwarmmitglieder bleiben vom eigenen Laich fern.
   L.spawns = L.spawns.filter((s) => !nearNursery(place, s, L.roe));
-  // … und die Höhle des Laichduells samt ihrem Eingang bleibt frei
+  // … und die Laichhöhle samt ihrem Eingang bleibt frei
   const cv = L.cave;
   if (cv) L.spawns = L.spawns.filter((s) => s.x > cv.x + cv.w + 400);
   // … und die Schlucht: In ihr und an ihren Wänden siedeln keine Tiere (sie ziehen nur hindurch)
@@ -677,11 +678,11 @@ function placeSun(L: LevelData, n: number, r: Rng, cols: number, startCol: numbe
 }
 
 /**
- * Die Höhle des Laichduells ganz links im Laichfluss (Devon): ein Felsmassiv auf dem Flussbett, hinten geschlossen, die Öffnung
- * zeigt nach rechts zum Laich. Der Pfeiler dahinter läuft zum Rand hin in den Boden aus – darüber ist freies Wasser bis an den
- * Rand (Tiere ziehen dort hinaus, die Spielerfische hält eine Wand). Drinnen ist Platz für zwei Fische.
+ * Die Laichhöhle ganz links im Laichfluss (Devon): ein Felsmassiv auf dem Flussbett, hinten geschlossen, die Öffnung
+ * zeigt nach rechts ins offene Wasser. Der Pfeiler dahinter läuft zum Rand hin in den Boden aus – darüber ist freies Wasser bis an den
+ * Rand (Tiere ziehen dort hinaus, die Spielerfische hält eine Wand). Drinnen liegt die geschützte Kinderstube.
  */
-function addDuelCave(L: LevelData, r: Rng, G: Ground) {
+function addSpawningCave(L: LevelData, r: Rng, G: Ground) {
   const floor = Math.round(G.at(8 * T) / T) * T;
   const x0 = 3 * T, x1 = 12 * T, mouth = 1.5 * T;
   G.flatten(0, x1 + mouth + T, floor, 120);
@@ -839,7 +840,14 @@ export interface EdgeEntry {
 /** Ein Ort dieses Zeitalters – bei jedem Lauf etwas anders, aber immer derselbe für einen Lauf. */
 export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry): LevelData {
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
-  return place.sky ? genSwamp(ep, r, place, edge) : genWater(ep, r, place, edge);
+  const L = place.sky ? genSwamp(ep, r, place, edge) : genWater(ep, r, place, edge);
+  openWaterEdges(L);
+  if (edge?.side === 'chasm' && L.chasm) L.start = { x: (L.chasm.x0 + L.chasm.x1) / 2, y: L.chasm.exitY - 280 };
+  if (!edge && L.cave) {
+    const c = L.cave;
+    L.start = { x: c.x + c.w * .6, y: c.y + c.h - 65 };
+  }
+  return L;
 }
 
 // ---------------------------------------------------------------------------

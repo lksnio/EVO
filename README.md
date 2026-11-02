@@ -293,7 +293,7 @@ Das **Devon** ist im Stil handgezeichneter 2D-Welten gemalt (Vorbild: *Hollow Kn
 Zeitalter (Karbon, Kreidezeit …) behalten ihre bisherige Malweise. Wie das geht, steht in `src/art/ink.ts`: `withInk(true, …)`
 schaltet beim Malen eines Devon-Tiers (der Fisch der Spielfigur, alle Arten aus `epochSpecies(devon)`) den Stil ein; Welt-Bilder
 (Pflanzen, Riffbewohner, Laich, Muscheln) bekommen über `inkTexture` (`src/art/inkFilter.ts`) eine zweite, gezeichnete Fassung
-(`ink_<Schlüssel>`), die Szene wählt sie, solange `inkWorldOn()` gilt (Devon und das Becken des Laichduells).
+(`ink_<Schlüssel>`), die Szene wählt sie, solange `inkWorldOn()` gilt (Devon).
 
 - **Tiere:** flache Körperfarbe, ein dunklerer Rücken und ein heller Bauch als feste Flächen, ein Schattenstreifen unten und ein
   schmales Licht oben (`crescent` in `paint.ts`), dazu die Kontur (zwei leicht versetzte Linien – wie mit der Feder gezogen).
@@ -420,7 +420,7 @@ Laufzeitdateien reproduzieren: `python tools/fish_assets.py` und `python tools/w
 
 Das Paket `art/EVO_laich_hoehle_wasser_v1` ist für das Devon eingebaut. Laich besteht aus dem leeren Nest und einzeln gesetzten Eiern, passend zum vorhandenen `Roe.units`-Stand. Die Positionen bleiben bei Verlust stabil; der bisherige Fußpunkt, die Trefferfläche, Befruchtung und das Schlüpfen bleiben erhalten. Die fertige Darstellung wird pro Eierstand gecacht, ohne dauerhaftes Pulsieren des Haufens.
 
-Die Höhle verwendet nur die getrennte Rückwand und den vorderen Felsrahmen. Beide vollständigen Leinwände werden in denselben Rahmen gesetzt; die alte Felszeichnung und der zusätzliche Höhlenschatten entfallen. Die bestehenden Dachkollisionen, Öffnung, Versteckwirkung und Laichduell-Aktionen bleiben. Im Eingang bleibt der Fisch lesbar, statt vor der gemalten Rückwand ein zweites Mal fast schwarz getönt zu werden.
+Die Höhle verwendet nur die getrennte Rückwand und den vorderen Felsrahmen. Beide vollständigen Leinwände werden in denselben Rahmen gesetzt; die alte Felszeichnung und der zusätzliche Höhlenschatten entfallen. Die bestehenden Dachkollisionen, Öffnung und Versteckwirkung bleiben. Hier liegt der eigene Laichplatz. Im Eingang bleibt der Fisch lesbar, statt vor der gemalten Rückwand ein zweites Mal fast schwarz getönt zu werden.
 
 Das Wasser erhält langsam verformte Kaustiken ausschließlich auf schmalen, beleuchteten Gelände-/Felsoberflächen, weich auslaufende Lichtschächte und eine Trübung zwischen den Hintergrundebenen. Die bisher fest eingezeichneten Lichtdreiecke entfallen in dieser Variante. Drei Partikelebenen nutzen die vorhandene Strömung und ein begrenztes Budget; HUD, Sichtweite und Schadensberechnung werden nicht verzerrt. Das Wasser-Konzeptbild bleibt eine Referenz und wird nicht als Vollbild-Overlay geladen.
 
@@ -428,43 +428,13 @@ Vergleich: `?oldprops` zeigt die bisherigen Requisiten, `?oldwater` das bisherig
 
 Echte Browseraufnahmen, Testumfang und Messgrenzen: `art/vorlagen/fluss/README.md`. Die reproduzierbare Browserprüfung liegt in `tools/check_river.cjs` (extern installiertes `playwright-core` und Chromium).
 
-## Das Laichduell (Koop-Minispiel)
+## Wassergrenzen und Laichhöhle
 
-Im **Devon** liegt links vom Startort, gleich neben dem Laichhaufen, eine **dunkle Höhle** im Fels (`LevelData.cave`, gebaut in
-`addDuelCave` in `src/level/LevelGen.ts`). Man schwimmt hinein – drinnen sieht man von den Fischen fast nur noch die Augen.
-Über der Höhle ist freies Wasser bis an den linken Rand: Andere Fische (die Tiere) können dort **aus dem Bild hinaus**
-schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine Wand (so sitzt kein Tier in der Ecke fest).
+Im Laichfluss liegt der eigene Laich in der gemalten Höhle. Hier werden neue Gelege abgelegt; gespeicherte Gelege wandern beim Laden an diesen geschützten Platz. Die Aktionstaste öffnet dort die Eiübersicht.
 
-- **Einloggen (zu zweit):** Sind zwei Spieler in der Höhle, erscheint über dem eigenen Fisch die Aktionstaste (**E**, am
-  Handy der Biss-Knopf). Wer sie drückt, ist **eingeloggt** – über der Höhle steht dann „Bereit · warte auf …“ bzw. beim
-  anderen „… ist bereit zum Laichduell“. Eingeloggt bleibt man, **bis auch der andere einloggt** (dann beginnt das Duell)
-  **oder bis man die Höhle verlässt**. Allein (oder offline) passiert in der Höhle nichts. Was gilt, entscheidet der Server
-  (`cave` in `src/server/ZoneRoom.ts`, Anzeige in `src/objects/DuelCave.ts`).
-- **Das Becken:** Beide kommen in ein eigenes Becken (`src/scenes/DuelScene.ts`, Server: `src/server/DuelRoom.ts`) – **genau
-  ein Bildschirm** groß, so weit, wie man im Spiel unter Wasser sieht. **Links** ist es steinig (Fels mit einer Höhle), in
-  der **Mitte** nur Wasser, **rechts** wachsen Pflanzen; Wasser ist überall, die Gebiete sind nur Kulisse dahinter. Ein
-  Fisch beginnt links, der andere rechts – beide als **Urfisch**, also gleich (20 Lebenskraft, die Werte des ersten Fischs).
-- **Zwei Strömungen:** **oben von links nach rechts**, **unten von rechts nach links** (helle Schlieren zeigen sie). Sie
-  schieben die Fische ein wenig und tragen den Laich mit: Wer unten rechts laicht, dessen Laich treibt vom Pflanzen- ins
-  Steingebiet, oben ist es umgekehrt.
-- **Laichen (F, am Handy „Laichen“):** kostet **die Hälfte der jetzigen Lebenskraft** (aufgerundet bleibt der Rest). Jeder
-  hat **immer nur einen Laich** zugleich. Der Laich nimmt nach und nach **ein wenig die Farbe des Gebiets** an, in dem er
-  gerade liegt (Stein grau, Wasser blau, Pflanze grün); ein Ring zeigt, wann er schlüpft. Nach **20 Sekunden** schlüpft
-  daraus ein neuer Fisch: Der Laich verschwindet, **das alte Tier stirbt**, und man spielt den neuen weiter – mit **voller
-  Lebenskraft**. Er ist ein **Stein-, Wasser- oder Pflanzenfisch**, je nachdem, **wo sein Laich beim Schlüpfen liegt** – der
-  Urfisch, nur leicht verändert: sandig mit festeren Schuppen und hartem Kopf, blau und schlank mit langen Flossen, grün
-  mit Querbinden und hoher Rückenflosse. Danach kann er wieder laichen.
-- **Kämpfen:** gebissen wird wie immer (**E**, dieselbe Biss-Animation). Ein Biss macht **2 Schaden**. Wie bei Schere, Stein,
-  Papier: **Stein schlägt Wasser, Wasser schlägt Pflanze, Pflanze schlägt Stein** – gegen das unterlegene Element macht ein
-  Biss **5**, gegen das überlegene nur **1** (der Steinfisch also 5 gegen den Wasser-, 1 gegen den Pflanzenfisch). Der
-  Urfisch macht und bekommt immer 2. Nach einem Treffer ist man 0,7 s geschützt. Den Schaden rechnet der Server.
-- **Sieg:** Stirbt ein Fisch und liegt **kein Laich** von ihm, hat er die Runde verloren (liegt noch Laich, geht es mit dem
-  neuen Fisch weiter, sobald er schlüpft). Wer aufgibt (**Esc zweimal**, am Handy „Aufgeben“ zweimal antippen) oder die
-  Verbindung verliert, hat auch verloren.
-- **Belohnung:** Der Sieger bekommt **25 %** der Nahrung, die sein eigenes Tier für einen Nachkommen braucht, der Verlierer
-  **10 %** – jeweils **aufgerundet** (beim ersten Fisch mit 20 je Nachkomme: 5 bzw. 2). Danach geht es zurück **in die
-  Höhle im Laichfluss**; das eigene Tier hat dort gewartet (es altert im Duell nicht, seine Lebenskraft bleibt).
-- Alle Zahlen stehen in `DUEL` in `src/sim/duel.ts` (Lebenskraft, Zeit bis zum Schlüpfen, Schaden, Strömung, Belohnung …).
+Laichfluss und Korallengarten zeigen oben eine ruhige gemalte Wasserlinie. Im Fluss erlaubt die Kamera 270 Weltpixel Himmel, im Korallengarten nur 46. Im Tiefental bleibt über dem oberen Rand tiefes Wasser. Zwei lange Wellenbänder verschieben sich langsam gegeneinander und heben sich um höchstens zwei Pixel; außerhalb des Bildes sind alle fünf Oberflächenobjekte unsichtbar. Es entstehen keine Texturen pro Frame. Quellen, Aufbereitung und Aufnahmen stehen in `art/EVO_water_edges_v1/`.
+
+Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsächlichen unteren Kartenrand hinaus. Dort wechselt man mit erhaltener Schwimmgeschwindigkeit ins Tiefental; eine einmalige Aufnahme des vorherigen Bildes gleitet beim Überblenden nach oben. Der Rückweg nach oben funktioniert entsprechend. Generator, importierte Karten und Weltbaukasten verwenden dieselbe Randgeometrie (`src/level/waterBounds.ts`).
 
 ## So spielt sich EVO
 
@@ -538,7 +508,7 @@ schwimmen, die eigenen Fische nicht – für die Spielerfische ist der Rand eine
   links und rechts, aber auch tief nach unten. Die Orte unterscheiden sich in **Form**, Leben und Licht:
   - **Der Startort** ist der **Laichfluss**: Du schlüpfst in einem flachen Becken neben dem **einen Laichhaufen** deiner
     Art am Boden – es gibt nur noch diesen einen, und alle (auch im Koop) kommen zum Laichen und Befruchten hierher.
-    Links davon liegt im Devon die dunkle **Höhle des Laichduells** (siehe [Das Laichduell](#das-laichduell-koop-minispiel)).
+    Im Devon liegt der eigene Laich in der dunklen **Laichhöhle**.
     Im Devon leben hier locker verteilte kleine Fische und Trilobiten (höchstens 40 Tiere). Direkt am eigenen Laich und in
     der Höhle werden keine fremden Bewohner oder Zuwanderer erzeugt; natürliche Bewegung bleibt möglich. Große Jäger wohnen erst weiter draußen.
     Selten zieht ein einzelner größerer Raubfisch außerhalb der Kinderstube vorbei. Auch im Hintergrund ist weniger los.
@@ -1012,11 +982,11 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | --- | --- |
 | ← → ↑ ↓ | schwimmen |
 | Leertaste (auch ↑) | auftauchen |
-| E (auch Q) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund); in der Höhle links im Laichfluss: zum Laichduell einloggen |
+| E (auch Q) | beißen und fressen – zur Laichzeit: laichen, sobald über dem orangen Laich deiner Art das Zeichen **E** erscheint (als Weibchen: dicht am Grund); am eigenen Laich: Eiübersicht öffnen |
 | W (auch Shift) | sprinten (kostet Ausdauer) |
 | (nichts tun) | ausruhen: sich treiben lassen, Ausdauer und Lebenskraft kehren zurück (langsam schwimmen heilt auch, nur langsamer) |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
-| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht); im Laichduell: laichen |
+| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Werte, Körper, Lebensweg, Nachkommen und Muscheln; daneben „Beute: N“ mit der übrigen Nahrung |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
@@ -1110,9 +1080,7 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
   fortzieht, blendet beim Gast aus statt schlagartig zu verschwinden; Tiere am Rand des Ortes ziehen erst weiter, wenn sie
   kein Spieler mehr sieht; beim Wechsel der Rolle blenden die eigenen Tiere aus, statt zu verschwinden.
 - **Noch für jeden einzeln:** deine Artgenossen (bestehende Gruppe und Laich-Partner). Der Laich im Devon ist gemeinsam.
-- **Das Laichduell:** In der Höhle links im Laichfluss loggen sich zwei Spieler ein (`cave`); der Ort legt dann ein eigenes
-  Becken an (`DuelRoom`, betreten nur mit der Eintrittskarte, die beide bekommen). Lebenskraft, Laich, Strömung, Schlüpfen
-  und Sieg rechnet dort der Server (siehe [Das Laichduell](#das-laichduell-koop-minispiel)).
+
 
 Oben rechts steht klein, wie viele andere Spieler an deinem Ort sind – und wie lange eine Nachricht zum Server und zurück
 braucht (z. B. „· 40 ms“; ab 150 ms wird die Zeile ocker: Dann liegt ein Ruckeln eher an der Verbindung als am Spiel).
@@ -1157,7 +1125,6 @@ im selben Ort.
 ```
 src/server/index.ts      der Spielserver: Räume (je Ort einer, filterBy 'zone')
 src/server/ZoneRoom.ts   ein Ort: Spieler betreten/verlassen, Lage prüfen (Tempo, Grenzen), Wiederverbinden, Einloggen in der Höhle
-src/server/DuelRoom.ts   ein Laichduell zu zweit: Lebenskraft, Laich, Strömung, Schlüpfen, Sieg (Regeln: src/sim/duel.ts)
 src/net/schema.ts        der Zustand, den der Server verteilt (Colyseus-Schema) – von Server und Client genutzt
 src/net/protocol.ts      Nachrichten und Grenzwerte (Sendetakt, Höchsttempo …)
 src/net/NetClient.ts     die Verbindung im Browser (wird nur geladen, wenn ein Server da ist)
@@ -1236,10 +1203,9 @@ src/
 ├── sim/life.ts          der Lebenszyklus als reine Rechnung (Wachstum, Lebensabschnitte, Laichbereitschaft, Weltzeit) – auch für den Server
 ├── sim/sight.ts         die Sicht unter Wasser als reine Rechnung (Blickfeld nach vorn, kleiner Kreis nach hinten, Verschwimmen)
 ├── sim/bite.ts          der Biss der Jäger: Ablauf (ausholen, vorschnellen, zuschnappen, erholen) und seine Streuung
-├── sim/duel.ts          das Laichduell als reine Rechnung: Becken, Gebiete, Strömungen, Schaden im Kreis, Laichen, Belohnung
 ├── sim/brood.ts         das Karbon als reine Rechnung: Gelege, Nahrung und Metamorphose, Eier zur Wahl, Vererbung aus dem Training, Hänge, Sauerstoff
 ├── state/GameState.ts   Leben (Lauf), Gelege, Vererbung, verborgene Merkmale, Ruf, Stammbaum, Speichern (ohne Phaser)
-├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern), SpeciesRoom.ts (die gemeinsame Art: der Laich aller Spieler eines Zeitalters), DuelRoom.ts (ein Laichduell)
+├── server/              der Spielserver (Colyseus): index.ts (Räume), ZoneRoom.ts (ein Ort mit seinen Spielern), SpeciesRoom.ts (die gemeinsame Art: der Laich aller Spieler eines Zeitalters)
 ├── net/                 Mehrspieler im Spiel: protocol.ts, schema.ts (gemeinsam mit dem Server), NetClient.ts, NetSync.ts, RemoteFish.ts, Species.ts (die gemeinsame Art im Koop)
 ├── level/
 │   ├── LevelGen.ts      erzeugt jeden Ort – für alle Spieler und in jedem Leben gleich (feste Weltsaat), ohne Phaser
@@ -1261,11 +1227,11 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
-├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf), DuelCave.ts (die Höhle des Laichduells: einloggen)
+├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Segen als Punktfolge (upTrail.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
-└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), das Laichduell (DuelScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
-tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients, Laichduell (Regeln und Ablauf auf dem Server)
+└── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
+tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
@@ -1287,11 +1253,6 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       `src/data/karbon.ts`.
 - [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
-- [ ] **Laichduell:** Lebenskraft im Duell 20 (nicht die des eigenen Tiers), Schutz nach einem Treffer 0,7 s, nur Beißen
-      zählt (der Stoß ist im Duell aus). Der neue Fisch bekommt das Gebiet, **in dem sein Laich beim Schlüpfen liegt** (der Laich
-      färbt sich unterwegs nach und nach um). Der Laich treibt mit 70 Bildpunkten je Sekunde, die Fische schiebt die Strömung
-      mit 110. Wer aufgibt oder die Verbindung verliert, verliert; kommt der zweite nicht binnen 45 s ins Becken, wird es
-      abgebrochen (ohne Belohnung). Mehr als zwei Eingeloggte: die ersten beiden spielen. Alles in `DUEL` (`src/sim/duel.ts`).
 - [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
       Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.
 - [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen

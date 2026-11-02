@@ -419,7 +419,7 @@ function maskGradient(ctx: Ctx, width: number, zones: TerrainZone[], mats: Mater
 
 let serial = 0;
 
-/** Was zum Malen des Bodens gebraucht wird (ein Ort – oder das Becken des Laichduells). */
+/** Was zum Malen des Bodens gebraucht wird (ein Ort). */
 export type TerrainSpec = Pick<LevelData, 'width' | 'terrain' | 'mats' | 'rocks' | 'fore'>;
 
 /**

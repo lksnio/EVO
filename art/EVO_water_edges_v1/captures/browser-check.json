@@ -1,0 +1,38 @@
+{
+  "report": {
+    "mate": {
+      "arrived": true,
+      "steps": 253,
+      "x": 384.17768048797234,
+      "y": 642.7451227055585
+    },
+    "nursery": {
+      "grounds": true,
+      "canVisit": true
+    },
+    "surface": {
+      "objects": 5,
+      "animated": true,
+      "sameTextures": true,
+      "sky": 270
+    },
+    "channel": {
+      "exit": 2260,
+      "height": 2200,
+      "noFloor": true,
+      "surfaceCulled": true,
+      "bottomOpen": true
+    },
+    "deep": {
+      "place": "wand",
+      "surface": false,
+      "velocity": 79.56410551765431
+    },
+    "returned": {
+      "place": "garten",
+      "inChannel": true,
+      "y": 1973.835526463235
+    }
+  },
+  "errors": []
+}

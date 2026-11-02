@@ -1,3 +1,4 @@
+import { WaterSurface } from '../art/WaterSurface';
 import type Phaser from 'phaser';
 import { chasmArt } from '../art/chasmArt';
 import { terrainArt } from '../art/terrainArt';
@@ -15,6 +16,7 @@ import type { WorldMap } from './document';
 /** Uses the same terrain, props and map-object renderer as LevelScene. No simulation or saved-run changes. */
 export class MapView {
   readonly scenery: MapScenery;
+  private surface?: WaterSurface;
   private images: Phaser.GameObjects.GameObject[] = [];
   private keys: string[] = [];
   private backgrounds: Phaser.GameObjects.TileSprite[] = [];
@@ -26,12 +28,13 @@ export class MapView {
     const mg = scene.add.tileSprite(640, 360, 1280, 720, mid).setScrollFactor(0).setDepth(-99).setAlpha(.65);
     this.images.push(bg, mg);
     this.backgrounds = [bg, mg];
+    this.surface = WaterSurface.create(scene, ep, place, L);
     const visual = { ...L, rocks: L.rocks.filter(r => !(ink && paintedRiver(scene) && r.paintedProp === 'cave') && !(reef && (r.form === 'slab' || r.paintedProp === 'shelter-support'))) };
     const art = terrainArt(scene, visual, L.theme, place.def.ground, ink);
     this.keys.push(...art.keys);
     for (const c of art.chunks) {
       this.images.push(scene.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(0));
-      this.images.push(scene.add.rectangle(c.x, c.deepY - 1, c.w, L.height + 400 - c.deepY, art.deep).setOrigin(0).setDepth(-.1));
+      if (c.deepY < L.height + 400) this.images.push(scene.add.rectangle(c.x, c.deepY - 1, c.w, L.height + 400 - c.deepY, art.deep).setOrigin(0).setDepth(-.1));
     }
     for (const k of art.rocks) this.images.push(scene.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(.5));
     for (const k of art.fore) this.images.push(scene.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(42));
@@ -43,6 +46,7 @@ export class MapView {
     for (const r of L.roe) this.images.push(new Roe(scene, r.x, r.y, r.species, r.tone, 4, r.own).img);
   }
   update() {
+    this.surface?.update(this.scene.time.now);
     const cam = this.scene.cameras.main;
     this.backgrounds.forEach((bg, i) => {
       bg.setSize(1280 / cam.zoom, 720 / cam.zoom).setTileScale(1 / cam.zoom);
@@ -50,6 +54,7 @@ export class MapView {
     });
   }
   destroy() {
+    this.surface?.destroy();
     this.scenery.destroy(); for (const img of this.images) img.destroy();
     for (const key of this.keys) if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
     this.images = []; this.keys = [];

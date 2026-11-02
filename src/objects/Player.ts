@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
-import { game, type Stats, type Traits, type UpKey } from '../state/GameState';
+import { game, type Stats, type UpKey } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
@@ -28,33 +28,6 @@ export interface PlayerHost extends Phaser.Scene {
 }
 
 type Body = Phaser.Physics.Arcade.Body;
-
-/**
- * Woher ein Fisch seine Werte und sein Aussehen hat: sonst das eigene Tier (der Spielstand) – im Laichduell ein Urfisch bzw.
- * ein Fisch seines Elements (scenes/DuelScene.ts), ohne den Spielstand zu berühren.
- */
-export interface FishSource {
-  stats(): Stats;
-  morph(): Morph;
-  readonly traits: Traits;
-  readonly staminaMax: number;
-  readonly canRam: boolean;
-}
-
-/** das eigene Tier, wie es im Spielstand steht */
-const OWN: FishSource = {
-  stats: () => game.stats(),
-  morph: () => game.morph({ belly: 1, fierce: game.fear() }),
-  get traits() {
-    return game.traits;
-  },
-  get staminaMax() {
-    return game.staminaMax;
-  },
-  get canRam() {
-    return game.canRam;
-  },
-};
 
 /** So lange (ms) schlägt das Tier beim Stoß höchstens kräftiger, bevor es gleitet. */
 const CHARGE_MS = 500;
@@ -163,8 +136,8 @@ export class Player {
   private hurtRun = 0;
   private dryAt = 0;
 
-  constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean, private src: FishSource = OWN) {
-    this.stamina = src.staminaMax;
+  constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
+    this.stamina = game.staminaMax;
     this.rect = host.add.rectangle(x, y, 40, 30, 0xff0000, 0);
     host.physics.add.existing(this.rect);
     const b = this.body;
@@ -179,7 +152,7 @@ export class Player {
 
   /** die größte Ausdauer (in Kreisen) */
   get staminaMax() {
-    return this.src.staminaMax;
+    return game.staminaMax;
   }
 
   /**
@@ -277,7 +250,7 @@ export class Player {
 
   /** Aussehen aus den aktuellen (verborgenen) Merkmalen. */
   morph(): Morph {
-    return this.src.morph();
+    return game.morph({ belly: 1, fierce: game.fear() });
   }
 
   /**
@@ -287,7 +260,7 @@ export class Player {
    */
   refresh(full = false, look = true) {
     const ratio = full ? 1 : this.hp / Math.max(1, this.stats?.maxHp ?? 1);
-    this.stats = this.src.stats();
+    this.stats = game.stats();
     const before = this.view.key;
     if (look || full) this.view.build(this.morph());
     if (before === this.view.key && !full) {
@@ -297,7 +270,7 @@ export class Player {
     const L = this.view.L;
     const w = Math.round(L.halfW * 2);
     // massige Tiere sind auch höher – sie passen nicht mehr durch jede Felsspalte
-    const h = Math.round((L.footY - L.topY) * (1 + 0.22 * Math.max(0, this.src.traits.girth)));
+    const h = Math.round((L.footY - L.topY) * (1 + 0.22 * Math.max(0, game.traits.girth)));
     if (full || w !== Math.round(this.rect.width) || h !== Math.round(this.rect.height)) {
       // Unterkante des Objekts (nicht des Körpers!) beibehalten: Der Körper ist in diesem
       // Moment schon weiterbewegt, das Objekt folgt erst danach – sonst rutscht man in den Boden.
@@ -472,7 +445,7 @@ export class Player {
           else if (here > CLIMB.steep) {
             // klettern: kostet Ausdauer (ein Schuppenpanzer mehr) und stärkt den Griff der Nachkommen
             this.climbing = true;
-            this.stamina = Math.max(0, this.stamina - (dt * climbCost(here, max, this.src.traits.armor ?? 0)) / en);
+            this.stamina = Math.max(0, this.stamina - (dt * climbCost(here, max, game.traits.armor ?? 0)) / en);
             this.usedAt = time;
             this.climbRun += Math.abs(b.velocity.x) * dt * Math.tan((here * Math.PI) / 180);
           }
@@ -505,12 +478,12 @@ export class Player {
 
     // Stoß (R): mit stärkerem Schädel kürzer anlaufen und schneller vorstoßen. Der Schwung klingt rasch ab;
     // danach muss man sich kurz erholen. Für Strecke bleibt der Spurt schneller, auch gegenüber Spurt + Stoß.
-    if (this.dash === 'none' && c.pressed.ram && this.src.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
+    if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
       this.dash = 'charge';
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      const skull = clamp(this.src.traits.skull + (this.src.traits.ramGain ?? 0) / 40, 0, 1);
+      const skull = clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
       this.dashChargeMs = CHARGE_MS - 100 * skull;
       this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade * (wet ? 1 + FLOW.ram * this.flow : 1);
       this.surge = 0;
@@ -565,10 +538,10 @@ export class Player {
       this.biteReady = time + 380;
       this.bitAt = time;
       // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
-      this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * this.src.traits.jaw) / en);
+      this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.usedAt = time;
       this.view.bite();
-      audio.sfx('bite', this.src.traits.jaw);
+      audio.sfx('bite', game.traits.jaw);
       const m = this.momentum;
       this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect(), m));
     }
@@ -651,9 +624,8 @@ export class Player {
     return true;
   }
 
-  /** force: trifft auch kurz nach einem Treffer (der Server hat ihn schon gezählt, siehe DuelScene) */
-  hurt(dmg: number, fromX: number, by?: string, source?: object, force = false) {
-    if (this.dead || ((this.invulnerable || this.shielded) && !force)) return;
+  hurt(dmg: number, fromX: number, by?: string, source?: object) {
+    if (this.dead || this.invulnerable || this.shielded) return;
     if (by) this.lastCause = by;
     const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
@@ -741,13 +713,6 @@ export class Player {
     this.lastCause = cause;
     this.hp = 0;
     this.die();
-  }
-
-  /** Das Tier verschwindet ganz (im Laichduell: ein neuer Fisch ist geschlüpft). */
-  destroy() {
-    this.dead = true;
-    this.view.destroy();
-    this.rect.destroy();
   }
 
   private die() {

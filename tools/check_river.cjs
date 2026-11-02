@@ -29,7 +29,6 @@ fs.mkdirSync(folder,{recursive:true});
    const result=await page.evaluate(async legacy=>{
     const e=window.__evo,s=e.game.scene.getScene('Level'),c=s.L.cave;
     const {Roe}=await import('/src/objects/Food.ts');
-    const {DuelCave}=await import('/src/objects/DuelCave.ts');
     const {paintedRiver,riverRoeTexture,riverCave}=await import('/src/art/riverProps.ts');
     const r=new Roe(s,1000,600,'moythomasia',1,4,false),rect={...r.rect};
     const initial=r.img.texture.key;r.take();const after=r.img.texture.key;
@@ -41,13 +40,11 @@ fs.mkdirSync(folder,{recursive:true});
     if(!legacy)for(let i=0;i<5;i++)riverRoeTexture(s,3,4);
     const noFrameTextures=Object.keys(s.textures.list).length===n;
     s.player.body.reset(c.x+c.w*.65,c.y+c.h-45);
-    const events=[];
-    const fake={inCave:false,players:()=>[{x:s.player.x,y:s.player.y,dead:false,view:s.player.view,name:'Test partner',cave:false}],caveLogin(value){this.inCave=value;events.push(value);}};
-    const controller=new DuelCave(s,fake);controller.update(.016);
-    const canEnter=controller.act();s.player.body.reset(c.x+c.w+80,c.y+c.h-45);controller.update(.016);controller.destroy();
+    const heap=s.L.roe.find(r=>r.own);
+    const inNursery=heap.x>c.x&&heap.x<c.x+c.w&&Math.abs(heap.y-(c.y+c.h))<8;
     if(!legacy){const a=riverCave(s,c),b=riverCave(s,c);if(a.back.x!==a.front.x||a.back.y!==a.front.y||a.back.displayWidth!==a.front.displayWidth)throw Error('Cave layer registration');a.back.destroy();a.front.destroy();b.back.destroy();b.front.destroy();}
     const frames=s.children.list.filter(o=>o.name==='river-cave_front');
-    const report={legacy,initial,after,remaining,exhausted,hatched,rect,noFrameTextures,canEnter,events,
+    const report={legacy,initial,after,remaining,exhausted,hatched,rect,noFrameTextures,inNursery,
       solids:s.L.solids,ground:s.L.groundRects,cave:s.L.cave,animals:s.animals.length,
       painted:paintedRiver(s),frames:frames.length,waterSurfaces:s.waterAtmosphere?.surfaces.length||0,
       particles:s.drift?.motes.length||0};
@@ -56,7 +53,7 @@ fs.mkdirSync(folder,{recursive:true});
     return report;
    },legacy);
    assert.equal(result.remaining,3);assert.equal(result.exhausted,true);assert.equal(result.hatched,true);
-   assert.equal(result.noFrameTextures,true);assert.equal(result.canEnter,true);assert.deepEqual(result.events,[true,false]);
+   assert.equal(result.noFrameTextures,true);assert.equal(result.inNursery,true);
    assert.deepEqual(result.rect,{x:968,y:562,w:64,h:42});
    if(!legacy){assert.equal(result.frames,1);assert.ok(result.initial.startsWith('river_roe_'));assert.ok(result.waterSurfaces>0);assert.ok(result.particles<=48);}
    await page.waitForTimeout(300);

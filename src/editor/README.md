@@ -36,3 +36,7 @@ Die Karte enthält die konkrete Bodenlinie, feste Felsen, deren zugeordnete Koll
 - Vite starten, dann `NODE_PATH=/tmp/evo-browser/node_modules node tools/check_editor.cjs` für echte UI-Gesten, Import/Export, Entwurfwiederherstellung, Begehung und Projektspeichern bis ins Hauptspiel. Der Prüflauf stellt die Projektdatei danach wieder her; währenddessen nur einen isolierten lokalen Testserver verwenden.
 
 Die Baukasten-Bauteile in `src/assets/reef/units/` wurden mit Bildgenerierung als getrennte, transparente Pflanzen und Steine gezeichnet. Original: `art/EVO_editor_units_v1/source.png`. `tools/prepare_editor_units.py` schneidet und verkleinert sie reproduzierbar. Weitere Assetpakete können dieselben Platzierungs-, Ebenen- und Speicherfunktionen nutzen.
+
+## Wassergrenzen im Devon
+
+Der Kartenrenderer zeigt dieselben gemalten Oberflächen wie das Hauptspiel: Himmel und ruhige Wellen im Laichfluss, einen schmalen Himmelssaum im Korallengarten, keine Oberfläche im Tiefental. Der Schluchtzugang bleibt beim Laden und Bearbeiten bis unter den unteren Kartenrand offen. Das Profil darf dort unterhalb der nominellen Kartenhöhe liegen; es wird kein umgedrehtes Bodenrechteck darüber gezeichnet. Der eigentliche Ortswechsel findet im Hauptspiel statt. Im Laichfluss liegt der eigene Laichplatz in der Höhle.

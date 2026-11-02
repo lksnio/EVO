@@ -183,7 +183,6 @@ Alle Aufnahmen ohne Grafikkarte (Software-GL, Chromium `--disable-gpu`).
 
 * **Spielstände:** Ein Spielstand, geschrieben vom Stand `a6def21` (vor dem Fisch-Rig), lädt im neuen Spiel (Schädel 0,4, Kiefer 0,35, Gebisszuwachs 14 …), Level, Laich, Übersicht (C),
   Stammbaum, Ende und Aussterben laufen ohne einen Fehler in der Konsole. Das Speicherformat hat sich durch das Rig nicht geändert (die Darstellung wird aus den Werten abgeleitet).
-* **Duell:** Zwei Spieler (Server im Entwicklungsbetrieb): Höhle, Einloggen, Duell, Biss, Laichen, Schlüpfen, Ergebnis, zurück in die Höhle – Fische sichtbar und mit Treffer-Einfärbung.
 * **Leistung** (ohne Grafikkarte, Software-GL, 18 Fische im Schwimmen mit Bissen): 22,5 Bilder pro Sekunde gegenüber 24,3 mit dem alten Fisch, Rechenzeit der Posen
   0,17 ms je Bild für alle 18; neues Aussehen erzeugen (gemalt, mit Profilverzerrung) 16 … 47 ms je nach Größe (Größe 0,5 … 1,6), programmiert 9 … 16 ms – nur beim Wechsel des
   Aussehens, danach aus dem Zwischenspeicher. Die Spieleraufhellung kostet nichts je Bild (ein Tint-Wert, nur bei Änderung gesetzt; kein Auslesen der Grafikkarte,

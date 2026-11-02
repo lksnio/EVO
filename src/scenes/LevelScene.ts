@@ -1,3 +1,5 @@
+import { WaterSurface } from '../art/WaterSurface';
+import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
 import { recordDefeat, type CombatSkill } from '../sim/evolution';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
@@ -37,10 +39,7 @@ import { Kin, type KinWorld } from '../objects/Kin';
 import type { PlayerLike } from '../objects/Animal';
 import { SwarmCtl } from '../objects/Swarm';
 import { SpawnCtl } from '../objects/Spawning';
-import { DuelCave } from '../objects/DuelCave';
 import { NetSync, netWanted } from '../net/NetSync';
-import type { DuelStartMsg } from '../net/protocol';
-import type { DuelData } from './DuelScene';
 import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
@@ -119,8 +118,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private near = { k: 1 };
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
-  /** die Höhle des Laichduells (links im Laichfluss des Devons): zu zweit einloggen */
-  private duelCave?: DuelCave;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
   private net?: NetSync;
   /** Mehrspieler: um welchen Spieler sich ein Tier gerade kümmert (für eine Weile gemerkt, damit es nicht hin und her springt) */
@@ -178,6 +175,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private veil!: Phaser.GameObjects.Rectangle;
   private surfGlow?: Phaser.GameObjects.TileSprite;
   private waterAtmosphere?: WaterAtmosphere;
+  private waterSurface?: WaterSurface;
   private paintedCave = false;
   /** der Ort, an dem man gerade ist */
   place!: PlaceDef;
@@ -250,6 +248,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   private dbg?: Phaser.GameObjects.Text;
   private t = 0;
+  private waterTravel?: { key: string; direction: number; vx: number; vy: number };
+  private travelReadyAt = 0;
 
   constructor() {
     super('Level');
@@ -259,7 +259,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     Shrine.preload(this);
   }
 
-  init(d: { epoch?: number; place?: string }) {
+  init(d: { epoch?: number; place?: string; waterTravel?: { key: string; direction: number; vx: number; vy: number } }) {
+    this.waterTravel = d?.waterTravel;
+    this.travelReadyAt = this.time.now + (d?.waterTravel ? 900 : 0);
     this.combat.clear();
     this.pendingCombat.clear();
     this.epochIdx = d?.epoch ?? game.epochIndex;
@@ -300,6 +302,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.redrawAt = 0;
     this.surfGlow = undefined;
     this.waterAtmosphere = undefined;
+    this.waterSurface = undefined;
     this.paintedCave = false;
     this.shells = [];
     this.shrine = undefined;
@@ -327,14 +330,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.near = { k: 1 };
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
-    this.duelCave = undefined;
     this.ink = undefined;
   }
 
   create() {
     // wer gerade schlüpft, wacht langsam auf (siehe unten); sonst geht es zügig los
     const waking = !!game.prog.at;
-    fadeIn(this, waking ? 2600 : 900);
+    if (!this.waterTravel) fadeIn(this, waking ? 2600 : 900);
     this.dark = false;
     game.beginLife();
     const ep = this.ep;
@@ -348,12 +350,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     world.gravity.y = this.water ? 0 : GRAVITY;
     // Karbon: Über der Wasserlinie ist Himmel – die Welt reicht bis oben
     if (this.amphibious) world.setBounds(0, 0, L.width, L.height);
-    else if (this.water) world.setBounds(0, L.surfaceY, L.width, L.height - L.surfaceY);
+    else if (this.water) world.setBounds(0, L.surfaceY, L.width, Math.max(L.height, (L.chasm?.exitY ?? 0) + 240) - L.surfaceY);
     else world.setBounds(0, -600, L.width, L.height + 1200);
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
     // Quelle und äußerster Talrand schließen das Meer ab. Über der Höhle im Laichfluss ist links freies Wasser: Dort ziehen
     // Tiere aus dem Bild – die Spielerfische hält eine eigene Wand (siehe unten).
-    world.setBoundsCollision(!this.water || (!edgeNeighbor(ep, this.place, 'left', 0.5) && !L.cave), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water);
+    world.setBoundsCollision(!this.water || (!edgeNeighbor(ep, this.place, 'left', 0.5) && !L.cave), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water && !L.chasm);
     // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
@@ -370,6 +372,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
     this.bgMid = this.add.tileSprite(VX, VY, VW, VH, mid).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 1).setTileScale(1 / Z);
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
+
+    this.waterSurface = WaterSurface.create(this, ep, this.place, L);
 
     // Gelände: ein glatter Boden aus Sand, Fels und Schlamm, dazu Felsen und Kiesel
     this.solids = this.physics.add.staticGroup();
@@ -429,11 +433,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // … und wer zum Hauptmenü gegangen war, kommt genau dort wieder an, wo er war (einmalig)
     const back = born ? undefined : game.prog.resume;
     game.prog.resume = undefined;
-    const spawn = born ? { x: born.x, y: born.y - 40 } : back ? { ...back } : { ...L.start };
+    const nursery = L.cave && L.roe.find(r => r.own);
+    const spawn = born ? { x: nursery?.x ?? born.x, y: (nursery?.y ?? born.y) - 40 } : back ? { ...back } : { ...L.start };
     // Alte Spielstände können aus einem breiteren oder tieferen Abschnitt stammen.
-    // (wer aus dem Laichduell kommt, wartet in dessen Höhle – ihr Dach liegt dicht über einem)
+    // In der Laichhöhle liegt das Dach dicht über dem schlüpfenden Tier.
     const c = L.cave;
-    const inCave = !!back && !!c && spawn.x > c.x && spawn.x < c.x + c.w && spawn.y > c.y + 20 && spawn.y < c.y + c.h - 10;
+    const inCave = !!c && spawn.x > c.x && spawn.x < c.x + c.w && spawn.y > c.y + 20 && spawn.y < c.y + c.h - 10;
     if (this.water && !this.amphibious && (born || back) && !inCave) {
       spawn.x = clamp(spawn.x, 120, L.width - 120);
       const floor = groundAt(L.terrain.hp, spawn.x);
@@ -554,16 +559,24 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Kamera: etwas herausgezoomt; an Land reicht der Blick auch über den oberen Levelrand in den Himmel
     const cam = this.cameras.main;
     cam.setZoom(this.camZoom);
-    const bottom = this.water ? L.height : L.height - 70;
-    const camH = Math.max(bottom, VH + 40);
-    // Im Wasser sieht man nirgends die Oberfläche: Über dem oberen Rand geht das Wasser weiter (die Kamera darf dort hinausschauen),
-    // man merkt, dass es noch höher hinaufginge – ein Dach aus Wasser, das man nicht durchschwimmt
-    const up = this.water && !this.amphibious ? 640 : 0;
-    cam.setBounds(0, bottom - camH - up, L.width, camH + up);
+    const bottom = L.chasm ? L.chasm.exitY + 700 : this.water ? L.height : L.height - 70;
+    const sky = skyAbove(ep, this.place, L);
+    const top = sky !== undefined ? L.surfaceY - sky : this.water && !this.amphibious ? -640 : 0;
+    cam.setBounds(0, top, L.width, bottom - top);
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
     this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
+    const travel = this.waterTravel;
+    if (travel) {
+      this.waterTravel = undefined;
+      this.player.body.setVelocity(travel.vx, travel.vy);
+      cam.centerOn(this.player.x, this.player.y);
+      const shot = this.add.image(VW / 2, VH / 2, travel.key).setScrollFactor(0).setDepth(1000).setDisplaySize(VW / cam.zoom, VH / cam.zoom);
+      const release = () => { shot.destroy(); if (this.textures.exists(travel.key)) this.textures.remove(travel.key); };
+      this.events.once('shutdown', release);
+      this.tweens.add({ targets: shot, y: shot.y - travel.direction * 120 / cam.zoom, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => { this.events.off('shutdown', release); release(); } });
+    }
     // Schlüpfen ist Aufwachen: Die Augen sind noch zu und öffnen sich, während das Bild hell wird – dann schwärmen die
     // Geschwister aus
     if (born) {
@@ -582,8 +595,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.net = netWanted() ? new NetSync(this) : undefined;
     // … und die gemeinsame Art: Der Laich gehört allen Spielern des Zeitalters (net/Species.ts)
     if (this.net && !ep.brood) species.connect(this.epochIdx);
-    // die Höhle des Laichduells: zu zweit hineinschwimmen und einloggen
-    if (L.cave) this.duelCave = new DuelCave(this, this.net);
     const onAdvanced = (name: unknown, gen: unknown) => {
       if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
       bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Nach deinem Tod geht es nur noch dort weiter.');
@@ -667,9 +678,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.terrainKeys = art.keys;
     for (const c of art.chunks) {
       const img = this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);
-      const fill = this.add.rectangle(c.x, c.deepY - 1, c.w, L.height + 400 - c.deepY, art.deep).setOrigin(0).setDepth(DEPTH.terrain - 0.1);
       this.cullAdd(img, c.x, c.x + c.w);
-      this.cullAdd(fill, c.x, c.x + c.w);
+      if (c.deepY < L.height + 400) {
+        const fill = this.add.rectangle(c.x, c.deepY - 1, c.w, L.height + 400 - c.deepY, art.deep).setOrigin(0).setDepth(DEPTH.terrain - 0.1);
+        this.cullAdd(fill, c.x, c.x + c.w);
+      }
     }
     for (const k of art.rocks) {
       const img = this.add.image(k.x, k.y, k.key).setOrigin(0).setDisplaySize(k.w, k.h).setDepth(DEPTH.terrain + 0.5);
@@ -788,10 +801,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
   }
 
-  /**
-   * Die Höhle des Laichduells: eine dunkle Rückwand im Hohlraum, darüber (vor den Fischen) der Schatten – hinten fast schwarz,
-   * zur Öffnung hin heller. Drinnen sieht man von den Fischen fast nur noch die Augen (objects/DuelCave.ts).
-   */
+  /** Die Höhle schützt den Laich und die Fische in ihrem Inneren. */
+  private insideNursery(x: number, y: number) {
+    const c = this.L.cave;
+    return !!c && x > c.x + 20 && x < c.x + c.w && y > c.y + 20 && y < c.y + c.h;
+  }
+
   private buildCave() {
     this.buildChasm();
     const c = this.L.cave;
@@ -2150,7 +2165,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.swarm?.update(time);
     if (this.controls.pressed.call) this.swarm?.toggle();
     this.spawning?.update(time, dt);
-    this.duelCave?.update(dt);
     this.net?.update();
     this.drawStamina(p, dt);
     if (this.amphibious) this.drawOxygen(p, dt);
@@ -2202,6 +2216,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.backSea?.update(time, dt, this.deepK, quiet);
     this.drift?.update(time, dt);
     this.waterAtmosphere?.update(time, dt);
+    this.waterSurface?.update(time);
     this.reefScenery?.update(time, dt, p);
     this.mapScenery?.update(p);
     if (!p.dead && !this.ended) this.siltStep(time);
@@ -2433,13 +2448,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const coat = game.traits.coat | 0;
     const ci = L.cover.findIndex((c) => cx > c.x + 6 && cx < c.x + c.w - 6 && cy > c.y - 10 && cy < c.y + c.h + 10);
     // die dunkle Höhle im Laichfluss verbirgt wie eine Felsspalte
-    p.inCrevice = L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10) || !!this.duelCave?.inside(cx, cy);
+    p.inCrevice = L.crevices.some((c) => cx > c.x + 10 && cx < c.x + c.w - 10 && cy > c.y - 10 && cy < c.y + c.h + 10) || this.insideNursery(cx, cy);
     const camo = (coat === 1 && ci >= 0) || (coat === 2 && this.inDark());
     p.inCover = p.inCrevice || (coat === 1 && ci >= 0);
     p.hidden = (p.inCrevice || camo) && p.speed01 < 0.55 && !p.sprinting;
     const b = p.body;
     p.grounded = !p.inCover && p.speed01 < 0.15 && (this.water ? this.solidAt(cx, b.bottom + 8) : b.blocked.down);
-    const paintedShelter = this.paintedCave && this.duelCave?.inside(cx, cy);
+    const paintedShelter = this.paintedCave && this.insideNursery(cx, cy);
     p.view.setShade(p.inCrevice ? paintedShelter ? 0x999999 : 0x2a2a2a : p.hidden ? 0x4e4e4e : null);
     // Hinterhalt wie bei Teemo: Wer in seinem Versteck 1,5 Sekunden still hält, ist bereit – der nächste Angriff
     // (auch gleich nach dem Hervorbrechen) trifft viel härter. Ohne passende Farbe gibt es keinen Überraschungsangriff.
@@ -2726,8 +2741,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const p = this.player;
     if (!this.water || this.ended) return;
     const L = this.L;
-    // Das Tiefental verlässt man nur nach oben: Wer bis unter das Dach aus Wasser schwimmt, kommt im Korallengarten vor der Höhle heraus
-    if (this.place.ascent && p.y < L.surfaceY + 118) return this.leave(this.place.ascent, { side: 'chasm', frac: 0 });
+    // Das Tiefental verlässt man nur nach oben: Wer bis zum oberen Wasserrand schwimmt, kommt unten in der offenen Schlucht des Korallengartens heraus
+    if (this.time.now > this.travelReadyAt && this.place.ascent && p.y < L.surfaceY + 118) return this.leave(this.place.ascent, { side: 'chasm', frac: 0 });
     const side = p.x < -34 ? 'left' : p.x > L.width + 34 ? 'right' : null;
     if (!side) return;
     const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
@@ -2743,13 +2758,26 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.saveProgress();
     game.discoverLink(this.place.id, to);
     audio.sfx('travel');
-    this.player.body.setVelocity(0, 0);
-    this.cameras.main.fadeOut(240, 2, 3, 4);
-    this.time.delayedCall(260, () => {
+    const vertical = edge.side === 'top' || edge.side === 'chasm';
+    const velocity = { vx: this.player.body.velocity.x, vy: this.player.body.velocity.y };
+    const enter = (key?: string) => {
       this.scene.stop('Hud');
       game.enterPlace(to, edge);
-      this.scene.restart({ epoch: this.epochIdx, place: to });
-    });
+      this.scene.restart({ epoch: this.epochIdx, place: to, ...(key ? { waterTravel: { key, direction: edge.side === 'top' ? 1 : -1, ...velocity } } : {}) });
+    };
+    if (vertical) {
+      // One readback at the border; the old image drifts with the dive and dissolves into the next water section.
+      this.game.renderer.snapshot(image => {
+        const key = '__water_travel';
+        if (this.textures.exists(key)) this.textures.remove(key);
+        this.textures.addImage(key, image as HTMLImageElement);
+        enter(key);
+      });
+    } else {
+      this.player.body.setVelocity(0, 0);
+      this.cameras.main.fadeOut(240, 2, 3, 4);
+      this.time.delayedCall(260, () => enter());
+    }
   }
 
   /** Der Countdown zum Hauptmenü läuft (nur solange gespielt wird – die Rast hält ihn an). */
@@ -2831,7 +2859,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ch = this.L.chasm, to = this.place.descent;
     if (!ch || !to || this.ended) return;
     const p = this.player;
-    if (!p.dead && p.y > ch.exitY && p.x > ch.x0 && p.x < ch.x1) this.leave(to, { side: 'top', frac: 0 });
+    if (this.time.now > this.travelReadyAt && !p.dead && p.y > ch.exitY && p.x > ch.x0 && p.x < ch.x1) this.leave(to, { side: 'top', frac: 0 });
   }
 
   /**
@@ -3085,34 +3113,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
   }
 
-  /** Aktion in der Höhle loggt zum Laichduell ein, am Laich öffnet sie die Eiübersicht – statt zuzubeißen (Player.update). */
+  /** Am Laich öffnet die Aktion die Eiübersicht (Player.update). */
   spawnAct() {
     if (this.ended) return false;
-    if (this.duelCave?.act()) return true;
     const sp = this.spawning;
     if (!sp) return false;
     return sp.visit();
-  }
-
-  /**
-   * In der Höhle sind beide eingeloggt: ins Becken des Laichduells (DuelScene). Das eigene Tier wartet so lange in der Höhle –
-   * es altert nicht und behält seine Lebenskraft; danach geht es genau dort weiter.
-   */
-  startDuel(m: DuelStartMsg) {
-    if (this.ended || this.player.dead) return;
-    this.ended = true;
-    this.quitLeft = -1;
-    this.spawning?.settle();
-    this.saveProgress();
-    game.leavePlace({ resume: { x: Math.round(this.player.x), y: Math.round(this.player.y) } });
-    this.player.body.setVelocity(0, 0);
-    audio.sfx('travel');
-    const data: DuelData = { epoch: this.epochIdx, place: this.place.id, room: m.room, ticket: m.ticket, side: m.side, foe: m.foe };
-    this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.time.delayedCall(520, () => {
-      this.scene.stop('Hud');
-      this.scene.start('Duel', data);
-    });
   }
 
   /** Die Eiübersicht zu Lebzeiten öffnen; zurückkehren lässt das Tier am selben Ort weiterleben. */

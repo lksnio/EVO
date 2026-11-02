@@ -1,3 +1,4 @@
+import { openWaterEdges } from '../level/waterBounds';
 import { EPOCHS } from '../data/epochs';
 import { SPECIES } from '../data/species';
 import { placesOf } from '../data/world';
@@ -28,6 +29,7 @@ export const newMapId = () => globalThis.crypto?.randomUUID?.() ?? `part-${Date.
 export const cloneMap = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 export function objectY(o: MapObject, L: LevelData) { return o.grounded ? groundCurve(L.terrain.hp, o.x) + o.y : o.y; }
 export function rebuildGround(L: LevelData) {
+  openWaterEdges(L);
   L.groundRects = groundRects(L.terrain.hp, L.height + 200);
   L.ground = Array.from({ length: Math.ceil(L.width / 40) }, (_, i) => groundCurve(L.terrain.hp, i * 40 + 20));
   L.startCol = Math.max(0, Math.min(L.ground.length - 1, Math.floor(L.start.x / 40)));
@@ -90,7 +92,7 @@ export function parseWorldMap(input: unknown): WorldMap {
   const epoch = EPOCHS.find(e => e.id === p.epoch), place = epoch && placesOf(epoch).find(d => d.id === p.place);
   if (!epoch || !place) throw Error('Zeitalter und Ort passen nicht zusammen.');
   const l = record(p.layout), width = num(l.width, 640, 40000), height = num(l.height, 480, 20000);
-  const t = record(l.terrain), hp = array(t.hp, v => num(v, -5000, height + 200), 2002);
+  const t = record(l.terrain), hp = array(t.hp, v => num(v, -5000, height + 4000), 2002);
   if (hp.length < Math.ceil(width / STEP)) throw Error('Die Bodenlinie ist unvollständig.');
   const terrainZones = array(t.zones, v => {
     const z = record(v);

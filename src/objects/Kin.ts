@@ -50,7 +50,7 @@ export class Kin extends Animal {
    * Eine kleine Aufgabe (beim Laichen): zu einer Stelle schwimmen, dort stay Sekunden bleiben – dann done(). Solange er eine
    * Aufgabe hat, kümmert er sich um nichts anderes.
    */
-  task?: { x: number; y: number; stay: number; t: number; done: () => void };
+  task?: { x: number; y: number; via?: { x: number; y: number }[]; stay: number; t: number; done: () => void };
   private offY: number;
   private calledAt = -1e9;
   private dying = false;
@@ -316,12 +316,14 @@ export class Kin extends Animal {
 
   private taskStep(dt: number) {
     const k = this.task!;
-    const d = Math.hypot(k.x - this.x, k.y - this.y);
+    const goal = k.via?.[0] ?? k;
+    const d = Math.hypot(goal.x - this.x, goal.y - this.y);
     if (d > 24) {
       this.go('follow');
-      this.moveTo(k.x, k.y, this.def.speed * (d > 300 ? 1.2 : 0.7));
+      this.moveTo(goal.x, goal.y, this.def.speed * (d > 300 ? 1.2 : 0.7));
       return;
     }
+    if (k.via?.length) { k.via.shift(); return; }
     this.go('idle');
     this.halt();
     k.t += dt;

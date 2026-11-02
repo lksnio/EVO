@@ -184,7 +184,7 @@ export function groundRects(hp: number[], bottom: number): Rect[] {
       j++;
     }
     const y = Math.round(top);
-    out.push({ x: i * W, y, w: (j - i) * W, h: bottom - y + 200 });
+    if (y < bottom + 200) out.push({ x: i * W, y, w: (j - i) * W, h: bottom - y + 200 });
     i = j;
   }
   return out;

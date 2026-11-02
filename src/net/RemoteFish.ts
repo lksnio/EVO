@@ -28,8 +28,8 @@ function parseLook(s: string): Morph {
   return game.morph({ traits: ZERO_TRAITS, fierce: 0 });
 }
 
-/** Was ein Fisch eines anderen Spielers meldet – am Ort (NetFish) oder im Laichduell (DuelFish, Aussehen aus dem Element). */
-export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'> & { cave?: boolean };
+/** Was ein Fisch eines anderen Spielers am Ort meldet. */
+export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'>;
 
 /**
  * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt und zwischen den Meldungen geglättet (net/Interp.ts),
@@ -44,9 +44,8 @@ export class RemoteFish {
   private facing = 1;
   private speed01 = 0;
   private away = false;
-  /** sein Name und ob er gerade in der Höhle zum Laichduell eingeloggt ist */
+  /** sein Name */
   name = '';
-  cave = false;
 
   constructor(scene: Phaser.Scene, f: FishRow, now: number) {
     this.look = f.look;
@@ -99,7 +98,6 @@ export class RemoteFish {
     this.anim = f.anim;
     this.facing = f.facing < 0 ? -1 : 1;
     this.away = f.away;
-    this.cave = !!f.cave;
     this.name = f.name;
     if (this.label.text !== f.name) this.label.setText(f.name);
   }

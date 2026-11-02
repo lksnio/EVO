@@ -1,3 +1,4 @@
+import { preloadWaterSurface } from '../art/WaterSurface';
 import Phaser from 'phaser';
 import { W, H, DEBUG, TITLE_FONT, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
@@ -21,6 +22,7 @@ export class BootScene extends Phaser.Scene {
     // die gemalten Fischtexturen
     preloadPainted(this);
     preloadRiver(this);
+    preloadWaterSurface(this);
     preloadReef(this);
     preloadEditorUnits(this);
     preloadWorldFish(this);

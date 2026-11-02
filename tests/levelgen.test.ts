@@ -57,11 +57,17 @@ describe('Laichfluss im Devon', () => {
     expect(Math.abs(own[0].x - L.start.x)).toBeLessThan(400);
   });
 
-  it('links vom Start liegt die dunkle Höhle: innen frei, darüber Fels, darüber freies Wasser bis zum Rand', () => {
+  it('der eigene Laich und der Start liegen geschützt in der Höhle; darüber bleibt freies Wasser', () => {
     const c = L.cave!;
     expect(c).toBeDefined();
-    expect(c.x + c.w).toBeLessThan(L.roe.find((q) => q.own)!.x - 300);
-    // Platz für zwei Fische
+    const roe = L.roe.find(q => q.own)!;
+    expect(roe.x).toBeGreaterThan(c.x + 60);
+    expect(roe.x).toBeLessThan(c.x + c.w - 40);
+    expect(roe.y).toBeCloseTo(c.y + c.h + 3);
+    expect(L.start.x).toBe(roe.x);
+    expect(L.start.y).toBeGreaterThan(c.y + 30);
+    expect(L.start.y).toBeLessThan(roe.y - 30);
+    // Platz für die Kinderstube
     expect(c.w).toBeGreaterThan(300);
     expect(c.h).toBeGreaterThan(110);
     const solidAt = (x: number, y: number) => L.solids.some((s) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h);
@@ -192,14 +198,20 @@ describe('Die Schlucht im Korallengarten', () => {
     expect(L.ground[col(mid)]).toBeGreaterThan(ch.rimY + 800);
     expect(ch.floorY - ch.rimY).toBeGreaterThanOrEqual(900);
     expect(ch.exitY).toBeLessThan(L.ground[col(mid)] - 200);
-    expect(ch.exitY).toBeGreaterThan(ch.rimY + 600);
+    expect(ch.exitY).toBeGreaterThan(L.height);
+    expect(ch.floorY).toBeGreaterThan(ch.exitY + 1000);
+    for (let x = mid - 180; x <= mid + 180; x += 40) {
+      expect(L.groundRects.some(r => r.x < x + 20 && r.x + r.w > x - 20)).toBe(false);
+      expect(L.ground[col(x)]).toBeGreaterThan(ch.exitY + 1000);
+    }
+    expect(L.groundRects.every(r => r.h > 0)).toBe(true);
     // der Riffboden ringsum bleibt eben
     expect(Math.abs(L.ground[col(ch.x0 - 6 * T)] - ch.rimY)).toBeLessThan(2 * T);
     expect(Math.abs(L.ground[col(ch.x1 + 6 * T)] - ch.rimY)).toBeLessThan(2 * T);
-    // die Wände sind steil, aber nicht lotrecht: im Schnitt zwischen 35° und 75°
+    // Die Schlucht verläuft als steiler Kanal unter den unteren Kartenrand.
     const wallRise = Math.abs(L.ground[col(ch.x0 + 3 * T)] - L.ground[col(ch.x0 + 13 * T)]) / (10 * T);
     expect(wallRise).toBeGreaterThan(0.7);
-    expect(wallRise).toBeLessThan(3.8);
+    expect(wallRise).toBeLessThan(8);
     const giants = L.rocks.filter((r) => r.rx >= 110);
     expect(giants.some((r) => r.x < ch.x0)).toBe(true);
     expect(giants.some((r) => r.x > ch.x1)).toBe(true);

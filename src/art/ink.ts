@@ -95,7 +95,7 @@ export function wobble(pts: [number, number][], amp: number, seed = 1): [number,
 }
 
 // ---------------------------------------------------------------------------
-// Welche Bilder die Szene gerade benutzt: Im Devon (und im Becken des Laichduells) greifen Pflanzen, Laich, Muscheln und
+// Welche Bilder die Szene gerade benutzt: Im Devon greifen Pflanzen, Laich, Muscheln und
 // Bewuchs auf ihre Tusche-Fassung zu (art/inkFilter.ts), in den anderen Zeitaltern auf die bisherigen Bilder.
 
 let world = false;

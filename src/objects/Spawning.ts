@@ -121,10 +121,12 @@ export class SpawnCtl {
     host.events.once('shutdown', () => this.shutdown());
   }
 
-  /** Hier ist Laichgrund: im Laichfluss (dem Startort), flussaufwärts der Mündung. */
+  /** Die Kinderstube liegt im geschützten Inneren der Laichhöhle. */
   get grounds() {
     const h = this.host;
-    return h.place.kind === 'start' && !!h.L.riverEnd && h.player.x < h.L.riverEnd;
+    const c = h.L.cave, p = h.player;
+    if (c) return p.x > c.x + 30 && p.x < c.x + c.w - 10 && p.y > c.y + 20 && p.y < c.y + c.h + 10;
+    return h.place.kind === 'start' && !!h.L.riverEnd && p.x < h.L.riverEnd;
   }
 
   private groundY(x: number) {
@@ -141,10 +143,10 @@ export class SpawnCtl {
     audio.sfx('laich');
     const m = p.morph();
     for (let i = 0; i < 5; i++) {
-      const dir = i % 2 ? 1 : -1;
+      const dir = h.L.cave ? 1 : i % 2 ? 1 : -1;
       const v = new CreatureView(h, x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 24, { ...m, seed: m.seed + 17 * (i + 1) });
       v.setDepth(DEPTH.enemies).setFacing(dir);
-      this.fry.push({ v, vx: dir * (80 + Math.random() * 90), vy: -15 - Math.random() * 45, t: Math.random() * 0.4 });
+      this.fry.push({ v, vx: dir * (80 + Math.random() * 90), vy: h.L.cave ? -3 - Math.random() * 5 : -15 - Math.random() * 45, t: Math.random() * 0.4 });
     }
   }
 
@@ -352,6 +354,17 @@ export class SpawnCtl {
     this.callMale(b, rnd(SPAWN.maleDelay));
   }
 
+  /** Follow the river slope first, then turn through the right-hand cave mouth below its roof. */
+  private mateRoute(fromX: number): { x: number; y: number }[] | undefined {
+    const c = this.host.L.cave;
+    if (!c) return undefined;
+    const entrance = c.x + c.w + 50, y = c.y + c.h - 48;
+    const via: { x: number; y: number }[] = [];
+    for (let x = fromX - 100; x > entrance; x -= 100) via.push({ x, y: Math.min(y, this.groundY(x) - 80) });
+    via.push({ x: entrance, y });
+    return via;
+  }
+
   /** Ein Männchen deiner Art kommt vom Meer herauf und befruchtet dein Gelege. */
   private callMale(b: Brood, delay: number) {
     const h = this.host;
@@ -362,12 +375,14 @@ export class SpawnCtl {
       if (h.ended || !this.broods.includes(b) || !b.clutch || b.clutch.fert) return;
       const v = h.cameras.main.worldView;
       const x = Math.min(h.L.width - 80, v.right + 140);
-      const k = h.spawnKinAt(this.kinIndex(1), x, Math.max(h.surfaceY + 80, b.y - 140));
+      const y = h.L.cave ? Math.min(b.y - 40, this.groundY(x) - 80) : b.y - 140;
+      const k = h.spawnKinAt(this.kinIndex(1), x, Math.max(h.surfaceY + 80, y));
       k.homeDir = 1;
       b.male = k;
       k.task = {
         x: b.x + 4,
         y: b.y - 34,
+        via: this.mateRoute(k.x),
         stay: 1.6,
         t: 0,
         done: () => {
@@ -399,12 +414,15 @@ export class SpawnCtl {
     const x = this.heap?.x ?? clamp(p.x + dir * (170 + Math.random() * 110), 200, re - 140);
     const gy = this.heap ? this.heap.y - 6 : this.groundY(x);
     const v = h.cameras.main.worldView;
-    const k = h.spawnKinAt(this.kinIndex(2), Math.min(h.L.width - 80, v.right + 140), Math.max(h.surfaceY + 80, gy - 160));
+    const fromX = Math.min(h.L.width - 80, v.right + 140);
+    const fromY = h.L.cave ? Math.min(gy - 40, this.groundY(fromX) - 80) : gy - 160;
+    const k = h.spawnKinAt(this.kinIndex(2), fromX, Math.max(h.surfaceY + 80, fromY));
     k.homeDir = 1;
     this.female = k;
     k.task = {
       x,
       y: gy - 40,
+      via: this.mateRoute(k.x),
       stay: 1.5,
       t: 0,
       done: () => {
@@ -414,7 +432,7 @@ export class SpawnCtl {
         // sie bleibt noch eine Weile in der Nähe, dann zieht sie ins Meer
         k.task = {
           x: x + 80,
-          y: gy - 100,
+          y: gy - (h.L.cave ? 45 : 100),
           stay: 25,
           t: 0,
           done: () => {

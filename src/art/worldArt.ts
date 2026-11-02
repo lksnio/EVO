@@ -857,7 +857,7 @@ export const ROE_TONES = [
   { egg: 0xe8c4c0, shell: 0xfae6e2, yolk: 0xd8786c },
   { egg: 0x9ccad4, shell: 0xd8f0f4, yolk: 0x3c7a8c },
   { egg: 0xb8c890, shell: 0xe2eec4, yolk: 0x5c7a3c },
-  // hell und fast farblos: nimmt im Laichduell die Farbe seines Gebiets an (scenes/DuelScene.ts)
+  // hell und fast farblos: die natürliche Färbung des Fischlaichs
   { egg: 0xe6e2d6, shell: 0xfbf9f2, yolk: 0xb4ab94 },
 ];
 

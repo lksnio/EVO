@@ -6,7 +6,7 @@ import { EPOCHS } from '../src/data/epochs';
 import { placesOf } from '../src/data/world';
 
 const ep = EPOCHS.find(e => e.id === 'devon')!;
-const place = placesOf(ep).find(p => p.duelCave)!;
+const place = placesOf(ep).find(p => p.spawningCave)!;
 const L = generateLevel(ep, 'river-art-regression', place);
 
 describe('painted river props', () => {
