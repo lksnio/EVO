@@ -1316,3 +1316,9 @@ Spielserver – die Pages-Fassung spielt man allein. Für das gemeinsame Spiel l
 (siehe [Mehrspieler](#mehrspieler-prototyp)).
 
 Die zusammengeführte Strahlenflosser-Werkstatt bleibt unter `?debug&gallery=world` erreichbar (optional `compare`, `jaw`, `ids`). `?oldworld` schaltet nur diese acht Arten auf den bisherigen Sprite-Pfad zurück.
+
+## Biologische Tiergrößen
+
+Alle 68 hinterlegten Tierarten nutzen einen gemeinsamen Zentimetermaßstab und dieselben ungefähren Größenreferenzen wie die Chronik (`src/data/speciesFacts.ts`, `src/data/animalSize.ts`). Ein Meter entspricht 100 Weltpixeln. Individueller Wuchs und Zeichnungsmaßstab sind getrennt; Posen, Trefferflächen, Biss, Mehrspieler-Stellvertreter und ferne Fauna übernehmen die Artgröße. Große Schwimmer erhalten beim Erzeugen Körperabstand zu Boden und Felsen. Kampfwerte bleiben vom Umrechnen der Zeichnung unberührt.
+
+Ein echter Größenvergleich steht unter `?debug&gallery=sizes`, alle Arten über `&ids=all` (Leertaste blättert). Angaben zu Messgrundlagen, unsicheren Fossilrekonstruktionen und konkreten Spielproblemen stehen in [art/EVO_real_sizes_v1/README.md](art/EVO_real_sizes_v1/README.md). Sehr kleine Arten werden bei normalem Zoom nur wenige Bildpunkte groß; das Nahrungs- und Kampfbalancing benötigt daraufhin weitere Abstimmung.

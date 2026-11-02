@@ -10,7 +10,7 @@ vi.mock('../src/audio/Audio', () => ({ audio: { sfx() {} } }));
 function ghost() {
   const g = Object.create(GhostAnimal.prototype) as GhostAnimal;
   Object.assign(g, {
-    dead: false, x: 100, y: 300, sz: 1, hp: 20, maxHp: 20, flashUntil: 0,
+    dead: false, x: 100, y: 300, sz: 1, bodyScale: .5, hp: 20, maxHp: 20, flashUntil: 0,
     dir: 1, tn: 0, presence: 1, alpha: 0.35, isTinted: false,
     path: new Interp(130), world: { water: true, time: { now: 500 } },
     setPosition(x: number, y: number) { this.x = x; this.y = y; return this; },
@@ -21,6 +21,13 @@ function ghost() {
 const row: AnimalRow = { id: 1, sp: 'cladoselache', x: 120, y: 300, d: -1, an: 0, hp: 20, mh: 20, sz: 1, tn: 0, al: 100, at: true };
 
 describe('Stellvertreter im persönlichen Blickfeld', () => {
+  it('wendet bei kleinen Individuen den Artmaßstab an und behält den übertragenen Wuchsfaktor', () => {
+    const g = ghost();
+    g.apply({ ...row, sz: .55 }, 1000, 1000);
+    expect(g.sz).toBe(.55);
+    expect(g.setScale).toHaveBeenCalledWith(.275, .275);
+  });
+
   it('überschreibt nach der Bewegung nicht mehr die lokale Sichtbarkeit', () => {
     const g = ghost();
     g.apply(row, 1000, 1000);

@@ -1,3 +1,4 @@
+import { animalScale, spriteReferenceSpan } from '../data/animalSize';
 import Phaser from 'phaser';
 import { FaunaView } from './FaunaView';
 import type { SpeciesDef } from '../data/species';
@@ -278,8 +279,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   readonly faunaView?: FaunaView;
   private bodyDim = { w: 0, h: 0, ox: 0, oy: 0 };
 
+  /** Drawing-to-world conversion; sz remains the individual age/size factor used by gameplay and networking. */
+  readonly bodyScale: number;
+
   constructor(world: World, def: SpeciesDef, x: number, y: number, opts: { texture?: string } = {}) {
     super(world, x, y, opts.texture ?? speciesKey(def.id, 0));
+    this.bodyScale = opts.texture ? 1 : animalScale(def, spriteReferenceSpan(def, this.width));
     this.world = world;
     this.def = def;
     this.sz = def.boss ? 0.95 + Math.random() * 0.1 : 0.86 + Math.random() * 0.28;
@@ -290,7 +295,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.wanderX = x;
     this.wanderY = y;
     world.add.existing(this);
-    this.setScale(this.sz);
+    this.setSizeFactor(this.sz);
     world.physics.add.existing(this);
     const [fw, fh] = def.hit ?? [0.8, 0.8];
     const w = this.width * fw, h = this.height * fh;
@@ -322,6 +327,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.once(Phaser.GameObjects.Events.DESTROY, () => view.destroy(true));
     }
 
+  }
+
+  /** Apply a pose/individual factor without losing the species' centimetre scale. */
+  setSizeFactor(x = this.sz, y = x) {
+    return this.setScale(x * this.bodyScale, y * this.bodyScale);
   }
 
   get b() {
@@ -861,12 +871,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       const chew = Math.sin(this.t * (big ? 13 : 16)) * (big ? 5 : 3);
       this.setAngle(this.dir * ((big ? 24 : 13) + chew));
       const bump = Math.max(0, 1 - (time - this.chompAt) / 200);
-      this.setScale(this.sz * (1 + 0.07 * bump), this.sz * (1 - 0.06 * bump));
+      this.setSizeFactor(this.sz * (1 + 0.07 * bump), this.sz * (1 - 0.06 * bump));
       this.eatPosed = true;
     } else if (this.eatPosed) {
       this.eatPosed = false;
       this.setAngle(0);
-      this.setScale(this.sz);
+      this.setSizeFactor(this.sz);
     }
   }
 
@@ -1128,7 +1138,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.crT = 0;
     this.attacking = false;
     this.clearTint();
-    this.setScale(this.sz);
+    this.setSizeFactor(this.sz);
     this.setAngle(0);
   }
 
@@ -1152,7 +1162,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       const k = Math.min(1, this.crT / 0.3);
       if (free) this.b.setVelocity(-this.dir * 45 * k, this.b.velocity.y * 0.8);
       else this.b.setVelocityX(-this.dir * 30 * k);
-      this.setScale(this.sz * (1 - 0.14 * k), this.sz * (1 + 0.1 * k));
+      this.setSizeFactor(this.sz * (1 - 0.14 * k), this.sz * (1 + 0.1 * k));
       this.setTint(k > 0.5 ? 0xff9a82 : 0xffb8a8);
       if (this.crT >= 0.3) {
         const dx = tg.x - this.x, dy = free ? tg.y - this.y : 0;
@@ -1160,7 +1170,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.crDir = { x: dx / l, y: dy / l };
         this.cr = 'dash';
         this.crT = 0;
-        this.setScale(this.sz);
+        this.setSizeFactor(this.sz);
         audio.sfx('charge');
         W.puff(this.x - this.dir * this.displayWidth * 0.4, this.y, 4, 0xffffff);
       }
@@ -1193,7 +1203,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     // erholen: kurz benommen, dann geht es weiter
     this.attacking = false;
     this.clearTint();
-    this.setScale(this.sz);
+    this.setSizeFactor(this.sz);
     this.halt();
     if (this.crT > 0.6) {
       this.cr = '';
@@ -1339,9 +1349,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       case 'warn':
         this.halt();
         if (provoker) this.dir = Math.sign(provoker.x - this.x) || this.dir;
-        this.setScale(this.sz * (1 + Math.sin(this.stT * 30) * 0.03), this.sz);
+        this.setSizeFactor(this.sz * (1 + Math.sin(this.stT * 30) * 0.03), this.sz);
         if (this.stT > 0.9) {
-          this.setScale(this.sz);
+          this.setSizeFactor(this.sz);
           this.target = provoker;
           this.go(provoker ? 'charge' : 'wander');
         }
@@ -1534,7 +1544,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.attacking = false;
     this.clearTint();
     this.setAngle(0);
-    this.setScale(this.sz);
+    this.setSizeFactor(this.sz);
     if (!this.atk) this.showJaw(0);
   }
 
@@ -1573,12 +1583,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         if (t < 0.6) {
           // rot werden und beben – das Maul geht schon halb auf
           this.halt();
-          this.setScale(this.sz * (1 + Math.sin(t * 40) * 0.02), this.sz);
+          this.setSizeFactor(this.sz * (1 + Math.sin(t * 40) * 0.02), this.sz);
           this.setTint(t > 0.3 ? 0xff7a66 : 0xffb0a0);
           if (t > 0.3) this.showJaw(1);
         } else {
           this.clearTint();
-          this.setScale(this.sz);
+          this.setSizeFactor(this.sz);
           this.attacking = true;
           // mit weit aufgerissenem Maul hinterher
           this.showJaw(2);
@@ -1604,9 +1614,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       case 'pounce':
         if (t < 0.4) {
           this.halt();
-          this.setScale(this.sz * 1.05, this.sz * 0.9);
+          this.setSizeFactor(this.sz * 1.05, this.sz * 0.9);
         } else if (this.mvDir.y !== 99) {
-          this.setScale(this.sz);
+          this.setSizeFactor(this.sz);
           this.clearTint();
           const tx = tg ? tg.x : this.x + this.dir * 200;
           b.setVelocity(clamp((tx - this.x) / 0.9, -460, 460), -640);
@@ -1867,7 +1877,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   protected drift() {
     this.b.setVelocity(Math.sin(this.t * 0.5 + this.phase) * this.def.speed * 0.7, Math.sin(this.t * 1.3 + this.phase) * this.def.speed * 1.3);
-    this.setScale(this.sz * (1 + Math.sin(this.t * 2.6) * 0.06), this.sz * (1 - Math.sin(this.t * 2.6) * 0.06));
+    this.setSizeFactor(this.sz * (1 + Math.sin(this.t * 2.6) * 0.06), this.sz * (1 - Math.sin(this.t * 2.6) * 0.06));
   }
 
   // ------------------------------------------------------------------ Kampf
@@ -1982,7 +1992,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (free) this.b.setVelocity(vb.x + (-this.dir * 40 * k - vb.x) * ease, vb.y * (1 - ease));
       else this.b.setVelocityX(-this.dir * 30 * k);
       if (vis) {
-        this.setScale(sx * (1 - 0.12 * k), sx * (1 + 0.08 * k));
+        this.setSizeFactor(sx * (1 - 0.12 * k), sx * (1 + 0.08 * k));
         if (free) this.setAngle(this.dir * clamp(Math.atan2(tg.y - this.y, Math.abs(tg.x - this.x) + 1) * 57, -22, 22) * k * 0.6);
         this.setTint(k < 0.35 ? 0xffb8a8 : k < 0.7 ? 0xff9480 : big ? 0xff5c48 : 0xff7460);
         if (k > 0.45) this.showJaw(1);
@@ -2024,7 +2034,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
       if (vis) {
         this.showJaw(2);
-        this.setScale(sx * 1.08, sx * 0.95);
+        this.setSizeFactor(sx * 1.08, sx * 0.95);
         if (free) this.setAngle(this.dir * clamp(Math.atan2(this.atkDir.y, Math.abs(this.atkDir.x)) * 57, -28, 28));
         this.setTint(t < 0.5 ? (big ? 0xff6a56 : 0xff8470) : 0xffb0a0);
       }
@@ -2041,7 +2051,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       if (vis) {
         this.showJaw(this.atkT < 0.05 ? 1 : 0);
         const k = 1 - Math.min(1, this.atkT / 0.12);
-        this.setScale(sx * (1 + 0.1 * k), sx * (1 - 0.06 * k));
+        this.setSizeFactor(sx * (1 + 0.1 * k), sx * (1 - 0.06 * k));
       }
       if (this.atkT >= 0.12) {
         this.atk = 'recover';
@@ -2053,7 +2063,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       const rec = P.rec * (this.atkHit ? 1 : 1.25);
       if (vis) {
         const k = Math.min(1, this.atkT / rec);
-        this.setScale(sx * (1 + 0.04 * (1 - k)), sx);
+        this.setSizeFactor(sx * (1 + 0.04 * (1 - k)), sx);
         if (free) this.setAngle(this.angle * 0.85);
         if (this.isTinted) this.clearTint();
       }
@@ -2097,7 +2107,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.atkTarget = null;
     this.attacking = false;
     if (this.showsAttack) {
-      this.setScale(this.sz);
+      this.setSizeFactor(this.sz);
       if (!this.mv) this.setAngle(0);
       this.clearTint();
       this.showJaw(0);
@@ -2177,7 +2187,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   /** Die Gegenwehr nach einem Treffer: sichtbar aufbäumen und schnell zurückschnappen. */
   protected fightBack(now: number) {
     const sc = this.scene;
-    sc.tweens.add({ targets: this, scaleX: this.sz * 1.2, scaleY: this.sz * 0.84, yoyo: true, duration: 90, repeat: 1 });
+    sc.tweens.add({ targets: this, scaleX: this.bodyScale * this.sz * 1.2, scaleY: this.bodyScale * this.sz * 0.84, yoyo: true, duration: 90, repeat: 1 });
     this.world.time.delayedCall(120, () => {
       if (!this.dead && !this.atk) this.setTint(0xff7a62);
     });

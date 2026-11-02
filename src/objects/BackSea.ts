@@ -1,3 +1,4 @@
+import { animalScale, spriteReferenceSpan, worldLength } from '../data/animalSize';
 import Phaser from 'phaser';
 import { DEPTH } from '../config';
 import type { EpochDef } from '../data/epochs';
@@ -130,11 +131,11 @@ export class BackSea {
       if (d.art.t !== 'fish' && d.art.t !== 'jelly' && d.art.t !== 'cone') continue;
       seen.add(id);
       const taste = 0.45 + 1.1 * ((hashStr(ep.id + '/' + this.placeId + '/' + id) % 1000) / 1000);
-      const len = (d.art as { len?: number }).len ?? 40;
+      const len = worldLength(d);
       const w = n * (d.where?.[this.kind] ?? 1) * taste * (d.role === 'predator' ? 0.4 : 1) * (d.art.t === 'jelly' ? 0.5 : 1) * (0.5 + Math.min(1, len / 60)) * faunaAffinity(place, d);
       if (w > 0.05) this.pool.push({ def: d, w });
       if (d.art.t === 'fish' || d.art.t === 'cone') {
-        const len = d.art.len;
+        const len = worldLength(d);
         if (len >= 100 && faunaAffinity(place, d, true) > 0) this.bigPool.push(d);
       }
     }
@@ -143,10 +144,10 @@ export class BackSea {
       const d = SPECIES[id];
       if (d && (d.art.t === 'fish' || d.art.t === 'cone') && faunaAffinity(place, d, true) > 0 && !this.bigPool.includes(d)) this.bigPool.push(d);
     }
-    // gibt es keinen Großen, wird der größte Fisch der Zeit einfach größer gezeigt
+    // Gibt es keinen Riesen, erscheint der größte vorhandene Fisch in seiner eigenen Größe.
     if (!this.bigPool.length) {
       const fishes = this.pool.map((p) => p.def).filter((d) => d.art.t === 'fish');
-      fishes.sort((a, b) => (b.art as { len: number }).len - (a.art as { len: number }).len);
+      fishes.sort((a, b) => worldLength(b) - worldLength(a));
       if (fishes[0]) this.bigPool.push(fishes[0]);
     }
     for (const d of [...this.pool.map((p) => p.def), ...this.bigPool]) {
@@ -185,9 +186,9 @@ export class BackSea {
     else if (!big && art.t === 'jelly') n = 2 + Math.floor(Math.random() * 3);
     if (this.painted) n = Math.min(n, 7);
     const sc = layer.scale[0] + Math.random() * (layer.scale[1] - layer.scale[0]);
-    // Große Fische: so groß, dass sie auch aus der Ferne eindrucksvoll sind
-    const baseLen = (art as { len?: number }).len ?? ((art as { r?: number }).r ?? 16) * 2;
-    const bigK = big ? Math.max(1, 190 / baseLen) * (0.8 + Math.random() * 0.5) : 1;
+    // Gemeinsamer Zentimetermaßstab; nur die Tiefenebene verkleinert die Perspektive.
+    const baseLen = worldLength(def);
+    const bigK = big ? 0.95 + Math.random() * 0.1 : 1;
     const spread = n > 1 ? 24 + n * 9 : 0;
     const half = this.painted ? (n - 1) * (baseLen * sc * 0.6 + 15) / 2 + baseLen * sc * bigK * 0.6
       : spread + baseLen * sc * bigK * 0.6;
@@ -205,7 +206,7 @@ export class BackSea {
     for (let i = 0; i < n; i++) {
       let img = old2[i]?.img;
       if (!img) img = this.scene.add.image(0, 0, this.frameKey(def, 0)).setScrollFactor(0);
-      img.setTexture(this.frameKey(def, 0)).setDepth(layer.depth).setTint(big && !this.painted ? 0x4a7a90 : layer.tint).setAlpha(layer.alpha).setScale(sc * bigK * (0.86 + Math.random() * 0.28));
+      img.setTexture(this.frameKey(def, 0)).setDepth(layer.depth).setTint(big && !this.painted ? 0x4a7a90 : layer.tint).setAlpha(layer.alpha).setScale(animalScale(def, spriteReferenceSpan(def, img.width)) * sc * bigK * (0.86 + Math.random() * 0.28));
       members.push({ img, ox: this.painted ? (i - (n - 1) / 2) * (baseLen * sc * 0.6 + 15) : (Math.random() - 0.5) * 2 * spread,
         oy: (Math.random() - 0.5) * (spread * (this.painted ? 0.3 : 0.6) + 10), ph: Math.random() * 6, fr: 0 });
     }

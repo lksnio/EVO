@@ -20,7 +20,7 @@ vi.mock('../src/net/GhostAnimal', () => ({ GhostAnimal: class {
 
 const row = (id: number, extra: Partial<AnimalRow> = {}): AnimalRow => ({ id, sp: 'moythomasia', x: 1200, y: 400, d: 1, an: 0, hp: 6, mh: 8, sz: 1, tn: 0, al: 100, at: false, ...extra });
 function animal(id: number) {
-  return { netId: id, def: { id: 'moythomasia' }, x: 1200, y: 400, sz: 1, hp: 6, maxHp: 8, flipX: false, angle: 0, alpha: 0, presence: 1, isTinted: true, fogTint: true, tintTopLeft: 0x14262a, glowing: false, attacking: false, b: { reset: vi.fn() }, setScale() {}, setFlipX() {} } as unknown as Animal;
+  return { netId: id, def: { id: 'moythomasia' }, x: 1200, y: 400, sz: 1, hp: 6, maxHp: 8, flipX: false, angle: 0, alpha: 0, presence: 1, isTinted: true, fogTint: true, tintTopLeft: 0x14262a, glowing: false, attacking: false, b: { reset: vi.fn() }, setSizeFactor() {}, setFlipX() {} } as unknown as Animal;
 }
 function setup() {
   const state = new ZoneState();

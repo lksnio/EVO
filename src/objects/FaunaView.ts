@@ -1,3 +1,4 @@
+import { spriteReferenceSpan } from '../data/animalSize';
 import Phaser from 'phaser';
 import type { SpeciesDef } from '../data/species';
 import { FishRig, type FishPose } from '../art/fish/rig';
@@ -13,6 +14,7 @@ const supported = new Set([...epochSpecies(EPOCHS.find(e => e.id === 'devon')!),
 export class FaunaView extends Phaser.GameObjects.Container {
   readonly rig: FishRig | InvertebrateRig;
   readonly naturalWidth: number;
+  readonly referenceSpan: number;
   private clock = Math.random() * 6;
   private open = 0;
   private lastX?: number;
@@ -31,11 +33,13 @@ export class FaunaView extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, readonly def: SpeciesDef) {
     super(scene, 0, 0);
     this.rig = def.art.t === 'fish' ? new FishRig(scene, speciesFishTextures(scene, def)) : new InvertebrateRig(scene, def);
-    if (this.rig instanceof FishRig && WORLD_FISH_IDS.includes(def.id as typeof WORLD_FISH_IDS[number])) {
+    if (this.rig instanceof FishRig) {
       const A = this.rig.A, b = A.bounds;
       this.add(new Phaser.GameObjects.Container(scene, -(b.x0 + b.x1) * A.s / 2, -(b.y0 + b.y1) * A.s / 2, this.rig.parts));
     } else this.add(this.rig.parts);
     this.naturalWidth = this.rig instanceof FishRig ? (this.rig.A.bounds.x1 - this.rig.A.bounds.x0) * this.rig.A.s : this.rig.width;
+    const art = def.art;
+    this.referenceSpan = art.t === 'jelly' ? 64 : art.t === 'cone' ? 85 : art.t === 'trilo' ? 86 : art.t === 'bug' ? 106 : this.naturalWidth;
   }
 
   advance(dt: number, speed01: number, open: number, coil = 0) {
@@ -58,7 +62,7 @@ export class FaunaView extends Phaser.GameObjects.Container {
     if (fresh) { this.lastX = sprite.x; this.lastY = sprite.y; }
     const v = Math.hypot(dx, dy) / Math.max(0.001, dt);
     if (fresh) this.speed += (Math.min(1, v / Math.max(20, this.def.speed)) - this.speed) * Math.min(1, dt * 8);
-    const scale = width / this.naturalWidth;
+    const scale = spriteReferenceSpan(this.def, width) / this.referenceSpan;
     this.setPosition(sprite.x, sprite.y).setRotation(sprite.rotation)
       .setScale(scale * sprite.scaleX * (sprite.flipX ? -1 : 1), scale * sprite.scaleY * (sprite.flipY ? -1 : 1))
       .setAlpha(sprite.alpha).setScrollFactor(sprite.scrollFactorX, sprite.scrollFactorY);

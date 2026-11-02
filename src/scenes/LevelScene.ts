@@ -1,3 +1,4 @@
+import { worldLength } from '../data/animalSize';
 import { WaterSurface } from '../art/WaterSurface';
 import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
@@ -1353,8 +1354,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       else this.herds.set(herd, [a]);
     }
     this.groundIt(a);
+    this.fitSwimmer(a);
     this.animals.push(a);
     return a;
+  }
+
+  /** A metre-sized swimmer needs clearance for its complete body at spawn, rather than a fixed 24-pixel offset. */
+  private fitSwimmer(a: Animal) {
+    if (!this.water || a.def.crawl || a.def.land || a.def.habitat !== 'water') return;
+    a.b.updateBounds();
+    const hw = a.b.halfWidth, hh = a.b.halfHeight;
+    let floor = Infinity;
+    for (let x = a.x - hw; x <= a.x + hw + .1; x += Math.max(8, hw / 6)) floor = Math.min(floor, groundCurve(this.L.terrain.hp, x));
+    let y = Math.min(a.y, floor - hh - 5);
+    for (let i = 0; i < 12; i++) {
+      const rock = this.L.solids.find(r => a.x + hw > r.x && a.x - hw < r.x + r.w && y + hh > r.y && y - hh < r.y + r.h);
+      if (!rock) break;
+      y = rock.y - hh - 5;
+    }
+    a.b.reset(a.x, Math.max(this.surfaceY + hh + 3, y));
   }
 
   /** Landtiere mit den Füßen auf den Boden stellen (große Tiere steckten sonst im Fels). */
@@ -1591,7 +1609,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const id = a.def.id;
       if (game.hasSeen(id)) continue;
       // erst wer nahe genug herangeschwommen ist, bekommt einen Eintrag – große Tiere bemerkt man schon etwas früher
-      const len = (a.def.art as { len?: number }).len ?? 40;
+      const len = worldLength(a.def, a.sz);
       if (Math.hypot(a.x - p.x, a.y - p.y) > Math.min(460, 240 + len * 0.9)) continue;
       if (game.markSeen(id)) fresh.push(id);
     }
@@ -2061,7 +2079,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (let i = 0; i < n; i++) {
       const a = this.spawnAnimal(rr.species, rr.x + (Math.random() - 0.5) * 50, rr.y - 26 - Math.random() * 20);
       a.sz *= 0.55;
-      a.setScale(a.sz);
+      a.setSizeFactor(a.sz);
       a.hp = a.maxHp = Math.max(2, Math.round(a.maxHp * 0.5));
     }
     this.puff(rr.x, rr.y - 20, 8, 0xf0e0b0);

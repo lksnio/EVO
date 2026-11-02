@@ -38,7 +38,7 @@ export class GhostAnimal extends Animal {
     this.dir = r.d < 0 ? -1 : 1;
     if (Math.abs(this.sz - r.sz) > 0.001) {
       this.sz = r.sz;
-      this.setScale(r.sz);
+      this.setSizeFactor(r.sz);
     }
     this.maxHp = r.mh;
     // nur nach unten übernehmen, solange ein eigener Treffer noch unterwegs ist

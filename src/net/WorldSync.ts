@@ -410,7 +410,7 @@ export class WorldSync {
       const a = this.h.spawnAnimal(r.sp, r.x, r.y);
       a.netId = r.id;
       a.sz = r.sz;
-      a.setScale(r.sz);
+      a.setSizeFactor(r.sz);
       a.b.reset(r.x, r.y);
       a.maxHp = r.mh;
       a.hp = r.hp;
