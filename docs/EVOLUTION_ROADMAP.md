@@ -1,8 +1,8 @@
 # EVO – Entscheidungen und offene Arbeit nach dem Dipterus-Wikibild
 
 Stand: 3. November 2026, einschließlich der jüngsten Änderungen an Sammlung,
-Freischaltungen und Stammbaumdarstellung. Technische Ausgangsbasis ist `32a7679`,
-inzwischen auch auf dem abgerufenen `origin/main`.
+Freischaltungen und Stammbaumdarstellung. Technische Ausgangsbasis der jüngsten
+Stammbaumarbeiten ist `082c6f1` auf `main`.
 
 Dieses Dokument hält Entscheidungen fest. Die Systeme sind nur insoweit umgesetzt,
 wie im folgenden Umsetzungsstand ausdrücklich angegeben. Vorschläge des Assistenten sind ausdrücklich von
@@ -33,6 +33,23 @@ Stammbaumoberfläche. Die README beschreibt das Zielbild ohne diese internen Det
 
 Leere und volle Ansicht sowie die Browserprüfung liegen unter
 `art/EVO_collection_v1/`. Die volle Ansicht wurde in einem isolierten Testprofil erzeugt.
+
+## Aktuelle Umsetzung: persönlicher Stammbaum nach Weltzeit
+
+- Außerhalb des Spiels im Titelbild: sieben Epochen, senkrechte Achse in Weltjahren,
+  auswählbare und dauerhaft markierbare Laichplatzknoten, Zeitzoom und Verschieben.
+- Nur tatsächlich selbst gewählte Nachkommen werden aufgenommen, auch beim Koop.
+  Besuche und fremde Generationswechsel erzeugen keinen persönlichen Abschnitt.
+- Persönliche Läufe bleiben getrennt erhalten, einschließlich ausgestorbener Linien.
+- Aufgezeichnet werden Weltzeit, erste und letzte Körperform mit ihren Farben,
+  gewählte Generationen, Laichort und aktive Spielzeit pro Abschnitt.
+- Alte Endpunkte werden übernommen; fehlende frühere Geburtszeiten und Laichorte
+  bleiben ausdrücklich unbekannt. Gültige laufende Tiere und Sammlungen bleiben erhalten.
+- Wiederaufnahme eines laufenden Tiers ist möglich. Historische Wiedereinstiege,
+  der vollständige Weltzeitablauf eines Laufs und Grenzen für große Körperwechsel
+  stehen weiterhin aus. Dieses Paket verändert weder die Vererbung noch die Koop-Todregeln.
+
+Aufnahmen und Prüfung: `art/EVO_lineage_time_v1/`.
 
 ## 1. Bereits umgesetzt: der Ausgangspunkt
 
@@ -87,9 +104,15 @@ Designpunkte sind keine zusätzlichen, separat zu addierenden Aufgaben.
 tragfähig sein. Welche das konkret in jeder Umgebung sind und welche Kompromisse
 sie haben, ist noch auszuarbeiten. Sie sind keine bereits festgelegten starren Klassen.
 
-**Neue vorläufige Spielzeit:** ungefähr **4–5 Stunden pro Lauf**. Die frühere Idee von
-40–60 Stunden für einen Lauf ist überholt. Dauer, Zahl der Generationen und Tempo
-bleiben Gegenstand des Balancings.
+**Aktualisierte Arbeitsgrundlage:** Ein Lauf erhält einen festen Weltzeitrahmen.
+Als erste Messlatte dienen ungefähr **10–12 Stunden**, mit regelmäßig gewählten
+Nachkommen und einem größeren Wandel innerhalb der ersten ein bis zwei Stunden.
+Die frühere Idee von 4–5 Stunden ist überholt. Die konkrete Dauer und Zeitkurve
+werden am spielbaren Verlauf abgestimmt; 20 Stunden sind kein Pflichtziel.
+Bei fester Weltuhr unterscheiden sich Läufe im Zeitpunkt der Anpassungen und in
+der Zeit, die eine Form gespielt wurde. Schnellere Entwicklung verkürzt nicht
+automatisch die Dauer bis zum Ende der Weltzeit. Wechselgrenzen müssen später
+verhindern, dass schnelle Spieler die vorgesehenen Körperstufen beliebig oft wechseln.
 
 Aufwand / Übernahme: Pakete P1, P3 und P12. Ich kann die Regeln implementieren,
 Messwerte erfassen und Varianten vorbereiten; Spielgefühl und gewünschte Schwierigkeit
@@ -107,6 +130,11 @@ prüfen wir gemeinsam.
 - Reale Tierarten bekommen eigene zeitliche Auftretensfenster. Diese können mitten
   in einer Epoche beginnen oder über eine Epochengrenze hinausreichen.
 - Generationenzahl und Epochenwechsel müssen nicht zusammenfallen.
+- Der persönliche Stammbaum verwendet Weltjahre als senkrechte Achse. Ein neuer
+  Laichort wird beim tatsächlich gewählten Nachkommen ein Knoten. Die Dauer einer
+  Form und ihre Generationen bleiben dadurch voneinander unterscheidbar.
+- Die bestehende gemeinsame Kalenderuhr des Prototyps wird durch die neue Ansicht
+  noch nicht auf einen vollständigen Lauf über sieben Epochen umgestellt.
 
 **Offen:**
 
@@ -339,7 +367,15 @@ können, und zwar in deren **erste Generation**. Er zeigt gespielte Entwicklunge
 mit ihren individuellen Ausprägungen. Ein vorab sichtbarer vollständiger
 theoretischer Baum und dessen „100 %“-Anzeige werden nicht verfolgt.
 
-**Vorgeschlagene technische Grundlage:** Eine unveränderliche Eintrittsmomentaufnahme
+**Umgesetzt: persönliche Darstellung nach Weltzeit.** Im Titelbild öffnet sich ein
+Zeitbaum mit sieben Epochen, Zeitzoom, Auswahl und dauerhaft markierbaren
+Laichplatzknoten. Er bewahrt auch ausgestorbene Läufe, bleibt pro Spielerprofil
+getrennt und zeigt keine hypothetischen Körperformen. Neue Aufzeichnungen halten
+Weltjahre, erste/letzte Form einschließlich Farbe, gewählte Generationen und aktive
+Spielzeit fest. Alte Spielstände werden ab dem beobachtbaren Zeitpunkt fortgeführt;
+fehlende frühere Zeitmarken bleiben als solche gekennzeichnet.
+
+**Weiterhin geplant: Wiedereinstieg. Vorgeschlagene technische Grundlage:** Eine unveränderliche Eintrittsmomentaufnahme
 mit vererbten Werten, Körperprofil, Weltzeit, Ort, relevanter Weltphase und Zufallszustand.
 
 **Festgelegt für Sammlungen:** Das aktuelle Spielerprofil behält Muscheln und
@@ -390,7 +426,7 @@ Komposition sollen deine gewünschte Handschrift behalten.
 
 - Sieben vollständig getrennte Hauptspiele: durch den zusammenhängenden Hauptlauf ersetzt.
 - Fester Körperwechsel genau an jeder Epochengrenze: durch die Entkopplung überholt.
-- 40–60 Stunden pro Lauf: durch vorläufig 4–5 Stunden ersetzt.
+- 40–60 beziehungsweise zuletzt 4–5 Stunden pro Lauf: durch einen festen Weltzeitrahmen mit vorläufiger Messlatte von 10–12 Stunden ersetzt.
 - Alte Zufallsdrops kaufen dauerhafte Muschel-Werteboni: soll ersetzt werden.
 - Muscheln als Nahrung: ausdrücklich abgelehnt.
 - Zehn Muscheln kaufen den nächsten Laichplatz: nicht weiterverfolgt.
@@ -425,7 +461,7 @@ ohne Weiteres zu einer Gesamtzeit zu addieren.
 | P3 | Vererbungsregeln neu entwerfen und ersten Wasser/Ufer/Land-Übergang mit zwei internen Optionen, Laichwechsel und verhaltensbasierter Vererbung einschließlich Lebenskraft/Ausdauer umsetzen | 5–10 Tage | Ja: Entwurf, Technik und erste Regeln; konkrete Trainingsanreize und Spielgefühl gemeinsam |
 | P4a | Zwei erkennbar unterschiedliche verwandte Körperformen, Merkmalsabbildung, Geschwistervariation und gemeinsame passende Animation | 5–10 Tage | Ja: Anatomiedaten, Rig, Bildentwürfe, Integration und Prüfung |
 | P4b | Kleine Körperwerkbank mit Reglern, Animationsvergleich und Speichern | zusätzlich 3–6 Tage | Ja; Umfang noch zu entscheiden |
-| P5 | Einstieg in die erste Generation einer erreichten Linie, Momentaufnahmen und individuelle Stammbaumoberfläche ohne sichtbare theoretische Gesamtliste | 3–5 Tage | Ja: Speicherlogik, Oberfläche und Tests |
+| P5 | Persönliche Stammbaumoberfläche und Zeitaufzeichnung umgesetzt; Einstieg in die erste Generation und vollständige Welt-Momentaufnahmen stehen aus | Rest: 2–4 Tage | Ja: Speicherlogik, Oberfläche und Tests |
 | P6 | Dauerhafte Sieben-Muscheln-Sammlung, alte Drop-/Segensregeln entfernen, Migration, erste feste Fundorte, Weisheiten und Abgabe-/Gelege-Nachweis | 3–6 Tage | Ja; fertige Orte und Texte werden gemeinsam ausgewählt, die Bonuslinie kommt separat hinzu |
 | P7a | Dauerhafte Fossilsammlung, Sternübersicht sowie Einsetzen von Platten und Öffnen eines Wegs zu Testlaich | 3–6 Tage | Ja: Daten, Oberfläche, Speicherung und Prüfung; fertige Höhlengestaltung und Bonuslinie separat |
 | P7b | Einen ausgewählten Gegner mit eigenem Verhalten und erster Fossildarstellung ausarbeiten | je 2–5 Tage bei vorhandenem geeignetem Rig | Ja; neue Körperbaupläne und spätere Balancingrunden kommen hinzu |

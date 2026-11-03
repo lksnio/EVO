@@ -1,3 +1,4 @@
+import { endLineage, newLineage, observeLineage, readLineage, recordBirth, type LineageArchive, type LineageForm, type LineageSite } from '../sim/lineage';
 import { COLLECTION_SHELLS, SHELL_WISDOM, type ShellId, type FossilId } from '../data/collection';
 import { newCollection, readCollection, removeLegacyShells, findShell, dropFossil, findFossil, type CollectionState, type FossilDrop } from '../sim/collection';
 import { CLASSES, type ClassId } from '../data/classes';
@@ -9,7 +10,7 @@ import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
 import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
-import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
+import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN } from '../data/karbon';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
@@ -479,6 +480,8 @@ export interface SaveData {
   parked?: Record<string, Run>;
   /** Laufübergreifende, eindeutige Funde. Alte Muschelwährungen zählen nicht. */
   collection: CollectionState;
+  /** Personal played history; independent of shared eggs and trait-signature nodes. */
+  lineage: LineageArchive;
 }
 
 const KEY = 'evo-save-v3';
@@ -629,6 +632,7 @@ function fresh(): SaveData {
     deepest: -1,
     seen: [],
     collection: newCollection(),
+    lineage: newLineage(),
   };
 }
 
@@ -773,6 +777,7 @@ class GameState {
         const f = fresh();
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
         this.data.collection = readCollection(d.collection);
+        this.data.lineage = readLineage(d.lineage);
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
         // Früher hing alles an einem Urahn vor dem ersten Zeitalter – heute hat jedes Zeitalter seinen eigenen; das erste
@@ -846,8 +851,14 @@ class GameState {
           if (SPAWN.alwaysMale) r.sex = 1;
         }
         this.data.epoch = isPlayable(this.data.epoch ?? -1) ? this.data.epoch : this.data.run?.epoch ?? 0;
+        const lineageBefore = this.data.lineage.runs.length;
+        // A legacy run can only be observed from now on; no generation-based dates are invented.
+        for (const r of [this.data.run, ...Object.values(this.data.parked ?? {})]) {
+          if (r && !this.data.lineage.runs.some(j => j.id === r.id)) this.recordLineageBirth(r, r.brood?.nest ?? { place: startPlace(EPOCHS[r.epoch]).id, x: 0, y: 0 }, true);
+        }
+        this.migrateLineageEnds();
         // Die alte Währung und alle gekauften/goldenen Segen sofort auch auf Platte entfernen.
-        if (removedLegacy) this.save();
+        if (removedLegacy || !d.lineage || this.data.lineage.runs.length !== lineageBefore) this.save();
       }
     } catch {
       this.data = fresh();
@@ -1004,6 +1015,7 @@ class GameState {
     this.ghost = null;
     root.runs += 1;
     root.last = run.id;
+    this.recordLineageBirth(run, run.brood?.nest ?? { place: startPlace(ep).id, x: 0, y: 0 });
     this.save();
     return run;
   }
@@ -1308,6 +1320,8 @@ class GameState {
   /** Zeit vergeht für das eigene Tier (Sekunden aktiven Lebens – wer nicht spielt, altert nicht). */
   ageBy(dt: number) {
     this.r.life.age += dt;
+    const r = this.r, ep = EPOCHS[r.epoch];
+    observeLineage(this.data.lineage.runs.find(j => j.id === r.id), worldYears(ep.from, ep.to), dt);
   }
 
   /** Ein Gelege, an dem dieses Tier beteiligt ist: selbst gelegt oder (fremd gelegt und) befruchtet. */
@@ -1589,6 +1603,7 @@ class GameState {
     if (!p.known.includes(p.place)) p.known.push(p.place);
     if (this.checkRamUnlock()) run.ramNew = true;
     run.life.fierce = this.fear();
+    this.recordLineageBirth(run, c);
     this.save();
   }
 
@@ -1630,6 +1645,7 @@ class GameState {
     p.train = newStyle();
     if (!p.seen.includes(b.nest.place)) p.seen.push(b.nest.place);
     if (!p.known.includes(b.nest.place)) p.known.push(b.nest.place);
+    this.recordLineageBirth(run, b.nest);
     this.save();
   }
 
@@ -2015,7 +2031,41 @@ class GameState {
     return { jaw: Math.round((10 * st.bite) / a0.bite), limb: ten(g.limb), grip: ten(g.grip), armor: ten(g.armor) };
   }
 
-  // ---------------------------------------------------------------- Stammbaum
+  // ---------------------------------------------------------------- Persönlicher Stammbaum nach Weltzeit
+
+  private lineageForm(r: Pick<Run, 'cls' | 'traits' | 'hue' | 'seed' | 'sex'>): LineageForm {
+    return { cls: r.cls, traits: packTraits(r.traits), hue: r.hue, seed: r.seed, sex: r.sex };
+  }
+
+  private recordLineageBirth(r: Run, at: { place: string; x: number; y: number }, legacy = false) {
+    const ep = EPOCHS[r.epoch], place = placeOf(ep, at.place);
+    const site: LineageSite = { key: `${ep.id}:${legacy ? 'unknown' : place.id}`, place: place.id,
+      name: legacy ? 'Laichplatz nicht überliefert' : place.name, x: at.x, y: at.y };
+    recordBirth(this.data.lineage, r.id, r.epoch, worldYears(ep.from, ep.to), r.brood ? r.brood.gen + 1 : r.life.gen, site, this.lineageForm(r), legacy);
+  }
+
+  /** Old terminal nodes contain a death date, but no trustworthy birth dates. Preserve only that observed endpoint. */
+  private migrateLineageEnds() {
+    for (const n of Object.values(this.data.nodes)) {
+      if (!n.dead || this.data.lineage.runs.some(j => j.id === n.dead!.run)) continue;
+      const ep = EPOCHS[n.epoch];
+      if (!ep || ep.hidden) continue;
+      const years = ep.from - n.dead.frac * (ep.from - ep.to), place = startPlace(ep);
+      const r = recordBirth(this.data.lineage, n.dead.run, n.epoch, years, Math.max(1, (n.dead.gens ?? n.gen ?? 1) + (ep.brood ? 1 : 0)),
+        { key: `${ep.id}:unknown`, place: place.id, name: 'Laichplatz nicht überliefert', x: 0, y: 0 },
+        this.lineageForm({ ...n, sex: 1 }), true);
+      endLineage(r, years, n.dead.cause);
+    }
+  }
+
+  markLineage(key?: string) {
+    const a = this.data.lineage;
+    if (key && !a.runs.some(r => r.segments.some(s => `${r.id}/${s.id}` === key))) return;
+    a.marked = key;
+    this.save();
+  }
+
+  // ---------------------------------------------------------------- Bisherige Merkmalsknoten (für Namen und alte Spielstände)
 
   private node(parent: TreeNode, epoch: number, cls: ClassId, traits: Traits, runId: number, merge: boolean, gen: number): TreeNode {
     const sig = sigOf(cls, traits);
@@ -2064,6 +2114,8 @@ class GameState {
     const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false, run.life.gen);
     leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.brood ? run.brood.gen : run.life.gen };
     this.data.lastEnd = leaf.id;
+    const ep = EPOCHS[run.epoch];
+    endLineage(this.data.lineage.runs.find(j => j.id === run.id), ep.from - clamp(frac, 0, 1) * (ep.from - ep.to), cause);
     this.data.deepest = Math.max(this.data.deepest, run.epoch);
     this.ghost = run;
     this.data.run = null;

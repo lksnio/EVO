@@ -1,0 +1,79 @@
+{
+  "report": {
+    "empty": {
+      "runs": 0,
+      "picks": 0,
+      "eras": [
+        "EPOCHEN",
+        "Devon",
+        "Karbon",
+        "Perm",
+        "Trias",
+        "Jura",
+        "Kreidezeit",
+        "Paläogen",
+        "Mio. Jahre"
+      ],
+      "outsideLevel": true
+    },
+    "played": {
+      "before": 1,
+      "sites": [
+        "Der Laichfluss",
+        "Korallengarten",
+        "Das Tiefental"
+      ],
+      "births": [
+        2,
+        1,
+        1
+      ],
+      "years": 12000
+    },
+    "selection": {
+      "place": "garten",
+      "text": "Korallengarten"
+    },
+    "mark": "1/s2",
+    "zoom": {
+      "from": 377449971.410837,
+      "to": 377438414.64659435
+    },
+    "pan": true,
+    "reload": {
+      "marked": "1/s2",
+      "runs": 1
+    },
+    "personal": {
+      "sites": 1,
+      "marked": null
+    },
+    "preview": {
+      "knots": 7,
+      "monotonic": true
+    },
+    "keyboard": true,
+    "textures": {
+      "before": 245,
+      "after": 245,
+      "newKeys": [
+        "aa03302a-6451-4692-8162-2b4386e4847c",
+        "aec8687e-fe7e-41b5-9f9b-b6ae160fd712",
+        "ec549155-d086-4ad4-b91a-3a513e79ae2a",
+        "e13ef930-70c7-439f-991a-1f734a7a25c8",
+        "eba295d4-fed5-4f1c-84a5-9ed5e47b7695",
+        "feed6e70-2ebd-4320-ab40-49e769b2600e"
+      ]
+    },
+    "extinct": [
+      "extinct",
+      "extinct",
+      "extinct",
+      "extinct",
+      "alive"
+    ],
+    "paging": true,
+    "title": true
+  },
+  "errors": []
+}
