@@ -3,6 +3,11 @@
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
 
+**Entwicklungsstand:** Spielbar sind die bisherigen Devon- und Karbon-Prototypen mit
+Weltbaukasten und Koop-Grundlagen. Die beschlossenen nächsten Schritte stehen unter
+[Entwicklungsrichtung](#entwicklungsrichtung). Die übrigen Spielbeschreibungen dokumentieren
+den vorhandenen Prototyp; geplante Änderungen sind noch keine eingebauten Funktionen.
+
 Du schlüpfst als winziger, schwacher Urfisch im **Laichfluss** – einer von wenigen deiner Art. Du
 **wächst heran**, und sobald du ausgewachsen bist, kehrst du in den Fluss zurück und **laichst**. Wer
 gelaicht hat, darf sterben, ohne zu verlieren: Aus dem Gelege schlüpft die **nächste Generation**, und du
@@ -10,13 +15,11 @@ spielst als ihr Jungtier weiter – angepasst an das, wie du gelebt hast. Es gib
 Abschnitte mehr: Die **Weltzeit läuft für alle gleich weiter**. Es geht **nur ums Überleben – und ums
 Weitergeben**.
 
-**EVO wird ein persistentes Online-Spiel:** eine Welt, die weiterläuft, in der mehrere Spieler einander
-sehen und beeinflussen – und die auch mit nur einem Spieler lebt (KI-Tiere bleiben). Der erste Schritt
-steht: Auf dem eigenen Server sehen sich die Spieler am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
-Gespielt wird in **sieben Zeitaltern**: Im Titelbild wählt man unter „Zeitalter“ zwischen **Devon**, **Karbon**,
-**Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** – jedes ist eine eigene Welt mit eigener Linie, eigenem
-Stammbaum-Ast und eigenem Teil in der Chronik des Lebens; im Mehrspieler trifft man dort alle, die dasselbe Zeitalter gewählt haben.
-Spielbar sind vorerst das **Devon** – dort beginnt jedes Leben – und das **Karbon** mit *Pederpes*, Gelege und
+**EVO wird als zusammenhängendes Evolutionsspiel für Einzelspieler und Koop weiterentwickelt.**
+Auf dem eigenen Server sehen sich Spieler bereits am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
+Die Hauptlinie soll durch **Devon**, **Karbon**, **Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** führen.
+Im aktuellen Prototyp wählt man die Zeitalter noch getrennt im Titelbild; jedes hat bisher seine eigene Welt und Linie.
+Spielbar sind das **Devon** mit dem ursprünglichen Urfisch und das **Karbon** mit *Pederpes*, Gelege und
 Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)); die anderen ruhen noch „im Gestein“
 (siehe [Zeitalter wählen](#zeitalter-wählen)).
 
@@ -46,6 +49,38 @@ und seine Weltzeit, die für alle gleich weiterläuft, unten rechts deine Linie 
 > es werden keine Original-Inhalte verwendet.
 
 **Online spielen:** https://lksnio.github.io/EVO/
+
+## Entwicklungsrichtung
+
+Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
+
+- **Verhalten prägt die Nachkommen.** Vererbung wird insgesamt überarbeitet,
+  einschließlich Lebenskraft und Ausdauer. Gebiss, Körperproportionen, Bewegung und
+  Farbe ergeben individuelle Tiere und Stammbäume. Die Eigenschaften der sichtbaren
+  Nachkommen bleiben erkennbar, damit ihre Auswahl eine bewusste Entscheidung ist.
+- **Ein Lauf durch eine veränderliche Welt.** Weltzeit und Entwicklung der Spielerlinie
+  sind getrennt. Reale Arten erhalten eigene historische Auftretensfenster.
+  Rund 4–5 Stunden pro Hauptlauf sind ein vorläufiger Richtwert für das Balancing.
+- **Neue Lebensräume über Fortpflanzung erschließen.** Tiefsee, Wasser, Ufer, Land
+  und Berge verlangen unterschiedliche Anpassungen. Veränderungen kündigen sich an,
+  damit die Linie sich über Generationen vorbereiten kann.
+- **Entdeckungen über mehrere Läufe behalten.** Sieben besondere Muscheln haben
+  feste Fundorte; sieben große Gegner hinterlassen Fossilplatten. Ein Lauf darf
+  Funde verpassen. Beide Sammlungen bleiben über gespielte Tiere hinweg erhalten
+  und bilden eine Sternübersicht vom Startbildschirm aus.
+- **Besondere Orte und neue Anfänge.** Die große Startmuschel bekommt mit neuen
+  Funden rätselhafte Weisheiten. Vollständige Sammlungen führen an besonderen Orten
+  zu verborgenen Gelegen. Welche Tiere und Orte das werden, ist noch offen.
+- **Eine Welt von Hand gestalten.** Gewünscht sind veränderte Küsten, Landschaften
+  und Verbindungen über die Zeit. Handgebaute Zeitvarianten im vorhandenen
+  Weltbaukasten sind der vorgeschlagene Weg; der genaue Umfang bleibt offen.
+
+Die bisherigen Muschel-Zufallsdrops und gekauften Werteboni werden damit abgelöst.
+Sie sind im aktuellen Prototyp noch vorhanden. Die Wiedereinstiege in gespielte
+Linien und die neuen Sammlungs-/Gelegesysteme sind ebenfalls noch umzusetzen.
+
+Für die Entwicklung: [Entscheidungen, offene Fragen, Aufwand und Übernahme](docs/EVOLUTION_ROADMAP.md).
+Das Entwicklungsdokument enthält interne Regeln und Belohnungsspoiler.
 
 ## Weltbaukasten
 
@@ -83,9 +118,9 @@ wählt man eines an, kehrt die **Farbe zum großen Teil zurück**, Maserung und 
 streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein Ammonit-Zeichen und „Noch im Gestein“.
 Ein Klick darauf: Stein reibt über Stein, die Glut in den Rissen flackert auf – es rührt sich (noch) nichts.
 
-Jedes Zeitalter hat **seine eigene Linie**: Wer das Zeitalter wechselt, lässt seine Linie dort ruhen und findet sie bei der
-Rückkehr wieder (`enterEpoch`, `runIn` in `src/state/GameState.ts`) – das wird wichtig, sobald mehr als ein Zeitalter
-spielbar ist. Die Bilder liegen in `src/assets/eras/` (Devon, Karbon, Perm, Kreidezeit – neue Bilder für Trias, Jura und
+Im bisherigen Prototyp hat jedes Zeitalter **seine eigene Linie**: Wer das Zeitalter wechselt, lässt seine Linie dort ruhen und findet sie bei der
+Rückkehr wieder (`enterEpoch`, `runIn` in `src/state/GameState.ts`). Diese Trennung soll durch den zusammenhängenden Hauptlauf ersetzt werden.
+Die Bilder liegen in `src/assets/eras/` (Devon, Karbon, Perm, Kreidezeit – neue Bilder für Trias, Jura und
 Paläogen kommen dorthin und in `LOOK` in `src/scenes/EraScene.ts`, wo auch steht, wie sie leben: Meer, Sumpf oder Land).
 
 **Die Reihenfolge ist Teil des Spielstands** (Nummern): Nummer 0 war früher das Ordovizium und ist jetzt das Devon –
@@ -114,7 +149,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Bläschen neben dem Tier, ausgewachsen reicht er 26 Sekunden, Larven mit Kiemen nur gut die Hälfte), im Wasser füllt er
   sich wieder; leer **trocknet das Tier aus** und nimmt Schaden. Ausdauer kosten Spurt, Bisse und vor allem **Klettern**.
   Die große Muschel bietet Lebenskraft, Ausdauer und Sauerstoff (+15 % je Segen) mit der **gemeinsamen Kostenfolge**
-  1, 2, 4, 8 … – im Karbon bleiben die Segen auch nach dem Aussterben.
+  1, 2, 4, 8 … – im Karbon bleiben die Segen auch nach dem Aussterben. Das ist die
+  bestehende Altregel; das neue Vererbungs- und Sammelsystem wird sie ersetzen.
 - **Das Startgelege:** Jede Linie beginnt mit **100 Eiern** im Brutsumpf – alle mit Grundwerten. Man schlüpft als
   kleine **Larve mit Kiemen**. Was man frisst (Pflanzen, kleine Fische, Gliederfüßer), ist **Nahrung**: Mit 24 Nahrung
   kommt die **Metamorphose** (die Kiemen schwinden, das Tier wird groß). Bis dahin greift kein großer Räuber an – nur wer
@@ -255,7 +291,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
   Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
 
-  **Werte nach Verhalten (Überarbeitung Werte):** Leben und Ausdauer kommen von der großen Muschel (Segen), Gebiss vom Beißen. Dazu:
+  **Bisherige Werte- und Trainingsregeln:** Der Prototyp kombiniert Muschelsegen und
+  Verhalten, unter anderem für Gebiss und Ausdauer. Diese Vererbungsregeln werden
+  insgesamt neu ausgearbeitet; die folgende Liste beschreibt den bestehenden Stand:
   - **Stoß (Schädel):** schadet mehr (`RAM.damage` 0,95 statt 0,625 × Schädelwert) und zählt für den Schädel wie **3,5 Bisse** (`RAM.credit`): Ein Sieg mit
     einem Stoß und drei Bissen gibt dem Schädel jetzt fast die Hälfte der Punkte statt ein Viertel.
   - **Tempo (Flossen) aus Strömungen:** Wer in einer lokalen Strömung schwimmt, bekommt **Schub** (0 … 1; in 1,4 s voll, außerhalb klingt er mit 6 s Zeitkonstante
@@ -638,14 +676,14 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   halbes – nicht gleich nach einem Treffer, nicht im Spurt oder Stoß, im Alter langsamer. Schneller geht es mit
   **Heilkräutern** (hellgrün mit rosa Blüten, goldener Schimmer; eines heilt 40 %) – manche Pflanzen heilen also,
   **Fleisch heilt nicht**, es nährt nur die Brut.
-- **Muscheln farmen:** Muscheln liegen nicht fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
+- **Muscheln farmen (Altregel, wird ersetzt):** Muscheln liegen im bisherigen Prototyp nicht fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
   du erlegt hast oder an deren Tod du beteiligt warst). Wie selten, hängt davon ab, **wie stark das Tier im Vergleich zu dir
   war**: ein ebenbürtiges in **10 %** der Fälle, ein doppelt so starkes (größeres) in **20 %**, schwache Beute halb so
   oft – wer stärker wird, findet bei kleinen Tieren also seltener eine. Die Muschel sinkt funkelnd zu Boden, ein heller Ton
   klingt; wer sie berührt, nimmt sie mit (oben links steht, wie viele frei sind und was der nächste Segen kostet).
   **Weil sie so selten sind, gehören die Muscheln dir – nicht deiner Linie:** Sie bleiben über **alle Läufe** hinweg, auch
   wenn deine Linie ausstirbt.
-- **Die große Muschel – Muscheln verteilen:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
+- **Die große Muschel – bisherige Werteboni:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
   Fächermuschel** (gezeichnetes Bild `src/assets/shrine/muschel.webp`, rund 118 Bildpunkte breit), perlmuttfarben, mit einer
   leise glühenden **Perle** in der Mitte, Lichtfunken steigen auf, von oben fällt ein
   Lichtschacht. Wer davor die Interaktionstaste drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
@@ -849,6 +887,10 @@ am schiefer werdenden Klavier bei Gefahr und am Tier selbst. Schwer verletzt fä
 sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
+
+**Bestehende Darstellung:** Der folgende Abschnitt beschreibt den aktuellen Prototyp.
+Geplant ist ein individueller Baum der tatsächlich gespielten Linien mit Wiedereinstieg
+in deren erste Generation. Sammlung und Entwicklungsverlauf werden getrennt dargestellt.
 
 **Ein Baum für alle sieben Zeitalter – und er zeigt nur deine jetzige Linie.** Von oben nach unten läuft die Zeit am
 **Stamm** entlang (davor und danach läuft er gestrichelt aus: Das Leben ging vorher schon weiter und geht danach weiter).
@@ -1233,14 +1275,16 @@ art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen 
 tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.py (Bewegungs-Sprite-Sheet eines Fisches)
 ```
 
-### Später klären (vorläufig so entschieden)
+### Prototyp: bestehende Regeln und Prüfpunkte
 
-Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festgelegt – bitte später noch einmal ansehen:
+Diese Liste dokumentiert bisherige Regeln und technische Prüfpunkte. Für neue
+Entwicklungsentscheidungen gilt die [aktuelle Roadmap](docs/EVOLUTION_ROADMAP.md);
+insbesondere Epochenaufteilung, Vererbung und Muschelsegen werden überarbeitet.
 
 - [ ] **Zeitalter:** Zur Wahl stehen sieben (Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen); spielbar sind das
-      Devon (dort beginnt jedes Leben) und das Karbon. Jedes Zeitalter ist eine eigene Welt mit eigener Linie – man bleibt in seinem
-      Zeitalter (kein Übergang mehr ins nächste). Die Jahreszahl läuft in etwa 30 Tagen bis zum Ende des Zeitalters und
-      bleibt dann stehen. Das Devon beginnt vorerst mit dem Urfisch; die Kreidezeit behält vorerst ihr bisheriges Bild,
+      Devon mit dem Urfisch und das Karbon. Im Prototyp ist jedes Zeitalter noch eine eigene Welt mit eigener Linie.
+      Geplant sind ein zusammenhängender Hauptlauf und getrennte Welt-/Entwicklungszeit.
+      Die Kreidezeit behält vorerst ihr bisheriges Bild,
       Trias, Jura und Paläogen warten auf ihre Bilder (Steintafel). Ordovizium und Silur sind verborgen.
 - [ ] **Karbon:** Jeder Spieler hat sein eigenes Gelege (ein gemeinsames Nest im Mehrspieler fehlt noch; beim Gast
       fressen die Stellvertreter der Räuber am Nest mit). Ein Ei, das in der Gefahr schlüpft, ist gleich ausgewachsen;
@@ -1252,8 +1296,9 @@ Damit schnell gespielt und getestet werden kann, ist erst einmal Folgendes festg
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
 - [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
       Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.
-- [ ] **Muscheln und Segen:** Muscheln gehören dir und bleiben über alle Läufe; je Linie verteilt man sie an der großen
-      Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis) und Sicht (+5 %). Kosten 1, 2, 4, 8 … gleich wofür, höchstens
+- [ ] **Muscheln und Segen (wird ersetzt):** Im Prototyp bleiben Muscheln über alle Läufe;
+      je Linie verteilt man sie an der großen Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis)
+      und im Karbon Sauerstoff. Kosten 1, 2, 4, 8 … gleich wofür, höchstens
       10 Segen (der zehnte kostet 512, zusammen 1023); eine neue Linie verteilt neu. Die Chance richtet sich nach der Stärke
       der Beute (10 % ebenbürtig, bis 20 % bei doppelt so starker, 5 % bei schwacher).
 - [ ] **Sicht:** Sie hängt an der Sicht des Tiers, der Wasserqualität und der Tiefe; der Rand ist kurz, dahinter wird es
