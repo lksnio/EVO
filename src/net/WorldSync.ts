@@ -1,11 +1,11 @@
 import { SPECIES } from '../data/species';
 import { makeSpeciesTextures } from '../art/speciesArt';
-import type { Animal, PlayerLike } from '../objects/Animal';
+import type { Animal, PlayerLike, Target } from '../objects/Animal';
 import { Kill, Meat } from '../objects/Food';
 import type { Rect } from '../util/math';
 import type { LevelScene } from '../scenes/LevelScene';
 import { GhostAnimal } from './GhostAnimal';
-import { FAUNA_HZ, FAUNA_NEAR_HZ, FAUNA_NEAR_PX, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow, type PlantMsg } from './protocol';
+import { FAUNA_HZ, FAUNA_NEAR_HZ, FAUNA_NEAR_PX, type AnimalRow, type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type MeatRow, type PlantMsg, type SwallowedMsg } from './protocol';
 import type { RemoteFish } from './RemoteFish';
 import type { ZoneState } from './schema';
 import type { Zone } from './NetClient';
@@ -92,6 +92,7 @@ export class WorldSync {
   private gmeats = new Map<number, Meat>();
   private gkills = new Map<string, Kill>();
   private eatenKills = new Set<string>();
+  private swallowedIds=new Set<number>();
   /** Ortswächter: zuletzt gemeldet (Kurzform) und die Tiere/Stücke dazu */
   private sentA = new Map<number, { sig: string; same: number; at: number }>();
   private sentM = new Map<number, string>();
@@ -337,6 +338,22 @@ export class WorldSync {
       this.h.confirmNetDefeat(id, g);
       if (g && !g.dead) g.vanishDead();
     }
+  }
+
+  sendSwallowed(a:Animal,from:Target):boolean {
+    if(!this.host||!this.z||!(from instanceof RemoteTarget)||!a.netId)return false;
+    this.z.swallowed({id:a.netId,to:from.id});
+    return true;
+  }
+
+  /** Never reward a local prediction. Only the host-confirmed message feeds the recipient. */
+  swallowed(m:SwallowedMsg) {
+    if(this.host||!Number.isInteger(m.id)||m.id<=0||!m.sp||!SPECIES[m.sp]||this.swallowedIds.has(m.id))return;
+    this.swallowedIds.add(m.id);
+    const g=this.ghosts.get(m.id);
+    this.h.confirmNetDefeat(m.id,g);
+    this.h.consumeWholePrey(m.sp,g?.x,g?.y);
+    if(g&&!g.dead)g.vanishDead();
   }
 
   /** Ein Tier des Ortswächters hat dich getroffen. */

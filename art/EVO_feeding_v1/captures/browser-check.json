@@ -1,0 +1,54 @@
+{
+  "report": {
+    "whole": {
+      "dead": true,
+      "food": 1,
+      "meat": 0,
+      "labels": [
+        1
+      ],
+      "species": 1
+    },
+    "wounded": {
+      "dead": true,
+      "food": 0,
+      "meat": 5,
+      "fullHealth": 89
+    },
+    "multiple": {
+      "food": 16,
+      "eaten": [
+        true,
+        true
+      ],
+      "far": 5,
+      "labels": [
+        8,
+        8
+      ],
+      "positions": [
+        1473.4720000000002,
+        1519.4720000000002
+      ],
+      "species": 1
+    },
+    "strong": {
+      "food": 1,
+      "newMeat": 0,
+      "dead": true
+    },
+    "swimming": {
+      "min": 106.79822603305279,
+      "max": 239.70997397310177,
+      "base": 151,
+      "fastFraction": 0.7322497861420018
+    },
+    "flank": {
+      "side": 23.419480014303645,
+      "phase": "wind",
+      "damage": 0,
+      "recoverySpeed": 6.543333333333334
+    }
+  },
+  "errors": []
+}

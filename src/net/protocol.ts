@@ -171,6 +171,13 @@ export interface HitMsg {
   from?: string;
 }
 
+/** Host-confirmed whole-prey meal. Server supplies the species; the gain is always exactly one. */
+export interface SwallowedMsg {
+  id:number;
+  to?:string;
+  sp?:string;
+}
+
 /** Ein Tier des Ortswächters trifft einen anderen Spieler (to). */
 export interface HurtMsg {
   /** Gegnerkennung für die lokale Schuppenwertung (ältere Clients senden sie nicht). */

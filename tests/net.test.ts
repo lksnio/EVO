@@ -30,6 +30,26 @@ describe('Spielserver (Colyseus)', () => {
     await server.listen(PORT);
   });
 
+  it('bestätigt verschluckte Beute nur vom Ortswächter, einmal und ausschließlich an den fressenden Gast',async()=>{
+    const zone=zoneId(0,'garten');
+    const host=await join(opts('Fresswächter',{zone})),guest=await join(opts('Fresser',{zone})),other=await join(opts('Zuschauer',{zone}));
+    const meals:unknown[]=[],others:unknown[]=[];
+    guest.onMessage('swallowed',m=>meals.push(m));other.onMessage('swallowed',m=>others.push(m));
+    await until(()=>guest.state.players.size===3);
+    host.send('fauna',{a:[{id:61,sp:'moythomasia',x:1000,y:500,d:1,an:0,hp:6,mh:6,sz:1,tn:0,al:100,at:false}]});
+    await until(()=>guest.state.animals.has('61'));
+    guest.send('swallowed',{id:61,to:guest.sessionId});
+    host.send('swallowed',{id:999,to:guest.sessionId});
+    await wait(100);expect(meals).toEqual([]);
+    host.send('swallowed',{id:61,to:guest.sessionId,sp:'dunkleosteus'});
+    host.send('swallowed',{id:61,to:guest.sessionId});
+    await until(()=>meals.length===1);await wait(100);
+    expect(meals).toEqual([{id:61,sp:'moythomasia'}]);expect(others).toEqual([]);
+    host.send('fauna',{gone:[[61,1]]});await until(()=>!guest.state.animals.has('61'));
+    host.send('swallowed',{id:61,to:guest.sessionId});await wait(100);expect(meals).toHaveLength(1);
+    await host.leave();await guest.leave();await other.leave();
+  });
+
   afterAll(async () => {
     // wer schon gegangen ist, antwortet nicht mehr – nicht ewig warten
     for (const r of rooms) await Promise.race([r.leave().catch(() => undefined), wait(500)]);

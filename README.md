@@ -220,11 +220,15 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Zeit, sich mit seinem Tier anzufreunden.
 - **Hunger gibt es nicht.** Man muss nicht fressen, um zu überleben, ist nie „satt“ und muss nirgends warten – Fressen nährt
   nur die **Brut**. Alles Gefressene (die kleinen Zahlen, die beim Fressen kurz aufsteigen) sammelt sich als **Nahrung** für
-  den Nachwuchs. **Nahrung kommt in Brocken: klein (1) oder groß (5)** – jeder Brocken wird mit **einem Bissen ganz**
-  gefressen, ebenso eine ganze Pflanze (1). Ein kleiner Beutefisch gibt einen kleinen Brocken, ein Conodont um 3 kleine,
-  Orthoceras einen großen, ein Seeskorpion um 16, ein Riese wie Cameroceras um 43 (8 große und 3 kleine Brocken). Je
-  stärker und größer die Beute, desto mehr (`meatOf` in `src/state/GameState.ts`: ein Zehntel ihrer Lebenskraft, gerundet,
-  wenigstens 1).
+  den Nachwuchs. **Beute, deren volle Lebenskraft ein einziger eigener Biss überwindet, wird direkt verschluckt und
+  gibt genau +1** – ohne Fleischbrocken und ohne Verdauungsbonus. Entscheidend ist die tatsächliche Bissstärke samt
+  Hinterhalt, Schwung und Schwäche des Gegners. Der letzte Treffer auf einen bereits verwundeten großen Gegner reicht
+  dafür nicht. Andere Beute wird zu **Brocken: klein (1) oder groß (5)**. Mit einem Biss frisst man **alle Stücke direkt
+  am Maul**, jedes mit eigener Zahl (etwa zweimal +8 bei entsprechendem Verdauungswert). Eine Pflanze gibt 1.
+  Die Fleischmenge richtet sich nach Stärke und Größe (`meatOf` in `src/state/GameState.ts`: ein Zehntel der Lebenskraft,
+  gerundet, wenigstens 1, oder der eingestellte Futterwert der Art).
+  Die [Browserprüfung mit Aufnahme](art/EVO_feeding_v1/README.md) zeigt direktes Fressen, zwei gleichzeitige Happen
+  und beweglichere Schwimmer. Ein-Biss-Regel, Tempoverlauf und Koop-Bestätigung haben ergänzende Logik- und Servertests.
 - **Nachkommen aus Nahrung – sie sind deine Leben:** Jeder Fisch hat einen **Grundwert**: So viel Nahrung braucht ein
   Nachkomme. Beim ersten Fisch sind es **20**. **Beim Laichen** wird aus der gesammelten Nahrung Nachwuchs – je 20 einer,
   der Rest bleibt für das nächste Mal. **Mehrmals laichen zählt zusammen:** 50 gefressen und gelaicht ergibt 2 Nachkommen
@@ -308,7 +312,9 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
     dem Tempo, und sie kosten **etwas Ausdauer** (−4 % bei +10 Punkten, `MOVEMENT.finEndurance`).
   - **Ausdauer aus Strecke:** Weite Strecken (`INHERIT.endDistance`, 90 000 Bildpunkte) geben bis zu **+3 Ausdauerpunkte** je Generation (+3 % Ausdauer je Punkt) – der **Kamm am Rücken**
     (Rückenflosse) wächst mit ihnen – und kosten **etwas Tempo** (−0,4 % je Punkt, `MOVEMENT.endSpeed`).
-  - **Jäger im Kampf (Räuber und Herrscher):** Sie schwimmen normal, solange sie nur umherziehen; **verfolgen** sie ein Ziel oder sind sie im Kampf, **steigern sie ihr Tempo**
+  - **Jäger in Bewegung (Räuber und Herrscher):** Schon beim Umherziehen schwankt ihr Tempo weich und je Tier versetzt;
+    größere Schwimmer ziehen häufig zügiger vorbei und halten an Wegpunkten seltener an. Beim Ausholen ziehen sie
+    seitlich zum Ziel, danach gleiten sie aus. **Verfolgen** sie ein Ziel oder sind sie im Kampf, **steigern sie ihr Tempo**
     (`sim/pace.ts`, `HUNT`): in 3,5 s voll, das Verfolgen bis **+40 %**, Ausholen und Zuschnappen (der Biss, `Animal.atkSpeed`) bis **+30 %**; nach dem Kampf klingt es in 6 s
     ab. Wer lange hinter dir her ist, beißt also schneller zu als einer, der gerade erst losschwimmt (und ermüdet dabei früher: die Ausdauer rechnet mit dem höheren Tempo).
   - **Versteckte Farbabweichung:** Körper, Flossen und Kopfpanzer wandern **von Ei zu Ei** in kleinen Zufallsschritten (`driftColors`, Streuung `INHERIT.colorStep` 0,1; Werte −1 … +1 in
@@ -518,7 +524,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
     heran; je größer und stärker man wird, desto früher und weiter fliehen sie. Die Flucht geht **nie schnurgerade**,
     sondern mit Haken – mal hoch, mal runter, mal ein Schlenker –, Hauptsache weg. Wer lange ruhig in der Nähe bleibt
     (nicht sprinten, nicht kämpfen), kommt etwas näher heran – ganz nah lassen sie einen aber nie: Hinterhalt, Stoß und schnelle Bisse sind gefragt;
-    die kleinsten Fische sind mit zwei Bissen erledigt, kleine brauchen wenigstens drei. Oder man **reizt einen großen Räuber**
+    je nach eigener Bissstärke werden kleine Fische sofort verschluckt (+1) oder brauchen mehrere Treffer. Oder man **reizt einen großen Räuber**
     (beißen, stoßen, frech nah heran) und schwimmt davon: Er verfolgt einen und reißt unterwegs alles,
     was ihm vor das Maul kommt – bis man sich versteckt. Was er liegen lässt, kann man fressen. Mittelgroße Tiere wehren sich und beißen zurück. Die großen kann
     man anfangs nur meiden; später gibt es vier Wege: ein **starkes Gebiss**, schnelle **Stöße und
@@ -532,7 +538,9 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
     umher, und alle halbe Minute etwa zieht ein größeres Tier des Zeitalters durchs Bild (im Devon Haie, Panzerfische,
     Fleischflosser und der Seeskorpion *Pterygotus*; im verborgenen Ordovizium Orthoceras, Megalograptus, Cameroceras).
   - **Jeder Angriff ist zu sehen:** Alle Tiere holen vor dem Biss sichtbar aus (sie spannen sich und
-    glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen.
+    glühen kurz rötlich auf) und schnellen dann vor – wer aufpasst, kann ausweichen. Größere Schwimmer ziehen schon
+    dabei flott seitlich am Ziel entlang, sofern Wasseroberfläche und Felsen Platz lassen; sie bleiben auch nach dem
+    Vorstoß in Bewegung. Erschöpfung und echte Ruhephasen bleiben erhalten.
   - **Die großen Fische beißen richtig zu** (`src/sim/bite.ts`, `Animal.attackStep`): Ein Jäger wird **rot** und spannt sich
     (große mit einem roten **!** und einem Knurren), das **Maul geht halb auf** – dann schwimmt er **kurz viel schneller** auf
     dich zu, das **Maul weit aufgerissen mit allen Zähnen** (beim Panzerfisch die Knochenklingen), und **schnappt zu**, sobald
@@ -753,12 +761,12 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   dann **auf eine sichere Entfernung**. Nur Bodentiere wie Trilobiten verkriechen sich im Dickicht.
 - **Fressen – für den Nachwuchs:** Hunger gibt es nicht (siehe oben). Ein Happen zeigt klein und kurz, was er gebracht
   hat: rötlich für Fleisch, grünlich für Pflanzen. Pflanzen bringen wenig (1 je Pflanze, mit einem Bissen ganz gefressen),
-  sind aber ungefährlich und wachsen nach. **Beute nährt nach ihrer Stärke und Größe** (`meatOf` in
-  `src/state/GameState.ts`) und zerfällt in **Brocken zu 5 und zu 1**: ein kleiner Beutefisch 1, ein Räuber wie der
-  Conodont um 3, Orthoceras um 5, Seeskorpione und Riesen weit mehr (viele große Brocken). Jeder Brocken ist **ein Bissen** –
-  wer mehr will, muss Stärkeres erlegen, mit mehr Risiko. Manche Pflanzen sind giftig: Sie brennen, machen aber kurz
-  hellwach und schnell.
-- **Fleisch wie in E.V.O.:** Ein erlegtes Tier leuchtet kurz auf und wird zu Fleisch: kleine Brocken (1) als Happen, große
+  sind aber ungefährlich und wachsen nach. **Ein-Biss-Beute wird direkt für +1 gefressen** (siehe oben). Sonst nährt
+  Beute nach Stärke und Größe (`meatOf` in `src/state/GameState.ts`) und zerfällt in **Brocken zu 5 und zu 1**.
+  Alle Fleischstücke in der Bissfläche werden gleichzeitig ganz gefressen; Stücke weiter weg bleiben liegen.
+  Jedes Stück zeigt seinen eigenen, verdauungsabhängigen Nahrungswert. Manche Pflanzen sind giftig: Sie brennen,
+  machen aber kurz hellwach und schnell.
+- **Fleisch wie in E.V.O.:** Beute, die nicht direkt verschluckt wird, leuchtet kurz auf und wird zu Fleisch: kleine Brocken (1) als Happen, große
   (5) als **saftige Fleischkeule mit Knochen** – große Tiere zu vielen. Das Fleisch sinkt zügig zu Boden
   (große Stücke schneller) – und nach einer Weile verdirbt es. Andere Fleischfresser
   fressen mit, sobald sie drankommen: Wer zu lange wartet, geht leer aus. Auch **große Tiere töten nicht nur**, sondern
@@ -1095,7 +1103,8 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
   (wer abfrisst, frisst es allen weg; das Nachwachsen rechnet der Ortswächter). Gerechnet werden sie im Spiel eines
   Spielers, dem **Ortswächter** (wer zuerst da war); der Server verteilt sie an alle anderen. Beißt oder stößt ein anderer
   Spieler ein Tier, geht der Treffer an den Ortswächter; Tiere jagen, meiden und beißen **jeden** Spieler (den jeweils
-  nächsten); wer vom Fleisch frisst, nimmt es allen weg. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
+  nächsten); wer vom Fleisch frisst, nimmt es allen weg. Direkt verschluckte Beute bestätigt der Ortswächter genau
+  einmal an den fressenden Spieler; eine lokale Todesvorhersage allein gibt noch keine Nahrung. Geht der Ortswächter (oder ist sein Fenster im Hintergrund bzw.
   er in der Rast), übernimmt ein anderer Spieler die Tiere, so wie sie gerade sind. Neue Tiere (Durchzügler, Rückkehrer,
   Schlüpflinge) kommen nur beim Ortswächter dazu. Der ganze Tierbestand wird unabhängig vom eigenen Blickfeld synchronisiert;
   ruhende Tiere werden mindestens jede Sekunde bestätigt. Sicht und Nebelfärbung berechnet jeder Spieler selbst. Beim
@@ -1315,10 +1324,10 @@ insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen 
       (`src/data/classes.ts`, `PACE` in `src/data/species.ts`) – Platz nach oben für schnellere Nachkommen. Angriffe der
       Tiere (Ausholen, Zustoßen, Ansturm) sind so schnell wie früher.
 - [ ] **Futter:** Fleisch nach Stärke und Größe der Beute (`meatOf`, ein Zehntel der Lebenskraft; ein kleiner Beutefisch 1),
-      in Brocken zu 5 und zu 1, jeder mit einem Bissen ganz gefressen (weitere Größen, wenn es größere Tiere gibt); eine
+      in Brocken zu 5 und zu 1, alle direkt am Maul mit einem Bissen gefressen. Ein-Biss-Beute wird direkt für +1 verschluckt; eine
       Pflanze 1; Training gedeckelt nach den stärksten bezwungenen Gegnern (`ceilBase`, `ceilPer` in `INHERIT`).
 - [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
-      Beutefische ab 6 Lebenskraft × 1,2 – die kleinsten sind mit zwei Bissen erledigt, kleine brauchen drei und mehr);
+      Beutefische ab 6 Lebenskraft × 1,2; die Bissstärke bestimmt die nötigen Treffer);
       Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
 - [x] **Karte:** Die Weltkarte (Gondwana und der rote Lebensraum) ist aus der Übersicht entfernt – dort stehen jetzt Lebensweg
       und Nachkommen; Gebietswechsel bleiben direkt und ohne Reisezeit.

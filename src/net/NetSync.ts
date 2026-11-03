@@ -165,6 +165,7 @@ export class NetSync {
       eat: (m) => !this.closed && this.world.eat(m),
       hurt: (m) => !this.closed && this.world.hurt(m),
       died: (ids) => !this.closed && this.world.died(ids),
+      swallowed:(m)=>!this.closed&&this.world.swallowed(m),
       plant: (m) => !this.closed && this.world.plant(m),
       pong: (m) => {
         const rtt = performance.now() - m.t;

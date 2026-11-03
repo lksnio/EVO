@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HUNT } from '../src/data/life';
-import { attackPace, chasePace, surgeStep } from '../src/sim/pace';
+import { attackPace, chasePace, surgeStep, roamingPace } from '../src/sim/pace';
 
 describe('Kampf-Beschleunigung der Jäger', () => {
   it('ohne Kampf bleibt alles normal: Tempo und Angriff ×1', () => {
@@ -38,5 +38,21 @@ describe('Kampf-Beschleunigung der Jäger', () => {
     }
     expect(HUNT.chase).toBeGreaterThan(0.2);
     expect(HUNT.attack).toBeGreaterThan(0.2);
+  });
+});
+
+describe('Lebendiges normales Schwimmen',()=>{
+  it('hat häufig zügige Phasen für große Tiere, ohne negative Geschwindigkeiten oder Sprünge',()=>{
+    const values=Array.from({length:1200},(_,i)=>roamingPace(i/20,1.7,true));
+    expect(Math.min(...values)).toBeGreaterThanOrEqual(.7);
+    expect(Math.max(...values)).toBeLessThanOrEqual(1.6);
+    expect(values.filter(v=>v>1).length/values.length).toBeGreaterThan(.5);
+    expect(Math.max(...values.map((v,i)=>i?Math.abs(v-values[i-1]):0))).toBeLessThan(.03);
+  });
+  it('schwimmt pro Tier versetzt und unterscheidet große von kleinen Tieren',()=>{
+    const a=Array.from({length:100},(_,i)=>roamingPace(i/10,.2,true));
+    const b=Array.from({length:100},(_,i)=>roamingPace(i/10,3.8,true));
+    expect(a).not.toEqual(b);
+    expect(roamingPace(3,1,true)).toBeGreaterThan(roamingPace(3,1,false));
   });
 });

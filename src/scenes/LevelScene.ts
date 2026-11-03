@@ -41,7 +41,7 @@ import { paintedReef, reefKey, reefRock } from '../art/reefProps';
 import { Drift, driftCounts } from '../objects/Drift';
 import { Animal } from '../objects/Animal';
 import { Kin, type KinWorld } from '../objects/Kin';
-import type { PlayerLike } from '../objects/Animal';
+import type { PlayerLike, Target } from '../objects/Animal';
 import { SwarmCtl } from '../objects/Swarm';
 import { SpawnCtl } from '../objects/Spawning';
 import { NetSync, netWanted } from '../net/NetSync';
@@ -1731,7 +1731,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.ramHit.delete(a);
   }
 
-  animalDied(a: Animal, byPlayer: boolean) {
+  animalDied(a: Animal, byPlayer: boolean, swallowedBy?:Target) {
     const used = this.combat.get(a);
     this.removeAnimal(a);
     this.bleed(a.x, a.y, 14);
@@ -1758,6 +1758,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (ours && kill.helpers.size) {
       this.train.pack += 0.5 + this.challenge(a);
     }
+    // One full-strength mouth hit eats the animal whole. A wounded large animal still leaves its carcass.
+    if(swallowedBy===this.player){
+      this.consumeWholePrey(a.def.id,a.x,a.y);
+      if(byPlayer)game.addAggression(a.role==='prey'?.1:.06);
+      return;
+    }
+    if(swallowedBy&&this.net?.world.sendSwallowed(a,swallowedBy))return;
     // Wie in E.V.O.: Aus dem erlegten Tier wird saftiges Fleisch – so viel, wie es stark und groß war (meatOf, nach der
     // Lebenskraft der Art und der Größe des Tiers), in Brocken: große Keulen (je FOOD.chunk) und kleine Stücke (je 1)
     const killer = a.lastAttacker;
@@ -1848,6 +1855,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.combat.set(source, used);
   }
 
+  /** A whole small animal is always one food unit, irrespective of meat yield or digestion bonuses. */
+  consumeWholePrey(speciesId:string,x=this.player.x,y=this.player.y) {
+    if(this.ended||this.player.dead||!SPECIES[speciesId])return;
+    this.player.eat(1,'meat');
+    this.floatNum(x,y-16,1,'meat');
+    this.ate('meat',FOOD.meat.kcal);
+    game.noteEaten(speciesId);
+  }
+
   playerBite(rect: Rect, momentum = 0) {
     const p = this.player;
     const st = p.stats;
@@ -1877,21 +1893,24 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.cameras.main.shake(70 + 60 * game.traits.jaw, 0.004 + 0.004 * game.traits.jaw);
       return;
     }
+    let eatenPieces=0;
     for (const m of this.meats) {
       if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
       const dig = st.digestMeat;
       // ein Brocken – immer ganz, mit einem Bissen
       const got = m.bite(m.value);
-      if (!p.eat(got * dig, 'meat')) return;
-      this.floatNum(m.x, m.y - 16, got * dig, 'meat');
+      if (!p.eat(got * dig, 'meat')) continue;
+      // Separate labels also remain legible when chunks occupy exactly the same mouth position.
+      this.floatNum(m.x+(eatenPieces%3-1)*36,m.y-16-Math.floor(eatenPieces/3)*34,got*dig,'meat');
+      eatenPieces++;
       this.ate('meat', got * FOOD.meat.kcal * dig);
       m.playerBites++;
       // ein Tier zählt in der Beute-Statistik einmal – gleich, wie viele Brocken man davon frisst
       if (!m.kill.playerAte && m.kill.species) game.noteEaten(m.kill.species);
       m.kill.playerAte = true;
       this.checkShare(m.kill);
-      return;
     }
+    if(eatenPieces)return;
     for (const rr of this.roes) {
       if (rr.units <= 0 || rr.hatched || rr.spared || !overlaps(rect, rr.rect)) continue;
       const gain = FOOD.roe.sat * st.digestMeat;
@@ -1944,7 +1963,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // dezent: klein, gedämpfte Farben, steigt kurz auf und vergeht
     const col = kind === 'meat' ? '#e0806c' : kind === 'toxic' ? '#b49ad0' : kind === 'roe' ? '#e8c890' : '#a8d088';
     const t = text(this, x, y, `+${v}`, Math.round(19 / Z), col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
-      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0);
+      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0).setName('food-gain');
     this.tweens.add({ targets: t, alpha: 0.8, duration: 200 });
     this.tweens.add({ targets: t, y: y - 40, duration: 1300, ease: 'Sine.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 800, duration: 500, onComplete: () => t.destroy() });

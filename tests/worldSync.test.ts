@@ -43,6 +43,17 @@ let now = 10000;
 beforeEach(() => { now = 10000; vi.spyOn(performance, 'now').mockImplementation(() => now); });
 
 describe('Gemeinsame Tiere: Sicht und Wiederherstellung', () => {
+  it('belohnt bestätigte ganze Beute einmal, keine Vorhersage oder doppelte Nachricht',()=>{
+    const {world,h}=setup();
+    const eat=vi.fn(),defeat=vi.fn();
+    Object.assign(h,{consumeWholePrey:eat,confirmNetDefeat:defeat});
+    world.setHost(false);
+    expect(eat).not.toHaveBeenCalled();
+    world.swallowed({id:17,sp:'moythomasia'});world.swallowed({id:17,sp:'moythomasia'});
+    expect(eat).toHaveBeenCalledTimes(1);expect(eat).toHaveBeenCalledWith('moythomasia',undefined,undefined);
+    expect(defeat).toHaveBeenCalledTimes(1);
+    world.swallowed({id:18,sp:'unknown'});expect(eat).toHaveBeenCalledTimes(1);
+  });
   it('überträgt keine lokale Unsichtbarkeit oder Nebelfärbung, aber die echte Einblendung und Angriffsfarbe', () => {
     const a = animal(1);
     expect(animalRow(a)).toMatchObject({ al: 100, tn: 0 });

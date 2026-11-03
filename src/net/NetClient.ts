@@ -4,7 +4,7 @@ import {
   SPECIES_ROOM, ZONE_ROOM,
   type SpeciesAdvanced, type SpeciesJoin, type SpeciesOver, type SpeciesPicked,
   type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
-  type SnapMsg, type WelcomeMsg,
+  type SnapMsg, type WelcomeMsg, type SwallowedMsg,
 } from './protocol';
 
 // Die Verbindung zum Spielserver (Colyseus). Dieses Modul wird erst geladen, wenn gespielt wird – wer offline spielt,
@@ -29,6 +29,7 @@ export interface ZoneHandlers {
   hurt(m: HurtMsg): void;
   /** diese Tiere sind gestorben */
   died(ids: number[]): void;
+  swallowed(m:SwallowedMsg):void;
   /** als Ortswächter: ein Spieler hat in eine Pflanze gebissen */
   plant(m: PlantMsg): void;
   /** die Antwort auf ping() – mit der eigenen Uhrzeit von damals */
@@ -45,6 +46,7 @@ export interface Zone {
   hit(m: HitMsg): void;
   hurt(m: HurtMsg): void;
   eat(m: EatMsg): void;
+  swallowed(m:SwallowedMsg):void;
   plant(m: PlantMsg): void;
   /** Wie lange braucht eine Nachricht hin und zurück? (Antwort: pong) */
   ping(m: PingMsg): void;
@@ -82,6 +84,7 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
   room.onMessage('eat', (m: EatMsg) => h.eat(m));
   room.onMessage('hurt', (m: HurtMsg) => h.hurt(m));
   room.onMessage('died', (ids: number[]) => h.died(ids));
+  room.onMessage('swallowed',(m:SwallowedMsg)=>h.swallowed(m));
   room.onMessage('plant', (m: PlantMsg) => h.plant(m));
   room.onMessage('pong', (m: PingMsg) => h.pong(m));
   room.onDrop(() => h.status('unterbrochen'));
@@ -102,6 +105,7 @@ export async function joinZone(url: string, opts: JoinOptions, h: ZoneHandlers):
     hit: (m) => send('hit', m),
     hurt: (m) => send('hurt', m),
     eat: (m) => send('eat', m),
+    swallowed:(m)=>send('swallowed',m),
     plant: (m) => send('plant', m),
     ping: (m) => send('ping', m),
     yieldHost: () => send('yield', {}),

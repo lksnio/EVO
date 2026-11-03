@@ -8,7 +8,7 @@ import { NetAnimal, NetFish, NetMeat, ZoneState } from '../net/schema';
 import {
   cleanName, MAX_SPEED, MOVE_BURST, PATCH_HZ, RECONNECT_S,
   type EatMsg, type FaunaMsg, type HitMsg, type HurtMsg, type JoinOptions, type LookMsg, type PingMsg, type PlantMsg, type PosMsg,
-  type SnapMsg, type WelcomeMsg,
+  type SnapMsg, type WelcomeMsg, type SwallowedMsg,
 } from '../net/protocol';
 
 const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -45,6 +45,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   maxClients = 24;
   private bounds = { x0: 0, x1: 4000, y0: -600, y1: 2000, sx: 200, sy: 300 };
   private budget = new Map<string, Budget>();
+  private swallowed=new Set<number>();
   messages = {
     pos: (client: Client, m: PosMsg) => this.onPos(client, m),
     fauna: (client: Client, m: FaunaMsg) => this.onFauna(client, m),
@@ -65,6 +66,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const id = int(m?.id);
       if (!id || client.sessionId === this.state.host) return;
       this.toHost({ type: 'eat', msg: { id, amount: clamp(num(m.amount, 0), 0, 60) } satisfies EatMsg });
+    },
+    swallowed:(client:Client,m:SwallowedMsg)=>{
+      if(client.sessionId!==this.state.host)return;
+      const id=int(m?.id),a=this.state.animals.get(String(id));
+      const target=this.clients.find(c=>c.sessionId===m?.to&&c!==client);
+      if(!id||!a||!target||this.swallowed.has(id))return;
+      this.swallowed.add(id);
+      target.send('swallowed',{id,sp:a.sp} satisfies SwallowedMsg);
     },
     // ein Spieler beißt in eine Pflanze: Das rechnet der Ortswächter
     plant: (client: Client, m: PlantMsg) => {
@@ -151,6 +160,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.state.host = next;
     if (!next && !this.state.players.size) {
       this.state.animals.clear();
+      this.swallowed.clear();
       this.state.meats.clear();
       this.state.plants.clear();
     }
@@ -194,6 +204,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     for (const g of Array.isArray(m.gone) ? m.gone : []) {
       const id = int(Array.isArray(g) ? g[0] : 0);
       if (!id || !A.delete(String(id))) continue;
+      this.swallowed.delete(id);
       if (g[1]) died.push(id);
     }
     // gestorben (nicht nur fort): Die anderen sehen es vergehen

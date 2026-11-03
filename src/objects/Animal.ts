@@ -6,7 +6,8 @@ import { JAW_HALF, jawAnim, jawOf, speciesKey } from '../art/speciesArt';
 import { audio } from '../audio/Audio';
 import { DEPTH } from '../config';
 import { BITE, bitePlan, biteRest, type BitePlan } from '../sim/bite';
-import { attackPace, chasePace, surgeStep } from '../sim/pace';
+import { attackPace, chasePace, surgeStep, roamingPace } from '../sim/pace';
+import { wholeBite } from '../sim/feeding';
 import { clamp, overlaps, type Rect } from '../util/math';
 import { Meat, type Plant } from './Food';
 
@@ -51,7 +52,7 @@ export interface World extends Phaser.Scene {
   /** Oberkante des festen Bodens bei x, die der Höhe y am nächsten liegt (höchstens range darüber oder darunter; sonst Infinity) */
   groundTop(x: number, y: number, range?: number): number;
   shoot(x: number, y: number, vx: number, vy: number, tex: string, dmg: number, gravity: boolean): void;
-  animalDied(a: Animal, byPlayer: boolean): void;
+  animalDied(a: Animal, byPlayer: boolean, swallowedBy?:Target): void;
   puff(x: number, y: number, n: number, tint?: number): void;
   bleed(x: number, y: number, n: number): void;
   /** Wie gut dieses Tier den Spieler sehen kann (Faktor auf seine Sichtweite). */
@@ -175,6 +176,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected plan: BitePlan = { wind: 0.3, dash: 0.3, speed: 260, rec: 0.36 };
   /** dieser Biss hat getroffen */
   protected atkHit = false;
+  /** A committed flank per attack, rather than jittering left/right every frame. */
+  protected flankSide = Math.random()<.5?-1:1;
   /** wie weit das Maul gerade offen ist (0 zu, 1 halb, 2 weit) */
   private jawNow = 0;
   /** dieser Angriff hat schon gewarnt */
@@ -1488,7 +1491,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     }
     this.go('cruise');
     const ty = this.swims || this.flies ? v.cruiseY + Math.sin(this.t * 0.7 + this.phase) * 40 : this.y;
-    this.moveTo(v.endX, ty, this.def.speed * 0.8);
+    const pace=this.swims?roamingPace(this.t,this.phase,this.livelySwimmer):.8;
+    this.moveTo(v.endX, ty, this.def.speed * pace);
     if ((v.dir > 0 && this.x > v.endX - 20) || (v.dir < 0 && this.x < v.endX + 20)) {
       // nie vor deinen Augen verschwinden: Solange es zu sehen ist, zieht es weiter (im Wasser auch über den Rand hinaus)
       if (!W.inView?.(this)) return this.leave();
@@ -1848,7 +1852,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         const wb = this.world.physics.world.bounds;
         this.wanderX = clamp(lead!.x + (Math.random() - 0.5) * 260, wb.x + 60, wb.right - 60);
         this.wanderY = lead!.y + (Math.random() - 0.5) * (this.swims || this.flies ? 150 : 0);
-      } else if (Math.random() < 0.3) {
+      } else if (Math.random() < (this.livelySwimmer ? .06 : .3)) {
         this.wanderX = this.x;
         this.wanderY = this.y;
       } else {
@@ -1865,14 +1869,22 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     }
     if (Math.abs(this.wanderX - this.x) < 10 && (!this.swims || Math.abs(this.wanderY - this.y) < 10)) {
-      this.go('idle');
-      this.halt();
-      return;
+      if(this.livelySwimmer){
+        const wb=this.world.physics.world.bounds;
+        this.wanderX=clamp(this.x+this.dir*320,wb.x+70,wb.right-70);
+        if(Math.abs(this.wanderX-this.x)<40)this.wanderX=clamp(this.x-this.dir*320,wb.x+70,wb.right-70);
+        this.wanderAt=time+900;
+      }else{
+        this.go('idle');
+        this.halt();
+        return;
+      }
     }
     this.go('wander');
     // wer den Anschluss verliert, schließt auf
     const lag = follower && this.dist(lead!) > 340 ? 1.7 : 1;
-    this.moveTo(this.wanderX, this.wanderY, this.def.speed * 0.55 * lag);
+    const pace=this.swims&&!this.kin?roamingPace(this.t,this.phase,this.livelySwimmer):.55;
+    this.moveTo(this.wanderX, this.wanderY, this.def.speed * pace * lag);
   }
 
   protected drift() {
@@ -1903,12 +1915,22 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.atkT = 0;
     this.atkTarget = tg;
     this.atkHit = false;
+    this.flankSide*=-1;
     this.plan = bitePlan(this.atkSpeed, this.big, long);
   }
 
   /** ein großer Räuber (Spitzenräuber oder besonders große Art): holt länger aus, beißt wuchtiger */
   protected get big() {
     return this.role === 'apex' || !!this.def.boss;
+  }
+
+  protected get livelySwimmer() {
+    return this.swims&&!this.kin&&(this.role==='apex'||this.role==='predator'||this.def.power>=5);
+  }
+
+  protected clearFlank(sx:number,sy:number,speed:number) {
+    const x=this.x+sx*speed*.3,y=this.y+sy*speed*.3,b=this.world.physics.world.bounds;
+    return x>b.x+50&&x<b.right-50&&y>Math.max(b.y+50,this.world.surfaceY+30)&&y<b.bottom-50&&!this.world.solidAt(x,y);
   }
 
   /** Schaden eines Bisses (Pflanzenfresser, die sich wehren, beißen auch – nur schwächer). */
@@ -1987,9 +2009,19 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
         this.warned = true;
         this.cueAttack(big);
       }
-      // innehalten und ein wenig zurückweichen
+      // Schwimmer ziehen seitlich vorbei; andere Tiere weichen vor dem Zuschnappen kurz zurück.
       const ease = Math.min(1, dt * 10), vb = this.b.velocity;
-      if (free) this.b.setVelocity(vb.x + (-this.dir * 40 * k - vb.x) * ease, vb.y * (1 - ease));
+      if(this.livelySwimmer){
+        const dx=tg.x-this.x,dy=tg.y-this.y,len=Math.hypot(dx,dy)||1;
+        const speed=this.def.speed*(this.big?1.3:1.1);
+        let fx=-dy/len*this.flankSide,fy=dx/len*this.flankSide;
+        if(!this.clearFlank(fx,fy,speed)){
+          if(this.clearFlank(-fx,-fy,speed)){this.flankSide*=-1;fx=-fx;fy=-fy;}
+          else{fx=-dx/len*.35;fy=-dy/len*.35;}
+        }
+        this.b.setVelocity(vb.x+(fx*speed-vb.x)*ease,vb.y+(fy*speed-vb.y)*ease);
+      }
+      else if (free) this.b.setVelocity(vb.x + (-this.dir * 40 * k - vb.x) * ease, vb.y * (1 - ease));
       else this.b.setVelocityX(-this.dir * 30 * k);
       if (vis) {
         this.setSizeFactor(sx * (1 - 0.12 * k), sx * (1 + 0.08 * k));
@@ -2059,7 +2091,10 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       }
     } else {
       // erholen: ausgleiten, wieder ruhig werden (nach einem Fehlbiss etwas länger)
-      this.halt();
+      if(this.livelySwimmer){
+        const v=this.b.velocity,ease=Math.min(1,dt*4);
+        this.b.setVelocity(v.x+(this.dir*this.def.speed*.65-v.x)*ease,v.y*(1-ease*.5));
+      }else this.halt();
       const rec = P.rec * (this.atkHit ? 1 : 1.25);
       if (vis) {
         const k = Math.min(1, this.atkT / rec);
@@ -2138,7 +2173,9 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.dead) return;
     const now = this.world.time.now;
     // erschöpft kann es sich kaum wehren
-    this.hp -= dmg * this.weak * (now < this.tiredUntil ? 1.5 : 1);
+    const damage=dmg*this.weak*(now<this.tiredUntil?1.5:1);
+    const swallowed=kind==='bite'&&!this.kin&&this.isPlayer(from)&&wholeBite(damage,this.maxHp);
+    this.hp -= damage;
     this.attacker = from;
     this.attackedAt = now;
     if (from instanceof Animal && from.kin) this.helpers.add(from);
@@ -2163,7 +2200,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       this.knockUntil = now + 160;
     }
     if (this.hp <= 0) {
-      this.die(from === this.world.player);
+      this.die(from === this.world.player,swallowed?from:undefined);
       return;
     }
     audio.sfx(this.role === 'prey' ? 'squeal' : 'hit');
@@ -2199,13 +2236,13 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     if (this.role === 'apex' || this.def.power >= 10) audio.sfx('growl');
   }
 
-  protected die(byPlayer: boolean) {
+  protected die(byPlayer: boolean,swallowedBy?:Target) {
     this.dead = true;
     this.attacking = false;
     this.b.enable = false;
     audio.sfx('enemyDie');
-    this.world.animalDied(this, byPlayer);
-    // kurz aufleuchten und vergehen – übrig bleibt das Fleisch
+    this.world.animalDied(this, byPlayer,swallowedBy);
+    // kurz aufleuchten und vergehen – bei verschluckter Beute bleibt kein Fleisch zurück
     this.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.world.tweens.add({ targets: this, alpha: 0, scaleX: this.scaleX * 0.5, scaleY: this.scaleY * 0.5, duration: 260, ease: 'Sine.in', onComplete: () => this.destroy() });
   }

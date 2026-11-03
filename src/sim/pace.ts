@@ -17,3 +17,10 @@ export const chasePace = (surge: number) => 1 + HUNT.chase * Math.max(0, Math.mi
 
 /** Faktor auf Ausholen und Zuschnappen (1 = normal). */
 export const attackPace = (surge: number) => 1 + HUNT.attack * Math.max(0, Math.min(1, surge));
+
+/** Unsynchronised cruising with smooth faster stretches; no per-frame random rolls or allocations. */
+export function roamingPace(seconds:number,phase:number,large:boolean) {
+  const wave=.5+.5*Math.sin(seconds*.68+phase);
+  const swell=.5+.5*Math.sin(seconds*.29+phase*2.3);
+  return large ? .7+.52*wave+.38*swell : .46+.27*wave+.18*swell;
+}
