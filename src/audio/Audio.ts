@@ -229,8 +229,8 @@ class Sequencer {
   }
 }
 
-/** Welche Musik der Ozean spielt (statt eines Stücks): im Spiel, im Titelbild, zwischen den Generationen. */
-const SCORE: Record<string, ScoreMode> = { ozean: 'level', title: 'title', generation: 'still' };
+/** Das sparsame Klavier-/Drumset im Spiel und auf den ruhigen Zwischenbildschirmen. */
+const SCORE: Record<string, ScoreMode> = { ozean: 'level', title: 'title', generation: 'still', ending: 'still' };
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
@@ -845,7 +845,7 @@ export class AudioEngine {
     this.score?.set(m);
   }
 
-  /** Ein Artgenosse ist gestorben: Für einen Moment bricht die Klanglandschaft fast ganz zusammen. */
+  /** Ein Artgenosse ist gestorben: Die Musik tritt kurz zurück. */
   loss() {
     if (this.score && this.ctx) this.score.loss(this.ctx.currentTime + 0.05);
   }

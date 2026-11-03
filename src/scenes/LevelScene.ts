@@ -2714,7 +2714,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /**
    * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft (unter Wasser: die Sicht wird enger und dunkler),
-   * die Musik verklingt, das Meer rauscht, und manchmal grollt es in der Ferne.
+   * das Klavier weicht einem sparsamen Schlagzeug, das Meer rauscht, und manchmal grollt es in der Ferne.
    */
   private deepStep(time: number, dt: number) {
     if (this.place.kind !== 'deep' && this.place.kind !== 'abyss') return;

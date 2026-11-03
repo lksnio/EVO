@@ -954,36 +954,29 @@ im sichtbaren Stammbaum auch bei gleichem Namen getrennt aufbewahrt.
 
 ## Die Musik des Ozeans
 
-Ein instrumentaler Soundtrack, der live entsteht (`src/audio/OceanScore.ts`) und deshalb **nahtlos endlos** läuft, ohne sich
-zu wiederholen: **minimalistische, organische elektronische Ambient-Musik** für einen urzeitlichen, fremdartigen Ozean –
-weit, geheimnisvoll, lebendig, still schön, mit unterschwelliger Unruhe und dem Gefühl verletzlicher Existenz. Keine Stimmen,
-kein durchgehender Beat, keine heroischen Melodien, keine epische Orchestrierung, keine Trommeln, keine Schreckeffekte – und
-viel Raum für die Geräusche des Wassers, die das Spiel selbst spielt.
+**Leichter Jazz-Hip-Hop, leise und sparsam:** Ein weich angeschlagenes Klavier und ein kleines, gedämpftes Schlagzeugset
+tragen die Musik bei **74 BPM**. Offene Jazz-Akkorde (Dm9, G13, Cmaj9, Am9) kommen nur alle zwei Takte, mit einzelnen
+leisen Antworten und ganzen Takten Pause. Ein lockerer Swing, runde Kick, weicher Rim-/Besenklang und wenige geschlossene
+Hi-Hats geben Halt, ohne das Schwimmen oder die Geräusche des Meeres zu überdecken. Es gibt keine zusätzliche Bassspur,
+Flächen, Glastöne, Gesang oder dauernden Sololauf.
 
-- **Das Tonmaterial** ist die **Obertonreihe eines tiefen D** (36,7 Hz): Alle Töne sind Vielfache davon. Flächen und
-  Glastöne klingen dadurch wie natürliche Resonanzen eines Körpers – vertraut und doch fremd (der 7., 11. und 13. Teilton
-  liegen zwischen den Tasten eines Klaviers).
-- **Es beginnt beinahe lautlos:** erst nur der Grund (ein Ton, den man mehr spürt als hört, und der Atem des Wassers), dann
-  kommen nach und nach die **Klangflächen** – drei Stimmen, die sehr langsam zwischen offenen, schwebenden Klängen wandern,
-  jede atmet für sich und schweigt manchmal ganz –, die **fließenden Resonanzen** (Rauschen, das in schmalen Bändern auf
-  Obertönen singt und langsam gleitet) und **ferne, gläserne Töne**, weit weg im Raum.
-- **Motive:** wenige prägnante Folgen aus **drei, vier Tönen** – kleine Schritte, ein unerwarteter Sprung, nie aufgelöst. Sie
-  tauchen selten auf, oft nur als Bruchstück, manchmal eine Oktave tiefer und mit einem fernen Echo; eine Stimme der Flächen
-  gleitet vorher zu ihrem ersten Ton.
-- **Pulse:** weiche, **unregelmäßige** Stöße in der Tiefe, wie ein fremdes Herz – in Ruhe kaum zu hören.
-- **Gefahr:** Kommt ein großer Räuber näher, entsteht **allmählich rhythmische Spannung**: Die Pulse werden dichter und
-  regelmäßiger, ein **gedämpftes Ostinato** aus wenigen gezupften Tönen in ungeraden Gruppen (3 + 2 + 2) setzt ein – erst
-  vereinzelt, dann dichter und heller –, die Flächen beginnen zu zittern, ein dunkler, reibender Klang schwillt an, enge
-  Dissonanzen steigen auf und vergehen. Ist die Gefahr vorüber, **gleitet alles langsam zurück in die Stille** (die
-  Spannung kommt allmählich und geht noch langsamer).
-- **Tiefe:** Höhen und Melodisches treten zurück, die Glastöne werden dumpf und tiefer, Druck, tiefe Resonanzen und ein Ächzen
-  wie von nachgebender Welt treten hervor – und lange Momente fast völliger Stille.
-- **Ein Artgenosse stirbt:** Die Klanglandschaft bricht für einen Moment fast ganz zusammen; nur eine tiefe Resonanz und zwei
-  Töne eines Motivs hallen nach, brüchig, etwas zu tief. Dann kehrt die Welt zurück.
+- **Tiefe:** Das Klavier wird beim Abtauchen weich ausgeblendet, einschließlich seines Halls. Im tiefen Wasser bleibt
+  **nur ein erwartungsvolles Schlagzeug**: wenige versetzte, dunklere Akzente mit langen Lücken. Beim Auftauchen kommt das
+  Klavier allmählich zurück. Die Übergänge folgen weiterhin der tatsächlichen Tiefe im Spiel.
+- **Gefahr:** Eine kleine Änderung der Tom-Akzente trägt Spannung; Tempo und Grundlautstärke steigen dabei nicht an.
+- **Verlust:** Die Musik tritt für einen Moment zurück, ohne zusätzlichen Klang oder dramatischen Einwurf.
+- **Titel, Laich und Zwischenbilder:** dieselben beiden Instrumente, zwischen Leben noch leiser. Das Ende nutzt ebenfalls
+  diese zurückhaltende Musik.
 
-Titelbild und der Einschnitt zwischen zwei Leben nutzen dieselbe Klanglandschaft, ruhiger, ohne Gefahr und mit den Motiven
-etwas öfter. Eine Hörprobe lässt sich im Browser rendern: `OceanScore` in einem `OfflineAudioContext` anlegen, Stimmung setzen
-(`set({ threat, depth })`), `tick(t)` in kleinen Schritten bis zum Ende aufrufen, dann `startRendering()`.
+Die Musik entsteht live in `src/audio/OceanScore.ts`. Kurze Klavier- und Drumklänge werden im Browser einmal als PCM
+berechnet und wiederverwendet; es gibt keine Musikdownloads und keine endlosen Oszillatoren. Fertige Stimmen werden
+getrennt, die Stummschaltung bleibt auf M. Bei einem ausgesetzten Browser-Tab werden verpasste Schläge nicht nachgeholt.
+
+**Audioprüfung und Hörproben:** Vite starten, dann
+`NODE_PATH=/tmp/evo-browser/node_modules node tools/check_music.cjs` (externes `playwright-core` und Chromium).
+Der Check rendert echte Web-Audio-Ausgaben für flaches Wasser, Tiefe, Abtauchen, Gefahr, Zwischenbild, Verlust und Stoppen;
+er prüft hörbares Signal, zurückhaltende Pegel, ausschließlich Drums in der Tiefe und die Stummschaltung im echten
+AudioEngine. WAV-Dateien und Messwerte stehen unter `/tmp/evo-music` (anpassbar über `EVO_AUDIO_DIR`).
 
 ### Klänge der Bedienung
 
@@ -1262,7 +1255,7 @@ src/
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
+├── audio/OceanScore.ts  die Musik des Ozeans: sparsames Jazz-Klavier und gedämpfte Drums; in der Tiefe nur erwartungsvolles Schlagzeug
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
@@ -1289,8 +1282,8 @@ insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen 
       eines). Die Sammlung überdauert das Aussterben. Der Gipfel braucht etwa Beine und Griff je
       0,6 (gut fünf Generationen mit viel Training). *Rhizodus* kommt höchstens einmal, spät, ans Nest. Alle Werte in
       `src/data/karbon.ts`.
-- [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
-      Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
+- [ ] **Die neue Musik** (leiser Jazz-Hip-Hop aus Klavier und Drums, in der Tiefe nur Drums) mit Kopfhörern anhören –
+      Hörproben lassen sich mit `tools/check_music.cjs` rendern; Klang und Rhythmus stehen in `src/audio/OceanScore.ts`.
 - [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
       Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.
 - [x] **Muscheln und Fossilien:** Alte Zufallsdrops und Werteboni entfernt; eindeutige
