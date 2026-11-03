@@ -4,14 +4,25 @@ import { broodBase, cyclePhase, diesOfAge, growthAt, isAdult, lifeK, oldAt, phas
 
 describe('Lebenszyklus', () => {
   it('die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch; ausgewachsen (und bereit zum Laichen) ist man früh', () => {
-    expect(phases(1)).toMatchObject({ mature: 3 * 60, span: 11 * 60 });
-    expect(phases(2)).toMatchObject({ mature: 4 * 60, span: 15 * 60 });
-    expect(phases(4)).toMatchObject({ mature: 5 * 60, span: 19 * 60 });
+    expect(phases(1)).toMatchObject({ mature: 1.5 * 60, span: 11 * 60 });
+    expect(phases(2)).toMatchObject({ mature: 2 * 60, span: 15 * 60 });
+    expect(phases(4)).toMatchObject({ mature: 2.5 * 60, span: 19 * 60 });
     // je mehr Generationen, desto kleiner der Zuwachs
     const d = (g: number) => phases(g + 1).span - phases(g).span;
     expect(d(1)).toBeGreaterThan(d(2));
     expect(d(2)).toBeGreaterThan(d(10));
     expect(phases(50).span).toBeLessThan(40 * 60);
+  });
+
+  it('ist in jeder Generation nach der halben bisherigen Wartezeit laichbereit, ohne früher zu sterben', () => {
+    for (const gen of [1, 2, 3, 4, 8, 16, 50]) {
+      const doubling = Math.log2(gen);
+      const mature = (3 * 60 + 60 * doubling) / 2;
+      const options = { gen, lastSpawn: -1e9, inGrounds: true, atGround: true, fed: 20, base: 20 };
+      expect(spawnBlock({ ...options, age: mature - 0.01 })).toBe('jung');
+      expect(spawnBlock({ ...options, age: mature })).toBeNull();
+      expect(phases(gen).span).toBeCloseTo(11 * 60 + 4 * 60 * doubling);
+    }
   });
 
   it('wächst vom Schlüpfling stetig heran und ist zur Laichzeit ausgewachsen', () => {

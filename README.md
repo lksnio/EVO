@@ -75,8 +75,8 @@ Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
   und Verbindungen über die Zeit. Handgebaute Zeitvarianten im vorhandenen
   Weltbaukasten sind der vorgeschlagene Weg; der genaue Umfang bleibt offen.
 
-**Bereits umgesetzt:** Die Sternsammlung ist im laufenden Spiel über **C → Sammlung ansehen**
-erreichbar. Sieben große Fossilplätze sitzen an den Spitzen, sieben kleine Muschelplätze
+**Bereits umgesetzt:** Die Sternsammlung ist groß und direkt in der **C-Übersicht**
+sichtbar, ohne Überschrift, Zähler oder zusätzlichen Button. Sieben große Fossilplätze sitzen an den Spitzen, sieben kleine Muschelplätze
 in den inneren Winkeln. Ein fester Muschelfund liegt ganz unten im Devon-Tiefental.
 Der erste eigene Sieg über Dunkleosteus hinterlässt garantiert seine Fossilplatte.
 Funde bleiben über Läufe erhalten; liegengebliebene Fossilien werden am Fundort wieder geladen.
@@ -200,8 +200,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 ## Ein Leben – und die nächste Generation
 
 - **Heranwachsen:** Jedes Leben beginnt als **Jungtier** mit 40 % der ausgewachsenen Größe. Der Fisch wächst schnell, dann
-  immer langsamer – schon nach **3 Minuten** Spielzeit ist er **ausgewachsen** (92 %): **Laichzeit**. Danach lebt er noch
-  etwa **8 Minuten** – und **laichen kann er die ganze Zeit, bis kurz vor dem Tod** (auch im Alter); oder er geht gleich mit
+  immer langsamer – schon nach **1,5 Minuten** Spielzeit ist er **ausgewachsen** (92 %): **Laichzeit**. Danach lebt er noch
+  etwa **9,5 Minuten** – und **laichen kann er die ganze Zeit, bis kurz vor dem Tod** (auch im Alter); oder er geht gleich mit
   „Leben weitergeben“. In den letzten 40 % dieser
   Zeit ist er **alt** (langsamer, schneller müde, weniger Lebenskraft), in den letzten 40 Sekunden wird er spürbar langsamer,
   dann schläft er ein. Mit der Größe wachsen Lebenskraft, Biss, Stoß und Tempo: Beim Schlüpfen hat der Fisch **60 % seines
@@ -215,8 +215,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   laufen, oben im Licht oder unten im Dunkeln schwimmen, Treffer einstecken –, sammelt sich im
   Verborgenen und zeigt sich erst an seinen **Nachkommen**. Nirgends steht, was sich verändert hat: Man merkt es, wenn das
   nächste Tier heranwächst.
-- **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 3 + 8 Minuten (bis zur Laichzeit + danach),
-  Generation 2 schon 4 + 11, Generation 4 5 + 14, Generation 8 6 + 17, Generation 16 7 + 20 … Wer viel spielt, verändert sich so immer seltener und hat
+- **Jede Generation lebt etwas länger – logarithmisch:** Generation 1 hat 1,5 + 9,5 Minuten (bis zur Laichzeit + danach),
+  Generation 2 schon 2 + 13, Generation 4 2,5 + 16,5, Generation 8 3 + 20, Generation 16 3,5 + 23,5 … Wer viel spielt, verändert sich so immer seltener und hat
   Zeit, sich mit seinem Tier anzufreunden.
 - **Hunger gibt es nicht.** Man muss nicht fressen, um zu überleben, ist nie „satt“ und muss nirgends warten – Fressen nährt
   nur die **Brut**. Alles Gefressene (die kleinen Zahlen, die beim Fressen kurz aufsteigen) sammelt sich als **Nahrung** für
@@ -239,8 +239,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Verschlechterungen (der Preis eines Kompromisses) ziehen nichts ab.
   Jeder Nachkomme ist ein **Ei im Laich** (siehe unten, „Der Laich“). Die
   **Eiübersicht am Laich (E)** trennt bereits befruchtete Eier dieses Lebens und verfügbare Nahrung. Dazu stehen der
-  Bedarf je Ei und die Zahl weiterer möglicher Eier. In der **Übersicht (C)** stehen Generation und Lebensabschnitt über
-  deinem Fisch, wartende Geschwister und der Laich der nächsten Generation unter „Nachkommen“.
+  Bedarf je Ei und die Zahl weiterer möglicher Eier. Die **Übersicht (C)** zeigt dagegen den Lebensweg direkt unter dem
+  Tiernamen; sie wiederholt die Nachwuchsinformationen nicht.
 - **Vorerst schlüpfst du immer als Männchen** (auch jede neue Generation und jedes Geschwister): Befruchtbarer Laich deiner
   Art liegt im Startgebiet immer bereit. Das Weibchen-Laichen gibt es weiter im Spiel, man schlüpft nur gerade nicht als
   eines (`SPAWN.alwaysMale` in `src/data/life.ts`, auch in der Entwickler-Einstellung).
@@ -834,35 +834,20 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   voller mittlerer Wassertiefe je Generation. Die Werte sind in der Entwickler-Einstellung anpassbar.
   Auch zusätzliche vererbte Lebenspunkte lassen den Körper etwas mitwachsen: Eine verdoppelte Lebensbasis macht ihn
   rund **15 % größer**. Das richtet sich nach den vererbten Punkten; Verletzungen lassen das Tier nicht schrumpfen.
-- **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
-  mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform und Zeitalter.
-  Darunter groß die **drei übergreifenden Werte**: **Lebenskraft** als Zahl, gerade und
-  höchstens („20/50“), **Sicht** (20 zu Beginn) und **Ausdauer** (30 bei einem Kreis und normalem Körperbau – so viele
-  Zehntelsekunden reicht ein Spurt). Darunter, auf einer Reihe kleiner Tafeln, Waffen und Schutz: **Gebiss** (Bissstärke),
-  **Schädel** (Stoßstärke), **Flossen** (Schwimmen und Wendigkeit) und
-  **Schuppen** (Panzerung). Der erste Fisch hat ausgewachsen Gebiss, Schädel und Schuppen je 10, ein Jungtier etwas weniger.
-  **Das Tempo steht hier nicht** – es ergibt sich aus Größe und Körperbau. Unten links dein Tier und sein **Körper** (Länge,
-  Gewicht, Färbung und Kost). Rechts daneben der **Lebensweg**: dieselbe Linie wie oben im Bild, nur größer und beschriftet
-  (Schlüpfen, Laichzeit, Alter, Ende – Jugend kühl, Laichzeit ocker, Alter rostrot; ein Lichtpunkt zeigt, wo dein Tier
-  steht, und leuchtet warm, sobald Laich deiner Generation da ist), darunter Lebensabschnitt und Ort. Auf Höhe von „Körper“
-  stehen rechts die **Nachkommen**: wartende Geschwister, Eier der nächsten Generation und deine Gruppe. Im Karbon steht
-  rechts stattdessen **das Gelege** mit seiner Brutlinie (Larve, Metamorphose, neues Gelege) und darunter **diese
-  Generation**. Eine Weltkarte gibt es in der Übersicht nicht mehr. Generation und Lebensabschnitt
-  stehen über dem bewegten Fischbild. Die Gewichtsanzeige ist um Faktor 100 skaliert, ohne die Kampfverhältnisse zu ändern.
-  Nahrung, Eikosten und Nachwuchs stehen gemeinsam am Laich (E), nicht mehr auf C. Neben Gebiss, Schädel, Flossen und
-  Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot; Null entfällt;
-  ausgewachsen gemessen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
-  Rechts unter der Beutekarte steht der kleine Sammelstern. **Sammlung ansehen** öffnet
-  die große Anzeige im Spiel. Die sieben äußeren Steinplätze tragen gefundene
-  Bosssymbole, die sieben inneren Ecken kleine Muscheln. Unbekannte Fossilien bleiben
-  dunkel und namenlos. Berühren oder Anklicken zeigt Einzelheiten. Neue Funde lassen
-  C leise leuchten, bis man die Sammlung betrachtet. C, Esc oder Zurück schließen
-  zuerst die große Ansicht; man kehrt zur offenen Übersicht zurück. Währenddessen
-  ruht das eigene Spiel wie in der bisherigen Übersicht.
-- **Die Beute (rechts neben der Übersicht):** Die Überschrift **„Beute: 72“** zeigt die aktuell übrige Nahrung, ohne
-  Orts- oder Epochenzeile darunter. Nahrungsanteile und die drei am häufigsten gegessenen Tierarten gelten für
-  die ganze Epoche, über Orte, Generationen und Linien hinweg. Eine Tierart zählt einmal pro gefressenem Tier, auch wenn
-  es viele Fleischbrocken hat; das Töten allein zählt hier nicht. Andere Epochen haben eigene Listen.
+- **Die Übersicht (Taste C):** Eine ruhige, dunkle Fläche mit feinem ockerfarbenem Rahmen. Körperform, Zeitalter und
+  Generation stehen klein über dem Namen der Linie. Direkt unter dem Tiernamen liegt der **Lebensweg**: Schlüpfen,
+  Laichzeit, Alter, **Tod**. Ein Lichtpunkt zeigt das jetzige Alter und leuchtet warm, sobald Laich der Generation wartet.
+  Links darunter stehen **Lebenskraft** (gerade / höchstens), **Sicht** und **Ausdauer**. Eine zweite Reihe zeigt **Gebiss**,
+  **Schädel**, **Flossen** und **Schuppen**, samt vererbter Änderung zur vorigen Generation (▲ grün, ▼ rot; Null entfällt).
+  Im Karbon erscheinen stattdessen Sauerstoff, Gebiss, Beine, Griff und Schuppen sowie die Brutlinie. Darunter ist das Tier
+  selbst größer zu sehen. Länge, Gewicht, Färbung und Kost werden nicht als Text aufgezählt; Nachwuchsinformationen stehen
+  am Laich. Zusätzliche Angaben zu Lebensabschnitt und Ort entfallen.
+  Rechts ist der **Sammlungsstern** groß und ohne Überschrift, Zähler oder zusätzlichen Button eingebettet. Die sieben
+  äußeren Platten tragen gefundene Bosssymbole, die sieben inneren Winkel Muscheln. Neue Funde lassen C leise leuchten,
+  bis die Übersicht geöffnet wird. C, Esc oder ein Klick außerhalb des Rahmens schließen sie und setzen das Spiel fort.
+- **Die Beute:** Unter dem Tier stehen die aktuell übrige Nahrung als Zahl sowie der **Pflanzen-/Fleischanteil** mit
+  Symbolen und Prozentangaben. Die Anteile gelten für die ganze Epoche über Orte, Generationen und Linien hinweg.
+  Eine Rangliste einzelner gefressener Tierarten wird nicht mehr angezeigt.
 - **Verhalten formt deine Art:** Beißen, Stoßen und Verfolgen bestimmen die Richtung deiner Nachkommen; Bodenkontakt (sich am
   Grund abstützen und dort entlanglaufen) gibt fleischige Stützflossen, später kräftigere Beine; die Richtung, in die du
   am meisten schwimmst, formt die Flossen. Das Verhalten schaltet keine Art frei – es verschiebt, wie deine Nachkommen
@@ -1024,7 +1009,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
 | F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: einer Weisheit lauschen (Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
-| C | Übersicht: Werte, Körper, Lebensweg, Nachkommen und Muscheln; daneben „Beute: N“ mit der übrigen Nahrung |
+| C | Übersicht: Lebensweg, Fähigkeiten, Tier, großer Sammlungsstern und Beute mit Pflanzen-/Fleischanteil |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
 | M | Ton an/aus |
 
@@ -1329,12 +1314,12 @@ insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen 
 - [ ] **Lebenskraft und Heilen:** alle Fische zäher (der erste Fisch 45 statt 30; Räuber, Verteidiger und Riesen × 1,25;
       Beutefische ab 6 Lebenskraft × 1,2; die Bissstärke bestimmt die nötigen Treffer);
       Treiben heilt 1,2 % je Sekunde bis ganz, langsames Schwimmen 0,5 %.
-- [x] **Karte:** Die Weltkarte (Gondwana und der rote Lebensraum) ist aus der Übersicht entfernt – dort stehen jetzt Lebensweg
-      und Nachkommen; Gebietswechsel bleiben direkt und ohne Reisezeit.
+- [x] **Karte:** Die Weltkarte (Gondwana und der rote Lebensraum) ist aus der Übersicht entfernt – dort stehen jetzt Lebensweg, Fähigkeiten
+      und der Sammlungsstern; Gebietswechsel bleiben direkt und ohne Reisezeit.
 - [ ] **Evolution sanft:** je Generation höchstens `plateStep` (4,5 %) einer Richtung, zusammen `plateTotal` (6,5 %); das
       eigene Tier verändert sich im Leben nicht.
-- [ ] **Lebenstempo:** Generation 1 ist nach 3 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 8
-      Minuten); Generation 2: 4 + 11; danach logarithmisch länger (Generation 8: 6 + 17). Die ganze Lebensdauer ist dieselbe
+- [ ] **Lebenstempo:** Generation 1 ist nach 1,5 Minuten ausgewachsen und kann dann bis kurz vor dem Tod laichen (noch 9,5
+      Minuten); Generation 2: 2 + 13; danach logarithmisch länger (Generation 8: 3 + 20). Die ganze Lebensdauer ist dieselbe
       wie zuvor (11, 15, 19, 23 Minuten). Laich der Artgenossen im Startgebiet verdirbt nicht.
 
 ### Ideen für später

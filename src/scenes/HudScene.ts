@@ -14,7 +14,6 @@ import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, panel, soundButton, text, title } from '../ui/ui';
 import { openKeys } from '../ui/keysPanel';
 import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
-import { CollectionPanel } from '../ui/collectionPanel';
 import { touchButton } from '../ui/touchPad';
 import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
@@ -55,7 +54,6 @@ export class HudScene extends Phaser.Scene {
   private isTouch = false;
   private ramBtn = false;
   private overview?: Overview;
-  private collection?: CollectionPanel;
   /** der Weg ins Hauptmenü läuft gerade (die Sekunden zählen herunter) */
   private quitting = false;
   private overviewGlow?: Phaser.GameObjects.Image;
@@ -84,7 +82,6 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     this.ramBtn = false;
     this.overview = undefined;
-    this.collection = undefined;
     this.overviewGlow = undefined;
     this.hp = 1;
     this.hidden = false;
@@ -404,7 +401,6 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Übersicht (Taste C)
 
   toggleOverview() {
-    if (this.collection) { this.closeCollection(); return; }
     if (this.shrineC) return;
     if (this.overview) {
       this.overview.destroy();
@@ -418,21 +414,9 @@ export class HudScene extends Phaser.Scene {
     if (this.pauseC || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview(), () => this.openCollection());
-  }
-
-  openCollection() {
-    if (this.collection || !this.overview) return;
-    this.overview.c.setVisible(false);
-    this.collection = new CollectionPanel(this, game.collection, () => this.closeCollection());
+    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview());
     game.seeCollection();
     this.updateGlow();
-  }
-
-  private closeCollection() {
-    this.collection?.destroy(); this.collection=undefined;
-    this.overview?.c.setVisible(true);
-    audio.sfx('back');
   }
 
   /**
@@ -579,7 +563,6 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Rast (Pause)
 
   togglePause() {
-    if (this.collection) { this.closeCollection(); return; }
     // läuft der Weg ins Hauptmenü, bricht die Rast-Taste (oder der Knopf) ihn nur ab
     if (this.quitting) {
       bus.emit('quitCancel');

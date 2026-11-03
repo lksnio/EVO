@@ -1,8 +1,8 @@
 # Sieben Fossilien und sieben Muscheln
 
-Die Sammlung liegt **im laufenden Spiel** in der C-Übersicht: rechts unter der
-Beutekarte der kompakte Stern, über **Sammlung ansehen** die große Ansicht. C,
-Esc oder Zurück führen zuerst zur weiterhin geöffneten Übersicht zurück.
+Die Sammlung liegt **im laufenden Spiel** groß auf der rechten Seite der C-Übersicht.
+Sie zeigt nur den Stern selbst: ohne Überschrift, Sammelzähler oder zusätzlichen
+Button. C, Esc oder ein Klick außerhalb des Rahmens schließen die Übersicht.
 Die Sammlung wird nicht im Startmenü geöffnet.
 
 ## Darstellung
@@ -13,8 +13,8 @@ Die Sammlung wird nicht im Startmenü geöffnet.
   Anthracosaurus, Inostrancevia, Postosuchus, Liopleurodon, Mosasaurus und Hyaenodon.
   Dies ist die vorläufig gewählte Besetzung der Sammlung.
 - Unentdeckte Fossilien bleiben dunkle, namenlose Aussparungen.
-- Berühren oder Anklicken zeigt die jeweilige Spur. Die regulären Nachkommenwerte
-  bleiben vollständig zugänglich.
+- Die gefundenen Platten und Muscheln sind direkt am Stern erkennbar. Angaben zu
+  Nachkommen stehen am Laich; die Übersicht braucht dafür keinen zweiten Bereich.
 - Stern, Muscheln und Reliefs sind gezeichnete Canvas-Texturen, die je Variante
   einmal angelegt und wiederverwendet werden. Es gibt kein Bild je möglicher
   Gesamtkombination und keine Bildberechnung des Sterns im laufenden Frame.
@@ -62,7 +62,7 @@ vollständige Überarbeitung der Vererbungsregeln bleibt ein eigenes Paket.
 
 ## Prüfung
 
-Geprüfter Stand: Build erfolgreich, **321 Tests in 34 Dateien bestanden**.
+Build und Tests: `npm run build` und `npm test -- --maxWorkers=2`.
 Der Browserlauf endet ohne Laufzeitfehler; zwölfmaliges erneutes Öffnen hält die
 Texturanzahl konstant. Zusätzlich prüfen die Tests freie Fundplätze neben Felsen
 und quer durch die Geometrie des tatsächlichen Tiefentals.
@@ -74,7 +74,10 @@ und quer durch die Geometrie des tatsächlichen Tiefentals.
   Spielstandplatz `collectcheck`.
 
 Der Browserlauf prüft reale Maus-/Tastaturbedienung, alte Spielstände, 14 Plätze,
-erreichbaren Tiefentalfund, ersten garantierten Dunkleosteus-Drop, Duplikatvermeidung,
+reduzierte Statistik ohne Zusatzbutton oder Sammelzähler, erreichbaren Tiefentalfund,
+ersten garantierten Dunkleosteus-Drop, Duplikatvermeidung,
 Wiederfinden einer nicht aufgehobenen Platte, Dialog, volle Vorschau, wiederholtes
 Öffnen und Laden der gespeicherten Sammlung. Aufnahmen und Messwerte stehen in
-`captures/`; der Test verändert keine veröffentlichten Karten.
+`captures/` (historische Aufnahmen des damaligen Layouts). Mit `EVO_CAPTURE_DIR`
+lassen sich neue Aufnahmen in ein separates Verzeichnis schreiben; der Test verändert
+keine veröffentlichten Karten.

@@ -16,8 +16,9 @@ export const WORLD = {
  *   schlüpfen → heranwachsen → ausgewachsen (Laichzeit) → alt → Tod durch Altersschwäche.
  * Die ersten Leben sind kurz, jedes weitere etwas länger – logarithmisch mit der Generation: Wer viel spielt, verändert sich
  * immer seltener und hat Zeit, sich mit seinem Tier anzufreunden. Ausgewachsen ist man früh – ab dann kann man laichen, und
- * zwar bis kurz vor dem Tod. Generation 1: 3 Minuten bis zur Laichzeit, danach noch 8 Minuten; Generation 2: 4 + 11;
- * Generation 4: 5 + 14; Generation 8: 6 + 17 (siehe sim/life.ts, phases).
+ * zwar bis kurz vor dem Tod. Generation 1: 1,5 Minuten bis zur Laichzeit, danach noch 9,5 Minuten; Generation 2: 2 + 13;
+ * Generation 4: 2,5 + 16,5; Generation 8: 3 + 20. Die Laichreife kommt doppelt so früh, die Lebensdauer bleibt gleich
+ * (siehe sim/life.ts, phases).
  */
 export const LIFE = {
   /** Größe beim Schlüpfen (Anteil der ausgewachsenen Größe) */
@@ -25,12 +26,12 @@ export const LIFE = {
   /** so viel der ausgewachsenen Größe gilt als ausgewachsen (dann kann man laichen) */
   adult: 0.92,
   /** Generation 1: nach so vielen Sekunden ist man ausgewachsen (Laichzeit) – das Wachstum nähert sich danach der vollen Größe */
-  mature: 3 * 60,
+  mature: 1.5 * 60,
   /** … und mit jeder Verdopplung der Generationen so viel später */
-  maturePerDoubling: 60,
+  maturePerDoubling: 30,
   /** Generation 1: so lange lebt man nach dem Ausgewachsensein noch – die ganze Zeit kann man laichen */
-  rest: 8 * 60,
-  restPerDoubling: 3 * 60,
+  rest: 9.5 * 60,
+  restPerDoubling: 3.5 * 60,
   /** ab diesem Anteil der Restzeit ist man alt: langsamer, schneller müde, weniger Lebenskraft */
   oldFrac: 0.6,
   /** so stark lässt das Alter am Ende nach (Anteil): Tempo, Ausdauer, Erholung, Lebenskraft */

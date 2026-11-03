@@ -4,15 +4,12 @@ import { CLASSES } from '../data/classes';
 import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
-import { SPECIES } from '../data/species';
-import { dietIcon, preyIcon } from '../art/speciesArt';
-import { phases, STAGE_NAME, stageOf } from '../sim/life';
+import { dietIcon } from '../art/speciesArt';
+import { phases } from '../sim/life';
 import { BROOD } from '../data/karbon';
-import { placeOf } from '../data/world';
 import { clamp } from '../util/math';
 import { text, title } from './ui';
 import { collectionStar } from './collectionPanel';
-import { Button } from './ui';
 
 export interface OverviewData {
   morph: Morph;
@@ -21,10 +18,7 @@ export interface OverviewData {
   hpMax: number;
 }
 
-const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-const length = (cm: number) => (cm >= 100 ? `${nf(cm / 100, 2)} m` : `${nf(cm)} cm`);
-// Angezeigte Masse ×100; Körperbau, Vererbung und Schadensverhältnisse bleiben unverändert.
-const weight = (g: number) => { const shown = g * 100; return shown >= 1000 ? `${nf(shown / 1000, 1)} kg` : `${nf(shown)} g`; };
+const nf = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 
 /** Der Rahmen: dunkel und warm, doppelte feine Linie, kleine Rauten in den Ecken. */
 function frame(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number) {
@@ -65,184 +59,122 @@ function rule(g: Phaser.GameObjects.Graphics, x0: number, x1: number, y: number,
 }
 
 /**
- * Die Übersicht (Taste C) – wie der Charakterbogen alter Rollenspiele. Oben, wer dein Tier ist; darunter seine drei großen
- * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, aus Körper und Vererbung –, dann seine Waffen und sein
- * Schutz: Gebiss, Schädel, Flossen und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
- * links das Tier und sein Körper, rechts sein Lebensweg und die Nachkommen (im Karbon: das Gelege); daneben Beute und
- * Muscheln. Nahrung und Kosten je Ei stehen am Laich.
+ * Die Übersicht (Taste C): Name und Lebensweg, darunter die Fähigkeiten und das Tier. Rechts bleibt Raum für den
+ * Sammlungsstern selbst. Körperbau sieht man am Tier, Nachwuchs am Laich; Beute zeigt nur Nahrung und ihre Anteile.
  */
 export class Overview {
   readonly c: Phaser.GameObjects.Container;
   private portrait: CreatureView;
 
-  constructor(scene: Phaser.Scene, d: OverviewData, onClose: () => void, onCollection: () => void) {
-    const c = (this.c = scene.add.container(0, 0).setDepth(60));
+  constructor(scene: Phaser.Scene, d: OverviewData, onClose: () => void) {
+    const c = (this.c = scene.add.container(0, 0).setDepth(60).setName('overview'));
     c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0).setInteractive().on('pointerdown', onClose));
 
-    // Links der Charakterbogen mit Karte, rechts die Nahrung und Muscheln.
-    const x0 = 24, y0 = 14, w = 952, h = 692, mid = x0 + w / 2;
+    const x0 = 24, y0 = 18, w = W - 48, h = H - 36;
     const g = scene.add.graphics();
     frame(g, x0, y0, w, h);
     c.add(g);
-    // die Bühne (dahinter kein Klick: Nur außerhalb schließt es)
+    // Nur außerhalb der gemeinsamen Fläche schließt ein Klick die Übersicht.
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
-    // rechts daneben eine Spalte kleiner Karten: die Beute, darunter die Muscheln
-    const sx = x0 + w + 16, sw = W - 24 - sx;
-    const ph = this.preyCard(scene, g, sx, y0, sw);
-    this.collectionCard(scene, g, sx, y0 + ph + 14, sw, onCollection);
 
-    const life = game.life;
-    const ep = game.epoch;
-    // Kopf: der Name der Linie, darunter Körperform, Zeitalter und Ort
-    c.add(title(scene, mid, y0 + 46, game.currentName, 30).setOrigin(0.5));
-    c.add(text(scene, mid, y0 + 78, `${CLASSES[game.cls].name} · ${ep.name}`, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5));
-    rule(g, x0 + 70, x0 + w - 70, y0 + 102);
+    const life = game.life, brood = game.brood;
+    c.add(text(scene, W / 2, 44, `${CLASSES[game.cls].name} · ${game.epoch.name} · Generation ${brood?.gen ?? life.gen}`, 15, UI.boneDim).setOrigin(0.5));
+    const name = title(scene, W / 2, 79, game.currentName, 32).setOrigin(0.5).setName('overview-name');
+    name.setScale(Math.min(1, (w - 120) / name.width));
+    c.add(name);
+    // Der Lebensweg gehört direkt zum Namen, ohne zweite Zustandsbeschreibung.
+    if (brood) this.broodline(scene, g, 100, 129, W - 200);
+    else this.lifeline(scene, g, 100, 129, W - 200);
+    rule(g, 72, W - 72, 181, 0.25);
 
     const caps = (x: number, y: number, str: string, size = 13, col = UI.ochre) =>
-      scene.add.text(x, y, str, { fontFamily: TITLE_FONT, fontSize: `${size}px`, color: col, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(4);
+      scene.add.text(x, y, str, { fontFamily: TITLE_FONT, fontSize: `${size}px`, color: col, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(3);
 
-    // ---- die drei großen Werte (aus Körper und Vererbung)
+    // Links: die drei Hauptwerte, darunter Waffen und Schutz.
+    const left = 76, leftW = 608, mid = left + leftW / 2;
     const v = game.shown();
-    // im Karbon steht Sauerstoff statt Sicht (Sekunden an Land)
-    const brood = game.brood;
-    const big: { key: 'hp' | 'stam' | 'sight' | 'oxy'; label: string; value: string; of?: string }[] = [
-      { key: 'hp', label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
-      brood ? { key: 'oxy', label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { key: 'sight', label: 'SICHT', value: String(v.sight) },
-      { key: 'stam', label: 'AUSDAUER', value: String(v.stam) },
+    const big: { label: string; value: string; of?: string }[] = [
+      { label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
+      brood ? { label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { label: 'SICHT', value: String(v.sight) },
+      { label: 'AUSDAUER', value: String(v.stam) },
     ];
     big.forEach((b, i) => {
-      const cx = mid + (i - 1) * 260;
-      c.add(caps(cx, y0 + 128, b.label));
-      const val = title(scene, cx, y0 + 163, b.value, 40, UI.bone).setOrigin(0.5);
+      const cx = left + leftW / 3 * (i + 0.5);
+      c.add(caps(cx, 214, b.label, 12));
+      const val = title(scene, cx, 250, b.value, 40).setOrigin(0.5);
       c.add(val);
       if (b.of) {
-        const of = title(scene, 0, y0 + 169, b.of, 24, UI.boneDim).setOrigin(0, 0.5);
-        // Zahl und „/höchstens“ zusammen mittig
+        const of = title(scene, 0, 256, b.of, 23, UI.boneDim).setOrigin(0, 0.5);
         const tw = val.width + 4 + of.width;
         val.setX(cx - tw / 2 + val.width / 2);
         of.setX(val.x + val.width / 2 + 4);
         c.add(of);
       }
-      if (i > 0) diamond(g, mid + (i - 1.5) * 260, y0 + 152, 3.5, 0.55);
+      if (i > 0) diamond(g, left + leftW / 3 * i, 244, 3, 0.35);
     });
 
-    // ---- Waffen und Schutz: eine Reihe kleiner Tafeln
-    const by = y0 + 214;
+    const by = 294;
     g.fillStyle(0x000000, 0.25);
-    g.fillRect(x0 + 90, by - 6, w - 180, 66);
+    g.fillRect(left + 12, by - 6, leftW - 24, 66);
     g.lineStyle(1, 0xc8913c, 0.28);
-    g.lineBetween(x0 + 90, by - 6, x0 + w - 90, by - 6);
-    g.lineBetween(x0 + 90, by + 60, x0 + w - 90, by + 60);
-    // im Karbon: was das Verhalten der Generationen formt – Gebiss, Beine, Griff, Schuppen
+    g.lineBetween(left + 12, by - 6, left + leftW - 12, by - 6);
+    g.lineBetween(left + 12, by + 60, left + leftW - 12, by + 60);
+    // Im Karbon formen sich Beine und Griff statt Schädel und Flossen.
     const small = brood
       ? [
-          { label: 'GEBISS', value: v.bite },
-          { label: 'BEINE', value: v.legs },
-          { label: 'GRIFF', value: v.grip },
-          { label: 'SCHUPPEN', value: v.scales },
-        ]
+          { label: 'GEBISS', key: 'bite', value: v.bite },
+          { label: 'BEINE', key: 'legs', value: v.legs },
+          { label: 'GRIFF', key: 'grip', value: v.grip },
+          { label: 'SCHUPPEN', key: 'scales', value: v.scales },
+        ] as const
       : [
-          { label: 'GEBISS', value: v.bite },
-          { label: 'SCHÄDEL', value: v.skull },
-          { label: 'FLOSSEN', value: v.fins },
-          { label: 'SCHUPPEN', value: v.scales },
-        ];
-    // daneben, wie viel sich jede vererbte Fähigkeit gegenüber der vorigen Generation verändert hat (ausgewachsen gemessen)
-    const delta = game.inheritedDelta();
-    const dkey: Record<string, 'bite' | 'skull' | 'fins' | 'scales' | 'legs' | 'grip' | undefined> = { GEBISS: 'bite', SCHÄDEL: 'skull', FLOSSEN: 'fins', SCHUPPEN: 'scales', BEINE: 'legs', GRIFF: 'grip' };
-    const step = (w - 180) / small.length;
+          { label: 'GEBISS', key: 'bite', value: v.bite },
+          { label: 'SCHÄDEL', key: 'skull', value: v.skull },
+          { label: 'FLOSSEN', key: 'fins', value: v.fins },
+          { label: 'SCHUPPEN', key: 'scales', value: v.scales },
+        ] as const;
+    const delta = game.inheritedDelta(), step = (leftW - 24) / small.length;
     small.forEach((b, i) => {
-      const cx = x0 + 90 + step * (i + 0.5);
-      c.add(caps(cx, by + 14, b.label, 12, UI.boneDim));
-      const val = title(scene, cx, by + 40, String(b.value), 26, UI.bone).setOrigin(0.5);
+      const cx = left + 12 + step * (i + 0.5);
+      c.add(caps(cx, by + 14, b.label, 11, UI.boneDim));
+      const val = title(scene, cx, by + 40, String(b.value), 26).setOrigin(0.5);
       c.add(val);
-      const k = dkey[b.label];
-      const dv = delta && k ? delta[k] ?? 0 : null;
-      if (dv !== null && dv !== 0) {
-        const up = dv > 0, down = dv < 0;
+      const dv = delta ? delta[b.key] ?? 0 : 0;
+      if (dv !== 0) {
+        const up = dv > 0;
         const tag = text(scene, cx + val.width / 2 + 8, by + 42, up ? `▲ ${dv}` : `▼ ${-dv}`, 13, up ? '#9cd07e' : '#e08872', { fontStyle: '700' }).setOrigin(0, 0.5);
         c.add(tag);
-        if (up || down) {
-          const glow = scene.add.image(tag.x + tag.width / 2, tag.y, 'glow').setTint(up ? 0x7cc860 : 0xe06a50).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(tag.width + 26, 22).setAlpha(0.14);
-          c.addAt(glow, c.getIndex(tag));
-        }
+        const glow = scene.add.image(tag.x + tag.width / 2, tag.y, 'glow').setTint(up ? 0x7cc860 : 0xe06a50).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(tag.width + 26, 22).setAlpha(0.14);
+        c.addAt(glow, c.getIndex(tag));
       }
       if (i > 0) {
         g.lineStyle(1, 0xc8913c, 0.18);
         g.lineBetween(cx - step / 2, by + 6, cx - step / 2, by + 48);
       }
     });
-    rule(g, x0 + 70, x0 + w - 70, y0 + 300, 0.25);
 
-    // zwischen den Spalten eine kaum sichtbare Linie
-    g.lineStyle(1, 0xc8913c, 0.12);
-    g.lineBetween(mid, y0 + 322, mid, y0 + h - 40);
-
-    const colL = x0 + 52, colR = mid + 46, colW = w / 2 - 98;
-    const head = (x: number, y: number, str: string) => {
-      const t = scene.add.text(x, y, str, { fontFamily: TITLE_FONT, fontSize: '14px', color: UI.ochre, fontStyle: '700', resolution: 2 })
-        .setOrigin(0, 0.5).setLetterSpacing(4);
-      c.add(t);
-      g.lineStyle(1, 0xc8913c, 0.22);
-      g.lineBetween(x + t.width + 14, y + 1, x + colW, y + 1);
-    };
-    const row = (x: number, y: number, label: string, value: string) => {
-      c.add(text(scene, x, y, label, 18, UI.boneDim).setOrigin(0, 0.5));
-      const val = text(scene, x + colW, y, value, 18, UI.bone, { fontStyle: '600' }).setOrigin(1, 0.5);
-      c.add(val);
-      return val;
-    };
-
-    // ---- links: das Tier selbst und sein Körper
-    head(colL, y0 + 334, 'LEBEN');
-    const stage = brood ? (brood.phase === 'young' ? 'Larve' : 'Vierfüßer') : STAGE_NAME[stageOf(life.age, life.gen)];
-    c.add(text(scene, colL + colW / 2, y0 + 364, `Generation ${brood?.gen ?? life.gen} · ${stage}`, 17, UI.bone).setOrigin(0.5));
-    // das Tier etwa gleich groß im Bild – ein Jungtier etwas näher, ein großes etwas ferner
-    const px = colL + colW / 2, py = y0 + 422, scale = 1.45 * Math.min(2.4, Math.max(0.75, 1 / Math.max(0.1, d.morph.size)));
-    c.add(scene.add.image(px, py + 46, 'shadow').setDisplaySize(230, 20).setAlpha(0.45));
-    this.portrait = new CreatureView(scene, px, py, { ...d.morph, belly: 1 }, scale);
-    if (this.portrait.L.land) this.portrait.setY(py + 56 - this.portrait.L.footY * scale);
+    // Das Tier spricht für seinen Körperbau und seine Färbung.
+    const py = 450, scale = 3 * clamp(1 / Math.max(0.1, d.morph.size), 0.6, 2.8);
+    c.add(scene.add.image(mid, py + 77, 'shadow').setDisplaySize(350, 22).setAlpha(0.35));
+    this.portrait = new CreatureView(scene, mid, py, { ...d.morph, belly: 1 }, scale).setName('overview-portrait');
     this.portrait.setFacing(1);
+    // Auch lange Fische und Vierfüßer passen in dieselbe freie Bühne zwischen Werten und Beute.
+    this.update(0);
+    const bounds = this.portrait.getBounds();
+    const fit = Math.min(1, (leftW - 64) / Math.max(1, bounds.width), 176 / Math.max(1, bounds.height));
+    this.portrait.setBaseScale(scale * fit);
+    const fitted = this.portrait.getBounds();
+    this.portrait.x += mid - fitted.centerX;
+    this.portrait.y += py + 4 - fitted.centerY;
     c.add(this.portrait);
 
-    const m = game.measure(game.cls, game.traits, game.lifeK);
-    const t = game.traits;
-    let y = y0 + 500;
-    head(colL, y, 'KÖRPER');
-    row(colL, (y += 32), 'Länge', length(m.cm));
-    row(colL, (y += 28), 'Gewicht', weight(m.g));
-    row(colL, (y += 28), 'Färbung', t.coat === 1 ? 'Grün' : t.coat === 2 ? 'Schwarz' : 'Natürlich');
-    row(colL, (y += 28), 'Kost', t.diet < -0.3 ? 'Pflanzen' : t.diet > 0.3 ? 'Fleisch' : 'Alles');
-
-    // ---- rechts: der Lebensweg und die Nachkommen (im Karbon: das Gelege) – die zweiten Überschriften auf einer Höhe mit „Körper“
-    y = y0 + 334;
-    if (brood) {
-      head(colR, y, 'DAS GELEGE');
-      this.broodline(scene, g, colR + 6, y + 48, colW - 12);
-      row(colR, (y += 104), 'Eier im Nest', nf(brood.eggs));
-      if (brood.phase === 'young') row(colR, (y += 28), 'Nahrung', `${nf(Math.floor(brood.food))} / ${nf(BROOD.food)}`);
-      else row(colR, (y += 28), 'Neues Gelege in', `${Math.floor(brood.left / 60)}:${`${Math.ceil(brood.left) % 60}`.padStart(2, '0')}`);
-      y = y0 + 500;
-      head(colR, y, 'DIESE GENERATION');
-      row(colR, (y += 32), 'Erlegte Beute', nf(Math.floor(brood.train.prey)));
-      row(colR, (y += 28), 'An Land gelaufen', `${nf(Math.round(brood.train.land / 40))} Schritte`);
-      row(colR, (y += 28), 'Geklettert', `${nf(Math.round(brood.train.climb / 40))} Schritte`);
-    } else {
-      head(colR, y, 'LEBENSWEG');
-      this.lifeline(scene, g, colR + 6, y + 48, colW - 12);
-      row(colR, (y += 104), 'Lebensabschnitt', STAGE_NAME[stageOf(life.age, life.gen)]);
-      row(colR, (y += 28), 'Ort', placeOf(ep, game.prog.place).name);
-      y = y0 + 500;
-      head(colR, y, 'NACHKOMMEN');
-      const eggs = game.roe.length, group = game.swarm?.members.length ?? 0;
-      row(colR, (y += 32), 'Geschwister', nf(game.pool.length));
-      row(colR, (y += 28), 'Nächste Generation', eggs ? `${nf(eggs)} ${eggs === 1 ? 'Ei' : 'Eier'}` : '—');
-      row(colR, (y += 28), 'Deine Gruppe', group ? nf(group) : '—');
-    }
+    rule(g, left + 12, left + leftW - 12, 566, 0.2);
+    this.prey(scene, g, left + 24, 594, leftW - 48);
+    g.lineStyle(1, 0xc8913c, 0.12);
+    g.lineBetween(724, 212, 724, 656);
+    collectionStar(scene, c, game.collection, 980, 425, 216);
 
     c.add(text(scene, x0 + w - 30, y0 + h - 30, 'C  ·  Esc', 14, UI.boneDim).setOrigin(1, 0.5).setAlpha(0.5));
-
-    // sanft einblenden
     c.setAlpha(0).setY(6);
     scene.tweens.add({ targets: c, alpha: 1, y: 0, duration: 200, ease: 'Sine.out' });
   }
@@ -259,7 +191,7 @@ export class Overview {
       [0, 'Schlüpfen', f < m],
       [m, 'Laichzeit', f >= m && f < o],
       [o, 'Alter', f >= o],
-      [1, 'Ende', false],
+      [1, 'Tod', false],
     ], game.roe.length > 0);
   }
 
@@ -318,22 +250,17 @@ export class Overview {
     g.fillCircle(px, y, 4.5);
   }
 
-  /** Beute und Nahrungsanteile des ganzen Zeitalters, unabhängig von Ort und Generation. */
-  private preyCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
+  /** Beute und Pflanzen-/Fleischanteil, ohne Rangliste einzelner Arten. */
+  private prey(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
     const c = this.c;
-    const rowH = 46, top = y + 140, h = top - y + rowH * 3 + 14;
-    frame(g, x, y, w, h);
-    c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
-    const cx = x + w / 2;
-    c.add(scene.add.text(cx, y + 44, `BEUTE: ${nf(Math.floor(game.brood?.food ?? game.life.fed))}`, { fontFamily: TITLE_FONT, fontSize: '18px', color: UI.ochre, fontStyle: '700', resolution: 2 })
-      .setOrigin(0.5).setLetterSpacing(2));
-    rule(g, x + 30, x + w - 30, y + 78, 0.3);
+    c.add(text(scene, x, y, 'BEUTE', 13, UI.ochre, { fontStyle: '700' }).setLetterSpacing(3));
+    c.add(title(scene, x, y + 34, nf(Math.floor(game.brood?.food ?? game.life.fed)), 34).setOrigin(0, 0.5));
 
     // Grünzeug gegen Fleisch
     const diet = game.dietAt();
-    const by = y + 100, bx0 = x + 54, bx1 = x + w - 54, bw = bx1 - bx0;
-    c.add(scene.add.image(x + 33, by, dietIcon(scene, 'plant')).setDisplaySize(28, 28).setAlpha(diet ? 1 : 0.4));
-    const meat = scene.add.image(x + w - 33, by, dietIcon(scene, 'meat')).setAlpha(diet ? 1 : 0.4);
+    const by = y + 18, bx0 = x + 222, bx1 = x + w - 30, bw = bx1 - bx0;
+    c.add(scene.add.image(bx0 - 30, by, dietIcon(scene, 'plant')).setDisplaySize(28, 28).setAlpha(diet ? 1 : 0.4));
+    const meat = scene.add.image(bx1 + 30, by, dietIcon(scene, 'meat')).setAlpha(diet ? 1 : 0.4);
     meat.setScale(Math.min(32 / meat.width, 26 / meat.height));
     c.add(meat);
     g.fillStyle(0x000000, 0.45);
@@ -353,41 +280,8 @@ export class Overview {
       g.fillRect(bx0 + 3, by - 3, bw - 6, 2);
     }
     const pct = (f: number | undefined) => (f === undefined ? '—' : `${Math.round(f * 100)} %`);
-    c.add(text(scene, bx0, by + 18, pct(diet?.plant), 13, '#a8c878').setOrigin(0, 0.5).setAlpha(diet ? 0.95 : 0.4));
-    c.add(text(scene, bx1, by + 18, pct(diet?.meat), 13, '#e0806c').setOrigin(1, 0.5).setAlpha(diet ? 0.95 : 0.4));
-    g.lineStyle(1, 0xc8913c, 0.16);
-    g.lineBetween(x + 30, top - 4, x + w - 30, top - 4);
-
-    // die drei häufigsten Tiere
-    const { top: best } = game.topPrey();
-    for (let i = 0; i < 3; i++) {
-      const ry = top + rowH * i + rowH / 2;
-      const e = best[i];
-      const def = e ? SPECIES[e.id] : undefined;
-      if (i > 0) {
-        g.lineStyle(1, 0xc8913c, 0.1);
-        g.lineBetween(x + 30, top + rowH * i, x + w - 30, top + rowH * i);
-      }
-      c.add(title(scene, x + 36, ry, String(i + 1), 18, def ? UI.ochre : UI.boneDim).setOrigin(0.5).setAlpha(def ? 0.9 : 0.35));
-      if (!e || !def) {
-        c.add(text(scene, x + 112, ry, '—', 18, UI.boneDim).setOrigin(0.5).setAlpha(0.3));
-        continue;
-      }
-      c.add(scene.add.image(x + 112, ry, preyIcon(scene, def, 92, 36)).setScale(0.5));
-      c.add(title(scene, x + w - 32, ry, `${Math.round(e.share * 100)} %`, 20, UI.bone).setOrigin(1, 0.5));
-    }
-    return h;
-  }
-
-  /** Compact collection in the stats overlay; its large view stays inside the game. */
-  private collectionCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, onOpen: () => void) {
-    const h = 382, c = this.c;
-    frame(g, x, y, w, h);
-    c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
-    c.add(title(scene, x+w/2, y+34, 'SPUREN DES LEBENS', 14, UI.ochre).setOrigin(.5));
-    collectionStar(scene,c,game.collection,x+w/2,y+174,Math.min(112,w*.43));
-    c.add(text(scene,x+w/2,y+304,`${game.fossils} / 7 Fossilien · ${game.shells} / 7 Muscheln`,15,UI.boneDim).setOrigin(.5));
-    c.add(new Button(scene,x+w/2,y+343,'Sammlung ansehen',{w:w-40,h:38,size:16,onClick:onOpen}).setName('collection-open'));
+    c.add(text(scene, bx0, by + 20, pct(diet?.plant), 14, '#a8c878').setOrigin(0, 0.5).setAlpha(diet ? 0.95 : 0.4));
+    c.add(text(scene, bx1, by + 20, pct(diet?.meat), 14, '#e0806c').setOrigin(1, 0.5).setAlpha(diet ? 0.95 : 0.4));
   }
 
   update(dt: number) {
