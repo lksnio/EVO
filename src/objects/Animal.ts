@@ -324,7 +324,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
       // Render through the original display-list slot. Its visibility, depth, camera filter and lifecycle stay authoritative.
       this.renderWebGLStep = (renderer, _src, context, parentMatrix, step, list, index) => {
         const dt = Math.min(0.05, world.game.loop.delta / 1000);
-        view.follow(this, dt, width, 'ghost' in this ? (this.attacking ? 1 : this.glowing ? 0.4 : 0) : this.jawNow / 2);
+        view.follow(this, dt, width, 'ghost' in this ? (this.attacking ? 1 : this.glowing ? 0.4 : 0) : this.jawNow / 2, !this.dead && (this.attacking || this.glowing));
         view.renderWebGLStep(renderer, view, context, parentMatrix, step, list, index);
       };
       this.once(Phaser.GameObjects.Events.DESTROY, () => view.destroy(true));

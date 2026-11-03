@@ -10,7 +10,7 @@ import { EPOCHS, epochSpecies } from '../data/epochs';
 // Alle Tierarten im dunklen, organischen Stil. Jede Art wird in zwei
 // Bewegungsphasen gezeichnet (Beine, Flügel, Flossen) und zugeschnitten.
 
-type Eyes = { iris: number; glow: boolean };
+type Eyes = { iris: number; glow: boolean; attack?: number };
 
 const eyesFor = (role: Role): Eyes =>
   role === 'apex' ? { iris: 0xd0461c, glow: true }
@@ -663,7 +663,7 @@ function drawFish(ctx: Ctx, p: Extract<Art, { t: 'fish' }>, f: number, E: Eyes, 
   const er = inkOn()
     ? Math.max(2.2, hh * (p.armor && !p.eyesFront ? 0.17 : p.shark ? 0.17 : 0.26))
     : Math.max(1.6, hh * (p.armor && !p.eyesFront ? 0.12 : p.shark ? 0.13 : 0.19));
-  eye(ctx, ex, ey, er, E.iris, { glow: E.glow, lid: p.armor && !p.eyesFront ? 0.4 : p.shark ? 0.25 : 0 });
+  eye(ctx, ex, ey, er, E.iris, { glow: E.glow, lid: Math.max(E.attack ?? 0, p.armor && !p.eyesFront ? 0.4 : p.shark ? 0.25 : 0) });
 }
 
 /** Tuschestil: eine Glocke aus ruhiger Fläche mit hellem Kern und dunkler Kontur, darunter wellende Fangfäden; nur ein schwacher Schein. */
@@ -791,7 +791,7 @@ function drawCone(ctx: Ctx, p: Extract<Art, { t: 'cone' }>, f: number, E: Eyes) 
   // Kopf
   const head = () => ell(ctx, hw * 0.68, 0, r * 0.95, r * 0.85);
   skin(ctx, head, { base: mix(c, 0x7a5a4a, 0.4), y0: -r, y1: r, noise: 'mottle', noiseAlpha: 0.5, noiseScale: 0.3, wet: true, edge: dark(c) });
-  eye(ctx, hw * 0.74, -r * 0.2, r * 0.32, E.iris, { glow: E.glow });
+  eye(ctx, hw * 0.74, -r * 0.2, r * 0.32, E.iris, { glow: E.glow, lid: E.attack });
   // Schale
   const shell = () => {
     ctx.beginPath();
@@ -887,7 +887,7 @@ function drawBug(ctx: Ctx, p: Extract<Art, { t: 'bug' }>, f: number, E: Eyes) {
   // Kopf
   const hx = hw - h * 0.45;
   chitin(ctx, () => ell(ctx, hx, 0, h * 0.55, h * 0.48), shade(c, 0.05), -h * 0.5, h * 0.5, 21);
-  eye(ctx, hx + h * 0.18, -h * 0.14, h * 0.15, E.iris, { glow: E.glow });
+  eye(ctx, hx + h * 0.18, -h * 0.14, h * 0.15, E.iris, { glow: E.glow, lid: E.attack });
   if (p.antenna) {
     for (const d of [0, 3]) {
       pen(ctx, lw * (inkOn() ? 1.5 : 1), shade(c, -0.4), () => {
@@ -1085,7 +1085,7 @@ function drawMosa(ctx: Ctx, p: Extract<Art, { t: 'mosa' }>, f: number, E: Eyes, 
   ctx.strokeStyle = css(shade(c, -0.6), 0.6);
   ctx.lineWidth = lw * 1.4;
   ctx.stroke();
-  eye(ctx, hw * 0.745, -h * 0.17, h * 0.06, E.iris, { glow: E.glow, lid: 0.35 });
+  eye(ctx, hw * 0.745, -h * 0.17, h * 0.06, E.iris, { glow: E.glow, lid: Math.max(0.35, E.attack ?? 0) });
 
   // ---- Flossen der nahen Seite
   paddle(ctx, hw * 0.4, h * 0.3, h * 1.08, h * 0.28, Math.PI - 0.72 - fa, shade(p.fin, 0.12), lw);
@@ -1154,7 +1154,7 @@ function drawPlesio(ctx: Ctx, p: Extract<Art, { t: 'plesio' }>, f: number, E: Ey
   ell(ctx, headL * 0.82, -hs * 0.16, hs * 0.06, hs * 0.035, -0.2);
   ctx.fillStyle = css(shade(c, -0.8), 0.7);
   ctx.fill();
-  eye(ctx, headL * 0.36, -hs * 0.17, hs * 0.17, E.iris, { glow: E.glow, lid: 0.2 });
+  eye(ctx, headL * 0.36, -hs * 0.17, hs * 0.17, E.iris, { glow: E.glow, lid: Math.max(0.2, E.attack ?? 0) });
   ctx.restore();
 
   // ---- Rumpf mit kurzem Schwanz
@@ -1232,7 +1232,7 @@ function drawTurtle(ctx: Ctx, p: Extract<Art, { t: 'turtle' }>, f: number, E: Ey
   ctx.strokeStyle = css(shade(c, -0.75), 0.8);
   ctx.lineWidth = lw;
   ctx.stroke();
-  eye(ctx, hx + HL * 0.5, hy - HH * 0.18, HH * 0.13, E.iris, { glow: E.glow, lid: 0.25 });
+  eye(ctx, hx + HL * 0.5, hy - HH * 0.18, HH * 0.13, E.iris, { glow: E.glow, lid: Math.max(0.25, E.attack ?? 0) });
 
   // ---- der Panzer: gewölbter Rücken mit Längskielen, flacher Bauch
   const shell = () => {
@@ -1397,7 +1397,7 @@ function drawAmmo(ctx: Ctx, p: Extract<Art, { t: 'ammo' }>, f: number, E: Eyes) 
   ctx.lineWidth = lw * 2;
   ctx.stroke();
   const ex = mx + Math.cos(ma - 0.45) * r * 0.12, ey = my + Math.sin(ma - 0.45) * r * 0.12;
-  eye(ctx, ex, ey, r * 0.11, E.iris, { glow: E.glow });
+  eye(ctx, ex, ey, r * 0.11, E.iris, { glow: E.glow, lid: E.attack });
 }
 
 function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes, mouth = true) {
@@ -1626,7 +1626,7 @@ function buildSpeciesTextures(scene: Phaser.Scene, def: SpeciesDef) {
   const draw = (f: number, mouth = true) => {
     const [c, ctx] = newCanvas(W, H, true);
     ctx.translate(W / 2, H / 2);
-    drawArt(ctx, art, f, E, mouth);
+    drawArt(ctx, art, f, mouth ? E : { ...E, attack: 0.95 }, mouth);
     return c;
   };
   const cs = [0, 1].map((f) => draw(f));

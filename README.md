@@ -507,6 +507,12 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
     Kiefern – mit starkem Gebiss deutlich wuchtiger. Bei **Gebiss 20, 30, 40 …** werden die Vorderzähne sichtbar länger,
     auch wenn der Kiefer bereits voll ausgeprägt ist. Zweimal schnell hintereinander zugebissen heißt:
     gepackt – kleinere Tiere zappeln dann nur noch.
+  - **Böser Blick beim Angriff:** Beim Beißen und Rammen senkt sich das Oberlid schräg zur Schnauze, im gleichen gemalten
+    Stil wie das vorhandene Auge. Nach dem Zuschnappen entspannt sich der Blick wieder. Das gilt für den eigenen Fisch,
+    Artgenossen, andere Spieler und angreifende Weltfische, auch bei einem Stoß mit geschlossenem Maul. Beim Einschlafen
+    schließen die Lider weiterhin vollständig. Die Darstellung nutzt vorhandene Augen und Hautfarben, keine neuen
+    Texturen je Angriff. Browserprüfung: `NODE_PATH=/tmp/evo-browser/node_modules node tools/check_attack_eyes.cjs`
+    (Vite auf Port 8080, externes `playwright-core` und Chromium; Aufnahmen unter `/tmp/evo-attack-eyes`).
   - **Anlauf und Schwung:** Weder Spurt noch Stoß sind ein Blitzstart. Beim **Spurt (W)** schlägt das Tier kräftiger und wird
     über etwa eine Sekunde **langsam schneller**, nach dem Loslassen klingt das Tempo ebenso langsam ab. Beim **Stoß (R)**
     baut es mit immer kräftigeren Flossenschlägen Tempo auf (R halten = längerer Anlauf, kurzes Antippen = kleiner Stoß), lässt

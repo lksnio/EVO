@@ -125,6 +125,7 @@ export class Kin extends Animal {
     else if (!(b.blocked.down || b.touching.down)) mode = 'air';
     else if (Math.abs(b.velocity.x) > 20) mode = 'walk';
     const sp = Math.hypot(b.velocity.x, this.world.water ? b.velocity.y : 0) / Math.max(1, this.def.speed);
+    v.squint(this.attacking || this.glowing ? 0.9 : 0);
     v.animate(dt, mode, Math.min(1.2, sp));
     v.rotation = this.world.water ? this.dir * clamp(b.velocity.y / (this.def.speed || 1), -1, 1) * 0.3 : 0;
     v.setShade(this.hiddenNow ? 0x4e4e4e : null);

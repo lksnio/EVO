@@ -3,7 +3,8 @@ import { newCanvas, type Ctx } from '../../util/canvas';
 import { clamp } from '../../util/math';
 import { palette, morphKey, quantize, type Morph, type Pal } from '../creatureArt';
 import { withInk } from '../ink';
-import { fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
+import { eyeBall, fishAnatomy, smoothstep, type FishAnatomy, type FinSpec } from './anatomy';
+import { drawEyeLids } from '../eyeLids';
 import { solveSpine } from './spine';
 import { MOUTH_KEY, paintBodyPainted, paintEyePainted, paintFinPainted, paintJawPainted, paintOverlayPainted, paintedReady } from './painted';
 import { eyeBox, finBox, jawPath, paintBody, paintEye, paintJaw, paintMedianFin, paintOverlay, paintPectoral, paintPelvicFin } from './paint';
@@ -234,6 +235,8 @@ export class FishRig {
   private colX: Float32Array;
   private reach: Float32Array;
   private lastOpen = 0;
+  private closedEye = 0;
+  private attackEye = 0;
   /** Augenposition (Pixel, im Container) und Neigung der letzten Pose */
   eyeX = 0;
   eyeY = 0;
@@ -305,6 +308,16 @@ export class FishRig {
     this.parts.push(pecFar, pelvic, dorsal, anal, this.cavity, ...(this.palate && this.floor ? [this.palate.mesh, this.floor.mesh] : []), this.jaw, this.body.mesh, pec, overlay, this.eyeImg, this.lid);
     for (const f of this.fins) f.grid.mesh.setScale(1);
     this.pose({ t: 0, dt: 0, speed01: 0, mode: 'idle', open: 0, lunge: 0, clench: 0, grind: 0, coil: 0, dip: 0, pitch: 0, still: 0, crawlPhase: 0 });
+  }
+
+  /** Die Lider bleiben am animierten Auge; keine neuen Texturen für einen Angriff. */
+  eyes(closed: number, attack: number) {
+    const sleep = clamp(closed, 0, 1), glare = clamp(attack, 0, 1);
+    if (sleep === this.closedEye && glare === this.attackEye) return;
+    this.closedEye = sleep;
+    this.attackEye = glare;
+    const r = eyeBall(this.A.eye.r) * (this.A.eyeK ?? 1) * this.s * 1.04;
+    drawEyeLids(this.lid, 0, 0, r, this.T.lid, this.T.lidEdge, sleep, glare);
   }
 
   /** Switch cached colour grades; mesh vertices, UVs, pose and number of draw calls are unchanged. */

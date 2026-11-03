@@ -3,7 +3,7 @@ import {
   type CreatureTex, type Layout, type Morph, type PartTex,
   CREATURE_RES, creatureTextures, layoutOf, morphKey,
 } from '../art/creatureArt';
-import { eyeBall } from '../art/fish/anatomy';
+import { drawEyeLids } from '../art/eyeLids';
 import { FishRig, fishTextures } from '../art/fish/rig';
 import { liftKey, LIFT_STEPS } from '../art/fish/finish';
 
@@ -88,6 +88,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private lid?: Phaser.GameObjects.Graphics;
   private lidK = 0;
   private squintK = 0;
+  private attackEye = 0;
   private lidCol = 0x3a3a2a;
   private lidEdge = 0x101010;
 
@@ -179,6 +180,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   bite() {
     this.biteT = 0;
+    this.drawLid();
   }
 
   /**
@@ -193,7 +195,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
     return this;
   }
 
-  /** Beim Stoß zusammenkneifen, unabhängig von den Lidern beim Schlüpfen und Einschlafen. */
+  /** Grimmiger Blick beim Stoß oder Ausholen, unabhängig vom Schlüpfen und Einschlafen. */
   squint(closed: number) {
     const k = Math.max(0, Math.min(1, closed));
     if (k === this.squintK) return this;
@@ -203,35 +205,16 @@ export class CreatureView extends Phaser.GameObjects.Container {
   }
 
   private drawLid() {
-    const g = this.lid;
-    if (!g) return;
-    g.clear();
-    const k = Math.max(this.lidK, this.squintK);
-    if (k <= 0.01) return;
+    // Beim Zuschnappen angespannt bleiben, dann mit der Bissbewegung wieder entspannen. Kauen allein löst keinen Angriffsblick aus.
+    const bite = this.biteT < 0 ? 0 : 0.95 * Math.max(0, Math.min(1, (0.5 - this.biteT) / 0.16));
+    this.attackEye = Math.max(this.squintK, bite);
+    if (this.rig) {
+      this.rig.eyes(this.lidK, this.attackEye);
+      return;
+    }
+    if (!this.lid) return;
     const hg = this.L.hg, s = this.L.s;
-    // am Netz-Fisch sitzt die Grafik schon im Auge (und folgt ihm); der Tuschestil-Augapfel ist etwas größer als der Rohwert
-    const x = this.rig ? 0 : hg.ex * s, y = this.rig ? 0 : hg.ey * s, r = this.rig ? eyeBall(this.rig.A.eye.r) * s * 1.02 : hg.er * s * 1.14;
-    // das Oberlid senkt sich weit, das Unterlid hebt sich ein Stück – sie treffen sich bei y + r/4
-    const up = y - r + 1.25 * r * k, low = y + r - 0.75 * r * k;
-    const seg = (edge: number, above: boolean) => {
-      const v = Math.asin(Math.max(-1, Math.min(1, (edge - y) / r)));
-      const a0 = above ? v : Math.PI - v, a1 = above ? -Math.PI - v : v;
-      g.beginPath();
-      for (let i = 0; i <= 16; i++) {
-        const a = a0 + (a1 - a0) * (i / 16);
-        if (i === 0) g.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-        else g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
-      }
-      g.closePath();
-      g.fillPath();
-    };
-    g.fillStyle(this.lidCol, 1);
-    seg(up, true);
-    seg(low, false);
-    // die Kante des Oberlids
-    const w = Math.sqrt(Math.max(0, r * r - (up - y) * (up - y)));
-    g.lineStyle(Math.max(0.6, r * 0.16), this.lidEdge, 0.85);
-    g.lineBetween(x - w, up, x + w, up);
+    drawEyeLids(this.lid, hg.ex * s, hg.ey * s, hg.er * s * 1.14, this.lidCol, this.lidEdge, this.lidK, this.attackEye);
   }
 
   /** Kaubewegung beim Fressen */
@@ -388,15 +371,10 @@ export class CreatureView extends Phaser.GameObjects.Container {
       t, dt: dt * slow, speed01, mode: mode === 'swim' || mode === 'crawl' || mode === 'idle' ? mode : 'swim',
       open, lunge, clench, grind, coil, dip, pitch: this.headTilt + shake + biteTilt, still: this.still, crawlPhase: this.phase,
     });
-    this.lidFollow();
-  }
-
-  /** Das Lid sitzt im Auge und wird mit der Pose gezeichnet (Position und Neigung setzt das Rig). */
-  private lidFollow() {
-    if (this.lidK > 0.01 || this.squintK > 0.01) this.drawLid();
   }
 
   animate(dt: number, mode: AnimMode, speed01 = 0) {
+    if (this.biteT >= 0 || this.attackEye > 0) this.drawLid();
     const slow = (1 - this.weary * 0.4) * (1 - 0.85 * this.still);
     this.t += dt * slow;
     if (this.rig) return this.animateFish(dt, mode, speed01, slow);

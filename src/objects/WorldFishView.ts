@@ -52,6 +52,7 @@ export class WorldFishView {
       t: this.scene.time.now / 1000, dt, speed01, mode: moving ? 'swim' : 'idle',
       open: Math.max(this.open, this.holdOpen), lunge: this.lunge, clench: 0, grind: 0, coil: this.coil, dip: 0, pitch: tUp, still: 0, crawlPhase: 0,
     });
+    this.rig.eyes(0, 0.95 * Math.min(1, Math.max(tOpen, this.open) / 0.55));
   }
 
   /** Einfärbung des Tieres übernehmen (Treffer, Wut, Trübe): `color` null = keine; `fill` = vollflächig (weißer Blitz). */
