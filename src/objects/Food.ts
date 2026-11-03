@@ -3,7 +3,6 @@ import type { Theme } from '../data/epochs';
 import { foodKey, HEAL, MEAT_SIZES, roeKey, TOXIC } from '../art/worldArt';
 import { paintedRiver, riverRoeTexture } from '../art/riverProps';
 import { inkWorldOn } from '../art/ink';
-import { inkTexture } from '../art/inkFilter';
 import type { Animal } from './Animal';
 import { DEPTH } from '../config';
 import { MISC } from '../data/life';
@@ -337,51 +336,5 @@ export class Meat {
         glow.destroy();
       },
     });
-  }
-}
-
-/** Eine Muschel auf dem Grund (gefallen von erlegter Beute). Wer sie berührt, nimmt sie mit (die Übersicht zählt sie). */
-export class Shell {
-  img: Phaser.GameObjects.Image;
-  /** nur ein ganz zarter Schimmer, damit man sie findet – kein Leuchten */
-  halo: Phaser.GameObjects.Image;
-  /** ab und zu ein kurzes Funkeln: Sie ist kostbar */
-  private glint: Phaser.GameObjects.Image;
-  taken = false;
-
-  /** from: Sie fällt von dort (der Beute) herab und sinkt zu Boden. */
-  constructor(private scene: Phaser.Scene, public x: number, public y: number, readonly id: string, from?: number) {
-    this.halo = scene.add.image(x, y - 14, 'glow').setTint(0xffe6d6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups - 0.1).setDisplaySize(80, 64).setAlpha(0.08);
-    this.img = scene.add.image(x, y + 3, inkWorldOn() ? inkTexture(scene, 'shell', { bands: 5, outline: 2, sat: 1.1, water: 0.04, gain: 1.1 }) : 'shell').setOrigin(0.5, 1).setDepth(DEPTH.pickups).setDisplaySize(30, 33);
-    this.glint = scene.add.image(x - 4, y - 22, 'shell_glint').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.pickups + 0.1).setScale(0).setAlpha(0.9);
-    scene.tweens.add({ targets: this.halo, alpha: 0.04, yoyo: true, repeat: -1, duration: 2400 + (x % 7) * 110, ease: 'Sine.inOut' });
-    scene.tweens.add({
-      targets: this.glint, scale: { from: 0, to: 0.6 }, angle: { from: -20, to: 25 }, duration: 380, yoyo: true, ease: 'Sine.inOut',
-      repeat: -1, repeatDelay: 2600 + (x % 11) * 160, delay: (x % 13) * 140,
-    });
-    if (from !== undefined && from < y) {
-      const dy = y - from;
-      for (const o of [this.img, this.halo, this.glint]) {
-        const to = o.y;
-        o.y -= dy;
-        scene.tweens.add({ targets: o, y: to, duration: 500 + dy * 3, ease: 'Sine.out' });
-      }
-      this.img.setAngle(-30);
-      scene.tweens.add({ targets: this.img, angle: 0, duration: 500 + dy * 3, ease: 'Back.out' });
-    }
-  }
-
-  get rect(): Rect {
-    return { x: this.x - 22, y: this.y - 40, w: 44, h: 46 };
-  }
-
-  /** Aufgehoben: Die Muschel steigt ein Stück auf und verblasst. */
-  take() {
-    if (this.taken) return;
-    this.taken = true;
-    this.scene.tweens.killTweensOf([this.halo, this.glint]);
-    this.glint.destroy();
-    this.scene.tweens.add({ targets: this.halo, alpha: 0, duration: 600, onComplete: () => this.halo.destroy() });
-    this.scene.tweens.add({ targets: this.img, y: this.y - 26, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => this.img.destroy() });
   }
 }

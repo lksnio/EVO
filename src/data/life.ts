@@ -128,11 +128,7 @@ export const SPAWN = {
   decay: 240,
   /** Eier je Gelege (so viel Nahrung steckt darin, wenn es jemand frisst) */
   eggs: 5,
-  /**
-   * So wahrscheinlich ist ein Ei golden (je Ei): Das Tier daraus hat einen Segen mehr in einer Richtung der großen Muschel –
-   * so viel, wie der nächste Segen bringen würde. Er gilt nur für dieses Tier, nicht für die Linie.
-   */
-  gold: 0.05,
+
 };
 
 /**
@@ -221,53 +217,8 @@ export const MISC = {
   animalBite: 5,
 };
 
-/**
- * Muscheln: Man findet sie bei erlegten Tieren. Wie oft, hängt davon ab, wie stark das Tier im Vergleich zu dir war: ein
- * ebenbürtiges in jedem zehnten Fall (10 %), ein doppelt so starkes doppelt so oft, schwache Beute halb so oft. Sie gehören
- * dir und nicht deiner Linie: Sie bleiben über alle Läufe hinweg (siehe UPGRADES).
- */
-export const SHELLS = {
-  /** Wahrscheinlichkeit je erlegtem Tier, das so stark ist wie du */
-  chance: 0.1,
-  /** das Verhältnis seiner Stärke zu deiner zählt – begrenzt auf diesen Bereich */
-  relMin: 0.5,
-  relMax: 2,
-};
+/** Sicht entwickelt sich durch Zeit in der Tiefe, unabhängig von Sammelgegenständen. */
+export const VISION = { base: 0.2, perPoint: 0.05, max: 1 };
 
-/**
- * Die Segen der großen Muschel im Laichfluss: Dort verteilt man seine Muscheln auf Lebenskraft und Ausdauer (im Karbon: und Sauerstoff). Die Sicht ist kein Segen mehr: Sie wächst nur durch Zeit in der Tiefe. Der erste
- * Segen kostet eine Muschel, jeder weitere doppelt so viele wie der vorige – gleich, wofür: 1, 2, 4, 8 … bis 512 für den
- * zehnten (vorerst gibt es höchstens zehn Segen je Linie, zusammen 1023 Muscheln). Die Segen gelten für die ganze Linie (über
- * alle Generationen); beginnt eine neue Linie, sind alle Muscheln wieder frei und werden neu verteilt.
- */
-export const UPGRADES = {
-  /** so viele Segen gibt es höchstens je Linie (gleich, wofür) */
-  max: 10,
-  /** der erste Segen kostet so viele Muscheln … */
-  first: 1,
-  /** … jeder weitere so viel mal so viele wie der vorige */
-  factor: 2,
-  /** Lebenskraft: so viel mehr je Segen (Anteil) – und der Körper wird ein wenig größer */
-  hp: 0.025,
-  /** so viel größer wird der Körper je Segen in Lebenskraft (Anteil) */
-  hpSize: 0.018,
-  /** Sicht (Anteil des ganzen Bildes vor dir, gilt nur in der Tiefe): zu Beginn … */
-  sight: 0.2,
-  /** … und so viel mehr je erworbenem Sichtpunkt (siehe INHERIT.sightStep: Sicht wächst nur durch Zeit in der Tiefe, keine Segen) … */
-  sightPer: 0.05,
-  /** … höchstens so viel (das ganze Bild) */
-  sightMax: 1,
-};
-
-/**
- * Ausdauer – wie in Breath of the Wild ein Kreis neben dem Tier. Ein Kreis hat jedes Tier; jeder Segen der großen Muschel
- * gibt ein Stück dazu (außen ein weiterer Ring). Wie schnell sie schwindet, hängt am Körper (schwere Tiere ermüden schneller).
- */
-export const STAMINA = {
-  /** so viel bringt ein Segen (Anteil eines Kreises): ein Viertel – nach acht Segen in Ausdauer sind es drei Kreise */
-  perBlessing: 0.25,
-  /** höchstens so viele Kreise */
-  max: 3,
-  /** ein voller Spurt mit einem Kreis dauert so viele Sekunden (bei normalem Körperbau) */
-  sprint: 3,
-};
+/** Ein Ausdauerkreis; seine Dauer hängt von Körper und vererbten Merkmalen ab. */
+export const STAMINA = { sprint: 3 };

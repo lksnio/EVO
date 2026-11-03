@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT } from '../config';
 import { CLASSES } from '../data/classes';
-import { game, type UpKey } from '../state/GameState';
+import { game } from '../state/GameState';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
 import { SPECIES } from '../data/species';
@@ -11,7 +11,8 @@ import { BROOD } from '../data/karbon';
 import { placeOf } from '../data/world';
 import { clamp } from '../util/math';
 import { text, title } from './ui';
-import { upTrail } from './upTrail';
+import { collectionStar } from './collectionPanel';
+import { Button } from './ui';
 
 export interface OverviewData {
   morph: Morph;
@@ -65,7 +66,7 @@ function rule(g: Phaser.GameObjects.Graphics, x0: number, x1: number, y: number,
 
 /**
  * Die Übersicht (Taste C) – wie der Charakterbogen alter Rollenspiele. Oben, wer dein Tier ist; darunter seine drei großen
- * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, die die große Muschel segnet –, dann seine Waffen und sein
+ * Werte – Lebenskraft (gerade / höchstens), Sicht und Ausdauer, aus Körper und Vererbung –, dann seine Waffen und sein
  * Schutz: Gebiss, Schädel, Flossen und Schuppen. Das Tempo steht hier nicht (es ergibt sich aus Größe und Körperbau). Unten
  * links das Tier und sein Körper, rechts sein Lebensweg und die Nachkommen (im Karbon: das Gelege); daneben Beute und
  * Muscheln. Nahrung und Kosten je Ei stehen am Laich.
@@ -74,7 +75,7 @@ export class Overview {
   readonly c: Phaser.GameObjects.Container;
   private portrait: CreatureView;
 
-  constructor(scene: Phaser.Scene, d: OverviewData, onClose: () => void) {
+  constructor(scene: Phaser.Scene, d: OverviewData, onClose: () => void, onCollection: () => void) {
     const c = (this.c = scene.add.container(0, 0).setDepth(60));
     c.add(scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0).setInteractive().on('pointerdown', onClose));
 
@@ -88,7 +89,7 @@ export class Overview {
     // rechts daneben eine Spalte kleiner Karten: die Beute, darunter die Muscheln
     const sx = x0 + w + 16, sw = W - 24 - sx;
     const ph = this.preyCard(scene, g, sx, y0, sw);
-    this.shellCard(scene, g, sx, y0 + ph + 14, sw);
+    this.collectionCard(scene, g, sx, y0 + ph + 14, sw, onCollection);
 
     const life = game.life;
     const ep = game.epoch;
@@ -100,12 +101,11 @@ export class Overview {
     const caps = (x: number, y: number, str: string, size = 13, col = UI.ochre) =>
       scene.add.text(x, y, str, { fontFamily: TITLE_FONT, fontSize: `${size}px`, color: col, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(4);
 
-    // ---- die drei großen Werte (sie segnet die große Muschel)
+    // ---- die drei großen Werte (aus Körper und Vererbung)
     const v = game.shown();
-    // im Karbon segnet die große Muschel Sauerstoff statt Sicht (Sekunden an Land)
+    // im Karbon steht Sauerstoff statt Sicht (Sekunden an Land)
     const brood = game.brood;
-    const trail = game.upTrail;
-    const big: { key: UpKey; label: string; value: string; of?: string }[] = [
+    const big: { key: 'hp' | 'stam' | 'sight' | 'oxy'; label: string; value: string; of?: string }[] = [
       { key: 'hp', label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
       brood ? { key: 'oxy', label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { key: 'sight', label: 'SICHT', value: String(v.sight) },
       { key: 'stam', label: 'AUSDAUER', value: String(v.stam) },
@@ -123,7 +123,6 @@ export class Overview {
         of.setX(val.x + val.width / 2 + 4);
         c.add(of);
       }
-      c.add(upTrail(scene, cx, y0 + 195, trail.filter((d) => d.key === b.key), { size: 14, step: 20, perRow: 12 }).c);
       if (i > 0) diamond(g, mid + (i - 1.5) * 260, y0 + 152, 3.5, 0.55);
     });
 
@@ -206,7 +205,7 @@ export class Overview {
     this.portrait.setFacing(1);
     c.add(this.portrait);
 
-    const m = game.measure(game.cls, game.traits, game.lifeK, true);
+    const m = game.measure(game.cls, game.traits, game.lifeK);
     const t = game.traits;
     let y = y0 + 500;
     head(colL, y, 'KÖRPER');
@@ -380,26 +379,15 @@ export class Overview {
     return h;
   }
 
-  /** Nur die noch verfügbaren Muscheln. Eine neu gefundene lässt die Zahl aufleuchten. */
-  private shellCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
-    const c = this.c;
-    const h = 62;
+  /** Compact collection in the stats overlay; its large view stays inside the game. */
+  private collectionCard(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, onOpen: () => void) {
+    const h = 382, c = this.c;
     frame(g, x, y, w, h);
     c.add(scene.add.zone(x, y, w, h).setOrigin(0).setInteractive());
-    const shells = game.shellsFree;
-    const n = title(scene, 0, y + 31, `× ${shells}`, 22, UI.bone).setOrigin(0, 0.5);
-    const icon = scene.add.image(0, y + 31, 'shell').setOrigin(0, 0.5).setDisplaySize(22, 24);
-    if (!shells) icon.setTint(0x000000).setAlpha(0.35);
-    // Symbol und Zahl zusammen mittig
-    const tw = 22 + 10 + n.width;
-    icon.setX(x + w / 2 - tw / 2);
-    n.setX(icon.x + 32);
-    c.add([icon, n]);
-    if (game.shells > game.seenShells) {
-      n.setColor('#f0c878');
-      scene.tweens.add({ targets: n, alpha: 0.55, yoyo: true, repeat: 2, duration: 520, ease: 'Sine.inOut', onComplete: () => n.active && n.setColor(UI.bone) });
-      game.seenShells = game.shells;
-    }
+    c.add(title(scene, x+w/2, y+34, 'SPUREN DES LEBENS', 14, UI.ochre).setOrigin(.5));
+    collectionStar(scene,c,game.collection,x+w/2,y+174,Math.min(112,w*.43));
+    c.add(text(scene,x+w/2,y+304,`${game.fossils} / 7 Fossilien · ${game.shells} / 7 Muscheln`,15,UI.boneDim).setOrigin(.5));
+    c.add(new Button(scene,x+w/2,y+343,'Sammlung ansehen',{w:w-40,h:38,size:16,onClick:onOpen}).setName('collection-open'));
   }
 
   update(dt: number) {

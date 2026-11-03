@@ -1,6 +1,6 @@
 import { CLASSES } from './classes';
 import { epochSpecies, EPOCHS } from './epochs';
-import { INHERIT, LIFE, MISC, MOVEMENT, SHELLS, SPAWN, STAMINA, UPGRADES } from './life';
+import { INHERIT, LIFE, MISC, MOVEMENT, SPAWN, STAMINA, VISION } from './life';
 import { SIGHT } from '../sim/sight';
 import { BITE } from '../sim/bite';
 import { SWARM } from './swarm';
@@ -184,24 +184,15 @@ export const GROUPS: Group[] = [
       field(SPAWN, 'femaleEvery', 'SPAWN.femaleEvery', 'Weibchen legt höchstens alle … Sekunden'),
       field(SPAWN, 'decay', 'SPAWN.decay', 'Unbefruchtetes Gelege verdirbt nach (Sekunden)'),
       field(SPAWN, 'eggs', 'SPAWN.eggs', 'Eier je Gelege'),
-      field(SPAWN, 'gold', 'SPAWN.gold', 'Goldene Geburt je Ei (Anteil)', { max: 1 }),
     ],
   },
   {
     id: 'muscheln',
-    title: 'Muscheln, Segen und Sicht',
-    note: 'Muscheln fallen von erlegten Tieren (10 % bei ebenbürtigen) und bleiben über alle Läufe. An der großen Muschel im Laichfluss verteilt man sie je Linie auf Lebenskraft, Ausdauer und Sicht: 1, 2, 4, 8 … Muscheln je Segen.',
+    title: 'Sicht',
+    note: 'Die Sicht wächst über die Vererbung durch Zeit in der Tiefe. Sammelmuscheln geben keine Werteboni.',
     params: [
-      field(SHELLS, 'chance', 'SHELLS.chance', 'Muschel je Tier (Wahrscheinlichkeit)', { step: 0.001, max: 1, hint: 'Für ein Tier, das so stark ist wie du. Stärkere öfter, schwächere seltener (siehe unten).' }),
-      field(SHELLS, 'relMin', 'SHELLS.relMin', 'Schwache Beute: höchstens so viel seltener (Faktor)', { step: 0.05, max: 1 }),
-      field(SHELLS, 'relMax', 'SHELLS.relMax', 'Starke Beute: höchstens so viel öfter (Faktor)', { step: 0.1, min: 1 }),
-      field(UPGRADES, 'max', 'UPGRADES.max', 'Höchstens so viele Segen je Linie', { min: 0, max: 30 }),
-      field(UPGRADES, 'first', 'UPGRADES.first', 'Der erste Segen kostet so viele Muscheln', { min: 1 }),
-      field(UPGRADES, 'factor', 'UPGRADES.factor', 'Jeder weitere: so viel mal so viele', { step: 0.1, min: 1, hint: '1 und 2 → 1, 2, 4, 8 … (gleich, wofür)' }),
-      field(UPGRADES, 'hp', 'UPGRADES.hp', 'Lebenskraft je Segen (Anteil)', { step: 0.005, max: 1 }),
-      field(UPGRADES, 'hpSize', 'UPGRADES.hpSize', 'Größerer Körper je Segen in Lebenskraft (Anteil)', { step: 0.002, max: 0.2 }),
-      field(UPGRADES, 'sight', 'UPGRADES.sight', 'Sicht zu Beginn (Anteil des Bildes)', { step: 0.05, max: 1 }),
-      field(UPGRADES, 'sightPer', 'UPGRADES.sightPer', 'Sicht je Segen', { step: 0.01, max: 1 }),
+      field(VISION, 'base', 'VISION.base', 'Sicht zu Beginn (Anteil des Bildes)', { step: 0.05, max: 1 }),
+      field(VISION, 'perPoint', 'VISION.perPoint', 'Sicht je vererbtem Sichtpunkt', { step: 0.01, max: 1 }),
       field(SIGHT, 'front0', 'SIGHT.front0', 'Sicht nach vorn: Grundstück (Anteil der Weite)', { step: 0.02, max: 1 }),
       field(SIGHT, 'fade', 'SIGHT.fade', 'Rand der Sicht: so lang ist der Übergang (Anteil der Weite)', { step: 0.01, max: 1 }),
       field(SIGHT, 'depth', 'SIGHT.depth', 'Ganz in der Tiefe reicht der Blick so weit (Faktor)', { step: 0.02, max: 1.5 }),
@@ -210,8 +201,6 @@ export const GROUPS: Group[] = [
       field(SIGHT, 'feel', 'SIGHT.feel', 'Seitenlinie: so nah spürt man jedes Tier (Bildpunkte)', { step: 10, max: 600 }),
       field(SIGHT, 'feelThreat', 'SIGHT.feelThreat', 'Seitenlinie: so weit spürt man Jäger und Angreifer (Bildpunkte)', { step: 10, max: 1200 }),
       field(SIGHT, 'feelThreatClarity', 'SIGHT.feelThreatClarity', 'Wie deutlich ein gespürter Jäger zu sehen ist', { step: 0.05, max: 1 }),
-      field(STAMINA, 'perBlessing', 'STAMINA.perBlessing', 'Ein Segen gibt (Anteil eines Kreises)', { step: 0.05, max: 2 }),
-      field(STAMINA, 'max', 'STAMINA.max', 'Höchstens so viele Kreise', { min: 1, max: 3 }),
       field(STAMINA, 'sprint', 'STAMINA.sprint', 'Ein Kreis reicht für so viele Sekunden Spurt', { step: 0.1, min: 0.5 }),
     ],
   },

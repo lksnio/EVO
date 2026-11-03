@@ -1,3 +1,7 @@
+import { COLLECTION_FOSSILS, COLLECTION_SHELLS, SHELL_PLACEMENTS, type FossilId, type ShellId } from '../data/collection';
+import { isFossilId } from '../sim/collection';
+import { CollectionPickup } from '../objects/CollectionPickup';
+import { collectionSpot } from '../level/collectionPlacement';
 import { worldLength } from '../data/animalSize';
 import { WaterSurface } from '../art/WaterSurface';
 import { skyAbove } from '../level/waterBounds';
@@ -5,14 +9,14 @@ import Phaser from 'phaser';
 import { recordDefeat, type CombatSkill } from '../sim/evolution';
 import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, shellChance, type Clutch, type Member, type PlayStyle, type UpKey } from '../state/GameState';
+import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, type Clutch, type Member, type PlayStyle } from '../state/GameState';
 import type { RoeData } from './RoeScene';
 import { species } from '../net/Species';
 import { speciesEnd } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
-import { FLOW, INHERIT, LIFE, MISC, RAM, STAMINA, WORLD } from '../data/life';
+import { FLOW, INHERIT, LIFE, MISC, RAM, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { type LevelData, type Zone } from '../level/LevelGen';
 import { loadLevel } from '../level/loadLevel';
@@ -41,7 +45,7 @@ import type { PlayerLike } from '../objects/Animal';
 import { SwarmCtl } from '../objects/Swarm';
 import { SpawnCtl } from '../objects/Spawning';
 import { NetSync, netWanted } from '../net/NetSync';
-import { Kill, Meat, Plant, Roe, Shell } from '../objects/Food';
+import { Kill, Meat, Plant, Roe } from '../objects/Food';
 import { Shrine } from '../objects/Shrine';
 import { Sight } from '../objects/Sight';
 import { Nest } from '../objects/Nest';
@@ -183,11 +187,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Tuschestil (Devon): die Stimmung des Ortes – sonst nichts (siehe art/inkWorld.ts) */
   ink?: { id: MoodId; mood: Mood };
   /** Muscheln, die von erlegter Beute gefallen sind (sie bleiben, bis man den Ort verlässt) */
-  private shells: Shell[] = [];
-  private dropN = 0;
+  private shells: CollectionPickup[] = [];
   /** die große Muschel (nur im Laichfluss) – und bis wann gerade gebetet wird */
   shrine?: Shrine;
-  private prayUntil = 0;
+  private shrineReadyAt = 0;
   /** zum Hauptmenü: so viele Sekunden noch (< 0: niemand will gehen) */
   private quitLeft = -1;
   private shrineNear = false;
@@ -226,11 +229,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** kleine Kraftanzeige am Fisch – nur zu sehen, solange er nicht frisch ist */
   private stamG!: Phaser.GameObjects.Graphics;
   private stamA = 0;
-  /** der Kreis, wie er gerade gezeigt wird (wächst nach einem Segen), seit wann er voll ist, sein Aufleuchten */
-  private stamMax = 1;
+  /** Seit wann der Ausdauerkreis voll ist und sein kurzes Aufleuchten. */
   private stamFull = 99;
   private stamPulse = 0;
-  private stamHold = 0;
   /** dunkle Vorahnung: ein Riese ist in der Nähe */
   private dread!: Phaser.GameObjects.Rectangle;
   private dreadK = 0;
@@ -242,7 +243,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Was du in diesem Zeitalter getan hast – daraus wird beim Generationswechsel die nächste Generation */
   train: PlayStyle = newStyle();
   private combat = new Map<Animal, Partial<Record<CombatSkill, number>>>();
-  private pendingCombat = new Map<number, { used: Partial<Record<CombatSkill, number>>; strength: number }>();
+  private pendingCombat = new Map<number, { used: Partial<Record<CombatSkill, number>>; strength: number; species: string; x: number; y: number }>();
   /** zuletzt gebissenes Tier (zweimal kurz hintereinander = gepackt und festgehalten) */
   private lastBitten: Animal | null = null;
   private lastBiteAt = -1e9;
@@ -307,7 +308,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.paintedCave = false;
     this.shells = [];
     this.shrine = undefined;
-    this.prayUntil = 0;
+    this.shrineReadyAt = 0;
     this.shrineNear = false;
     this.deepDark = undefined;
     this.deepK = 0;
@@ -460,10 +461,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // über allem im Bild (auch über der Dunkelheit der Tiefe), wie eine Anzeige
     this.stamG = this.add.graphics().setDepth(DEPTH.text - 1);
     this.stamA = 0;
-    this.stamMax = game.staminaMax;
     this.stamFull = 99;
     this.stamPulse = 0;
-    this.stamHold = 0;
     // von einem Ort zum nächsten bleibt man, wie man war: Kraft und Artgenossen
     const pr = game.prog;
     if (pr.hp !== undefined) this.player.hp = clamp(pr.hp, 1, this.player.stats.maxHp);
@@ -496,15 +495,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     // Laichen (im Laichfluss) – im Karbon gibt es stattdessen das Gelege (siehe broodStep)
     this.spawning = ep.brood ? undefined : new SpawnCtl(this);
-    // die große Muschel: Hier betet man um mehr Ausdauer
+    // Die große Muschel erinnert sich an gefundene Spuren.
     if (L.shrine) this.shrine = new Shrine(this, L.shrine.x, L.shrine.y, this.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch'));
-    // eine neue Linie: Deine Muscheln (sie bleiben dir) warten darauf, an der großen Muschel neu verteilt zu werden
-    if (this.shrine && game.canUp() && game.upCount === 0 && game.run && !game.run.upHint) {
-      game.run.upHint = true;
-      const free = game.shellsFree;
-      this.time.delayedCall(waking ? 9000 : 2500, () => !this.ended && bus.emit('notice', 'DIE GROSSE MUSCHEL', `${free} ${free === 1 ? 'Muschel wartet' : 'Muscheln warten'} darauf, verteilt zu werden.`));
-    }
-
     // Kollisionen
     this.physics.add.collider(this.player.rect, this.solids);
     this.physics.add.collider(this.animals, this.solids, undefined, (a) => (a as Animal).def.habitat !== 'air');
@@ -649,16 +641,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     };
     bus.on('quit', onQuit);
     bus.on('quitCancel', onQuitCancel);
-    // an der großen Muschel gewählt (HUD): Sie segnet in dieser Richtung
-    const onBless = (k: UpKey) => this.bless(k);
-    bus.on('shrineBless', onBless);
+    this.restoreCollections();
     this.events.on('player-dead', () => this.onDeath());
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
       bus.off('handOver', onHandOver);
       bus.off('quit', onQuit);
       bus.off('quitCancel', onQuitCancel);
-      bus.off('shrineBless', onBless);
       this.events.off('player-dead');
     });
   }
@@ -1673,15 +1662,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Ein Tier aus der Liste der Tiere nehmen (es wird nicht mehr bedacht). */
   dropAnimal(a: Animal) {
     const used = this.combat.get(a);
-    if ((a as { ghost?: boolean }).ghost && a.netId && used) this.pendingCombat.set(a.netId, { used, strength: this.strength(a) });
+    if ((a as { ghost?: boolean }).ghost && a.netId && used) this.pendingCombat.set(a.netId, { used, strength: this.strength(a), species:a.def.id, x:a.x, y:a.y });
     this.removeAnimal(a);
   }
 
   /** Gäste werten einen vorhergesagten Sieg erst nach der Todesmeldung des Ortswächters. */
   confirmNetDefeat(id: number, a?: Animal) {
     const live = a && this.combat.get(a);
-    const result = live && a ? { used: live, strength: this.strength(a) } : this.pendingCombat.get(id);
+    const result = live && a ? { used: live, strength: this.strength(a), species:a.def.id, x:a.x, y:a.y } : this.pendingCombat.get(id);
     if (result && !this.ended) recordDefeat((this.train.defeats ??= {}), result.used, result.strength);
+    if (result && !this.ended) this.bossFossil(result.species,result.x,result.y);
     if (a) this.combat.delete(a);
     this.pendingCombat.delete(id);
   }
@@ -1761,8 +1751,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const br = game.brood;
     if (br && ours && !this.ended) br.train.prey += a.role === 'prey' ? 1 : 2;
     this.raidT.delete(a);
-    // selten bleibt eine Muschel zurück – eher bei Tieren, die stark sind im Vergleich zu dir (SHELLS)
-    if (ours && !this.ended && Math.random() < shellChance((a.def.power * a.sz) / Math.max(1, this.player.stats.power))) this.dropShell(a.x, a.y);
+    if (ours && !this.ended) this.bossFossil(a.def.id,a.x,a.y);
     const kill = new Kill(ours, a.def.id);
     for (const k of a.helpers) if (k instanceof Kin && !k.dead) kill.helpers.add(k);
     // gemeinsam erlegt: zählt für den Schwarmfisch (gegen Starke mehr)
@@ -1964,17 +1953,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /**
    * Der Ausdauerkreis – wie in Breath of the Wild: ein grüner Kreis rechts neben dem Tier. Er erscheint, sobald Ausdauer
    * verbraucht wird, leert sich im Uhrzeigersinn (von zwölf Uhr aus) und füllt sich wieder; ist er voll, leuchtet er kurz auf
-   * und blendet aus. Mehr Ausdauer (Segen der großen Muschel) liegt als weitere Ringe außen herum – sie leeren sich zuerst.
+   * und blendet aus. Die vererbte Ausdauer bestimmt, wie lange der Kreis reicht.
    * Ganz leer ist das Tier erschöpft: Der Kreis wird rot und füllt sich rot, bis er voll ist. Wird es knapp, blinkt er.
    */
   private drawStamina(p: Player, dt: number) {
     const max = p.staminaMax, v = clamp(p.stamina, 0, max);
     const now = this.time.now;
-    // der Kreis wächst nach einem Segen sichtbar um sein neues Stück
-    const growing = now - p.grewAt < 1800;
-    // (während gebetet wird, bleibt er, wie er war – er wächst erst, wenn das Licht im Tier angekommen ist)
-    if (now >= this.stamHold) this.stamMax = growing ? Math.min(max, this.stamMax + dt * 0.5) : max;
-    const full = v >= max - 0.001 && !p.exhausted && !growing;
+    const full = v >= max - 0.001 && !p.exhausted;
     if (full && this.stamFull < 0) {
       // eben voll geworden: ein kurzes Aufleuchten
       this.stamFull = 0;
@@ -1991,7 +1976,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // gleich groß auf dem Bildschirm, egal wie nah die Kamera ist
     const z = this.cameras.main.zoom;
     // klein und dezent: ein schmaler Ring, etwas durchscheinend
-    const R = 8.5 / z, T = 3.4 / z, gap = 2 / z;
+    const R = 8.5 / z, T = 3.4 / z;
     const cx = p.x + p.rect.width / 2 + 16 / z, cy = p.y - p.rect.height / 2 - 10 / z;
     const a = this.stamA * 0.85, top = -Math.PI / 2;
     const low = !p.exhausted && v / max < 0.25;
@@ -2006,26 +1991,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       g.strokePath();
     };
     const pulse = 1 + this.stamPulse * 0.18;
-    for (let k = 0; k < 3; k++) {
-      const cap = clamp(this.stamMax - k, 0, 1);
-      if (cap <= 0) break;
-      const r = (R + k * (T + gap)) * (k === 0 ? pulse : 1);
-      const f = clamp(v - k, 0, cap);
-      // die Spur: dunkel, mit feinem Rand
-      arc(r, cap, T + 1.6 / z, 0x050806, 0.45 * a);
-      arc(r, cap, T, 0x1c2a1a, 0.4 * a);
-      // die Füllung, innen ein feiner heller Glanz
-      arc(r, f, T, col, 0.85 * a);
-      arc(r - T * 0.2, f, T * 0.25, lite, 0.3 * a);
-      // außen: die Stücke der Segen als feine Kerben
-      if (k > 0) {
-        for (let s = STAMINA.perBlessing; s < cap - 0.01; s += STAMINA.perBlessing) {
-          const ang = top + Math.PI * 2 * s;
-          g.lineStyle(1.2 / z, 0x050806, 0.7 * a);
-          g.lineBetween(cx + Math.cos(ang) * (r - T / 2), cy + Math.sin(ang) * (r - T / 2), cx + Math.cos(ang) * (r + T / 2), cy + Math.sin(ang) * (r + T / 2));
-        }
-      }
-    }
+    const r = R * pulse, f = v / Math.max(0.001, max);
+    arc(r, 1, T + 1.6 / z, 0x050806, 0.45 * a);
+    arc(r, 1, T, 0x1c2a1a, 0.4 * a);
+    arc(r, f, T, col, 0.85 * a);
+    arc(r - T * 0.2, f, T * 0.25, lite, 0.3 * a);
     // eben voll geworden: ein heller Ring, der kurz aufleuchtet
     if (this.stamPulse > 0) arc(R * pulse, 1, T * 0.6, 0xf2ffe0, this.stamPulse * 0.6 * a);
   }
@@ -2174,7 +2144,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const dt = Math.min(0.05, delta / 1000);
     this.t += dt;
     const L = this.L;
-    if (!this.ended && time > this.prayUntil) this.controls.update();
+    if (!this.ended && time > this.shrineReadyAt) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
     this.shrineStep(time, dt);
@@ -2846,25 +2816,37 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.shells = this.shells.filter((s) => !s.taken);
   }
 
-  private pickShell(sh: Shell) {
-    sh.take();
-    const n = game.addShell();
-    audio.sfx('shell');
-    this.puff(sh.x, sh.y - 16, 6, 0xf0dccc);
-    this.sparkle.explode(5, sh.x, sh.y - 20);
-    bus.emit('shell', n);
-    // die Muscheln bleiben dir (über alle Läufe); verteilt werden sie an der großen Muschel
-    const free = game.shellsFree;
-    bus.emit('notice', 'MUSCHEL GEFUNDEN', game.canUp() ? `${free} frei – genug für einen Segen der großen Muschel` : `${free} frei · der nächste Segen kostet ${game.upCost}`);
+  private pickShell(sh: CollectionPickup) {
+    const [kind,id]=sh.id.split(':');
+    const found=kind==='shell'?game.collectShell(id as ShellId):game.collectFossil(id as FossilId);
+    if(!found) return;
+    sh.take(); audio.sfx('shell');
+    this.puff(sh.x,sh.y-16,6,0xe3d2a3);
+    const name=kind==='shell'?COLLECTION_SHELLS.find(s=>s.id===id)?.name:COLLECTION_FOSSILS.find(f=>f.id===id)?.name;
+    bus.emit('notice',kind==='shell'?'MUSCHEL GEFUNDEN':'FOSSIL GEFUNDEN',name??'Eine bleibende Spur');
   }
 
-  /** Eine Muschel fällt von erlegter Beute: Sie sinkt zu Boden und funkelt. */
-  private dropShell(x: number, y: number) {
-    const gy = groundAt(this.L.terrain.hp, x);
-    if (!Number.isFinite(gy) || gy < y - 20) return;
-    this.shells.push(new Shell(this, x, gy - 2, `drop:${++this.dropN}`, y));
+  private bossFossil(species:string,x:number,y:number) {
+    if(!isFossilId(species))return;
+    if(!game.recordFossilDrop({id:species,epoch:game.epoch.id,place:this.place.id,x,y}))return;
+    this.makeFossil(species,x,y);
     audio.sfx('drop');
-    this.sparkle.explode(6, x, y);
+    bus.emit('notice','EINE SPUR BLEIBT',`${COLLECTION_FOSSILS.find(f=>f.id===species)!.name} hinterlässt eine Fossilplatte.`);
+  }
+
+  private makeFossil(id:FossilId,x:number,y:number) {
+    const spot=collectionSpot(this.L,(px,py)=>this.solidAt(px,py),x);
+    if(spot)this.shells.push(new CollectionPickup(this,spot.x,spot.y,`fossil:${id}`,Math.min(y,spot.y)));
+  }
+
+  private restoreCollections() {
+    for(const d of game.collection.pending) if(d.epoch===game.epoch.id&&d.place===this.place.id) this.makeFossil(d.id,d.x,d.y);
+    for(const d of SHELL_PLACEMENTS) {
+      if(d.epoch!==game.epoch.id||d.place!==this.place.id||game.hasShell(d.id))continue;
+      // A fixed terrain anchor: the deepest exposed floor, kept away from walls and solid rocks.
+      const spot=collectionSpot(this.L,(x,y)=>this.solidAt(x,y));
+      if(spot)this.shells.push(new CollectionPickup(this,spot.x,spot.y,`shell:${d.id}`));
+    }
   }
 
   // ---------------------------------------------------------------- die große Muschel
@@ -2891,45 +2873,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cullAdd(img, ch.x0 - 300, ch.x1 + 300);
   }
 
-  /** Wer an der großen Muschel die Interaktionstaste drückt, tritt vor sie: Dort verteilt man seine Muscheln (im HUD). */
+  /** Wer an der großen Muschel die Interaktionstaste drückt, tritt vor sie: Dort hört man ihre Weisheiten (im HUD). */
   private shrineStep(time: number, dt: number) {
     const sh = this.shrine;
     if (!sh) return;
     const p = this.player;
-    const can = !p.dead && !this.ended && time > this.prayUntil && this.quitLeft < 0;
+    const can = !p.dead && !this.ended && time > this.shrineReadyAt && this.quitLeft < 0;
     sh.update(dt, p.x, p.y, can, time);
     if (sh.near !== this.shrineNear) {
       this.shrineNear = sh.near;
-      bus.emit('talk', sh.near, 'Beten');
+      bus.emit('talk', sh.near, 'Lauschen');
     }
     if (sh.near && (this.controls.pressed.talk || touch.talk)) {
       this.controls.clear();
       p.facing = sh.x >= p.x ? 1 : -1;
       bus.emit('shrineOpen');
     }
-  }
-
-  /** Die große Muschel segnet deine Linie – in der Richtung, die du gewählt hast (Lebenskraft, Ausdauer oder Sicht). */
-  private bless(k: UpKey) {
-    const sh = this.shrine;
-    const p = this.player;
-    if (!sh || p.dead || this.ended || !game.buyUp(k)) {
-      audio.sfx('silent');
-      return;
-    }
-    const time = this.time.now;
-    this.prayUntil = time + 3800;
-    if (k === 'stam') this.stamHold = time + 2300;
-    audio.sfx('pray');
-    sh.pray(p.x, p.y, true);
-    p.facing = sh.x >= p.x ? 1 : -1;
-    // erst strömt das Licht in dein Tier – dann wächst es: der Körper, der Ausdauerkreis oder der Blick
-    this.time.delayedCall(2300, () => {
-      if (p.dead) return;
-      p.blessed(k);
-      this.cameras.main.flash(500, 255, 236, 200);
-      bus.emit('notice', 'SEGEN DER GROSSEN MUSCHEL', k === 'hp' ? 'Deine Lebenskraft wächst.' : k === 'stam' ? 'Deine Ausdauer wächst.' : 'Dein Blick reicht weiter.');
-    });
   }
 
   // ---------------------------------------------------------------- Ende

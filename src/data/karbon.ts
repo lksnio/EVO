@@ -46,13 +46,11 @@ export const BROOD = {
 
 /**
  * Sauerstoff: An Land sinkt der Vorrat stetig, im Wasser füllt er sich wieder. Ist er leer, trocknet das Tier aus und nimmt
- * Schaden. Er ersetzt im Karbon die Sicht als drittes Merkmal an der großen Muschel.
+ * Schaden. An Land ist der Vorrat begrenzt; im Wasser füllt er sich wieder.
  */
 export const OXYGEN = {
   /** so viele Sekunden reicht der volle Vorrat an Land (ausgewachsen, ohne Segen) */
   seconds: 26,
-  /** jeder Segen der großen Muschel: so viel mehr (Anteil) */
-  perUp: 0.15,
   /** Jungtiere (Larven mit Kiemen) trocknen schneller aus: ihr Vorrat reicht nur so viel (Anteil) */
   young: 0.55,
   /** im Wasser füllt er sich so schnell (Anteil je Sekunde) */

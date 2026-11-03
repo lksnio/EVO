@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game, type UpKey } from '../state/GameState';
+import { bus, game } from '../state/GameState';
 import type { LevelScene } from './LevelScene';
 import type { SwarmInfo } from '../objects/Swarm';
 import { EPOCHS, yearsAgo, type EpochDef } from '../data/epochs';
@@ -14,14 +14,13 @@ import type { Morph } from '../art/creatureArt';
 import { Button, MenuNav, panel, soundButton, text, title } from '../ui/ui';
 import { openKeys } from '../ui/keysPanel';
 import { capture, keyLabel, matches, onKeysChanged } from '../state/keymap';
-import { upTrail } from '../ui/upTrail';
+import { CollectionPanel } from '../ui/collectionPanel';
 import { touchButton } from '../ui/touchPad';
 import { Overview } from '../ui/overview';
 import { netInfo } from '../net/NetSync';
-import { UPGRADES } from '../data/life';
-import { BROOD, OXYGEN } from '../data/karbon';
+import { BROOD } from '../data/karbon';
 
-const nf = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
 
 /**
  * Die Anzeige im Level: oben die Zeit (Zeitalter und Jahresangabe), sonst kaum etwas – mehr zeigt die Übersicht (Taste C).
@@ -56,6 +55,7 @@ export class HudScene extends Phaser.Scene {
   private isTouch = false;
   private ramBtn = false;
   private overview?: Overview;
+  private collection?: CollectionPanel;
   /** der Weg ins Hauptmenü läuft gerade (die Sekunden zählen herunter) */
   private quitting = false;
   private overviewGlow?: Phaser.GameObjects.Image;
@@ -84,6 +84,7 @@ export class HudScene extends Phaser.Scene {
     this.giveUpArmed = false;
     this.ramBtn = false;
     this.overview = undefined;
+    this.collection = undefined;
     this.overviewGlow = undefined;
     this.hp = 1;
     this.hidden = false;
@@ -208,7 +209,7 @@ export class HudScene extends Phaser.Scene {
     bus.on('heartbeat', onBeat);
     this.events.once('shutdown', () => bus.off('heartbeat', onBeat));
     bus.on('ramUnlocked', onRam);
-    bus.on('shell', onShell);
+    bus.on('collection', onShell);
     this.events.once('shutdown', () => {
       bus.off('vitals', onVitals);
       bus.off('ramUnlocked', onRam);
@@ -216,7 +217,7 @@ export class HudScene extends Phaser.Scene {
       bus.off('life', onLife);
       bus.off('notice', onNotice);
       bus.off('dex', onDex);
-      bus.off('shell', onShell);
+      bus.off('collection', onShell);
       for (const k of Object.keys(touch) as (keyof typeof touch)[]) touch[k] = false;
     });
   }
@@ -314,7 +315,7 @@ export class HudScene extends Phaser.Scene {
   private updateGlow() {
     const g = this.overviewGlow;
     if (!g) return;
-    const fresh = game.shells > game.seenShells;
+    const fresh = game.collectionFresh;
     this.tweens.killTweensOf(g);
     if (!fresh) {
       g.setAlpha(0);
@@ -403,6 +404,7 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Übersicht (Taste C)
 
   toggleOverview() {
+    if (this.collection) { this.closeCollection(); return; }
     if (this.shrineC) return;
     if (this.overview) {
       this.overview.destroy();
@@ -416,7 +418,21 @@ export class HudScene extends Phaser.Scene {
     if (this.pauseC || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview());
+    this.overview = new Overview(this, { morph: lvl.player.morph(), hp: lvl.player.hp, hpMax: lvl.player.stats.maxHp }, () => this.toggleOverview(), () => this.openCollection());
+  }
+
+  openCollection() {
+    if (this.collection || !this.overview) return;
+    this.overview.c.setVisible(false);
+    this.collection = new CollectionPanel(this, game.collection, () => this.closeCollection());
+    game.seeCollection();
+    this.updateGlow();
+  }
+
+  private closeCollection() {
+    this.collection?.destroy(); this.collection=undefined;
+    this.overview?.c.setVisible(true);
+    audio.sfx('back');
   }
 
   /**
@@ -526,75 +542,28 @@ export class HudScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- Die große Muschel
 
-  /**
-   * Vor der großen Muschel: Man verteilt seine Muscheln auf Lebenskraft und Ausdauer (im Karbon auch Sauerstoff). Jeder Segen kostet doppelt so
-   * viele wie der vorige (1, 2, 4, 8 … – gleich, wofür). Die Welt steht so lange still.
-   */
+  /** The pearl remembers discoveries; listening never modifies any animal stats. */
   private openShrine() {
     const lvl = this.scene.get('Level') as unknown as LevelScene;
     if (this.shrineC || this.pauseC || this.overview || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
     audio.sfx('select');
     this.scene.pause('Level');
-    const c = (this.shrineC = this.add.container(0, 0).setDepth(52));
-    c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.62).setOrigin(0).setInteractive());
-    const x0 = W / 2 - 440, y0 = 104, pw = 880, ph = 512;
-    c.add(panel(this, x0, y0, pw, ph, 0.94));
-    // ein warmer Schimmer hinter dem Titel, wie das Glühen der Perle
-    c.add(this.add.image(W / 2, y0 + 58, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(420, 120).setAlpha(0.16));
-    c.add(title(this, W / 2, y0 + 56, 'Die große Muschel', 40).setOrigin(0.5));
-
-    const free = game.shellsFree, total = game.shells, cost = game.upCost, done = game.upCount, all = done >= UPGRADES.max;
-    const mus = (n: number) => `${n} ${n === 1 ? 'Muschel' : 'Muscheln'}`;
-    const info = text(this, W / 2 + 14, y0 + 102, `${free} frei  ·  ${total} gefunden  ·  Segen ${done} von ${UPGRADES.max}${all ? '' : `  ·  der nächste kostet ${mus(cost)}`}`, 18, UI.boneDim).setOrigin(0.5);
-    c.add(info);
-    c.add(this.add.image(info.x - info.width / 2 - 10, info.y + 1, 'shell').setOrigin(1, 0.5).setDisplaySize(18, 20));
-    const trail = game.upTrail;
-
-    const ups = game.ups;
-    const now = game.shown(ups);
-    const cols: { k: UpKey; name: string; what: string; val: (v: ReturnType<typeof game.shown>) => number }[] = [
-      { k: 'hp', name: 'Lebenskraft', what: `+${nf(UPGRADES.hp * 100, 1)} %  ·  ein größerer Körper`, val: (v) => v.hpMax },
-      // im Karbon zusätzlich Sauerstoff – länger an Land, ohne auszutrocknen (die Sicht gibt es nicht mehr als Segen: sie wächst in der Tiefe)
-      ...(game.upKeys.includes('oxy') ? [{ k: 'oxy' as UpKey, name: 'Sauerstoff', what: `+${Math.round(OXYGEN.perUp * 100)} %  ·  länger an Land`, val: (v: ReturnType<typeof game.shown>) => v.oxy }] : []),
-      { k: 'stam', name: 'Ausdauer', what: '+¼ Kreis  ·  kräftigere Flossen', val: (v) => v.stam },
-    ];
-    const items: Button[] = [];
-    cols.forEach((col, i) => {
-      const cx = W / 2 + (i - (cols.length - 1) / 2) * 282, top = y0 + 152;
-      const g = this.add.graphics();
-      g.fillStyle(0x000000, 0.22);
-      g.fillRoundedRect(cx - 128, top, 256, 262, 10);
-      g.lineStyle(1, 0xc8913c, 0.22);
-      g.strokeRoundedRect(cx - 128, top, 256, 262, 10);
-      c.add(g);
-      const maxed = game.upMaxed(col.k) || all;
-      const next = col.val(game.shown({ ...ups, [col.k]: ups[col.k] + 1 }));
-      c.add(text(this, cx, top + 30, col.name.toUpperCase(), 14, UI.ochre, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4));
-      c.add(title(this, cx, top + 84, maxed ? String(col.val(now)) : `${col.val(now)}  →  ${next}`, 34, UI.bone).setOrigin(0.5));
-      c.add(upTrail(this, cx, top + 115, trail.filter((d) => d.key === col.k), { size: 14, step: 20, perRow: 12 }).c);
-      c.add(text(this, cx, top + 151, game.upMaxed(col.k) ? 'so stark, wie es geht' : col.what, 15, UI.boneDim).setOrigin(0.5));
-      const b = new Button(this, cx, top + 216, col.name, { w: 220, h: 50, color: UI.ochreN, onClick: () => this.pickShrine(col.k) });
-      b.setDisabled(maxed || free < cost);
-      items.push(b);
-      c.add(b);
-    });
-    const note = !total
-      ? 'Noch keine Muscheln. Sie fallen von erlegten Tieren – von starken öfter als von schwachen.'
-      : all
-        ? `Deine Linie hat alle ${UPGRADES.max} Segen.${game.brood ? '' : ' Beginnt eine neue, sind alle Muscheln wieder frei.'}`
-      : free < cost
-        ? `Für den nächsten Segen fehlen noch ${mus(cost - free)}.`
-        : game.brood
-          ? 'Die Segen gelten für deine ganze Art – auch über das Aussterben hinaus.'
-          : 'Die Segen gelten für deine ganze Linie. Beginnt eine neue, sind alle Muscheln wieder frei.';
-    c.add(text(this, W / 2, y0 + 440, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5));
-    const go = new Button(this, W / 2, y0 + 482, 'Gehen', { w: 200, h: 42, size: 18, icon: 'ic_back', onClick: () => this.closeShrine() });
-    items.push(go);
-    c.add(go);
-    this.shrineNav = new MenuNav(this, items, 3);
-    this.shrineNav.focus(Math.max(0, items.findIndex((b) => !b.disabled)));
-    c.setAlpha(0);
-    this.tweens.add({ targets: c, alpha: 1, duration: 220, ease: 'Sine.out' });
+    const wisdom=game.hearWisdom();
+    const c=this.shrineC=this.add.container(0,0).setDepth(52);
+    c.add(this.add.rectangle(0,0,W,H,0x000000,.65).setOrigin(0).setInteractive());
+    c.add(panel(this,240,136,800,448,.96));
+    c.add(this.add.image(W/2,226,'glow').setTint(0xe4d4a5).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(430,160).setAlpha(.13));
+    c.add(title(this,W/2,202,'Die große Muschel',34).setOrigin(.5));
+    c.add(text(this,W/2,244,'Sie erinnert sich an deine Spuren.',17,UI.boneDim,{fontStyle:'italic'}).setOrigin(.5));
+    c.add(text(this,W/2,348,wisdom.text,26,UI.bone,{align:'center',wordWrap:{width:660},lineSpacing:15}).setOrigin(.5));
+    const buttons:Button[]=[];
+    if(game.unheardWisdom) {
+      const next=new Button(this,W/2-116,514,'Weiter lauschen',{w:210,h:44,size:18,onClick:()=>{this.closeShrine(true);this.openShrine();}});
+      c.add(next);buttons.push(next);
+    }
+    const go=new Button(this,game.unheardWisdom?W/2+116:W/2,514,'Gehen',{w:210,h:44,size:18,onClick:()=>this.closeShrine()});
+    c.add(go);buttons.push(go);
+    this.shrineNav=new MenuNav(this,buttons,2);
   }
 
   private closeShrine(quiet = false) {
@@ -607,16 +576,10 @@ export class HudScene extends Phaser.Scene {
     this.scene.resume('Level');
   }
 
-  /** Gewählt: Die Welt läuft weiter, und die große Muschel segnet (LevelScene.bless). */
-  private pickShrine(k: UpKey) {
-    if (!this.shrineC) return;
-    this.closeShrine(true);
-    bus.emit('shrineBless', k);
-  }
-
   // ---------------------------------------------------------------- Rast (Pause)
 
   togglePause() {
+    if (this.collection) { this.closeCollection(); return; }
     // läuft der Weg ins Hauptmenü, bricht die Rast-Taste (oder der Knopf) ihn nur ab
     if (this.quitting) {
       bus.emit('quitCancel');

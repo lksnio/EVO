@@ -32,10 +32,9 @@ describe('Generationswechsel', () => {
   beforeEach(() => {
     game.resetAll();
     game.newRun();
-    SPAWN.gold = 0;
     neutral();
   });
-  afterEach(() => { SPAWN.gold = 0.05; INHERIT.vary = 0.5; restore(); });
+  afterEach(() => { INHERIT.vary = 0.5; restore(); });
 
   it('ein Jungtier ist klein und schwach, ausgewachsen stark – Artgenossen sind immer ausgewachsen', () => {
     const young = game.stats();

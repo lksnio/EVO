@@ -133,19 +133,7 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     expect(h.traits.massGain).toBeGreaterThan(shallow.traits.massGain!);
   });
 
-  it('Muschel-Segen ändern nur ihren Wert und verursachen keine Abzüge an den anderen Werten', () => {
-    game.ageBy(250);
-    game.data.shells = 1024;
-    expect(game.upKeys).toEqual(['hp', 'stam']);
-    for (const key of game.upKeys) {
-      const before = game.shown(), st = game.stats();
-      expect(game.buyUp(key)).toBe(true);
-      const after = game.shown(), next = game.stats();
-      for (const k of ['hpMax', 'sight', 'stam', 'bite', 'skull', 'fins', 'scales'] as const) expect(after[k]).toBeGreaterThanOrEqual(before[k]);
-      expect(next.speed).toBe(st.speed);
-      expect(next.defense).toBe(st.defense);
-    }
-  });
+
 
   it('alte Spielstände bleiben lesbar, neue Punkte und Körperdaten überstehen das Packen und Schlüpfen', () => {
     game.traits.jaw = 0.2;
@@ -197,9 +185,9 @@ describe('Werte nach Verhalten (Stoß, Strömung, Strecke)', () => {
 
   it('Tempo und Ausdauer sind Kompromisse: mehr Flossenpunkte kosten etwas Ausdauer, mehr Ausdauerpunkte etwas Tempo', () => {
     const t = { ...game.traits };
-    const base = game.stats(game.cls, t, undefined, false);
-    const fast = game.stats(game.cls, { ...t, finGain: 10 }, undefined, false);
-    const long = game.stats(game.cls, { ...t, endGain: 10 }, undefined, false);
+    const base = game.stats(game.cls, t, undefined);
+    const fast = game.stats(game.cls, { ...t, finGain: 10 }, undefined);
+    const long = game.stats(game.cls, { ...t, endGain: 10 }, undefined);
     const tempo = (x: typeof base) => x.speed * x.cruise;
     expect(tempo(fast)).toBeGreaterThan(tempo(base));
     expect(fast.endurance).toBeLessThan(base.endurance);

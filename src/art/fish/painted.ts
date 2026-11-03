@@ -172,7 +172,7 @@ function pw(xs: number[], ys: number[], x: number) {
 }
 
 let neutralA: FishAnatomy | undefined;
-const neutral = () => (neutralA ??= fishAnatomy({ cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 1, sex: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, fang: 0, toothTier: 0, light: 0, limb: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0, eye: 0, stamUp: 0, grip: 0, gills: 0 } as Morph));
+const neutral = () => (neutralA ??= fishAnatomy({ cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 1, sex: 0, spike: 0, green: 0, sand: 0, len: 0, girth: 0, swift: 0, fang: 0, toothTier: 0, light: 0, limb: 0, fin: 0, tail: 0, crest: 0, tint: 0, snout: 0, coat: 0, armor: 0, st: 0, bs: 0, vf: 0, sw: 0, fUp: 0, fDown: 0, fSide: 0, fTail: 0, eye: 0, grip: 0, gills: 0 } as Morph));
 
 const refAnat = new Map<string, FishAnatomy>();
 const BASE_MORPH = { cls: 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 1, sex: 0 } as Morph;

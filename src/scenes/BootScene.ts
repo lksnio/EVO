@@ -4,7 +4,7 @@ import { W, H, DEBUG, TITLE_FONT, UI } from '../config';
 import { commonTextures, decorTextures } from '../art/worldArt';
 import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
-import { shellTexture } from '../art/shellArt';
+import { collectionGlintTexture } from '../art/shellArt';
 import { preloadRiver } from '../art/riverProps';
 import { preloadReef } from '../art/reefProps';
 import { preloadEditorUnits } from '../editor/catalog';
@@ -39,7 +39,7 @@ export class BootScene extends Phaser.Scene {
     this.time.delayedCall(40, () => {
       commonTextures(this);
       uiTextures(this);
-      shellTexture(this);
+      collectionGlintTexture(this);
       decorTextures(this);
       lifeTextures(this);
       const q = new URLSearchParams(location.search);

@@ -67,7 +67,7 @@ Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
 - **Entdeckungen über mehrere Läufe behalten.** Sieben besondere Muscheln haben
   feste Fundorte; sieben große Gegner hinterlassen Fossilplatten. Ein Lauf darf
   Funde verpassen. Beide Sammlungen bleiben über gespielte Tiere hinweg erhalten
-  und bilden eine Sternübersicht vom Startbildschirm aus.
+  und bilden eine Sternübersicht in der C-Übersicht im laufenden Spiel.
 - **Besondere Orte und neue Anfänge.** Die große Startmuschel bekommt mit neuen
   Funden rätselhafte Weisheiten. Vollständige Sammlungen führen an besonderen Orten
   zu verborgenen Gelegen. Welche Tiere und Orte das werden, ist noch offen.
@@ -75,9 +75,22 @@ Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
   und Verbindungen über die Zeit. Handgebaute Zeitvarianten im vorhandenen
   Weltbaukasten sind der vorgeschlagene Weg; der genaue Umfang bleibt offen.
 
-Die bisherigen Muschel-Zufallsdrops und gekauften Werteboni werden damit abgelöst.
-Sie sind im aktuellen Prototyp noch vorhanden. Die Wiedereinstiege in gespielte
-Linien und die neuen Sammlungs-/Gelegesysteme sind ebenfalls noch umzusetzen.
+**Bereits umgesetzt:** Die Sternsammlung ist im laufenden Spiel über **C → Sammlung ansehen**
+erreichbar. Sieben große Fossilplätze sitzen an den Spitzen, sieben kleine Muschelplätze
+in den inneren Winkeln. Ein fester Muschelfund liegt ganz unten im Devon-Tiefental.
+Der erste eigene Sieg über Dunkleosteus hinterlässt garantiert seine Fossilplatte.
+Funde bleiben über Läufe erhalten; liegengebliebene Fossilien werden am Fundort wieder geladen.
+
+Die alten Zufalls-Muscheln, gekauften Werteboni und goldenen Ei-Boni sind entfernt.
+Beim Laden werden auch ihre alten Speicherfelder gelöscht; vererbte Eigenschaften,
+Linien und Gelege bleiben erhalten. Die große Muschel bietet stattdessen sieben
+vorläufige Rätselverse, die mit neuen unterschiedlichen Muscheln zugänglich werden.
+Die weiteren sechs Muschelfundorte, die übrigen Bossbegegnungen, Belohnungsgelege und
+Stammbaum-Wiedereinstiege folgen später.
+
+[Leere Sternsammlung](art/EVO_collection_v1/captures/stern-leer.png) ·
+[Vollständig bestückte Vorschau](art/EVO_collection_v1/captures/stern-voll.png) ·
+[Umsetzung und Browserprüfung](art/EVO_collection_v1/README.md)
 
 Für die Entwicklung: [Entscheidungen, offene Fragen, Aufwand und Übernahme](docs/EVOLUTION_ROADMAP.md).
 Das Entwicklungsdokument enthält interne Regeln und Belohnungsspoiler.
@@ -148,9 +161,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 - **Lebenskraft, Ausdauer, Sauerstoff:** Sauerstoff ersetzt im Karbon die Sicht. An Land sinkt er stetig (fünf
   Bläschen neben dem Tier, ausgewachsen reicht er 26 Sekunden, Larven mit Kiemen nur gut die Hälfte), im Wasser füllt er
   sich wieder; leer **trocknet das Tier aus** und nimmt Schaden. Ausdauer kosten Spurt, Bisse und vor allem **Klettern**.
-  Die große Muschel bietet Lebenskraft, Ausdauer und Sauerstoff (+15 % je Segen) mit der **gemeinsamen Kostenfolge**
-  1, 2, 4, 8 … – im Karbon bleiben die Segen auch nach dem Aussterben. Das ist die
-  bestehende Altregel; das neue Vererbungs- und Sammelsystem wird sie ersetzen.
+  Sammelmuscheln und die große Muschel verändern diese Werte nicht. Der Vorrat an
+  Land bleibt im bisherigen Karbon-Prototyp durch die Lebensphase bestimmt.
 - **Das Startgelege:** Jede Linie beginnt mit **100 Eiern** im Brutsumpf – alle mit Grundwerten. Man schlüpft als
   kleine **Larve mit Kiemen**. Was man frisst (Pflanzen, kleine Fische, Gliederfüßer), ist **Nahrung**: Mit 24 Nahrung
   kommt die **Metamorphose** (die Kiemen schwinden, das Tier wird groß). Bis dahin greift kein großer Räuber an – nur wer
@@ -173,7 +185,7 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Jede Richtung wächst je Generation um höchstens etwa 0,1 (mit abnehmendem Ertrag), die Eier streuen um ±0,05. Die
   Übersicht (C) zeigt unter „Diese Generation“, wie viel schon trainiert ist.
 - **Aussterben:** Tot und keine Eier mehr – die Art stirbt aus. Die nächste Linie beginnt bei Generation 0 mit
-  Grundwerten; die Segen der großen Muschel bleiben.
+  Grundwerten; die dauerhafte Sammlung bleibt.
 - **Kompromisse:** Beine und Griff lassen steilere Hänge zu (28° + 26° × Beine + 22° × Griff) und machen an Land
   schneller, bremsen aber beim Schwimmen. Schuppen schützen, machen an Land etwas langsamer und **das Klettern teurer**.
   Ist ein Hang zu steil, kommt man nicht weiter oder rutscht ab; erschöpft hält man sich fest und klettert erst weiter,
@@ -261,18 +273,12 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   - **Die Eier tragen die Werte zur Laichzeit:** Was ein Ei verspricht, steht beim Befruchten fest – so, wie dein Tier
     dann ist und gelebt hat (siehe unten, „Anpassung“). Jedes Ei variiert seinen neuen Zuwachs um ±50 %; bereits geerbte
     Werte streuen dabei nicht erneut.
-  - **Goldene Geburt:** Jedes Ei leuchtet mit **5 %** Wahrscheinlichkeit golden (`SPAWN.gold`). Schon beim Laichen sieht man
-    es: Das Gelege färbt sich golden, goldene Funken steigen auf, „GOLDENE GEBURT · +25 % Ausdauer“. Das Tier aus einem
-    goldenen Ei hat **einen Segen mehr** in einer Richtung der großen Muschel – genau so viel, wie der nächste Segen
-    bringen würde (+2,5 % Lebenskraft, +25 % Ausdauer, im Karbon +15 % Sauerstoff). Er gilt **nur für dieses
-    Tier**, nicht für die Linie, und macht den nächsten Segen nicht teurer. In der Laich-Wahl leuchtet das Ei golden, die
-    Karte trägt ein goldenes Band.
   - **Die Wahl:** Oben stehen die **Geschwister** (Eier deiner Generation, die noch warten – gibt es keine, fehlt der
     Kasten, und es steht nur **ein** Laich da), darunter der **Laich für die nächste Generation**. Jedes Ei zeigt das ausgewachsene Tier und seine **Erbgutwerte** (Lebenskraft,
     Ausdauer, Gebiss, Stoß, Tempo, Schuppen), daneben den Unterschied zu deinem Tier; die besten Werte einer Gruppe
     leuchten ocker, die stärksten Eier stehen vorn. Werte und Reihenfolge sind für alle Spieler identisch: Angezeigt wird
-    das ausgewachsene Erbgut einschließlich eines goldenen Ei-Segens. Persönliche Muschelsegen kommen beim Schlüpfen hinzu;
-    sie verändern weder die Eiwerte noch die Reihenfolge im gemeinsamen Laich.
+    ausschließlich das ausgewachsene Erbgut. Sammelfunde verändern weder Eiwerte
+    noch Reihenfolge oder die späteren Werte des geschlüpften Tiers.
   - **Kein Weg zurück:** Ein Geschwister hält dich in deiner Generation (der Laich wartet weiter). Wer ein Ei der
     **nächsten Generation** wählt, beginnt sie – und **kommt nie mehr zurück**: Die übrigen Geschwister sind dann verloren,
     der übrige Laich sind die neuen Geschwister. Vor jedem Schlüpfen fragt das Spiel nach; zu Lebzeiten steht dort
@@ -289,10 +295,10 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
   Nur besiegte Gegner zählen für die Kampfwertung, auch ohne sie zu fressen. Die Menge und relative Stärke bestimmen den
   Zuwachs: Acht ebenbürtige Siege erschließen das volle Fleischbudget; stärkere Gegner zählen entsprechend mehr.
   Jedes Ei variiert nur seinen neuen Zuwachs um **−50 % bis +50 %**. Gegenpaare sind Gebiss/Schädel und Flossen/Schuppen:
-  Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns. Muschel-Segen haben keine Gegenkosten.
+  Der Gegenwert verliert die Hälfte der unteren Schranke des positiven Zugewinns.
 
-  **Bisherige Werte- und Trainingsregeln:** Der Prototyp kombiniert Muschelsegen und
-  Verhalten, unter anderem für Gebiss und Ausdauer. Diese Vererbungsregeln werden
+  **Bisherige Werte- und Trainingsregeln:** Der Prototyp berechnet Eigenschaften
+  aus Verhalten, Körper und Vererbung. Diese Vererbungsregeln werden
   insgesamt neu ausgearbeitet; die folgende Liste beschreibt den bestehenden Stand:
   - **Stoß (Schädel):** schadet mehr (`RAM.damage` 0,95 statt 0,625 × Schädelwert) und zählt für den Schädel wie **3,5 Bisse** (`RAM.credit`): Ein Sieg mit
     einem Stoß und drei Bissen gibt dem Schädel jetzt fast die Hälfte der Punkte statt ein Viertel.
@@ -551,7 +557,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
     der Höhle werden keine fremden Bewohner oder Zuwanderer erzeugt; natürliche Bewegung bleibt möglich. Große Jäger wohnen erst weiter draußen.
     Selten zieht ein einzelner größerer Raubfisch außerhalb der Kinderstube vorbei. Auch im Hintergrund ist weniger los.
     Ausgewachsen kehrst du hierher zurück, um zu laichen – und um an der **großen
-    Muschel** zu beten (siehe „Die große Muschel – beten“ weiter unten).
+    Muschel** zu lauschen (siehe „Die große Muschel“ weiter unten).
   - **Bewachsene Orte** (Tangwiese, Schwammgarten, Tangdickicht, Korallengarten) sind **flach und üppig**: dichter
     Bewuchs, viel Nahrung, kaum Jäger.
   - **Trübe Orte** (Trübe Bucht, Sandfeld, Schlickebene …) sind **Hügelketten** oder flache Sandebenen – man sieht
@@ -663,8 +669,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   Uhrzeigersinn von zwölf Uhr aus, füllt sich kurz danach wieder, leuchtet auf, wenn er voll ist, und blendet aus. Wird es
   knapp, **blinkt** er rot. Ist er ganz leer, ist dein Tier **erschöpft**: Der Kreis wird **rot**, es geht nur noch lahm
   voran, ohne Spurt und Stoß – erst wenn er sich (rot) **ganz** gefüllt hat, ist es vorbei. Jedes Tier hat **einen Kreis**;
-  **mehr Ausdauer gibt es nur von der großen Muschel** (siehe unten): Jeder Segen in Ausdauer legt außen ein Stück Ring an
-  (ein Viertelkreis je Segen, höchstens drei Kreise), und die äußeren Ringe leeren sich zuerst. Der Kreis ist klein und dezent –
+  **die effektive Ausdauer hängt vom Körper und den vererbten Merkmalen ab**. Sammelmuscheln geben keinen Ausdauerbonus. Der Kreis ist klein und dezent –
   ein schmaler, leicht durchscheinender Ring dicht neben dem Tier. **Wie schnell** die Ausdauer
   schwindet, hängt am Körper: Schwere, gepanzerte Tiere und starke Kiefer ermüden schneller, schlanke Verfolger halten länger
   durch (ein Kreis reicht bei normalem Körperbau drei Sekunden Spurt), kräftigere vererbte Flossen etwas länger. Gerechnet
@@ -676,42 +681,28 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   halbes – nicht gleich nach einem Treffer, nicht im Spurt oder Stoß, im Alter langsamer. Schneller geht es mit
   **Heilkräutern** (hellgrün mit rosa Blüten, goldener Schimmer; eines heilt 40 %) – manche Pflanzen heilen also,
   **Fleisch heilt nicht**, es nährt nur die Brut.
-- **Muscheln farmen (Altregel, wird ersetzt):** Muscheln liegen im bisherigen Prototyp nicht fest an ihren Orten – sie **fallen selten von erlegter Beute** (Tiere, die
-  du erlegt hast oder an deren Tod du beteiligt warst). Wie selten, hängt davon ab, **wie stark das Tier im Vergleich zu dir
-  war**: ein ebenbürtiges in **10 %** der Fälle, ein doppelt so starkes (größeres) in **20 %**, schwache Beute halb so
-  oft – wer stärker wird, findet bei kleinen Tieren also seltener eine. Die Muschel sinkt funkelnd zu Boden, ein heller Ton
-  klingt; wer sie berührt, nimmt sie mit (oben links steht, wie viele frei sind und was der nächste Segen kostet).
-  **Weil sie so selten sind, gehören die Muscheln dir – nicht deiner Linie:** Sie bleiben über **alle Läufe** hinweg, auch
-  wenn deine Linie ausstirbt.
-- **Die große Muschel – bisherige Werteboni:** Im **Laichfluss** steht ein Stück vor dem Schlupfplatz eine **riesige
-  Fächermuschel** (gezeichnetes Bild `src/assets/shrine/muschel.webp`, rund 118 Bildpunkte breit), perlmuttfarben, mit einer
-  leise glühenden **Perle** in der Mitte, Lichtfunken steigen auf, von oben fällt ein
-  Lichtschacht. Wer davor die Interaktionstaste drückt (F, am Handy „Beten“), tritt vor sie: Ein Fenster zeigt, wie
-  viele Muscheln **frei** sind, und **zwei Richtungen** (im Karbon drei), in die sie deine Linie segnen kann – jede mit dem Wert jetzt und
-  danach („27 → 28“):
-  - **Lebenskraft:** +2,5 % je Segen – und der **Körper wird je Segen um 1,8 % größer**.
-  - **Ausdauer:** ein Viertelkreis mehr (höchstens drei Kreise) – und die **Flossen werden größer und kräftiger**.
-  - (**Sicht** ist kein Segen mehr – sie wächst nur durch Zeit in der Tiefe, siehe „Sicht“ unten.)
-
-  **Was ein Segen kostet:** Der erste **1 Muschel**, jeder weitere **doppelt so viele** wie der vorige – **gleich, in welche
-  Richtung**: 1, 2, 4, 8, 16 … Vorerst gibt es **höchstens 10 Segen** je Linie: Der zehnte kostet 512 Muscheln, alle zehn
-  zusammen 1023 (`UPGRADES.max`). Das Fenster zeigt „Segen 3 von 10“. Wählen mit ← → (oder Klick), Eingabe segnet,
-  Esc geht. Dann strömt Licht von der Perle in dein Tier, Ringe aus Licht gehen von ihr aus, und es wächst sichtbar: der
-  Körper (und die Lebenskraft ist ganz wieder da), der Ausdauerkreis oder der Blick. Die Segen gelten für die **ganze
-  Linie** (über alle Generationen). **Beginnt eine neue Linie** (nach dem Aussterben oder bei einem Neustart), sind **alle
-  Muscheln wieder frei** und man verteilt sie neu – gleich beim Schlüpfen, denn die große Muschel steht im Laichfluss
-  (eine Meldung erinnert daran). Ist ein Segen bereit, **ruft** die Perle: Alle paar Sekunden geht ein Ring aus Licht von
-  ihr aus. Alle Zahlen stehen in `SHELLS`, `UPGRADES` und `STAMINA` (`src/data/life.ts`) und in der
-  [Entwickler-Einstellung](#entwickler-einstellung) („Muscheln, Segen und Sicht“); die Muschel in `src/objects/Shrine.ts`,
-  das Fenster in `src/scenes/HudScene.ts` (`openShrine`).
+- **Muscheln und Fossilien sammeln:** Es gibt sieben eindeutige Muscheln und sieben
+  Fossilplatten. Sie gehören zum Spielerprofil, bleiben über neue Linien erhalten und
+  werden nicht ausgegeben. Die erste Muschel liegt am tiefsten freien Boden im
+  Devon-Tiefental; weitere feste Fundorte folgen. Normale Tiere lassen keine Muscheln
+  mehr fallen. Der erste eigene Sieg über Dunkleosteus erzeugt seine Fossilplatte.
+  Wer sie berührt, sammelt sie ein; bis dahin bleibt ihr Fundort gespeichert. Weitere
+  Siege erzeugen keine Duplikate. Auch Gäste erhalten eine Platte erst nach bestätigtem
+  Tod eines Bosses, an dessen Kampf sie beteiligt waren.
+- **Die große Muschel – lauschen:** Im Laichfluss steht die große Fächermuschel.
+  Mit F beziehungsweise dem Interaktionsknopf öffnet sich ein ruhiger Dialog.
+  Jede neue unterschiedliche Sammelmuschel eröffnet einen weiteren von sieben
+  vorläufigen Rätselversen. Sind mehrere Verse neu, kann man weiterlauschen.
+  Wiederholte Besuche verändern keine Werte und geben keine Gegenstände aus.
+  Die späteren Abgabeorte und neuen Gelege sind noch nicht eingebaut.
 - **Sicht gibt es nur in den Tiefen-Orten:** In allen anderen Orten – im Laichfluss, auf dem Schelf, im trüben Flachwasser – ist die Sicht **immer ganz frei**: kein Trübe,
   kein Dunkel, alles im Bild klar (die Wasserfarben bleiben, sie sind Stimmung, keine Sichtgrenze). Im **Tiefental** (Orte der Art `deep` und `abyss`) gilt die Sicht
   dagegen **vom Einstieg an**: Oben ist sie schon deutlich begrenzt (Tiefenwert `SIGHT.deepTop` 0,3), und mit jedem Schritt nach unten wird sie **enger** – bis zu einem
   Mindestmaß am Grund (der klare Bereich schrumpft auf etwa 120 Bildpunkte, das Dunkel liegt dicht und fast schwarz an den Rändern). Wie bisher gilt die Sicht des Tiers –
   nur **ein Zehntel weiter** (`SIGHT.deepBonus` 1,1); Übergänge sind stetig (`vision(…, gate)`, `LevelScene.sightStep`), die Seitenlinie bleibt. **Training:** Sicht ist **kein
   Segen der Muschel** und hat keinen Kompromiss; sie wächst nur dadurch, dass man **lange unten** schwimmt (Sekunden unterhalb von `SIGHT.trainFrom`, einem Viertel der Tiefe des
-  Ortes): Bei `INHERIT.deepRef` (90 s) bekommen die Nachkommen `INHERIT.sightStep` (2) Sichtpunkte (+5 % Sicht je Punkt), bei weniger anteilig; die Augen wachsen mit. Ältere
-  Spielstände mit Sicht-Segen bekommen die Muscheln zurück (frei zum neu Verteilen).
+  Ortes): Bei `INHERIT.deepRef` (90 s) bekommen die Nachkommen `INHERIT.sightStep` (2) Sichtpunkte (+5 % Sicht je Punkt), bei weniger anteilig; die Augen wachsen mit.
+  Alte Muschelsegen werden beim Laden entfernt; geerbte Sichtpunkte bleiben erhalten.
 
 - **Bewuchs und Hintergrund:** Der Korallengarten ist dicht bewachsen; im Tiefental wächst **deutlich weniger** (Deko je Spalte nur noch 38 %, im Abgrund 20 %, `dressGround`). Im
   Hintergrund ziehen im Korallengarten **nur noch halb so viele** Fischschwärme wie zuvor (`BackSea.DENSITY.lush` 0,75).
@@ -837,7 +828,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   rund **15 % größer**. Das richtet sich nach den vererbten Punkten; Verletzungen lassen das Tier nicht schrumpfen.
 - **Die Übersicht (Taste C)** – wie der Charakterbogen alter Rollenspiele (etwa in *Gothic*): ein ruhiger, dunkler Bogen
   mit feinem Rahmen. Oben der Name deiner Linie (z. B. *Protichthys vulgaris*), darunter Körperform und Zeitalter.
-  Darunter groß die **drei übergreifenden Werte**, die die große Muschel segnet: **Lebenskraft** als Zahl, gerade und
+  Darunter groß die **drei übergreifenden Werte**: **Lebenskraft** als Zahl, gerade und
   höchstens („20/50“), **Sicht** (20 zu Beginn) und **Ausdauer** (30 bei einem Kreis und normalem Körperbau – so viele
   Zehntelsekunden reicht ein Spurt). Darunter, auf einer Reihe kleiner Tafeln, Waffen und Schutz: **Gebiss** (Bissstärke),
   **Schädel** (Stoßstärke), **Flossen** (Schwimmen und Wendigkeit) und
@@ -852,16 +843,14 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   stehen über dem bewegten Fischbild. Die Gewichtsanzeige ist um Faktor 100 skaliert, ohne die Kampfverhältnisse zu ändern.
   Nahrung, Eikosten und Nachwuchs stehen gemeinsam am Laich (E), nicht mehr auf C. Neben Gebiss, Schädel, Flossen und
   Schuppen steht klein, **wie viel sich die Fähigkeit gegenüber der vorigen Generation verändert hat** (▲ grün, ▼ rot; Null entfällt;
-  ausgewachsen gemessen, mit denselben Segen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
-  Die **Segen** stehen als kleine Kugeln direkt unter den großen Zahlen: **Lebenskraft rot, Ausdauer grau, Sicht schwarz**
-  (im Karbon Sauerstoff blau), ohne zusätzliche Beschriftung. Zwei Segen in Lebenskraft ergeben zwei rote Kugeln.
-  Ein Segen aus einer **goldenen Geburt** hat einen dezenten goldenen statt weißen Glanzpunkt.
-  Auch an der großen Muschel stehen die Kugeln unter dem passenden Wert. Die **Muscheln** stehen rechts in der Spalte
-  der kleinen Karten: ein Muschel-Symbol mit der noch freien Anzahl, ohne weitere Beschriftung. Die Muscheln sind klein und
-  kostbar: Wellhornschnecken aus Elfenbein mit zarten rosa Bändern und einer perlmuttschimmernden Mündung mit goldenem Saum,
-  die ab und zu kurz funkeln. Sie fallen selten von erlegter Beute (siehe oben). Wurde eine neue
-  gefunden, leuchtet der Knopf „C“ leise, bis man nachgesehen hat. Das Spiel steht still, solange die Übersicht offen ist
-  (C, Esc oder ein Klick daneben schließt sie).
+  ausgewachsen gemessen – so zählt nur, was vererbt wurde; im Karbon Gebiss, Beine, Griff, Schuppen).
+  Rechts unter der Beutekarte steht der kleine Sammelstern. **Sammlung ansehen** öffnet
+  die große Anzeige im Spiel. Die sieben äußeren Steinplätze tragen gefundene
+  Bosssymbole, die sieben inneren Ecken kleine Muscheln. Unbekannte Fossilien bleiben
+  dunkel und namenlos. Berühren oder Anklicken zeigt Einzelheiten. Neue Funde lassen
+  C leise leuchten, bis man die Sammlung betrachtet. C, Esc oder Zurück schließen
+  zuerst die große Ansicht; man kehrt zur offenen Übersicht zurück. Währenddessen
+  ruht das eigene Spiel wie in der bisherigen Übersicht.
 - **Die Beute (rechts neben der Übersicht):** Die Überschrift **„Beute: 72“** zeigt die aktuell übrige Nahrung, ohne
   Orts- oder Epochenzeile darunter. Nahrungsanteile und die drei am häufigsten gegessenen Tierarten gelten für
   die ganze Epoche, über Orte, Generationen und Linien hinweg. Eine Tierart zählt einmal pro gefressenem Tier, auch wenn
@@ -1025,7 +1014,7 @@ Die Grundbelegung – die rechte Hand liegt auf den Pfeiltasten, die linke auf *
 | W (auch Shift) | sprinten (kostet Ausdauer) |
 | (nichts tun) | ausruhen: sich treiben lassen, Ausdauer und Lebenskraft kehren zurück (langsam schwimmen heilt auch, nur langsamer) |
 | R | Stoß: Anlauf nehmen, mit dem Schwung gleiten (betäubt kleine und mittelgroße Tiere kurz) |
-| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: Muscheln verteilen (← → wählen, Eingabe segnet, Esc geht) |
+| F (auch Eingabe) | ansprechen: einen Artgenossen, über dem das Zeichen **F** erscheint; im Gespräch: weiter (bei einer Frage: ← → wählen, F bestätigt); an der großen Muschel: einer Weisheit lauschen (Esc geht) |
 | S | deine Gruppe rufen bzw. fortschicken (nach der gemeinsamen Jagd) |
 | C | Übersicht: Werte, Körper, Lebensweg, Nachkommen und Muscheln; daneben „Beute: N“ mit der übrigen Nahrung |
 | P (und immer Esc) | Rast (Pause) mit Steuerung, Hauptmenü – und „Leben weitergeben“, sobald Laich deiner Generation da ist; läuft der Weg ins Hauptmenü, bricht sie ihn ab |
@@ -1260,7 +1249,7 @@ src/
 │   ├── worldArt.ts      Hintergründe, Pflanzen, Dickicht, Effekte
 │   ├── lifeArt.ts       Schwämme, Korallen, Moostierchen, Armfüßer, Seelilien, Cystoideen, Algen sowie Plankton und Graptolithen
 │   ├── terrainArt.ts    der Meeresboden in gemalten Stücken (Sand, Fels, Schlamm) und alle Felsen
-│   ├── shellArt.ts      die Muschel (eine Wellhornschnecke) und ihr Funkeln
+│   ├── collectionArt.ts der Sammelstern, die Fossilreliefs und die kleinen Muscheln
 │   └── uiArt.ts         Symbole
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
@@ -1268,7 +1257,7 @@ src/
 ├── audio/OceanScore.ts  die Musik des Ozeans: live entstehendes Ambient aus der Obertonreihe – Flächen, Resonanzen, Glas, Motive, Pulse, Ostinato bei Gefahr
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
-├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), die Segen als Punktfolge (upTrail.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
+├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
 └── scenes/              Titel, Auswahl der Zeitalter (EraScene), Intro, Level, HUD, der Einschnitt zwischen zwei Generationen (GenerationScene), die Wahl aus dem Laich im Devon (RoeScene), der Abschied, wenn die gemeinsame Art ausstirbt (ExtinctScene), die Ei-Wahl im Karbon (ClutchScene), Stammbaum, Chronik des Lebens (AquapendiumScene), Demo-Ende
 tests/                   Vitest: Weltgenerator (gleiche Saat = gleicher Ort), Lebenszyklus, Vererbung, Karbon (Gelege, Metamorphose, Ei-Wahl, Vererbung aus dem Verhalten, Hänge, Sauerstoff), Zeitalter (Linien, Stammbäume, Chronik des Lebens), Entwickler-Einstellung, Ereignis-Bus, Spielserver mit zwei Clients
 art/                     Ist-Stand aller Grafiken als PNG (alt/), Biss-Vorlagen als SVG (vorlagen/), Ablage für eigene Bilder (neu/) – siehe art/README.md
@@ -1279,7 +1268,7 @@ tools/                   bite_sheets.py (Biss-Vorlagen der Linien), fish_sheet.p
 
 Diese Liste dokumentiert bisherige Regeln und technische Prüfpunkte. Für neue
 Entwicklungsentscheidungen gilt die [aktuelle Roadmap](docs/EVOLUTION_ROADMAP.md);
-insbesondere Epochenaufteilung, Vererbung und Muschelsegen werden überarbeitet.
+insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen sind bereits entfernt.
 
 - [ ] **Zeitalter:** Zur Wahl stehen sieben (Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen); spielbar sind das
       Devon mit dem Urfisch und das Karbon. Im Prototyp ist jedes Zeitalter noch eine eigene Welt mit eigener Linie.
@@ -1289,18 +1278,16 @@ insbesondere Epochenaufteilung, Vererbung und Muschelsegen werden überarbeitet.
 - [ ] **Karbon:** Jeder Spieler hat sein eigenes Gelege (ein gemeinsames Nest im Mehrspieler fehlt noch; beim Gast
       fressen die Stellvertreter der Räuber am Nest mit). Ein Ei, das in der Gefahr schlüpft, ist gleich ausgewachsen;
       das neue Gelege kommt von selbst nach 5 Minuten; drei Eier stehen zur Wahl (die Start-Eier sind gleich, dann nur
-      eines). Die Segen der großen Muschel überdauern im Karbon das Aussterben. Der Gipfel braucht etwa Beine und Griff je
+      eines). Die Sammlung überdauert das Aussterben. Der Gipfel braucht etwa Beine und Griff je
       0,6 (gut fünf Generationen mit viel Training). *Rhizodus* kommt höchstens einmal, spät, ans Nest. Alle Werte in
       `src/data/karbon.ts`.
 - [ ] **Die neue Musik** (Obertonreihe, Flächen, Glas, Motive, Pulse, Ostinato bei Gefahr) bitte mit Kopfhörern anhören –
       Lautstärken und Häufigkeiten stehen oben in `src/audio/OceanScore.ts`.
 - [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
       Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.
-- [ ] **Muscheln und Segen (wird ersetzt):** Im Prototyp bleiben Muscheln über alle Läufe;
-      je Linie verteilt man sie an der großen Muschel auf Lebenskraft (+2,5 %), Ausdauer (+¼ Kreis)
-      und im Karbon Sauerstoff. Kosten 1, 2, 4, 8 … gleich wofür, höchstens
-      10 Segen (der zehnte kostet 512, zusammen 1023); eine neue Linie verteilt neu. Die Chance richtet sich nach der Stärke
-      der Beute (10 % ebenbürtig, bis 20 % bei doppelt so starker, 5 % bei schwacher).
+- [x] **Muscheln und Fossilien:** Alte Zufallsdrops und Werteboni entfernt; eindeutige
+      laufübergreifende Sammlung und Spielstandbereinigung eingebaut. Ein fester
+      Tiefentalfund und Dunkleosteus-Fossil aktiv; übrige Fundorte und Bossbegegnungen folgen.
 - [ ] **Sicht:** Sie hängt an der Sicht des Tiers, der Wasserqualität und der Tiefe; der Rand ist kurz, dahinter wird es
       dunkel. Bitte beim Spielen ansehen, ob es zu dunkel oder zu eng ist (`SIGHT` in `src/sim/sight.ts`: `front0`, `fade`,
       `water`, `depth`, `dark`, `darkSpread`).
@@ -1310,9 +1297,7 @@ insbesondere Epochenaufteilung, Vererbung und Muschelsegen werden überarbeitet.
       auf den Server.
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne Laich und ohne wartende Geschwister Neustart als Urfisch (wie bisher).
-- [ ] **Goldene Geburt und Koop-Laich:** Der goldene Segen gilt nur für das Tier aus dem goldenen Ei (nicht für seine
-      Nachkommen) und zählt nicht beim Preis des nächsten Segens; die Richtung ist zufällig (unter denen, die noch wachsen
-      können). Im Koop teilen sich alle Spieler eines Zeitalters auf dem Server die Art; wer neu dazukommt, schließt sich
+- [ ] **Koop-Laich:** Im Koop teilen sich alle Spieler eines Zeitalters auf dem Server die Art; wer neu dazukommt, schließt sich
       ihrer Generation an (seine eigenen Eier aus einer früheren Generation verfallen). Stirbt jemand ohne Laich, endet
       auch das Leben der anderen (so wie gewünscht: „durch zu wenig Artgenossen ausgestorben“). Der Laich der Art lebt nur,
       solange der Server läuft (jeder hat eine Kopie im eigenen Spielstand).

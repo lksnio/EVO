@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT, DEPTH } from '../config';
 import { audio } from '../audio/Audio';
-import { bus, game, upGain, type RoeEgg, type RoeGroup } from '../state/GameState';
+import { bus, game, type RoeEgg, type RoeGroup } from '../state/GameState';
 import { CreatureView } from '../objects/CreatureView';
 import { species } from '../net/Species';
 import { Button, fadeIn, fadeTo, text } from '../ui/ui';
@@ -17,8 +17,8 @@ import { orderRoe } from '../sim/roe';
  *   – Nächste Generation: der Laich, den du und deine Geschwister gelegt habt. Wer daraus wählt, beginnt die nächste
  *     Generation – und kommt nie mehr zurück: Die übrigen Geschwister sind dann fort. Deshalb fragt die Szene noch einmal.
  * Jedes Ei zeigt, was in ihm steckt: das ausgewachsene Tier und seine Erbgutwerte (Lebenskraft, Ausdauer, Gebiss, Stoß,
- * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Goldene Eier leuchten: Das Tier daraus
- * hat einen Segen mehr (nur dieses Tier). Persönliche Muschelsegen kommen erst beim Schlüpfen hinzu.
+ * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Sammelfunde
+ * verändern die sichtbaren oder späteren Erbgutwerte nicht.
  *
  * Im Koop ist der Laich der gemeinsame (net/Species.ts): Die Liste ändert sich, wenn ein Artgenosse ein Ei nimmt; ein Ei
  * schlüpft erst, wenn der Server es zuteilt. Ist ein Artgenosse schon in der nächsten Generation, geht es nur noch dorthin.
@@ -264,22 +264,10 @@ export class RoeScene extends Phaser.Scene {
     order.slice(0, max).forEach(({ egg, i, v }, pos) => {
       const ex = x + 22 + (pos % PER_ROW) * STEP;
       const ey = y + 82 + Math.floor(pos / PER_ROW) * ROW_STEP;
-      // ein goldenes Ei: ein warmer Hof dahinter, der atmet, und ein Funkeln
-      if (egg.gold) {
-        const halo = this.add.image(ex, ey, 'glow').setTint(0xffc040).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(84, 84).setAlpha(0.55);
-        this.tweens.add({ targets: halo, alpha: 0.2, scale: halo.scale * 0.82, yoyo: true, repeat: -1, duration: 1000, ease: 'Sine.inOut' });
-        L.add(halo);
-      }
-      const ring = this.add.circle(ex, ey, 25, 0x000000, 0).setStrokeStyle(2, egg.gold ? 0xffd060 : next ? 0xc8913c : 0x8aa0a8, 0);
+      const ring = this.add.circle(ex, ey, 25, 0x000000, 0).setStrokeStyle(2, next ? 0xc8913c : 0x8aa0a8, 0);
       const img = this.add.image(ex, ey, 'roe_pick').setScale(0.62);
-      if (egg.gold) img.setTint(0xffd468);
-      else if (next) img.setTint(0xffe2b0);
+      if (next) img.setTint(0xffe2b0);
       L.add([ring, img]);
-      if (egg.gold) {
-        const spark = text(this, ex + 15, ey - 18, '✦', 13, '#fff0b8').setOrigin(0.5);
-        this.tweens.add({ targets: spark, alpha: 0.2, angle: 45, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.inOut' });
-        L.add(spark);
-      }
       const k = this.slots.length;
       img.setInteractive({ useHandCursor: true });
       img.on('pointerover', () => !this.confirm && this.setFocus(k));
@@ -385,12 +373,12 @@ export class RoeScene extends Phaser.Scene {
     if (k === this.focus || !this.slots[k]) return;
     const prev = this.slots[this.focus];
     if (prev?.img.active) {
-      prev.ring.setStrokeStyle(2, prev.egg.gold ? 0xffd060 : prev.group === 'next' ? 0xc8913c : 0x8aa0a8, 0);
+      prev.ring.setStrokeStyle(2, prev.group === 'next' ? 0xc8913c : 0x8aa0a8, 0);
       prev.img.setScale(0.62);
     }
     this.focus = k;
     const s = this.slots[k];
-    s.ring.setStrokeStyle(2, s.egg.gold ? 0xffd060 : s.group === 'next' ? 0xc8913c : 0x8aa0a8, 1);
+    s.ring.setStrokeStyle(2, s.group === 'next' ? 0xc8913c : 0x8aa0a8, 1);
     s.img.setScale(0.76);
     this.showCard(s);
     species.mark(s.egg.id ?? null);
@@ -405,34 +393,27 @@ export class RoeScene extends Phaser.Scene {
     const list = next ? game.roe : game.pool;
     const pg = game.poolGen;
     const gen = next ? pg + 1 : pg;
-    const gold = s.egg.gold;
-    c.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(2, gold ? 0xffc850 : next ? 0xc8913c : 0x4a5a5e, 0.9));
+    c.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(2, next ? 0xc8913c : 0x4a5a5e, 0.9));
     c.add(text(this, 0, -258, `${next ? 'NÄCHSTE GENERATION' : pg > this.gen ? 'GENERATION ' + pg : 'GESCHWISTER'} · EI ${s.pos + 1} VON ${list.length}`, 14, next ? UI.ochre : UI.boneDim).setOrigin(0.5).setLetterSpacing(2));
     c.add(text(this, 0, -234, `Generation ${gen}`, 20, UI.bone).setOrigin(0.5));
     // das Tier, das aus dem Ei schlüpft – ausgewachsen
-    c.add(this.add.image(0, -112, 'glow').setDisplaySize(300, 150).setTint(gold ? 0xffc850 : next ? 0xf0c880 : 0x9ac0c8).setAlpha(gold ? 0.3 : 0.16).setBlendMode(Phaser.BlendModes.ADD));
+    c.add(this.add.image(0, -112, 'glow').setDisplaySize(300, 150).setTint(next ? 0xf0c880 : 0x9ac0c8).setAlpha(.16).setBlendMode(Phaser.BlendModes.ADD));
     const v = new CreatureView(this, 0, -130, game.roeMorph(s.egg), 1.25);
     v.setDepth(DEPTH.player);
     c.add(v);
     this.portrait = v;
-    if (gold) {
-      // die goldene Geburt: ein Band über dem Tier
-      c.add(this.add.rectangle(0, -196, 300, 26, 0x2a1c06, 0.9).setStrokeStyle(1, 0xffc850, 0.8));
-      c.add(text(this, 0, -196, `✦  GOLDENE GEBURT  ·  ${upGain(gold)}  ✦`, 13, '#ffd878', { fontStyle: '700' }).setOrigin(0.5));
-    }
-    c.add(text(this, -170, -60, 'Erbgut · ausgewachsen', 13, gold ? '#b8964a' : '#6c6454'));
+    c.add(text(this, -170, -60, 'Erbgut · ausgewachsen', 13, '#6c6454'));
     c.add(text(this, 170, -60, 'dein Erbgut', 13, '#6c6454').setOrigin(1, 0));
     STATS.forEach(([k, name], j) => {
       const y = -32 + j * 32;
       const val = s.v[k], diff = val - this.mine[k];
       const top = val === this.best[s.group][k] && val > this.low[s.group][k];
-      const golden = (gold === 'hp' && k === 'hp') || (gold === 'stam' && k === 'stam');
-      const col = golden ? '#ffd878' : top ? UI.ochre : undefined;
+      const col = top ? UI.ochre : undefined;
       c.add(text(this, -170, y, name, 17, col ?? UI.boneDim));
       c.add(text(this, 70, y, `${val}`, 19, col ?? UI.bone).setOrigin(1, 0));
       if (diff !== 0) c.add(text(this, 170, y, diff > 0 ? `+${diff}` : `−${-diff}`, 16, diff > 0 ? '#9cc488' : '#c87a6a').setOrigin(1, 0));
     });
-    c.add(text(this, 0, 204, 'Persönliche Muschelsegen kommen beim Schlüpfen hinzu.', 13, UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5));
+    c.add(text(this, 0, 204, 'Das Erbgut dieses Eis bestimmt seine Eigenschaften.', 13, UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5));
     const own = this.gen;
     const sibs = game.pool.length;
     const also = species.active && species.others.length ? ` – auch für ${species.others.join(', ')}` : '';

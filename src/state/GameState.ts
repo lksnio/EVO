@@ -1,3 +1,5 @@
+import { COLLECTION_SHELLS, SHELL_WISDOM, type ShellId, type FossilId } from '../data/collection';
+import { newCollection, readCollection, removeLegacyShells, findShell, dropFossil, findFossil, type CollectionState, type FossilDrop } from '../sim/collection';
 import { CLASSES, type ClassId } from '../data/classes';
 import { EPOCHS, isPlayable, type EpochDef } from '../data/epochs';
 import { linkKey, placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
@@ -6,9 +8,9 @@ import type { Morph } from '../art/creatureArt';
 import { clamp, mulberry32 } from '../util/math';
 import { Emitter } from '../util/emitter';
 import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
-import { INHERIT, LIFE, MOVEMENT, SHELLS, SPAWN, STAMINA, UPGRADES } from '../data/life';
+import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, youngOf, type LifeK } from '../sim/life';
-import { KTRAIN, OXYGEN } from '../data/karbon';
+import { KTRAIN } from '../data/karbon';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
   type Brood, type Egg, type Gene,
@@ -280,8 +282,6 @@ export interface Clutch {
   young?: number;
   /** seine Eier liegen schon auf dem Stapel der nächsten Generation (Run.next) */
   eggs?: boolean;
-  /** darin leuchtet ein goldenes Ei (siehe RoeEgg.gold) */
-  gold?: boolean;
 }
 
 /** Das Leben des eigenen Tiers: wie alt es ist (Sekunden aktiven Lebens), die wievielte Generation, seine Gelege. */
@@ -325,11 +325,6 @@ export interface RoeEgg {
   place: string;
   x: number;
   y: number;
-  /**
-   * Eine goldene Geburt (SPAWN.gold): Das Tier aus diesem Ei hat einen Segen mehr in dieser Richtung – so viel, wie der
-   * nächste Segen der großen Muschel bringen würde. Er gilt nur für dieses Tier, nicht für die Linie.
-   */
-  gold?: UpKey;
 }
 
 /** Wo die Eier liegen: bei den Geschwistern (deine Generation) oder im Laich für die nächste Generation. */
@@ -393,17 +388,6 @@ export interface Run {
    * Tod geht es nur noch dorthin.
    */
   coopGen?: number;
-  /** die Segen der großen Muschel in der Reihenfolge, in der sie gewählt wurden (für die Punktfolge in der Übersicht) */
-  upLog?: UpKey[];
-  /** Eine goldene Geburt: dieses Tier hat einen Segen mehr (key) – in der Punktfolge nach so vielen gekauften Segen (at) */
-  gold?: { key: UpKey; at: number };
-  /**
-   * Die Segen der großen Muschel für diese Linie: so oft in Lebenskraft, Ausdauer und Sicht (siehe UPGRADES). Die Muscheln selbst
-   * gehören nicht der Linie, sondern dir (SaveData.shells) – beginnt eine neue Linie, sind sie wieder frei.
-   */
-  ups?: Ups;
-  /** der Hinweis auf die Muscheln, die an der großen Muschel warten, kam schon (einmal je Linie) */
-  upHint?: boolean;
   /**
    * Was deine Linie gefressen hat – je Ort (Kennung des Ortes → Art → wie viele Tiere). Jedes Tier zählt einmal, auch wenn es
    * aus mehreren Fleischbrocken bestand. Gilt über alle Generationen der Linie; eine neue Linie beginnt leer.
@@ -411,10 +395,6 @@ export interface Run {
   prey?: Record<string, Record<string, number>>;
   /** wie viel Grünzeug und wie viel Fleisch deine Linie je Ort gefressen hat (Nahrung, nach ihrem Nährwert) */
   diet?: Record<string, { plant: number; meat: number }>;
-  /** ältere Spielstände: Muscheln und Segen hingen an der Linie (beim Laden übernommen) */
-  shells?: unknown;
-  blessings?: number;
-  seenRows?: number;
   history: Ancestor[];
   /** bereits vorhandene Gruppe deiner Art – sie überdauert Orte und Generationen */
   swarm?: Swarm;
@@ -452,12 +432,6 @@ export interface Swarm {
 }
 
 export type SkillKey = 'jaw' | 'skull' | 'stealth' | 'growth' | 'green' | 'sand';
-
-/** Wofür die große Muschel segnet: Lebenskraft, Ausdauer und – je nach Zeitalter – Sicht (Devon) oder Sauerstoff (Karbon). */
-export type UpKey = 'hp' | 'stam' | 'sight' | 'oxy';
-export type Ups = Record<UpKey, number>;
-export const UP_KEYS: UpKey[] = ['hp', 'stam', 'sight', 'oxy'];
-const noUps = (): Ups => ({ hp: 0, stam: 0, sight: 0, oxy: 0 });
 
 export interface TreeNode {
   id: string;
@@ -503,12 +477,8 @@ export interface SaveData {
   epoch?: number;
   /** die Linien der anderen Zeitalter: Sie ruhen, solange man anderswo lebt (Nummer des Zeitalters → Lauf) */
   parked?: Record<string, Run>;
-  /** alle je gefundenen Muscheln – sie bleiben über alle Läufe (weil sie so selten sind); verteilt werden sie je Linie */
-  shells?: number;
-  /** so viele Muscheln hat man in der Übersicht schon gesehen (der Knopf leuchtet, solange eine neue dazukam) */
-  seenShells?: number;
-  /** Segen, die das Aussterben überdauern (Zeitalter mit Brutzyklus, je Kennung des Zeitalters) */
-  keptUps?: Record<string, Ups>;
+  /** Laufübergreifende, eindeutige Funde. Alte Muschelwährungen zählen nicht. */
+  collection: CollectionState;
 }
 
 const KEY = 'evo-save-v3';
@@ -658,6 +628,7 @@ function fresh(): SaveData {
     lastEnd: null,
     deepest: -1,
     seen: [],
+    collection: newCollection(),
   };
 }
 
@@ -798,20 +769,10 @@ class GameState {
       const raw = localStorage.getItem(slotKey);
       if (raw) {
         const d = JSON.parse(raw) as Partial<SaveData>;
+        const removedLegacy = removeLegacyShells(d);
         const f = fresh();
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
-        // früher gehörten die Muscheln der Linie – heute dir: alle, die deine Linien gefunden haben, zusammen
-        if (typeof d.shells !== 'number') {
-          let n = 0, seen = 0;
-          for (const r of [d.run, ...Object.values(d.parked ?? {})]) {
-            const sh = r?.shells;
-            const k = Array.isArray(sh) ? sh.length : typeof sh === 'number' ? sh : 0;
-            n += k;
-            seen += Math.min(k, r?.seenRows ?? k);
-          }
-          this.data.shells = n;
-          this.data.seenShells = seen;
-        }
+        this.data.collection = readCollection(d.collection);
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
         // Früher hing alles an einem Urahn vor dem ersten Zeitalter – heute hat jedes Zeitalter seinen eigenen; das erste
@@ -875,11 +836,6 @@ class GameState {
           // ältere Spielstände kennen nur Orte, keine Wege: Wer zwei benachbarte Orte kennt, kennt auch den Weg dazwischen
           r.prog.links ??= placesOf(EPOCHS[r.epoch]).flatMap((p) =>
             r.prog.known.includes(p.id) ? p.links.filter((q) => q > p.id && r.prog.known.includes(q)).map((q) => linkKey(p.id, q)) : []);
-          // früher segnete die große Muschel nur die Ausdauer (und die Muscheln gehörten der Linie): Die Segen bleiben
-          r.ups ??= { ...noUps(), stam: r.blessings ?? 0 };
-          delete r.shells;
-          delete r.blessings;
-          delete r.seenRows;
           r.traits = migrate(r.traits);
           for (const a of r.history) a.traits = migrate(a.traits);
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
@@ -890,6 +846,8 @@ class GameState {
           if (SPAWN.alwaysMale) r.sex = 1;
         }
         this.data.epoch = isPlayable(this.data.epoch ?? -1) ? this.data.epoch : this.data.run?.epoch ?? 0;
+        // Die alte Währung und alle gekauften/goldenen Segen sofort auch auf Platte entfernen.
+        if (removedLegacy) this.save();
       }
     } catch {
       this.data = fresh();
@@ -927,6 +885,7 @@ class GameState {
   }
 
   save() {
+    removeLegacyShells(this.data);
     try {
       localStorage.setItem(slotKey, JSON.stringify(this.data));
     } catch {
@@ -1036,9 +995,6 @@ class GameState {
       canRam: true,
       prog: newProg(epoch),
       life: newLife(1),
-      // die Muscheln sind wieder frei: An der großen Muschel werden sie für diese Linie neu verteilt – im Karbon bleiben die
-      // Segen über das Aussterben hinaus
-      ups: ep.brood ? { ...noUps(), ...d.keptUps?.[ep.id] } : noUps(),
       history: [],
     };
     // Karbon: ein Gelege mit lauter Grundwerten im Brutsumpf (wo genau, weiß erst der Ort – siehe LevelScene)
@@ -1059,12 +1015,8 @@ class GameState {
    * gewachsen ist, und so alt, wie es ist; übergebene Merkmale gelten für ein ausgewachsenes Tier (life: ADULT), sofern
    * nichts anderes angegeben ist.
    */
-  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK, own: boolean | Ups = !traits): Stats {
+  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK): Stats {
     const t = traits ?? this.r.traits;
-    // die Segen der großen Muschel gelten nur für das eigene Tier (own: die eigenen – oder diese, für eine Vorschau)
-    const ups = own === true ? this.ups : own || null;
-    const hpBoost = ups ? 1 + UPGRADES.hp * ups.hp : 1;
-    const sizeBoost = ups ? 1 + UPGRADES.hpSize * ups.hp : 1;
     const k = life ?? (traits ? ADULT : this.lifeK);
     const b = CLASSES[cls].base;
     // Die ausgewachsene Größe kommt aus dem Wuchs (dem Lebensraum der Vorfahren); ein Jungtier ist davon erst ein Teil
@@ -1110,8 +1062,7 @@ class GameState {
     const school = plateLevel(t.sw ?? 0);
     return {
       // Jungtiere sind verletzlich, aber nicht ganz so sehr, wie ihre Größe vermuten ließe; im Alter lässt die Kraft nach
-      // dazu die Segen der großen Muschel in Lebenskraft (nur beim eigenen Tier)
-      maxHp: Math.max(3, Math.round((baseHp + (t.vitality ?? 0)) * Math.pow(k.grow, 0.8) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old) * hpBoost)),
+      maxHp: Math.max(3, Math.round((baseHp + (t.vitality ?? 0)) * Math.pow(k.grow, 0.8) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old))),
       bite,
       ram,
       ramStun: 1000 + 1000 * clamp((skullScore - 10) / 90, 0, 1),
@@ -1120,8 +1071,8 @@ class GameState {
       speed: b.speed * (1 + 0.38 * t.stealth) * sizeDrag * body * (land ? 1 + 0.14 * limb : 1) * swimMul
         * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth * Math.max(0.5, 1 - MOVEMENT.endSpeed * (t.endGain ?? 0)),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
-      // Mehr vererbte Lebenskraft und Lebenssegen: ein etwas größerer Körper, ohne zusätzliche Kampf-/Tempoboni.
-      size: size * sizeBoost * vitalitySize,
+      // Vererbte Lebenskraft beeinflusst den Körper; keine käuflichen Boni.
+      size: size * vitalitySize,
       defense: clamp((1 - 0.28 * t.skull - 0.12 * plates - 0.08 * (size - 1) - 0.24 * armor) * scaleBase / scalePoints(t) / (1 + mass), 0.05, 2),
       groundSpeed: 0.7 + 0.6 * limb,
       power: bite * 0.6 + ram * 0.4,
@@ -1156,11 +1107,11 @@ class GameState {
     const cls = o.cls ?? run?.cls ?? 'fish';
     // das eigene Tier bleibt sein Leben lang, wie es geschlüpft ist – es wächst nur heran und altert
     const t = o.traits ?? run?.traits ?? ZERO;
-    const grown = this.stats(cls, t, ADULT, false);
+    const grown = this.stats(cls, t, ADULT);
     const biteScore = Math.round(10 * grown.bite / (CLASSES[cls].base.bite * adultSize(ZERO)));
     return {
       cls,
-      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK), !o.traits).size,
+      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
       jaw: clamp(t.jaw + (t.biteGain ?? 0) / 35, 0, 1),
       skull: clamp(t.skull + (t.ramGain ?? 0) / 40, 0, 1),
       stealth: t.stealth,
@@ -1198,9 +1149,7 @@ class GameState {
       fDown: t.fDown ?? 0,
       fSide: t.fSide ?? 0,
       fTail: t.fTail ?? 0,
-      // die Segen der großen Muschel sieht man nur dem eigenen Tier an: größere Augen (Sicht), größere Flossen (Ausdauer)
       eye: t.sightGain ?? 0,
-      stamUp: o.traits ? 0 : this.ups.stam,
       belly: o.belly ?? 1,
       fierce: o.fierce ?? (run ? (run.life.fierce ?? this.fear()) : 0),
       hue: o.hue ?? run?.hue ?? 0,
@@ -1266,9 +1215,9 @@ class GameState {
   }
 
   /** Länge (cm) und Gewicht (g) eines Tiers (ausgewachsen, sofern nichts anderes angegeben ist). */
-  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits, life: LifeK = ADULT, own = false) {
+  measure(cls: ClassId = this.r.cls, t: Traits = this.r.traits, life: LifeK = ADULT) {
     const b = BODY[cls];
-    const size = this.stats(cls, t, life, own).size;
+    const size = this.stats(cls, t, life).size;
     const cm = b.cm * size * (1 + 0.15 * (t.len ?? 0));
     const g = b.g * Math.pow(cm, 3) * (1 + 0.35 * (t.girth ?? 0) - 0.08 * (t.len ?? 0)) * (0.9 + 0.2 * t.growth);
     return { cm: cm * (1 + (t.lengthGain ?? 0)), g: g * (1 + (t.massGain ?? 0)) };
@@ -1443,14 +1392,8 @@ class GameState {
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
       const e: RoeEgg = { id: eggId(), traits: packTraits(driftColors(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains, Math.random, h.evolution.fixed) : h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
-      // eine goldene Geburt: ein Segen mehr in einer Richtung, die noch wachsen kann
-      if (Math.random() < SPAWN.gold) {
-        const keys = this.upKeys.filter((k) => !this.upMaxed(k));
-        if (keys.length) e.gold = keys[Math.floor(Math.random() * keys.length)];
-      }
       out.push(e);
     }
-    if (out.some((e) => e.gold)) c.gold = true;
     // die Eier gehören zur Generation nach deiner: Im Koop kann das schon die der Geschwister sein (ein Artgenosse war
     // schneller) – oder eine vergangene, in die kein Weg mehr zurückführt
     const g = run.life.gen + 1;
@@ -1491,18 +1434,14 @@ class GameState {
     return this.morph({ traits: full({ ...e.traits }), seed: e.seed, sex: e.sex });
   }
 
-  /**
-   * Gemeinsame Erbgutwerte, ausgewachsen: persönliche Muschelsegen gehören nicht zum Ei.
-   * Der goldene Segen steckt im Ei und ist deshalb enthalten. Ohne Ei: das eigene Erbgut zum Vergleich.
-   */
-  roeShown(e?: { traits: Partial<Traits>; gold?: UpKey }) {
+  /** Gemeinsame Erbgutwerte, ausgewachsen, ohne persönliche Zufallsboni. */
+  roeShown(e?: { traits: Partial<Traits> }) {
     const t = full(e ? e.traits : this.r.traits);
-    const ups = withGold(noUps(), e ? e.gold : this.r.gold?.key);
-    const st = this.stats(this.r.cls, t, ADULT, ups);
+    const st = this.stats(this.r.cls, t, ADULT);
     const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
     return {
       hp: st.maxHp,
-      stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
+      stam: Math.round(10 * STAMINA.sprint * st.endurance),
       bite: Math.round((10 * st.bite) / s0.bite),
       ram: Math.round((10 * st.ram) / s0.ram),
       // Tempo: Grundtempo mal Flossenschub (cruise) – so schwimmt das Tier tatsächlich
@@ -1605,11 +1544,7 @@ class GameState {
     run.traits = full({ ...egg.traits });
     run.sex = SPAWN.alwaysMale ? 1 : egg.sex;
     run.seed = egg.seed;
-    // golden geboren: ein Segen mehr – nur für dieses Tier (in der Punktfolge nach den bisher gekauften)
-    run.gold = egg.gold ? { key: egg.gold, at: this.upLog.length } : undefined;
     if (jump) {
-      // im Stammbaum: Hat sich die Art verändert (eine andere Richtung, eine andere Kost, eine Farbe), beginnt ein neuer
-      // Abschnitt des Astes – gleichen sich zwei Linien, teilen sie ihn sich
       const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
       if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, gen).id;
     }
@@ -1617,7 +1552,7 @@ class GameState {
   }
 
   /**
-   * Wie sich die vererbten Fähigkeiten gegenüber der vorigen Generation verändert haben (ausgewachsen, beide mit deinen Segen): Gebiss,
+   * Wie sich die vererbten Fähigkeiten gegenüber der vorigen Generation verändert haben (ausgewachsen): Gebiss,
    * Schädel, Schuppen – im Karbon Gebiss, Beine, Griff, Schuppen. Ohne vorige Generation (der Urahn): nichts.
    */
   inheritedDelta(): Partial<Record<'bite' | 'skull' | 'fins' | 'scales' | 'legs' | 'grip', number>> | null {
@@ -1625,12 +1560,10 @@ class GameState {
     const prev = run?.history[run.history.length - 1];
     if (!run || !prev || prev.epoch !== run.epoch) return null;
     const amph = run.cls === 'amphibian';
-    const base = amph ? this.stats('amphibian', ZERO, ADULT, false) : this.stats('fish', ZERO, ADULT, false);
-    // beide mit denselben Segen gemessen (deinen): So zählt nur, was vererbt wurde
-    const ups = this.ups;
+    const base = amph ? this.stats('amphibian', ZERO, ADULT) : this.stats('fish', ZERO, ADULT);
     const val = (tr: Partial<Traits>) => {
       const t = full({ ...tr });
-      const st = this.stats(run.cls, t, ADULT, ups);
+      const st = this.stats(run.cls, t, ADULT);
       const ten = (v: number) => Math.round(10 * (1 + 2 * v));
       return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), fins: Math.round(finPoints(t)), scales: Math.round(scalePoints(t)), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
     };
@@ -1986,110 +1919,55 @@ class GameState {
     return { top, total };
   }
 
-  /** Wie viele Muscheln du je gefunden hast (sie bleiben über alle Läufe). */
-  get shells(): number {
-    return this.data.shells ?? 0;
-  }
-
-  /** Eine Muschel gefunden. Gibt zurück, wie viele es jetzt sind. */
-  addShell() {
-    this.data.shells = this.shells + 1;
+  /** Eindeutige Funde bleiben über alle Linien erhalten. */
+  get collection(): CollectionState { return this.data.collection; }
+  get shells() { return this.collection.shells.length; }
+  get fossils() { return this.collection.fossils.length; }
+  hasShell(id: ShellId) { return this.collection.shells.includes(id); }
+  hasFossil(id: FossilId) { return this.collection.fossils.includes(id); }
+  collectShell(id: ShellId) {
+    if (!findShell(this.collection, id)) return false;
     this.save();
-    return this.data.shells;
+    bus.emit('collection');
+    return true;
   }
-
-  /** Die Segen, die die große Muschel der laufenden Linie gegeben hat (gekauft mit Muscheln). */
-  get bought(): Ups {
-    // die Sicht gibt es nicht mehr als Segen (sie wächst nur durch Zeit in der Tiefe): alte Käufe zählen nicht, die Muscheln sind wieder frei
-    return { ...noUps(), ...(this.data.run ?? this.ghost)?.ups, sight: 0 };
-  }
-
-  /** Die Segen deines Tiers: die der Linie – und, war es eine goldene Geburt, einer mehr in dieser Richtung. */
-  get ups(): Ups {
-    const r = this.data.run ?? this.ghost;
-    return withGold(this.bought, r?.gold?.key);
-  }
-
-  /** So viele Segen hat die laufende Linie gekauft – zusammen, gleich wofür (davon hängt der Preis des nächsten ab). */
-  get upCount() {
-    const u = this.bought;
-    return u.hp + u.stam + u.sight + u.oxy;
-  }
-
-  /** Die gekauften Segen in ihrer Reihenfolge (ältere Spielstände kennen sie nicht: dann nach Richtung geordnet). */
-  get upLog(): UpKey[] {
-    const r = this.data.run ?? this.ghost;
-    const u = this.bought;
-    const log = r?.upLog ?? [];
-    const count = (k: UpKey) => log.filter((x) => x === k).length;
-    if (log.length === this.upCount && UP_KEYS.every((k) => count(k) === u[k])) return log;
-    return UP_KEYS.flatMap((k) => Array<UpKey>(u[k]).fill(k));
-  }
-
-  /**
-   * Die Segen mit ihrer Kennung: gekauft in der Reihenfolge, in der sie kamen – die gekauften der Linie, dazwischen (an der
-   * Stelle der Geburt) der goldene deines Tiers.
-   */
-  get upTrail(): { key: UpKey; gold: boolean }[] {
-    const out = this.upLog.map((key) => ({ key, gold: false }));
-    const g = (this.data.run ?? this.ghost)?.gold;
-    if (g) out.splice(Math.min(g.at, out.length), 0, { key: g.key, gold: true });
-    return out;
-  }
-
-  /** So viele Muscheln hat die laufende Linie schon verteilt. */
-  get shellsSpent() {
-    return upSpent(this.upCount);
-  }
-
-  /** So viele Muscheln sind noch frei. */
-  get shellsFree() {
-    return Math.max(0, this.shells - this.shellsSpent);
-  }
-
-  /** So viele Muscheln kostet der nächste Segen (1, 2, 4, 8 … – gleich, wofür). */
-  get upCost() {
-    return upCost(this.upCount);
-  }
-
-  /** Ist diese Richtung schon so stark, wie sie werden kann? */
-  upMaxed(k: UpKey) {
-    const u = this.ups;
-    return k === 'stam' ? staminaMax(u.stam) >= STAMINA.max : k === 'sight';
-  }
-
-  /** Reichen die freien Muscheln für einen Segen in diese Richtung (bzw. in irgendeine)? */
-  canUp(k?: UpKey): boolean {
-    if (!this.data.run) return false;
-    if (!k) return this.upKeys.some((q) => this.canUp(q));
-    return this.upCount < UPGRADES.max && this.shellsFree >= this.upCost && !this.upMaxed(k);
-  }
-
-  /** An der großen Muschel: Sie segnet deine Linie in dieser Richtung. Gibt zurück, ob sie es tat. */
-  buyUp(k: UpKey) {
-    if (!this.canUp(k)) return false;
-    const run = this.data.run!;
-    const log = this.upLog;
-    run.ups = { ...this.bought, [k]: this.bought[k] + 1 };
-    run.upLog = [...log, k];
+  recordFossilDrop(drop: FossilDrop) {
+    if (!dropFossil(this.collection, drop)) return false;
     this.save();
     return true;
   }
-
-  /** Wofür die große Muschel in diesem Zeitalter segnet: Lebenskraft, Ausdauer und Sicht – im Karbon Sauerstoff statt Sicht. */
-  get upKeys(): UpKey[] {
-    const ep = EPOCHS[this.data.run?.epoch ?? this.chosenEpoch];
-    return ep?.meta === 'oxy' ? ['hp', 'oxy', 'stam'] : ['hp', 'stam'];
+  collectFossil(id: FossilId) {
+    if (!findFossil(this.collection, id)) return false;
+    this.save();
+    bus.emit('collection');
+    return true;
+  }
+  get collectionFresh() {
+    const c = this.collection;
+    return c.shells.some(id => !c.seen.includes(`shell:${id}`)) || c.fossils.some(id => !c.seen.includes(`fossil:${id}`));
+  }
+  seeCollection() {
+    const c = this.collection;
+    c.seen = [...c.shells.map(id => `shell:${id}` as const), ...c.fossils.map(id => `fossil:${id}` as const)];
+    this.save();
+  }
+  get unheardWisdom() { return this.shells > this.collection.heard; }
+  hearWisdom() {
+    const c = this.collection;
+    const index = this.shells ? Math.min(c.heard, this.shells - 1) : -1;
+    if (index >= 0) c.heard = Math.max(c.heard, index + 1);
+    this.save();
+    return { index, text: index < 0 ? '... unter Stein und Strömung ... warten sieben stille Spuren ...' : SHELL_WISDOM[index], total: COLLECTION_SHELLS.length };
   }
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
   get oxygenSeconds() {
-    return oxygenSeconds(this.ups.oxy, this.data.run?.brood?.phase === 'young');
+    return oxygenSeconds(this.data.run?.brood?.phase === 'young');
   }
 
-  /** Die größte Ausdauer deines Tiers, in Kreisen: einer – und für jeden Segen in Ausdauer ein Stück mehr. */
+  /** Ein Ausdauerkreis. Vererbte Ausdauer verändert seine effektive Dauer. */
   get staminaMax() {
-    return staminaMax(this.ups.stam);
+    return 1;
   }
 
   /** Wie weit dein Tier in der Tiefe sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, mehr durch Zeit in der Tiefe. */
@@ -2099,11 +1977,10 @@ class GameState {
 
   /**
    * Die Werte des eigenen Tiers, wie die Übersicht sie zeigt – ganze Zahlen, so wie es gerade ist (ein Jungtier ist noch
-   * schwächer). Gebiss und Schädel messen sich am ersten Fisch, ausgewachsen: Er hat je 10. ups: für eine Vorschau (die große
-   * Muschel zeigt, was ein Segen brächte).
+   * schwächer). Gebiss und Schädel messen sich am ersten Fisch, ausgewachsen: Er hat je 10.
    */
-  shown(ups: Ups = this.ups) {
-    const st = this.stats(this.r.cls, undefined, this.lifeK, ups);
+  shown() {
+    const st = this.stats(this.r.cls, undefined, this.lifeK);
     // im Karbon misst sich das Gebiss am ersten Pederpes, sonst am ersten Fisch
     const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT));
     const t = this.r.traits;
@@ -2114,7 +1991,7 @@ class GameState {
       /** wie weit du siehst: Anteil des ganzen Bildes vor dir (in Prozent) */
       sight: Math.round(100 * sightOf(t.sightGain ?? 0)),
       /** so lange reicht die Kraft für einen Spurt (in Zehntelsekunden: ein Kreis, normaler Körperbau → 30) */
-      stam: Math.round(10 * STAMINA.sprint * staminaMax(ups.stam) * st.endurance),
+      stam: Math.round(10 * STAMINA.sprint * st.endurance),
       bite: Math.round((10 * st.bite) / s0.bite),
       skull: Math.round((10 * st.ram) / s0.ram),
       /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
@@ -2123,7 +2000,7 @@ class GameState {
       scales: Math.round(scalePoints(t)),
       fins: Math.round(finPoints(t)),
       /** Karbon: so viele Sekunden reicht der Sauerstoff an Land (ausgewachsen); Beine und Griff (der erste Pederpes: je 10) */
-      oxy: Math.round(oxygenSeconds(ups.oxy, false)),
+      oxy: Math.round(oxygenSeconds(false)),
       legs: Math.round(10 * (1 + 2 * (t.limb ?? 0))),
       grip: Math.round(10 * (1 + 2 * (t.grip ?? 0))),
     };
@@ -2136,16 +2013,6 @@ class GameState {
     const a0 = (this.a0 ??= this.stats('amphibian', ZERO, ADULT));
     const ten = (v: number) => Math.round(10 * (1 + 2 * v));
     return { jaw: Math.round((10 * st.bite) / a0.bite), limb: ten(g.limb), grip: ten(g.grip), armor: ten(g.armor) };
-  }
-
-  /** Wie viele Muscheln man in der Übersicht schon gesehen hat. */
-  get seenShells() {
-    return Math.min(this.shells, this.data.seenShells ?? 0);
-  }
-
-  set seenShells(n: number) {
-    this.data.seenShells = n;
-    this.save();
   }
 
   // ---------------------------------------------------------------- Stammbaum
@@ -2193,9 +2060,6 @@ class GameState {
   /** Das Tier ist gestorben: Die Linie endet hier. Gibt den Knoten des Astendes zurück. */
   extinct(frac: number, cause: string): string {
     const run = this.r;
-    // im Karbon überdauern die Segen der großen Muschel das Aussterben
-    const ep = EPOCHS[run.epoch];
-    if (ep?.brood && run.ups) (this.data.keptUps ??= {})[ep.id] = { ...noUps(), ...run.ups };
     const parent = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
     const leaf = this.node(parent, run.epoch, run.cls, run.traits, run.id, false, run.life.gen);
     leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.brood ? run.brood.gen : run.life.gen };
@@ -2255,51 +2119,12 @@ export function driftColors(t: Traits, random: () => number = Math.random): Trai
   return out;
 }
 
-/** Die größte Ausdauer (in Kreisen) nach so vielen Segen in Ausdauer. */
-export function staminaMax(n: number) {
-  return Math.min(STAMINA.max, 1 + Math.max(0, n) * STAMINA.perBlessing);
-}
-
 /** Die Sicht (Anteil des ganzen Bildes vor dir) nach so vielen erworbenen Sichtpunkten: 20 %, 25 %, 30 % … bis 100 %. */
 export function sightOf(n: number) {
-  return Math.min(UPGRADES.sightMax, UPGRADES.sight + Math.max(0, n) * UPGRADES.sightPer);
-}
-
-/**
- * Wie wahrscheinlich ein erlegtes Tier eine Muschel hinterlässt – nach seiner Stärke im Vergleich zu deiner (rel = seine
- * Stärke / deine): ebenbürtig SHELLS.chance, stärker öfter, schwächer seltener (begrenzt auf relMin … relMax).
- */
-export function shellChance(rel: number) {
-  return SHELLS.chance * clamp(rel, SHELLS.relMin, SHELLS.relMax);
-}
-
-/** Segen und ein goldener dazu (wenn es einen gibt). */
-function withGold(u: Ups, gold?: UpKey): Ups {
-  return gold ? { ...u, [gold]: u[gold] + 1 } : u;
-}
-
-/** Was ein Segen in dieser Richtung bringt – für die goldene Geburt („+2,5 % Lebenskraft“). */
-export function upGain(k: UpKey): string {
-  const pc = (v: number) => `+${(v * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`;
-  return k === 'hp' ? `${pc(UPGRADES.hp)} Lebenskraft`
-    : k === 'stam' ? `${pc(STAMINA.perBlessing)} Ausdauer`
-    : k === 'sight' ? `${pc(UPGRADES.sightPer)} Sicht`
-    : `${pc(OXYGEN.perUp)} Sauerstoff`;
+  return Math.min(VISION.max, VISION.base + Math.max(0, n) * VISION.perPoint);
 }
 
 /** Eine Kennung für ein Ei (im Koop bei allen gleich). */
 function eggId() {
   return `${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
-}
-
-/** So viele Muscheln kostet der Segen nach so vielen Segen (gleich, wofür): 1, 2, 4, 8 … */
-export function upCost(n: number) {
-  return Math.round(UPGRADES.first * Math.pow(UPGRADES.factor, Math.max(0, n)));
-}
-
-/** So viele Muscheln kosten so viele Segen zusammen: 0, 1, 3, 7, 15 … */
-export function upSpent(n: number) {
-  let sum = 0;
-  for (let i = 0; i < n; i++) sum += upCost(i);
-  return sum;
 }

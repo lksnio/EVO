@@ -142,10 +142,9 @@ describe('Klettern und Sauerstoff', () => {
   });
 
   it('an Land sinkt der Sauerstoff, leer trocknet man aus; im Wasser füllt er sich', () => {
-    const s = oxygenSeconds(0, false);
+    const s = oxygenSeconds(false);
     expect(s).toBe(OXYGEN.seconds);
-    expect(oxygenSeconds(2, false)).toBeCloseTo(OXYGEN.seconds * (1 + 2 * OXYGEN.perUp));
-    expect(oxygenSeconds(0, true)).toBeLessThan(s);
+    expect(oxygenSeconds(true)).toBeLessThan(s);
     let o = 1;
     o = breathe(o, s / 2, true, s).o;
     expect(o).toBeCloseTo(0.5);

@@ -160,7 +160,7 @@ describe('ältere Spielstände', () => {
     game.resetAll();
     game.newRun(0);
     game.ageBy(40);
-    game.addShell();
+    game.collectShell('abyss');
     const old = JSON.parse(JSON.stringify(game.data));
     const r = old.run;
     r.quests = { gefaehrte: 1, jagd: 2 };

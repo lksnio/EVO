@@ -21,10 +21,6 @@ describe('Karbon im Spielstand', () => {
     expect(run.traits).toEqual(ZERO_TRAITS);
     // ein Jungtier ist klein
     expect(game.lifeK.grow).toBeCloseTo(BROOD.growHatch);
-    // an der großen Muschel: Sauerstoff statt Sicht
-    expect(game.upKeys).toEqual(['hp', 'oxy', 'stam']);
-    game.newRun(0);
-    expect(game.upKeys).toEqual(['hp', 'stam']);
   });
 
   it('Fressen, Metamorphose, ein Ei wählen: das neue Tier trägt das Erbgut seines Eis und schlüpft am Nest', () => {
@@ -87,21 +83,12 @@ describe('Karbon im Spielstand', () => {
     expect(e.grip).toBe(10);
   });
 
-  it('die Segen der großen Muschel überdauern im Karbon das Aussterben', () => {
+  it('behält Sammelmuscheln über das Aussterben, ohne damit Werte oder Sauerstoff zu steigern', () => {
     game.newRun(K);
-    for (let i = 0; i < 7; i++) game.addShell();
-    expect(game.buyUp('oxy')).toBe(true);
-    expect(game.buyUp('hp')).toBe(true);
-    const sec = game.oxygenSeconds;
-    game.extinct(0.3, 'Test');
-    game.newRun(K);
-    expect(game.ups.oxy).toBe(1);
-    expect(game.ups.hp).toBe(1);
-    // im Devon beginnt eine neue Linie dagegen ohne Segen
-    game.newRun(0);
-    expect(game.upCount).toBe(0);
-    game.newRun(K);
-    expect(game.oxygenSeconds).toBeGreaterThan(0);
-    expect(sec).toBeGreaterThan(0);
+    const sec=game.oxygenSeconds;
+    game.collectShell('abyss');
+    expect(game.oxygenSeconds).toBe(sec);
+    game.extinct(.3,'Test');game.newRun(K);
+    expect(game.shells).toBe(1);expect(game.oxygenSeconds).toBe(sec);
   });
 });

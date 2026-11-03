@@ -4,17 +4,39 @@ Stand: 3. November 2026, einschließlich der jüngsten Änderungen an Sammlung,
 Freischaltungen und Stammbaumdarstellung. Technische Ausgangsbasis ist `32a7679`,
 inzwischen auch auf dem abgerufenen `origin/main`.
 
-Dieses Dokument hält Entscheidungen fest. Es implementiert die beschriebenen
-Spielsysteme noch nicht. Vorschläge des Assistenten sind ausdrücklich von
+Dieses Dokument hält Entscheidungen fest. Die Systeme sind nur insoweit umgesetzt,
+wie im folgenden Umsetzungsstand ausdrücklich angegeben. Vorschläge des Assistenten sind ausdrücklich von
 Festlegungen des Nutzers getrennt.
 
 **Entwicklungsdokument mit Spoilern:** Die interne Zahl möglicher Grundformen,
 Verzweigungen und Belohnungen ist kein Inhalt für Spielerhinweise oder die
 Stammbaumoberfläche. Die README beschreibt das Zielbild ohne diese internen Details.
 
+## Aktuelle Umsetzung: Sammelstern im Spiel
+
+- Ingame unter C: kompakter Stern und große, untersuchbare Ansicht; sieben Fossilplätze
+  außen und sieben kleine Muscheln in den inneren Winkeln. Kein Sammlungszugang über
+  das Startmenü. Diese neueste Vorgabe ersetzt die frühere Menü-Idee.
+- Eindeutige Muschel- und Fossil-IDs dauerhaft im Profil, mit getrennten Leseständen
+  und wiederherstellbaren noch nicht aufgehobenen Bossdrops.
+- Alte Währung, gekaufte Segen und goldene Ei-Boni aus Code und geladenen Spielständen
+  entfernt. Geerbte Merkmale und gewöhnliche Nachkommenstreuung bleiben erhalten.
+- Eine feste Muschel am tiefsten freien Boden im Devon-Tiefental.
+- Dunkleosteus erzeugt nach dem ersten eigenen beziehungsweise bestätigten beteiligten
+  Sieg seine Fossilplatte. Erneute Siege erzeugen keine Duplikate.
+- Sieben vorläufige Weisheiten an der großen Muschel, eine je unterschiedlichem Fund.
+- Die vorgeschlagenen sieben Bossarten sind für die Sammlung vorläufig übernommen.
+  Außer Dunkleosteus sind ihre Begegnungen noch nicht im Rahmen dieses Pakets umgesetzt.
+- Noch offen: weitere sechs Muschelorte, weitere Gegner, Abgabeorte/Belohnungsgelege
+  und eigentliche Bonuslinien. Die vollständige Vererbungsüberarbeitung bleibt ein
+  eigenes Arbeitspaket; entfernt wurden jetzt die sammelabhängigen Werteboni.
+
+Leere und volle Ansicht sowie die Browserprüfung liegen unter
+`art/EVO_collection_v1/`. Die volle Ansicht wurde in einem isolierten Testprofil erzeugt.
+
 ## 1. Bereits umgesetzt: der Ausgangspunkt
 
-Die letzte tatsächliche Spieländerung im geprüften Checkout ist
+Die Konzeptdiskussion begann nach
 `32a7679`: gemaltes Dipterus-Bild auf der ersten Wiki-Tierseite, mit passender
 Ladelogik und Prüfung. Davor wurden umgesetzt:
 
@@ -269,12 +291,13 @@ Aufwand / Übernahme: P6; Code, Speicherregeln, Oberfläche und Fundortdaten kan
 - Als wissenschaftliche Beschreibung passen lokale Spitzenräuber besser als ein
   angeblich einziges weltweit dominantes Tier der ganzen Epoche.
 
-Die folgende Besetzung ist ausschließlich ein **Vorschlag des Assistenten**:
+Die folgende Besetzung ist für die Sammlung jetzt **vorläufig übernommen**; die
+endgültige Ausarbeitung der Begegnungen bleibt offen:
 
 | Epoche | Vorschlag | Lebensraum |
 | --- | --- | --- |
 | Devon | Dunkleosteus | Wasser |
-| Karbon | Anthracosaurus; alternativ Rhizodus | Ufer/Sumpf beziehungsweise Wasser |
+| Karbon | Anthracosaurus | Ufer/Sumpf |
 | Perm | Inostrancevia | Land |
 | Trias | Postosuchus | Land |
 | Jura | Liopleurodon | Meer |
@@ -287,8 +310,9 @@ Die Sammlung wird dauerhaft geführt; die genaue Regel, ob bereits einzelne
 Platten oder erst der vollständige Satz eingesetzt werden können, ist noch offen.
 
 **Gemeinsame Sammlungsansicht:** Muscheln und eingesetzte beziehungsweise gefundene
-Fossilien ergeben zusammen eine gestaltete Sternübersicht. Sie ist vom Startbildschirm
-aus sichtbar und gehört zum Spielerprofil über alle gespielten Tiere hinweg.
+Fossilien ergeben zusammen eine gestaltete Sternübersicht. Sie ist **im laufenden
+Spiel über die C-Übersicht** sichtbar und gehört zum Spielerprofil über alle
+gespielten Tiere hinweg. Die frühere Startbildschirm-Idee ist damit abgelöst.
 Sie zeigt den Sammlungsstand, nicht den Umfang des theoretischen Evolutionsbaums.
 
 Aufwand / Übernahme: P7; System, Darstellungen und Gegnerumsetzung kann ich
@@ -382,8 +406,8 @@ Komposition sollen deine gewünschte Handschrift behalten.
 - Unvermeidliches Aussterben bestimmter korrekt gespielter Äste: diskutiert, nicht beschlossen.
 - Pflicht zur vollständigen physischen Rückkehr als Fisch: nicht beschlossen.
 - Vollständige Plattentektoniksimulation: nicht beauftragt.
-- Die vorgeschlagenen sieben Bossarten und die genaue Rig-/Editorarchitektur sind
-  keine bereits bestätigten Inhaltslisten.
+- Die Bossarten sind vorläufig für die Sammlung übernommen. Die endgültigen
+  Begegnungen und die Rig-/Editorarchitektur sind noch auszuarbeiten.
 
 ## 13. Aufwand und was ich übernehmen kann
 

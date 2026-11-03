@@ -1,0 +1,66 @@
+{
+  "report": {
+    "migration": {
+      "count": 0,
+      "oldCurrency": false,
+      "oldBonuses": false,
+      "gold": false
+    },
+    "empty": {
+      "shells": 0,
+      "fossils": 0,
+      "slots": 14,
+      "levelPaused": true
+    },
+    "deep": {
+      "found": true,
+      "x": 6480,
+      "y": 4269.707206104804,
+      "height": 4440,
+      "free": true
+    },
+    "boss": {
+      "dead": true,
+      "first": 1,
+      "afterSecond": 1,
+      "pending": 1,
+      "fossils": 0
+    },
+    "restored": {
+      "found": true,
+      "owned": true,
+      "pending": 0
+    },
+    "wisdom": {
+      "text": "... die erste Spur ... flüstert von einem zweiten Anfang ...",
+      "heard": 1
+    },
+    "full": {
+      "shells": 7,
+      "fossils": 7
+    },
+    "textureCounts": {
+      "before": 945,
+      "after": 945,
+      "new": [
+        "a36d6009-c48b-42c9-95b2-ea8c71dcd581",
+        "2c7c8546-e725-4c2f-8dfa-e8ed2d3cfd17",
+        "33cf0260-2206-4e08-ad14-2289c5766792",
+        "f6cbc42c-19fb-4b96-8a80-6d8852705f6c",
+        "61c05288-3401-4953-9a1d-1b218dce1de9",
+        "f639a9b2-8b97-4df5-a1b5-cd83392fed95",
+        "c18237cb-8676-4996-9e9b-f1c29af4fd4d",
+        "94b76532-074c-45c7-839e-79741b6c6c3b",
+        "b818eef7-cd10-44b2-b0a9-4be9dc4a1658",
+        "7ea86ca0-41e8-4af7-b15e-3651a31b5e76"
+      ]
+    },
+    "stableTextures": true,
+    "reloaded": {
+      "shells": 7,
+      "fossils": 7,
+      "pending": 0
+    }
+  },
+  "errors": []
+}

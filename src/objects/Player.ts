@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
-import { game, type Stats, type UpKey } from '../state/GameState';
+import { game, type Stats } from '../state/GameState';
 import { audio } from '../audio/Audio';
 import { CreatureView, type AnimMode } from './CreatureView';
 import type { Controls } from './Controls';
@@ -42,14 +42,11 @@ export class Player {
   stats!: Stats;
   hp = 1;
   /**
-   * Ausdauer in Kreisen (wie in Breath of the Wild): höchstens game.staminaMax – ein Kreis, und für jeden Segen der großen
-   * Muschel ein Stück mehr. Wie schnell sie schwindet, hängt am Körper (stats.endurance: Schwere ermüden schneller).
+   * Ausdauer als Anteil eines Kreises. Wie schnell sie schwindet, hängt am Körper (stats.endurance: Schwere ermüden schneller).
    */
   stamina = 1;
   /** wann zuletzt Ausdauer verbraucht wurde (erst kurz danach füllt sich der Kreis wieder) */
   private usedAt = -1e9;
-  /** wann die große Muschel zuletzt gesegnet hat (der Kreis wächst sichtbar um ein Stück) */
-  grewAt = -1e9;
   /** am Lebensende: Es wird langsamer (1 = wie immer … 0 = steht still) */
   fade = 1;
   /** Einschlafen am Ende des Lebens: seit wann (Spielzeit in ms, < 0: wach) – nach der Uhr der Szene, wie das Abblenden */
@@ -153,27 +150,6 @@ export class Player {
   /** die größte Ausdauer (in Kreisen) */
   get staminaMax() {
     return game.staminaMax;
-  }
-
-  /**
-   * Die große Muschel hat gesegnet: Ausdauer – der Kreis wächst, und er ist voll; Lebenskraft – der Körper wird etwas größer, und
-   * sie ist ganz wieder da; Sicht – die Augen werden größer (der Blick reicht weiter, siehe LevelScene.sightStep).
-   */
-  blessed(k: UpKey = 'stam') {
-    // Sauerstoff (Karbon): Der Vorrat reicht länger – und er ist voll
-    if (k === 'oxy') {
-      this.oxygen = 1;
-      this.oxygenSeconds = game.oxygenSeconds;
-      return;
-    }
-    if (k === 'stam') {
-      this.grewAt = this.host.time.now;
-      this.stamina = this.staminaMax;
-      this.exhausted = false;
-      return;
-    }
-    this.refresh(false, true);
-    if (k === 'hp') this.hp = this.stats.maxHp;
   }
 
   get body() {

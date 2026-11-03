@@ -1,4 +1,4 @@
-import { FIN_UP, fishJawK, geo, type HeadGeo, type Morph } from '../creatureArt';
+import { fishJawK, geo, type HeadGeo, type Morph } from '../creatureArt';
 
 // ---------------------------------------------------------------------------
 // Die Anatomie des Fisches: aus den Evolutionswerten (Morph) werden hier alle Maße und Ansatzpunkte bestimmt – als reine
@@ -101,7 +101,7 @@ export function fishAnatomy(m: Morph): FishAnatomy {
   const pedX = -bw * 0.5;
 
   // Schwanzflosse (wie bisher; der obere Lappen ist etwas länger – wie bei den frühen Knochenfischen des Devons)
-  const sw = (1 + 0.35 * (m.swift ?? 0)) * (1 + 0.8 * FIN_UP * (m.stamUp ?? 0)), tw = m.tail ?? 0, ft = m.fTail ?? 0;
+  const sw = (1 + 0.35 * (m.swift ?? 0)), tw = m.tail ?? 0, ft = m.fTail ?? 0;
   const lobe = (16 + 16 * st) * sw * (1 + 0.28 * tw) * (1 + 0.3 * ft);
   const fork = 3 + 11 * st + 6 * ft;
   const spread = (13 + 9 * st) * sw * (1 + 0.65 * tw) * (1 + 0.5 * ft);
@@ -157,12 +157,11 @@ export function fishAnatomy(m: Morph): FishAnatomy {
   // Kopfpanzer: die Platten wachsen mit dem Schädel und dem Kopfschild (Stoßfisch); das Auge wird mit ihnen größer, damit es lesbar bleibt
   const plate = Math.min(1, Math.sqrt((Math.max(0, -(m.spike ?? 0)) * (0.4 + sk) + (sk > 0.15 ? (sk - 0.15) * 0.9 : 0)) / 0.7));
 
-  const su = 1 + FIN_UP * (m.stamUp ?? 0);
-  const kd = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0)) * su;
-  const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0)) * su;
+  const kd = (1 + 0.6 * st) * (1 + 0.75 * (m.crest ?? 0)) * (1 + 0.8 * (m.fUp ?? 0));
+  const ka = (1 + 0.6 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.9 * (m.fDown ?? 0));
   const fd = m.fDown ?? 0;
   const lb = m.limb ?? 0;
-  const kp = (1 + 0.5 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.95 * (m.fSide ?? 0)) * su;
+  const kp = (1 + 0.5 * st) * (1 + 0.6 * (m.fin ?? 0)) * (1 + 0.95 * (m.fSide ?? 0));
 
   const dorsal: FinSpec = { k: kd, at: [-bw * 0.1, -bh * 0.4], base: bw * 0.42, len: 10.5 * kd + 3.5 };
   const anal: FinSpec = { k: ka, at: [-bw * 0.27, bb * 0.3], base: bw * 0.19, len: 8 * ka + 3 };

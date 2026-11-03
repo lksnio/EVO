@@ -31,7 +31,7 @@ export class Sight {
   private darkKey: string;
   /** Blickrichtung als Richtung (x, y): Sie folgt dem Fisch weich – beim Umdrehen gleitet der klare Bereich auf die andere Seite */
   private dir = { x: 1, y: 0 };
-  /** die Sicht des Tiers, die gerade gilt (sie wächst nach einem Segen sichtbar heran) */
+  /** die Sicht des Tiers, die gerade gilt (sie wächst nach einem Generationswechsel sichtbar heran) */
   shown = -1;
   /** Wasserqualität und Tiefe, wie sie gerade gelten (sie folgen dem Ort und der Tiefe weich) */
   water = -1;
@@ -79,7 +79,7 @@ export class Sight {
 
   /**
    * Jedes Bild: Der klare Bereich folgt dem Fisch (px, py) und liegt in Blickrichtung (look, Bogenmaß) vor ihm. sight: die
-   * Sicht des Tiers (wächst nach einem Segen langsam heran); water: die Wasserqualität des Ortes; deep: wie tief (0 … 1).
+   * Sicht des Tiers (wächst nach einem Generationswechsel langsam heran); water: die Wasserqualität des Ortes; deep: wie tief (0 … 1).
    */
   update(dt: number, px: number, py: number, look: number, sight: number, water: number, deep: number, gate = 1) {
     // die Blickrichtung gleitet (statt sich zu drehen): Beim Umdrehen wandert der klare Bereich durch den Fisch hindurch

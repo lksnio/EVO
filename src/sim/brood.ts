@@ -190,9 +190,9 @@ export function climbCost(slope: number, max: number, armor: number) {
   return CLIMB.cost * k * (1 + CLIMB.armor * clamp01(armor));
 }
 
-/** So viele Sekunden reicht der Sauerstoff an Land (ups: Segen der großen Muschel; young: noch ein Jungtier mit Kiemen). */
-export function oxygenSeconds(ups: number, young: boolean) {
-  return OXYGEN.seconds * (1 + OXYGEN.perUp * Math.max(0, ups)) * (young ? OXYGEN.young : 1);
+/** So viele Sekunden reicht der Sauerstoff an Land (young: noch ein Jungtier mit Kiemen). */
+export function oxygenSeconds(young: boolean) {
+  return OXYGEN.seconds * (young ? OXYGEN.young : 1);
 }
 
 /**

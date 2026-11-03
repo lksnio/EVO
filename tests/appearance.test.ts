@@ -51,16 +51,12 @@ describe('Sichtbare Entwicklung', () => {
     expect(game.stats('fish', strong, { grow: 0.4, old: 0 }).size).toBeCloseTo(b.size * 0.4);
   });
 
-  it('Lebenssegen lassen den Körper stärker wachsen, der Schädel-Grundwert bleibt 10', () => {
-    const no = { hp: 0, sight: 0, stam: 0, oxy: 0 };
-    const a = game.stats('fish', game.traits, ADULT, no);
-    const b = game.stats('fish', game.traits, ADULT, { ...no, hp: 4 });
-    expect(b.size / a.size).toBeCloseTo(1.072);
-    expect(b.maxHp).toBeGreaterThan(a.maxHp);
-    expect(b.ram).toBe(a.ram);
+  it('Sammelmuscheln verändern den Körper und die Erbgutwerte nicht', () => {
+    const before=game.morph(),stats=game.stats('fish',game.traits,ADULT);
+    game.collectShell('abyss');
+    expect(game.morph()).toEqual(before);
+    expect(game.stats('fish',game.traits,ADULT)).toEqual(stats);
     expect(game.roeShown().ram).toBe(10);
-    expect(a.ramStun).toBe(1000);
-    expect(b.ramStun).toBe(1000);
   });
 });
 

@@ -6,7 +6,7 @@
 // andere Seite. Dahinter verschwimmt es kurz, dann ist nur noch trübes Wasser, weiter draußen das Dunkle.
 //
 // Wie weit man sieht, hängt an drei Dingen:
-//   – an deinem Tier: seine Sicht (sight, der Anteil des ganzen Bildes vor dir – zu Beginn 0,2, siehe UPGRADES in data/life.ts),
+//   – an deinem Tier: seine Sicht (sight, der Anteil des ganzen Bildes vor dir – zu Beginn 0,2, siehe VISION in data/life.ts),
 //   – am Wasser: In sauberem Wasser sieht man klarer und weiter als in trübem (water, nach der Art des Ortes) – und durch
 //     klares Wasser sieht man auch den Hintergrund und die Fische in der Ferne,
 //   – an der Tiefe: Nah an der Oberfläche sieht man weiter, in der Tiefe weniger weit – und dort hört es viel plötzlicher auf

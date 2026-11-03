@@ -16,7 +16,7 @@ const EXTREMES: [string, Partial<Morph>][] = [
   ['Schädel max', { skull: 1, spike: -1 }],
   ['Tarnung max', { stealth: 1, diet: -1 }], ['Tarnung min', { stealth: -1 }],
   ['lang', { len: 1, girth: -1 }], ['kurz massig', { len: -1, girth: 1 }],
-  ['Panzer', { armor: 1 }], ['flink', { swift: 1, fin: 1, tail: 1, fTail: 1, fUp: 1, fDown: 1, fSide: 1, stamUp: 10 }],
+  ['Panzer', { armor: 1 }], ['flink', { swift: 1, fin: 1, tail: 1, fTail: 1, fUp: 1, fDown: 1, fSide: 1 }],
   ['träge', { swift: -1, fin: -1, tail: -1, crest: -1 }],
   ['großer Kopf, kleiner Körper', { jaw: 1, skull: 1, spike: -1, size: 0.6, girth: -1, len: -1, toothTier: 9 }],
   ['Stützflossen', { limb: 1, fSide: 1 }],

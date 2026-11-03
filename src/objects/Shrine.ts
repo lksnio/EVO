@@ -5,8 +5,7 @@ import { Prompt } from '../ui/InteractionPrompt';
 
 // ---------------------------------------------------------------------------
 // Die große Muschel im Laichfluss: eine riesige Fächermuschel (gezeichnetes Bild, assets/shrine/muschel.webp), aufrecht im
-// Sand, in ihr eine Perle, die leise glüht. Wer genug Muscheln gesammelt hat (8, 16, 32, 64 …), betet hier – und sie segnet
-// seine Linie mit mehr Ausdauer. Ist es so weit, ruft sie: Ringe aus Licht gehen von der Perle aus. Gebetet wird mit der
+// Sand, in ihr eine Perle, die leise glüht. Jede neue Sammelmuschel eröffnet eine kurze Weisheit. Ist eine neue Weisheit bereit, ruft sie: Ringe aus Licht gehen von der Perle aus. Gebetet wird mit der
 // Interaktionstaste (LevelScene.shrineStep).
 // ---------------------------------------------------------------------------
 
@@ -22,13 +21,12 @@ const SINK = 6;
 export class Shrine {
   private glow: Phaser.GameObjects.Image;
   private ray: Phaser.GameObjects.Image;
-  private pearl: Phaser.GameObjects.Image;
   /** die Perle in der Welt (hier gehen Licht und Ringe aus) */
   private px: number;
   private py: number;
   private prompt: Prompt;
   private motes: Phaser.GameObjects.Particles.ParticleEmitter;
-  /** wann zuletzt ein Ring aus Licht von der Perle ausging (sie ruft, wenn ein Segen bereitliegt) */
+  /** wann zuletzt ein Ring aus Licht von der Perle ausging (sie ruft, wenn eine neue Weisheit bereitliegt) */
   private callAt = 0;
   near = false;
 
@@ -47,7 +45,7 @@ export class Shrine {
     // vor den Pflanzen (sie wachsen hinter ihr), auf dem Grund stehend
     scene.add.image(x, y + SINK, 'shrine_shell').setOrigin(0.5, 1).setScale(SCALE).setDepth(DEPTH.terrain + 0.5);
     this.glow = scene.add.image(this.px, this.py, 'glow').setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(120, 120).setAlpha(0.3).setDepth(DEPTH.pickups - 0.2);
-    this.pearl = scene.add.image(this.px, this.py, 'glow').setTint(0xfff4e0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(34, 34).setAlpha(0.45).setDepth(DEPTH.pickups);
+    scene.add.image(this.px, this.py, 'glow').setTint(0xfff4e0).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(34, 34).setAlpha(0.45).setDepth(DEPTH.pickups);
     scene.tweens.add({ targets: this.glow, alpha: 0.5, displayWidth: 150, displayHeight: 150, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     scene.tweens.add({ targets: this.ray, alpha: 0.24, duration: 4200, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     // Lichtfunken steigen von der Muschel auf
@@ -59,7 +57,7 @@ export class Shrine {
     this.prompt = new Prompt(scene, touchMode, 'talk');
   }
 
-  /** Wo man steht, um zu beten (vor der Perle). */
+  /** Wo man steht, um zu lauschen (vor der Perle). */
   get at() {
     return { x: this.x, y: this.y - 50 };
   }
@@ -68,34 +66,11 @@ export class Shrine {
     this.near = can && Math.hypot(px - this.x, py - (this.y - 40)) < 150;
     // das Zeichen schwebt über der Muschel
     this.prompt.update(dt, this.x, this.y + SINK - HEIGHT - 14, this.near);
-    // ein Segen liegt bereit: Die Perle ruft – alle paar Sekunden geht ein Ring aus Licht von ihr aus
-    if (game.canUp() && time - this.callAt > 2600) {
+    // Eine neue Weisheit liegt bereit: Die Perle ruft – alle paar Sekunden geht ein Ring aus Licht von ihr aus
+    if (game.unheardWisdom && time - this.callAt > 2600) {
       this.callAt = time;
       const ring = this.scene.add.circle(this.px, this.py, 12).setStrokeStyle(2, 0xffe2a8, 0.9).setDepth(DEPTH.pickups + 0.2);
       this.scene.tweens.add({ targets: ring, scale: 5, alpha: 0, duration: 1800, ease: 'Sine.out', onComplete: () => ring.destroy() });
-    }
-  }
-
-  /** Beten: Licht strömt von der Perle in dein Tier (blessed: Die Muschel segnet; sonst schweigt sie nur kurz). */
-  pray(tx: number, ty: number, blessed: boolean) {
-    const sc = this.scene;
-    sc.tweens.add({ targets: this.pearl, scale: blessed ? 2.2 : 1.5, duration: 500, yoyo: true, ease: 'Sine.inOut', repeat: blessed ? 2 : 0 });
-    if (!blessed) return;
-    sc.tweens.add({ targets: this.ray, alpha: 0.6, duration: 900, yoyo: true, hold: 1600, ease: 'Sine.inOut' });
-    sc.tweens.add({ targets: this.glow, alpha: 1, duration: 700, yoyo: true, hold: 1800 });
-    // ein Strom aus Lichtfunken von der Perle zum Tier
-    const stream = sc.add.particles(this.px, this.py, 'p_dot', {
-      lifespan: 900, frequency: 18, speed: { min: 30, max: 90 }, scale: { start: 0.35, end: 0.05 }, alpha: { start: 1, end: 0 },
-      tint: [0xffe8b0, 0xfff6dc, 0xe0a848], blendMode: Phaser.BlendModes.ADD,
-      moveToX: tx, moveToY: ty,
-    }).setDepth(DEPTH.fx);
-    sc.time.delayedCall(2600, () => stream.stop());
-    sc.time.delayedCall(3800, () => stream.destroy());
-    for (let i = 0; i < 3; i++) {
-      sc.time.delayedCall(400 + i * 700, () => {
-        const ring = sc.add.circle(this.px, this.py, 14).setStrokeStyle(3, 0xffe2a8, 1).setDepth(DEPTH.fx);
-        sc.tweens.add({ targets: ring, scale: 7, alpha: 0, duration: 1500, ease: 'Sine.out', onComplete: () => ring.destroy() });
-      });
     }
   }
 
