@@ -60,7 +60,7 @@ Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
   Nachkommen bleiben erkennbar, damit ihre Auswahl eine bewusste Entscheidung ist.
 - **Ein Lauf durch eine veränderliche Welt.** Weltzeit und Entwicklung der Spielerlinie
   sind getrennt. Reale Arten erhalten eigene historische Auftretensfenster.
-  Rund 4–5 Stunden pro Hauptlauf sind ein vorläufiger Richtwert für das Balancing.
+  Ein fester Weltzeitrahmen mit zunächst etwa 10–12 Stunden ist die neue Messlatte fürs Balancing; die bisherige Kalenderuhr des Prototyps ist noch nicht darauf umgestellt.
 - **Neue Lebensräume über Fortpflanzung erschließen.** Tiefsee, Wasser, Ufer, Land
   und Berge verlangen unterschiedliche Anpassungen. Veränderungen kündigen sich an,
   damit die Linie sich über Generationen vorbereiten kann.
@@ -871,7 +871,7 @@ Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsäch
   die Fähigkeiten der Art verändern sich **nur beim Generationswechsel** – im Leben wächst das Tier nur heran.
 - **Blutig:** Bisse und Stöße bluten – als Wolke im Wasser dort, wo gekämpft wurde, und als Fleck
   am Boden.
-- **Keine Spoiler:** Zeitalter, die noch ruhen, zeigen im Stammbaum nur ihren ausgegrauten Ast – im Gestein.
+- **Keine Spoiler:** Der Stammbaum zeigt nur gespielte Tiere. Epochen sind sichtbar, ungespielte Körperformen nicht.
 
 Kaum Zahlen und Balken – im Spiel ist fast nichts eingeblendet: oben in der Mitte die **Weltzeit** (Name des
 Zeitalters, „vor 382.438.000 Jahren“ – die Jahre zählen für alle gleich rückwärts) und darunter die **Lebenslinie** deines
@@ -885,32 +885,39 @@ sich alle vier Bildränder rot, und das Tier wird ein klein wenig langsamer.
 
 ### Der Stammbaum
 
-**Bestehende Darstellung:** Der folgende Abschnitt beschreibt den aktuellen Prototyp.
-Geplant ist ein individueller Baum der tatsächlich gespielten Linien mit Wiedereinstieg
-in deren erste Generation. Sammlung und Entwicklungsverlauf werden getrennt dargestellt.
+Der Stammbaum liegt **außerhalb des laufenden Spiels**, erreichbar über **Stammbaum** im Titelbild.
+Er zeichnet die **persönlich gewählten Tiere** auf, auch beim Spielen mit gemeinsamem Koop-Laich.
+Fremde Generationen oder Eierangebote werden nicht als eigener gespielter Weg übernommen.
 
-**Ein Baum für alle sieben Zeitalter – und er zeigt nur deine jetzige Linie.** Von oben nach unten läuft die Zeit am
-**Stamm** entlang (davor und danach läuft er gestrichelt aus: Das Leben ging vorher schon weiter und geht danach weiter).
-Am Stamm sitzen sieben kleine Rauten, je Zeitalter eine, daneben Nummer, Name und Zeitraum („I · DEVON, vor 419–359 Mio.
-Jahren“). Von jeder Raute geht ein **Ast** ab – **versetzt wie die Stäbe eines Fächers**: Das Devon setzt ganz oben an und
-zeigt weit nach links, jedes spätere Zeitalter setzt ein Stück tiefer an und zeigt steiler nach unten, das Paläogen schon
-nach rechts unten.
+**Zeit läuft senkrecht nach unten.** Die Höhe eines Knotens kommt aus der gespeicherten Weltzeit in Jahren vor heute.
+Gleiche Zeitspannen haben gleiche vertikale Längen; die Zahl der Generationen streckt einen Ast nicht künstlich.
+Links stehen alle sieben Epochen vom Devon bis zum Paläogen. Die kleine Epochenleiste zeigt zugleich den gewählten
+Zeitausschnitt. **Alle Epochen** zeigt den gesamten Zeitraum, **Dein Verlauf** vergrößert die ausgewählte Linie.
+Mausrad oder +/− zoomen; Ziehen verschiebt die Zeit. Ein Klick auf eine Epoche zeigt deren Zeitraum.
 
-**Dein Weg** ist ein heller Strang auf seinem Ast: vom Urahn am Stamm bis zu deiner jetzigen Generation, die am Ende
-leuchtet (dort schwimmt dein Tier). Mit jeder Generation wird er länger (zwölf Generationen füllen den halben Ast; länger
-als sein Ast wird er nie). Wo deine Linie eine **neue Art** wurde, sitzt ein Knoten mit einem kleinen Bild der Art. Was
-(noch) nicht gespielt ist, steht **ausgegraut** da – die Äste gepunktet bis an ihr Ende: die Möglichkeit des Fächers.
-Zwischen und neben den Ästen **verzweigen sich leise die übrigen Linien des Lebens** – feine Zweige vom Stamm und von jedem
-Ast: Alles ist ein Baum.
+**Ein anderer Laichplatz wird ein neuer Knoten, sobald man dort einen Nachkommen wählt.** Anfangs gilt ein
+Fortpflanzungsort je Gebiet; kleine Positionsabweichungen desselben Geleges erzeugen keine zusätzlichen Knoten.
+Bloßes Durchschwimmen erzeugt ebenfalls keinen Knoten. Weitere Nachkommen am selben Laichplatz bleiben im selben
+Abschnitt, mit kleinen Generationenstrichen. Ihre erste und zuletzt gewählte Form werden samt Farben gespeichert.
+Am Knoten sieht man das erste Tier des Abschnitts, am Ende das zuletzt gewählte Tier.
 
-**Generationen und Arten stehen rechts**, sobald man etwas berührt (Maus oder ← →): ein Abschnitt des Strangs zeigt seine
-Art und „Generation 4 bis 7 · 4 Generationen im Devon“, das leuchtende Ende „Deine Linie lebt · Generation 10“, der Ansatz
-am Stamm den Urahn, ein leerer Ast sein Zeitalter (Zeitraum, „noch im Gestein“).
+**Anklicken oder ↑/↓** wählt einen Knoten. Rechts erscheinen das Tier, sein Laichplatz, die Weltzeit, der
+Generationsbereich, die Zahl gewählter Tiere und die aktive Spielzeit des Abschnitts. **Laichplatz merken** setzt eine
+dauerhafte persönliche Markierung. Die Ansicht öffnet sich beim nächsten Besuch wieder dort. Mehrere eigene Läufe
+stehen nebeneinander; bei mehr als drei blättert man mit den Pfeiltasten ←/→ oder den kleinen Pfeilknöpfen.
+Es werden keine ungespielten Körperformen, vorgegebenen Alternativäste oder Vollständigkeitsprozente dargestellt.
 
-**Stirbt deine Linie aus,** siehst du nach der Meldung noch einmal ihren Strang mit dem Schädel am Ende – dann zerfällt er
-von seinem Ende her zu Staub, und übrig bleibt nur der **Urahn**: Mit ihm beginnt das nächste Leben (vorerst; die alten
-Äste bleiben im Spielstand gespeichert, werden aber nicht mehr gezeigt). Rechts unten **Weiterleben** bzw. **Leben
-beginnen**, oben rechts lässt sich alles zurücksetzen (zweimal klicken).
+**Ausgestorbene Linien bleiben sichtbar**, mit ihrem Endzeitpunkt und der Ursache. Eine laufende Linie lässt sich
+fortsetzen; das Ansehen einer alten Linie ersetzt keinen laufenden Spielstand. Wiedereinstiege in historische
+Generationen sind weiterhin geplant und noch nicht eingebaut. Die Sammlung bleibt im Spiel unter C.
+
+**Ältere Spielstände:** Neue Zeitmarken werden ab der Übernahme aufgezeichnet. Datierte alte Astenden bleiben als
+Endpunkte erhalten; nicht überlieferte Geburten und Laichplätze werden ausdrücklich als unbekannt bezeichnet.
+Die bisherigen Merkmalsknoten bleiben für Namen und die Kompatibilität älterer Spielstände gespeichert.
+Die neue Aufzeichnung heißt `lineage` und wird nicht an den Koop-Server geschickt.
+
+[Aufnahmen und Prüfung](art/EVO_lineage_time_v1/README.md) zeigen die leere Ansicht, den persönlichen Verlauf,
+einen markierten Laichplatz und eine isolierte Vorschau über alle sieben Epochen.
 
 <details>
 <summary>Spoiler: Wie die verborgene Anpassung funktioniert</summary>
@@ -949,8 +956,9 @@ höchstens `INHERIT.step.carry` je Generation). Jede Evolutionsrichtung wächst 
 Passung zur Spielweise (0 bis 1; höchstens `plateStep`, alle zusammen höchstens `plateTotal`). Größe, Robustheit und Kost
 passen sich an wie oben. Vom Partner kommen 15 % seines Aussehens
 (Farben, Länge, Flossen – keine Kampfwerte). Die Artgenossen tragen dasselbe weiter, jeder mit eigener Abweichung.
-Im Stammbaum werden Linien nach Körperform, vorherrschender Platte und Kost zusammengefasst –
-daher auch die lateinisch klingenden Namen (z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch).
+Die lateinisch klingenden Namen werden weiterhin aus Körperform, vorherrschender Platte und Kost gebildet
+(z. B. *Odontichthys carnivorus* für einen fleischfressenden Beißfisch). Verschiedene persönliche Läufe werden
+im sichtbaren Stammbaum auch bei gleichem Namen getrennt aufbewahrt.
 </details>
 
 ## Die Musik des Ozeans
@@ -1036,7 +1044,7 @@ das Tier in dieser Zeit, zählt der Tod. Dann wird alles gespeichert, auch **die
 `EpochProg.resume` in `src/state/GameState.ts`).
 
 **In der Auswahl der Zeitalter:** ← → wählen, ↑ ↓ (oder Tab) zwischen den Knöpfen, Eingabe: aufbrechen, Esc: zurück.
-**Im Stammbaum:** ← → geht von Knoten zu Knoten. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.
+**Im Stammbaum:** ↑ ↓ wählt Knoten, ← → blättert durch Läufe, G zeigt alle Epochen, L den eigenen Verlauf; +/− oder Mausrad zoomen. **In der Chronik des Lebens:** 1 bis 7 oder Tab wechseln den Teil.
 
 **Am Laich (E):** Geschwister und nächste Generation ansehen, Nahrung und Kosten je Ei ablesen, mit B befruchten.
 Ein Wechsel wird bestätigt; Esc kehrt zum lebenden Fisch zurück. Die Übersicht öffnet sich mit C.

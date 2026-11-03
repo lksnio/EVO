@@ -1,644 +1,380 @@
 import Phaser from 'phaser';
-import { W, H, TITLE_FONT, UI } from '../config';
+import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
-import { game, rootId, rootNode, speciesName, type Run, type TreeNode } from '../state/GameState';
-import { EPOCHS, ERAS, inEra, ofEra, type EpochDef } from '../data/epochs';
-import { CLASSES, type ClassId } from '../data/classes';
+import { game, speciesName, ZERO_TRAITS, type Traits } from '../state/GameState';
+import { EPOCHS, ERAS, spanWords, yearsAgo } from '../data/epochs';
 import type { Morph } from '../art/creatureArt';
 import { CreatureView } from '../objects/CreatureView';
-import { clamp, mulberry32 } from '../util/math';
+import { clamp } from '../util/math';
 import { Button, fadeIn, fadeTo, text, title } from '../ui/ui';
 import { continueLife, startNewLife } from './flow';
+import { focusTime, markKey, TIME_WORLD, timeAt, timeFraction, timeWindow, zoomTime,
+  type LineageForm, type LineageRun, type LineageSegment, type TimeWindow } from '../sim/lineage';
 
 type TreeData =
   | { mode: 'extinct'; leaf: string; morph: Morph; epoch: number; cause: string; years: number; quiet?: boolean }
   | { mode: 'present'; node: string; epoch?: number }
   | { mode?: 'view'; epoch?: number };
+type Pick = { run: LineageRun; segment: LineageSegment; kind: 'birth' | 'tip'; x: number; y: number };
+const PANEL = 950;
+const PLOT = { x: 218, right: 918, y: 144, bottom: 599 };
+const HEIGHT = PLOT.bottom - PLOT.y;
+const PER_PAGE = 3;
+const STRAND = 0xe9d4a8;
+const INK = 0x080706;
+const ERA_COLORS = [0x243b39, 0x303c29, 0x433629, 0x45302b, 0x303b34, 0x283c41, 0x3e3628];
+const minutes = (seconds: number) => `${Math.round(seconds / 60)} Min. gespielt`;
 
-// ---------------------------------------------------------------------------
-// Der Stammbaum des Lebens – ein Baum für alle sieben Zeitalter, und er zeigt nur deine jetzige Linie.
-// Von oben nach unten läuft die Zeit am Stamm entlang. An ihm setzt je Zeitalter ein Ast an, versetzt: das Devon ganz oben,
-// jedes spätere ein Stück tiefer – und jeder Ast zeigt in einem anderen Winkel, wie die Stäbe eines Fächers: das Devon weit
-// nach links, das Paläogen schon nach rechts unten. Dein Weg ist ein heller Strang auf seinem Ast, der mit jeder Generation
-// länger wird; wo deine Linie eine neue Art wurde, sitzt ein Knoten. Was (noch) nicht gespielt ist, steht ausgegraut da: die
-// Möglichkeit des Fächers. Zwischen den Ästen verzweigen sich leise die übrigen Linien des Lebens – alles ist ein Baum.
-// Stirbt deine Linie aus, zerfällt ihr Strang zu Staub; übrig bleibt der Urahn, mit dem alles neu beginnt.
-// Was ein Knoten bedeutet (Art, Generationen, Zeitalter), steht rechts, sobald man ihn berührt.
-// ---------------------------------------------------------------------------
-
-const PANEL_X = 944;
-/** der Baumbereich (Ränder, über die nichts hinauswächst) */
-const AREA = { x0: 8, x1: PANEL_X - 26, y0: 84, y1: H - 14 };
-
-const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
-/** der Stamm: von oben (frühere Zeiten) in einem Bogen nach rechts unten (spätere Zeiten) */
-const TRUNK = new Phaser.Curves.QuadraticBezier(V(420, 62), V(440, 430), V(760, 576));
-/** wo am Stamm die Äste ansetzen (Anteil des Stammes) */
-const U0 = 0.12, U1 = 0.9;
-/** Winkel der Äste (Grad, 0 = senkrecht nach unten, negativ = nach links) und ihre Länge – vom ersten bis zum letzten Zeitalter */
-const ANGLE: [number, number] = [-80, 40];
-const LENGTH: [number, number] = [310, 196];
-/** so viele Generationen füllen den halben Ast (der Strang wächst, wird aber nie länger als sein Ast) */
-const HALF_GENS = 12;
-
-const CLS_COLOR: Record<ClassId, number> = {
-  fish: 0x6f9e98,
-  amphibian: 0x86a060,
-  reptile: 0xb08250,
-  mammal: 0xd2aa72,
-};
-const STRAND = 0xf0dcae;
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-
-/** ein Ast: wo er am Stamm ansetzt, wie er verläuft und wo er endete, wäre er ganz gespielt */
-interface Branch {
-  k: number;
-  i: number;
-  ep: EpochDef;
-  /** Anteil des Stammes, an dem er ansetzt */
-  u: number;
-  o: Phaser.Math.Vector2;
-  curve: Phaser.Curves.QuadraticBezier;
-  end: Phaser.Math.Vector2;
-  dir: Phaser.Math.Vector2;
-  run: Run | null;
-}
-
-/** Was sich berühren lässt: der Ansatz (Urahn), ein Stück Strang (eine Art), das Ende deiner Linie, ein (noch) leerer Ast. */
-interface Pick {
-  x: number;
-  y: number;
-  r: number;
-  kind: 'root' | 'node' | 'tip' | 'era';
-  b: Branch;
-  n?: TreeNode;
-  /** Generationen dieses Abschnitts (von, bis) */
-  gens?: [number, number];
-}
-
-/** Anteil des Astes, den so viele Generationen füllen */
-const frac = (gens: number) => gens / (gens + HALF_GENS);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-function branches(): Branch[] {
-  const n = ERAS.length;
-  return ERAS.map(({ i, ep }, k) => {
-    const s = n > 1 ? k / (n - 1) : 0;
-    const u = lerp(U0, U1, s);
-    const o = TRUNK.getPoint(u);
-    const tan = TRUNK.getTangent(u);
-    const th = Phaser.Math.DegToRad(lerp(ANGLE[0], ANGLE[1], s));
-    const L = lerp(LENGTH[0], LENGTH[1], s);
-    const dir = V(Math.sin(th), Math.cos(th));
-    const end = V(o.x + dir.x * L, o.y + dir.y * L);
-    // der Ast löst sich in Richtung des Stammes und biegt dann in seine eigene Richtung
-    const c = V(o.x + tan.x * L * 0.3, o.y + tan.y * L * 0.3);
-    return { k, i, ep, u, o, curve: new Phaser.Curves.QuadraticBezier(o, c, end), end, dir, run: game.runIn(i) };
-  });
-}
-
+/** A personal record of played lives. Vertical position is geological time; there are no hypothetical branches. */
 export class TreeScene extends Phaser.Scene {
   private d!: TreeData;
-  private br: Branch[] = [];
+  private runs: LineageRun[] = [];
+  private page = 0;
+  private window: TimeWindow = { ...TIME_WORLD };
   private picks: Pick[] = [];
-  private sel?: Pick;
-  private ring!: Phaser.GameObjects.Graphics;
+  private selected?: Pick;
+  private plot!: Phaser.GameObjects.Container;
+  private mini!: Phaser.GameObjects.Container;
   private info!: Phaser.GameObjects.Container;
   private infoView?: CreatureView;
-  private views: CreatureView[] = [];
-  private overlay?: Phaser.GameObjects.Container;
+  private ring!: Phaser.GameObjects.Graphics;
+  private rangeText!: Phaser.GameObjects.Text;
+  private pageText!: Phaser.GameObjects.Text;
   private main!: Button;
   private home!: Button;
-  private focusIdx = 0;
+  private mark?: Button;
+  private drag?: { y: number; x: number; window: TimeWindow; moved: boolean };
+  private dirty = false;
+  private focus = 0;
 
-  constructor() {
-    super('Tree');
-  }
-
+  constructor() { super('Tree'); }
   init(d: TreeData) {
     this.d = d ?? { mode: 'view' };
-    this.br = [];
-    this.picks = [];
-    this.sel = undefined;
-    this.views = [];
-    this.infoView = undefined;
-    this.overlay = undefined;
-    this.focusIdx = 0;
+    this.runs = [...game.data.lineage.runs].sort((a, b) => a.id - b.id);
+    this.page = 0; this.selected = undefined; this.infoView = undefined; this.mark = undefined;
+    this.picks = []; this.drag = undefined; this.dirty = false; this.focus = 0;
   }
 
   create() {
-    fadeIn(this, 900);
+    fadeIn(this, 650);
     audio.music('generation');
     this.cameras.main.setBackgroundColor('#070605');
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x0d0b09, 0x0d0b09, 0x040303, 0x040303, 1);
-    bg.fillRect(0, 0, W, H);
-    // ein warmes Licht hinter dem Stamm
-    this.add.image(470, 370, 'glow').setDisplaySize(1100, 900).setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.05);
+    bg.fillGradientStyle(0x15120e, 0x0d0c09, 0x050505, 0x080706, 1).fillRect(0, 0, W, H);
+    this.add.image(490, 330, 'glow').setDisplaySize(1100, 950).setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(.035);
+    title(this, 28, 17, 'Stammbaum des Lebens', 30);
+    text(this, 30, 59, 'Deine Linien. Die Weltzeit läuft von oben nach unten.', 17, UI.boneDim, { fontStyle: 'italic' });
+    this.rangeText = text(this, 220, 112, '', 14, UI.boneDim).setName('lineage-range');
+    this.pageText = text(this, 815, 112, '', 13, UI.boneDim).setOrigin(1, 0);
+    new Button(this, 291, 93, 'Alle Epochen', { w: 145, h: 31, size: 15, onClick: () => this.setWindow(TIME_WORLD) }).setName('lineage-world');
+    new Button(this, 451, 93, 'Dein Verlauf', { w: 145, h: 31, size: 15, onClick: () => this.focusRun() }).setName('lineage-fit');
+    new Button(this, 569, 93, '−', { w: 55, h: 31, size: 21, onClick: () => this.zoom(1.7) });
+    new Button(this, 633, 93, '+', { w: 55, h: 31, size: 21, onClick: () => this.zoom(1 / 1.7) });
+    new Button(this, 844, 93, '‹', { w: 39, h: 31, size: 25, onClick: () => this.changePage(-1) });
+    new Button(this, 890, 93, '›', { w: 39, h: 31, size: 25, onClick: () => this.changePage(1) });
+    this.mini = this.add.container(0, 0);
+    this.plot = this.add.container(0, 0);
+    const clip = this.make.graphics({ x: 0, y: 0 }).fillStyle(0xffffff).fillRect(113, PLOT.y - 1, PANEL - 130, HEIGHT + 3);
+    this.plot.setMask(clip.createGeometryMask());
+    this.events.once('shutdown', () => { this.plot.clearMask(true); this.ring.clearMask(true); clip.destroy(); });
+    this.ring = this.add.graphics().setDepth(10).setMask(clip.createGeometryMask());
+    this.info = this.add.container(0, 0).setDepth(20);
+    const panel = this.add.graphics().setDepth(19);
+    panel.fillStyle(INK, 1).fillRect(PANEL - 15, 0, W - PANEL + 15, H);
+    panel.fillStyle(0x14120f, .94).fillRoundedRect(PANEL, 97, W - PANEL - 18, 493, 13);
+    panel.lineStyle(2, UI.panelEdge, .6).strokeRoundedRect(PANEL + 1, 98, W - PANEL - 20, 491, 13);
+    const cx = PANEL + (W - PANEL - 18) / 2;
+    this.main = new Button(this, cx, 624, game.hasRun() ? 'Weiterleben' : 'Leben beginnen',
+      { w: 290, h: 51, icon: 'ic_play', color: UI.ochreN, sound: null, onClick: () => this.play() }).setDepth(25).setName('lineage-play');
+    this.home = new Button(this, cx, 680, 'Titelbild',
+      { w: 290, h: 42, size: 19, icon: 'ic_home', onClick: () => fadeTo(this, 'Title') }).setDepth(25);
+    text(this, 29, 624, '●  Laichplatz     │  Generation     ×  Ende einer Linie', 16, UI.boneDim);
+    text(this, 29, 653, 'Mausrad: Zeitzoom · Ziehen: Zeit verschieben · Knoten anklicken: ansehen', 15, UI.boneDim);
+    text(this, 29, 679, '↑ ↓ Knoten · ← → Seiten · + − Zoom · G alle Epochen · L dein Verlauf', 13, '#766c5b');
 
-    title(this, 30, 16, 'Stammbaum des Lebens', 30);
-    text(this, 32, 58, 'Ein Baum, sieben Zeitalter – dein Weg leuchtet.', 16, UI.boneDim, { fontStyle: 'italic' }).setAlpha(0.8);
+    const leafRun = this.d.mode === 'extinct' ? game.data.nodes[this.d.leaf]?.dead?.run : undefined;
+    const marked = game.data.lineage.marked;
+    const preferred = this.runs.find(r => r.id === leafRun) ?? this.runs.find(r => r.segments.some(s => markKey(r, s) === marked))
+      ?? this.runs.find(r => r.id === game.run?.id) ?? this.runs.at(-1);
+    this.page = preferred ? Math.floor(this.runs.indexOf(preferred) / PER_PAGE) : 0;
+    this.window = preferred ? focusTime([preferred]) : { ...TIME_WORLD };
+    this.draw();
+    const markedPick = this.picks.find(p => p.kind === 'birth' && markKey(p.run, p.segment) === marked);
+    const initial = leafRun ? this.picks.find(p => p.kind === 'tip' && p.run.id === leafRun)
+      : markedPick ?? this.picks.find(p => p.kind === 'tip' && p.run === preferred);
+    if (initial) this.select(initial);
+    else this.showEmpty();
+    this.bindInput();
+  }
 
-    this.br = branches();
-    this.drawTree();
-    this.ring = this.add.graphics().setDepth(20);
+  update(_time: number, dms: number) {
+    if (this.dirty) { this.dirty = false; this.draw(); }
+    this.infoView?.animate(Math.min(.05, dms / 1000), this.infoView.L.land ? 'idle' : 'swim', .18);
+  }
+  private visibleRuns() { return this.runs.slice(this.page * PER_PAGE, (this.page + 1) * PER_PAGE); }
+  private y(years: number) { return PLOT.y + timeFraction(years, this.window) * HEIGHT; }
+  private stationX(run: LineageRun, segment: LineageSegment) {
+    const index = this.visibleRuns().indexOf(run), count = Math.max(1, this.visibleRuns().length);
+    const center = PLOT.x + (index + .5) * (PLOT.right - PLOT.x) / count;
+    // A stable, small lateral separation makes returns to the same station recognisable. X has no time meaning.
+    let hash = 0;
+    for (const c of segment.site.key) hash = (hash * 31 + c.charCodeAt(0)) | 0;
+    return center + ((hash >>> 0) % 7 - 3) * 9;
+  }
+  private setWindow(w: TimeWindow) {
+    this.window = { ...w }; this.draw();
+  }
+  private zoom(factor: number, anchor = .5) { this.setWindow(zoomTime(this.window, factor, clamp(anchor, 0, 1))); }
+  private focusRun() {
+    const run = this.selected?.run ?? this.visibleRuns().at(-1);
+    this.setWindow(focusTime(run ? [run] : []));
+  }
+  private changePage(delta: number) {
+    const next = clamp(this.page + delta, 0, Math.max(0, Math.ceil(this.runs.length / PER_PAGE) - 1));
+    if (next === this.page) return;
+    this.page = next; this.selected = undefined;
+    this.window = focusTime(this.visibleRuns()); this.draw();
+    const p = this.picks.find(p => p.kind === 'tip'); if (p) this.select(p);
+  }
 
-    // Infotafel rechts
-    const pg = this.add.graphics();
-    pg.fillStyle(0x070605, 1);
-    pg.fillRect(PANEL_X - 14, 0, W - PANEL_X + 14, H);
-    pg.fillStyle(0x121110, 0.92);
-    pg.fillRoundedRect(PANEL_X, 96, W - PANEL_X - 18, 470, 14);
-    pg.lineStyle(2, UI.panelEdge, 0.55);
-    pg.strokeRoundedRect(PANEL_X + 1, 97, W - PANEL_X - 20, 468, 14);
-    this.info = this.add.container(0, 0);
+  private draw() {
+    this.plot.removeAll(true); this.mini.removeAll(true); this.picks = [];
+    const g = this.add.graphics(); this.plot.add(g);
+    this.drawEras(g); this.drawTicks(g);
+    const visible = this.visibleRuns();
+    for (const run of visible) this.drawRun(g, run);
+    if (!visible.length) {
+      this.plot.add(text(this, 566, 319, 'Hier beginnt deine Geschichte.', 28, UI.bone).setOrigin(.5));
+      this.plot.add(text(this, 566, 365, 'Spiele dein erstes Tier. Sein Weg bleibt hier erhalten.', 17, UI.boneDim).setOrigin(.5));
+    }
+    const digits = Math.max(0, Math.min(6, 7 - Math.floor(Math.log10(this.window.from - this.window.to))));
+    const date = (years: number) => (years / 1e6).toLocaleString('de-DE', { maximumFractionDigits: digits });
+    this.rangeText.setText(`${date(this.window.from)} → ${date(this.window.to)} Mio. Jahre vor heute`);
+    this.pageText.setText(this.runs.length ? `${this.page * PER_PAGE + 1}–${Math.min((this.page + 1) * PER_PAGE, this.runs.length)} / ${this.runs.length} Läufe` : 'Noch kein Lauf');
+    if (this.selected) {
+      const old = this.selected;
+      this.selected = this.picks.find(p => p.run === old.run && p.segment === old.segment && p.kind === old.kind);
+    }
+    this.drawSelection();
+  }
 
-    const cx = PANEL_X + (W - PANEL_X - 18) / 2;
-    const run = game.runIn(game.chosenEpoch);
-    this.main = new Button(this, cx, 608, run ? 'Weiterleben' : 'Leben beginnen', { w: 290, h: 54, icon: 'ic_play', color: UI.ochreN, sound: null, onClick: () => this.play() });
-    this.home = new Button(this, cx, 670, 'Titelbild', { w: 290, h: 46, size: 19, icon: 'ic_home', sound: 'back', onClick: () => fadeTo(this, 'Title') });
-    // Stammbaum zurücksetzen – mit Rückfrage (zweiter Klick innerhalb weniger Sekunden)
-    let armed = 0;
-    const reset: Button = new Button(this, cx, 48, 'Stammbaum zurücksetzen', {
-      w: 290, h: 40, size: 15, onClick: () => {
-        if (this.time.now - armed < 4000) {
-          game.resetAll();
-          this.scene.restart({ mode: 'view' });
-          return;
+  private drawEras(g: Phaser.GameObjects.Graphics) {
+    const mini = this.add.graphics(); this.mini.add(mini);
+    this.mini.add(text(this, 28, 112, 'EPOCHEN', 12, UI.boneDim));
+    ERAS.forEach(({ ep }, i) => {
+      const from = ep.period[0] * 1e6, to = ep.period[1] * 1e6;
+      const top = PLOT.y + timeFraction(from, TIME_WORLD) * HEIGHT, bottom = PLOT.y + timeFraction(to, TIME_WORLD) * HEIGHT;
+      mini.fillStyle(ERA_COLORS[i], .48).fillRect(26, top, 83, bottom - top - 1);
+      mini.lineStyle(1, 0x8e7956, .25).lineBetween(26, top, 109, top);
+      this.mini.add(text(this, 67, (top + bottom) / 2, ep.name, 13, UI.boneDim).setOrigin(.5));
+      const y0 = clamp(this.y(from), PLOT.y, PLOT.bottom), y1 = clamp(this.y(to), PLOT.y, PLOT.bottom);
+      if (y1 > y0) {
+        g.fillStyle(ERA_COLORS[i], .19).fillRect(PLOT.x - 4, y0, PLOT.right - PLOT.x + 8, y1 - y0);
+        g.lineStyle(1, 0xb8a47d, .18).lineBetween(PLOT.x - 4, y0, PLOT.right + 4, y0);
+      }
+    });
+    const top = PLOT.y + timeFraction(this.window.from, TIME_WORLD) * HEIGHT;
+    const bottom = PLOT.y + timeFraction(this.window.to, TIME_WORLD) * HEIGHT;
+    mini.lineStyle(2, STRAND, .9).strokeRect(23, top, 89, Math.max(3, bottom - top));
+    mini.lineStyle(1, STRAND, .45).lineBetween(118, PLOT.y, 118, PLOT.bottom);
+  }
+
+  private drawTicks(g: Phaser.GameObjects.Graphics) {
+    const span = this.window.from - this.window.to, rough = span / 6;
+    const power = 10 ** Math.floor(Math.log10(rough));
+    const step = [1, 2, 5, 10].map(n => n * power).find(n => n >= rough)!;
+    const precision = Math.max(0, Math.min(6, 6 - Math.floor(Math.log10(step))));
+    for (let years = Math.floor(this.window.from / step) * step; years >= this.window.to; years -= step) {
+      const y = this.y(years);
+      g.lineStyle(1, 0xd8c39b, .075).lineBetween(PLOT.x - 4, y, PLOT.right + 4, y);
+      g.lineStyle(1, STRAND, .5).lineBetween(123, y, PLOT.x - 16, y);
+      const label = `${(years / 1e6).toLocaleString('de-DE', { maximumFractionDigits: precision })}`;
+      this.plot.add(text(this, PLOT.x - 23, y - 5, label, 12, UI.boneDim).setOrigin(1, 1));
+    }
+    this.mini.add(text(this, 137, 127, 'Mio. Jahre', 11, UI.boneDim));
+  }
+
+  private drawRun(g: Phaser.GameObjects.Graphics, run: LineageRun) {
+    const active = game.runIn(run.epoch)?.id === run.id;
+    const color = run.status === 'extinct' ? 0xa8866a : active ? STRAND : 0xa7b6a0;
+    run.segments.forEach((s, i) => {
+      const next = run.segments[i + 1], x = this.stationX(run, s), x1 = next ? this.stationX(run, next) : x;
+      const y0 = this.y(s.from), y1 = this.y(s.to);
+      const curve = new Phaser.Curves.CubicBezier(new Phaser.Math.Vector2(x, y0),
+        new Phaser.Math.Vector2(x - 10, y0 + (y1 - y0) / 3), new Phaser.Math.Vector2(x1 + 9, y0 + (y1 - y0) * 2 / 3), new Phaser.Math.Vector2(x1, y1));
+      // Clip before tessellation: even a century-wide zoom on a 400-million-year trace stays cheap.
+      const span = Math.max(1e-9, y1 - y0), a = clamp((PLOT.y - y0) / span, 0, 1), b = clamp((PLOT.bottom - y0) / span, 0, 1);
+      if (y1 >= PLOT.y && y0 <= PLOT.bottom && b >= a) {
+        const points = Array.from({ length: 31 }, (_, j) => curve.getPoint(a + (b - a) * j / 30));
+        g.lineStyle(11, color, .06).strokePoints(points);
+        g.lineStyle(4.5, color, .9).strokePoints(points);
+        g.lineStyle(1, 0xffebbc, .3).strokePoints(points);
+      }
+      // Only subsequent births get small ticks; a generation never becomes a speciation node.
+      let lastY = -Infinity;
+      for (const birth of s.births.slice(1)) {
+        const y = this.y(birth.years);
+        if (y < PLOT.y || y > PLOT.bottom || y - lastY < 7) continue;
+        const p = curve.getPoint(clamp((s.from - birth.years) / Math.max(1, s.from - s.to), 0, 1));
+        g.lineStyle(1.3, color, .7).lineBetween(p.x - 5, y, p.x + 5, y);
+        lastY = y;
+      }
+      this.picks.push({ run, segment: s, kind: 'birth', x, y: y0 });
+      if (y0 >= PLOT.y && y0 <= PLOT.bottom) {
+        g.fillStyle(INK).fillCircle(x, y0, 9);
+        g.lineStyle(2, color, .95).strokeCircle(x, y0, i ? 6 : 7.5);
+        g.fillStyle(color, .85).fillCircle(x, y0, i ? 2.6 : 4);
+        if (game.data.lineage.marked === markKey(run, s)) {
+          this.plot.add(text(this, x + 12, y0 - 13, '✦', 18, '#e6b65e'));
         }
-        armed = this.time.now;
-        reset.setLabel('Wirklich alles löschen?');
-        reset.setColor(UI.bloodN);
-        this.time.delayedCall(4000, () => {
-          if (!reset.active || this.time.now - armed < 3900) return;
-          reset.setLabel('Stammbaum zurücksetzen');
-          reset.setColor(UI.stone);
-        });
+      }
+      if (!next) {
+        this.picks.push({ run, segment: s, kind: 'tip', x: x1, y: y1 });
+        if (y1 >= PLOT.y && y1 <= PLOT.bottom) {
+          g.fillStyle(INK).fillCircle(x1, y1, 6);
+          if (run.status === 'extinct') {
+            g.lineStyle(2.2, 0xbb7664, 1).lineBetween(x1 - 5, y1 - 5, x1 + 5, y1 + 5).lineBetween(x1 - 5, y1 + 5, x1 + 5, y1 - 5);
+          } else {
+            g.fillStyle(color, 1).fillCircle(x1, y1, 4.4);
+          }
+        }
+      }
+    });
+    const x = this.stationX(run, run.segments[0]), firstY = this.y(run.segments[0].from);
+    const y = clamp(firstY - 22, PLOT.y + 14, PLOT.bottom - 18);
+    this.plot.add(text(this, x + 20, y, `Linie ${run.id}`, 16, active ? UI.bone : UI.boneDim));
+  }
+
+  private drawSelection() {
+    this.ring.clear();
+    if (this.selected) this.ring.lineStyle(2, 0xffe3ac, 1).strokeCircle(this.selected.x, this.selected.y, 12);
+  }
+  private select(p: Pick) {
+    this.selected = p; this.drawSelection(); this.showInfo(p);
+  }
+  private formView(form: LineageForm, x: number, y: number) {
+    const traits = { ...ZERO_TRAITS, ...form.traits } as Traits;
+    const v = new CreatureView(this, x, y, game.morph({ ...form, traits, fierce: 0 }), 1);
+    const scale = Math.min(1.05, 230 / (v.L.halfW * 2), 105 / Math.max(20, v.L.footY - v.L.topY));
+    v.setBaseScale(scale);
+    if (v.L.land) v.y = 298 - v.L.footY * scale;
+    return v;
+  }
+  private showInfo(p: Pick) {
+    this.info.removeAll(true); this.infoView = undefined; this.mark = undefined;
+    const { run, segment: s } = p, cx = PANEL + (W - PANEL - 18) / 2;
+    const first = s.births[0], last = s.births.at(-1)!;
+    const form = p.kind === 'tip' ? s.last : s.first;
+    const traits = { ...ZERO_TRAITS, ...form.traits } as Traits;
+    const shownGen = p.kind === 'tip' ? last.gen : first.gen;
+    const name = shownGen === 1 && !run.legacy ? 'Der Urahn' : speciesName({ cls: form.cls, traits, epoch: s.epoch, parent: 'played' });
+    const ep = EPOCHS[s.epoch];
+    this.info.add(title(this, cx, 117, ep?.name.toUpperCase() ?? 'WELTZEIT', 13, UI.ochre).setOrigin(.5));
+    const heading = p.kind === 'tip' ? run.status === 'extinct' ? 'Die Linie endete hier' : 'Der letzte Nachkomme'
+      : s === run.segments[0] ? run.legacy ? 'Überlieferter Verlauf' : 'Hier begann deine Linie' : 'Ein neuer Laichplatz';
+    this.info.add(title(this, cx, 142, heading, 19, UI.bone).setOrigin(.5));
+    this.info.add(text(this, cx, 174, s.site.name, 20, UI.bone, { align: 'center', wordWrap: { width: 275 } }).setOrigin(.5, 0).setName('lineage-site'));
+    this.info.add(this.add.image(cx, 302, 'pedestal').setScale(.82, .6).setAlpha(.6));
+    this.infoView = this.formView(form, cx, 260); this.info.add(this.infoView);
+    this.info.add(text(this, cx, 326, name, 17, UI.boneDim, { fontStyle: 'italic', align: 'center', wordWrap: { width: 275 } }).setOrigin(.5, 0));
+    const at = p.kind === 'tip' ? s.to : s.from;
+    const gens = first.gen === last.gen ? `Generation ${first.gen}` : `Generationen ${first.gen}–${last.gen}`;
+    const duration = Math.max(0, s.from - s.to);
+    const lines = [`Linie ${run.id} · ${yearsAgo(at, 1)}`, gens,
+      `${s.births.length} ${s.births.length === 1 ? 'Tier gewählt' : 'Tiere gewählt'} · ${minutes(s.seconds)}`,
+      `${spanWords(duration)} an diesem Laichplatz`];
+    if (p.kind === 'tip' && run.status === 'extinct') lines.push(`Ende: ${run.cause ?? 'Unbekannt'}`);
+    else if (game.runIn(run.epoch)?.id === run.id) lines.push('Diese Linie lebt weiter.');
+    else if (run.status === 'alive') lines.push('Ein früherer persönlicher Verlauf.');
+    if (run.legacy) lines.push('Älterer Spielstand: frühere Zeitmarken fehlen.');
+    const details = text(this, cx, 374, lines.join('\n'), 15, UI.boneDim,
+      { align: 'center', lineSpacing: 5, wordWrap: { width: 278 } }).setOrigin(.5, 0).setName('lineage-details');
+    if (details.height > 167) details.setScale(167 / details.height);
+    this.info.add(details);
+    const key = markKey(run, s), marked = game.data.lineage.marked === key;
+    this.mark = new Button(this, cx, 563, marked ? 'Markierung entfernen' : 'Laichplatz merken', {
+      w: 267, h: 33, size: 15, color: marked ? UI.ochreN : UI.stone, onClick: () => {
+        game.markLineage(game.data.lineage.marked === key ? undefined : key); this.draw(); this.showInfo(p);
       },
-    });
-
-    // Berühren zeigt rechts, was ein Knoten bedeutet
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.overlay) return;
-      const hit = this.pick(p.x, p.y);
-      if (hit) this.select(hit);
-    });
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (this.overlay) return this.closeOverlay();
-      const hit = this.pick(p.x, p.y);
-      if (hit) this.select(hit);
-    });
-
-    // Tastatur: ← → von Knoten zu Knoten, ↑ ↓ die Knöpfe
-    const kb = this.input.keyboard!;
-    const busy = () => !!this.overlay || !this.input.enabled;
-    kb.on('keydown-LEFT', () => !busy() && this.step(-1));
-    kb.on('keydown-RIGHT', () => !busy() && this.step(1));
-    kb.on('keydown-UP', () => !busy() && this.focusBtn(-1));
-    kb.on('keydown-DOWN', () => !busy() && this.focusBtn(1));
-    const act = () => !busy() && [this.main, this.home][this.focusIdx].click();
-    kb.on('keydown-ENTER', act);
-    kb.on('keydown-SPACE', act);
-    kb.on('keydown-ESC', () => (this.overlay ? this.closeOverlay() : fadeTo(this, 'Title')));
-    this.focusBtn(0);
-
-    this.select(this.home0());
-    // (quiet: Den Abschied gab es schon – im Koop, als die gemeinsame Art ausstarb: dann zerfällt der Strang gleich)
-    if (this.d.mode === 'extinct') {
-      if (this.d.quiet) this.crumble(this.d);
-      else this.extinctOverlay(this.d);
-    }
-    else this.reveal();
+    }).setName('lineage-mark');
+    this.info.add(this.mark);
+    const target = game.runIn(run.epoch);
+    this.main.setLabel(target?.id === run.id ? 'Linie fortsetzen' : game.hasRun() ? 'Weiterleben' : 'Leben beginnen');
+  }
+  private showEmpty() {
+    const cx = PANEL + (W - PANEL - 18) / 2;
+    this.info.add(title(this, cx, 157, 'Dein erster Vorfahr', 23, UI.bone).setOrigin(.5));
+    this.info.add(text(this, cx, 224, 'Jeder gewählte Nachkomme führt\ndeinen persönlichen Weg weiter.\n\nEin anderer Laichplatz wird\nein neuer Knoten.\n\nDie Höhe zeigt, wann das\nin der Welt geschah.', 19, UI.boneDim, { align: 'center', lineSpacing: 7 }).setOrigin(.5, 0));
   }
 
-  update(_t: number, dms: number) {
-    const dt = dms / 1000;
-    for (const v of this.views) v.animate(dt, v.L.land ? 'idle' : 'swim', 0.15);
-    this.infoView?.animate(dt, this.infoView.L.land ? 'idle' : 'swim', 0.25);
-  }
-
-  // ---------------------------------------------------------------- der Baum
-
-  private drawTree() {
-    const ghost = this.add.graphics();
-    this.twigs(ghost);
-    for (const b of this.br) this.ghostBranch(ghost, b);
-    const trunk = this.add.graphics();
-    this.drawTrunk(trunk);
-    const live = this.add.graphics().setDepth(3);
-    for (const b of this.br) {
-      this.picks.push(...this.branchPicks(b));
-      if (b.run) this.strand(live, b, b.run);
-    }
-    for (const b of this.br) this.labels(b);
-  }
-
-  /** die übrigen Linien des Lebens: feine Zweige vom Stamm und von den Ästen, die sich leise weiter verzweigen */
-  private twigs(g: Phaser.GameObjects.Graphics) {
-    const r = mulberry32(7);
-    const inside = (x: number, y: number) => x > AREA.x0 && x < AREA.x1 && y > AREA.y0 && y < AREA.y1;
-    const twig = (x: number, y: number, a: number, len: number, depth: number, alpha: number) => {
-      const bend = (r() - 0.5) * 0.5;
-      const ex = x + Math.cos(a + bend) * len, ey = y + Math.sin(a + bend) * len;
-      if (!inside(ex, ey)) return;
-      const cx = x + Math.cos(a) * len * 0.5, cy = y + Math.sin(a) * len * 0.5;
-      const c = new Phaser.Curves.QuadraticBezier(V(x, y), V(cx, cy), V(ex, ey));
-      g.lineStyle(Math.max(0.8, depth * 0.7), 0xe6dcc4, alpha);
-      g.strokePoints(c.getPoints(10));
-      if (depth > 0) {
-        const n = r() < 0.3 ? 3 : 2;
-        for (let j = 0; j < n; j++) twig(ex, ey, a + bend + (j - (n - 1) / 2) * (0.5 + r() * 0.35), len * (0.55 + r() * 0.15), depth - 1, alpha * 0.85);
-      } else {
-        g.fillStyle(0xe6dcc4, alpha * 1.6);
-        g.fillCircle(ex, ey, 1.3);
-      }
-    };
-    // vom Stamm aus auf die andere Seite: die vielen Linien, die nicht deine sind
-    for (let u = 0.04; u < 0.98; u += 0.075) {
-      const p = TRUNK.getPoint(u), t = TRUNK.getTangent(u);
-      const a = Math.atan2(t.y, t.x) - 1.05 - r() * 0.35;
-      twig(p.x, p.y, a, 70 + r() * 90, 3, 0.1);
-    }
-    // an jedem Ast zweigen andere Arten ab
-    for (const b of this.br) {
-      for (const t of [0.3, 0.5, 0.7, 0.9]) {
-        const p = b.curve.getPointAt(t), tg = b.curve.getTangentAt(t);
-        const side = r() < 0.5 ? -1 : 1;
-        twig(p.x, p.y, Math.atan2(tg.y, tg.x) + side * (0.6 + r() * 0.4), 30 + r() * 34, 2, 0.085);
-      }
-    }
-  }
-
-  /** die Möglichkeit eines Astes: gepunktet bis an sein Ende, ein offener Ring dort */
-  private ghostBranch(g: Phaser.GameObjects.Graphics, b: Branch) {
-    const open = b.ep.playable;
-    const n = Math.floor(b.curve.getLength() / 7);
-    for (let j = 1; j <= n; j++) {
-      const p = b.curve.getPointAt(j / n);
-      g.fillStyle(0xe6dcc4, (open ? 0.45 : 0.27) * (1 - (j / n) * 0.35));
-      g.fillCircle(p.x, p.y, open ? 1.6 : 1.3);
-    }
-    g.lineStyle(1.4, 0xe6dcc4, open ? 0.5 : 0.3);
-    g.strokeCircle(b.end.x, b.end.y, 4);
-  }
-
-  /** der Stamm: kräftig, nach unten schmaler, mit hellem Glanz an einer Seite; davor und danach läuft er gestrichelt aus */
-  private drawTrunk(g: Phaser.GameObjects.Graphics) {
-    const N = 80;
-    const seg = (u0: number, u1: number, w: number, col: number, a: number, off = 0) => {
-      const p0 = TRUNK.getPoint(u0), p1 = TRUNK.getPoint(u1), t = TRUNK.getTangent(u0);
-      g.lineStyle(w, col, a);
-      g.lineBetween(p0.x - t.y * off, p0.y + t.x * off, p1.x - t.y * off, p1.y + t.x * off);
-    };
-    for (let j = 0; j < N; j++) {
-      const u0 = j / N, u1 = (j + 1) / N;
-      // vor dem ersten und nach dem letzten Zeitalter: nur angedeutet
-      const fade = clamp(Math.min((u0 - 0.02) / (U0 - 0.02), (1 - u0) / (1 - U1)), 0, 1);
-      if (fade <= 0.02) continue;
-      if (fade < 1 && j % 2) continue;
-      const w = lerp(11, 6, u0);
-      seg(u0, u1, w + 2, 0x0a0806, 0.8 * fade);
-      seg(u0, u1, w, 0x5e4c36, 0.9 * fade);
-      seg(u0, u1, w * 0.45, 0x8f7a58, 0.7 * fade, w * 0.18);
-      seg(u0, u1, 1.2, 0xe8d6ae, 0.32 * fade, w * 0.32);
-    }
-    // wo die Zeitalter ansetzen: eine kleine Raute am Stamm, daneben Nummer und Jahre
-    for (const b of this.br) {
-      const t = TRUNK.getTangent(b.u);
-      const col = b.ep.playable ? 0xe0a848 : 0xb8ab90;
-      g.fillStyle(0x0a0806, 1);
-      g.fillPoints([V(b.o.x, b.o.y - 7), V(b.o.x + 6, b.o.y), V(b.o.x, b.o.y + 7), V(b.o.x - 6, b.o.y)], true);
-      g.fillStyle(col, b.ep.playable ? 1 : 0.6);
-      g.fillPoints([V(b.o.x, b.o.y - 5), V(b.o.x + 4, b.o.y), V(b.o.x, b.o.y + 5), V(b.o.x - 4, b.o.y)], true);
-      // auf der anderen Seite des Stammes (dort, wo kein Ast ist): Nummer, Name und Zeitraum – der Stamm ist die Zeit
-      const lx = b.o.x + t.y * 15, ly = b.o.y - t.x * 15;
-      this.add.text(lx, ly - 7, `${ROMAN[b.k]} · ${b.ep.name.toUpperCase()}`, {
-        fontFamily: TITLE_FONT, fontSize: '12px', color: b.ep.playable ? '#e0a848' : '#a89c84', fontStyle: '700', resolution: 2,
-      }).setOrigin(0, 0.5).setLetterSpacing(2).setAlpha(b.ep.playable ? 1 : 0.75);
-      text(this, lx, ly + 8, `vor ${b.ep.period[0]}–${b.ep.period[1]} Mio. Jahren`, 11, UI.boneDim).setOrigin(0, 0.5).setAlpha(0.6);
-    }
-  }
-
-  /** dein Weg in diesem Zeitalter: ein heller Strang vom Ansatz bis zur jetzigen Generation, Knoten an jeder neuen Art */
-  private strand(g: Phaser.GameObjects.Graphics, b: Branch, run: Run) {
-    const path = this.pathOf(b, run);
-    const tip = frac(run.life.gen);
-    this.stroke(g, b.curve, 0, tip, 10, 6, 0xffd890, 0.08);
-    this.stroke(g, b.curve, 0, tip, 5, 3.2, STRAND, 0.95);
-    let lastView = -1;
-    path.forEach((n, j) => {
-      if (j === 0) return;
-      const t = frac(n.gen ?? 0), p = b.curve.getPointAt(t);
-      g.fillStyle(CLS_COLOR[n.cls], 1);
-      g.fillCircle(p.x, p.y, 5);
-      g.lineStyle(1.2, 0x000000, 0.7);
-      g.strokeCircle(p.x, p.y, 5);
-      // ein kleines Bild der Art neben ihrem Knoten (nicht zu dicht – auch nicht am Ende, dort sitzt dein Tier)
-      if (this.views.length < 6 && (lastView < 0 || t - lastView > 0.08) && tip - t > 0.08) {
-        this.portrait(b, t, n);
-        lastView = t;
-      }
-    });
-    // das Ende: Hier lebt deine Linie gerade – es leuchtet und wächst weiter
-    const e = b.curve.getPointAt(tip);
-    const glow = this.add.image(e.x, e.y, 'glow').setScale(0.5).setTint(0xffe2a8).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8).setDepth(5);
-    this.tweens.add({ targets: glow, alpha: 0.35, scale: 0.68, yoyo: true, repeat: -1, duration: 1300, ease: 'Sine.inOut' });
-    g.fillStyle(0xfff0cc, 1);
-    g.fillCircle(e.x, e.y, 5);
-    this.portrait(b, tip, path[path.length - 1], true);
-  }
-
-  /** ein kleines Bild über dem Strang */
-  private portrait(b: Branch, t: number, n: TreeNode, now = false) {
-    const p = b.curve.getPointAt(t), tg = b.curve.getTangentAt(t);
-    // die Seite „oben“ des Astes
-    let nx = tg.y, ny = -tg.x;
-    if (ny > 0) [nx, ny] = [-nx, -ny];
-    const morph = now && b.run ? this.morphOfRun(b.run) : this.morphOf(n);
-    const v = new CreatureView(this, p.x + nx * 26, p.y + ny * 26, morph, 0.4).setDepth(6);
-    v.setFacing(b.dir.x < 0 ? -1 : 1);
-    this.views.push(v);
-  }
-
-  /** am Ende jedes Astes leise seine Nummer */
-  private labels(b: Branch) {
-    const x = b.end.x + b.dir.x * 14, y = b.end.y + b.dir.y * 14;
-    this.add.text(x, y, ROMAN[b.k], { fontFamily: TITLE_FONT, fontSize: '11px', color: '#a89c84', fontStyle: '700', resolution: 2 })
-      .setOrigin(0.5).setLetterSpacing(1).setAlpha(b.ep.playable ? 0.8 : 0.45);
-  }
-
-  /** ein Stück Kurve als Strich, der von w0 auf w1 schmaler wird */
-  private stroke(g: Phaser.GameObjects.Graphics, c: Phaser.Curves.Curve, t0: number, t1: number, w0: number, w1: number, col: number, a: number) {
-    if (t1 <= t0) return;
-    const n = Math.max(2, Math.ceil(((t1 - t0) * c.getLength()) / 6));
-    let prev = c.getPointAt(t0);
-    for (let j = 1; j <= n; j++) {
-      const t = t0 + ((t1 - t0) * j) / n, p = c.getPointAt(t), w = lerp(w0, w1, j / n);
-      g.lineStyle(w, col, a);
-      g.lineBetween(prev.x, prev.y, p.x, p.y);
-      g.fillStyle(col, a);
-      g.fillCircle(p.x, p.y, w / 2);
-      prev = p;
-    }
-  }
-
-  /** die Arten deiner Linie in diesem Zeitalter, vom Urahn an */
-  private pathOf(b: Branch, run: Run): TreeNode[] {
-    const nodes = game.pathTo(run.node).map((id) => game.data.nodes[id]).filter((n) => n && n.epoch === b.i);
-    return nodes.length ? nodes : [game.data.nodes[rootId(b.i)] ?? rootNode(b.i)];
-  }
-
-  private morphOf(n: TreeNode): Morph {
-    return game.morph({ cls: n.cls, traits: n.traits, hue: n.hue, seed: n.seed, fierce: 0, sex: 0 });
-  }
-
-  /** dein Tier, wie es ausgewachsen aussieht */
-  private morphOfRun(r: Run): Morph {
-    return game.morph({ cls: r.cls, traits: r.traits, hue: r.hue, seed: r.seed, fierce: 0, sex: 0 });
-  }
-
-  // ---------------------------------------------------------------- berühren und anzeigen
-
-  /** alles Berührbare eines Astes: der Ansatz (Urahn), die Arten deines Weges (auch zwischen den Knoten), das Ende, der leere Rest */
-  private branchPicks(b: Branch): Pick[] {
-    const out: Pick[] = [];
-    const root = game.data.nodes[rootId(b.i)] ?? rootNode(b.i);
-    const run = b.run;
-    const tip = run ? frac(run.life.gen) : 0;
-    if (run) {
-      const path = this.pathOf(b, run);
-      path.forEach((n, j) => {
-        const last = j + 1 >= path.length;
-        const g0 = Math.max(1, n.gen ?? 0), g1 = last ? run.life.gen : (path[j + 1].gen ?? 0) - 1;
-        const t0 = frac(n.gen ?? 0), t1 = last ? tip : frac(path[j + 1].gen ?? 0);
-        const gens: [number, number] = [g0, Math.max(g0, g1)];
-        // der Abschnitt dieser Art: auf ganzer Länge berührbar
-        for (let t = t0; t < t1; t += 0.02) {
-          const p = b.curve.getPointAt(t);
-          out.push({ x: p.x, y: p.y, r: 9, kind: j === 0 ? 'root' : 'node', b, n, gens });
-        }
-        const p = b.curve.getPointAt(t0);
-        out.push({ x: p.x, y: p.y, r: 14, kind: j === 0 ? 'root' : 'node', b, n, gens });
-      });
-      const e = b.curve.getPointAt(tip);
-      out.push({ x: e.x, y: e.y, r: 15, kind: 'tip', b, n: path[path.length - 1] });
-    } else {
-      out.push({ x: b.o.x, y: b.o.y, r: 14, kind: 'root', b, n: root });
-    }
-    // der noch leere Teil des Astes
-    for (let t = Math.max(0.05, tip + 0.04); t < 1; t += 0.035) {
-      const p = b.curve.getPointAt(t);
-      out.push({ x: p.x, y: p.y, r: 9, kind: 'era', b });
-    }
-    out.push({ x: b.end.x, y: b.end.y, r: 14, kind: 'era', b });
-    return out;
-  }
-
-  private pick(px: number, py: number): Pick | undefined {
-    if (px > PANEL_X - 12) return undefined;
-    let best: Pick | undefined, bd = Infinity;
+  private hit(x: number, y: number) {
+    if (x < PLOT.x - 10 || x > PLOT.right + 10 || y < PLOT.y || y > PLOT.bottom) return;
+    let best: Pick | undefined, distance = 20;
     for (const p of this.picks) {
-      const d = Math.hypot(p.x - px, p.y - py);
-      // Knoten und Enden gehen vor einem Stück Strang
-      const score = d - (p.r >= 14 ? 4 : 0);
-      if (d < p.r && score < bd) {
-        bd = score;
-        best = p;
-      }
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d < distance) { best = p; distance = d; }
     }
     return best;
   }
-
-  /** wohin der Blick zuerst fällt: das Ende deiner Linie – sonst der Urahn des ersten spielbaren Zeitalters */
-  private home0(): Pick {
-    const b = this.br.find((x) => x.run && x.i === game.chosenEpoch) ?? this.br.find((x) => x.run);
-    const tip = b ? this.picks.find((p) => p.kind === 'tip' && p.b === b) : undefined;
-    return tip ?? this.rootPick(this.br.find((x) => x.ep.playable) ?? this.br[0]) ?? this.picks[0];
-  }
-
-  private rootPick(b: Branch) {
-    return this.picks.find((p) => p.kind === 'root' && p.b === b && p.r === 14);
-  }
-
-  /** ← →: die Knoten der Reihe nach (je Ast: Urahn, Arten, Ende; leere Äste mit ihrem Ende) */
-  private step(d: number) {
-    const keys = this.picks.filter((p) => p.r >= 14);
-    const i = keys.findIndex((p) => this.same(p, this.sel));
-    const next = keys[clamp((i < 0 ? 0 : i) + d, 0, keys.length - 1)];
-    if (next && !this.same(next, this.sel)) {
-      audio.sfx('click');
-      this.select(next);
-    }
-  }
-
-  private same(a?: Pick, b?: Pick) {
-    return !!a && !!b && a.b === b.b && a.kind === b.kind && a.n === b.n && a.gens?.[0] === b.gens?.[0];
-  }
-
-  private select(p: Pick) {
-    if (this.same(p, this.sel)) return;
-    this.sel = p;
-    const g = this.ring;
-    g.clear();
-    // den berührten Knoten (bzw. den Anfang des berührten Abschnitts, das Ende eines leeren Astes) umringen
-    const at = p.kind === 'era' ? p.b.end : p.kind === 'tip' ? V(p.x, p.y) : p.b.curve.getPointAt(frac(p.n?.gen ?? 0));
-    g.lineStyle(2, 0xffe2a8, 0.9);
-    g.strokeCircle(at.x, at.y, p.kind === 'era' ? 9 : 11);
-    this.showInfo(p);
-  }
-
-  private showInfo(p: Pick) {
-    const c = this.info;
-    c.removeAll(true);
-    this.infoView = undefined;
-    const cx = PANEL_X + (W - PANEL_X - 18) / 2;
-    const ep = p.b.ep, run = p.b.run;
-    const root = p.kind === 'root' || p.kind === 'era';
-    const n = p.n ?? game.data.nodes[rootId(p.b.i)] ?? rootNode(p.b.i);
-    // oben das Zeitalter
-    c.add(this.add.text(cx, 122, `${ROMAN[p.b.k]} · ${ep.name.toUpperCase()}`, { fontFamily: TITLE_FONT, fontSize: '13px', color: ep.playable ? '#e0a848' : '#a89c84', fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(4));
-    c.add(this.add.image(cx, 318, 'pedestal').setScale(0.9, 0.8).setAlpha(root ? 0.5 : 1));
-    const v = new CreatureView(this, cx, 0, p.kind === 'tip' && run ? this.morphOfRun(run) : this.morphOf(n), 1.1);
-    v.setY(v.L.land ? 314 - v.L.footY * 1.1 : 262);
-    if (!ep.playable) v.setShade(0x3a3630);
-    c.add(v);
-    this.infoView = v;
-    let name: string, sub: string;
-    const lines: string[] = [];
-    const Era = inEra(ep).replace(/^./, (s) => s.toUpperCase());
-    if (p.kind === 'tip' && run) {
-      name = game.currentName;
-      sub = CLASSES[n.cls].name;
-      lines.push('Deine Linie lebt.', `${Era}: Generation ${run.life.gen}`);
-      if (n.parent && (n.gen ?? 0) > 1) lines.push(`diese Art seit Generation ${n.gen}`);
-    } else if (p.kind === 'node' && p.gens) {
-      name = speciesName(n);
-      sub = CLASSES[n.cls].name;
-      const [g0, g1] = p.gens, k = g1 - g0 + 1;
-      lines.push(g0 === g1 ? `Generation ${g0}` : `Generation ${g0} bis ${g1}`, `${k} ${k === 1 ? 'Generation' : 'Generationen'} ${inEra(ep)}`);
-    } else if (p.kind === 'root' && run) {
-      name = `Der Urahn ${ofEra(ep)}`;
-      sub = 'Hier begann deine Linie';
-      if (p.gens) {
-        const [g0, g1] = p.gens, k = g1 - g0 + 1;
-        lines.push(`Generation ${g0}${g1 > g0 ? ` bis ${g1}` : ''}: noch wie der Urahn`, `(${k} ${k === 1 ? 'Generation' : 'Generationen'})`);
+  private bindInput() {
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.x >= 23 && p.x <= 112 && p.y >= PLOT.y && p.y <= PLOT.bottom) {
+        const years = timeAt((p.y - PLOT.y) / HEIGHT, TIME_WORLD);
+        const era = ERAS.find(({ ep }) => years <= ep.period[0] * 1e6 && years >= ep.period[1] * 1e6);
+        if (era) this.setWindow({ from: era.ep.period[0] * 1e6, to: era.ep.period[1] * 1e6 });
+      } else if (p.x >= PLOT.x && p.x <= PLOT.right && p.y >= PLOT.y && p.y <= PLOT.bottom) {
+        this.drag = { x: p.x, y: p.y, window: { ...this.window }, moved: false };
       }
-      lines.push('', `${Era} bisher:`, `${run.life.gen} ${run.life.gen === 1 ? 'Generation' : 'Generationen'}`);
-    } else if (ep.playable) {
-      name = `Der Urahn ${ofEra(ep)}`;
-      sub = ep.tagline;
-      lines.push(`vor ${ep.period[0]} bis ${ep.period[1]} Mio. Jahren`, '', 'Noch keine Linie –', 'hier beginnt dein erstes Leben.');
-    } else {
-      name = ep.name;
-      sub = ep.tagline;
-      lines.push(`vor ${ep.period[0]} bis ${ep.period[1]} Mio. Jahren`, '', 'Dieses Zeitalter ruht noch', 'im Gestein. Sein Ast wartet.');
-    }
-    c.add(title(this, cx, 144, name, 19, UI.bone).setOrigin(0.5, 0).setWordWrapWidth(290).setAlign('center'));
-    c.add(text(this, cx, 176 + (name.length > 24 ? 22 : 0), sub, 16, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5, 0));
-    c.add(text(this, cx, 362, lines.join('\n'), 17, UI.bone, { align: 'center', lineSpacing: 4, wordWrap: { width: 290 } }).setOrigin(0.5, 0));
-  }
-
-  private focusBtn(d: number) {
-    const items = [this.main, this.home];
-    const i = d === 0 ? 0 : clamp(this.focusIdx + d, 0, 1);
-    if (d && i !== this.focusIdx) audio.sfx('click');
-    this.focusIdx = i;
-    items.forEach((b, k) => b.setFocus(k === i));
-  }
-
-  // ---------------------------------------------------------------- Einblendungen
-
-  /** Das Ende deiner Linie macht kurz auf sich aufmerksam. */
-  private reveal() {
-    const b = this.br.find((x) => x.run && x.i === game.chosenEpoch) ?? this.br.find((x) => x.run);
-    if (!b?.run) return;
-    const e = b.curve.getPointAt(frac(b.run.life.gen));
-    const ring = this.add.circle(e.x, e.y, 10).setStrokeStyle(2, 0xffe2a8).setDepth(7);
-    this.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 1200, repeat: 1, delay: 700, onComplete: () => ring.destroy() });
-  }
-
-  /** "Deine Linie ist ausgestorben." – danach zerfällt ihr Strang zu Staub, und nur der Urahn bleibt. */
-  private extinctOverlay(d: Extract<TreeData, { mode: 'extinct' }>) {
-    audio.sfx('extinct');
-    const c = this.add.container(0, 0).setDepth(100);
-    c.add(this.add.rectangle(0, 0, W, H, 0x030202, 0.97).setOrigin(0));
-    const ep = EPOCHS[d.epoch];
-    const v = new CreatureView(this, W / 2, 330, { ...d.morph, belly: 0 }, 2);
-    v.setAngle(180);
-    v.flash(0x5a4e4a);
-    v.setAlpha(0);
-    c.add(v);
-    this.tweens.add({ targets: v, alpha: 0.75, duration: 1400 });
-    const leaf = game.data.nodes[d.leaf];
-    const gens = leaf?.dead?.gens ?? leaf?.gen ?? 1;
-    const t1 = title(this, W / 2, 150, 'Deine Linie ist ausgestorben.', 42, '#c8473a').setOrigin(0.5).setAlpha(0);
-    const t2 = text(this, W / 2, 460, `${ep.name} · nach ${gens} ${gens === 1 ? 'Generation' : 'Generationen'}`, 22, UI.bone).setOrigin(0.5).setAlpha(0);
-    const t3 = text(this, W / 2, 496, `Ursache: ${d.cause}`, 19, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    // die Linie endet, weil kein befruchtetes Gelege da war, aus dem die nächste Generation hätte schlüpfen können
-    const t4 = text(this, W / 2, 532, 'Kein befruchtetes Gelege – niemand führt die Linie weiter.', 17, UI.boneDim).setOrigin(0.5).setAlpha(0);
-    c.add([t1, t2, t3, t4]);
-    this.tweens.add({ targets: t1, alpha: 1, duration: 1200 });
-    this.tweens.add({ targets: [t2, t3], alpha: 1, duration: 1000, delay: 1100 });
-    this.tweens.add({ targets: t4, alpha: 0.85, duration: 1000, delay: 1900 });
-    this.overlay = c;
-    this.input.keyboard!.once('keydown', () => this.closeOverlay());
-    this.time.delayedCall(9000, () => this.closeOverlay());
-  }
-
-  private closeOverlay() {
-    const c = this.overlay;
-    if (!c) return;
-    this.overlay = undefined;
-    this.tweens.add({ targets: c, alpha: 0, duration: 900, onComplete: () => c.destroy() });
-    if (this.d.mode === 'extinct') this.crumble(this.d);
-  }
-
-  /** Der Strang der ausgestorbenen Linie: kurz noch zu sehen, dann zerfällt er von seinem Ende her zu Staub. */
-  private crumble(d: Extract<TreeData, { mode: 'extinct' }>) {
-    const b = this.br.find((x) => x.i === d.epoch);
-    const leaf = game.data.nodes[d.leaf];
-    if (!b || !leaf) return;
-    const tip = frac(Math.max(1, leaf.dead?.gens ?? leaf.gen ?? 1));
-    const g = this.add.graphics().setDepth(4);
-    this.stroke(g, b.curve, 0, tip, 5, 3.2, 0x9a7a66, 0.9);
-    const e = b.curve.getPointAt(tip);
-    const skull = this.add.image(e.x, e.y, 'ic_skull').setScale(0.4).setTint(0xa8392c).setDepth(5);
-    g.setAlpha(0);
-    skull.setAlpha(0);
-    this.tweens.add({ targets: [g, skull], alpha: 1, duration: 700, delay: 600 });
-    this.time.delayedCall(2400, () => {
-      audio.sfx('tear');
-      // Staub rieselt vom Strang, vom Ende zum Ansatz
-      const n = 16;
-      for (let j = 0; j <= n; j++) {
-        const p = b.curve.getPointAt(tip * (1 - j / n));
-        this.time.delayedCall(j * 60, () => {
-          const dust = this.add.particles(p.x, p.y, 'p_dot', {
-            lifespan: 1600, speedY: { min: 8, max: 34 }, speedX: { min: -14, max: 14 }, scale: { start: 0.22, end: 0 },
-            alpha: { start: 0.7, end: 0 }, tint: 0xb8a48a, emitting: false,
-          }).setDepth(6);
-          dust.explode(5);
-          this.time.delayedCall(1800, () => dust.destroy());
-        });
-      }
-      this.tweens.add({ targets: [g, skull], alpha: 0, duration: 1300, ease: 'Sine.in', onComplete: () => {
-        g.destroy();
-        skull.destroy();
-        // übrig bleibt der Urahn – mit ihm beginnt alles neu
-        const ring = this.add.circle(b.o.x, b.o.y, 10).setStrokeStyle(2, 0xffe2a8).setDepth(7);
-        this.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 1200, repeat: 1, onComplete: () => ring.destroy() });
-        const root = this.rootPick(b);
-        if (root) this.select(root);
-      } });
     });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const d = this.drag;
+      if (!d || !p.isDown) return;
+      if (Math.hypot(p.x - d.x, p.y - d.y) > 5) d.moved = true;
+      if (!d.moved) return;
+      const shift = (p.y - d.y) / HEIGHT * (d.window.from - d.window.to);
+      this.window = timeWindow(d.window.from + shift, d.window.to + shift); this.dirty = true;
+    });
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      const d = this.drag; this.drag = undefined;
+      if (d && !d.moved) { const hit = this.hit(p.x, p.y); if (hit) { audio.sfx('click'); this.select(hit); } }
+    });
+    this.input.on('gameout', () => { this.drag = undefined; });
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _g: unknown, _dx: number, dy: number) => {
+      if (p.x < 113 || p.x > PLOT.right || p.y < PLOT.y || p.y > PLOT.bottom) return;
+      this.zoom(Math.exp(clamp(dy, -200, 200) * .0025), (p.y - PLOT.y) / HEIGHT);
+    });
+    const kb = this.input.keyboard!;
+    kb.on('keydown-UP', () => this.step(-1)); kb.on('keydown-DOWN', () => this.step(1));
+    kb.on('keydown-LEFT', () => this.changePage(-1)); kb.on('keydown-RIGHT', () => this.changePage(1));
+    kb.on('keydown-G', () => this.setWindow(TIME_WORLD)); kb.on('keydown-L', () => this.focusRun());
+    kb.on('keydown', (e: KeyboardEvent) => {
+      if (e.key === '+' || e.key === '=') this.zoom(1 / 1.7);
+      if (e.key === '-') this.zoom(1.7);
+      if (e.key === 'Tab') { e.preventDefault(); this.focus = (this.focus + 1) % 3; this.drawFocus(); }
+    });
+    const act = () => [this.main, this.home, this.mark][this.focus]?.click();
+    kb.on('keydown-ENTER', act); kb.on('keydown-SPACE', act);
+    kb.on('keydown-ESC', () => fadeTo(this, 'Title'));
+    this.drawFocus();
   }
-
-  /** Weiterleben – oder (ohne Linie) ein neues Leben beginnen. */
+  private drawFocus() {
+    [this.main, this.home, this.mark].forEach((b, i) => b?.setFocus(i === this.focus));
+  }
+  private step(delta: number) {
+    const keys = this.picks;
+    if (!keys.length) return;
+    const i = keys.findIndex(p => p.run === this.selected?.run && p.segment === this.selected.segment && p.kind === this.selected.kind);
+    const p = keys[clamp(i + delta, 0, keys.length - 1)]; this.select(p);
+    if (p.y < PLOT.y + 15 || p.y > PLOT.bottom - 15) {
+      const span = this.window.from - this.window.to, at = p.kind === 'tip' ? p.segment.to : p.segment.from;
+      this.setWindow(timeWindow(at + span / 2, at - span / 2));
+    }
+  }
   private play() {
-    if (this.overlay) return;
     audio.sfx('confirm');
-    const e = game.chosenEpoch;
-    if (game.runIn(e)) continueLife(this, e);
-    else startNewLife(this, EPOCHS[e]?.playable ? e : (ERAS.find((x) => x.ep.playable)?.i ?? 0));
+    const r = this.selected?.run, saved = r && game.runIn(r.epoch);
+    if (r && saved?.id === r.id) continueLife(this, r.epoch);
+    else if (game.hasRun()) continueLife(this);
+    else startNewLife(this);
   }
 }
