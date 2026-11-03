@@ -1,6 +1,7 @@
 // Alle Töne werden live mit der Web Audio API erzeugt – es gibt keine Audiodateien.
 
 import { OceanScore, type ScoreMode, type ScoreMood } from './OceanScore';
+import { OceanAmbience } from './OceanAmbience';
 
 export type Sfx =
   | 'click' | 'select' | 'back' | 'bite' | 'hit' | 'enemyDie' | 'hurt' | 'eat'
@@ -51,197 +52,20 @@ interface NoiseOpts {
   wet?: number;
 }
 
-// ---------- Musik ----------
-
-interface TrackDef {
-  bpm: number;
-  root: number; // MIDI-Note
-  scale: number[];
-  prog: number[]; // Stufe pro Takt
-  pad?: { type: OscillatorType; v: number; filter: number };
-  bass?: { type: OscillatorType; v: number; filter: number; pat: string };
-  arp?: { type: OscillatorType; v: number; pat: number[]; oct: number; rel: number; filter?: number };
-  lead?: { type: OscillatorType; v: number; notes: (number | null)[]; oct: number; filter?: number };
-  drums?: { k: string; s: string; h: string; t?: string; v: number };
-  /** Rauschen als Klangteppich (Wind, Wasser, Brodeln) – einmal pro Takt */
-  air?: { v: number; filter: number; f2: number; q?: number };
-}
-
-const MAJOR = [0, 2, 4, 5, 7, 9, 11];
-const MINOR = [0, 2, 3, 5, 7, 8, 10];
-const DORIAN = [0, 2, 3, 5, 7, 9, 10];
-const PHRYG = [0, 1, 3, 5, 7, 8, 10];
-const HARM = [0, 2, 3, 5, 7, 8, 11];
-const _ = null;
-
-// Im Spiel, im Titelbild und zwischen den Generationen spielt der Ozean selbst (OceanScore) – diese Stücke sind für die
-// übrigen Bildschirme.
-const TRACKS: Record<string, TrackDef> = {
-  // Karte: ruhig, gedämpft, wie ein Lagerfeuer in der Nacht
-  map: {
-    bpm: 70, root: 50, scale: DORIAN, prog: [0, 6, 5, 0],
-    pad: { type: 'triangle', v: 0.04, filter: 900 },
-    bass: { type: 'sine', v: 0.18, filter: 420, pat: 'x.......x.....o.' },
-    arp: { type: 'triangle', v: 0.035, pat: [0, -1, -1, 2, -1, -1, 1, -1, 0, -1, -1, 3, -1, -1, 2, -1], oct: 1, rel: 0.9, filter: 1600 },
-    drums: { k: 'x...............', s: '................', h: '................', t: '........x.......', v: 0.35 },
-  },
-  sumpf: {
-    bpm: 78, root: 47, scale: PHRYG, prog: [0, 1, 0, 6],
-    pad: { type: 'triangle', v: 0.035, filter: 700 },
-    bass: { type: 'triangle', v: 0.2, filter: 420, pat: 'x..x......x..o..' },
-    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 1, -1, -1, -1, 0, -1, 2, -1, -1, -1, 1, -1, -1, -1], oct: 1, rel: 0.25, filter: 1400 },
-    drums: { k: 'x.........x.....', s: '................', h: '.x...x...x...x.x', t: '......x.......x.', v: 0.3 },
-    air: { v: 0.03, filter: 2600, f2: 4200, q: 3 },
-  },
-  reptil: {
-    bpm: 92, root: 45, scale: MINOR, prog: [0, 5, 6, 0],
-    pad: { type: 'sawtooth', v: 0.02, filter: 650 },
-    bass: { type: 'sawtooth', v: 0.12, filter: 420, pat: 'x..x..x.x..x..o.' },
-    arp: { type: 'square', v: 0.016, pat: [0, -1, 1, -1, 0, -1, 2, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.12, filter: 1100 },
-    drums: { k: 'x.....x...x.....', s: '................', h: '................', t: '...x.......x..x.', v: 0.55 },
-    air: { v: 0.04, filter: 500, f2: 250, q: 1 },
-  },
-  eis: {
-    bpm: 64, root: 46, scale: MINOR, prog: [0, 5, 3, 4],
-    pad: { type: 'sine', v: 0.055, filter: 900 },
-    bass: { type: 'sine', v: 0.16, filter: 380, pat: 'x...............' },
-    arp: { type: 'sine', v: 0.04, pat: [4, -1, -1, 2, -1, -1, -1, -1, 3, -1, -1, 1, -1, -1, -1, -1], oct: 2, rel: 1.6 },
-    air: { v: 0.08, filter: 900, f2: 2400, q: 0.8 },
-  },
-  eden: {
-    bpm: 72, root: 50, scale: DORIAN, prog: [0, 3, 4, 0],
-    pad: { type: 'triangle', v: 0.045, filter: 1200 },
-    bass: { type: 'triangle', v: 0.16, filter: 520, pat: 'x.....x.........' },
-    arp: { type: 'triangle', v: 0.04, pat: [0, -1, 2, -1, 4, -1, 2, -1, 1, -1, 3, -1, 2, -1, -1, -1], oct: 1, rel: 0.6 },
-    air: { v: 0.03, filter: 1600, f2: 3000, q: 1 },
-  },
-  // Ein Spitzenräuber hat dich entdeckt
-  apex: {
-    bpm: 126, root: 40, scale: HARM, prog: [0, 0, 1, 0],
-    pad: { type: 'sawtooth', v: 0.022, filter: 700 },
-    bass: { type: 'sawtooth', v: 0.15, filter: 520, pat: 'x.x.x.xxx.x.x.xo' },
-    arp: { type: 'square', v: 0.02, pat: [0, -1, 1, -1, 0, -1, 1, -1, 0, -1, 1, -1, 3, -1, 2, -1], oct: 1, rel: 0.08, filter: 1500 },
-    drums: { k: 'x..x..x.x..x..x.', s: '....x.......x...', h: '..x...x...x...x.', t: '.............xxx', v: 0.6 },
-  },
-  ending: {
-    bpm: 66, root: 50, scale: MAJOR, prog: [0, 3, 4, 0, 5, 3, 4, 4],
-    pad: { type: 'triangle', v: 0.05, filter: 1500 },
-    bass: { type: 'triangle', v: 0.16, filter: 600, pat: 'x.......x...o...' },
-    arp: { type: 'sine', v: 0.045, pat: [0, 1, 2, 4, 2, 1, 0, 1, 0, 1, 2, 4, 3, 2, 1, 2], oct: 1, rel: 0.8 },
-    lead: { type: 'triangle', v: 0.06, oct: 1, notes: [4, _, _, _, 5, _, 4, _, 2, _, _, _, 0, _, _, _, 1, _, _, _, 2, _, 4, _, 2, _, _, _, _, _, _, _] },
-  },
-};
-
-const midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
-
-function degMidi(root: number, scale: number[], deg: number) {
-  const n = scale.length;
-  const o = Math.floor(deg / n);
-  return root + 12 * o + scale[((deg % n) + n) % n];
-}
-
-class Sequencer {
-  private step = 0;
-  private next = 0;
-  private timer = 0;
-  readonly out: GainNode;
-
-  constructor(private eng: AudioEngine, private tr: TrackDef) {
-    const ctx = eng.ctx!;
-    this.out = ctx.createGain();
-    this.out.gain.value = 0.0001;
-    this.out.connect(eng.musicBus!);
-    this.out.gain.setTargetAtTime(1, ctx.currentTime, 0.4);
-  }
-
-  start() {
-    this.next = this.eng.ctx!.currentTime + 0.08;
-    this.timer = window.setInterval(() => this.tick(), 25);
-  }
-
-  stop() {
-    window.clearInterval(this.timer);
-    const ctx = this.eng.ctx!;
-    this.out.gain.cancelScheduledValues(ctx.currentTime);
-    this.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.25);
-    const o = this.out;
-    window.setTimeout(() => o.disconnect(), 1500);
-  }
-
-  private tick() {
-    const ctx = this.eng.ctx!;
-    const stepDur = 60 / this.tr.bpm / 4;
-    while (this.next < ctx.currentTime + 0.15) {
-      this.schedule(this.step, this.next, stepDur);
-      this.next += stepDur;
-      this.step++;
-    }
-  }
-
-  private schedule(step: number, t: number, sd: number) {
-    const tr = this.tr;
-    const s16 = step % 16;
-    const bar = Math.floor(step / 16);
-    const deg = tr.prog[bar % tr.prog.length];
-    const chord = [0, 2, 4, 7, 9].map((i) => degMidi(tr.root, tr.scale, deg + i));
-    const e = this.eng;
-    const dest = this.out;
-    if (tr.pad && s16 === 0) {
-      for (const m of chord.slice(0, 3)) {
-        e.tone({ f: midiHz(m), d: sd * 16 + 0.3, type: tr.pad.type, v: tr.pad.v, a: 0.5, filter: tr.pad.filter, dest, t: t - e.ctx!.currentTime });
-        e.tone({ f: midiHz(m), d: sd * 16 + 0.3, type: tr.pad.type, v: tr.pad.v * 0.6, a: 0.5, filter: tr.pad.filter, dest, detune: 9, t: t - e.ctx!.currentTime });
-      }
-    }
-    if (tr.bass) {
-      const c = tr.bass.pat[s16];
-      if (c === 'x' || c === 'o') {
-        const m = (c === 'x' ? chord[0] : chord[2]) - 12;
-        e.tone({ f: midiHz(m), d: sd * 2.2, type: tr.bass.type, v: tr.bass.v, a: 0.01, filter: tr.bass.filter, dest, t: t - e.ctx!.currentTime });
-      }
-    }
-    if (tr.arp) {
-      const i = tr.arp.pat[s16];
-      if (i >= 0) {
-        const m = chord[i % chord.length] + 12 * tr.arp.oct;
-        e.tone({ f: midiHz(m), d: tr.arp.rel, type: tr.arp.type, v: tr.arp.v, a: 0.005, filter: tr.arp.filter, dest, t: t - e.ctx!.currentTime });
-      }
-    }
-    if (tr.lead && step % 2 === 0) {
-      const idx = (step / 2) % tr.lead.notes.length;
-      const n = tr.lead.notes[idx];
-      if (n !== null && n !== undefined) {
-        const m = degMidi(tr.root + 12 * tr.lead.oct, tr.scale, deg + n);
-        e.tone({ f: midiHz(m), d: sd * 3.5, type: tr.lead.type, v: tr.lead.v, a: 0.02, filter: tr.lead.filter, dest, t: t - e.ctx!.currentTime });
-      }
-    }
-    if (tr.drums) {
-      const v = tr.drums.v;
-      const dt = t - e.ctx!.currentTime;
-      if (tr.drums.k[s16] === 'x') e.tone({ f: 120, f2: 40, d: 0.22, type: 'sine', v: 0.5 * v, a: 0.002, dest, t: dt });
-      if (tr.drums.s[s16] === 'x') e.noise({ d: 0.14, v: 0.22 * v, filter: 1800, type: 'bandpass', q: 0.8, dest, t: dt });
-      if (tr.drums.h[s16] === 'x') e.noise({ d: 0.04, v: 0.06 * v, filter: 7000, type: 'highpass', dest, t: dt });
-      if (tr.drums.t?.[s16] === 'x') e.tone({ f: 150, f2: 70, d: 0.3, type: 'sine', v: 0.35 * v, a: 0.003, dest, t: dt });
-    }
-    if (tr.air && s16 === 0) {
-      const bar = sd * 16;
-      e.noise({ d: bar * 1.1, a: bar * 0.45, v: tr.air.v, filter: tr.air.filter, f2: tr.air.f2, type: 'bandpass', q: tr.air.q ?? 1, dest, t: t - e.ctx!.currentTime });
-    }
-  }
-}
-
-/** Das sparsame Klavier-/Drumset im Spiel und auf den ruhigen Zwischenbildschirmen. */
+/** Das ruhige Klavierstück im Spiel und auf den ruhigen Zwischenbildschirmen. */
 const SCORE: Record<string, ScoreMode> = { ozean: 'level', title: 'title', generation: 'still', ending: 'still' };
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
   musicBus: GainNode | null = null;
-  private seaGain: GainNode | null = null;
+  private ambience: OceanAmbience | null = null;
+  private seaWanted = 0;
+  private ambienceTimer = 0;
   private sfxBus: GainNode | null = null;
   private master: GainNode | null = null;
   /** ein großer, dunkler Raum für die Bedienklänge – sie klingen darin nach */
   private verb: ConvolverNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
-  private seq: Sequencer | null = null;
   private score: OceanScore | null = null;
   private scoreTimer = 0;
   private track: string | null = null;
@@ -291,6 +115,7 @@ export class AudioEngine {
       });
     }
     const startWanted = () => {
+      if (this.seaWanted > 0 && !this.ambience) this.sea(this.seaWanted);
       if (this.wanted && this.wanted !== this.track) this.music(this.wanted);
     };
     if (this.ctx.state === 'suspended') this.ctx.resume().then(startWanted, () => {});
@@ -403,53 +228,16 @@ export class AudioEngine {
     this.musicBus.gain.setTargetAtTime(0.75 * v, ctx.currentTime, Math.max(0.05, sec / 3));
   }
 
-  /**
-   * Meeresrauschen: tiefes Rauschen, das langsam an- und abschwillt, dazu leise Wellenkämme.
-   * level 0 = aus; weich über sec Sekunden.
-   */
+  /** Eigene, leise Wasseratmosphäre; Musik und Atmosphäre teilen nur die Stummschaltung. */
   sea(level: number, sec = 1) {
-    const ctx = this.ctx;
-    if (!ctx || !this.master) return;
-    if (!this.seaGain) {
-      if (level <= 0) return;
-      const g = (this.seaGain = ctx.createGain());
-      g.gain.value = 0.0001;
-      g.connect(this.master);
-      // eigenes, längeres Rauschen – damit man keine Wiederholung hört
-      const len = ctx.sampleRate * 4;
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < len; i++) {
-        last = last * 0.6 + (Math.random() * 2 - 1) * 0.4;
-        d[i] = last;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      const wave = (type: BiquadFilterType, f: number, q: number, base: number, rate: number, depth: number) => {
-        const flt = ctx.createBiquadFilter();
-        flt.type = type;
-        flt.frequency.value = f;
-        flt.Q.value = q;
-        const amp = ctx.createGain();
-        amp.gain.value = base;
-        const lfo = ctx.createOscillator();
-        lfo.frequency.value = rate;
-        const lg = ctx.createGain();
-        lg.gain.value = depth;
-        lfo.connect(lg);
-        lg.connect(amp.gain);
-        src.connect(flt);
-        flt.connect(amp);
-        amp.connect(g);
-        lfo.start();
-      };
-      wave('lowpass', 380, 0.7, 0.9, 0.11, 0.55);
-      wave('bandpass', 1300, 0.6, 0.16, 0.07, 0.14);
-      src.start();
+    this.seaWanted = level;
+    if (!this.ctx || !this.master || (!this.ambience && level <= 0)) return;
+    if (!this.ambience) {
+      this.ambience = new OceanAmbience(this.ctx, this.master);
+      window.clearInterval(this.ambienceTimer);
+      this.ambienceTimer = window.setInterval(() => this.ambience?.tick(this.ctx!.currentTime + 0.8), 100);
     }
-    this.seaGain.gain.setTargetAtTime(Math.max(0.0001, level), ctx.currentTime, Math.max(0.05, sec / 3));
+    this.ambience.setLevel(level, sec);
   }
 
   /** Ein Geräusch. k: Stärke (z. B. wie kräftig das Gebiss ist), 0..1 */
@@ -827,8 +615,10 @@ export class AudioEngine {
     const ctx = this.ctx!;
     if (!this.score) {
       this.score = new OceanScore(ctx, this.musicBus!);
-      // etwas Vorlauf: Was in der nächsten Drittelsekunde erklingt, ist schon geplant
-      this.scoreTimer = window.setInterval(() => this.score?.tick(ctx.currentTime + 0.35), 250);
+      this.score.mode(m);
+      // Sofort planen und mit genügend Vorlauf nachlegen, auch bei aufwendigen Spielbildern.
+      this.score.tick(ctx.currentTime + 0.9);
+      this.scoreTimer = window.setInterval(() => this.score?.tick(ctx.currentTime + 0.9), 100);
     }
     this.score.mode(m);
   }
@@ -843,6 +633,7 @@ export class AudioEngine {
   /** Wie es im Spiel gerade aussieht: Tiefe und Gefahr (0 … 1) – die Musik folgt weich. */
   mood(m: ScoreMood) {
     this.score?.set(m);
+    if (m.depth !== undefined) this.ambience?.setDepth(m.depth);
   }
 
   /** Ein Artgenosse ist gestorben: Die Musik tritt kurz zurück. */
@@ -854,15 +645,10 @@ export class AudioEngine {
     this.wanted = name;
     if (!this.ctx || this.ctx.state !== 'running') return;
     if (name === this.track) return;
-    this.seq?.stop();
-    this.seq = null;
     this.track = name;
     const sm = name ? SCORE[name] : undefined;
     if (sm) return this.startScore(sm);
     this.stopScore();
-    if (!name || !TRACKS[name]) return;
-    this.seq = new Sequencer(this, TRACKS[name]);
-    this.seq.start();
   }
 }
 

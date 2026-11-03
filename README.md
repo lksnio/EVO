@@ -954,29 +954,29 @@ im sichtbaren Stammbaum auch bei gleichem Namen getrennt aufbewahrt.
 
 ## Die Musik des Ozeans
 
-**Leichter Jazz-Hip-Hop, leise und sparsam:** Ein weich angeschlagenes Klavier und ein kleines, gedämpftes Schlagzeugset
-tragen die Musik bei **74 BPM**. Offene Jazz-Akkorde (Dm9, G13, Cmaj9, Am9) kommen nur alle zwei Takte, mit einzelnen
-leisen Antworten und ganzen Takten Pause. Ein lockerer Swing, runde Kick, weicher Rim-/Besenklang und wenige geschlossene
-Hi-Hats geben Halt, ohne das Schwimmen oder die Geräusche des Meeres zu überdecken. Es gibt keine zusätzliche Bassspur,
-Flächen, Glastöne, Gesang oder dauernden Sololauf.
+Ein **ruhiges, eigenständiges Klavierstück** aus einfachen Moll- und Dur-Dreiklängen. Wenige langsame Melodietöne
+antworten einer sehr sparsamen Begleitung; dazwischen bleiben mehrere Sekunden Luft. Acht zusammenhängende Phrasen über
+D-Moll, B-Dur, F-Dur und C-Dur bilden einen langen musikalischen Bogen mit ruhigem Schluss. Die Musik enthält keine Drums,
+keinen Swing, keine Jazz-Erweiterungen und kein Rauschen.
 
-- **Tiefe:** Das Klavier wird beim Abtauchen weich ausgeblendet, einschließlich seines Halls. Im tiefen Wasser bleibt
-  **nur ein erwartungsvolles Schlagzeug**: wenige versetzte, dunklere Akzente mit langen Lücken. Beim Auftauchen kommt das
-  Klavier allmählich zurück. Die Übergänge folgen weiterhin der tatsächlichen Tiefe im Spiel.
-- **Gefahr:** Eine kleine Änderung der Tom-Akzente trägt Spannung; Tempo und Grundlautstärke steigen dabei nicht an.
-- **Verlust:** Die Musik tritt für einen Moment zurück, ohne zusätzlichen Klang oder dramatischen Einwurf.
-- **Titel, Laich und Zwischenbilder:** dieselben beiden Instrumente, zwischen Leben noch leiser. Das Ende nutzt ebenfalls
-  diese zurückhaltende Musik.
+- **Tiefe:** Das Klavier bleibt erhalten, wird dunkler gefiltert und spielt eine Oktave tiefer. Die Melodie und ihre
+  harmonischen Beziehungen bleiben zusammenhängend. Gefahr macht daraus keinen Kampftrack.
+- **Verlust und Zwischenbilder:** Die Musik tritt leise zurück; zusätzliche dramatische Klänge kommen nicht dazu.
+- **Gleichmäßige Wiedergabe:** Keine aufwendige Sampleberechnung beim ersten Anschlag. Die Töne werden sofort und dann
+  alle 100 ms mit 900 ms Vorlauf geplant. Nach Verzögerungen werden überfällige Noten ausgelassen, statt gleichzeitig
+  nachgeholt zu werden. Jeder Ton klingt endlich aus; die Raumantwort hat keine Echo-Rückkopplung.
 
-Die Musik entsteht live in `src/audio/OceanScore.ts`. Kurze Klavier- und Drumklänge werden im Browser einmal als PCM
-berechnet und wiederverwendet; es gibt keine Musikdownloads und keine endlosen Oszillatoren. Fertige Stimmen werden
-getrennt, die Stummschaltung bleibt auf M. Bei einem ausgesetzten Browser-Tab werden verpasste Schläge nicht nachgeholt.
+**Wasseratmosphäre** (`src/audio/OceanAmbience.ts`) läuft auf einer eigenen, dezenten Spur: langsames weiches
+Meeresrauschen, vereinzelte Blasen und unregelmäßiges Krabbeln bzw. Kiesknistern kleiner Wassertiere. Die lange
+Stereo-Wasserschleife geht mit zwei Sekunden Überblendung nahtlos in sich über; sie ist keine kurze Rauschschleife im
+Takt der Musik. Im tiefen Wasser wird die Atmosphäre dumpfer. M schaltet Musik, Atmosphäre und Effekte gemeinsam stumm.
+Auf Zwischenbildschirmen wird die Wasseratmosphäre ausgeblendet.
 
 **Audioprüfung und Hörproben:** Vite starten, dann
 `NODE_PATH=/tmp/evo-browser/node_modules node tools/check_music.cjs` (externes `playwright-core` und Chromium).
-Der Check rendert echte Web-Audio-Ausgaben für flaches Wasser, Tiefe, Abtauchen, Gefahr, Zwischenbild, Verlust und Stoppen;
-er prüft hörbares Signal, zurückhaltende Pegel, ausschließlich Drums in der Tiefe und die Stummschaltung im echten
-AudioEngine. WAV-Dateien und Messwerte stehen unter `/tmp/evo-music` (anpassbar über `EVO_AUDIO_DIR`).
+Der Check rendert echte Web-Audio-Ausgaben für Klavier, Tiefe, Abtauchen, Gefahr, Verlust, Atmosphäre und den Gesamtmix.
+Er prüft auch verspätete Scheduler-Aufrufe, eine blockierte Browser-Hauptschleife, Ausblenden und Stummschaltung.
+WAV-Dateien und Messwerte stehen unter `/tmp/evo-music` (anpassbar über `EVO_AUDIO_DIR`).
 
 ### Klänge der Bedienung
 
@@ -1255,7 +1255,7 @@ src/
 ├── assets/title/        das Bild des Titelbilds (der versteinerte Urfisch in der Höhle)
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
-├── audio/OceanScore.ts  die Musik des Ozeans: sparsames Jazz-Klavier und gedämpfte Drums; in der Tiefe nur erwartungsvolles Schlagzeug
+├── audio/OceanScore.ts  die Musik des Ozeans: ruhiges, zusammenhängendes Klavierstück; in der Tiefe dunkler und eine Oktave tiefer
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
@@ -1282,7 +1282,7 @@ insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen 
       eines). Die Sammlung überdauert das Aussterben. Der Gipfel braucht etwa Beine und Griff je
       0,6 (gut fünf Generationen mit viel Training). *Rhizodus* kommt höchstens einmal, spät, ans Nest. Alle Werte in
       `src/data/karbon.ts`.
-- [ ] **Die neue Musik** (leiser Jazz-Hip-Hop aus Klavier und Drums, in der Tiefe nur Drums) mit Kopfhörern anhören –
+- [ ] **Die neue Musik** (sparsames Klavierstück mit eigener Wasseratmosphäre) mit Kopfhörern anhören –
       Hörproben lassen sich mit `tools/check_music.cjs` rendern; Klang und Rhythmus stehen in `src/audio/OceanScore.ts`.
 - [x] **Laichfluss:** Weniger kleine Fische und Trilobiten, Abstand zum eigenen Laich, keine großen ansässigen Jäger.
       Seltene größere Besucher kommen einzeln; größere Jäger wohnen im Flachwasser, Riesen im Tiefental.

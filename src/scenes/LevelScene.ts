@@ -204,7 +204,6 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private beatAt = 0;
   private deepK = 0;
   private deepBeatAt = 0;
-  private deepRumbleAt = 0;
   /** Trübung am aktuellen Ort (0..1) – macht unauffälliger */
   private murk = 0;
   private zoneLight = 1;
@@ -312,7 +311,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.shrineNear = false;
     this.deepDark = undefined;
     this.deepK = 0;
-    this.deepBeatAt = this.deepRumbleAt = 0;
+    this.deepBeatAt = 0;
     this.murk = 0;
     this.zoneLight = 1;
     this.cullList = [];
@@ -2714,7 +2713,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /**
    * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft (unter Wasser: die Sicht wird enger und dunkler),
-   * das Klavier weicht einem sparsamen Schlagzeug, das Meer rauscht, und manchmal grollt es in der Ferne.
+   * das Klavier klingt dunkler und tiefer, das Meer rauscht, und vereinzelt sind kleine Wassertiere zu hören.
    */
   private deepStep(time: number, dt: number) {
     if (this.place.kind !== 'deep' && this.place.kind !== 'abyss') return;
@@ -2730,12 +2729,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
-      // die Musik nimmt die Tiefe selbst (huntMood) – hier rauscht nur das Meer lauter
-      audio.sea(0.08 + 0.14 * k, 0.8);
-    }
-    if (k > 0.72 && time > this.deepRumbleAt) {
-      this.deepRumbleAt = time + 14000 + Math.random() * 16000;
-      audio.sfx('rumble');
+      // die Musik nimmt die Tiefe selbst (huntMood) – die eigene Wasseratmosphäre bleibt im Hintergrund
+      audio.sea(0.08 + 0.04 * k, 0.8);
     }
   }
 
