@@ -1,8 +1,9 @@
 # Grafiken – wie du eigene Bilder einbaust
 
-## Aktuell: 25 Startfischformen
+## Aktuell: 48 Startfischformen
 
-Die 25 gezeichneten Startfischformen sind im Spiel eingebunden. Die PNG-Master liegen in
+Die 25 gezeichneten Startfischformen sind im Spiel eingebunden. Der Renderer kombiniert ihre
+Flossen und Köpfe für insgesamt 48 erreichbare Formen. Die PNG-Master liegen in
 `art/EVO_startfish_*`, die komprimierten Laufzeitbilder in `src/assets/fish/starter/`.
 `src/art/fish/starterRig.ts` animiert Körper, Flossen, Kiefer und Lider anhand der Bezugspunkte
 in `starterRegistration.json`. Die Stufen und Vererbungsregeln stehen in `src/sim/starterFish.ts`.

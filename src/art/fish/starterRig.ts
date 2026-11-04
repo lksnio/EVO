@@ -5,18 +5,65 @@ import { clamp } from '../../util/math';
 import { newCanvas } from '../../util/canvas';
 import { Grid, type FishPose, type Box } from './rig';
 import { starterGeometry } from './starterLayout';
-import { starterBodyTexture, starterJawTexture, starterTexture, type StarterRegistration } from './starterAssets';
+import { starterBodyTexture, starterJawTexture, starterTexture, type StarterRegistration, starterSourceForm, starterFinForm } from './starterAssets';
 
 interface CutArt { body:string; jaw:string; jawBox:Box }
 const cuts = new WeakMap<Phaser.Textures.TextureManager, Map<number,CutArt>>();
 const smooth = (a:number,b:number,v:number) => { const k=clamp((v-a)/(b-a),0,1);return k*k*(3-2*k); };
+
+/** Reuse the painted parts for all independent fin/weapon combinations; masters stay unchanged. */
+function painting(scene:Phaser.Scene,form:number):HTMLImageElement|HTMLCanvasElement {
+  const texture=starterTexture(form);
+  if(scene.textures.exists(texture))return scene.textures.get(texture).getSourceImage() as HTMLImageElement;
+  const cut=cuts.get(scene.textures)?.get(form);
+  if(cut){
+    const body=scene.textures.get(cut.body).getSourceImage() as HTMLCanvasElement;
+    const jaw=scene.textures.get(cut.jaw).getSourceImage() as HTMLCanvasElement;
+    const [canvas,c]=newCanvas(body.width,body.height,true);c.drawImage(body,0,0);
+    c.drawImage(jaw,cut.jawBox.x0*body.width,cut.jawBox.y0*body.height);return canvas;
+  }
+  const head=painting(scene,starterSourceForm(form)),fin=painting(scene,starterFinForm(form));
+  const [canvas,c]=newCanvas(head.width,head.height,true),[front,f]=newCanvas(head.width,head.height,true);
+  c.drawImage(fin,0,0,canvas.width,canvas.height);f.drawImage(head,0,0);
+  f.globalCompositeOperation='destination-in';
+  const blend=f.createLinearGradient(canvas.width*.59,0,canvas.width*.66,0);blend.addColorStop(0,'rgba(0,0,0,0)');blend.addColorStop(1,'#000');
+  f.fillStyle=blend;f.fillRect(0,0,canvas.width,canvas.height);
+  // Erase the donor head so translucent fins never reveal a second face.
+  c.save();c.globalCompositeOperation='destination-out';c.fillStyle=blend;c.fillRect(0,0,canvas.width,canvas.height);c.restore();
+  c.globalCompositeOperation='lighter';c.drawImage(front,0,0);return canvas;
+}
+
+function colored(scene:Phaser.Scene,key:string,m:Morph,r:StarterRegistration,box?:Box) {
+  const fin=Math.round(clamp(m.finColor??0,0,1)*20),shade=Math.round(clamp(m.scaleShade??0,0,1)*20);
+  if(!fin&&!shade)return key;
+  const target=key+`_f${fin}_s${shade}`;if(scene.textures.exists(target))return target;
+  const source=scene.textures.get(key).getSourceImage() as HTMLCanvasElement;
+  const [canvas,c]=newCanvas(source.width,source.height,true);c.drawImage(source,0,0);
+  const image=c.getImageData(0,0,canvas.width,canvas.height),d=image.data;
+  for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
+    const i=(y*canvas.width+x)*4;if(d[i+3]<8)continue;
+    const u=box?box.x0+(box.x1-box.x0)*x/canvas.width:x/canvas.width;
+    const v=box?box.y0+(box.y1-box.y0)*y/canvas.height:y/canvas.height;
+    const core=Math.pow((u-.55)/.29,2)+Math.pow((v-.53)/.145,2);
+    const region=!box&&u<r.hinge[0]-.01&&((u<.29||core>1.15)&&(v<.45||v>.61||u<.29)||u>.55&&v>.54);
+    // Warm ivory rays distinguish fins from the cool blue skin. Soft colour weights
+    // avoid painting geometric rectangles into the body at the fin roots.
+    const warmth=clamp((d[i]-d[i+2]+12)/28,0,1)*clamp((d[i+1]-d[i+2]+8)/20,0,1);
+    const finMask=region?warmth:0;
+    const eye=Math.hypot((u-r.eye[0]),(v-r.eye[1])*r.height/r.width)<r.eye[2]*1.35;
+    const dark=eye?1:1-(shade/20)*.8*(1-finMask);
+    const a=fin/20*.7*finMask,lum=d[i]*.3+d[i+1]*.59+d[i+2]*.11,rgb=[lum*.36,lum*.88,lum*.94];
+    for(let k=0;k<3;k++)d[i+k]=(d[i+k]*(1-a)+rgb[k]*a)*dark;
+  }
+  c.putImageData(image,0,0);scene.textures.addCanvas(target,canvas);return target;
+}
 
 /** Runtime masks split the unchanged painting at its registered mouth; no duplicate jaw remains underneath. */
 function cutArt(scene:Phaser.Scene,form:number,r:StarterRegistration):CutArt {
   let cache=cuts.get(scene.textures);
   if (!cache) { cache=new Map(); cuts.set(scene.textures,cache); }
   const hit=cache.get(form); if(hit) return hit;
-  const image=scene.textures.get(starterTexture(form)).getSourceImage() as HTMLImageElement;
+  const image=painting(scene,form);
   const w=image.width,h=image.height;
   const [body,b]=newCanvas(w,h,true),[jaw,j]=newCanvas(w,h,true);
   const path=(ctx:CanvasRenderingContext2D) => {
@@ -44,7 +91,7 @@ function cutArt(scene:Phaser.Scene,form:number,r:StarterRegistration):CutArt {
   const bodyKey=starterBodyTexture(form),jawKey=starterJawTexture(form);
   scene.textures.addCanvas(bodyKey,body);scene.textures.addCanvas(jawKey,small);
   // Once split, release the full uploaded source texture. The two shared parts replace it.
-  scene.textures.remove(starterTexture(form));
+  if(scene.textures.exists(starterTexture(form)))scene.textures.remove(starterTexture(form));
   jaw.width=jaw.height=1;
   const result={body:bodyKey,jaw:jawKey,jawBox:{x0:x0/w,x1:x1/w,y0:y0/h,y1:y1/h}};
   cache.set(form,result);return result;
@@ -91,7 +138,8 @@ export class StarterFishRig {
   private still=0;
   constructor(private scene:Phaser.Scene,readonly morph:Morph) {
     const {r,width,height}=starterGeometry(morph.fishForm??0);this.r=r;this.width=width;this.height=height;
-    this.art=cutArt(scene,morph.fishForm??0,r);
+    const source=cutArt(scene,morph.fishForm??0,r);
+    this.art={...source,body:colored(scene,source.body,morph,r),jaw:colored(scene,source.jaw,morph,r,source.jawBox)};
     this.cavity=new Phaser.GameObjects.Graphics(scene);this.lid=new Phaser.GameObjects.Graphics(scene);
     this.parts.push(this.cavity);
     if(scene.sys.game.renderer.type===Phaser.WEBGL){

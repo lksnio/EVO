@@ -247,6 +247,8 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
   protected nextSense = 0;
   protected biteReady = 0;
   protected stunUntil = 0;
+  private slowUntil=0;
+  private slowAmount=0;
   protected knockUntil = 0;
   protected wanderAt = 0;
   protected wanderX = 0;
@@ -365,6 +367,12 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     this.stunUntil = Math.max(this.stunUntil, this.world.time.now + ms);
   }
 
+  slow(ms:number,amount:number) {
+    const now=this.world.time.now;
+    this.slowAmount=now>=this.slowUntil?amount:Math.max(this.slowAmount,amount);
+    this.slowUntil=now+Math.max(0,ms);
+  }
+
   /** Jemand frisst am Gelege und das Tier hat es mitbekommen: Es greift an – auch wenn es klein ist. */
   rage(from: Target, now: number) {
     if (this.dead || this.kin || this.ally || this.visitor) return;
@@ -453,7 +461,11 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
 
   // ------------------------------------------------------------------ Ablauf
 
-  tick(time: number, dt: number) {
+  tick(time:number,dt:number) {
+    try { this.stepAI(time,dt); }
+    finally { if(!this.dead && time<this.slowUntil) {const k=1-this.slowAmount;this.b.setVelocityX(this.b.velocity.x*k);if(this.swims||this.flies)this.b.setVelocityY(this.b.velocity.y*k);} }
+  }
+  private stepAI(time: number, dt: number) {
     if (this.dead) return;
     if (!this.world.water || this.world.amphibious) this.setAlpha(this.presence);
     this.lastDt = dt;
@@ -2194,7 +2206,7 @@ export class Animal extends Phaser.Physics.Arcade.Sprite {
     const heavy = this.role === 'apex' ? 0.25 : this.role === 'defender' ? 0.4 : 1;
     if (kind === 'ram') {
       this.b.setVelocity(s * Math.min(560, 200 + dmg * 14) * heavy, this.swims || this.flies ? -40 : -260 * heavy);
-      this.stun(450 * heavy + 150);
+      if(!this.isPlayer(from))this.stun(450 * heavy + 150);
     } else {
       this.b.setVelocity(s * 140 * heavy, this.swims || this.flies ? -20 : -120 * heavy);
       this.knockUntil = now + 160;

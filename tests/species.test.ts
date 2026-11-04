@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client, type Room } from '@colyseus/sdk';
 import { server } from '../src/server/index';
-import { SPECIES_ROOM, type SpeciesAdvanced, type SpeciesJoin, type SpeciesOver, type SpeciesPicked } from '../src/net/protocol';
+import { SPECIES_ROOM, type SpeciesOver, type SpeciesPicked } from '../src/net/protocol';
 import { SpeciesState } from '../src/net/schema';
 
 // Koop: Zwei Spieler teilen ihren Laich (ein Raum je Zeitalter). Wählt einer ein Ei der nächsten Generation, beginnt sie
@@ -19,7 +19,6 @@ async function until(fn: () => boolean, ms = 3000) {
   }
 }
 
-const join = (name: string) => new Client(URL).joinOrCreate<SpeciesState>(SPECIES_ROOM, { epoch: 0, name } satisfies SpeciesJoin, SpeciesState);
 const egg = (id: string, jaw = 0) => JSON.stringify({ id, traits: { jaw }, sex: 1, seed: 1, place: 'laichfluss', x: 1, y: 1 });
 
 function picker(r: Room<unknown, SpeciesState>) {
@@ -34,123 +33,68 @@ function picker(r: Room<unknown, SpeciesState>) {
   };
 }
 
-describe('Die gemeinsame Art (Koop)', () => {
-  const rooms: Room<unknown, SpeciesState>[] = [];
+describe('Unabhängige Koop-Linien im gemeinsamen Laich',()=>{
+ const rooms:Room<unknown,SpeciesState>[]=[];
+ beforeAll(async()=>{await server.listen(PORT);});
+ afterAll(async()=>{for(const r of rooms)await Promise.race([r.leave().catch(()=>undefined),wait(500)]);await server.gracefullyShutdown(false);});
+ async function pair(){
+  const a=await new Client(URL).create<SpeciesState>(SPECIES_ROOM,{epoch:0,name:'Anna'},SpeciesState);
+  const b=await new Client(URL).joinById<SpeciesState>(a.roomId,{name:'Ben'},SpeciesState);rooms.push(a,b);
+  a.onMessage('advanced',()=>undefined);b.onMessage('advanced',()=>undefined);
+  return {a,b};
+ }
+ it('zwei Linien entwickeln sich unabhängig; ein fremdes Ei übernimmt exakt dessen Abstammung',async()=>{
+  const {a,b}=await pair();
+  const root={form:0,primary:0};const ta=[root,{form:1,primary:1}],tb=[root,{form:7,primary:3}];
+  a.send('hello',{gen:1,trace:JSON.stringify([root]),pool:[egg('aaaa1')],next:[JSON.stringify({...JSON.parse(egg('aaaa2')),trace:ta})]});
+  b.send('hello',{gen:1,trace:JSON.stringify([root]),pool:[],next:[JSON.stringify({...JSON.parse(egg('bbbb2')),trace:tb})]});
+  await until(()=>b.state.pool.size===3&&a.state.branches.size===2);
+  const pickA=picker(a),pickB=picker(b);
+  const first=await pickB('bbbb2');expect(first.gen).toBe(2);expect(JSON.parse(first.egg).trace).toEqual(tb);
+  await until(()=>a.state.pool.size===2);
+  expect(a.state.pool.has('aaaa1')).toBe(true);expect(a.state.pool.has('aaaa2')).toBe(true);
+  // Ben advances again while Anna's first-generation sibling and offspring remain available.
+  b.send('lay',{gen:3,eggs:[JSON.stringify({...JSON.parse(egg('bbbb3')),trace:[...tb,{form:8,primary:3}]})]});
+  await until(()=>a.state.pool.has('bbbb3'));
+  expect((await pickB('bbbb3')).gen).toBe(3);
+  expect(a.state.pool.has('aaaa1')).toBe(true);
+  const adopted=await pickA('aaaa2');expect(adopted.gen).toBe(2);expect(JSON.parse(adopted.egg).trace).toEqual(ta);
+  // One physical egg is allocated once, even when both choose it at the same time.
+  const [x,y]=await Promise.all([pickA('aaaa1'),pickB('aaaa1')]);expect([x,y].filter(r=>!!r.egg)).toHaveLength(1);
+ });
+ it('der Tod einer Linie löscht weder lebende Mitspieler noch deren spätere Nachkommen',async()=>{
+  const {a,b}=await pair();const over:SpeciesOver[]=[];
+  a.onMessage('extinct',(m:SpeciesOver)=>over.push(m));b.onMessage('extinct',()=>undefined);
+  a.send('hello',{gen:1,pool:[],next:[]});b.send('hello',{gen:1,pool:[],next:[]});
+  await until(()=>a.state.gen===1&&b.state.gen===1);
+  a.send('extinct',{cause:'Räuber'});await wait(150);expect(a.state.over).toBe('');expect(over).toHaveLength(0);
+  b.send('lay',{gen:2,eggs:[egg('survive1')]});await until(()=>a.state.pool.has('survive1'));
+  expect((await picker(a)('survive1')).gen).toBe(2);
+ });
+ it('Markieren reserviert kein Ei; ein Generationswechsel entfernt nur die Auswahl des schlüpfenden Spielers',async()=>{
+  const {a,b}=await pair();
+  a.send('hello',{gen:1,pool:[egg('marka')],next:[egg('markb'),egg('markc')]});
+  b.send('hello',{gen:1,pool:[],next:[]});await until(()=>b.state.pool.size===3);
+  a.send('select',{id:'marka'});b.send('select',{id:'marka'});await until(()=>a.state.selections.size===2);
+  const pickA=picker(a);expect((await pickA('markb')).gen).toBe(2);
+  await until(()=>b.state.selections.size===1);expect(b.state.pool.has('marka')).toBe(true);
+  expect(b.state.selections.get(b.sessionId)).toBe('marka');
+  b.send('select',{id:'unknown'});await wait(80);expect(a.state.selections.get(b.sessionId)).toBe('marka');
+  await b.leave();await until(()=>a.state.members.size===1&&a.state.selections.size===0);
+ });
+ it('nur wenn alle Spieler ohne Eier ausgestorben sind endet die gemeinsame Art',async()=>{
+  const {a,b}=await pair();a.onMessage('extinct',()=>undefined);b.onMessage('extinct',()=>undefined);
+  a.send('hello',{gen:1,pool:[],next:[]});b.send('hello',{gen:1,pool:[],next:[]});await until(()=>a.state.gen===1);
+  a.send('extinct',{cause:'Test'});b.send('extinct',{cause:'Test'});await until(()=>a.state.over!=='');
+ });
+ it('bewahrt die Generation jedes Eis auch beim Wiederherstellen gemischten Laichs',async()=>{
+  const {a,b}=await pair();
+  const at=(id:string,generation:number)=>JSON.stringify({...JSON.parse(egg(id)),generation});
+  a.send('hello',{gen:5,pool:[at('older2',2),at('same5',5)],next:[at('future7',7)]});
+  await until(()=>b.state.pool.size===3);
+  expect(JSON.parse(b.state.pool.get('older2')!).generation).toBe(2);expect(JSON.parse(b.state.pool.get('future7')!).generation).toBe(7);
+  const pick=picker(b);expect((await pick('future7')).gen).toBe(7);expect((await pick('older2')).gen).toBe(2);
+  expect(a.state.pool.has('same5')).toBe(true);
+ });
 
-  beforeAll(async () => {
-    await server.listen(PORT);
-  });
-
-  afterAll(async () => {
-    for (const r of rooms) await Promise.race([r.leave().catch(() => undefined), wait(500)]);
-    await server.gracefullyShutdown(false);
-  });
-
-  it('ein gemeinsamer Laich – der Generationssprung gilt für beide – ohne Laich stirbt die Art für beide aus', async () => {
-    const a = await join('Anna');
-    const b = await join('Ben');
-    rooms.push(a, b);
-    expect(a.roomId).toBe(b.roomId);
-    const adv: SpeciesAdvanced[] = [], overA: SpeciesOver[] = [], overB: SpeciesOver[] = [];
-    a.onMessage('advanced', (m: SpeciesAdvanced) => adv.push(m));
-    a.onMessage('extinct', (m: SpeciesOver) => overA.push(m));
-    b.onMessage('extinct', (m: SpeciesOver) => overB.push(m));
-    // Anna beginnt die Art: Generation 1, drei Eier für Generation 2
-    a.send('hello', { gen: 1, pool: [], next: [egg('aaaa1'), egg('aaaa2'), egg('aaaa3')] });
-    await until(() => b.state.gen === 1 && b.state.next.size === 3);
-    expect(b.state.members.size).toBe(2);
-    // Ben kommt mit nichts dazu – und laicht selbst zwei Eier (seine Eier gehören zur Generation 2)
-    b.send('hello', { gen: 1, pool: [], next: [] });
-    b.send('lay', { gen: 2, eggs: [egg('bbbb1', 0.2), egg('bbbb2')] });
-    await until(() => a.state.next.size === 5);
-    // ein Ei, das es schon gab, kommt nicht doppelt (etwa nach einem Neuladen)
-    a.send('hello', { gen: 1, pool: [], next: [egg('aaaa1')] });
-    await wait(150);
-    expect(a.state.next.size).toBe(5);
-    // Ben wählt Bens Ei aus der nächsten Generation: Generation 2 beginnt – für beide, die übrigen vier sind Geschwister
-    const pickB = picker(b), pickA = picker(a);
-    const r1 = await pickB('bbbb1');
-    expect(r1.group).toBe('next');
-    expect(r1.gen).toBe(2);
-    expect(JSON.parse(r1.egg).traits.jaw).toBe(0.2);
-    await until(() => a.state.gen === 2 && a.state.pool.size === 4 && a.state.next.size === 0);
-    await until(() => adv.length > 0);
-    expect(adv[0]).toEqual({ name: 'Ben', gen: 2 });
-    // Anna lebt noch (Generation 1) und laicht: Ihre Eier gehören zu Generation 2 – zu den Geschwistern
-    a.send('lay', { gen: 2, eggs: [egg('aaaa4')] });
-    await until(() => b.state.pool.size === 5);
-    // Eier aus Generation 1 gibt es nicht mehr (dorthin führt kein Weg zurück)
-    a.send('lay', { gen: 1, eggs: [egg('aaaa5')] });
-    await wait(150);
-    expect(b.state.pool.size + b.state.next.size).toBe(5);
-    // wer zuerst kommt: Ein Ei bekommt nur einer
-    const [x, y] = await Promise.all([pickA('aaaa2'), pickB('aaaa2')]);
-    expect([x.egg, y.egg].filter(Boolean).length).toBe(1);
-    await until(() => a.state.pool.size === 4);
-    // die übrigen schlüpfen nach und nach …
-    for (const id of [...a.state.pool.keys()]) expect((await pickA(id)).egg).not.toBe('');
-    await until(() => b.state.pool.size === 0);
-    // … dann stirbt Anna, und es liegt kein Laich mehr da: Die Art ist ausgestorben – für beide
-    a.send('extinct', { cause: 'Von einem Räuber gefressen' });
-    await until(() => overA.length > 0 && overB.length > 0);
-    expect(overB[0].name).toBe('Anna');
-    await until(() => b.state.over !== '');
-    // eine neue Linie beginnt eine neue Art
-    b.send('hello', { gen: 1, pool: [], next: [egg('cccc1')] });
-    await until(() => a.state.over === '' && a.state.gen === 1 && a.state.next.size === 1);
-  });
-
-  it('solange Laich da ist, stirbt die Art nicht aus', async () => {
-    const c = await new Client(URL).joinOrCreate<SpeciesState>(SPECIES_ROOM, { epoch: 1, name: 'Cleo' } satisfies SpeciesJoin, SpeciesState);
-    rooms.push(c);
-    c.send('hello', { gen: 3, pool: [egg('dddd1')], next: [] });
-    await until(() => c.state.gen === 3 && c.state.pool.size === 1);
-    c.send('extinct', { cause: 'Test' });
-    await wait(200);
-    expect(c.state.over).toBe('');
-  });
-
-  it('zeigt gleichzeitige Markierungen ohne Reservierung und entfernt sie beim Wechsel oder Verlassen', async () => {
-    const a = await new Client(URL).create<SpeciesState>(SPECIES_ROOM, { epoch: 0, name: 'Anna' } satisfies SpeciesJoin, SpeciesState);
-    const b = await new Client(URL).joinById<SpeciesState>(a.roomId, { name: 'Ben' }, SpeciesState);
-    rooms.push(a, b);
-    a.send('hello', { gen: 3, pool: [egg('marka'), egg('markb')], next: [egg('markc'), egg('markd')] });
-    await until(() => b.state.pool.size === 2 && b.state.next.size === 2);
-    a.send('select', { id: 'marka' });
-    b.send('select', { id: 'marka' });
-    await until(() => a.state.selections.size === 2 && b.state.selections.size === 2);
-    expect([...a.state.selections.values()]).toEqual(['marka', 'marka']);
-    expect(a.state.pool.size).toBe(2);
-    b.send('select', { id: 'unbekannt' });
-    await wait(100);
-    expect(a.state.selections.get(b.sessionId)).toBe('marka');
-    a.send('select', { id: 'markb' });
-    await until(() => b.state.selections.get(a.sessionId) === 'markb');
-    a.send('select', { id: '' });
-    await until(() => b.state.selections.size === 1);
-    expect(b.state.selections.has(a.sessionId)).toBe(false);
-
-    // Ein Generationssprung verwirft alte Geschwister, erhält aber die Markierung eines weiterhin wartenden Eis.
-    a.send('select', { id: 'markb' });
-    b.send('select', { id: 'markd' });
-    await until(() => a.state.selections.get(b.sessionId) === 'markd');
-    const pickA = picker(a), pickB = picker(b);
-    expect((await pickA('markc')).gen).toBe(4);
-    await until(() => b.state.gen === 4 && b.state.selections.size === 1);
-    expect(b.state.selections.has(a.sessionId)).toBe(false);
-    expect(b.state.selections.get(b.sessionId)).toBe('markd');
-    expect(b.state.pool.has('markd')).toBe(true);
-
-    a.send('select', { id: 'markd' });
-    await until(() => b.state.selections.size === 2);
-    const claims = await Promise.all([pickA('markd'), pickB('markd')]);
-    expect(claims.filter((r) => r.egg).length).toBe(1);
-    await until(() => a.state.selections.size === 0 && b.state.selections.size === 0);
-    a.send('lay', { gen: 5, eggs: [egg('markleave')] });
-    await until(() => b.state.next.has('markleave'));
-    b.send('select', { id: 'markleave' });
-    await until(() => a.state.selections.size === 1);
-    await b.leave();
-    await until(() => a.state.selections.size === 0 && a.state.members.size === 1);
-  });
 });

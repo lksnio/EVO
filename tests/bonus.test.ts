@@ -41,6 +41,7 @@ describe('Schuppen und Tempo aus der Spielweise', () => {
 
   it('dem Tod nahe sein zählt nur Sekunden unter einem Viertel der Lebenskraft im Spielstil mit', () => {
     const style = { ...newStyle(), hurt: 9, danger: 15 };
+    game.run!.cls='amphibian';
     const h = game.inherit({ meat: 0, plant: 0 }, style);
     expect(h.evolution!.fixed!.scales).toBe(5);
     // Vorschau neutral (kein ±1): 5 Schuppenpunkte mehr

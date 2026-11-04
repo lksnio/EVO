@@ -84,9 +84,8 @@ export class EndingScene extends Phaser.Scene {
       .setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: stats, alpha: 1, duration: 1000, delay: 9800 });
     this.time.delayedCall(10400, () => {
-      const b1 = new Button(this, W / 2 - 170, 668, 'Stammbaum', { w: 300, color: UI.ochreN, onClick: () => fadeTo(this, 'Tree', { mode: 'present', node: this.d.node }) });
-      const b2 = new Button(this, W / 2 + 170, 668, 'Titelbild', { w: 300, onClick: () => fadeTo(this, 'Title') });
-      new MenuNav(this, [b1, b2]);
+      const b2 = new Button(this, W / 2, 668, 'Titelbild', { w: 300, onClick: () => fadeTo(this, 'Title') });
+      new MenuNav(this, [b2]);
     });
     this.time.delayedCall(1200, () => audio.sfx('victory'));
   }

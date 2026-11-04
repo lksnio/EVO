@@ -9,10 +9,12 @@ import { DEPTH, GRAVITY } from '../config';
 import { FLOW, STAMINA } from '../data/life';
 import { CLIMB } from '../data/karbon';
 import { breathe, climbCost } from '../sim/brood';
+import { STARTER_FORMS } from '../sim/starterFish';
 import { FISH_ATTACK_COST, spendStamina } from '../sim/stamina';
 
 export interface PlayerHost extends Phaser.Scene {
-  playerBite(rect: Rect, momentum?: number): void;
+  playerBite(rect: Rect, momentum?: number, charge?: number): void;
+  playerHealth?(fraction: number): void;
   /** Aktion am Laich öffnet die Eiübersicht statt zuzubeißen. */
   spawnAct?(): boolean;
   puff(x: number, y: number, n: number, tint?: number): void;
@@ -43,7 +45,7 @@ export class Player {
   stats!: Stats;
   hp = 1;
   /**
-   * Ausdauer relativ zur Anfangsreserve. Flossen vergrößern beim Fisch das Maximum;
+   * Ausdauer relativ zur Anfangsreserve. Ausdauerpunkte vergrößern das Maximum;
    * Biss, Stoß und Sprint verbrauchen absolute Mengen aus derselben Reserve.
    */
   stamina = 1;
@@ -71,6 +73,18 @@ export class Player {
   lastCause = 'unbekannt';
   private invulnUntil = 0;
   private biteReady = 0;
+  private biteChargeAt = -1;
+  private ramHoldAt = -1;
+  ramCharge = 0;
+  get charging(){return this.ramHoldAt>=0?2:this.biteChargeAt>=0?1:0;}
+  get weaponTiers() { return STARTER_FORMS[game.morph().fishForm??0]; }
+  private fireBite(time:number,charge=0) {
+    this.biteChargeAt=-1;this.view.holdOpen=0;
+    this.biteReady=time+380;this.bitAt=time;this.usedAt=time;
+    this.view.bite(charge>0);audio.sfx('bite',game.traits.jaw);
+    const momentum=this.momentum;
+    this.host.time.delayedCall(60,()=>!this.dead&&this.host.playerBite(this.biteRect(),momentum,charge));
+  }
   private knockUntil = 0;
   private lastGround = -1e9;
   private jumpBuf = -1e9;
@@ -317,6 +331,7 @@ export class Player {
     // Ausruhen: eine Weile nichts tun (nicht schwimmen, beißen, rammen) – im Wasser lässt man sich treiben
     if (dir !== 0 || (wet && dyIn !== 0) || c.held.sprint || c.held.bite || c.held.ram || c.pressed.jump || knocked) this.lastAct = time;
     this.resting = time - this.lastAct > 650 && time - this.lastHurt > 1200;
+    this.host.playerHealth?.(this.hp/this.stats.maxHp);
     const fishStamina = game.cls === 'fish';
     // Flossen stecken bereits im Maximum: Verbrauch nicht ein zweites Mal rabattieren.
     const en = fishStamina ? 1 : this.stats.endurance;
@@ -465,17 +480,31 @@ export class Player {
       this.speed01 = Math.abs(b.velocity.x) / this.stats.speed;
     }
 
-    // Stoß (R): mit stärkerem Schädel kürzer anlaufen und schneller vorstoßen. Der Schwung klingt rasch ab;
-    // danach muss man sich kurz erholen. Für Strecke bleibt der Spurt schneller, auch gegenüber Spurt + Stoß.
-    if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && !this.exhausted && !knocked
-      && (fishStamina ? this.spendAttack(FISH_ATTACK_COST.ram, time) : this.stamina > 0.12)) {
+    // Stage 1 unlocks holding. A short press still releases a quick attack.
+    const tiers=fishStamina?this.weaponTiers:[0,0,0];
+    let ramRequest=c.pressed.ram,ramPaid=false;
+    if(fishStamina && tiers[2]>=1) {
+      ramRequest=false;
+      if(this.ramHoldAt<0 && c.pressed.ram && this.dash==='none' && time>=this.ramReady && !knocked && this.spendAttack(FISH_ATTACK_COST.ram,time)) {
+        this.ramHoldAt=time;this.ramCharge=0;
+      }
+      if(this.ramHoldAt>=0) {
+        this.usedAt=time;this.sprinting=false;
+        this.ramCharge=clamp((time-this.ramHoldAt-150)/1200,0,1);
+        b.setVelocityX(b.velocity.x*.45);if(wet)b.setVelocityY(b.velocity.y*.45);
+        if(knocked) {this.ramHoldAt=-1;this.ramCharge=0;}
+        else if(!c.held.ram || time-this.ramHoldAt>=2500) {ramRequest=true;ramPaid=true;this.ramHoldAt=-1;}
+      }
+    } else if(this.dash==='none') this.ramCharge=0;
+    if (this.dash === 'none' && ramRequest && game.canRam && time >= this.ramReady && (!this.exhausted || ramPaid) && !knocked
+      && (ramPaid || (fishStamina ? this.spendAttack(FISH_ATTACK_COST.ram, time) : this.stamina > 0.12))) {
       this.dash = 'charge';
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      const skull = clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
-      this.dashChargeMs = CHARGE_MS - 100 * skull;
-      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * this.fade * (wet ? 1 + FLOW.ram * this.flow : 1);
+      const skull = fishStamina ? tiers[2]/3 : clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
+      this.dashChargeMs = fishStamina ? 120 : CHARGE_MS - 100 * skull;
+      this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * (1 + .5*this.ramCharge) * this.fade * (wet ? 1 + FLOW.ram * this.flow : 1);
       this.surge = 0;
       this.sprinting = false;
       const dy = wet ? (c.held.down ? 1 : 0) - (c.held.up ? 1 : 0) : 0;
@@ -522,22 +551,20 @@ export class Player {
       if (Math.random() < (this.dash === 'glide' ? 0.35 : 0.2)) this.host.puff(this.x - this.facing * this.view.L.halfW, this.y, 1);
     }
 
-    // Beißen (und Fressen): aus dem Stand, der Körper bleibt, wo er ist – nur der Kopf schnappt zu.
-    // Nach vorn trägt einen allein der Schwung eines Stoßes oder Spurts.
-    if (c.pressed.bite && time >= this.biteReady && this.host.spawnAct?.()) this.biteReady = time + 380;
-    else if (c.pressed.bite && time >= this.biteReady && (!fishStamina || this.spendAttack(FISH_ATTACK_COST.bite, time))) {
-      this.biteReady = time + 380;
-      this.bitAt = time;
-      // Beim Fisch gilt immer ein Fünftel der Anfangsausdauer, unabhängig von Kiefer und Reserve.
-      if (!fishStamina) this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
-      this.usedAt = time;
-      this.view.bite();
-      audio.sfx('bite', game.traits.jaw);
-      const m = this.momentum;
-      this.host.time.delayedCall(60, () => !this.dead && this.host.playerBite(this.biteRect(), m));
+    if(c.pressed.bite && this.host.spawnAct?.()) { this.biteChargeAt=-1;this.view.holdOpen=0; }
+    else if(c.pressed.bite && time>=this.biteReady && this.biteChargeAt<0 && (!fishStamina || this.spendAttack(FISH_ATTACK_COST.bite,time))) {
+      if(fishStamina && tiers[0]>=1) this.biteChargeAt=time;
+      else { if(!fishStamina)this.stamina=Math.max(0,this.stamina-.035*(1+1.4*game.traits.jaw)/en);this.fireBite(time); }
     }
-    this.view.headTilt = this.dash === 'charge' ? 0.5 : this.dash === 'glide' ? 0.62 : this.sprinting ? 0.18 : 0;
-    this.view.squint(this.dash !== 'none' ? 0.8 : 0);
+    if(this.biteChargeAt>=0) {
+      this.usedAt=time;
+      const held=time-this.biteChargeAt,charge=clamp((held-150)/1200,0,1);
+      this.view.holdOpen=.25+.75*charge;
+      if(knocked) {this.biteChargeAt=-1;this.view.holdOpen=0;}
+      else if(!c.held.bite || held>=2500)this.fireBite(time,charge);
+    }
+    this.view.headTilt = this.dash === 'charge' ? 0.5 : this.dash === 'glide' ? 0.62 : this.ramHoldAt>=0 ? .3 : this.sprinting ? 0.18 : 0;
+    this.view.squint(this.dash !== 'none' || this.ramHoldAt>=0 || this.biteChargeAt>=0 ? 0.8 : 0);
 
     // Atem und Erschöpfung sichtbar machen
     const low = this.stamina / max;
@@ -620,6 +647,7 @@ export class Player {
     if (by) this.lastCause = by;
     const d = Math.max(1, dmg * this.stats.defense);
     this.hp = Math.max(0, this.hp - d);
+    this.host.playerHealth?.(this.hp/this.stats.maxHp);
     if (source) this.host.playerDamaged?.(source, d);
     const now = this.host.time.now;
     // Wie hart war der Treffer? Schwere Treffer schleudern einen weit zurück, betäuben kurz und erschüttern das Bild.
@@ -656,6 +684,7 @@ export class Player {
     if (selfDmg > 0.1) {
       const d = selfDmg * this.stats.defense;
       this.hp = Math.max(0, this.hp - d);
+      this.host.playerHealth?.(this.hp/this.stats.maxHp);
       // ein Zusammenprall mit etwas Größerem ist auch ein überstandener Kampf
       if (this.hp > 0) {
         this.endured += 0.1 + 2 * clamp(d / Math.max(1, this.stats.maxHp), 0, 1);

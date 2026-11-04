@@ -60,7 +60,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const id = int(m?.id);
       if (!id || client.sessionId === this.state.host) return;
       const kind = m.kind === 'ram' || m.kind === 'other' ? m.kind : 'bite';
-      this.toHost({ type: 'hit', msg: { id, dmg: clamp(num(m.dmg, 0), 0, 200), kind, stun: clamp(num(m.stun, 0), 0, 3000), from: client.sessionId } satisfies HitMsg });
+      this.toHost({ type: 'hit', msg: { id, dmg: clamp(num(m.dmg, 0), 0, 200), kind, stun: clamp(num(m.stun, 0), 0, 3000), ...(m.slow&&m.slowMs?{slow:clamp(num(m.slow,0),0,.5),slowMs:clamp(num(m.slowMs,0),0,2000)}:{}), from: client.sessionId } satisfies HitMsg });
     },
     eat: (client: Client, m: EatMsg) => {
       const id = int(m?.id);
@@ -265,6 +265,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     f.t = num(m.t, 0);
     f.facing = num(m.facing, 1) < 0 ? -1 : 1;
     f.anim = clamp(Math.round(num(m.anim, 0)), 0, 7);
+    f.mouth=clamp(Math.round(num(m.mouth,0)),0,100);f.charge=clamp(Math.round(num(m.charge,0)),0,2);
     f.size = clamp(num(m.size, 1), 0.1, 3);
     // wer die Höhle verlässt, ist nicht mehr eingeloggt
   }

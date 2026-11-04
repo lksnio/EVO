@@ -1,3 +1,4 @@
+import { fishStaminaMax } from '../sim/stamina';
 import { endLineage, newLineage, observeLineage, readLineage, recordBirth, type LineageArchive, type LineageForm, type LineageSite } from '../sim/lineage';
 import { COLLECTION_SHELLS, SHELL_WISDOM, type ShellId, type FossilId } from '../data/collection';
 import { newCollection, readCollection, removeLegacyShells, findShell, dropFossil, findFossil, type CollectionState, type FossilDrop } from '../sim/collection';
@@ -12,8 +13,9 @@ import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gain
 import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN } from '../data/karbon';
-import { fishStaminaMax } from '../sim/stamina';
-import { advanceStarterFish, resolveStarterForm, type StarterScores } from '../sim/starterFish';
+import { fishBirthGains, finStage, finSpeed as fishFinSpeed, FISH_BASE_STAMINA, appendFishMark, type FishPlan, type FishMark, type FishEffort } from '../sim/fishEvolution';
+import { STARTER_FORMS } from '../sim/starterFish';
+import { advanceStarterFish, resolveStarterForm, starterFormIndex, type StarterScores } from '../sim/starterFish';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
   type Brood, type Egg, type Gene,
@@ -53,11 +55,13 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface Traits {
-  /** Form bei der Geburt; Primärattribut 1 Gebiss, 2 Flossen, 3 Kopfplatte. Nur numerische, vererbbare Daten. */
+  /** Form bei der Geburt; Primärschaden 1 Gebiss oder 3 Kopfplatte (2 war früher Flossen). Nur numerische, vererbbare Daten. */
   fishForm?: number;
   fishPrimary?: number;
   /** Additive vererbte Punkte. Ältere Spielstände ohne diese Felder behalten ihre bisherigen Werte. */
   vitality?: number;
+  /** Additive reserve points; start value is 30. Independent of fins. */
+  staminaGain?: number;
   biteGain?: number;
   ramGain?: number;
   finGain?: number;
@@ -183,7 +187,7 @@ export interface Stats {
   maxHp: number;
   bite: number;
   ram: number;
-  /** Betäubung durch einen Schädelstoß (Millisekunden): Schädel 10 → 1 s, ab 100 → 2 s */
+  /** Betäubung durch einen Schädelstoß: Stufe 0/1 keine, Stufe 2 1 s, Stufe 3 2 s. */
   ramStun: number;
   /** Selbstschaden beim Rammen (dünner Schädel tut weh) */
   ramSelf: number;
@@ -323,6 +327,9 @@ export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, l
  * gelaicht wurde. Gespeichert werden nur die Merkmale, die nicht 0 sind.
  */
 export interface RoeEgg {
+  generation?: number;
+  finMutation?: boolean;
+  trace?: FishMark[];
   /** Kennung (im Koop: dieselbe bei allen Spielern) */
   id?: string;
   traits: Partial<Traits>;
@@ -338,6 +345,7 @@ export type RoeGroup = 'pool' | 'next';
 
 /** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern (zur Laichzeit). */
 export interface Heir {
+  fishPlan?: { start: Traits; plan: FishPlan };
   /** Grundwerte und Zuwächse vor dem individuellen Wurf jedes Eis. */
   evolution?: { traits: Traits; gains: Gains; fixed?: Gains };
   traits: Traits;
@@ -350,6 +358,7 @@ export interface Heir {
 }
 
 export interface Run {
+  fishTrace?: FishMark[];
   id: number;
   cls: ClassId;
   traits: Traits;
@@ -487,6 +496,7 @@ export interface SaveData {
   collection: CollectionState;
   /** Personal played history; independent of shared eggs and trait-signature nodes. */
   lineage: LineageArchive;
+  fishBranches?: { id: string; name: string; trace: FishMark[]; extinct?: boolean }[];
 }
 
 const KEY = 'evo-save-v3';
@@ -608,7 +618,8 @@ const BODY: Record<ClassId, { cm: number; g: number }> = {
 /** Ältere Spielstände kennen manche Merkmale noch nicht. */
 const full = (t: Partial<Traits>): Traits => ({ ...ZERO, ...t });
 const adultSize = (t: Traits) => clamp(0.7 + 0.62 * t.growth, 0.58, 1.5);
-const finPoints = (t: Traits) => Math.max(1, 10 + (t.finGain ?? 0));
+const finPoints = (t: Traits) => clamp(10 + (t.finGain ?? 0), 10, 100);
+const staminaPoints = (t: Traits) => FISH_BASE_STAMINA + Math.max(0, t.staminaGain ?? 0);
 const scalePoints = (t: Traits) => Math.max(1, (10 * (1 + 2 * (t.armor ?? 0)) + (t.scaleGain ?? 0)) * Math.max(0.1, 1 - (t.lengthGain ?? 0) / 2));
 
 /**
@@ -703,7 +714,7 @@ export const bus = new Emitter();
  * Was im Zeitalter getan wurde. Daraus ergeben sich beim Generationswechsel die Ausprägung der gewählten Platte und die
  * Anpassungen, die unabhängig von der Platte geschehen (Größe, Robustheit, Flossen aus der Bewegung).
  */
-export interface PlayStyle {
+export interface PlayStyle extends FishEffort {
   defeats?: Defeats;
   distance?: number;
   /** Sekunden in der Tiefe (deepK über SIGHT.trainFrom) – daraus wächst die Sicht der Nachkommen */
@@ -783,6 +794,7 @@ class GameState {
         this.data = { ...f, ...d, nodes: { ...f.nodes, ...d.nodes } } as SaveData;
         this.data.collection = readCollection(d.collection);
         this.data.lineage = readLineage(d.lineage);
+        this.data.fishBranches=Array.isArray(d.fishBranches)?d.fishBranches:[];
         this.data.seen = Array.isArray(d.seen) ? d.seen.filter((id) => typeof id === 'string') : [];
         for (const n of Object.values(this.data.nodes)) n.traits = migrate(n.traits);
         // Früher hing alles an einem Urahn vor dem ersten Zeitalter – heute hat jedes Zeitalter seinen eigenen; das erste
@@ -1078,7 +1090,7 @@ class GameState {
     const chase = plateLevel(t.vf ?? 0);
     // Schwarmfische sind allein verletzlicher: Ihre Stärke ist die Gruppe
     const school = plateLevel(t.sw ?? 0);
-    return {
+    const stats: Stats = {
       // Jungtiere sind verletzlich, aber nicht ganz so sehr, wie ihre Größe vermuten ließe; im Alter lässt die Kraft nach
       maxHp: Math.max(3, Math.round((baseHp + (t.vitality ?? 0)) * Math.pow(k.grow, 0.8) * (1 - 0.12 * school) * (1 - LIFE.oldHp * k.old))),
       bite,
@@ -1101,7 +1113,7 @@ class GameState {
       digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn),
       // Startfisch: Reserve nur aus Flossen, bei Jungtier und ausgewachsen gleich.
       // Andere Körperklassen behalten ihre bisherigen Ausdauer-Kompromisse.
-      endurance: cls === 'fish' ? fishStaminaMax(finPoints(t)) : clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
+      endurance: cls === 'fish' ? fishStaminaMax(staminaPoints(t)) : clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
         + MOVEMENT.finEndurance * (t.finGain ?? 0) + MOVEMENT.endPerPoint * (t.endGain ?? 0), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
       recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, adult - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
@@ -1117,6 +1129,27 @@ class GameState {
       landSpeed: b.speed * 0.62 * sizeDrag * (1 + KTRAIN.landLimb * limb) * (1 - KTRAIN.landArmor * armor) * speedGrowth,
       slope: maxSlope(limb, grip),
     };
+    if(cls === 'fish') {
+      const baseSize=adultSize(ZERO), baseHp=Math.round(b.hp*Math.pow(baseSize,1.3));
+      const hp=baseHp+Math.max(0,t.vitality??0), grow=Math.pow(k.grow,.6);
+      const form=resolveStarterForm([10+Math.max(0,t.biteGain??0),finPoints(t),10+Math.max(0,t.ramGain??0)],t.fishForm);
+      const [,,skullTier]=STARTER_FORMS[form];
+      stats.maxHp=Math.max(3,Math.round(hp*Math.pow(k.grow,.8)*(1-LIFE.oldHp*k.old)));
+      stats.size=baseSize*Math.cbrt(hp/baseHp)*k.grow;
+      stats.bite=b.bite*baseSize*(10+Math.max(0,t.biteGain??0))/10*grow;
+      stats.ram=b.ram*baseSize*(10+Math.max(0,t.ramGain??0))/10*grow;
+      stats.ramStun=skullTier>=3?2000:skullTier>=2?1000:0;
+      stats.ramSelf=b.ram*.55/(1+skullTier);
+      stats.speed=b.speed*(1.12-.14*baseSize)*fishFinSpeed(finPoints(t));
+      stats.cruise=stats.climb=stats.dive=1;
+      stats.agility=1; stats.recover=1;
+      stats.endurance=fishStaminaMax(staminaPoints(t));
+      stats.defense=1/(1+Math.max(0,t.scaleGain??0)*.025+skullTier*.08);
+      stats.digestMeat=stats.digestPlant=1;
+      stats.power=stats.bite*.6+stats.ram*.4;
+      stats.upkeep=1;
+    }
+    return stats;
   }
 
   /** Das Aussehen zu einer Form und ihren Merkmalen. */
@@ -1131,6 +1164,8 @@ class GameState {
     return {
       cls,
       fishForm,
+      finColor: cls === 'fish' ? clamp((t.staminaGain??0)/70,0,1) : 0,
+      scaleShade: cls === 'fish' ? clamp((t.scaleGain??0)/60,0,1) : 0,
       size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
       jaw: clamp(t.jaw + (t.biteGain ?? 0) / 35, 0, 1),
       skull: clamp(t.skull + (t.ramGain ?? 0) / 40, 0, 1),
@@ -1383,7 +1418,7 @@ class GameState {
     return true;
   }
 
-  /** Die Geschwister, die noch warten: Eier deiner Generation (siehe Run.pool). */
+  /** Wartende Eier bis zur eigenen Generation, einschließlich anderer Linien. */
   get pool(): RoeEgg[] {
     return this.data.run?.pool ?? [];
   }
@@ -1394,7 +1429,7 @@ class GameState {
    */
   get poolGen(): number {
     const run = this.data.run;
-    return run ? Math.max(run.life.gen, run.coopGen ?? 0) : 1;
+    return run ? run.life.gen : 1;
   }
 
   /** Der Laich für die nächste Generation – von dir und deinen Geschwistern zusammen (siehe Run.next). */
@@ -1413,14 +1448,16 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      const e: RoeEgg = { id: eggId(), traits: packTraits(driftColors(h.evolution ? this.applyEvolution(h.evolution.traits, h.evolution.gains, Math.random, h.evolution.fixed) : h.traits)), sex: newSex(), seed: Math.floor(Math.random() * 100000), place: c.place, x: c.x, y: c.y };
+      const fish=h.fishPlan?this.fishOffspring(h.fishPlan.start,h.fishPlan.plan):undefined;
+      const traits=fish?.traits??driftColors(h.evolution ? this.applyEvolution(h.evolution.traits,h.evolution.gains,Math.random,h.evolution.fixed):h.traits);
+      const e:RoeEgg={id:eggId(),traits:packTraits(traits),sex:newSex(),seed:Math.floor(Math.random()*100000),place:c.place,x:c.x,y:c.y,
+        generation:run.life.gen+1,...(fish?{finMutation:fish.mutation,trace:appendFishMark(run.fishTrace,traits.fishForm??0,traits.fishPrimary??0)}:{})};
       out.push(e);
     }
     // die Eier gehören zur Generation nach deiner: Im Koop kann das schon die der Geschwister sein (ein Artgenosse war
     // schneller) – oder eine vergangene, in die kein Weg mehr zurückführt
     const g = run.life.gen + 1;
-    if (g === this.poolGen) (run.pool ??= []).push(...out);
-    else if (g > this.poolGen) (run.next ??= []).push(...out);
+    (run.next ??= []).push(...out);
     this.save();
     // im Koop: an die gemeinsame Art (net/Species.ts)
     bus.emit('roeLaid', g, out);
@@ -1435,14 +1472,34 @@ class GameState {
     const run = this.data.run;
     if (!run || run.brood) return;
     run.coopGen = gen;
-    run.pool = pool;
-    run.next = next;
+    const eggs=[...pool,...next];
+    run.pool=eggs.filter(e=>(e.generation??gen)<=run.life.gen);
+    run.next=eggs.filter(e=>(e.generation??gen+1)>run.life.gen);
     this.save();
   }
 
   private starterScores(t: Traits): StarterScores {
-    const st = this.stats('fish', t, ADULT), base = CLASSES.fish.base, size = adultSize(ZERO);
-    return [10 * st.bite / (base.bite * size), finPoints(t), 10 * st.ram / (base.ram * size)];
+    return [10+Math.max(0,t.biteGain??0),finPoints(t),10+Math.max(0,t.ramGain??0)];
+  }
+
+  private fishOffspring(start: Traits, plan: FishPlan, random = Math.random, preview = false) {
+    const {gains:g,mutation}=fishBirthGains(plan,random,preview);
+    const t=full({...start});
+    if(mutation){
+      const before=this.starterScores(start),fins=Math.min(100,before[1]+5);
+      const stages=[...STARTER_FORMS[resolveStarterForm(before,start.fishForm)]];
+      stages[1]=Math.max(stages[1],finStage(fins));
+      t.finGain=fins-10;t.fishForm=starterFormIndex(stages);
+      return {traits:t,mutation:fins>before[1]};
+    }
+    t.vitality=Math.max(0,(start.vitality??0)+g.hp);
+    t.staminaGain=Math.max(0,(start.staminaGain??0)+g.stamina);
+    t.scaleGain=Math.max(0,(start.scaleGain??0)+g.scales);
+    const before=this.starterScores(start);
+    const birth=advanceStarterFish(before,[before[0]+g.bite,before[1]+g.fins,before[2]+g.skull],start.fishForm,start.fishPrimary);
+    t.biteGain=birth.scores[0]-10; t.finGain=birth.scores[1]-10; t.ramGain=birth.scores[2]-10;
+    t.fishForm=birth.form; t.fishPrimary=birth.primary;
+    return {traits:t,mutation:mutation && birth.scores[1]>before[1]};
   }
 
   private applyEvolution(start: Traits, gains: Gains, random = Math.random, fixed?: Gains): Traits {
@@ -1453,16 +1510,7 @@ class GameState {
     t.ramGain = (t.ramGain ?? 0) + d.skull;
     t.finGain = (t.finGain ?? 0) + d.fins;
     t.scaleGain = (t.scaleGain ?? 0) + d.scales;
-    if (this.r.cls === 'fish') {
-      const before = this.starterScores(start), after = this.starterScores(t);
-      const birth = advanceStarterFish(before, after, start.fishForm, start.fishPrimary);
-      const pointUnit = 10 * .07 / adultSize(ZERO);
-      t.biteGain = (t.biteGain ?? 0) + (birth.scores[0] - after[0]) / pointUnit;
-      t.finGain = (t.finGain ?? 0) + birth.scores[1] - after[1];
-      t.ramGain = (t.ramGain ?? 0) + (birth.scores[2] - after[2]) / pointUnit;
-      t.fishForm = birth.form;
-      t.fishPrimary = birth.primary;
-    }
+
     return t;
   }
 
@@ -1483,7 +1531,7 @@ class GameState {
       ram: Math.round((10 * st.ram) / s0.ram),
       // Tempo: Grundtempo mal Flossenschub (cruise) – so schwimmt das Tier tatsächlich
       speed: Math.round((10 * st.speed * st.cruise) / (s0.speed * s0.cruise)),
-      scales: Math.round(scalePoints(t)),
+      scales: Math.round(this.r.cls==='fish'?10+Math.max(0,t.scaleGain??0):scalePoints(t)),
       fins: Math.round(finPoints(t)),
     };
   }
@@ -1495,6 +1543,11 @@ class GameState {
    */
   inherit(eaten: { meat: number; plant: number }, style: PlayStyle, partner?: Clutch['partner']): Heir {
     const run = this.r;
+    if(run.cls==='fish') {
+      const start=full({...run.traits});
+      const plan:FishPlan={eaten:{...eaten},effort:{biteDamage:style.biteDamage,ramDamage:style.ramDamage,minHealth:style.minHealth}};
+      return {traits:this.fishOffspring(start,plan,()=>.5,true).traits,fishPlan:{start,plan},sex:newSex(),seed:Math.floor(Math.random()*100000),fit:{st:0,bs:0,vf:0,sw:0}};
+    }
     const start = full(run.traits);
     const end = this.drifted();
     const k = INHERIT.carry;
@@ -1556,12 +1609,9 @@ class GameState {
     const list = group === 'pool' ? run.pool : run.next;
     const egg = list?.[i];
     if (!list || !egg) return false;
-    const gen = group === 'pool' ? this.poolGen : this.poolGen + 1;
+    const gen = egg.generation ?? (group === 'pool' ? this.poolGen : this.poolGen + 1);
     list.splice(i, 1);
-    if (group === 'next') {
-      run.pool = list;
-      run.next = [];
-    }
+    if (group === 'next') { run.pool=[...(run.pool??[]),...list]; run.next=[]; }
     this.hatchRoe(egg, gen);
     return true;
   }
@@ -1578,14 +1628,21 @@ class GameState {
       run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
       if (run.history.length > 24) run.history.splice(1, 1);
     }
+    if(run.fishTrace && egg.trace && !JSON.stringify(egg.trace).startsWith(JSON.stringify(run.fishTrace).slice(0,-1))) {
+      const prior=this.data.fishBranches?.find(b=>b.id===`local-${run.id}`);
+      if(prior)(this.data.fishBranches??=[]).push({...prior,id:`past-${run.id}-${prior.trace.map(m=>m.form).join('-')}`,extinct:true});
+    }
     run.traits = full({ ...egg.traits });
+    run.fishTrace=egg.trace?.length?egg.trace:appendFishMark(run.fishTrace,resolveStarterForm(this.starterScores(run.traits),run.traits.fishForm),run.traits.fishPrimary??0);
     run.sex = SPAWN.alwaysMale ? 1 : egg.sex;
     run.seed = egg.seed;
     if (jump) {
       const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
       if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, gen).id;
     }
-    this.hatchAt(run, Math.max(gen, run.life.gen), egg);
+    const remaining=[...(run.pool??[]),...(run.next??[])];
+    run.pool=remaining.filter(e=>(e.generation??gen)<=gen);run.next=remaining.filter(e=>(e.generation??gen)>gen);
+    this.hatchAt(run, gen, egg);
   }
 
   /**
@@ -1602,7 +1659,7 @@ class GameState {
       const t = full({ ...tr });
       const st = this.stats(run.cls, t, ADULT);
       const ten = (v: number) => Math.round(10 * (1 + 2 * v));
-      return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), fins: Math.round(finPoints(t)), scales: Math.round(scalePoints(t)), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
+      return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), fins: Math.round(finPoints(t)), scales: Math.round(this.r.cls==='fish'?10+Math.max(0,t.scaleGain??0):scalePoints(t)), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
     };
     const a = val(run.traits), b = val(prev.traits);
     return { bite: a.bite - b.bite, skull: a.skull - b.skull, fins: a.fins - b.fins, scales: a.scales - b.scales, legs: a.legs - b.legs, grip: a.grip - b.grip };
@@ -2006,7 +2063,7 @@ class GameState {
 
   /** Startfisch: Flossen vergrößern die Reserve, Aktionen behalten ihre absoluten Kosten. */
   get staminaMax() {
-    return this.r.cls === 'fish' ? fishStaminaMax(finPoints(this.r.traits)) : 1;
+    return this.r.cls === 'fish' ? fishStaminaMax(staminaPoints(this.r.traits)) : 1;
   }
 
   /** Wie weit dein Tier in der Tiefe sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, mehr durch Zeit in der Tiefe. */
@@ -2036,7 +2093,7 @@ class GameState {
       /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
       swarm: Math.round(10 * n * this.swarmStrength()),
       /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */
-      scales: Math.round(scalePoints(t)),
+      scales: Math.round(this.r.cls==='fish'?10+Math.max(0,t.scaleGain??0):scalePoints(t)),
       fins: Math.round(finPoints(t)),
       /** Karbon: so viele Sekunden reicht der Sauerstoff an Land (ausgewachsen); Beine und Griff (der erste Pederpes: je 10) */
       oxy: Math.round(oxygenSeconds(false)),
@@ -2062,6 +2119,15 @@ class GameState {
 
   private recordLineageBirth(r: Run, at: { place: string; x: number; y: number }, legacy = false) {
     const ep = EPOCHS[r.epoch], place = placeOf(ep, at.place);
+    if(r.cls==='fish') {
+      r.fishTrace??=appendFishMark(undefined,resolveStarterForm(this.starterScores(r.traits),r.traits.fishForm),r.traits.fishPrimary??0);
+      const branches=this.data.fishBranches??=[];
+      const id=`local-${r.id}`;
+      const branch={id,name:'Deine Linie',trace:r.fishTrace.map(m=>({...m}))};
+      const index=branches.findIndex(b=>b.id===id);
+      if(index<0)branches.push(branch);else branches[index]=branch;
+      bus.emit('fishLineage');
+    }
     const site: LineageSite = { key: `${ep.id}:${legacy ? 'unknown' : place.id}`, place: place.id,
       name: legacy ? 'Laichplatz nicht überliefert' : place.name, x: at.x, y: at.y };
     recordBirth(this.data.lineage, r.id, r.epoch, worldYears(ep.from, ep.to), r.brood ? r.brood.gen + 1 : r.life.gen, site, this.lineageForm(r), legacy);
@@ -2138,6 +2204,7 @@ class GameState {
     leaf.dead = { frac: clamp(frac, 0, 1), cause, run: run.id, gens: run.brood ? run.brood.gen : run.life.gen };
     this.data.lastEnd = leaf.id;
     const ep = EPOCHS[run.epoch];
+    const branch=this.data.fishBranches?.find(b=>b.id===`local-${run.id}`); if(branch)branch.extinct=true;
     endLineage(this.data.lineage.runs.find(j => j.id === run.id), ep.from - clamp(frac, 0, 1) * (ep.from - ep.to), cause);
     this.data.deepest = Math.max(this.data.deepest, run.epoch);
     this.ghost = run;

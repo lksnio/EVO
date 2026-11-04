@@ -1,3 +1,4 @@
+import { EvolutionScene } from './scenes/EvolutionScene';
 import Phaser from 'phaser';
 import '@fontsource/cinzel/latin-400.css';
 import '@fontsource/cinzel/latin-700.css';
@@ -80,7 +81,7 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, AquapendiumScene, EndingScene, GalleryScene, WorldEditorScene],
+    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, EvolutionScene, AquapendiumScene, EndingScene, GalleryScene, WorldEditorScene],
   });
 
   // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren

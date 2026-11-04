@@ -14,7 +14,7 @@ import { Interp } from './Interp';
 export class GhostAnimal extends Animal {
   readonly ghost = true;
   /** Treffer an den Ortswächter weitergeben (dmg 0 = nur betäuben) */
-  onHit?: (g: GhostAnimal, dmg: number, kind: 'bite' | 'ram' | 'other', stun: number) => void;
+  onHit?: (g: GhostAnimal, dmg: number, kind: 'bite' | 'ram' | 'other', stun: number, slow?: number, slowMs?: number) => void;
   /** gestorben (vorhergesagt) – an den Ortswächter gemeldet */
   onDie?: (g: GhostAnimal) => void;
   /** wen es gerade jagt (Sitzungskennung eines Spielers, sonst leer) – so meldet es der Ortswächter */
@@ -96,6 +96,8 @@ export class GhostAnimal extends Animal {
   stun(ms: number) {
     if (!this.dead) this.onHit?.(this, 0, 'other', ms);
   }
+
+  slow(ms:number,amount:number) { if(!this.dead)this.onHit?.(this,0,'other',0,amount,ms); }
 
   // was ein echtes Tier dabei tut, rechnet der Ortswächter
   rage() {}

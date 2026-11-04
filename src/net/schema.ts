@@ -10,6 +10,8 @@ export const NetFish = schema(
     y: t.float32(),
     facing: t.int8(),
     anim: t.uint8(),
+    mouth:t.uint8(),
+    charge:t.uint8(),
     /** Körpergröße (wächst mit dem Alter) */
     size: t.float32(),
     /** Aussehen: JSON eines Morph – ändert sich selten (Wachstum in Stufen, neue Generation) */
@@ -93,6 +95,7 @@ export const SpeciesState = schema(
     members: t.map('string'),
     /** Momentan markiertes Ei je Spieler; eine Markierung reserviert kein Ei. */
     selections: t.map('string'),
+    branches:t.map('string'),
     /** ausgestorben: warum (sonst leer) */
     over: t.string(),
   },

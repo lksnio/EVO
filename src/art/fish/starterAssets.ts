@@ -1,13 +1,27 @@
 import type Phaser from 'phaser';
 import registration from './starterRegistration.json';
-import { starterId, validStarterForm } from '../../sim/starterFish';
+import { starterId, validStarterForm, STARTER_FORMS, PAINTED_FORMS } from '../../sim/starterFish';
 
 export interface StarterRegistration {
   id: string; state: number[]; source: string; width: number; height: number; bounds: number[];
   eye: number[]; hinge: number[]; mouth: number[][]; skin: number;
   teeth: { box: number[]; polygon: number[][]; upper: boolean }[];
 }
-export const STARTER_REGISTRATION = registration as StarterRegistration[];
+const painted=registration as StarterRegistration[];
+export function starterSourceForm(form:number) {
+  if(form<PAINTED_FORMS.length)return form;
+  const [g,,k]=STARTER_FORMS[form]??STARTER_FORMS[0];
+  return Math.max(0,PAINTED_FORMS.findIndex(s=>s[0]===g&&s[1]===0&&s[2]===k));
+}
+export function starterFinForm(form:number) {
+  const f=STARTER_FORMS[form]?.[1]??0;
+  return f?3+f:0;
+}
+export const STARTER_REGISTRATION:StarterRegistration[]=STARTER_FORMS.map((state,i)=>{
+  if(i<painted.length)return painted[i];
+  const source=painted[starterSourceForm(i)],fin=painted[starterFinForm(i)];
+  return {...source,id:starterId(i),state:[...state],bounds:[Math.min(source.bounds[0],fin.bounds[0]),Math.min(source.bounds[1],fin.bounds[1]),source.bounds[2],Math.max(source.bounds[3],fin.bounds[3])]};
+});
 const files = [
   new URL('../../assets/fish/starter/g0_f0_k0.webp', import.meta.url).href,
   new URL('../../assets/fish/starter/g1_f0_k0.webp', import.meta.url).href,
@@ -42,11 +56,12 @@ export function starterRegistration(form: number) {
   return STARTER_REGISTRATION[validStarterForm(form) ? form : 0];
 }
 export function preloadStarterFish(scene: Phaser.Scene) {
-  for (let i=0;i<STARTER_REGISTRATION.length;i++) {
+  for (let i=0;i<files.length;i++) {
     const key = starterTexture(i), url = files[i];
     if (!scene.textures.exists(key) && !scene.textures.exists(starterBodyTexture(i))) scene.load.image(key, url);
   }
 }
 export function starterReady(scene: Phaser.Scene, form: number) {
-  return validStarterForm(form) && (scene.textures.exists(starterTexture(form)) || scene.textures.exists(starterBodyTexture(form)));
+  const ready=(f:number)=>scene.textures.exists(starterTexture(f))||scene.textures.exists(starterBodyTexture(f));
+  return validStarterForm(form) && (ready(form) || (form>=PAINTED_FORMS.length && ready(starterSourceForm(form)) && ready(starterFinForm(form))));
 }

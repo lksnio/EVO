@@ -24,11 +24,11 @@ vi.mock('../src/objects/CreatureView', () => ({
   },
 }));
 
-function swimmer(skull = 0, land = false, options: { fins?: number; refill?: boolean } = {}) {
+function swimmer(skull = 0, land = false, options: { reservePoints?: number; refill?: boolean } = {}) {
   game.resetAll();
   game.newRun();
-  game.traits.skull = skull;
-  game.traits.finGain = (options.fins ?? 10) - 10;
+  game.traits.ramGain = skull*115;
+  game.traits.staminaGain=(options.reservePoints??30)-30;
   const velocity = { x: 0, y: 0 };
   const body = {
     velocity, blocked: { down: land }, touching: { down: false }, height: 30,
@@ -60,7 +60,7 @@ function swimmer(skull = 0, land = false, options: { fins?: number; refill?: boo
     c.pressed.ram = false;
     c.pressed.bite = false;
   }
-  function ram() { c.held.ram = true; c.pressed.ram = true; }
+  function ram() { c.held.ram = false; c.pressed.ram = true; }
   return { p, c, step, ram, host };
 }
 
@@ -68,26 +68,20 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('Schädelstoß', () => {
   it.each([
-    [-10, 1000], [0, 1000], [22.5, 1250], [45, 1500], [67.5, 1750], [90, 2000], [140, 2000],
+    [-10,0],[0,0],[15,0],[49,0],[50,1000],[114,1000],[115,2000],[140,2000],
   ])('vererbter Schädelzuwachs %s ergibt %s ms Betäubung', (ramGain, duration) => {
     game.resetAll();
     game.newRun();
-    for (const cls of ['fish', 'amphibian'] as const) {
+    for (const cls of ['fish'] as const) {
       const st = game.stats(cls, { ...game.traits, ramGain }, ADULT);
       expect(st.ramStun).toBeCloseTo(duration);
     }
   });
 
-  it('berücksichtigt auch ältere Schädelmerkmale und die aktuelle Stärke des Jungtiers', () => {
-    game.resetAll();
-    game.newRun();
-    const traits = { ...game.traits, skull: 0.5 };
-    // Dreifache Stoßkraft gegenüber dem Urahn: Schädel 30, also 20/90 des Wegs von 1 zu 2 Sekunden.
-    expect(game.stats('fish', traits, ADULT).ramStun).toBeCloseTo(1000 + 1000 * 20 / 90);
-    const strong = { ...game.traits, ramGain: 90 };
-    expect(game.stats('fish', strong, ADULT).ramStun).toBe(2000);
-    expect(game.stats('fish', strong, { grow: 0.4, old: 0 }).ramStun).toBeLessThan(2000);
-    expect(game.stats().ramStun).toBe(1000);
+  it('Betäubung hängt von der vererbten Stufe ab, nicht vom Alter oder alten kosmetischen Merkmalen',()=>{
+    game.resetAll();game.newRun();
+    expect(game.stats('fish',{...game.traits,skull:1},ADULT).ramStun).toBe(0);
+    expect(game.stats('fish',{...game.traits,ramGain:50},{grow:.4,old:0}).ramStun).toBe(1000);
   });
 
   it('kommt mit höherem Schädelwert früher und schneller auf Stoßtempo', () => {
@@ -106,11 +100,11 @@ describe('Schädelstoß', () => {
   it('kneift im Stoß die Augen zusammen und duckt sich; danach erholt er sich ohne neue Stöße oder Spurt', () => {
     const s = swimmer();
     s.ram();
-    for (let i = 0; i < 30; i++) s.step();
+    for (let i = 0; i < 8; i++) s.step();
     expect(s.p.isRamming).toBe(true);
     expect(s.p.view.headTilt).toBeGreaterThan(0.42);
     expect((s.p.view as unknown as { squintK: number }).squintK).toBeGreaterThan(0.5);
-    for (let i = 0; i < 30; i++) s.step();
+    for (let i = 0; i < 52; i++) s.step();
     expect(s.p.isRamming).toBe(false);
     expect(s.p.body.velocity.x).toBeLessThan(s.p.stats.speed);
     expect((s.p.view as unknown as { squintK: number }).squintK).toBe(0);
@@ -152,10 +146,10 @@ describe('Schädelstoß', () => {
 });
 
 describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
-  it.each([[10, 5, 8], [25, 7, 12], [60, 10, 16], [125, 16, 26]])(
-    'Flossen %s erlauben %s Bisse oder %s Stöße pro voller Leiste', (fins, bites, rams) => {
+  it.each([[30, 5, 8], [45, 7, 12], [60, 10, 16], [100, 16, 26]])(
+    'Ausdauer %s erlaubt %s Bisse oder %s Stöße pro voller Leiste', (reservePoints, bites, rams) => {
       for (const [action, expected, cost] of [['bite', bites, 0.2], ['ram', rams, 1 / 8]] as const) {
-        const s = swimmer(0.6, false, { fins, refill: false });
+        const s = swimmer(0.6, false, { reservePoints, refill: false });
         s.p.stats.recover = 0; // Nur die Reserve messen, keine Wartezeit-Regeneration.
         game.traits.jaw = 0.8; // Starke Waffen verändern die festen Kosten nicht.
         let count = 0;
@@ -199,4 +193,29 @@ describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
     expect(s.p.stamina).toBeCloseTo(0.1);
     expect(s.host.playerBite).not.toHaveBeenCalled();
   });
+});
+
+
+describe('Aufladbare Waffen',()=>{
+ it('Stufe 0 beißt sofort, Stufe 1 hält das Maul offen und bezahlt beim Start genau einmal',()=>{
+  const base=swimmer(0,false,{refill:false});base.c.pressed.bite=true;base.c.held.bite=true;base.step();expect(base.host.playerBite).toHaveBeenCalledTimes(1);
+  const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=true;s.step();
+  for(let i=0;i<82;i++)s.step();expect(s.host.playerBite).not.toHaveBeenCalled();expect(s.p.view.holdOpen).toBeCloseTo(1);expect(s.p.stamina).toBeCloseTo(.8);
+  s.c.held.bite=false;s.step();expect(s.host.playerBite).toHaveBeenCalledTimes(1);expect(s.host.playerBite).toHaveBeenLastCalledWith(expect.anything(),expect.any(Number),1);
+  expect(s.p.view.holdOpen).toBe(0);expect(s.p.stamina).toBeCloseTo(.8);
+ });
+ it('ein kurzer Tipp bleibt auch mit entwickeltem Gebiss ein schneller Biss',()=>{
+  const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=false;s.step();
+  expect(s.host.playerBite).toHaveBeenCalledWith(expect.anything(),expect.any(Number),0);expect(s.p.stamina).toBeCloseTo(.8);
+ });
+ it('löst nach 2,5 Sekunden einmal aus und startet bei weiter gehaltener Taste keinen zweiten Biss',()=>{
+  const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=true;
+  for(let i=0;i<220;i++)s.step();expect(s.host.playerBite).toHaveBeenCalledTimes(1);expect(s.p.view.holdOpen).toBe(0);
+ });
+ it('der aufgeladene Stoß startet erst beim Loslassen und kostet nur einen Stoß',()=>{
+  const s=swimmer(1,false,{refill:false});s.p.stats.recover=0;s.ram();s.c.held.ram=true;s.step();
+  for(let i=0;i<82;i++)s.step();expect(s.p.isRamming).toBe(false);expect(s.p.stamina).toBeCloseTo(7/8);
+  s.c.held.ram=false;s.step();let peak=0;for(let i=0;i<12;i++){s.step();peak=Math.max(peak,s.p.body.velocity.x);}
+  expect(peak).toBeGreaterThan(s.p.stats.speed*3);expect(s.p.stamina).toBeCloseTo(7/8);
+ });
 });

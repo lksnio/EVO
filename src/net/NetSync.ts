@@ -210,11 +210,12 @@ export class NetSync {
       z.ping({ t: now });
     }
     const m: PosMsg = {
+      mouth:Math.round(this.host.player.view.holdOpen*100),charge:p.charging,
       t: Math.round(now), x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, facing: p.facing, anim: animOf(this.host, this.host.time.now), size: p.stats.size,
     };
     const l = this.last;
     // still: nur ab und zu melden, dass man noch da ist (gleich nach dem Anhalten aber noch ein paar Mal)
-    const same = l && l.x === m.x && l.y === m.y && l.anim === m.anim && l.facing === m.facing;
+    const same = l && l.x === m.x && l.y === m.y && l.anim === m.anim && l.facing === m.facing && l.mouth===m.mouth && l.charge===m.charge;
     if (!same) this.movedAt = now;
     if (!same || now - this.movedAt < 300 || now - this.lastSent > 1000) {
       z.pos(m);

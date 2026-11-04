@@ -37,12 +37,12 @@ describe('Gemeinsamer Laich: Werte und Reihenfolge', () => {
   });
 
   it('Ausdauer: Ei, eigenes Erbgut und Spiel rechnen gleich – unabhängig von Wachstum, Spieler und Sammelfunden', () => {
-    const egg: RoeEgg = { id: 'eggfins', traits: { finGain: 10 }, seed: 4, sex: 1, place: 'riff', x: 0, y: 0 };
+    const egg: RoeEgg = { id: 'eggfins', traits: { staminaGain: 15 }, seed: 4, sex: 1, place: 'riff', x: 0, y: 0 };
     const a = game.roeShown(egg).stam;
     // ein anderer Spieler: jung, mit anderem Erbgut
     game.traits.biteGain = 40;
     expect(game.roeShown(egg).stam).toBe(a);
-    // Flossen vergrößern die gemeinsame Reserve für Sprint und Angriffe.
+    // Ausdauerpunkte vergrößern die gemeinsame Reserve für Sprint und Angriffe.
     const plain = game.roeShown({ ...egg, traits: {} }).stam;
     expect(a).toBeGreaterThan(plain);
     // geschlüpft: dieselbe Ausdauer im Spiel, ob Jungtier oder ausgewachsen

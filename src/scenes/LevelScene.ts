@@ -1,3 +1,5 @@
+import { weightedFishDamage } from '../sim/fishEvolution';
+import { STARTER_FORMS } from '../sim/starterFish';
 import { COLLECTION_FOSSILS, COLLECTION_SHELLS, SHELL_PLACEMENTS, type FossilId, type ShellId } from '../data/collection';
 import { isFossilId } from '../sim/collection';
 import { CollectionPickup } from '../objects/CollectionPickup';
@@ -12,7 +14,7 @@ import { audio } from '../audio/Audio';
 import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, type Clutch, type Member, type PlayStyle } from '../state/GameState';
 import type { RoeData } from './RoeScene';
 import { species } from '../net/Species';
-import { speciesEnd } from './ExtinctScene';
+import { speciesEnd, type ExtinctData } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
@@ -589,7 +591,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.net && !ep.brood) species.connect(this.epochIdx);
     const onAdvanced = (name: unknown, gen: unknown) => {
       if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
-      bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Nach deinem Tod geht es nur noch dort weiter.');
+      bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Eure Linien können unabhängig weiterleben.');
     };
     const onOver = (name: unknown) => this.speciesOver(String(name ?? ''));
     bus.on('speciesAdvanced', onAdvanced);
@@ -1846,6 +1848,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.useHere(0.6);
   }
 
+  playerHealth(fraction:number) {
+    this.train.minHealth=Math.min(this.train.minHealth??1,Math.max(0,fraction));
+  }
+  private trainDamage(key:'biteDamage'|'ramDamage',a:Animal,damage:number) {
+    if(a.kin || a.role==='hazard' || !(damage>0))return;
+    const base=game.roeShown({traits:{}}).hp;
+    this.train[key]=(this.train[key]??0)+weightedFishDamage(damage,a.maxHp,base);
+  }
+
   /** Erst überstandene Angriffe und ein anschließender Sieg bringen Schuppenpunkte. */
   playerDamaged(source: object, damage: number) {
     if (!(source instanceof Animal) || source.kin || source.role === 'hazard') return;
@@ -1863,7 +1874,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.noteEaten(speciesId);
   }
 
-  playerBite(rect: Rect, momentum = 0) {
+  playerBite(rect: Rect, momentum = 0, charge = 0) {
     const p = this.player;
     const st = p.stats;
     const now = this.time.now;
@@ -1878,9 +1889,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.lastBiteAt = now;
       const ran = a.runningFor(now);
       this.scoreHit('hunt', a, ran, held ? 1.5 : 1);
-      a.hurt(st.bite * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
+      const before=a.hp;
+      a.hurt(st.bite * (1+charge) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
+      this.trainDamage('biteDamage',a,Math.min(before,Math.max(0,before-a.hp)));
+      const stage=STARTER_FORMS[game.morph().fishForm??0][0];
+      if(!a.dead && stage>=2)a.slow(2000,stage>=3?.5:.25);
       if (sneak) this.surprise(a);
-      if (held && !a.dead) a.stun(550);
+      if (held && !a.dead && game.cls!=='fish') a.stun(550);
       if (!a.dead) this.callHunt(a);
       if (a.role === 'hazard') p.hurt(a.def.dmg * 0.6, a.x, a.def.name, a);
       else game.addAggression(a.kin ? 0.08 : a.role === 'prey' ? 0.04 : 0.025);
@@ -1893,7 +1908,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       return;
     }
     let eatenPieces=0;
+    const tier=STARTER_FORMS[game.morph().fishForm??0][0];
+    const capacity=charge>0?1+Math.ceil(charge*tier*2):1;
     for (const m of this.meats) {
+      if(eatenPieces>=capacity)break;
       if (m.gone || m.value <= 0 || !overlaps(rect, m.rect)) continue;
       const dig = st.digestMeat;
       // ein Brocken – immer ganz, mit einem Bissen
@@ -2136,8 +2154,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const dealt = st.ram * RAM.damage * sf;
     const ran = a.runningFor(this.time.now);
     this.scoreHit('ram', a, ran, sf * RAM.credit);
-    a.hurt(dealt * (sneak ? 2.5 : 1), p, 'ram');
-    if (!a.dead) a.stun(st.ramStun);
+    const before=a.hp;
+    a.hurt(dealt * (1+p.ramCharge) * (sneak ? 2.5 : 1), p, 'ram');
+    this.trainDamage('ramDamage',a,Math.min(before,Math.max(0,before-a.hp)));
+    if (!a.dead && st.ramStun>0) a.stun(st.ramStun);
     if (sneak) {
       this.surprise(a);
       this.consumeAmbush();
@@ -2887,7 +2907,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.cullAdd(img, ch.x0 - 300, ch.x1 + 300);
   }
 
-  /** Wer an der großen Muschel die Interaktionstaste drückt, tritt vor sie: Dort hört man ihre Weisheiten (im HUD). */
+  /** Wer an der großen Muschel die Interaktionstaste drückt, tritt vor sie: Dort sieht man die Evolution der gespielten Linien. */
   private shrineStep(time: number, dt: number) {
     const sh = this.shrine;
     if (!sh) return;
@@ -2896,7 +2916,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     sh.update(dt, p.x, p.y, can, time);
     if (sh.near !== this.shrineNear) {
       this.shrineNear = sh.near;
-      bus.emit('talk', sh.near, 'Lauschen');
+      bus.emit('talk', sh.near, 'Evolution');
     }
     if (sh.near && (this.controls.pressed.talk || touch.talk)) {
       this.controls.clear();
@@ -3180,6 +3200,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   heirNow(partner?: Clutch['partner']) {
     this.train.hurt += this.player.takeEndured();
+    this.playerHealth(this.player.hp/this.player.stats.maxHp);
     return game.inherit({ meat: this.eatenMeat, plant: this.eatenPlant }, this.train, partner);
   }
 
@@ -3245,8 +3266,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const years = worldYears(this.ep.from, this.ep.to);
     const frac = clamp((this.ep.from - years) / (this.ep.from - this.ep.to), 0, 1);
     const morph = this.player.morph();
+    const gen=game.poolGen;
     const leaf = game.extinct(frac, cause);
+    const data:ExtinctData={epoch:this.epochIdx,cause,years,gen,by:'',names:species.others,leaf,morph};
     audio.music(null);
-    this.time.delayedCall(wait, () => this.exitTo('Tree', { mode: 'extinct', leaf, morph, epoch: this.epochIdx, cause, years }));
+    this.time.delayedCall(wait, () => this.exitTo('Extinct',data));
   }
 }

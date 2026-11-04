@@ -307,7 +307,7 @@ export class WorldSync {
     if (!def) return;
     makeSpeciesTextures(this.h, def);
     const g = new GhostAnimal(this.h, def, r, now, sent);
-    g.onHit = (_g, dmg, kind, stun) => this.z?.hit({ id: r.id, dmg, kind, stun });
+    g.onHit = (_g, dmg, kind, stun, slow, slowMs) => this.z?.hit({ id: r.id, dmg, kind, stun, slow, slowMs });
     g.onDie = () => {
       this.deadUntil.set(r.id, performance.now() + 1500);
       this.h.dropAnimal(g);
@@ -387,6 +387,7 @@ export class WorldSync {
     };
     if (m.dmg > 0) a.hurt(m.dmg, from, m.kind);
     if (m.stun > 0 && !a.dead) a.stun(m.stun);
+    if(m.slow && m.slowMs && !a.dead)a.slow(m.slowMs,m.slow);
   }
 
   /** Ein anderer Spieler hat vom Fleisch gefressen. */

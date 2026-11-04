@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../config';
-import { game } from '../state/GameState';
 import { Prompt } from '../ui/InteractionPrompt';
 
 // ---------------------------------------------------------------------------
@@ -27,7 +26,6 @@ export class Shrine {
   private prompt: Prompt;
   private motes: Phaser.GameObjects.Particles.ParticleEmitter;
   /** wann zuletzt ein Ring aus Licht von der Perle ausging (sie ruft, wenn eine neue Weisheit bereitliegt) */
-  private callAt = 0;
   near = false;
 
   /** Das Bild der Muschel laden (in preload() der Szene). */
@@ -35,7 +33,7 @@ export class Shrine {
     if (!scene.textures.exists('shrine_shell')) scene.load.image('shrine_shell', new URL('../assets/shrine/muschel.webp', import.meta.url).href);
   }
 
-  constructor(private scene: Phaser.Scene, readonly x: number, readonly y: number, touchMode: boolean) {
+  constructor(scene: Phaser.Scene, readonly x: number, readonly y: number, touchMode: boolean) {
     this.px = x + (IMG.pearlX - 0.5) * WIDTH;
     this.py = y + SINK - (1 - IMG.pearlY) * HEIGHT;
     // Schatten, Lichtschacht von oben, die Muschel, in ihr die Perle mit ihrem Glühen
@@ -57,21 +55,15 @@ export class Shrine {
     this.prompt = new Prompt(scene, touchMode, 'talk');
   }
 
-  /** Wo man steht, um zu lauschen (vor der Perle). */
+  /** Der Platz vor der Perle. */
   get at() {
     return { x: this.x, y: this.y - 50 };
   }
 
-  update(dt: number, px: number, py: number, can: boolean, time: number) {
+  update(dt: number, px: number, py: number, can: boolean, _time: number) {
     this.near = can && Math.hypot(px - this.x, py - (this.y - 40)) < 150;
     // das Zeichen schwebt über der Muschel
     this.prompt.update(dt, this.x, this.y + SINK - HEIGHT - 14, this.near);
-    // Eine neue Weisheit liegt bereit: Die Perle ruft – alle paar Sekunden geht ein Ring aus Licht von ihr aus
-    if (game.unheardWisdom && time - this.callAt > 2600) {
-      this.callAt = time;
-      const ring = this.scene.add.circle(this.px, this.py, 12).setStrokeStyle(2, 0xffe2a8, 0.9).setDepth(DEPTH.pickups + 0.2);
-      this.scene.tweens.add({ targets: ring, scale: 5, alpha: 0, duration: 1800, ease: 'Sine.out', onComplete: () => ring.destroy() });
-    }
   }
 
   destroy() {

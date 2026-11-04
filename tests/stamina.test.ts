@@ -3,12 +3,12 @@ import { fishStaminaMax, FISH_ATTACK_COST, spendStamina } from '../src/sim/stami
 import { game } from '../src/state/GameState';
 import { ADULT } from '../src/sim/life';
 
-describe('Flossen und absolute Angriffskosten', () => {
+describe('Ausdauer und absolute Angriffskosten', () => {
   beforeEach(() => { game.resetAll(); game.newRun(); });
 
-  it.each([[10, 1, 5, 8], [25, 1.5, 7, 12], [60, 2, 10, 16], [125, 10 / 3, 16, 26]])(
-    'Flossen %s: Reserve %s für %s Bisse oder %s Stöße ohne Regeneration', (fins, reserve, bites, rams) => {
-      game.traits.finGain = fins - 10;
+  it.each([[30, 1, 5, 8], [45, 1.5, 7, 12], [60, 2, 10, 16], [100, 10 / 3, 16, 26]])(
+    'Ausdauer %s: Reserve %s für %s Bisse oder %s Stöße ohne Regeneration', (points, reserve, bites, rams) => {
+      game.traits.staminaGain = points-30;
       expect(game.staminaMax).toBeCloseTo(reserve);
       expect(game.stats('fish', game.traits, ADULT).endurance).toBeCloseTo(reserve);
       const count = (cost: number) => {
@@ -21,11 +21,11 @@ describe('Flossen und absolute Angriffskosten', () => {
     },
   );
 
-  it('wächst zwischen den Stufen stetig und anteilig, auch bei Bruchteilen von Flossenpunkten', () => {
-    expect(fishStaminaMax(17.5)).toBeCloseTo(1.25);
-    expect(fishStaminaMax(42.5)).toBeCloseTo(1.75);
-    expect(fishStaminaMax(92.5)).toBeCloseTo(8 / 3);
-    for (const knot of [25, 60, 125]) {
+  it('wächst zwischen den Stufen stetig und anteilig, auch bei Bruchteilen von Ausdauerpunkten', () => {
+    expect(fishStaminaMax(37.5)).toBeCloseTo(1.25);
+    expect(fishStaminaMax(52.5)).toBeCloseTo(1.75);
+    expect(fishStaminaMax(80)).toBeCloseTo(8 / 3);
+    for (const knot of [45, 60, 100]) {
       expect(fishStaminaMax(knot - 1e-5)).toBeCloseTo(fishStaminaMax(knot), 5);
       expect(fishStaminaMax(knot + 1e-5)).toBeCloseTo(fishStaminaMax(knot), 5);
     }

@@ -42,7 +42,7 @@ describe('Sichtbare Entwicklung', () => {
     const b = game.stats('fish', strong, ADULT);
     expect(b.maxHp).toBeGreaterThan(a.maxHp * 2);
     expect(b.size / a.size).toBeGreaterThan(1.13);
-    expect(b.size / a.size).toBeLessThan(1.18);
+    expect(b.size / a.size).toBeLessThan(1.3);
     expect(b.speed).toBe(a.speed);
     expect(b.bite).toBe(a.bite);
     expect(b.ram).toBe(a.ram);

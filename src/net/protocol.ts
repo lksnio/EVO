@@ -23,7 +23,7 @@ export const INTERP_MAX_MS = 400;
 export const EXTRAPOLATE_MS = 150;
 
 /** Schneller schwimmt kein Fisch (Bildpunkte je Sekunde, mit Stoß und Strömung) – was schneller ist, ist ein Fehler. */
-export const MAX_SPEED = 1400;
+export const MAX_SPEED = 4000; // Fin stage 3 plus a fully charged ram, including current boost.
 
 /** So viel Strecke (Bildpunkte) darf sich ansammeln: ein kurzer Ruck nach einem Hänger ist erlaubt, ein Sprung nicht. */
 export const MOVE_BURST = 900;
@@ -65,6 +65,8 @@ export interface JoinOptions {
 
 /** Client → Server, SEND_HZ-mal je Sekunde */
 export interface PosMsg {
+  mouth?:number;
+  charge?:number;
   /** Uhrzeit des Absenders (ms, performance.now) – damit die anderen die Abstände ohne das Zittern des Netzes kennen */
   t: number;
   x: number;
@@ -168,6 +170,8 @@ export interface HitMsg {
   dmg: number;
   kind: 'bite' | 'ram' | 'other';
   stun: number;
+  slow?: number;
+  slowMs?: number;
   from?: string;
 }
 
@@ -226,6 +230,7 @@ export interface SpeciesJoin {
  * es die Art schon, kommen nur Eier dazu, die sie noch nicht kennt (und keine aus vergangenen Generationen).
  */
 export interface SpeciesHello {
+  trace?: string;
   gen: number;
   pool: string[];
   next: string[];

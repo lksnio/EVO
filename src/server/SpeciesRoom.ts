@@ -19,25 +19,21 @@ function eggOf(v: unknown): { id: string; json: string } | null {
   }
 }
 
-/**
- * Die gemeinsame Art eines Zeitalters (Koop): der Laich aller Spieler, die dort leben. Ein Raum je Zeitalter; er bleibt
- * bestehen, wenn alle gegangen sind (der Laich wartet), bis der Server endet.
- *   – Gelaicht (lay): Eier der Generation gen kommen dazu – zur Generation der Geschwister in den pool, zur nächsten in next,
- *     aus einer vergangenen Generation gar nicht (dorthin führt kein Weg mehr zurück).
- *   – Ein Ei schlüpft (pick): Wer zuerst kommt, bekommt es. Aus next: Die nächste Generation beginnt für alle – die übrigen
- *     Geschwister sind fort, der übrige Laich sind die neuen Geschwister.
- *   – Ausgestorben (extinct): Stirbt jemand und es liegt kein Laich mehr da, ist die Art ausgestorben – das erfahren alle.
- *     Die nächste Linie, die sich meldet (hello), beginnt eine neue Art.
- */
+/** Shared eggs retain their own generations and ancestry. Taking an egg removes only
+ * that egg; it never advances or deletes another player's branch. Extinction is
+ * shared only when no eggs and no living connected players remain. */
 export class SpeciesRoom extends Room<{ state: SpeciesState }> {
   state = new SpeciesState();
   maxClients = 24;
   autoDispose = false;
   /** jede Kennung, die die Art je gesehen hat – was schon geschlüpft ist, kommt nicht wieder */
   private known = new Set<string>();
+  private deadMembers=new Set<string>();
+  private memberGen=new Map<string,number>();
 
   messages = {
     hello: (client: Client, m: SpeciesHello) => this.onHello(client, m),
+    lineage:(client:Client,m:{trace?:unknown})=>this.branch(client,m.trace),
     lay: (_client: Client, m: SpeciesLay) => {
       if (this.state.over || !this.state.gen || !Array.isArray(m?.eggs)) return;
       const gen = Math.round(num(m.gen, 0));
@@ -52,7 +48,10 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     extinct: (client: Client, m: { cause?: unknown }) => {
       const s = this.state;
       // nur wenn wirklich nichts mehr da ist (ein anderer könnte gerade gelaicht haben)
-      if (s.over || s.pool.size || s.next.size || !s.gen) return;
+      this.deadMembers.add(client.sessionId);
+      const own=s.branches.get(client.sessionId);
+      if(own){try{s.branches.set(client.sessionId,JSON.stringify({...JSON.parse(own),extinct:true}));}catch{}}
+      if (s.over || s.pool.size || s.next.size || !s.gen || [...s.members.keys()].some(id=>!this.deadMembers.has(id))) return;
       s.selections.clear();
       s.over = String(m?.cause ?? 'Zu wenige Artgenossen').slice(0, 80) || 'Zu wenige Artgenossen';
       this.broadcast('extinct', { name: s.members.get(client.sessionId) ?? '', cause: s.over, gen: s.gen } satisfies SpeciesOver);
@@ -72,6 +71,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
   onLeave(client: Client) {
     this.state.members.delete(client.sessionId);
     this.state.selections.delete(client.sessionId);
+    this.memberGen.delete(client.sessionId);
   }
 
   /**
@@ -83,29 +83,34 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     const gen = Math.max(1, Math.round(num(m?.gen, 1)));
     const pool = Array.isArray(m?.pool) ? m.pool : [];
     const next = Array.isArray(m?.next) ? m.next : [];
-    // keine Art (oder eine ausgestorbene) – oder niemand sonst ist da: Dann gilt der Laich dessen, der sich meldet (ein
-    // verlassener Raum von früher verschluckt keine neue Linie)
-    if (!s.gen || s.over || s.members.size <= 1) {
-      s.over = '';
-      s.gen = gen;
-      s.pool.clear();
-      s.next.clear();
-      s.selections.clear();
-      this.known.clear();
-    }
+    s.over='';this.deadMembers.delete(_client.sessionId);s.gen=Math.max(s.gen||0,gen);this.memberGen.set(_client.sessionId,gen);
+    this.branch(_client,m.trace);
     for (const raw of pool.slice(0, SPECIES_MAX_EGGS)) this.place(gen, raw);
     for (const raw of next.slice(0, SPECIES_MAX_EGGS)) this.place(gen + 1, raw);
   }
 
-  /** Ein Ei der Generation gen in den Laich: zu den Geschwistern, zur nächsten Generation – oder nirgends. */
+  /** Store each unique egg once, preserving its generation across reconnects. */
   private place(gen: number, raw: unknown) {
     const s = this.state;
     const e = eggOf(raw);
     if (!e || this.known.has(e.id) || s.pool.size + s.next.size >= SPECIES_MAX_EGGS) return;
     this.known.add(e.id);
-    if (gen < s.gen) return;
-    if (gen === s.gen) s.pool.set(e.id, e.json);
-    else s.next.set(e.id, e.json);
+    const data=JSON.parse(e.json);data.generation=Math.min(65535,Math.max(1,Math.round(num(data.generation,gen))));
+    s.pool.set(e.id,JSON.stringify(data));
+  }
+
+  private branch(client:Client,raw:unknown) {
+    if(typeof raw!=='string'||raw.length>1500)return;
+    try {
+      const trace=JSON.parse(raw);
+      if(!Array.isArray(trace)||!trace.length||trace.length>8||trace.some(m=>!Number.isInteger(m.form)||m.form<0||m.form>=48||![0,1,3].includes(m.primary)))return;
+      const before=this.state.branches.get(client.sessionId);
+      if(before){const prior=JSON.parse(before);if(!JSON.stringify(trace).startsWith(JSON.stringify(prior.trace).slice(0,-1))){
+        const id=`past-${client.sessionId}-${prior.trace.map((m:{form:number})=>m.form).join('-')}`;
+        this.state.branches.set(id,JSON.stringify({...prior,id,extinct:true}));
+      }}
+      this.state.branches.set(client.sessionId,JSON.stringify({id:`peer-${client.sessionId}`,name:this.state.members.get(client.sessionId)??'Artgenosse',trace}));
+    }catch{}
   }
 
   private pruneSelections() {
@@ -119,24 +124,13 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     const id = typeof m?.id === 'string' ? m.id : '';
     const reply = (r: SpeciesPicked) => client.send('picked', r);
     if (s.over) return reply({ req, egg: '', gen: s.gen, group: 'pool' });
-    const fromPool = s.pool.get(id);
-    if (fromPool) {
-      s.pool.delete(id);
-      this.pruneSelections();
-      s.selections.delete(client.sessionId);
-      return reply({ req, egg: fromPool, gen: s.gen, group: 'pool' });
-    }
-    const fromNext = s.next.get(id);
-    if (!fromNext) return reply({ req, egg: '', gen: s.gen, group: 'pool' });
-    // die nächste Generation beginnt – für alle
-    s.next.delete(id);
-    s.gen += 1;
-    s.pool.clear();
-    for (const [k, v] of s.next) s.pool.set(k, v);
-    s.next.clear();
-    this.pruneSelections();
-    s.selections.delete(client.sessionId);
-    reply({ req, egg: fromNext, gen: s.gen, group: 'next' });
-    this.broadcast('advanced', { name: s.members.get(client.sessionId) ?? '', gen: s.gen } satisfies SpeciesAdvanced, { except: client });
+    const raw=s.pool.get(id)??s.next.get(id);
+    if(!raw)return reply({req,egg:'',gen:this.memberGen.get(client.sessionId)??s.gen,group:'pool'});
+    const gen=Math.max(1,Math.round(num(JSON.parse(raw).generation,s.gen)));
+    const prev=this.memberGen.get(client.sessionId)??1;
+    s.pool.delete(id);s.next.delete(id);this.pruneSelections();s.selections.delete(client.sessionId);
+    this.deadMembers.delete(client.sessionId);this.memberGen.set(client.sessionId,gen);s.gen=Math.max(s.gen||0,gen);
+    reply({req,egg:raw,gen,group:gen>prev?'next':'pool'});
+    if(gen>prev)this.broadcast('advanced',{name:s.members.get(client.sessionId)??'',gen} satisfies SpeciesAdvanced,{except:client});
   }
 }

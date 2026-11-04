@@ -29,7 +29,7 @@ function parseLook(s: string): Morph {
 }
 
 /** Was ein Fisch eines anderen Spielers am Ort meldet. */
-export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'>;
+export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'> & {mouth?:number;charge?:number};
 
 /**
  * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt und zwischen den Meldungen geglättet (net/Interp.ts),
@@ -39,6 +39,7 @@ export class RemoteFish {
   readonly view: CreatureView;
   private label: Phaser.GameObjects.Text;
   private path = new Interp(INTERP_MS);
+  private charge=0;
   private look = '';
   private anim = 0;
   private facing = 1;
@@ -94,8 +95,9 @@ export class RemoteFish {
       this.look = f.look;
       this.view.build(parseLook(f.look));
     }
-    if (f.anim !== this.anim && (f.anim === ANIM.bite || f.anim === ANIM.ram)) this.view.bite();
+    if (f.anim !== this.anim && (f.anim === ANIM.bite || f.anim === ANIM.ram)) this.view.bite(this.view.holdOpen>0);
     this.anim = f.anim;
+    this.view.holdOpen=(f.mouth??0)/100;this.charge=f.charge??0;
     this.facing = f.facing < 0 ? -1 : 1;
     this.away = f.away;
     this.name = f.name;
@@ -112,8 +114,8 @@ export class RemoteFish {
     this.view.setPosition(x, y);
     this.view.setFacing(this.facing);
     const dead = this.anim === ANIM.dead;
-    this.view.headTilt = this.anim === ANIM.ram ? 0.62 : 0;
-    this.view.squint(this.anim === ANIM.ram ? 0.8 : this.anim === ANIM.bite ? 0.95 : 0);
+    this.view.headTilt = this.anim === ANIM.ram ? 0.62 : this.charge===2?.3:0;
+    this.view.squint(this.anim === ANIM.ram || this.charge>0 ? 0.8 : this.anim === ANIM.bite ? 0.95 : 0);
     this.view.animate(dt, this.speed01 > 0.12 ? 'swim' : 'idle', dead ? 0 : this.speed01);
     this.view.setAlpha(this.away ? 0.45 : dead ? 0.6 : 1);
     this.label.setPosition(x, y + (this.view.L?.topY ?? -24) - 8);

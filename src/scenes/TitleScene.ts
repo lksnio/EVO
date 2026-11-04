@@ -432,7 +432,6 @@ export class TitleScene extends Phaser.Scene {
     const entries: [string, () => void, Sfx][] = [];
     if (run) entries.push(['Weiterleben', () => this.continueGame(), 'confirm']);
     entries.push([run ? 'Zeitalter' : 'Leben beginnen', () => !this.overlay && fadeTo(this, 'Eras', {}, 600), 'open']);
-    entries.push(['Stammbaum', () => !this.overlay && fadeTo(this, 'Tree', { mode: 'view', epoch: game.chosenEpoch }, 600), 'open']);
     entries.push(['Chronik des Lebens', () => !this.overlay && fadeTo(this, 'Aquapendium', { epoch: game.chosenEpoch }, 600), 'open']);
     entries.push(['Steuerung', () => this.showHelp(), 'select']);
     entries.push(['Weltbaukasten', () => !this.overlay && fadeTo(this, 'WorldEditor', {}, 300), 'open']);

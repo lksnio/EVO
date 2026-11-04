@@ -26,6 +26,8 @@ export interface Morph {
   cls: ClassId;
   /** Stabile Kennung der 25 gezeichneten Startfischformen (auch im Koop). */
   fishForm?: number;
+  finColor?: number;
+  scaleShade?: number;
   size: number;
   jaw: number;
   skull: number;
@@ -98,6 +100,8 @@ export function quantize(m: Morph): Morph {
   return {
     cls: m.cls,
     fishForm: validStarterForm(m.fishForm) ? m.fishForm : undefined,
+    finColor:q(m.finColor??0,.05),
+    scaleShade:q(m.scaleShade??0,.05),
     size: q(m.size, 0.04),
     jaw: q(m.jaw, 0.05),
     skull: q(m.skull, 0.05),
@@ -145,7 +149,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.fishForm, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
+  return [k.cls, k.fishForm, k.finColor, k.scaleShade, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
 }
 
 export interface Pal {

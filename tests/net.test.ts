@@ -151,6 +151,9 @@ describe('Spielserver (Colyseus)', () => {
     await until(() => hits.length > 0 && eats.length > 0);
     expect(hits[0]).toEqual({ id: 7, dmg: 2.5, kind: 'bite', stun: 550, from: guest.sessionId });
     expect(eats[0]).toEqual({ id: 3, amount: 1.5 });
+    guest.send('hit',{id:7,dmg:0,kind:'other',stun:0,slow:.5,slowMs:2000});
+    await until(()=>hits.length===2);
+    expect(hits[1]).toMatchObject({id:7,slow:.5,slowMs:2000,from:guest.sessionId});
     expect(guest.state.animals.has('99')).toBe(false);
     host.send('hurt', { to: guest.sessionId, dmg: 3, x: 1200, by: 'Arandaspis', animal: 7 });
     await until(() => hurts.length > 0);

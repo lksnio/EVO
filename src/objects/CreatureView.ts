@@ -189,8 +189,8 @@ export class CreatureView extends Phaser.GameObjects.Container {
     if (key && tm) release(tm, key);
   }
 
-  bite() {
-    this.biteT = 0;
+  bite(charged=false) {
+    this.biteT = charged?.07:0;
     this.drawLid();
   }
 

@@ -44,8 +44,6 @@ export class HudScene extends Phaser.Scene {
   private pauseC?: Phaser.GameObjects.Container;
   private pauseNav?: MenuNav;
   /** vor der großen Muschel: die Wahl, wofür sie segnet */
-  private shrineC?: Phaser.GameObjects.Container;
-  private shrineNav?: MenuNav;
   /** die Seite „Steuerung“ (über der Rast) */
   private keys?: Phaser.GameObjects.Container;
   private portrait?: CreatureView;
@@ -159,8 +157,6 @@ export class HudScene extends Phaser.Scene {
     bus.on('shrineOpen', onShrine);
     this.events.once('shutdown', () => {
       bus.off('shrineOpen', onShrine);
-      this.shrineC = undefined;
-      this.shrineNav = undefined;
     });
 
     const kb = this.input.keyboard!;
@@ -401,7 +397,6 @@ export class HudScene extends Phaser.Scene {
   // ---------------------------------------------------------------- Übersicht (Taste C)
 
   toggleOverview() {
-    if (this.shrineC) return;
     if (this.overview) {
       this.overview.destroy();
       this.overview = undefined;
@@ -528,36 +523,9 @@ export class HudScene extends Phaser.Scene {
 
   /** The pearl remembers discoveries; listening never modifies any animal stats. */
   private openShrine() {
-    const lvl = this.scene.get('Level') as unknown as LevelScene;
-    if (this.shrineC || this.pauseC || this.overview || !lvl || lvl.ended || lvl.player?.dead || !game.run) return;
-    audio.sfx('select');
-    this.scene.pause('Level');
-    const wisdom=game.hearWisdom();
-    const c=this.shrineC=this.add.container(0,0).setDepth(52);
-    c.add(this.add.rectangle(0,0,W,H,0x000000,.65).setOrigin(0).setInteractive());
-    c.add(panel(this,240,136,800,448,.96));
-    c.add(this.add.image(W/2,226,'glow').setTint(0xe4d4a5).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(430,160).setAlpha(.13));
-    c.add(title(this,W/2,202,'Die große Muschel',34).setOrigin(.5));
-    c.add(text(this,W/2,244,'Sie erinnert sich an deine Spuren.',17,UI.boneDim,{fontStyle:'italic'}).setOrigin(.5));
-    c.add(text(this,W/2,348,wisdom.text,26,UI.bone,{align:'center',wordWrap:{width:660},lineSpacing:15}).setOrigin(.5));
-    const buttons:Button[]=[];
-    if(game.unheardWisdom) {
-      const next=new Button(this,W/2-116,514,'Weiter lauschen',{w:210,h:44,size:18,onClick:()=>{this.closeShrine(true);this.openShrine();}});
-      c.add(next);buttons.push(next);
-    }
-    const go=new Button(this,game.unheardWisdom?W/2+116:W/2,514,'Gehen',{w:210,h:44,size:18,onClick:()=>this.closeShrine()});
-    c.add(go);buttons.push(go);
-    this.shrineNav=new MenuNav(this,buttons,2);
-  }
-
-  private closeShrine(quiet = false) {
-    if (!this.shrineC) return;
-    this.shrineC.destroy();
-    this.shrineC = undefined;
-    if (this.shrineNav) this.shrineNav.enabled = false;
-    this.shrineNav = undefined;
-    if (!quiet) audio.sfx('back');
-    this.scene.resume('Level');
+    const lvl=this.scene.get('Level') as LevelScene;
+    if(this.pauseC||this.overview||!lvl||lvl.ended||lvl.player?.dead||!game.run)return;
+    audio.sfx('select');this.scene.pause('Level');this.scene.pause();this.scene.launch('Evolution');
   }
 
   // ---------------------------------------------------------------- Rast (Pause)
@@ -566,11 +534,6 @@ export class HudScene extends Phaser.Scene {
     // läuft der Weg ins Hauptmenü, bricht die Rast-Taste (oder der Knopf) ihn nur ab
     if (this.quitting) {
       bus.emit('quitCancel');
-      return;
-    }
-    // vor der großen Muschel: Esc (und die Rast-Taste) lässt sie stehen
-    if (this.shrineC) {
-      this.closeShrine();
       return;
     }
     const lvl = this.scene.get('Level') as unknown as { ended?: boolean };
@@ -733,7 +696,7 @@ export class HudScene extends Phaser.Scene {
       this.time.delayedCall(200, () => (touch.talk = false));
     });
     // Die Interaktion an der großen Muschel ist auch am Handy verfügbar.
-    const onTalk = (on: boolean, label = 'Beten') => {
+    const onTalk = (on: boolean, label = 'Evolution') => {
       if (on) t.setText(label);
       this.tweens.add({ targets: all, alpha: on ? 0.9 : 0, duration: 250 });
       z.input!.enabled = on;
