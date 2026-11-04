@@ -1,0 +1,51 @@
+{
+  "tool": "image_gen.imagegen",
+  "transparent_background": true,
+  "reference_path_base": "repository_root",
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "variants": [
+    {
+      "id": "g1_f1_k0",
+      "state": [
+        1,
+        1,
+        0
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "prompt": "Create ONE finished high-quality transparent 2D EVO game fish asset by organically COMBINING the TWO supplied FIRST-TIER reference fish. Both reference features are STAGE 1 and must stay exactly at this early evolutionary strength. There is NO stage-3 dominant feature in this task. Make both stage-1 traits visibly present in one beautifully coherent full-body character; preserve their distinctive existing shapes rather than merely hinting at them. Do not invent a new species or promote either feature to stage 2 or 3.\n\nExact shared character/style anchor: stout slate-blue silver starting fish, same rounded body and silver belly, large round cream-and-black eye with the same white highlight, dark simple integrated gill fold, ivory grey slightly translucent fin membranes, very dark navy organic outer ink contour, quiet broad softly brushed painted lighting masses, restrained handmade texture. Match the two reference images closely. This must sit beside the existing EVO drawings as the very same animal. A few deliberate anatomical lines, no busy decoration. Keep body and head proportions, eye size and position, natural fish anatomy and top-left lighting. Any skull plates must be broad sculpted ivory-grey prehistoric bone and any teeth natural ivory.\n\nOrthographic STRICT SIDE VIEW facing RIGHT, horizontal neutral relaxed swimming pose, not attacking. Full fish with head at RIGHT, tail at LEFT; no additional angles, no detached parts, no extra fish. Keep every fin tip and the whole snout inside the canvas with clear empty margins. Native landscape PNG ideally 1675 x 939. True transparent alpha background; no water, bubbles, backdrop, halo, outside shadow, text, numbers, frames or watermark. Clean readable shapes at 90 pixels, exceptional polished painterly game asset finish.\n\nEXACT STATE: BITE 1 + FINS 1 + SKULL 0. From reference 1 retain its FIRST-TIER bite: about five or six short pointed triangular ivory teeth plainly visible along the calm near-closed dark mouth seam, a subtly longer mouth and firm but modest blue-grey lower jaw. Absolutely no huge fangs, big protruding chin or massive predator jaw. From reference 2 incorporate the complete FIRST-TIER fin architecture: visibly broader pointed pectoral steering paddle, substantial tapered ventral fin, broad low swept-back SINGLE dorsal fin with a larger pale membrane, and a taller more deeply V-forked pale tail with tapered lobes. These must be clearly larger and more swept than the ordinary base fins, precisely like the second reference. No second dorsal, no posterior finlets, no final crescent tail or long stage-3 scimitar fins. The forehead and cheek must remain entirely smooth unarmoured blue skin, NO ivory bone plates at all. The final fish clearly shows both short sharp teeth AND the broader first-tier steering fins together."
+    },
+    {
+      "id": "g0_f1_k1",
+      "state": [
+        0,
+        1,
+        1
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "prompt": "Create ONE finished high-quality transparent 2D EVO game fish asset by organically COMBINING the TWO supplied FIRST-TIER reference fish. Both reference features are STAGE 1 and must stay exactly at this early evolutionary strength. There is NO stage-3 dominant feature in this task. Make both stage-1 traits visibly present in one beautifully coherent full-body character; preserve their distinctive existing shapes rather than merely hinting at them. Do not invent a new species or promote either feature to stage 2 or 3.\n\nExact shared character/style anchor: stout slate-blue silver starting fish, same rounded body and silver belly, large round cream-and-black eye with the same white highlight, dark simple integrated gill fold, ivory grey slightly translucent fin membranes, very dark navy organic outer ink contour, quiet broad softly brushed painted lighting masses, restrained handmade texture. Match the two reference images closely. This must sit beside the existing EVO drawings as the very same animal. A few deliberate anatomical lines, no busy decoration. Keep body and head proportions, eye size and position, natural fish anatomy and top-left lighting. Any skull plates must be broad sculpted ivory-grey prehistoric bone and any teeth natural ivory.\n\nOrthographic STRICT SIDE VIEW facing RIGHT, horizontal neutral relaxed swimming pose, not attacking. Full fish with head at RIGHT, tail at LEFT; no additional angles, no detached parts, no extra fish. Keep every fin tip and the whole snout inside the canvas with clear empty margins. Native landscape PNG ideally 1675 x 939. True transparent alpha background; no water, bubbles, backdrop, halo, outside shadow, text, numbers, frames or watermark. Clean readable shapes at 90 pixels, exceptional polished painterly game asset finish.\n\nEXACT STATE: FINS 1 + SKULL 1 + BITE 0. Preserve the FIRST-TIER fins of reference 1: wide pale pointed pectoral steering paddle, stronger tapered ventral fin, broad low swept-back SINGLE dorsal and tall deeply V-forked two-lobed tail. No second dorsal, no posterior finlets, no terminal crescent or huge stage-3 fins. Add the EXACT modest FIRST-TIER skull arrangement from reference 2: a low broad ivory-grey forehead cap over the eye, short separate nose bridge plate, and one small upper-cheek plate just behind the eye. The lower cheek and most of the head remain exposed slate-blue skin. This is a first bony cap, NOT a complete helmet, huge ram prow, armoured eye-ring or shoulder collar. Keep a compact base-sized mouth and only its original two or three tiny teeth, no extended predatory tooth row. Both the broad swept first-tier fins and the recognisable small ivory skull plates must be clearly visible together."
+    },
+    {
+      "id": "g1_f0_k1",
+      "state": [
+        1,
+        0,
+        1
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "prompt": "Create ONE finished high-quality transparent 2D EVO game fish asset by organically COMBINING the TWO supplied FIRST-TIER reference fish. Both reference features are STAGE 1 and must stay exactly at this early evolutionary strength. There is NO stage-3 dominant feature in this task. Make both stage-1 traits visibly present in one beautifully coherent full-body character; preserve their distinctive existing shapes rather than merely hinting at them. Do not invent a new species or promote either feature to stage 2 or 3.\n\nExact shared character/style anchor: stout slate-blue silver starting fish, same rounded body and silver belly, large round cream-and-black eye with the same white highlight, dark simple integrated gill fold, ivory grey slightly translucent fin membranes, very dark navy organic outer ink contour, quiet broad softly brushed painted lighting masses, restrained handmade texture. Match the two reference images closely. This must sit beside the existing EVO drawings as the very same animal. A few deliberate anatomical lines, no busy decoration. Keep body and head proportions, eye size and position, natural fish anatomy and top-left lighting. Any skull plates must be broad sculpted ivory-grey prehistoric bone and any teeth natural ivory.\n\nOrthographic STRICT SIDE VIEW facing RIGHT, horizontal neutral relaxed swimming pose, not attacking. Full fish with head at RIGHT, tail at LEFT; no additional angles, no detached parts, no extra fish. Keep every fin tip and the whole snout inside the canvas with clear empty margins. Native landscape PNG ideally 1675 x 939. True transparent alpha background; no water, bubbles, backdrop, halo, outside shadow, text, numbers, frames or watermark. Clean readable shapes at 90 pixels, exceptional polished painterly game asset finish.\n\nEXACT STATE: BITE 1 + SKULL 1 + FINS 0. Keep reference 1's clearly visible FIRST-TIER predatory tooth row: about five or six short sharp ivory triangular teeth along a modest longer nearly closed mouth, slightly strengthened blue-grey lower lip but no large fangs or massive jaw. Integrate the FIRST-TIER skull cap of reference 2 above this mouth: broad low ivory-grey forehead plate over the eye, short separate nose plate and a small upper-cheek plate behind the eye. Preserve exposed blue-grey lower cheek and jaw. These are small early skull plates, never a heavy stage-3 head helmet, ram prow or shoulder collar. Do not let the nose plate cover or erase the visible tooth row: the short sharp teeth must be immediately apparent beneath the plate, and the ivory cap immediately apparent above them. All fins remain the ordinary compact BASE fins visible in both references' base-fin body: the original single simple rounded triangular dorsal fin, modest compact pectoral and ventral fins, ordinary forked tail. No longer swept dorsal, no enlarged pectoral paddle, no tall upgraded tail, no extra fins or finlets. Both early tooth upgrade and early skull plates together, with the restrained base body and fins."
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EVO · Startfisch – Schädelentwicklung</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #09161c; color: #ecf0e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1480px; margin: auto; padding: 44px 32px; }
+    .eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #96b8b9; }
+    h1 { font: 400 clamp(30px, 4vw, 48px)/1.1 Georgia, serif; margin: 12px 0 16px; }
+    .intro { max-width: 710px; color: #b8caca; font-size: 15px; line-height: 1.65; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 20px; align-items: end; margin: 28px 0; }
+    .control { display: grid; gap: 7px; }
+    label { color: #a6bfc0; font-size: 12px; }
+    select { border: 1px solid #355055; border-radius: 6px; padding: 9px 30px 9px 11px; background: #12282f; color: #edf3ed; font: inherit; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    article { overflow: hidden; border: 1px solid #29434a; border-radius: 12px; background: #0e232a; }
+    .stage { position: relative; display: grid; place-items: center; min-height: 280px; aspect-ratio: 1675 / 939; background: radial-gradient(ellipse at 50% 15%, #315d65, #102c37 70%, #0b202b); }
+    .stage img { display: block; width: 100%; height: auto; }
+    .caption { padding: 19px 23px 23px; border-top: 1px solid #29434a; }
+    .number { color: #9bbaae; font: 12px ui-monospace, monospace; }
+    h2 { font: 400 25px Georgia, serif; margin: 7px 0 10px; }
+    .caption p { color: #b7c9c8; font-size: 13px; line-height: 1.6; margin: 0 0 14px; }
+    a { color: #d8d5b2; text-underline-offset: 4px; font-size: 12px; }
+    .checker .stage { background-color: #a9b8b9; background-image: conic-gradient(#d3dddd 25%, transparent 0 50%, #d3dddd 0 75%, transparent 0); background-size: 24px 24px; }
+    .light .stage { background: #e0e8e6; }
+    .sprite .stage img { width: 96px; }
+    .sprite .stage { min-height: 240px; aspect-ratio: auto; }
+    footer { margin-top: 26px; color: #8ea9aa; font-size: 12px; line-height: 1.7; }
+    @media (max-width: 720px) { main { padding: 28px 16px; } .grid { grid-template-columns: 1fr; } .stage { min-height: 0; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">EVO · Devon · Assetstudie 01</div>
+    <h1>Startfisch · Schädelentwicklung</h1>
+    <p class="intro">Vier Formen derselben Art. Stirn und Wangen werden zu einem kräftigen Knochenpanzer; das kleine Gebiss bleibt erhalten. Gemalte Master für die spätere Animation.</p>
+  </header>
+  <div class="toolbar" aria-label="Vergleichseinstellungen">
+    <div class="control">
+      <label for="background">Hintergrund</label>
+      <select id="background"><option value="water">Dunkles Wasser</option><option value="checker">Transparenz prüfen</option><option value="light">Hell</option></select>
+    </div>
+    <div class="control">
+      <label for="size">Darstellung</label>
+      <select id="size"><option value="large">Große Ansicht</option><option value="sprite">Sprite · 96 Pixel Breite</option></select>
+    </div>
+  </div>
+  <section class="grid" aria-label="Die vier Schädelformen">
+    <article>
+      <div class="stage"><img src="masters/startfish_base.png" alt="Schieferblauer Basisfisch mit glattem Kopf, kleinen Zähnen und hellen Flossen" width="1675" height="939"></div>
+      <div class="caption"><span class="number">00 · BASIS</span><h2>Der Ausgangspunkt</h2><p>Glatte Stirn, kompakte Schnauze und freiliegende Wange. Die unverwechselbare Grundform bleibt durch die gesamte Reihe lesbar.</p><a href="masters/startfish_base.png" download>Transparentes PNG herunterladen ↗</a></div>
+    </article>
+    <article>
+      <div class="stage"><img src="masters/startfish_skull_gt20.png" alt="Startfisch mit ersten elfenbeinfarbenen Stirn- und Nasenplatten und kleiner Wangenplatte" width="1675" height="939"></div>
+      <div class="caption"><span class="number">01 · SCHÄDEL &gt; 20</span><h2>Erste Stirnplatten</h2><p>Ein niedriger Knochenschild verstärkt Stirn und Nase. Die kleine Wangenplatte lässt noch viel blaue Haut sichtbar.</p><a href="masters/startfish_skull_gt20.png" download>Transparentes PNG herunterladen ↗</a></div>
+    </article>
+    <article>
+      <div class="stage"><img src="masters/startfish_skull_gt30.png" alt="Startfisch mit hohem Stirnschild, eingefasster Augenhöhle und großem geschwungenem Wangenpanzer" width="1675" height="939"></div>
+      <div class="caption"><span class="number">02 · SCHÄDEL &gt; 30</span><h2>Geschlossener Schädelpanzer</h2><p>Breite Stirn, geschützte Augenhöhle und zusammenhängende Wangenstütze. Der ganze Kopf wirkt jetzt tragfähiger und schwerer.</p><a href="masters/startfish_skull_gt30.png" download>Transparentes PNG herunterladen ↗</a></div>
+    </article>
+    <article>
+      <div class="stage"><img src="masters/startfish_skull_gt50.png" alt="Startfisch mit massivem überhängendem Stirnschild, breiter Rammschnauze und dickem Knochenkragen" width="1675" height="939"></div>
+      <div class="caption"><span class="number">03 · SCHÄDEL &gt; 50</span><h2>Massiver Rammschädel</h2><p>Ein überhängender Stirnschild, eine stumpfe Rammschnauze und dicke Wangenplatten reichen bis in den Schulterkragen.</p><a href="masters/startfish_skull_gt50.png" download>Transparentes PNG herunterladen ↗</a></div>
+    </article>
+  </section>
+  <footer>Alle Master: 1675 × 939 · RGBA-PNG · Seitenansicht nach rechts · neutraler Schwimmzustand<br>Designstudie ohne Spieleinbindung. Keine Animationsframes oder pixelgenau registrierten Austausch-Sprites. <a href="README.md">Dokumentation</a> · <a href="manifest.json">Manifest</a></footer>
+</main>
+<script>
+  const background = document.getElementById('background');
+  const size = document.getElementById('size');
+  function updatePreview() {
+    document.body.classList.toggle('checker', background.value === 'checker');
+    document.body.classList.toggle('light', background.value === 'light');
+    document.body.classList.toggle('sprite', size.value === 'sprite');
+  }
+  background.addEventListener('change', updatePreview);
+  size.addEventListener('change', updatePreview);
+</script>
+</body>
+</html>

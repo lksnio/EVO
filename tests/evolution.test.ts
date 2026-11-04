@@ -54,18 +54,18 @@ describe('Punktebudget und Varianz', () => {
 });
 
 describe('Verborgener Körperbau und Kampfwerte', () => {
-  it('Flossen und Länge steigern das Schwimmtempo in spürbaren, aber maßvollen Schritten', () => {
+  it('Flossen vergrößern die Reserve statt das Tempo; Länge behält ihren bisherigen Einfluss', () => {
     const start = { ...game.traits };
     const base = game.stats('fish', start, ADULT);
     const evolved = game.stats('fish', { ...start, finGain: 10, lengthGain: 0.1 }, ADULT);
-    const gain = (1 + MOVEMENT.lengthSpeed * 0.1) * (1 + MOVEMENT.finPerPoint * 10);
-    expect(gain).toBeCloseTo(1.03 * 1.2);
+    const gain = 1 + MOVEMENT.lengthSpeed * 0.1;
+    expect(gain).toBeCloseTo(1.03);
     expect(evolved.speed * evolved.cruise / (base.speed * base.cruise)).toBeCloseTo(gain);
     expect(evolved.speed * evolved.climb / (base.speed * base.climb)).toBeCloseTo(gain);
     expect(evolved.speed * evolved.dive / (base.speed * base.dive)).toBeCloseTo(gain);
     expect(game.roeShown({ traits: { ...start, finGain: 10 } }).fins).toBe(20);
-    // der Tempo-Wert im Laich zeigt den Flossenschub mit: +10 Flossenpunkte → +20 % (10 → 12)
-    expect(game.roeShown({ traits: { ...start, finGain: 10 } }).speed).toBe(12);
+    expect(evolved.endurance).toBeGreaterThan(base.endurance);
+    expect(game.roeShown({ traits: { ...start, finGain: 10 } }).speed).toBe(10);
   });
 
   it('auch weit entwickelte Jungtiere erreichen ihr Generationstempo erst beim Ausgewachsensein', () => {
@@ -110,9 +110,8 @@ describe('Verborgener Körperbau und Kampfwerte', () => {
     const ma = game.measure(game.cls, start), mb = game.measure(game.cls, h.traits);
     expect(mb.cm / ma.cm).toBeCloseTo(1.1);
     expect(mb.g).toBeCloseTo(ma.g);
-    // weite Strecken schenken auch Ausdauer, die ein klein wenig Tempo kostet (MOVEMENT.endSpeed)
-    const endPts = INHERIT.endStep * (INHERIT.swimDistance / INHERIT.endDistance);
-    expect(b.speed / a.speed).toBeCloseTo((1 + MOVEMENT.lengthSpeed * INHERIT.lengthStep) * (1 - MOVEMENT.endSpeed * endPts));
+    // Ältere Ausdauerpunkte verändern das Fischtempo nicht mehr.
+    expect(b.speed / a.speed).toBeCloseTo(1 + MOVEMENT.lengthSpeed * INHERIT.lengthStep);
     expect(game.roeShown({ traits: h.traits }).scales).toBe(10); // 9.5 wird für die Anzeige gerundet
     expect(b.defense / a.defense).toBeCloseTo(1 / 0.95);
     expect(game.inheritedDelta()).toBeNull();
@@ -183,18 +182,16 @@ describe('Werte nach Verhalten (Stoß, Strömung, Strecke)', () => {
     expect(Math.exp(-1)).toBeGreaterThan(0.3);
   });
 
-  it('Tempo und Ausdauer sind Kompromisse: mehr Flossenpunkte kosten etwas Ausdauer, mehr Ausdauerpunkte etwas Tempo', () => {
+  it('nur Flossen vergrößern die Fischreserve; ältere Ausdauerpunkte verändern sie und das Tempo nicht', () => {
     const t = { ...game.traits };
     const base = game.stats(game.cls, t, undefined);
     const fast = game.stats(game.cls, { ...t, finGain: 10 }, undefined);
     const long = game.stats(game.cls, { ...t, endGain: 10 }, undefined);
     const tempo = (x: typeof base) => x.speed * x.cruise;
-    expect(tempo(fast)).toBeGreaterThan(tempo(base));
-    expect(fast.endurance).toBeLessThan(base.endurance);
-    expect(fast.endurance).toBeGreaterThan(base.endurance * 0.9);
-    expect(long.endurance).toBeGreaterThan(base.endurance);
-    expect(tempo(long)).toBeLessThan(tempo(base));
-    expect(tempo(long)).toBeGreaterThan(tempo(base) * 0.95);
+    expect(tempo(fast)).toBeCloseTo(tempo(base));
+    expect(fast.endurance).toBeGreaterThan(base.endurance);
+    expect(long.endurance).toBe(base.endurance);
+    expect(tempo(long)).toBeCloseTo(tempo(base));
   });
 
   it('weite Strecken: Ausdauerpunkte für die Nachkommen, anteilig; der Kamm am Rücken wächst mit ihnen, die Flossen mit dem Tempo', () => {

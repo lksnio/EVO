@@ -12,6 +12,7 @@ import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gain
 import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN } from '../data/karbon';
+import { fishStaminaMax } from '../sim/stamina';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
   type Brood, type Egg, type Gene,
@@ -1058,7 +1059,8 @@ class GameState {
     const length = t.lengthGain ?? 0, mass = t.massGain ?? 0;
     const bodySpeed = (1 + MOVEMENT.lengthSpeed * length) * Math.max(0.1, 1 - mass / 2);
     const fins = Math.max(0.1, 1 + (t.finGain ?? 0) / 10);
-    const finSpeed = Math.max(0.1, 1 + MOVEMENT.finPerPoint * (t.finGain ?? 0));
+    // Beim Startfisch erweitern Flossen die Ausdauerreserve statt das Schwimmtempo.
+    const finSpeed = cls === 'fish' ? 1 : Math.max(0.1, 1 + MOVEMENT.finPerPoint * (t.finGain ?? 0));
     const maturity = clamp((k.grow - LIFE.hatch) / Math.max(0.001, LIFE.adult - LIFE.hatch), 0, 1);
     const speedGrowth = MOVEMENT.hatchSpeed + (1 - MOVEMENT.hatchSpeed) * maturity;
     // Die kleinere Körpergröße darf Jungtiere nicht über das ausgewachsene Generationstempo hinaus beschleunigen.
@@ -1081,7 +1083,7 @@ class GameState {
       ramSelf: b.ram * 0.55 * Math.pow(1 - t.skull, 2) * (1 - 0.6 * plates),
       // Kompromisse: Wer ein starkes Gebiss, einen harten Kopf oder einen Schuppenpanzer hat, schwimmt dafür langsamer
       speed: b.speed * (1 + 0.38 * t.stealth) * sizeDrag * body * (land ? 1 + 0.14 * limb : 1) * swimMul
-        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth * Math.max(0.5, 1 - MOVEMENT.endSpeed * (t.endGain ?? 0)),
+        * (1 - 0.1 * Math.pow(t.jaw, 0.9) - 0.05 * t.skull - 0.02 * (t.fang ?? 0) - 0.05 * armor) * (1 - LIFE.oldSpeed * k.old) * bodySpeed * speedGrowth * (cls === 'fish' ? 1 : Math.max(0.5, 1 - MOVEMENT.endSpeed * (t.endGain ?? 0))),
       jump: b.jump * (1 + 0.12 * t.stealth) * (1 + 0.1 * limb),
       // Vererbte Lebenskraft beeinflusst den Körper; keine käuflichen Boni.
       size: size * vitalitySize,
@@ -1093,9 +1095,9 @@ class GameState {
       // Kost: Wer Fleisch frisst, holt mehr aus Fleisch (und weniger aus Pflanzen) – und umgekehrt
       digestMeat: Math.max(0.35, 1 + 0.6 * carn - 0.6 * herb),
       digestPlant: Math.max(0.35, 1 + 0.6 * herb - 0.6 * carn),
-      // Schwere Waffen und Panzer ermüden: starke Kiefer, ein harter Kopf und Schuppenpanzer kosten Kraft, schlanke Verfolger halten länger durch
-      // Gemessen am Erbgut (ausgewachsene Größe), nicht am Wachstumsstand: Ei, Übersicht und Spiel zeigen dieselbe Ausdauer
-      endurance: clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
+      // Startfisch: Reserve nur aus Flossen, bei Jungtier und ausgewachsen gleich.
+      // Andere Körperklassen behalten ihre bisherigen Ausdauer-Kompromisse.
+      endurance: cls === 'fish' ? fishStaminaMax(finPoints(t)) : clamp(1 + 0.3 * chase - 0.12 * t.jaw - 0.08 * t.skull - 0.05 * armor - 0.18 * Math.max(0, adult - 1) - 0.12 * (t.swift ?? 0) + 0.12 * Math.max(0, -girth)
         + MOVEMENT.finEndurance * (t.finGain ?? 0) + MOVEMENT.endPerPoint * (t.endGain ?? 0), 0.5, 1.9) * (1 - LIFE.oldEndurance * k.old),
       recover: clamp(1 + 0.2 * chase - 0.1 * t.jaw - 0.04 * armor - 0.12 * Math.max(0, adult - 1), 0.55, 1.6) * (1 - LIFE.oldRecover * k.old),
       // Flossen, die aus der Bewegung gewachsen sind: schneller nach oben, nach unten, nach vorn – und wendiger
@@ -1981,9 +1983,9 @@ class GameState {
     return oxygenSeconds(this.data.run?.brood?.phase === 'young');
   }
 
-  /** Ein Ausdauerkreis. Vererbte Ausdauer verändert seine effektive Dauer. */
+  /** Startfisch: Flossen vergrößern die Reserve, Aktionen behalten ihre absoluten Kosten. */
   get staminaMax() {
-    return 1;
+    return this.r.cls === 'fish' ? fishStaminaMax(finPoints(this.r.traits)) : 1;
   }
 
   /** Wie weit dein Tier in der Tiefe sieht (Anteil des ganzen Bildes vor ihm): zu Beginn ein Fünftel, mehr durch Zeit in der Tiefe. */

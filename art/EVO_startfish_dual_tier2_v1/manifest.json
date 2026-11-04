@@ -1,0 +1,475 @@
+{
+  "name": "EVO_startfish_dual_tier2_v1",
+  "created": "2026-11-04",
+  "status": "art_only_no_runtime_integration",
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "counts": {
+    "new_masters": 6,
+    "reference_images": 6
+  },
+  "generator": "image_gen.imagegen",
+  "facing": "right",
+  "view": "orthographic_side",
+  "pose": "neutral_swimming",
+  "animation_ready": false,
+  "pixel_registered": false,
+  "bounds_format": "left_top_right_exclusive_bottom_exclusive",
+  "notes": [
+    "Each new state combines one stage-2 and one stage-1 trait.",
+    "Original PNG bytes preserved; no raster edits or resizing.",
+    "Artwork is not loaded by the game.",
+    "Almost transparent residual pixels may lie outside the visible outline."
+  ],
+  "assets": [
+    {
+      "id": "g1_f2_k0",
+      "state": [
+        1,
+        2,
+        0
+      ],
+      "title": "Doppelte Rückenführung + Raubzähne",
+      "description": "Lange sichelförmige Brustflosse, zwei Rückenflossen und hoch gegabelter Schwanz mit der kurzen Zahnreihe der ersten Gebissstufe.",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "path": "masters/startfish_g1_f2_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        5,
+        1643,
+        923
+      ],
+      "alpha_bbox_at_least_16": [
+        57,
+        47,
+        1608,
+        889
+      ],
+      "sha256": "6c29bbedad8a53d37453bd2e8df09040a6747515d7e538225d68d59efb5a344f",
+      "generation_source": "exec-32a18060-3249-45ba-94db-298750f6fe5b.png",
+      "source_original": "/workspace/generated_images/exec-32a18060-3249-45ba-94db-298750f6fe5b.png",
+      "reference_ids": [
+        "g0_f2_k0",
+        "g1_f0_k0"
+      ]
+    },
+    {
+      "id": "g0_f2_k1",
+      "state": [
+        0,
+        2,
+        1
+      ],
+      "title": "Doppelte Rückenführung + Stirnplatten",
+      "description": "Das vollständige Flossensystem der zweiten Stufe, kombiniert mit niedrigem Stirnschild, Nasenplatte und kleiner Wangenplatte.",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "path": "masters/startfish_g0_f2_k1.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        50,
+        30,
+        1609,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        53,
+        33,
+        1605,
+        893
+      ],
+      "sha256": "7298ec4be3067e1613ff5135483564084a81556d1c11b3f93971f8b508c87a89",
+      "generation_source": "exec-6c5c95cc-5449-457c-b215-182d14d414fb.png",
+      "source_original": "/workspace/generated_images/exec-6c5c95cc-5449-457c-b215-182d14d414fb.png",
+      "reference_ids": [
+        "g0_f2_k0",
+        "g0_f0_k1"
+      ]
+    },
+    {
+      "id": "g2_f1_k0",
+      "state": [
+        2,
+        1,
+        0
+      ],
+      "title": "Fanggebiss + Steuerflossen",
+      "description": "Tiefer Unterkiefer und ineinandergreifende Fangzähne der zweiten Gebissstufe mit breiteren Steuerflossen und stärker gegabeltem Schwanz.",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "path": "masters/startfish_g2_f1_k0.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        29,
+        1605,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        78,
+        117,
+        1601,
+        843
+      ],
+      "sha256": "52f02e976c0981b4bdf4b00220fac280f2d72cbfb1bfa96bbd1ba5d5be17e026",
+      "generation_source": "exec-1d2c1e2a-c775-4ca1-b503-365b27eb4eba.png",
+      "source_original": "/workspace/generated_images/exec-1d2c1e2a-c775-4ca1-b503-365b27eb4eba.png",
+      "reference_ids": [
+        "g2_f0_k0",
+        "g0_f1_k0"
+      ]
+    },
+    {
+      "id": "g2_f0_k1",
+      "state": [
+        2,
+        0,
+        1
+      ],
+      "title": "Fanggebiss + Stirnplatten",
+      "description": "Das kräftige Fanggebiss mit tiefem Unterkiefer, ergänzt um die ersten Stirn-, Nasen- und kleinen Wangenplatten.",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "path": "masters/startfish_g2_f0_k1.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        23,
+        1640,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        107,
+        91,
+        1596,
+        827
+      ],
+      "sha256": "c5edc210c5520c155ecfaaf3b8e8361b0efb0c94c6188510c74467fb68ca9b8c",
+      "generation_source": "exec-0fbffa9f-339d-4bda-8989-1c83db37762b.png",
+      "source_original": "/workspace/generated_images/exec-0fbffa9f-339d-4bda-8989-1c83db37762b.png",
+      "reference_ids": [
+        "g2_f0_k0",
+        "g0_f0_k1"
+      ]
+    },
+    {
+      "id": "g1_f0_k2",
+      "state": [
+        1,
+        0,
+        2
+      ],
+      "title": "Schädelpanzer + Raubzähne",
+      "description": "Geschlossener Stirnschild, geschützte Augenhöhle und kräftige Wangenstütze mit einer sichtbaren Reihe kurzer spitzer Raubzähne.",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "path": "masters/startfish_g1_f0_k2.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        87,
+        1610,
+        872
+      ],
+      "alpha_bbox_at_least_16": [
+        106,
+        90,
+        1607,
+        824
+      ],
+      "sha256": "d0771361e48df4df439a9a8743cd6fc7018710bb9495cd9b2ee1790e886b57a6",
+      "generation_source": "exec-0a47f38e-e67d-4203-8b12-e4ebd060e163.png",
+      "source_original": "/workspace/generated_images/exec-0a47f38e-e67d-4203-8b12-e4ebd060e163.png",
+      "reference_ids": [
+        "g0_f0_k2",
+        "g1_f0_k0"
+      ]
+    },
+    {
+      "id": "g0_f1_k2",
+      "state": [
+        0,
+        1,
+        2
+      ],
+      "title": "Schädelpanzer + Steuerflossen",
+      "description": "Der Schädelpanzer der zweiten Stufe mit breiter Stirn und Wangenstütze, kombiniert mit kräftigeren Steuerflossen der ersten Stufe.",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "path": "masters/startfish_g0_f1_k2.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        71,
+        1609,
+        929
+      ],
+      "alpha_bbox_at_least_16": [
+        74,
+        125,
+        1605,
+        833
+      ],
+      "sha256": "cd7e7d07c20856c1152c1075a3e2da9871b1bc3db2b172a0c6a23df0b2397251",
+      "generation_source": "exec-ff72dd66-38ae-4aa2-afb7-f69d7295684a.png",
+      "source_original": "/workspace/generated_images/exec-ff72dd66-38ae-4aa2-afb7-f69d7295684a.png",
+      "reference_ids": [
+        "g0_f0_k2",
+        "g0_f1_k0"
+      ]
+    }
+  ],
+  "references": [
+    {
+      "id": "g0_f2_k0",
+      "state": [
+        0,
+        2,
+        0
+      ],
+      "title": "Flossen 2",
+      "source_original": "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+      "path": "references/startfish_g0_f2_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        23,
+        1657,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        56,
+        52,
+        1606,
+        882
+      ],
+      "sha256": "30b10acea555ef82bafee0da36f7a55abc2cd1436dcf46a42d2b4addb03f834a"
+    },
+    {
+      "id": "g1_f0_k0",
+      "state": [
+        1,
+        0,
+        0
+      ],
+      "title": "Gebiss 1",
+      "source_original": "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png",
+      "path": "references/startfish_g1_f0_k0.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        90,
+        1654,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        107,
+        92,
+        1605,
+        825
+      ],
+      "sha256": "3aa1b2b2dbc92d25ca26fc1cab2bbe309bab7280a3b7f28b794c14a1ed95ef47"
+    },
+    {
+      "id": "g0_f0_k1",
+      "state": [
+        0,
+        0,
+        1
+      ],
+      "title": "Kopfplatte 1",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png",
+      "path": "references/startfish_g0_f0_k1.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        11,
+        86,
+        1604,
+        931
+      ],
+      "alpha_bbox_at_least_16": [
+        104,
+        94,
+        1602,
+        824
+      ],
+      "sha256": "a1dde5eae66dd9a45bc33159335a7fa7ed0649fd21073a9146a5fa7dbc4e2e40"
+    },
+    {
+      "id": "g2_f0_k0",
+      "state": [
+        2,
+        0,
+        0
+      ],
+      "title": "Gebiss 2",
+      "source_original": "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+      "path": "references/startfish_g2_f0_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        54,
+        1637,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        109,
+        92,
+        1597,
+        828
+      ],
+      "sha256": "6f0d3ca4092f1effbd41454492e8923687c3c092faa6dfe6dd06698c06bcd6de"
+    },
+    {
+      "id": "g0_f1_k0",
+      "state": [
+        0,
+        1,
+        0
+      ],
+      "title": "Flossen 1",
+      "source_original": "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png",
+      "path": "references/startfish_g0_f1_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        3,
+        1659,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        84,
+        119,
+        1605,
+        840
+      ],
+      "sha256": "ec04ad15ef8552a58013147a38d3dc3b03d9c9c285ba65de914274c7a1554888"
+    },
+    {
+      "id": "g0_f0_k2",
+      "state": [
+        0,
+        0,
+        2
+      ],
+      "title": "Kopfplatte 2",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+      "path": "references/startfish_g0_f0_k2.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        19,
+        1653,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        106,
+        89,
+        1607,
+        823
+      ],
+      "sha256": "2d00f087ddbaf31d5f8a9660f701eb8bffa5b7947316e2263a73385f8f27befc"
+    }
+  ]
+}

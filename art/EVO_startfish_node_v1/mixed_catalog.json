@@ -1,0 +1,111 @@
+{
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "variants": [
+    {
+      "id": "g3_f1_k0",
+      "state": [
+        3,
+        1,
+        0
+      ],
+      "title": "Raubkiefer + Steuerflossen",
+      "description": "Massiver Raubkiefer mit großen Fangzähnen, dazu die breiten Steuerflossen und der stärker gegabelte Schwanz der ersten Flossenstufe.",
+      "primary": "gebiss3",
+      "secondary": "flossen1",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt50.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-cf06994a-4ca2-47a8-ad2c-47f383b9c343.png"
+    },
+    {
+      "id": "g3_f0_k1",
+      "state": [
+        3,
+        0,
+        1
+      ],
+      "title": "Raubkiefer + Stirnplatten",
+      "description": "Große Fangzähne und tiefer Raubkiefer, kombiniert mit den ersten Stirn-, Nasen- und kleinen Wangenplatten.",
+      "primary": "gebiss3",
+      "secondary": "kopfplatte1",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt50.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-d88770e4-6020-4b7b-a1ad-75592da2dd9a.png"
+    },
+    {
+      "id": "g1_f3_k0",
+      "state": [
+        1,
+        3,
+        0
+      ],
+      "title": "Sichelflossen + Raubzähne",
+      "description": "Das vollständige maximale Flossensystem mit Sichelflossen und Leitflösschen, dazu die kurze spitze Zahnreihe der ersten Gebissstufe.",
+      "primary": "flossen3",
+      "secondary": "gebiss1",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt50.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-a406c555-3600-40dc-a4d2-afa8a6b27cbb.png"
+    },
+    {
+      "id": "g0_f3_k1",
+      "state": [
+        0,
+        3,
+        1
+      ],
+      "title": "Sichelflossen + Stirnplatten",
+      "description": "Große Sichelschwanzflosse und zusätzliche Leitflösschen, kombiniert mit dem kleinen Stirn- und Nasenschild der ersten Kopfplattenstufe.",
+      "primary": "flossen3",
+      "secondary": "kopfplatte1",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt50.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-d92ee9c4-0406-4b12-b4ff-b04d6d9d0b6f.png"
+    },
+    {
+      "id": "g1_f0_k3",
+      "state": [
+        1,
+        0,
+        3
+      ],
+      "title": "Rammschädel + Raubzähne",
+      "description": "Der massive Schädelpanzer mit Knochenkragen, dazu eine längere sichtbare Reihe kurzer spitzer Raubzähne.",
+      "primary": "kopfplatte3",
+      "secondary": "gebiss1",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt50.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-0ae59999-49e6-4ee4-b937-2ebc0df08be8.png"
+    },
+    {
+      "id": "g0_f1_k3",
+      "state": [
+        0,
+        1,
+        3
+      ],
+      "title": "Rammschädel + Steuerflossen",
+      "description": "Der maximale Rammschädel mit breitem Stirnschild und Wangenpanzer, kombiniert mit den kräftigeren Steuerflossen der ersten Flossenstufe.",
+      "primary": "kopfplatte3",
+      "secondary": "flossen1",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt50.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-99026d08-64b7-483e-b79c-1917a24a0c7c.png"
+    }
+  ]
+}

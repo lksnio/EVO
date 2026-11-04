@@ -1,0 +1,90 @@
+{
+  "tool": "image_gen.imagegen",
+  "transparent_background": true,
+  "reference_path_base": "repository_root",
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "variants": [
+    {
+      "id": "g1_f2_k0",
+      "state": [
+        1,
+        2,
+        0
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 1–2–0 (BITE–FINS–SKULL): Keep reference 1's entire STAGE-2 fin architecture: tall swept main dorsal, ONE separate smaller rear dorsal, long swept pointed pectoral hydrofoil, opposing rear ventral stabilizer and tall deeply forked two-lobed tail. NO posterior finlets and NO final stage-3 crescent tail. Add reference 2's STAGE-1 bite: about five or six SHORT sharp ivory triangular teeth clearly visible along a nearly closed modest mouth slit and a subtly firmer lower lip. Do not add large stage-2 fangs or massive jaw. Forehead and cheek remain smooth blue skin, no skull plates."
+    },
+    {
+      "id": "g0_f2_k1",
+      "state": [
+        0,
+        2,
+        1
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 0–2–1 (BITE–FINS–SKULL): Keep reference 1's exact STAGE-2 fin system at full intermediate strength: long swept pectoral hydrofoil, tall swept main dorsal, ONE smaller separate rear dorsal, strong ventral stabilizer and tall deeply forked tail. NO small tail finlets or final giant crescent tail. Add reference 2's modest STAGE-1 skull cap: broad low forehead plate, small separate nose plate and small upper-cheek plate behind the eye. Lower cheek remains exposed blue skin; no complete helmet or heavy shoulder collar. Keep the base compact jaw and only two or three tiny original teeth, no tooth-row upgrade."
+    },
+    {
+      "id": "g2_f1_k0",
+      "state": [
+        2,
+        1,
+        0
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 2–1–0 (BITE–FINS–SKULL): Preserve reference 1's STAGE-2 mouth and jaw: deep muscular lower mandible, long near-closed gape slit beneath the eye, interlocking pointed upper and lower teeth with moderately larger front gripping fangs. Keep the exact intermediate tooth sizes and strong chin, not the huge terminal stage-3 sabres. Transfer reference 2's complete STAGE-1 fins: broad pointed pectoral steering paddle, strong ventral paddle, wide low swept SINGLE dorsal, and taller V-forked tail. NO second dorsal or posterior finlets or stage-3 crescent. Smooth unarmoured blue forehead and cheek, no bone plates."
+    },
+    {
+      "id": "g2_f0_k1",
+      "state": [
+        2,
+        0,
+        1
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 2–0–1 (BITE–FINS–SKULL): Keep reference 1's STAGE-2 dentition and deep jaw completely readable: moderately long interlocking pointed upper/lower teeth, larger front gripping fangs, near-closed mouth and substantial chin. Do not enlarge into the huge stage-3 lower jaw and giant sabres. Add reference 2's STAGE-1 ivory bone cap: broad low forehead plate, small nose bridge plate and modest upper-cheek plate behind the eye, mostly exposed blue lower cheek and jaw, no complete heavy helmet or shoulder collar. Ensure the small nose plate does not cover the pointed tooth row. All fins remain ordinary compact BASE fins, no swept enlarged steering fins or extra dorsals."
+    },
+    {
+      "id": "g1_f0_k2",
+      "state": [
+        1,
+        0,
+        2
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 1–0–2 (BITE–FINS–SKULL): Preserve reference 1's exact INTERMEDIATE STAGE-2 skull armour: broad full forehead shield, protected eye socket, strong connected backward-sweeping cheek buttress and nose plate. Same geometry, coverage and scale, NOT the stage-3 massive overhanging ram prow with thick rear shoulder collar. Incorporate reference 2's STAGE-1 bite below the armoured nose: a clearly visible row of about five or six SHORT sharp triangular ivory teeth, compact lower jaw and firmer lower lip, NO large stage-2 fangs or massive jaw. The tooth row must remain visible without cutting away armour. Ordinary compact BASE fins only."
+    },
+    {
+      "id": "g0_f1_k2",
+      "state": [
+        0,
+        1,
+        2
+      ],
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "prompt": "Create ONE exceptional finished transparent full-body EVO 2D game fish by organically COMBINING the TWO supplied reference paintings. Reference 1 gives the MAIN STAGE-2 trait and must retain that exact intermediate feature's size, silhouette and anatomy. Reference 2 supplies ONLY the named SECONDARY STAGE-1 trait. Keep the remaining third trait at BASE level. Clearly show BOTH evolved traits together without promoting either to stage 3 or erasing one.\n\nMatch the source paintings exactly in character and style: same stout slate-blue/silver fish, round cream-and-black eye with highlight, pale ivory-grey membranes and bone, silver belly, simple gill fold, dark navy organic ink outline, soft broad painterly shading, restrained handmade texture and top-left lighting. Keep body proportions and species identity; natural continuous anatomy and deliberate readable shapes at 90px. Not a new species, not generic fantasy monster art.\n\nHorizontal neutral swimming pose, strict orthographic side view facing RIGHT, tail at LEFT. Calm alert eye, no attack pose. One whole fish only with every fin tip, snout and tail inside the canvas and clear transparent margins. Ideally the same 1675 x 939 landscape canvas. True transparent alpha background; no water, backdrop, shadow outside the fish, halo, text, frame, numbers or watermark. No detached components or comparison panels. Production-quality single unanimated master asset.\n\nEXACT STATE 0–1–2 (BITE–FINS–SKULL): Keep reference 1's exact STAGE-2 skull: full broad forehead shield, protected round eye socket, reinforced nose and large curved connected cheek buttress. Preserve intermediate head anatomy and coverage, without adding the terminal stage-3 heavy rear skull collar or huge overhanging ram shield. Replace its base fins with reference 2's complete STAGE-1 fin architecture: broader pointed pectoral steering paddle, larger ventral paddle, broad low swept SINGLE dorsal and taller deeply V-forked two-lobed tail. NO extra rear dorsal or small posterior finlets or stage-3 crescent. Base small jaw with only original two or three tiny teeth, no upgraded tooth row."
+    }
+  ]
+}

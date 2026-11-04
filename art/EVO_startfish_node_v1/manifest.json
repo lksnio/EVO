@@ -1,0 +1,627 @@
+{
+  "name": "EVO_startfish_node_v1",
+  "created": "2026-11-04",
+  "node": "starting_water_fish",
+  "world_context": "Devonian",
+  "status": "art_only_no_runtime_integration",
+  "generator": "image_gen.imagegen",
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "counts": {
+    "base": 1,
+    "pure_reused": 9,
+    "mixed_new": 6,
+    "upgrade_variants": 15,
+    "total_masters": 16
+  },
+  "facing": "right",
+  "view": "orthographic_side",
+  "pose": "neutral_swimming",
+  "animation_ready": false,
+  "pixel_registered": false,
+  "bounds_format": "left_top_right_exclusive_bottom_exclusive",
+  "notes": [
+    "Original PNG bytes preserved; no raster edits or resizing.",
+    "The six mixed images combine one full stage-3 trait and one stage-1 trait.",
+    "The ten prior masters, including base, are reused unchanged.",
+    "No gameplay, balancing, inheritance or next-node mapping implemented.",
+    "Almost transparent residual pixels may lie outside the visible silhouette."
+  ],
+  "assets": [
+    {
+      "id": "g0_f0_k0",
+      "state": [
+        0,
+        0,
+        0
+      ],
+      "kind": "base",
+      "title": "Basisfisch",
+      "description": "Die unveränderte gemeinsame Ausgangsform.",
+      "path": "masters/startfish_g0_f0_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        27,
+        21,
+        1653,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        108,
+        93,
+        1609,
+        825
+      ],
+      "sha256": "26bf3681d05a7c7052aaa42d5e2a361359c20b424f0c058960afc5e7ce75d096",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_base.png"
+    },
+    {
+      "id": "g1_f0_k0",
+      "state": [
+        1,
+        0,
+        0
+      ],
+      "kind": "pure",
+      "title": "Gebiss 1",
+      "description": "Erste Raubzähne",
+      "generation_source": "exec-aa31654c-a4bf-40da-ba8f-2aea922e56d7.png",
+      "legacy_threshold_label": ">20",
+      "path": "masters/startfish_g1_f0_k0.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        90,
+        1654,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        107,
+        92,
+        1605,
+        825
+      ],
+      "sha256": "3aa1b2b2dbc92d25ca26fc1cab2bbe309bab7280a3b7f28b794c14a1ed95ef47",
+      "source_original": "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+    },
+    {
+      "id": "g2_f0_k0",
+      "state": [
+        2,
+        0,
+        0
+      ],
+      "kind": "pure",
+      "title": "Gebiss 2",
+      "description": "Kräftiges Fanggebiss",
+      "generation_source": "exec-7675bab2-eb36-4bf7-9946-fbdb54e0c5e6.png",
+      "legacy_threshold_label": ">30",
+      "path": "masters/startfish_g2_f0_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        54,
+        1637,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        109,
+        92,
+        1597,
+        828
+      ],
+      "sha256": "6f0d3ca4092f1effbd41454492e8923687c3c092faa6dfe6dd06698c06bcd6de",
+      "source_original": "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png"
+    },
+    {
+      "id": "g3_f0_k0",
+      "state": [
+        3,
+        0,
+        0
+      ],
+      "kind": "pure",
+      "title": "Gebiss 3",
+      "description": "Massiver Raubkiefer",
+      "generation_source": "exec-0739280d-03a5-4cfd-aa92-5f0fe7e1c000.png",
+      "legacy_threshold_label": ">50",
+      "path": "masters/startfish_g3_f0_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        35,
+        1626,
+        921
+      ],
+      "alpha_bbox_at_least_16": [
+        102,
+        93,
+        1623,
+        827
+      ],
+      "sha256": "571f87aca78e6475aa1eae02b6ac122e45f2b0807a50bdbaa759c57e74d6a614",
+      "source_original": "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt50.png"
+    },
+    {
+      "id": "g0_f1_k0",
+      "state": [
+        0,
+        1,
+        0
+      ],
+      "kind": "pure",
+      "title": "Flossen 1",
+      "description": "Kräftige Steuerflossen",
+      "generation_source": "exec-42a332e5-4ef4-4317-a18b-206d1210559c.png",
+      "legacy_threshold_label": ">20",
+      "path": "masters/startfish_g0_f1_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        3,
+        1659,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        84,
+        119,
+        1605,
+        840
+      ],
+      "sha256": "ec04ad15ef8552a58013147a38d3dc3b03d9c9c285ba65de914274c7a1554888",
+      "source_original": "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+    },
+    {
+      "id": "g0_f2_k0",
+      "state": [
+        0,
+        2,
+        0
+      ],
+      "kind": "pure",
+      "title": "Flossen 2",
+      "description": "Doppelte Rückenführung",
+      "generation_source": "exec-806e6544-baae-4300-9947-f99ec639d7b2.png",
+      "legacy_threshold_label": ">30",
+      "path": "masters/startfish_g0_f2_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        23,
+        1657,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        56,
+        52,
+        1606,
+        882
+      ],
+      "sha256": "30b10acea555ef82bafee0da36f7a55abc2cd1436dcf46a42d2b4addb03f834a",
+      "source_original": "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png"
+    },
+    {
+      "id": "g0_f3_k0",
+      "state": [
+        0,
+        3,
+        0
+      ],
+      "kind": "pure",
+      "title": "Flossen 3",
+      "description": "Sichelflossen mit Leitflösschen",
+      "generation_source": "exec-0b9c94b3-f7e1-46ec-9d7c-2e1f0f5c0e54.png",
+      "legacy_threshold_label": ">50",
+      "path": "masters/startfish_g0_f3_k0.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        9,
+        1671,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        56,
+        85,
+        1598,
+        858
+      ],
+      "sha256": "871b81f30523464f8856a518638a4461d7c0e3df9d44ddc4dcabf05ddee869a8",
+      "source_original": "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt50.png"
+    },
+    {
+      "id": "g0_f0_k1",
+      "state": [
+        0,
+        0,
+        1
+      ],
+      "kind": "pure",
+      "title": "Kopfplatte 1",
+      "description": "Erste Stirnplatten",
+      "generation_source": "exec-8196244e-a3cb-4bce-87a2-646aa9cc9f1a.png",
+      "legacy_threshold_label": ">20",
+      "path": "masters/startfish_g0_f0_k1.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        11,
+        86,
+        1604,
+        931
+      ],
+      "alpha_bbox_at_least_16": [
+        104,
+        94,
+        1602,
+        824
+      ],
+      "sha256": "a1dde5eae66dd9a45bc33159335a7fa7ed0649fd21073a9146a5fa7dbc4e2e40",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+    },
+    {
+      "id": "g0_f0_k2",
+      "state": [
+        0,
+        0,
+        2
+      ],
+      "kind": "pure",
+      "title": "Kopfplatte 2",
+      "description": "Geschlossener Schädelpanzer",
+      "generation_source": "exec-dda9f43a-0c58-4aa7-b3c5-63f425ba24d6.png",
+      "legacy_threshold_label": ">30",
+      "path": "masters/startfish_g0_f0_k2.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        19,
+        1653,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        106,
+        89,
+        1607,
+        823
+      ],
+      "sha256": "2d00f087ddbaf31d5f8a9660f701eb8bffa5b7947316e2263a73385f8f27befc",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png"
+    },
+    {
+      "id": "g0_f0_k3",
+      "state": [
+        0,
+        0,
+        3
+      ],
+      "kind": "pure",
+      "title": "Kopfplatte 3",
+      "description": "Massiver Rammschädel",
+      "generation_source": "exec-f62fd1e6-7f93-470b-a9d6-f1bc04452fd3.png",
+      "legacy_threshold_label": ">50",
+      "path": "masters/startfish_g0_f0_k3.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        25,
+        1669,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        83,
+        100,
+        1610,
+        816
+      ],
+      "sha256": "617d2a45c978542ea56f5f063282fe157368f4ac3f24e2e633b574e6c16f74b6",
+      "source_original": "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt50.png"
+    },
+    {
+      "id": "g3_f1_k0",
+      "state": [
+        3,
+        1,
+        0
+      ],
+      "kind": "mixed",
+      "title": "Raubkiefer + Steuerflossen",
+      "description": "Massiver Raubkiefer mit großen Fangzähnen, dazu die breiten Steuerflossen und der stärker gegabelte Schwanz der ersten Flossenstufe.",
+      "generation_source": "exec-cf06994a-4ca2-47a8-ad2c-47f383b9c343.png",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt50.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "path": "masters/startfish_g3_f1_k0.png",
+      "width": 1674,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        49,
+        35,
+        1625,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        85,
+        122,
+        1623,
+        835
+      ],
+      "sha256": "06428358364f9ed05cc84ee0ce9065ab8f3f3c9608fb70ce7ccede90e8e0032a",
+      "source_original": "/workspace/generated_images/exec-cf06994a-4ca2-47a8-ad2c-47f383b9c343.png"
+    },
+    {
+      "id": "g3_f0_k1",
+      "state": [
+        3,
+        0,
+        1
+      ],
+      "kind": "mixed",
+      "title": "Raubkiefer + Stirnplatten",
+      "description": "Große Fangzähne und tiefer Raubkiefer, kombiniert mit den ersten Stirn-, Nasen- und kleinen Wangenplatten.",
+      "generation_source": "exec-d88770e4-6020-4b7b-a1ad-75592da2dd9a.png",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt50.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "path": "masters/startfish_g3_f0_k1.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        19,
+        1649,
+        915
+      ],
+      "alpha_bbox_at_least_16": [
+        102,
+        93,
+        1620,
+        827
+      ],
+      "sha256": "2d0f9e577d24a8a68937ba2d386654d83a17a126ec1b8bbdba2143accb908f2a",
+      "source_original": "/workspace/generated_images/exec-d88770e4-6020-4b7b-a1ad-75592da2dd9a.png"
+    },
+    {
+      "id": "g1_f3_k0",
+      "state": [
+        1,
+        3,
+        0
+      ],
+      "kind": "mixed",
+      "title": "Sichelflossen + Raubzähne",
+      "description": "Das vollständige maximale Flossensystem mit Sichelflossen und Leitflösschen, dazu die kurze spitze Zahnreihe der ersten Gebissstufe.",
+      "generation_source": "exec-a406c555-3600-40dc-a4d2-afa8a6b27cbb.png",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt50.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "path": "masters/startfish_g1_f3_k0.png",
+      "width": 1674,
+      "height": 940,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        8,
+        1599,
+        906
+      ],
+      "alpha_bbox_at_least_16": [
+        53,
+        83,
+        1596,
+        861
+      ],
+      "sha256": "59c4ad69b91a5d5c1a5b821aba31eabf745a23b096d4085d3d8ad4078cef0f1b",
+      "source_original": "/workspace/generated_images/exec-a406c555-3600-40dc-a4d2-afa8a6b27cbb.png"
+    },
+    {
+      "id": "g0_f3_k1",
+      "state": [
+        0,
+        3,
+        1
+      ],
+      "kind": "mixed",
+      "title": "Sichelflossen + Stirnplatten",
+      "description": "Große Sichelschwanzflosse und zusätzliche Leitflösschen, kombiniert mit dem kleinen Stirn- und Nasenschild der ersten Kopfplattenstufe.",
+      "generation_source": "exec-d92ee9c4-0406-4b12-b4ff-b04d6d9d0b6f.png",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt50.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "path": "masters/startfish_g0_f3_k1.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        7,
+        1607,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        46,
+        71,
+        1591,
+        866
+      ],
+      "sha256": "e0fb330c96a65b146cc0765c88b3a00c3a8028131669edb914192482529066fa",
+      "source_original": "/workspace/generated_images/exec-d92ee9c4-0406-4b12-b4ff-b04d6d9d0b6f.png"
+    },
+    {
+      "id": "g1_f0_k3",
+      "state": [
+        1,
+        0,
+        3
+      ],
+      "kind": "mixed",
+      "title": "Rammschädel + Raubzähne",
+      "description": "Der massive Schädelpanzer mit Knochenkragen, dazu eine längere sichtbare Reihe kurzer spitzer Raubzähne.",
+      "generation_source": "exec-0ae59999-49e6-4ee4-b937-2ebc0df08be8.png",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt50.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "path": "masters/startfish_g1_f0_k3.png",
+      "width": 1604,
+      "height": 981,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        73,
+        1555,
+        962
+      ],
+      "alpha_bbox_at_least_16": [
+        68,
+        101,
+        1552,
+        821
+      ],
+      "sha256": "dab6edc948f6395d8cd8cf1078c07bd5a58e5a1ea1a477346492cfe5dec8641f",
+      "source_original": "/workspace/generated_images/exec-0ae59999-49e6-4ee4-b937-2ebc0df08be8.png"
+    },
+    {
+      "id": "g0_f1_k3",
+      "state": [
+        0,
+        1,
+        3
+      ],
+      "kind": "mixed",
+      "title": "Rammschädel + Steuerflossen",
+      "description": "Der maximale Rammschädel mit breitem Stirnschild und Wangenpanzer, kombiniert mit den kräftigeren Steuerflossen der ersten Flossenstufe.",
+      "generation_source": "exec-99026d08-64b7-483e-b79c-1917a24a0c7c.png",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt50.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "path": "masters/startfish_g0_f1_k3.png",
+      "width": 1675,
+      "height": 939,
+      "format": "PNG",
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        21,
+        1614,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        71,
+        104,
+        1612,
+        843
+      ],
+      "sha256": "7337e67e567714c990d0a8a721f424251b0d51a701ecf5adff1b1f1f289ed4fd",
+      "source_original": "/workspace/generated_images/exec-99026d08-64b7-483e-b79c-1917a24a0c7c.png"
+    }
+  ]
+}

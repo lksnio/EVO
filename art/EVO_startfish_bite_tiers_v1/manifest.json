@@ -1,0 +1,141 @@
+{
+  "name": "EVO_startfish_bite_tiers_v1",
+  "created": "2026-11-03",
+  "status": "art_only_no_runtime_integration",
+  "generator": "image_gen.imagegen",
+  "base_reference": "art/EVO_startfish_skull_tiers_v1/masters/startfish_base.png",
+  "reference_path_base": "repository_root",
+  "evolution_direction": "bite",
+  "threshold_comparison": ">",
+  "facing": "right",
+  "view": "orthographic_side",
+  "pose": "neutral_swimming_with_visible_teeth",
+  "skull": "base_unarmoured",
+  "animation_ready": false,
+  "pixel_registered": false,
+  "bounds_format": "left_top_right_exclusive_bottom_exclusive",
+  "notes": [
+    "Three new bite variants; base is reused unchanged from the skull series.",
+    "Unmodified generator originals; no resizing or raster edits.",
+    "Design thresholds only; no game logic or balance implemented.",
+    "Almost transparent residual pixels may lie outside the visible silhouette."
+  ],
+  "assets": [
+    {
+      "id": "base",
+      "label_de": "Basis",
+      "bite_strictly_greater_than": null,
+      "path": "masters/startfish_base.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        27,
+        21,
+        1653,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        108,
+        93,
+        1609,
+        825
+      ],
+      "sha256": "26bf3681d05a7c7052aaa42d5e2a361359c20b424f0c058960afc5e7ce75d096",
+      "generation_source": "exec-2dde4c4a-fb16-48ae-ba4b-ee933b79cf04.png",
+      "reused_base": true
+    },
+    {
+      "id": "bite_gt20",
+      "label_de": "Erste Raubzähne",
+      "bite_strictly_greater_than": 20,
+      "path": "masters/startfish_bite_gt20.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1674,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        90,
+        1654,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        107,
+        92,
+        1605,
+        825
+      ],
+      "sha256": "3aa1b2b2dbc92d25ca26fc1cab2bbe309bab7280a3b7f28b794c14a1ed95ef47",
+      "generation_source": "exec-aa31654c-a4bf-40da-ba8f-2aea922e56d7.png",
+      "reused_base": false
+    },
+    {
+      "id": "bite_gt30",
+      "label_de": "Kräftiges Fanggebiss",
+      "bite_strictly_greater_than": 30,
+      "path": "masters/startfish_bite_gt30.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        54,
+        1637,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        109,
+        92,
+        1597,
+        828
+      ],
+      "sha256": "6f0d3ca4092f1effbd41454492e8923687c3c092faa6dfe6dd06698c06bcd6de",
+      "generation_source": "exec-7675bab2-eb36-4bf7-9946-fbdb54e0c5e6.png",
+      "reused_base": false
+    },
+    {
+      "id": "bite_gt50",
+      "label_de": "Massiver Raubkiefer",
+      "bite_strictly_greater_than": 50,
+      "path": "masters/startfish_bite_gt50.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        35,
+        1626,
+        921
+      ],
+      "alpha_bbox_at_least_16": [
+        102,
+        93,
+        1623,
+        827
+      ],
+      "sha256": "571f87aca78e6475aa1eae02b6ac122e45f2b0807a50bdbaa759c57e74d6a614",
+      "generation_source": "exec-0739280d-03a5-4cfd-aa92-5f0fe7e1c000.png",
+      "reused_base": false
+    }
+  ]
+}

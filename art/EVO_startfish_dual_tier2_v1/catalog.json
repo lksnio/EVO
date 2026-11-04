@@ -1,0 +1,111 @@
+{
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "variants": [
+    {
+      "id": "g1_f2_k0",
+      "state": [
+        1,
+        2,
+        0
+      ],
+      "title": "Doppelte Rückenführung + Raubzähne",
+      "description": "Lange sichelförmige Brustflosse, zwei Rückenflossen und hoch gegabelter Schwanz mit der kurzen Zahnreihe der ersten Gebissstufe.",
+      "primary": "flossen2",
+      "secondary": "gebiss1",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-32a18060-3249-45ba-94db-298750f6fe5b.png"
+    },
+    {
+      "id": "g0_f2_k1",
+      "state": [
+        0,
+        2,
+        1
+      ],
+      "title": "Doppelte Rückenführung + Stirnplatten",
+      "description": "Das vollständige Flossensystem der zweiten Stufe, kombiniert mit niedrigem Stirnschild, Nasenplatte und kleiner Wangenplatte.",
+      "primary": "flossen2",
+      "secondary": "kopfplatte1",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-6c5c95cc-5449-457c-b215-182d14d414fb.png"
+    },
+    {
+      "id": "g2_f1_k0",
+      "state": [
+        2,
+        1,
+        0
+      ],
+      "title": "Fanggebiss + Steuerflossen",
+      "description": "Tiefer Unterkiefer und ineinandergreifende Fangzähne der zweiten Gebissstufe mit breiteren Steuerflossen und stärker gegabeltem Schwanz.",
+      "primary": "gebiss2",
+      "secondary": "flossen1",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-1d2c1e2a-c775-4ca1-b503-365b27eb4eba.png"
+    },
+    {
+      "id": "g2_f0_k1",
+      "state": [
+        2,
+        0,
+        1
+      ],
+      "title": "Fanggebiss + Stirnplatten",
+      "description": "Das kräftige Fanggebiss mit tiefem Unterkiefer, ergänzt um die ersten Stirn-, Nasen- und kleinen Wangenplatten.",
+      "primary": "gebiss2",
+      "secondary": "kopfplatte1",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt30.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-0fbffa9f-339d-4bda-8989-1c83db37762b.png"
+    },
+    {
+      "id": "g1_f0_k2",
+      "state": [
+        1,
+        0,
+        2
+      ],
+      "title": "Schädelpanzer + Raubzähne",
+      "description": "Geschlossener Stirnschild, geschützte Augenhöhle und kräftige Wangenstütze mit einer sichtbaren Reihe kurzer spitzer Raubzähne.",
+      "primary": "kopfplatte2",
+      "secondary": "gebiss1",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-0a47f38e-e67d-4203-8b12-e4ebd060e163.png"
+    },
+    {
+      "id": "g0_f1_k2",
+      "state": [
+        0,
+        1,
+        2
+      ],
+      "title": "Schädelpanzer + Steuerflossen",
+      "description": "Der Schädelpanzer der zweiten Stufe mit breiter Stirn und Wangenstütze, kombiniert mit kräftigeren Steuerflossen der ersten Stufe.",
+      "primary": "kopfplatte2",
+      "secondary": "flossen1",
+      "reference_paths": [
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt30.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-ff72dd66-38ae-4aa2-afb7-f69d7295684a.png"
+    }
+  ]
+}

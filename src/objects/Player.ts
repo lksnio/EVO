@@ -9,6 +9,7 @@ import { DEPTH, GRAVITY } from '../config';
 import { FLOW, STAMINA } from '../data/life';
 import { CLIMB } from '../data/karbon';
 import { breathe, climbCost } from '../sim/brood';
+import { FISH_ATTACK_COST, spendStamina } from '../sim/stamina';
 
 export interface PlayerHost extends Phaser.Scene {
   playerBite(rect: Rect, momentum?: number): void;
@@ -42,7 +43,8 @@ export class Player {
   stats!: Stats;
   hp = 1;
   /**
-   * Ausdauer als Anteil eines Kreises. Wie schnell sie schwindet, hängt am Körper (stats.endurance: Schwere ermüden schneller).
+   * Ausdauer relativ zur Anfangsreserve. Flossen vergrößern beim Fisch das Maximum;
+   * Biss, Stoß und Sprint verbrauchen absolute Mengen aus derselben Reserve.
    */
   stamina = 1;
   /** wann zuletzt Ausdauer verbraucht wurde (erst kurz danach füllt sich der Kreis wieder) */
@@ -150,6 +152,15 @@ export class Player {
   /** die größte Ausdauer (in Kreisen) */
   get staminaMax() {
     return game.staminaMax;
+  }
+
+  private spendAttack(cost: number, time: number): boolean {
+    if (this.exhausted) return false;
+    const remaining = spendStamina(this.stamina, cost);
+    if (remaining === null) return false;
+    this.stamina = remaining;
+    this.usedAt = time;
+    return true;
   }
 
   get body() {
@@ -306,8 +317,10 @@ export class Player {
     // Ausruhen: eine Weile nichts tun (nicht schwimmen, beißen, rammen) – im Wasser lässt man sich treiben
     if (dir !== 0 || (wet && dyIn !== 0) || c.held.sprint || c.held.bite || c.held.ram || c.pressed.jump || knocked) this.lastAct = time;
     this.resting = time - this.lastAct > 650 && time - this.lastHurt > 1200;
-    const en = this.stats.endurance;
-    // Sprint: hält je nach Körperbau kürzer oder länger
+    const fishStamina = game.cls === 'fish';
+    // Flossen stecken bereits im Maximum: Verbrauch nicht ein zweites Mal rabattieren.
+    const en = fishStamina ? 1 : this.stats.endurance;
+    // Sprint: Die größere Fischreserve hält bei gleichem Grundverbrauch länger.
     const wantSprint = c.held.sprint && (dir !== 0 || (wet && (c.held.up || c.held.down)));
     this.sprinting = wantSprint && this.dash === 'none' && time >= this.ramReady && !this.exhausted && this.stamina > 0.05;
     const max = this.staminaMax;
@@ -454,7 +467,8 @@ export class Player {
 
     // Stoß (R): mit stärkerem Schädel kürzer anlaufen und schneller vorstoßen. Der Schwung klingt rasch ab;
     // danach muss man sich kurz erholen. Für Strecke bleibt der Spurt schneller, auch gegenüber Spurt + Stoß.
-    if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && this.stamina > 0.12 && !this.exhausted && !knocked) {
+    if (this.dash === 'none' && c.pressed.ram && game.canRam && time >= this.ramReady && !this.exhausted && !knocked
+      && (fishStamina ? this.spendAttack(FISH_ATTACK_COST.ram, time) : this.stamina > 0.12)) {
       this.dash = 'charge';
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
@@ -477,10 +491,11 @@ export class Player {
         this.dashAge += dt * 1000;
         const k = clamp(this.dashAge / this.dashChargeMs, 0, 1);
         this.dashV = this.dashV0 + (this.dashPeak - this.dashV0) * Math.pow(k, 1.5);
-        this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / this.dashChargeMs);
+        // Beim Fisch wurde der ganze Stoß bereits beim Start bezahlt, auch bei kurzem Antippen.
+        if (!fishStamina) this.stamina = Math.max(0, this.stamina - (0.27 / en) * (dt * 1000) / this.dashChargeMs);
         this.usedAt = time;
         // wer R loslässt (oder keine Kraft mehr hat), nutzt den Schwung, den er bis dahin hat
-        if (k >= 1 || (!c.held.ram && this.dashAge > 220) || this.exhausted) this.dash = 'glide';
+        if (k >= 1 || (!c.held.ram && this.dashAge > 220) || (!fishStamina && this.exhausted)) this.dash = 'glide';
         // nach oben/unten lässt sich der Stoß noch lenken
         if (wet) {
           const want = ((c.held.down ? 1 : 0) - (c.held.up ? 1 : 0)) * 0.7;
@@ -510,11 +525,11 @@ export class Player {
     // Beißen (und Fressen): aus dem Stand, der Körper bleibt, wo er ist – nur der Kopf schnappt zu.
     // Nach vorn trägt einen allein der Schwung eines Stoßes oder Spurts.
     if (c.pressed.bite && time >= this.biteReady && this.host.spawnAct?.()) this.biteReady = time + 380;
-    else if (c.pressed.bite && time >= this.biteReady) {
+    else if (c.pressed.bite && time >= this.biteReady && (!fishStamina || this.spendAttack(FISH_ATTACK_COST.bite, time))) {
       this.biteReady = time + 380;
       this.bitAt = time;
-      // ein kräftiger Biss kostet Kraft – ein schwacher Kiefer kaum
-      this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
+      // Beim Fisch gilt immer die Hälfte der Anfangsausdauer, unabhängig von Kiefer und Reserve.
+      if (!fishStamina) this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.usedAt = time;
       this.view.bite();
       audio.sfx('bite', game.traits.jaw);

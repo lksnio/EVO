@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EVO · Startfisch · Frühe Mischformen</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #09161c; color: #ecf0e9; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; }
+    main { max-width: 1480px; margin: auto; padding: 40px 32px; }
+    .eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #96b8b9; }
+    h1 { font: 400 clamp(30px, 4vw, 48px)/1.12 Georgia, serif; margin: 12px 0 16px; }
+    .intro { max-width: 790px; color: #b8caca; font-size: 15px; line-height: 1.65; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 20px; align-items: end; margin: 26px 0; }
+    .control { display: grid; gap: 7px; }
+    label { color: #a6bfc0; font-size: 12px; }
+    select { max-width: 100%; border: 1px solid #355055; border-radius: 6px; padding: 9px 28px 9px 11px; background: #12282f; color: #edf3ed; font: inherit; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    article { min-width: 0; overflow: hidden; border: 1px solid #29434a; border-radius: 12px; background: #0e232a; }
+    .stage { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 9; background: radial-gradient(ellipse at 50% 15%, #315d65, #102c37 70%, #0b202b); }
+    .stage img { display: block; width: 100%; height: 100%; object-fit: contain; min-width: 0; min-height: 0; }
+    .caption { padding: 19px 23px 21px; border-top: 1px solid #29434a; }
+    .state { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 11px ui-monospace, monospace; }
+    .trait { border: 1px solid #456066; border-radius: 4px; padding: 4px 7px; color: #d8ded2; }
+    .zero { opacity: .4; }
+    .new { margin-left: auto; font-size: 10px; letter-spacing: .12em; color: #d4ce9a; }
+    h2 { font: 400 25px/1.2 Georgia, serif; margin: 12px 0 10px; }
+    .caption p { color: #b7c9c8; font-size: 13px; line-height: 1.6; margin: 0 0 13px; }
+    a { color: #d8d5b2; text-underline-offset: 4px; font-size: 12px; }
+    .refs { display: grid; grid-template-columns: 1fr 22px 1fr; gap: 9px; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid #29434a; }
+    .ref { display: block; min-width: 0; text-decoration: none; color: #a8c1c0; }
+    .ref img { display: block; width: 100%; height: 94px; object-fit: contain; }
+    .ref span { display: block; font-size: 10px; line-height: 1.5; text-align: center; margin-top: 7px; }
+    .plus { text-align: center; color: #719396; font: 24px Georgia, serif; }
+    .checker .stage { background-color: #a9b8b9; background-image: conic-gradient(#d3dddd 25%, transparent 0 50%, #d3dddd 0 75%, transparent 0); background-size: 24px 24px; }
+    .light .stage { background: #e0e8e6; }
+    .sprite .stage img { width: 96px; height: auto; }
+    .all-view .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .all-view .caption { padding: 13px 15px 17px; }
+    .all-view h2 { font-size: 19px; }
+    .all-view .caption p, .all-view .refs { display: none; }
+    .all-view .trait { padding: 3px 5px; }
+    footer { margin-top: 24px; color: #8ea9aa; font-size: 12px; line-height: 1.8; }
+    @media (max-width: 1020px) { .all-view .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 680px) { main { padding: 26px 16px; } .grid, .all-view .grid { grid-template-columns: 1fr; } .caption { padding: 17px; } .ref img { height: 82px; } }
+  @media (max-width: 1040px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">EVO · Devon · Startknoten Wasser</div>
+    <h1>Startfisch · Frühe Mischformen</h1>
+    <p class="intro">Drei neue Kombinationen mit jeweils zwei Merkmalen auf Stufe 1. Darunter stehen die verwendeten Einzelreferenzen. Reihenfolge: Gebiss – Flossen – Kopfplatte.</p>
+  </header>
+  <div class="toolbar" aria-label="Vergleichseinstellungen">
+    <div class="control"><label for="background">Hintergrund</label><select id="background"><option value="water">Dunkles Wasser</option><option value="checker">Transparenz prüfen</option><option value="light">Hell</option></select></div>
+    <div class="control"><label for="size">Darstellung</label><select id="size"><option value="large">Große Ansicht</option><option value="sprite">Sprite · 96 Pixel Breite</option></select></div>
+  </div>
+  <section class="grid" aria-label="Startfisch-Varianten">
+    <article data-id="g1_f1_k0">
+      <div class="stage"><img src="masters/startfish_g1_f1_k0.png" alt="Raubzähne + Steuerflossen · Die kurze spitze Zahnreihe der ersten Gebissstufe trifft auf breite Brust- und Bauchflossen, die zurückgezogene Rückenflosse und den stärker gegabelten Schwanz." width="1675" height="939"></div>
+      <div class="caption"><div class="state"><span class="trait">G1</span><span class="trait">F1</span><span class="trait zero">K0</span><span class="new">NEU</span></div><h2>Raubzähne + Steuerflossen</h2><p>Die kurze spitze Zahnreihe der ersten Gebissstufe trifft auf breite Brust- und Bauchflossen, die zurückgezogene Rückenflosse und den stärker gegabelten Schwanz.</p><a href="masters/startfish_g1_f1_k0.png" download>Transparentes PNG herunterladen</a><div class="refs"><a class="ref" href="references/startfish_g1_f0_k0.png"><img src="references/startfish_g1_f0_k0.png" alt="Gebiss 1" width="1674" height="939"><span>Gebiss 1 · Einzelreferenz</span></a><span class="plus" aria-hidden="true">+</span><a class="ref" href="references/startfish_g0_f1_k0.png"><img src="references/startfish_g0_f1_k0.png" alt="Flossen 1" width="1675" height="939"><span>Flossen 1 · Einzelreferenz</span></a></div></div>
+    </article>
+    <article data-id="g0_f1_k1">
+      <div class="stage"><img src="masters/startfish_g0_f1_k1.png" alt="Steuerflossen + Stirnplatten · Kräftigere Flossen und stärker gegabelter Schwanz, kombiniert mit dem kleinen Stirnschild, der Nasenplatte und der ersten Wangenplatte." width="1674" height="939"></div>
+      <div class="caption"><div class="state"><span class="trait zero">G0</span><span class="trait">F1</span><span class="trait">K1</span><span class="new">NEU</span></div><h2>Steuerflossen + Stirnplatten</h2><p>Kräftigere Flossen und stärker gegabelter Schwanz, kombiniert mit dem kleinen Stirnschild, der Nasenplatte und der ersten Wangenplatte.</p><a href="masters/startfish_g0_f1_k1.png" download>Transparentes PNG herunterladen</a><div class="refs"><a class="ref" href="references/startfish_g0_f1_k0.png"><img src="references/startfish_g0_f1_k0.png" alt="Flossen 1" width="1675" height="939"><span>Flossen 1 · Einzelreferenz</span></a><span class="plus" aria-hidden="true">+</span><a class="ref" href="references/startfish_g0_f0_k1.png"><img src="references/startfish_g0_f0_k1.png" alt="Kopfplatte 1" width="1675" height="939"><span>Kopfplatte 1 · Einzelreferenz</span></a></div></div>
+    </article>
+    <article data-id="g1_f0_k1">
+      <div class="stage"><img src="masters/startfish_g1_f0_k1.png" alt="Raubzähne + Stirnplatten · Eine deutliche Reihe kurzer spitzer Zähne unter den ersten Stirn- und Nasenplatten; die Flossen bleiben in der Basisform." width="1675" height="939"></div>
+      <div class="caption"><div class="state"><span class="trait">G1</span><span class="trait zero">F0</span><span class="trait">K1</span><span class="new">NEU</span></div><h2>Raubzähne + Stirnplatten</h2><p>Eine deutliche Reihe kurzer spitzer Zähne unter den ersten Stirn- und Nasenplatten; die Flossen bleiben in der Basisform.</p><a href="masters/startfish_g1_f0_k1.png" download>Transparentes PNG herunterladen</a><div class="refs"><a class="ref" href="references/startfish_g1_f0_k0.png"><img src="references/startfish_g1_f0_k0.png" alt="Gebiss 1" width="1674" height="939"><span>Gebiss 1 · Einzelreferenz</span></a><span class="plus" aria-hidden="true">+</span><a class="ref" href="references/startfish_g0_f0_k1.png"><img src="references/startfish_g0_f0_k1.png" alt="Kopfplatte 1" width="1675" height="939"><span>Kopfplatte 1 · Einzelreferenz</span></a></div></div>
+    </article>
+  </section>
+  <footer>G = Gebiss · F = Flossen · K = Kopfplatte · 0 = Basis · 1 = erste sichtbare Ausbaustufe<br>Transparente PNG-Master in nativer Auflösung · Seitenansicht nach rechts · neutraler Schwimmzustand<br>Noch ohne Animation oder Spieleinbindung. <a href="README.md">Dokumentation</a> · <a href="manifest.json">Manifest</a> · <a href="DESIGN_CONTEXT.md">Neuer Regelkontext</a></footer>
+</main>
+<script>
+  const background = document.getElementById('background');
+  const size = document.getElementById('size');
+  function updatePreview() {
+    document.body.classList.toggle('checker', background.value === 'checker');
+    document.body.classList.toggle('light', background.value === 'light');
+    document.body.classList.toggle('sprite', size.value === 'sprite');
+  }
+  [background, size].forEach(control => control.addEventListener('change', updatePreview));
+  updatePreview();
+</script>
+</body>
+</html>

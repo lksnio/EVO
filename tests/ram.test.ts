@@ -10,7 +10,7 @@ vi.mock('../src/audio/Audio', () => ({ audio: { sfx: vi.fn() } }));
 vi.mock('../src/objects/CreatureView', () => ({
   CreatureView: class {
     key = 'fish';
-    L = { halfW: 20, footY: 15, topY: -15 };
+    L = { halfW: 20, footY: 15, topY: -15, bite: { x: 10, y: -5, w: 20, h: 10 } };
     headTilt = 0;
     squintK = 0;
     build() {}
@@ -19,14 +19,16 @@ vi.mock('../src/objects/CreatureView', () => ({
     setTurn() {}
     setAlpha() {}
     animate() {}
+    bite() {}
     squint(k: number) { this.squintK = k; }
   },
 }));
 
-function swimmer(skull = 0, land = false) {
+function swimmer(skull = 0, land = false, options: { fins?: number; refill?: boolean } = {}) {
   game.resetAll();
   game.newRun();
   game.traits.skull = skull;
+  game.traits.finGain = (options.fins ?? 10) - 10;
   const velocity = { x: 0, y: 0 };
   const body = {
     velocity, blocked: { down: land }, touching: { down: false }, height: 30,
@@ -38,7 +40,8 @@ function swimmer(skull = 0, land = false) {
   const rect = { x: 0, y: 500, width: 40, height: 30, body, setSize() {} };
   const host = {
     add: { rectangle: () => rect }, physics: { add: { existing() {} } },
-    time: { now: 0 }, surfaceY: 0, puff() {}, solidAt: () => false,
+    time: { now: 0, delayedCall: (_ms: number, fn: () => void) => fn() }, surfaceY: 0, puff() {}, solidAt: () => false,
+    playerBite: vi.fn(),
     amphibious: land,
   } as unknown as PlayerHost;
   const p = new Player(host, 0, 500, !land);
@@ -51,13 +54,14 @@ function swimmer(skull = 0, land = false) {
     time += ms;
     host.time.now = time;
     // Ohne Erschöpfung vergleichen: Auch mit voller Ausdauer darf R kein schnellerer Reise-Modus sein.
-    p.stamina = p.staminaMax;
+    if (options.refill !== false) p.stamina = p.staminaMax;
     p.update(time, ms / 1000, c);
     rect.x += body.velocity.x * ms / 1000;
     c.pressed.ram = false;
+    c.pressed.bite = false;
   }
   function ram() { c.held.ram = true; c.pressed.ram = true; }
-  return { p, c, step, ram };
+  return { p, c, step, ram, host };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -144,5 +148,55 @@ describe('Schädelstoß', () => {
       s.ram(); s.step();
       expect(s.p.view.headTilt).toBe(0);
     }
+  });
+});
+
+describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
+  it.each([[10, 2, 3], [25, 3, 4], [60, 4, 6], [125, 6, 10]])(
+    'Flossen %s erlauben %s Bisse oder %s Stöße pro voller Leiste', (fins, bites, rams) => {
+      for (const [action, expected, cost] of [['bite', bites, 0.5], ['ram', rams, 1 / 3]] as const) {
+        const s = swimmer(0.6, false, { fins, refill: false });
+        s.p.stats.recover = 0; // Nur die Reserve messen, keine Wartezeit-Regeneration.
+        game.traits.jaw = 0.8; // Starke Waffen verändern die festen Kosten nicht.
+        let count = 0;
+        for (let attempt = 0; attempt < expected + 2; attempt++) {
+          const before = s.p.stamina;
+          s.c.held[action] = true;
+          s.c.pressed[action] = true;
+          s.step();
+          const spent = before - s.p.stamina;
+          if (spent > 1e-8) { count++; expect(spent).toBeCloseTo(cost); }
+          s.c.held[action] = false;
+          for (let i = 0; i < 120; i++) s.step();
+        }
+        expect(count).toBe(expected);
+        if (action === 'bite') expect(s.host.playerBite).toHaveBeenCalledTimes(bites);
+      }
+    },
+  );
+
+  it('führt den letzten vollständig bezahlten Stoß trotz danach leerer Leiste kraftvoll aus', () => {
+    const s = swimmer(0, false, { refill: false });
+    s.p.stats.recover = 0;
+    s.p.stamina = 1 / 3;
+    s.ram();
+    let peak = 0;
+    for (let i = 0; i < 30; i++) { s.step(); peak = Math.max(peak, s.p.body.velocity.x); }
+    expect(s.p.stamina).toBe(0);
+    expect(peak).toBeGreaterThan(s.p.stats.speed * 2);
+  });
+
+  it('verbraucht bei einem abgebrochenen Stoß genau einmal und erlaubt keine unbezahlten Angriffe', () => {
+    const s = swimmer(0, false, { refill: false });
+    s.p.stats.recover = 0;
+    s.ram(); s.step(); s.c.held.ram = false;
+    for (let i = 0; i < 120; i++) s.step();
+    expect(s.p.stamina).toBeCloseTo(2 / 3);
+    s.p.stamina = 0.3;
+    s.ram(); s.step();
+    expect(s.p.stamina).toBeCloseTo(0.3);
+    s.c.pressed.bite = true; s.step();
+    expect(s.p.stamina).toBeCloseTo(0.3);
+    expect(s.host.playerBite).not.toHaveBeenCalled();
   });
 });

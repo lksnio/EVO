@@ -1,0 +1,137 @@
+{
+  "name": "EVO_startfish_skull_tiers_v1",
+  "created": "2026-11-03",
+  "status": "art_only_no_runtime_integration",
+  "generator": "image_gen.imagegen",
+  "style_reference": "art/EVO_fish_painted_v1/EVO_fish_painted_v1/fish_master_reference.png",
+  "bone_material_reference": "art/EVO_player_head_armor_v1/EVO_player_head_armor_v1/referenzen/kopfpanzer_zielbild.png",
+  "reference_path_base": "repository_root",
+  "evolution_direction": "skull",
+  "threshold_comparison": ">",
+  "facing": "right",
+  "view": "orthographic_side",
+  "pose": "neutral_swimming",
+  "jaw": "base",
+  "animation_ready": false,
+  "pixel_registered": false,
+  "bounds_format": "left_top_right_exclusive_bottom_exclusive",
+  "notes": [
+    "Unmodified generator originals; no resizing or raster edits.",
+    "Thresholds are requested design labels only; no game logic is implemented.",
+    "Some almost transparent pixels with alpha 1/255 remain outside the visible fish."
+  ],
+  "assets": [
+    {
+      "id": "base",
+      "label_de": "Basis",
+      "skull_strictly_greater_than": null,
+      "path": "masters/startfish_base.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        27,
+        21,
+        1653,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        108,
+        93,
+        1609,
+        825
+      ],
+      "sha256": "26bf3681d05a7c7052aaa42d5e2a361359c20b424f0c058960afc5e7ce75d096",
+      "generation_source": "exec-2dde4c4a-fb16-48ae-ba4b-ee933b79cf04.png"
+    },
+    {
+      "id": "skull_gt20",
+      "label_de": "Erste Stirnplatten",
+      "skull_strictly_greater_than": 20,
+      "path": "masters/startfish_skull_gt20.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        11,
+        86,
+        1604,
+        931
+      ],
+      "alpha_bbox_at_least_16": [
+        104,
+        94,
+        1602,
+        824
+      ],
+      "sha256": "a1dde5eae66dd9a45bc33159335a7fa7ed0649fd21073a9146a5fa7dbc4e2e40",
+      "generation_source": "exec-8196244e-a3cb-4bce-87a2-646aa9cc9f1a.png"
+    },
+    {
+      "id": "skull_gt30",
+      "label_de": "Geschlossener Schädelpanzer",
+      "skull_strictly_greater_than": 30,
+      "path": "masters/startfish_skull_gt30.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        19,
+        1653,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        106,
+        89,
+        1607,
+        823
+      ],
+      "sha256": "2d00f087ddbaf31d5f8a9660f701eb8bffa5b7947316e2263a73385f8f27befc",
+      "generation_source": "exec-dda9f43a-0c58-4aa7-b3c5-63f425ba24d6.png"
+    },
+    {
+      "id": "skull_gt50",
+      "label_de": "Massiver Rammschädel",
+      "skull_strictly_greater_than": 50,
+      "path": "masters/startfish_skull_gt50.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        25,
+        1669,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        83,
+        100,
+        1610,
+        816
+      ],
+      "sha256": "617d2a45c978542ea56f5f063282fe157368f4ac3f24e2e633b574e6c16f74b6",
+      "generation_source": "exec-f62fd1e6-7f93-470b-a9d6-f1bc04452fd3.png"
+    }
+  ]
+}

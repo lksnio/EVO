@@ -42,10 +42,9 @@ describe('Gemeinsamer Laich: Werte und Reihenfolge', () => {
     // ein anderer Spieler: jung, mit anderem Erbgut
     game.traits.biteGain = 40;
     expect(game.roeShown(egg).stam).toBe(a);
-    // Tempo kostet etwas Ausdauer: kräftigere Flossen ermüden ein wenig früher (aber nur ein wenig)
+    // Flossen vergrößern die gemeinsame Reserve für Sprint und Angriffe.
     const plain = game.roeShown({ ...egg, traits: {} }).stam;
-    expect(a).toBeLessThan(plain);
-    expect(a).toBeGreaterThan(plain * 0.9);
+    expect(a).toBeGreaterThan(plain);
     // geschlüpft: dieselbe Ausdauer im Spiel, ob Jungtier oder ausgewachsen
     game.hatchRoe(egg, 2);
     expect(game.shown().stam).toBe(a);

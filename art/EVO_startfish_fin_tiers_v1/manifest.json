@@ -1,0 +1,143 @@
+{
+  "name": "EVO_startfish_fin_tiers_v1",
+  "created": "2026-11-04",
+  "status": "art_only_no_runtime_integration",
+  "generator": "image_gen.imagegen",
+  "base_reference": "art/EVO_startfish_skull_tiers_v1/masters/startfish_base.png",
+  "reference_path_base": "repository_root",
+  "evolution_direction": "fins",
+  "threshold_comparison": ">",
+  "facing": "right",
+  "view": "orthographic_side",
+  "pose": "neutral_swimming",
+  "skull": "base_unarmoured",
+  "jaw": "base",
+  "animation_ready": false,
+  "pixel_registered": false,
+  "bounds_format": "left_top_right_exclusive_bottom_exclusive",
+  "notes": [
+    "Three new fin variants; unchanged base reused from the previous series.",
+    "Unmodified generator originals; no resizing or raster edits.",
+    "Larger fin silhouettes may require different framing and body alignment during integration.",
+    "Threshold labels are design requests only; no game rules or balance implemented.",
+    "Almost transparent residual pixels may occur outside the visible outline."
+  ],
+  "assets": [
+    {
+      "id": "base",
+      "label_de": "Basis",
+      "fins_strictly_greater_than": null,
+      "path": "masters/startfish_base.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        27,
+        21,
+        1653,
+        905
+      ],
+      "alpha_bbox_at_least_16": [
+        108,
+        93,
+        1609,
+        825
+      ],
+      "sha256": "26bf3681d05a7c7052aaa42d5e2a361359c20b424f0c058960afc5e7ce75d096",
+      "generation_source": "exec-2dde4c4a-fb16-48ae-ba4b-ee933b79cf04.png",
+      "reused_base": true
+    },
+    {
+      "id": "fins_gt20",
+      "label_de": "Kräftige Steuerflossen",
+      "fins_strictly_greater_than": 20,
+      "path": "masters/startfish_fins_gt20.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        3,
+        1659,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        84,
+        119,
+        1605,
+        840
+      ],
+      "sha256": "ec04ad15ef8552a58013147a38d3dc3b03d9c9c285ba65de914274c7a1554888",
+      "generation_source": "exec-42a332e5-4ef4-4317-a18b-206d1210559c.png",
+      "reused_base": false
+    },
+    {
+      "id": "fins_gt30",
+      "label_de": "Doppelte Rückenführung",
+      "fins_strictly_greater_than": 30,
+      "path": "masters/startfish_fins_gt30.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        23,
+        1657,
+        913
+      ],
+      "alpha_bbox_at_least_16": [
+        56,
+        52,
+        1606,
+        882
+      ],
+      "sha256": "30b10acea555ef82bafee0da36f7a55abc2cd1436dcf46a42d2b4addb03f834a",
+      "generation_source": "exec-806e6544-baae-4300-9947-f99ec639d7b2.png",
+      "reused_base": false
+    },
+    {
+      "id": "fins_gt50",
+      "label_de": "Sichelflossen mit Leitflösschen",
+      "fins_strictly_greater_than": 50,
+      "path": "masters/startfish_fins_gt50.png",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 1675,
+      "height": 939,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "alpha_bbox_nonzero": [
+        0,
+        9,
+        1671,
+        939
+      ],
+      "alpha_bbox_at_least_16": [
+        56,
+        85,
+        1598,
+        858
+      ],
+      "sha256": "871b81f30523464f8856a518638a4461d7c0e3df9d44ddc4dcabf05ddee869a8",
+      "generation_source": "exec-0b9c94b3-f7e1-46ec-9d7c-2e1f0f5c0e54.png",
+      "reused_base": false
+    }
+  ]
+}

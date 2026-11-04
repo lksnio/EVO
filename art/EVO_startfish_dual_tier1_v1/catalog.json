@@ -1,0 +1,54 @@
+{
+  "trait_order": [
+    "gebiss",
+    "flossen",
+    "kopfplatte"
+  ],
+  "variants": [
+    {
+      "id": "g1_f1_k0",
+      "state": [
+        1,
+        1,
+        0
+      ],
+      "title": "Raubzähne + Steuerflossen",
+      "description": "Die kurze spitze Zahnreihe der ersten Gebissstufe trifft auf breite Brust- und Bauchflossen, die zurückgezogene Rückenflosse und den stärker gegabelten Schwanz.",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png",
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-17ca5da3-9ab3-49b0-a100-4a23a20766c6.png"
+    },
+    {
+      "id": "g0_f1_k1",
+      "state": [
+        0,
+        1,
+        1
+      ],
+      "title": "Steuerflossen + Stirnplatten",
+      "description": "Kräftigere Flossen und stärker gegabelter Schwanz, kombiniert mit dem kleinen Stirnschild, der Nasenplatte und der ersten Wangenplatte.",
+      "reference_paths": [
+        "art/EVO_startfish_fin_tiers_v1/masters/startfish_fins_gt20.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-0ce4b9cc-9d18-4dd3-b2d2-8b6eb2e7d283.png"
+    },
+    {
+      "id": "g1_f0_k1",
+      "state": [
+        1,
+        0,
+        1
+      ],
+      "title": "Raubzähne + Stirnplatten",
+      "description": "Eine deutliche Reihe kurzer spitzer Zähne unter den ersten Stirn- und Nasenplatten; die Flossen bleiben in der Basisform.",
+      "reference_paths": [
+        "art/EVO_startfish_bite_tiers_v1/masters/startfish_bite_gt20.png",
+        "art/EVO_startfish_skull_tiers_v1/masters/startfish_skull_gt20.png"
+      ],
+      "generation_source_path": "/workspace/generated_images/exec-a4cbf05f-6ea5-4424-857b-19cd6c86eab4.png"
+    }
+  ]
+}
