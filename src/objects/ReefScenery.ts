@@ -14,6 +14,8 @@ export class ReefScenery {
   private middle: { img: Phaser.GameObjects.Image; phase: number; sway: number }[] = [];
   private images: Phaser.GameObjects.Image[] = [];
   private surfaceY: number;
+  /** wie stark der Seegang gerade ist (bei Wind und Regen mehr) */
+  swell = 1;
 
   constructor(private scene: Phaser.Scene, level: LevelData, place: string) {
     this.surfaceY = level.surfaceY;
@@ -61,7 +63,7 @@ export class ReefScenery {
     for (const img of this.images) img.setVisible(img.x + img.displayWidth / 2 > v.x - 80 && img.x - img.displayWidth / 2 < v.right + 80
       && img.y > v.y - 80 && img.y - img.displayHeight < v.bottom + 80);
     for (const { img, phase, sway } of this.middle) {
-      if (img.visible && sway) img.setAngle(Math.sin(time * 0.0006 + phase) * sway + lean(img.x, img.y, this.surfaceY, time / 1000) * 0.6);
+      if (img.visible && sway) img.setAngle(Math.sin(time * 0.0006 + phase) * sway + lean(img.x, img.y, this.surfaceY, time / 1000, this.swell) * 0.6);
     }
     for (const n of this.near) {
       const { img } = n;
@@ -71,7 +73,7 @@ export class ReefScenery {
       const visible = img.x + hw > v.x - 80 && img.x - hw < v.right + 80 && img.y > v.y && img.y - n.height < v.bottom;
       img.setVisible(visible);
       if (!visible) continue;
-      img.setAngle(Math.sin(time * 0.00045 + n.phase) * 1.1 + lean(n.x, n.y, this.surfaceY, time / 1000) * 0.5);
+      img.setAngle(Math.sin(time * 0.00045 + n.phase) * 1.1 + lean(n.x, n.y, this.surfaceY, time / 1000, this.swell) * 0.5);
       // If the player swims behind a tall frond, keep its silhouette readable through the nearest layer.
       const close = Math.abs(player.x - img.x) < hw * 0.8 + 45 && player.y > img.y - n.height && player.y < img.y + 20;
       img.alpha += ((close ? 0.38 : 0.96) - img.alpha) * Math.min(1, dt * 5);

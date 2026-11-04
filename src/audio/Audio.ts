@@ -249,6 +249,11 @@ export class AudioEngine {
     this.ambience.setLevel(level, sec);
   }
 
+  /** Regen auf dem Wasser (0 … 1, nach der Nähe zur Oberfläche gewichtet) – Teil der Wasseratmosphäre. */
+  rain(level: number) {
+    this.ambience?.setRain(level);
+  }
+
   /** Ein Geräusch. k: Stärke (z. B. wie kräftig das Gebiss ist), 0..1 */
   sfx(name: Sfx, k = 0) {
     if (!this.ctx || this.muted) return;

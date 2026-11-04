@@ -5,6 +5,7 @@ import { groundAt } from '../level/terrain';
 import { waterSurfaces } from '../art/waterGeometry';
 import { newCanvas } from '../util/canvas';
 import { focus, surface } from '../sim/swell';
+import { stormSwell, sunlight, type Weather } from '../sim/weather';
 import { mulberry32 } from '../util/math';
 
 const FRAMES = 8;
@@ -147,10 +148,11 @@ export class WaterAtmosphere {
     this.update(0, 0);
   }
 
-  update(time: number, dt: number) {
-    const t = time / 1000, cam = this.scene.cameras.main, v = cam.worldView, sw = this.swell;
+  /** weather: das Wetter am Ort – unter Wolken fällt weniger Licht ins Wasser, bei Wind und Regen wogt es stärker. */
+  update(time: number, dt: number, weather: Weather = { cloud: 0, rain: 0 }) {
+    const t = time / 1000, cam = this.scene.cameras.main, v = cam.worldView, sw = this.swell * stormSwell(weather), sun = sunlight(weather);
     const step = t * CAUSTIC_RATE, frame = Math.floor(step) % FRAMES, u = step - Math.floor(step);
-    const light = this.L.zones[0]?.def.light ?? 1;
+    const light = (this.L.zones[0]?.def.light ?? 1) * sun;
     for (const s of this.surfaces) {
       const visible = s.image.x + s.image.width > v.x - 100 && s.image.x < v.right + 100;
       s.image.setVisible(visible);

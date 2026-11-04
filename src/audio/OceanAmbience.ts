@@ -12,6 +12,10 @@ export class OceanAmbience {
   private waterAt: number;
   private critterAt: number;
   private loop: AudioBufferSourceNode;
+  /** Regen: ein feines, helles Prasseln (eigene Schleife) und einzelne Tropfen, die unter Wasser „plinken“ */
+  private rainBed?: GainNode;
+  private rain = 0;
+  private dropAt = 0;
 
   constructor(private ctx: BaseAudioContext, dest: AudioNode, t0 = ctx.currentTime) {
     this.out = ctx.createGain();this.out.gain.value = 0;this.out.connect(dest);
@@ -46,9 +50,50 @@ export class OceanAmbience {
   }
   setDepth(depth: number) { this.depth = Math.max(0, Math.min(1, depth)); }
 
+  /**
+   * Regen auf dem Wasser (0 … 1, schon nach der Nähe zur Oberfläche gewichtet). Unter Wasser klingt er als feines, helles
+   * Prasseln; dazu schlägt mancher Tropfen eine winzige Luftblase ein, die kurz nach oben „plinkt“ – so klingt echter Regen
+   * von unten.
+   */
+  setRain(level: number, at = this.ctx.currentTime) {
+    const v = Math.max(0, Math.min(1, level));
+    if (Math.abs(v - this.rain) < 0.01 && (v > 0 || this.rain === 0)) return;
+    this.rain = v;
+    if (!this.rainBed && v > 0) {
+      const ctx = this.ctx;
+      // helles Rauschen (eigene, kurze, nahtlose Schleife), schmal um das Prasseln gefiltert
+      const sr = ctx.sampleRate, len = Math.floor(sr * 3), cross = Math.floor(sr * 0.25);
+      const buf = ctx.createBuffer(2, len, sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (0.55 + 0.45 * Math.random() ** 6);
+        for (let i = 0; i < cross; i++) {
+          const k = 0.5 - 0.5 * Math.cos(Math.PI * i / (cross - 1));
+          d[len - cross + i] = d[len - cross + i] * (1 - k) + d[i] * k;
+        }
+      }
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = cross / sr; src.loopEnd = len / sr;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400; hp.Q.value = 0.5;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200; lp.Q.value = 0.4;
+      this.rainBed = ctx.createGain(); this.rainBed.gain.value = 0;
+      src.connect(hp); hp.connect(lp); lp.connect(this.rainBed); this.rainBed.connect(this.out);
+      src.start(at, cross / sr);
+      this.dropAt = at + 0.3;
+    }
+    this.rainBed?.gain.setTargetAtTime(v * 0.6, at, 1.2);
+  }
+
   tick(t: number) {
     if (this.level <= 0) return;
     const now = this.ctx.currentTime;
+    // Regentropfen: je stärker der Regen, desto dichter (nie gleichmäßig)
+    if (this.rain > 0.02) {
+      if (this.dropAt < now) this.dropAt = now + 0.05;
+      while (this.dropAt <= t) {
+        this.plink(this.dropAt);
+        this.dropAt += rnd(0.04, 0.5) / (0.25 + this.rain * 1.6);
+      }
+    }
     this.tone.frequency.setTargetAtTime(340 + 440 * (1 - this.depth), t, 1.5);
     this.bed.gain.setTargetAtTime(0.55 + Math.sin(t * 0.29) * 0.15 + Math.sin(t * 0.073) * 0.12, t, 0.8);
     if (this.waterAt < now) this.waterAt = now + rnd(2, 5);
@@ -78,6 +123,19 @@ export class OceanAmbience {
       amp.gain.setValueAtTime(0, at);amp.gain.linearRampToValueAtTime(0.045, at + 0.015);amp.gain.exponentialRampToValueAtTime(0.000001, at + 0.13);
       osc.connect(amp);amp.connect(this.out);osc.onended = () => { osc.disconnect();amp.disconnect(); };osc.start(at);osc.stop(at + 0.15);
     }
+  }
+
+  /** Ein Tropfen schlägt eine winzige Blase ein: ein kurzer, heller Ton, der schnell nach oben gleitet und verklingt. */
+  private plink(t: number) {
+    const osc = this.ctx.createOscillator(), amp = this.ctx.createGain(), stereo = this.ctx.createStereoPanner();
+    const f = rnd(1300, 3600) * (1 - this.depth * 0.3), up = rnd(1.25, 1.7), d = rnd(0.035, 0.08);
+    osc.frequency.setValueAtTime(f, t); osc.frequency.exponentialRampToValueAtTime(f * up, t + d);
+    const v = rnd(0.08, 0.24) * Math.min(1, 0.4 + this.rain);
+    amp.gain.setValueAtTime(0, t); amp.gain.linearRampToValueAtTime(v, t + 0.003); amp.gain.exponentialRampToValueAtTime(0.000001, t + d);
+    stereo.pan.value = rnd(-0.85, 0.85);
+    osc.connect(amp); amp.connect(stereo); stereo.connect(this.out);
+    osc.onended = () => { osc.disconnect(); amp.disconnect(); stereo.disconnect(); };
+    osc.start(t); osc.stop(t + d + 0.02);
   }
 
   private critter(t: number) {

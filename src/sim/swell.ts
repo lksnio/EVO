@@ -73,12 +73,14 @@ function theta(w: Wave, x: number, t: number) {
  */
 export function surface(x: number, t: number, strength = 1) {
   const g = groupAt(x, t) * strength, n = SWELL.waves.length;
+  // bei Sturm (strength > 1) werden die Wellen höher, aber nicht spitzer, als es ohne Überschlag geht
+  const gx = Math.min(g, 1.6);
   let dx = 0, dy = 0;
   for (const w of SWELL.waves) {
     const th = theta(w, x, t), k = TAU / w.len;
     // Gerstner: Die Punkte rücken zum Kamm (θ = 0) zusammen – der Kamm wird schmal und spitz, das Tal breit. Die waagrechte
     // Verschiebung hängt an der Wellenlänge, nicht an der Höhe (so bleibt die Form bei jeder Höhe ohne Überschlag).
-    dx -= (w.steep * g / (k * n)) * Math.sin(th);
+    dx -= (w.steep * gx / (k * n)) * Math.sin(th);
     dy -= w.amp * g * Math.cos(th);
   }
   return { dx, dy };

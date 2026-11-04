@@ -21,7 +21,8 @@ import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs'
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
 import { FLOW, INHERIT, LIFE, MISC, RAM, WORLD } from '../data/life';
-import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { diesOfAge, phases, STAGE_NAME, stageOf, worldSeconds, worldYears, type Stage } from '../sim/life';
+import { forcedWeather, stormSwell, weatherAt, type Weather } from '../sim/weather';
 import { type LevelData, type Zone } from '../level/LevelGen';
 import { loadLevel } from '../level/loadLevel';
 import { chasmArt } from '../art/chasmArt';
@@ -125,6 +126,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private dark = false;
   /** beim Aufwachen ist die Kamera ganz nah am Tier (so sieht man die Augen) und zieht dann langsam zurück */
   private near = { k: 1 };
+  /** das Wetter über dem Meer (sim/weather.ts): wie zugezogen und wie stark es regnet – folgt der Weltzeit weich */
+  private weather: Weather = { cloud: 0, rain: 0 };
+  private weatherOn = false;
+  /** unter Wolken wird das ganze Bild etwas dunkler */
+  private weatherShade?: Phaser.GameObjects.Rectangle;
   /** der Zoom nach der Größe des Tiers (folgt ihr weich, siehe cameraStep) */
   private frameZ = 0;
   /** wohin die Kamera gerade vorausschaut (Bildpunkte der Welt, folgt weich) */
@@ -341,6 +347,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.near = { k: 1 };
     this.frameZ = 0;
     this.look = { x: 0, y: 0 };
+    this.weather = { cloud: 0, rain: 0 };
+    this.weatherOn = false;
+    this.weatherShade = undefined;
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
     this.ink = undefined;
@@ -560,6 +569,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
     // Ein Riese naht: das Bild wird dunkler und kälter
     this.dread = this.add.rectangle(VX, VY, VW, VH, 0x02081a, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 3);
+    // Wetter: im Meer des Devons ziehen ab und zu Regen und Wolken durch (für alle Spieler zur selben Weltzeit)
+    this.weatherOn = ep.id === 'devon' && this.water && !this.amphibious;
+    if (this.weatherOn) {
+      this.weather = this.weatherTarget();
+      this.weatherShade = this.add.rectangle(VX, VY, VW, VH, 0x0a1620, 1).setAlpha(0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2.5);
+    }
+    // ohne Wetter (an Land, in anderen Zeitaltern) verstummt auch der Regen
+    else audio.rain(0);
 
     // Kamera: etwas herausgezoomt; an Land reicht der Blick auch über den oberen Levelrand in den Himmel
     const cam = this.cameras.main;
@@ -1251,7 +1268,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const t = time / 1000;
     // … und unter Wasser zusätzlich alle gemeinsam mit dem Seegang: Eine Welle läuft sichtbar durch den Bewuchs
     const sy = this.L.surfaceY, sea = this.water && !this.amphibious;
-    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp + (sea ? lean(w.o.x, w.o.y, sy, t) : 0));
+    const storm = stormSwell(this.weather);
+    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp + (sea ? lean(w.o.x, w.o.y, sy, t, storm) : 0));
   }
 
   /** Gemeinsame Werte für Artgenossen bestehender Gruppen. */
@@ -2265,8 +2283,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
     this.backSea?.update(time, dt, this.deepK, quiet);
     this.drift?.update(time, dt);
-    this.waterAtmosphere?.update(time, dt);
-    this.waterSurface?.update(time);
+    this.weatherStep(dt);
+    this.waterAtmosphere?.update(time, dt, this.weather);
+    this.waterSurface?.update(time, this.weather);
     this.reefScenery?.update(time, dt, p);
     this.mapScenery?.update(p);
     if (!p.dead && !this.ended) this.siltStep(time);
@@ -3163,6 +3182,29 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.look.x += (lead.x * vw - this.look.x) * k;
     this.look.y += (lead.y * vh - this.look.y) * k;
     cam.setFollowOffset(-this.look.x, -this.look.y);
+  }
+
+  /** Das Wetter, wie es zur Weltzeit sein soll (oder wie es ?weather=… festlegt – siehe forcedWeather). */
+  private weatherTarget(): Weather {
+    return forcedWeather(location.search, this.time.now / 1000) ?? weatherAt(worldSeconds());
+  }
+
+  /**
+   * Das Wetter folgt der Weltzeit weich: Wolken machen das Bild dunkler, Wind und Regen rühren das Wasser auf (Seegang,
+   * Schwebeteilchen, Bewuchs), und nahe der Oberfläche hört man den Regen aufs Wasser prasseln.
+   */
+  private weatherStep(dt: number) {
+    if (!this.weatherOn) return;
+    const to = this.weatherTarget(), k = Math.min(1, dt / 2.5);
+    this.weather.cloud += (to.cloud - this.weather.cloud) * k;
+    this.weather.rain += (to.rain - this.weather.rain) * k;
+    const w = this.weather, p = this.player;
+    // tief unten ist es ohnehin dunkel – dort nimmt das Wetter weniger
+    this.weatherShade?.setAlpha(w.cloud * 0.38 * (1 - this.deepK * 0.6));
+    if (this.drift) this.drift.swell = swellAt(this.place.kind) * stormSwell(w);
+    if (this.reefScenery) this.reefScenery.swell = stormSwell(w);
+    const near = clamp(1 - (p.y - this.L.surfaceY) / 1000, 0, 1);
+    audio.rain(this.ended || p.dead ? 0 : w.rain * near);
   }
 
   /**

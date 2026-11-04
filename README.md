@@ -514,6 +514,28 @@ breit; das Bild wiederholt sich praktisch nie. Dieselbe Rechnung treibt:
 Im geschützten Laichfluss ist der Seegang ruhiger (`swellAt`). Je Bild sind das einige hundert Sinus-Rechnungen; es entstehen
 keine Texturen oder Teilchen zur Laufzeit.
 
+## Wetter: Wolken und Regen
+
+Über dem Meer des Devons zieht ab und zu ein Regen durch (`src/sim/weather.ts`). Das Wetter hängt an der gemeinsamen
+Weltzeit – alle Spieler am selben Ort erleben denselben Regen. Die Zeit ist in Abschnitte von acht Minuten geteilt; in etwa
+jedem zweiten regnet es zwei bis viereinhalb Minuten lang, jedes Mal etwas früher oder später, stärker oder schwächer und in
+Böen. Erst ziehen Wolken auf, dann setzt der Regen ein; am Ende ziehen die Wolken langsamer ab, als sie kamen.
+
+- **Dunkler:** Wolken ziehen über den Himmel, Himmel, Luft und Wasserkante werden gemeinsam grauer, das ganze Bild dunkler
+  (in der Tiefe weniger). Unter Wasser fällt weniger Licht: Lichtbahnen, Lichtfäden, Lichtsaum, Lichtnetze und Schlieren
+  werden matter.
+- **Wind und Seegang:** Schon mit den Wolken frischt der Wind auf; im Regen wird der Seegang deutlich höher. Schwebeteilchen
+  und Bewuchs bewegen sich entsprechend stärker. Die gemalte Kante trägt darum einen Streifen Himmel über sich, damit auch bei
+  hohen Wellen nie ein Spalt zum Himmel entsteht.
+- **Regen und Tropfen:** schräg im Wind fallende Striche in zwei Tiefen; jeder Tropfen schlägt genau auf der wogenden
+  Kante auf – mit kleinem Spritzer und flachem Aufschlag –, unter Wasser steigen feine Bläschen auf, und der Lichtsaum
+  blitzt, wo Tropfen einschlagen.
+- **Klang:** Nahe der Oberfläche hört man den Regen als feines Prasseln, dazu einzelne helle „Plinks“: Ein Tropfen schlägt
+  eine winzige Luftblase ein, die kurz nach oben klingt – so klingt Regen von unter Wasser (`OceanAmbience.setRain`).
+
+Zum Ausprobieren: `?weather=rain`, `?weather=clouds` oder `?weather=clear` legt das Wetter fest; `?weather=demo` zeigt
+einen ganzen Regen im Zeitraffer (70 Sekunden).
+
 Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsächlichen unteren Kartenrand hinaus. Dort wechselt man mit erhaltener Schwimmgeschwindigkeit ins Tiefental; eine einmalige Aufnahme des vorherigen Bildes gleitet beim Überblenden nach oben. Der Rückweg nach oben funktioniert entsprechend. Generator, importierte Karten und Weltbaukasten verwenden dieselbe Randgeometrie (`src/level/waterBounds.ts`).
 
 ## So spielt sich EVO
@@ -1307,6 +1329,8 @@ src/
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: ruhiges, zusammenhängendes Klavierstück; in der Tiefe dunkler und eine Oktave tiefer
 ├── audio/RagaScore.ts   die Musik des Laichflusses: Alapana in Neelambari (Tanpura, Flöte mit Gamakas, tiefes Klavier)
+├── sim/weather.ts       das Wetter nach der Weltzeit: Wolken, Regen, Seegang und Licht
+├── sim/swell.ts         der Seegang: Oberfläche, Licht und Strömung aus denselben Wellen
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)

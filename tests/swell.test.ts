@@ -67,3 +67,18 @@ describe('Seegang', () => {
     }
   });
 });
+
+describe('Seegang bei Sturm', () => {
+  it('wird höher, überschlägt sich aber nicht', () => {
+    for (const t of [0, 7, 33]) {
+      let last = -Infinity, top = 0;
+      for (let x = 0; x < 6000; x += 3) {
+        const s = surface(x, t, 1.75);
+        expect(x + s.dx).toBeGreaterThan(last);
+        last = x + s.dx;
+        top = Math.max(top, -s.dy);
+      }
+      expect(top).toBeGreaterThan(surfaceReach() * 0.6);
+    }
+  });
+});
