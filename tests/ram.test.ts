@@ -68,7 +68,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('Schädelstoß', () => {
   it.each([
-    [-10,0],[0,0],[15,0],[49,0],[50,1000],[114,1000],[115,2000],[140,2000],
+    [-10,0],[0,0],[15,0],[39,0],[40,1000],[89,1000],[90,2000],[140,2000],
   ])('vererbter Schädelzuwachs %s ergibt %s ms Betäubung', (ramGain, duration) => {
     game.resetAll();
     game.newRun();

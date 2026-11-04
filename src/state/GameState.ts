@@ -804,6 +804,7 @@ class GameState {
         for (const n of Object.values(this.data.nodes)) if (n.parent !== null) n.gen ??= n.dead?.gens ?? 1;
         // Nur noch die Fischzeit: alles, was dahinter lag, wird verworfen
         this.prune();
+        let fishFormsChanged=false;
         for (const r of [this.data.run, ...Object.values(this.data.parked ?? {})]) {
           if (!r) continue;
           r.prog ??= newProg(r.epoch);
@@ -862,6 +863,7 @@ class GameState {
           for (const a of r.history) a.traits = migrate(a.traits);
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
           r.traits.spike = -Math.abs(r.traits.spike);
+          fishFormsChanged=this.repairFishRun(r)||fishFormsChanged;
           r.social ??= 0.55;
           r.canRam = true;
           // vorerst schlüpft man immer als Männchen – auch ein Weibchen aus einem älteren Spielstand wird zu einem
@@ -875,7 +877,7 @@ class GameState {
         }
         this.migrateLineageEnds();
         // Die alte Währung und alle gekauften/goldenen Segen sofort auch auf Platte entfernen.
-        if (removedLegacy || !d.lineage || this.data.lineage.runs.length !== lineageBefore) this.save();
+        if (fishFormsChanged || removedLegacy || !d.lineage || this.data.lineage.runs.length !== lineageBefore) this.save();
       }
     } catch {
       this.data = fresh();
@@ -1132,7 +1134,7 @@ class GameState {
     if(cls === 'fish') {
       const baseSize=adultSize(ZERO), baseHp=Math.round(b.hp*Math.pow(baseSize,1.3));
       const hp=baseHp+Math.max(0,t.vitality??0), grow=Math.pow(k.grow,.6);
-      const form=resolveStarterForm([10+Math.max(0,t.biteGain??0),finPoints(t),10+Math.max(0,t.ramGain??0)],t.fishForm);
+      const form=resolveStarterForm([10+Math.max(0,t.biteGain??0),finPoints(t),10+Math.max(0,t.ramGain??0)],t.fishForm,t.fishPrimary);
       const [,,skullTier]=STARTER_FORMS[form];
       stats.maxHp=Math.max(3,Math.round(hp*Math.pow(k.grow,.8)*(1-LIFE.oldHp*k.old)));
       stats.size=baseSize*Math.cbrt(hp/baseHp)*k.grow;
@@ -1160,7 +1162,7 @@ class GameState {
     const t = o.traits ?? run?.traits ?? ZERO;
     const grown = this.stats(cls, t, ADULT);
     const biteScore = Math.round(10 * grown.bite / (CLASSES[cls].base.bite * adultSize(ZERO)));
-    const fishForm = cls === 'fish' ? resolveStarterForm(this.starterScores(t), t.fishForm) : undefined;
+    const fishForm = cls === 'fish' ? resolveStarterForm(this.starterScores(t), t.fishForm, t.fishPrimary) : undefined;
     return {
       cls,
       fishForm,
@@ -1473,9 +1475,30 @@ class GameState {
     if (!run || run.brood) return;
     run.coopGen = gen;
     const eggs=[...pool,...next];
+    if(run.cls==='fish')for(const egg of eggs)this.repairFishEgg(egg);
     run.pool=eggs.filter(e=>(e.generation??gen)<=run.life.gen);
     run.next=eggs.filter(e=>(e.generation??gen+1)>run.life.gen);
     this.save();
+  }
+
+  private repairFishAppearance(t:Partial<Traits>,trace?:FishMark[]) {
+    const scores=this.starterScores(full({...t}));
+    const form=resolveStarterForm(scores,t.fishForm,t.fishPrimary),[g,,k]=STARTER_FORMS[form];
+    const primary=t.fishPrimary===1||t.fishPrimary===3?t.fishPrimary:g||k?(g>k||g===k&&scores[0]>=scores[2]?1:3):0;
+    const changed=(t.fishForm??0)!==form||(t.fishPrimary??0)!==primary;
+    if(changed){t.fishForm=form;t.fishPrimary=primary;}
+    return {changed,trace:appendFishMark(trace,form,primary)};
+  }
+  private repairFishEgg(egg:RoeEgg) {
+    const repaired=this.repairFishAppearance(egg.traits,egg.trace);egg.trace=repaired.trace;return repaired.changed;
+  }
+  private repairFishRun(run:Run) {
+    if(run.cls!=='fish')return false;
+    const repaired=this.repairFishAppearance(run.traits,run.fishTrace);run.fishTrace=repaired.trace;
+    let changed=repaired.changed;
+    for(const egg of [...(run.pool??[]),...(run.next??[])])changed=this.repairFishEgg(egg)||changed;
+    const branch=this.data.fishBranches?.find(b=>b.id===`local-${run.id}`);if(branch)branch.trace=run.fishTrace;
+    return changed;
   }
 
   private starterScores(t: Traits): StarterScores {
@@ -1487,7 +1510,7 @@ class GameState {
     const t=full({...start});
     if(mutation){
       const before=this.starterScores(start),fins=Math.min(100,before[1]+5);
-      const stages=[...STARTER_FORMS[resolveStarterForm(before,start.fishForm)]];
+      const stages=[...STARTER_FORMS[resolveStarterForm(before,start.fishForm,start.fishPrimary)]];
       stages[1]=Math.max(stages[1],finStage(fins));
       t.finGain=fins-10;t.fishForm=starterFormIndex(stages);
       return {traits:t,mutation:fins>before[1]};
@@ -1524,11 +1547,12 @@ class GameState {
     const t = full(e ? e.traits : this.r.traits);
     const st = this.stats(this.r.cls, t, ADULT);
     const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const points=this.r.cls==='fish'?(n:number)=>Math.floor(n+1e-9):Math.round;
     return {
       hp: st.maxHp,
       stam: Math.round(10 * STAMINA.sprint * st.endurance),
-      bite: Math.round((10 * st.bite) / s0.bite),
-      ram: Math.round((10 * st.ram) / s0.ram),
+      bite: points((10 * st.bite) / s0.bite),
+      ram: points((10 * st.ram) / s0.ram),
       // Tempo: Grundtempo mal Flossenschub (cruise) – so schwimmt das Tier tatsächlich
       speed: Math.round((10 * st.speed * st.cruise) / (s0.speed * s0.cruise)),
       scales: Math.round(this.r.cls==='fish'?10+Math.max(0,t.scaleGain??0):scalePoints(t)),
@@ -1623,6 +1647,7 @@ class GameState {
    */
   hatchRoe(egg: RoeEgg, gen: number) {
     const run = this.r;
+    if(run.cls==='fish')this.repairFishEgg(egg);
     const jump = gen > run.life.gen;
     if (jump) {
       run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
@@ -2076,6 +2101,7 @@ class GameState {
    * schwächer). Gebiss und Schädel messen sich am ersten Fisch, ausgewachsen: Er hat je 10.
    */
   shown() {
+    const points=this.r.cls==='fish'?(n:number)=>Math.floor(n+1e-9):Math.round;
     const st = this.stats(this.r.cls, undefined, this.lifeK);
     // im Karbon misst sich das Gebiss am ersten Pederpes, sonst am ersten Fisch
     const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT));
@@ -2088,8 +2114,8 @@ class GameState {
       sight: Math.round(100 * sightOf(t.sightGain ?? 0)),
       /** so lange reicht die Kraft für einen Spurt (in Zehntelsekunden: ein Kreis, normaler Körperbau → 30) */
       stam: Math.round(10 * STAMINA.sprint * st.endurance),
-      bite: Math.round((10 * st.bite) / s0.bite),
-      skull: Math.round((10 * st.ram) / s0.ram),
+      bite: points((10 * st.bite) / s0.bite),
+      skull: points((10 * st.ram) / s0.ram),
       /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
       swarm: Math.round(10 * n * this.swarmStrength()),
       /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */

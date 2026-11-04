@@ -18,7 +18,7 @@ Every listed alternative is an independent 50/50 roll. Without any food there is
 
 Actual damage trains bite and skull independently, without a kill or food requirement. Credit is actual health removed, capped at the target's remaining health, multiplied by `sqrt(max(1, target max health / ancestor adult health))`. Each 25 weighted damage gives one point, up to +4 per weapon per generation. The 100-damage reference is the tuning point in `fishEvolution.ts`.
 
-The first damage direction to evolve becomes primary. At parent scores 20/50/100, the next positive weapon gain instead produces 25/60/125 and the corresponding visual stage. Crossing a threshold first stops at that threshold. The secondary damage direction can only evolve once and then remains at 25. If both first evolve together, higher earned damage wins; ties choose bite.
+The first damage direction to evolve becomes primary. When an offspring reaches or crosses 20/50/100 through positive weapon training, it immediately jumps to 25/60/125 and uses the corresponding drawing. Existing fish and eggs at exactly 20/50/100 are also shown at the reached visual stage; loading repairs stale form IDs without changing skill points. Weapon displays floor fractional points so 19.8 is never shown as 20. The secondary damage direction can only evolve once and then remains at 25. If both first evolve together, higher earned damage wins; ties choose bite.
 
 The minimum health fraction observed before laying determines scales: <10% → +3; otherwise <25% → +2; otherwise <50% → +1; 50–<75% → 0; ≥75% → −1. Outcomes +2/+3 also cost one fin point, subject to the ancestor floor.
 

@@ -20,32 +20,37 @@ export const starterId = (index: number) => {
 };
 export const validStarterForm = (index: unknown): index is number => typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < STARTER_FORMS.length;
 export const starterFormIndex = (stages: readonly number[]) => Math.max(0, STARTER_FORMS.findIndex(s => s.every((v,i) => v === stages[i])));
-const stageOf = (score: number) => score >= 125 ? 3 : score >= 60 ? 2 : score >= 25 ? 1 : 0;
+const stageOf = (score: number) => score >= 100 ? 3 : score >= 50 ? 2 : score >= 20 ? 1 : 0;
 
-/** Older saves retain their strongest damage direction; fins are independent. */
-export function resolveStarterForm(scores: StarterScores, stored?: number): number {
-  if (validStarterForm(stored)) return stored;
-  const g=stageOf(scores[0]),k=stageOf(scores[2]);
-  const primary=scores[0]>=scores[2]?0:2;
-  return starterFormIndex([primary===0?g:Math.min(1,g), finStage(scores[1]), primary===2?k:Math.min(1,k)]);
+/** Reconcile reached milestones with saved IDs; an old ID must never hide a reached stage. */
+export function resolveStarterForm(scores: StarterScores, stored?: number, storedPrimary?: number): number {
+  const previous=validStarterForm(stored)?STARTER_FORMS[stored]:[0,0,0];
+  const g=Math.max(previous[0],stageOf(scores[0])),k=Math.max(previous[2],stageOf(scores[2]));
+  const primary=storedPrimary===1?0:storedPrimary===3?2:
+    previous[0]!==previous[2]?(previous[0]>previous[2]?0:2):scores[0]>=scores[2]?0:2;
+  return starterFormIndex([primary===0?g:Math.min(1,g),Math.max(previous[1],finStage(scores[1])),primary===2?k:Math.min(1,k)]);
 }
 
 /** Only a birth develops the visible weapons. The first damage direction owns the higher tiers. */
 export function advanceStarterFish(start: StarterScores, next: StarterScores, stored?: number, storedPrimary?: number) {
-  const stages: number[] = [...STARTER_FORMS[resolveStarterForm(start, stored)]];
+  const stages: number[] = [...STARTER_FORMS[resolveStarterForm(start, stored, storedPrimary)]];
   const gains = next.map((v,i)=>v-start[i]);
   let primary = storedPrimary===1?0:storedPrimary===3?2:-1;
   if(primary<0 && (stages[0] || stages[2])) primary=stages[0]>stages[2] || stages[0]===stages[2] && start[0]>=start[2]?0:2;
-  if(primary<0) primary=[0,2].filter(i=>start[i]>=20-1e-6 && gains[i]>1e-6).sort((a,b)=>gains[b]-gains[a] || a-b)[0]??-1;
+  if(primary<0) primary=[0,2].filter(i=>next[i]>=20-1e-6 && gains[i]>1e-6).sort((a,b)=>gains[b]-gains[a] || a-b)[0]??-1;
   const scores:StarterScores=[...next];
   const thresholds=[20,50,100],targets=[25,60,125];
   for(const i of [0,2]) {
     let stage=stages[i];
-    if(i===primary && stage<3 && start[i]>=thresholds[stage]-1e-6 && gains[i]>1e-6) { scores[i]=targets[stage]; stage++; }
-    else if(i!==primary && primary>=0 && stage===0 && start[i]>=20-1e-6 && gains[i]>1e-6) { scores[i]=25;stage=1; }
+    const tiers=i===primary?3:primary>=0?1:0;
+    for(let tier=0;tier<tiers;tier++) {
+      if(gains[i]>1e-6 && start[i]<targets[tier]-1e-6 && next[i]>=thresholds[tier]-1e-6) {
+        scores[i]=targets[tier];stage=Math.max(stage,tier+1);break;
+      }
+    }
     stages[i]=stage;
-    const floor=stage?targets[stage-1]:10;
-    const ceiling=i!==primary && stage?25:stage<3?thresholds[stage]:Infinity;
+    const floor=stage?thresholds[stage-1]:10;
+    const ceiling=i!==primary && stage?25:Infinity;
     scores[i]=Math.max(floor,Math.min(ceiling,scores[i]));
   }
   scores[1]=Math.max(10,Math.min(100,scores[1]));

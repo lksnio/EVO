@@ -50,15 +50,37 @@ describe('Die 48 erreichbaren Startfischformen', () => {
       const form=starterFormIndex([from,0,0]);
       const child=advanceStarterFish([threshold,10,10],[threshold+.25,10,10],form,from?1:undefined);
       expect(child.scores[0]).toBe(target);expect(STARTER_FORMS[child.form][0]).toBe(to);
-      expect(advanceStarterFish([threshold,10,10],[threshold,10,10],form,from?1:undefined).form).toBe(form);
+      const idle=advanceStarterFish([threshold,10,10],[threshold,10,10],form,from?1:undefined);
+      expect(idle.scores[0]).toBe(threshold);expect(STARTER_FORMS[idle.form][0]).toBe(to);
     },
   );
 
-  it('bleibt an der Trainingsgrenze und entwickelt erst den passenden Nachkommen', () => {
-    const first=advanceStarterFish([19,10,10],[23,10,10]);
-    expect(first.scores[0]).toBe(20);expect(first.form).toBe(0);
-    const next=advanceStarterFish(first.scores,[21,10,10],first.form,first.primary);
-    expect(next.scores[0]).toBe(25);expect(next.primary).toBe(1);
+  it.each([0,2])('entwickelt Merkmal %s schon im Kind, das 20 erreicht, ohne eine weitere Generation',axis=>{
+    const start:StarterScores=[10,10,10];start[axis]=19;
+    const next:StarterScores=[...start];next[axis]=20;
+    const child=advanceStarterFish(start,next,0);
+    expect(child.scores[axis]).toBe(25);expect(STARTER_FORMS[child.form][axis]).toBe(1);expect(child.primary).toBe(axis+1);
+  });
+  it.each([0,2])('entwickelt auch die höheren Stufen beim Erreichen der Grenze, Merkmal %s',axis=>{
+    for(const [from,threshold,target] of [[1,50,60],[2,100,125]]) {
+      const start:StarterScores=[10,10,10];start[axis]=threshold-.25;
+      const next:StarterScores=[...start];next[axis]=threshold;
+      const stages=[0,0,0];stages[axis]=from;
+      const child=advanceStarterFish(start,next,starterFormIndex(stages),axis+1);
+      expect(child.scores[axis]).toBe(target);expect(STARTER_FORMS[child.form][axis]).toBe(from+1);
+    }
+  });
+  it('repariert eine gespeicherte Basiszeichnung bei Schädel 20 bereits vor dem nächsten Laichen',()=>{
+    game.traits.ramGain=10;game.traits.fishForm=0;
+    const traits={...game.traits};
+    expect(game.roeShown().ram).toBe(20);expect(STARTER_FORMS[game.morph().fishForm!]).toEqual([0,0,1]);
+    expect(game.traits).toEqual(traits);
+    expect(game.roeMorph({traits,sex:1,seed:1,place:'riff',x:0,y:0}).fishForm).toBe(7);
+  });
+  it('zeigt knapp unter 20 nicht schon den Grenzwert an',()=>{
+    game.traits.ramGain=9.9;
+    game.ageBy(250);
+    expect(game.roeShown().ram).toBe(19);expect(game.shown().skull).toBe(19);expect(game.morph().fishForm).toBe(0);
   });
 
   it('begrenzt den Sekundärschaden auf 25; Flossen bleiben unabhängig',()=>{
@@ -89,7 +111,7 @@ describe('Die 48 erreichbaren Startfischformen', () => {
 
   it('vererbt Form und Primärmerkmal tatsächlich im Laich; der Elternfisch verwandelt sich nicht', () => {
     vi.spyOn(Math,'random').mockReturnValue(.5);
-    game.traits.biteGain=10; // Elternwert 20.
+    game.traits.biteGain=9; // Das nächste Kind überschreitet 20.
     const style={...newStyle(),biteDamage:100};
     const heir=game.inherit({meat:40,plant:60},style);
     const clutch=game.addClutch({place:'riff',x:300,y:600,at:Date.now(),fert:true,role:'father',young:1});
@@ -102,4 +124,15 @@ describe('Die 48 erreichbaren Startfischformen', () => {
     expect(game.morph().fishForm).toBe(starterFormIndex([1,0,0]));
     game.ageBy(250);expect(game.morph().fishForm).toBe(starterFormIndex([1,0,0]));vi.restoreAllMocks();
   });
+});
+
+it('lädt vorhandene Fische und Eier mit der richtigen Zeichnung, ohne Punkte zurückzusetzen',()=>{
+ game.traits.ramGain=10;game.traits.fishForm=0;
+ game.run!.next=[{id:'savedskull20',traits:{ramGain:10,fishForm:0},generation:2,trace:[{form:0,primary:0}],sex:1,seed:1,place:'riff',x:0,y:0}];
+ const data=JSON.stringify(game.data);let written='';
+ vi.stubGlobal('localStorage',{getItem:()=>data,setItem:(_key:string,value:string)=>written=value});
+ try {
+  game.load();expect(game.traits.ramGain).toBe(10);expect(game.traits.fishForm).toBe(7);expect(game.run!.fishTrace!.at(-1)).toEqual({form:7,primary:3});
+  expect(game.roe[0].traits.ramGain).toBe(10);expect(game.roe[0].traits.fishForm).toBe(7);expect(JSON.parse(written).run.traits.ramGain).toBe(10);
+ } finally{vi.unstubAllGlobals();}
 });
