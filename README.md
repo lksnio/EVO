@@ -482,7 +482,37 @@ Echte Browseraufnahmen, Testumfang und Messgrenzen: `art/vorlagen/fluss/README.m
 
 Im Laichfluss liegt der eigene Laich in der gemalten Höhle. Hier werden neue Gelege abgelegt; gespeicherte Gelege wandern beim Laden an diesen geschützten Platz. Die Aktionstaste öffnet dort die Eiübersicht.
 
-Laichfluss und Korallengarten zeigen oben eine ruhige gemalte Wasserlinie. Im Fluss erlaubt die Kamera 270 Weltpixel Himmel, im Korallengarten nur 46. Im Tiefental bleibt über dem oberen Rand tiefes Wasser. Zwei lange Wellenbänder verschieben sich langsam gegeneinander und heben sich um höchstens zwei Pixel; außerhalb des Bildes sind alle fünf Oberflächenobjekte unsichtbar. Es entstehen keine Texturen pro Frame. Quellen, Aufbereitung und Aufnahmen stehen in `art/EVO_water_edges_v1/`.
+Laichfluss und Korallengarten zeigen oben eine gemalte Wasserlinie, die mit dem Seegang wogt (siehe [Kamera und Seegang](#kamera-und-seegang)). Im Fluss erlaubt die Kamera 270 Weltpixel Himmel, im Korallengarten nur 46. Im Tiefental bleibt über dem oberen Rand tiefes Wasser. Außerhalb des Bildes sind alle Oberflächenobjekte unsichtbar. Es entstehen keine Texturen pro Frame. Quellen, Aufbereitung und Aufnahmen stehen in `art/EVO_water_edges_v1/`.
+
+## Kamera und Seegang
+
+**Die Kamera ist nah am Tier.** Sie richtet sich nach seiner Körperbreite (`CAMERA` in `src/config.ts`, Rechnung in
+`src/sim/camera.ts`): Ein ausgewachsenes Starttier sieht man mit Zoom 1,22 (früher 0,72), ein frisch geschlüpftes rückt sie
+näher heran (bis 1,9), größere Tiere bekommen mehr Raum – gedämpft, damit Wachsen spürbar bleibt. Das gilt ohne Sonderregeln
+auch für spätere, anders gebaute Tiere. In Schwimmrichtung schaut sie ein Stück voraus (in voller Fahrt weiter, beim Steigen
+und Sinken nach oben bzw. unten) und schwenkt beim Wenden ruhig hinüber. Die fernen Ebenen (Hintergrund, Dunst, Bildrand)
+zoomen nicht mit: Sie füllen bei jedem Zoom genau das Bild in voller Auflösung.
+
+**Die Spielregeln bleiben gleich.** Sichtweite in der Tiefe, Entkommen „aus dem Bild“, Nachschub außerhalb des Bildes und
+Abstände beim Auftauchen von Tieren rechnen weiter mit dem früheren, weiteren Bild (`PLAY_VIEW`). Die nähere Kamera macht
+Jagd und Flucht also nicht schwerer.
+
+**Der Seegang** (`src/sim/swell.ts`) ist eine gemeinsame Bewegung für das ganze Wasser: vier Gerstner-Wellenzüge
+verschiedener Länge, die teils gegeneinander laufen, dazu langsame Wellengruppen. Die Kämme sind schmal und spitz, die Täler
+breit; das Bild wiederholt sich praktisch nie. Dieselbe Rechnung treibt:
+
+- **die Oberfläche:** Die gemalte Wellenkante liegt auf biegsamen Bändern, die dem Seegang folgen; ein zweiter, heller Kamm
+  wogt versetzt dahinter. Über dem Kamm ist die Kante mit der Himmelsfarbe aufgefüllt, so bleibt nie ein Spalt.
+- **das Licht:** Unter einem Kamm bündelt sich das Licht wie unter einer Linse. Darunter leuchtet ein Lichtsaum auf; in den
+  Lichtbahnen hängen schmale Lichtfäden an der Oberfläche, die aufleuchten, wenn ein Kamm über sie läuft, und mit ihr hin und
+  her wandern. Die breiten Lichtbahnen atmen mit der langen Dünung, die Lichtnetze am Grund blenden weich ineinander und werden
+  heller, wenn darüber ein Kamm vorbeizieht.
+- **das Wasser selbst:** Schwebeteilchen kreisen mit den Wellen (oben deutlich, unten nur noch eine träge Dünung), Tang und
+  Bewuchs neigen sich gemeinsam, sodass eine Welle sichtbar durch den Bewuchs läuft, und weiche helle Schlieren ziehen in zwei
+  Lagen durchs obere Wasser.
+
+Im geschützten Laichfluss ist der Seegang ruhiger (`swellAt`). Je Bild sind das einige hundert Sinus-Rechnungen; es entstehen
+keine Texturen oder Teilchen zur Laufzeit.
 
 Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsächlichen unteren Kartenrand hinaus. Dort wechselt man mit erhaltener Schwimmgeschwindigkeit ins Tiefental; eine einmalige Aufnahme des vorherigen Bildes gleitet beim Überblenden nach oben. Der Rückweg nach oben funktioniert entsprechend. Generator, importierte Karten und Weltbaukasten verwenden dieselbe Randgeometrie (`src/level/waterBounds.ts`).
 

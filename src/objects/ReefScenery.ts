@@ -4,6 +4,7 @@ import type { LevelData } from '../level/LevelGen';
 import { groundCurve } from '../level/terrain';
 import { hashStr, mulberry32 } from '../util/math';
 import { reefKey, type ReefPart } from '../art/reefProps';
+import { lean } from '../sim/swell';
 
 type Near = { img: Phaser.GameObjects.Image; x: number; y: number; f: number; height: number; phase: number };
 
@@ -12,8 +13,10 @@ export class ReefScenery {
   private near: Near[] = [];
   private middle: { img: Phaser.GameObjects.Image; phase: number; sway: number }[] = [];
   private images: Phaser.GameObjects.Image[] = [];
+  private surfaceY: number;
 
   constructor(private scene: Phaser.Scene, level: LevelData, place: string) {
+    this.surfaceY = level.surfaceY;
     const r = mulberry32(hashStr('reef/' + place));
     const floor = (x: number) => groundCurve(level.terrain.hp, x);
     const blocked = (x: number, margin: number) => {
@@ -58,7 +61,7 @@ export class ReefScenery {
     for (const img of this.images) img.setVisible(img.x + img.displayWidth / 2 > v.x - 80 && img.x - img.displayWidth / 2 < v.right + 80
       && img.y > v.y - 80 && img.y - img.displayHeight < v.bottom + 80);
     for (const { img, phase, sway } of this.middle) {
-      if (img.visible && sway) img.setAngle(Math.sin(time * 0.0006 + phase) * sway);
+      if (img.visible && sway) img.setAngle(Math.sin(time * 0.0006 + phase) * sway + lean(img.x, img.y, this.surfaceY, time / 1000) * 0.6);
     }
     for (const n of this.near) {
       const { img } = n;
@@ -68,7 +71,7 @@ export class ReefScenery {
       const visible = img.x + hw > v.x - 80 && img.x - hw < v.right + 80 && img.y > v.y && img.y - n.height < v.bottom;
       img.setVisible(visible);
       if (!visible) continue;
-      img.setAngle(Math.sin(time * 0.00045 + n.phase) * 1.1);
+      img.setAngle(Math.sin(time * 0.00045 + n.phase) * 1.1 + lean(n.x, n.y, this.surfaceY, time / 1000) * 0.5);
       // If the player swims behind a tall frond, keep its silhouette readable through the nearest layer.
       const close = Math.abs(player.x - img.x) < hw * 0.8 + 45 && player.y > img.y - n.height && player.y < img.y + 20;
       img.alpha += ((close ? 0.38 : 0.96) - img.alpha) * Math.min(1, dt * 5);

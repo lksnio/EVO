@@ -3,6 +3,7 @@ import { DEPTH } from '../config';
 import { GRAPTO_FRAMES, graptoAtlas, planktonAtlas } from '../art/lifeArt';
 import { groundAt } from '../level/terrain';
 import type { LevelData } from '../level/LevelGen';
+import { orbit } from '../sim/swell';
 
 // Was frei im Wasser treibt: Plankton (winzige, hell schimmernde Lebewesen), Meeresschnee (Schwebstoffe, die langsam
 // sinken) und graptolithenartige Kolonien. Nur Kulisse – nichts davon lässt sich fressen oder stören. Jede Schicht liegt
@@ -51,6 +52,9 @@ export class Drift {
   private t = 0;
   private seeded = false;
   private riverStyle: boolean;
+
+  /** wie stark der Seegang hier ist (ruhige Orte weniger) */
+  swell = 1;
 
   constructor(private scene: Phaser.Scene, private L: LevelData, counts: DriftCounts, deepWorld: boolean, riverStyle = false) {
     this.riverStyle = riverStyle;
@@ -152,7 +156,10 @@ export class Drift {
       const ok = wy > L.surfaceY + 24 && wy < groundAt(L.terrain.hp, wx) - 10;
       m.img.setVisible(ok);
       if (!ok) continue;
-      m.img.setPosition(m.x, m.y);
+      // der Seegang: Alles, was treibt, kreist mit den Wellen darüber – oben deutlich, unten nur noch träge hin und her.
+      // Weiter hinten (kleiner d) wirkt dieselbe Bewegung kleiner.
+      const o = orbit(wx, wy - L.surfaceY, this.t, this.swell);
+      m.img.setPosition(m.x + o.dx * m.d * 1.3, m.y + o.dy * m.d * 1.3);
       m.img.setRotation(m.img.rotation + m.spin * dt);
       m.img.setScale(m.base * (1 + 0.06 * Math.sin(this.t * 1.7 + m.ph)));
       m.img.setAlpha(m.a * (1 - m.pulse + m.pulse * (0.5 + 0.5 * Math.sin(this.t * 1.3 + m.ph * 2))));

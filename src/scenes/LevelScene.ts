@@ -9,7 +9,9 @@ import { WaterSurface } from '../art/WaterSurface';
 import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
 import { recordDefeat, type CombatSkill } from '../sim/evolution';
-import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
+import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM, PLAY_VIEW, CAMERA } from '../config';
+import { frameZoom, leadOf } from '../sim/camera';
+import { lean, swellAt } from '../sim/swell';
 import { audio } from '../audio/Audio';
 import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, type Clutch, type Member, type PlayStyle } from '../state/GameState';
 import type { RoeData } from './RoeScene';
@@ -70,10 +72,10 @@ const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 
 const QUIT_SECONDS = 5;
 const Z = LEVEL_ZOOM;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
-/** So viel näher ist die Kamera beim frisch geschlüpften Jungtier (mit dem Wachsen zieht sie zurück) */
-const GROW_ZOOM = 0.45;
+/** Zoom des früheren Bildes, an dem Größen in der Welt gemessen sind (Dunkelheit, Sicht – siehe PLAY_VIEW) */
+const Z0 = W / PLAY_VIEW.w;
 /** Beim Einschlafen und Aufwachen kommt die Kamera so viel näher heran */
-const WAKE_ZOOM = 3;
+const WAKE_ZOOM = 2.2;
 
 /** Daten für den Einschnitt zwischen zwei Leben (GenerationScene). */
 export interface SuccessionData {
@@ -123,6 +125,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private dark = false;
   /** beim Aufwachen ist die Kamera ganz nah am Tier (so sieht man die Augen) und zieht dann langsam zurück */
   private near = { k: 1 };
+  /** der Zoom nach der Größe des Tiers (folgt ihr weich, siehe cameraStep) */
+  private frameZ = 0;
+  /** wohin die Kamera gerade vorausschaut (Bildpunkte der Welt, folgt weich) */
+  private look = { x: 0, y: 0 };
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
@@ -139,6 +145,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private lava: Phaser.GameObjects.TileSprite[] = [];
   private shots: PImg[] = [];
   private bgFar!: Phaser.GameObjects.TileSprite;
+  /** Rand des Bildes (bildschirmfest, folgt dem Zoom – siehe screenLayers) */
+  private vignette?: Phaser.GameObjects.Image;
   private bgMid!: Phaser.GameObjects.TileSprite;
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
@@ -331,6 +339,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dreadAt = -1e9;
     this.flows = [];
     this.near = { k: 1 };
+    this.frameZ = 0;
+    this.look = { x: 0, y: 0 };
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
     this.ink = undefined;
@@ -388,6 +398,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     this.buildDecor();
     this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink && new URLSearchParams(location.search).has('oldwater') ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss', ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) : undefined;
+    if (this.drift) this.drift.swell = swellAt(this.place.kind);
     if (this.amphibious) this.swampWater();
     // (keine Wasseroberfläche mehr: Nach oben ist es zu – das Wasser geht dort weiter)
     plantTextures(this, L.theme);
@@ -530,17 +541,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }).setDepth(DEPTH.fx);
     this.ambient();
     if (L.variant !== 'normal') {
-      this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z).setDepth(DEPTH.dark);
+      this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z0).setDepth(DEPTH.dark);
     }
     // in der Tiefe wird es dunkel – unter Wasser übernimmt das die Sicht (sie wird dort enger und dunkler, siehe sightStep)
     if ((this.place.kind === 'deep' || this.place.kind === 'abyss') && !this.water) {
-      this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z);
+      this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z0);
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
     this.sight = this.water && !this.amphibious
-      ? new Sight(this, this.ink ? inkMurk(this, this.ink.id, 1) : murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2, this.ink ? 0x07101c : 0x000000, this.ink ? 0.6 : 1) : undefined;
-    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.ink ? 0.36 : this.place.kind === 'start' ? 0.32 : 0.55);
+      ? new Sight(this, this.ink ? inkMurk(this, this.ink.id, 1) : murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, PLAY_VIEW.w / 2, this.ink ? 0x07101c : 0x000000, this.ink ? 0.6 : 1) : undefined;
+    this.vignette = this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.ink ? 0.36 : this.place.kind === 'start' ? 0.32 : 0.55);
     // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
     if (this.place.kind === 'start' && this.water && !this.amphibious && !this.ink) {
       this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
@@ -552,6 +563,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
     // Kamera: etwas herausgezoomt; an Land reicht der Blick auch über den oberen Levelrand in den Himmel
     const cam = this.cameras.main;
+    this.frameZ = frameZoom(this.player.rect.width);
     cam.setZoom(this.camZoom);
     const bottom = L.chasm ? L.chasm.exitY + 700 : this.water ? L.height : L.height - 70;
     const sky = skyAbove(ep, this.place, L);
@@ -559,6 +571,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.setBounds(0, top, L.width, bottom - top);
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
+    // nach allen Bewegungen des Bildes (auch den Kino-Momenten der Kamera) die fernen Ebenen dem Zoom anpassen
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.screenLayers, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.screenLayers, this));
+    this.screenLayers();
 
     this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
     const travel = this.waterTravel;
@@ -566,7 +582,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.waterTravel = undefined;
       this.player.body.setVelocity(travel.vx, travel.vy);
       cam.centerOn(this.player.x, this.player.y);
-      const shot = this.add.image(VW / 2, VH / 2, travel.key).setScrollFactor(0).setDepth(1000).setDisplaySize(VW / cam.zoom, VH / cam.zoom);
+      // das letzte Bild des alten Ortes, bildschirmfüllend und 1:1 – bei jedem Zoom
+      const shot = this.add.image(W / 2, H / 2, travel.key).setScrollFactor(0).setDepth(1000).setDisplaySize(W / cam.zoom, H / cam.zoom);
       const release = () => { shot.destroy(); if (this.textures.exists(travel.key)) this.textures.remove(travel.key); };
       this.events.once('shutdown', release);
       this.tweens.add({ targets: shot, y: shot.y - travel.direction * 120 / cam.zoom, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => { this.events.off('shutdown', release); release(); } });
@@ -918,7 +935,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private surfaceLight() {
     const L = this.L;
     if (this.ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) {
-      this.waterAtmosphere = new WaterAtmosphere(this, L);
+      this.waterAtmosphere = new WaterAtmosphere(this, L, swellAt(this.place.kind));
       return;
     }
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
@@ -1232,7 +1249,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const c of this.caustics) c.s.setAlpha(c.a * this.zoneLight);
     // Pflanzen wiegen sich (nur die sichtbaren)
     const t = time / 1000;
-    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
+    // … und unter Wasser zusätzlich alle gemeinsam mit dem Seegang: Eine Welle läuft sichtbar durch den Bewuchs
+    const sy = this.L.surfaceY, sea = this.water && !this.amphibious;
+    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp + (sea ? lean(w.o.x, w.o.y, sy, t) : 0));
   }
 
   /** Gemeinsame Werte für Artgenossen bestehender Gruppen. */
@@ -1617,11 +1636,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private views(): { x: number; y: number; right: number; bottom: number }[] {
     const v = this.cameras.main.worldView;
+    // für die Spielregeln zählt wenigstens das frühere, weitere Bild (PLAY_VIEW): Die nahe Kamera lässt Beute nicht
+    // schneller entkommen und Tiere nicht näher auftauchen
+    const hw0 = Math.max(v.width, PLAY_VIEW.w) / 2, hh0 = Math.max(v.height, PLAY_VIEW.h) / 2;
+    const out = [{ x: v.centerX - hw0, y: v.centerY - hh0, right: v.centerX + hw0, bottom: v.centerY + hh0 }];
     const ts = this.net?.world.targets;
-    if (!ts || !ts.size) return [v];
-    const out = [{ x: v.x, y: v.y, right: v.right, bottom: v.bottom }];
+    if (!ts || !ts.size) return out;
     // Die Kamera des anderen kann weiter herausgezoomt sein; zusätzlich Platz für Bewegung während der Netzverzögerung.
-    const hw = Math.max(v.width, VW) / 2 + 900, hh = Math.max(v.height, VH) / 2 + 900;
+    const hw = Math.max(v.width, PLAY_VIEW.w) / 2 + 900, hh = Math.max(v.height, PLAY_VIEW.h) / 2 + 900;
     for (const t of ts.values()) if (!t.dead) out.push({ x: t.x - hw, y: t.y - hh, right: t.x + hw, bottom: t.y + hh });
     return out;
   }
@@ -1979,8 +2001,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (v < 1) return;
     // dezent: klein, gedämpfte Farben, steigt kurz auf und vergeht
     const col = kind === 'meat' ? '#e0806c' : kind === 'toxic' ? '#b49ad0' : kind === 'roe' ? '#e8c890' : '#a8d088';
-    const t = text(this, x, y, `+${v}`, Math.round(19 / Z), col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
-      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0).setName('food-gain');
+    // gleich groß und scharf auf dem Bildschirm, egal wie nah die Kamera ist
+    const t = text(this, x, y, `+${v}`, 19, col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0).setName('food-gain').setScale(1 / this.cameras.main.zoom);
     this.tweens.add({ targets: t, alpha: 0.8, duration: 200 });
     this.tweens.add({ targets: t, y: y - 40, duration: 1300, ease: 'Sine.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 800, duration: 500, onComplete: () => t.destroy() });
@@ -2185,6 +2208,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended && time > this.shrineReadyAt) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
+    this.cameraStep(dt);
     this.shrineStep(time, dt);
     this.chasmStep();
     this.quitStep(dt);
@@ -2347,7 +2371,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
     const riverMin = this.place.waterway === 0 ? (L.riverEnd ?? 0) + 300 : 0;
-    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const spawnAway = Math.max(1000, Math.max(this.cameras.main.worldView.width, PLAY_VIEW.w) / 2 + 450);
     const sx = clamp(p.x - dir * spawnAway, Math.max(50, riverMin), L.width - 50);
     const endX = clamp(p.x + dir * 1600, Math.max(40, riverMin), L.width - 40);
     if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
@@ -2400,7 +2424,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!pool.length) return;
     const L = this.L;
     const side = Math.random() < 0.5 ? -1 : 1;
-    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const spawnAway = Math.max(1000, Math.max(this.cameras.main.worldView.width, PLAY_VIEW.w) / 2 + 450);
     const x = clamp(this.player.x + side * (spawnAway + Math.random() * 400), 70, L.width - 70);
     // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
     const z = this.zoneAt(x).def;
@@ -2746,7 +2770,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const k = this.deepK;
     // Wer lange unten ist, bekommt bessere Augen für die Nachkommen (nur so wächst die Sicht)
     if (frac > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
-    this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
+    this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z0).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
       // die Musik nimmt die Tiefe selbst (huntMood) – die eigene Wasseratmosphäre bleibt im Hintergrund
@@ -3117,11 +3141,41 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Der Zoom der Kamera (ohne Kino-Momente): Ein Jungtier sieht man näher – mit dem Wachsen zieht die Kamera zurück, bis
-   * zum gewohnten Bild beim ausgewachsenen Tier.
+   * Der Zoom der Kamera (ohne Kino-Momente): nach der Größe des eigenen Tiers (sim/camera.ts) – ein Jungtier sieht man
+   * näher, mit dem Wachsen zieht die Kamera zurück.
    */
   get camZoom() {
-    return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
+    return (this.frameZ || frameZoom(this.player.rect.width)) * this.near.k;
+  }
+
+  /**
+   * Die Kamera folgt dem Tier: Der Zoom gleitet zur Größe des Tiers, und sie schaut in Schwimmrichtung voraus (in voller
+   * Fahrt weiter, beim Steigen und Sinken auch nach oben bzw. unten). Wendet das Tier, schwenkt sie ruhig hinüber.
+   */
+  private cameraStep(dt: number) {
+    const p = this.player, cam = this.cameras.main;
+    const target = frameZoom(p.rect.width);
+    this.frameZ = this.frameZ ? this.frameZ + (target - this.frameZ) * Math.min(1, dt * CAMERA.ease) : target;
+    const live = !p.dead && !this.ended && this.near.k === 1;
+    const top = Math.max(60, p.stats.speed || 0);
+    const lead = live ? leadOf(p.facing, p.speed01, (p.body?.velocity.y ?? 0) / top) : { x: 0, y: 0 };
+    const vw = W / cam.zoom, vh = H / cam.zoom, k = Math.min(1, dt * CAMERA.leadEase);
+    this.look.x += (lead.x * vw - this.look.x) * k;
+    this.look.y += (lead.y * vh - this.look.y) * k;
+    cam.setFollowOffset(-this.look.x, -this.look.y);
+  }
+
+  /**
+   * Die fernen Ebenen (Hintergrund, Dunst, Bildrand) zoomen nicht mit: Sie füllen bei jedem Zoom genau das Bild, in voller
+   * Auflösung – nur das Nahe kommt näher. Das gibt Tiefe und hält die gemalten Fernen scharf.
+   */
+  private screenLayers() {
+    // ein Hauch größer als das Bild: Zoomt die Kamera im selben Bild noch weiter heraus, bleibt kein Spalt am Rand
+    const z = this.cameras.main.zoom, vw = W / z * 1.02, vh = H / z * 1.02, vx = (W - vw) / 2, vy = (H - vh) / 2;
+    this.bgFar.setPosition(vx, vy).setSize(vw, vh).setTileScale(1 / z);
+    this.bgMid.setPosition(vx, vy).setSize(vw, vh).setTileScale(1 / z);
+    this.fog.setPosition(vx, vy + vh * 0.35).setSize(vw, vh * 0.65).setTileScale(1 / z);
+    this.vignette?.setDisplaySize(vw, vh);
   }
 
   /** Am Laich öffnet die Aktion die Eiübersicht (Player.update). */
