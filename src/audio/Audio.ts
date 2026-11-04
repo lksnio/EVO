@@ -1,6 +1,7 @@
 // Alle Töne werden live mit der Web Audio API erzeugt – es gibt keine Audiodateien.
 
 import { OceanScore, type ScoreMode, type ScoreMood } from './OceanScore';
+import { RagaScore } from './RagaScore';
 import { OceanAmbience } from './OceanAmbience';
 
 export type Sfx =
@@ -53,7 +54,14 @@ interface NoiseOpts {
 }
 
 /** Das ruhige Klavierstück im Spiel und auf den ruhigen Zwischenbildschirmen. */
-const SCORE: Record<string, ScoreMode> = { ozean: 'level', title: 'title', generation: 'still', ending: 'still' };
+/** Welche Musik zu welchem Stück: das Meeresstück (Klavier) oder die Alapana des Laichflusses (Tanpura, Flöte, Klavier). */
+const SCORE: Record<string, { mode: ScoreMode; piece: 'ocean' | 'raga' }> = {
+  ozean: { mode: 'level', piece: 'ocean' },
+  laichfluss: { mode: 'level', piece: 'raga' },
+  title: { mode: 'title', piece: 'ocean' },
+  generation: { mode: 'still', piece: 'ocean' },
+  ending: { mode: 'still', piece: 'ocean' },
+};
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
@@ -66,7 +74,8 @@ export class AudioEngine {
   /** ein großer, dunkler Raum für die Bedienklänge – sie klingen darin nach */
   private verb: ConvolverNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
-  private score: OceanScore | null = null;
+  private score: OceanScore | RagaScore | null = null;
+  private piece: 'ocean' | 'raga' | null = null;
   private scoreTimer = 0;
   private track: string | null = null;
   private wanted: string | null = null;
@@ -611,10 +620,13 @@ export class AudioEngine {
   }
 
   /** Der Ozean spielt (oder spielt weiter, in einer anderen Stimmung). */
-  private startScore(m: ScoreMode) {
+  private startScore(m: ScoreMode, piece: 'ocean' | 'raga') {
     const ctx = this.ctx!;
+    // ein anderes Stück: das alte klingt aus, das neue beginnt
+    if (this.score && this.piece !== piece) this.stopScore();
     if (!this.score) {
-      this.score = new OceanScore(ctx, this.musicBus!);
+      this.piece = piece;
+      this.score = piece === 'raga' ? new RagaScore(ctx, this.musicBus!) : new OceanScore(ctx, this.musicBus!);
       this.score.mode(m);
       // Sofort planen und mit genügend Vorlauf nachlegen, auch bei aufwendigen Spielbildern.
       this.score.tick(ctx.currentTime + 0.9);
@@ -627,6 +639,7 @@ export class AudioEngine {
     if (!this.score || !this.ctx) return;
     this.score.stop(this.ctx.currentTime);
     this.score = null;
+    this.piece = null;
     window.clearInterval(this.scoreTimer);
   }
 
@@ -647,7 +660,7 @@ export class AudioEngine {
     if (name === this.track) return;
     this.track = name;
     const sm = name ? SCORE[name] : undefined;
-    if (sm) return this.startScore(sm);
+    if (sm) return this.startScore(sm.mode, sm.piece);
     this.stopScore();
   }
 }

@@ -617,7 +617,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       bus.off('speciesAdvanced', onAdvanced);
       bus.off('speciesOver', onOver);
     });
-    audio.music(ep.music);
+    audio.music(this.musicName);
     // Im Wasser rauscht leise das Meer.
     audio.musicLevel(1, 0.3);
     audio.sea(this.water ? 0.08 : 0, 2);
@@ -3178,6 +3178,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.vignette?.setDisplaySize(vw, vh);
   }
 
+  /** Die Musik dieses Ortes: im Laichfluss des Devons die Alapana in Neelambari (audio/RagaScore.ts), sonst die der Epoche. */
+  get musicName() {
+    return this.ep.id === 'devon' && this.place.kind === 'start' ? 'laichfluss' : this.ep.music;
+  }
+
   /** Am Laich öffnet die Aktion die Eiübersicht (Player.update). */
   spawnAct() {
     if (this.ended) return false;
@@ -3206,7 +3211,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   resumeRoeVisit() {
     this.controls.clear();
-    audio.music(this.ep.music);
+    audio.music(this.musicName);
     this.scene.resume('Hud');
     this.scene.resume();
   }

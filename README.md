@@ -996,6 +996,26 @@ keinen Swing, keine Jazz-Erweiterungen und kein Rauschen.
   alle 100 ms mit 900 ms Vorlauf geplant. Nach Verzögerungen werden überfällige Noten ausgelassen, statt gleichzeitig
   nachgeholt zu werden. Jeder Ton klingt endlich aus; die Raumantwort hat keine Echo-Rückkopplung.
 
+### Die Musik des Laichflusses
+
+Im Laichfluss (der Heimat und Kinderstube der Linie) spielt statt des Klavierstücks eine **Alapana im Raga Neelambari**
+(`src/audio/RagaScore.ts`). Neelambari ist der Schlaflied-Raga der karnatischen, tamilischen Kunstmusik; eine Alapana
+ist ihr freier Anfang ohne Takt und ohne Trommeln: Der Raga wird Ton für Ton erkundet, vom tiefen Grundton hinauf zum
+hohen Sa und wieder zur Ruhe. Es werden keine fremden Melodien oder Aufnahmen verwendet – nur die Tonleiter und ihre
+überlieferten Verzierungen; alles entsteht im Browser.
+
+- **Tanpura:** vier gezupfte Saiten (Pa, Sa, Sa, tiefes Sa) im immer gleichen Kreis – ein Grund, der nie aufhört. Das
+  Schnarren der Saiten (Jivari) wandert nach jedem Zupfen hell-dunkel durch die Obertöne; zwei Saiten schweben gegeneinander.
+- **Flöte (Venu):** jede Phrase ein Atem, die Töne gleiten legato ineinander. Gamakas: Kampita (der Ton schwingt zum oberen
+  Nachbarn), Nokku (von oben angestoßen), Jaru (langsames Gleiten). Leiser Atem nur im engen Band um den Ton, etwas mehr
+  beim Anblasen (`BREATH`, 0 = reiner Ton).
+- **Klavier:** wenige tiefe Töne zu Beginn einer Phrase, wie Steine im Wasser, selten ein heller Tropfen danach.
+- **Form:** vier Teile (tief um den Grundton – das wiegende Ga und Ma – hinauf zum hohen Sa – Rückkehr), je Durchgang
+  neu aus einem Vorrat an Phrasen zusammengestellt, danach eine lange Stille nur mit Tanpura. Ein Durchgang dauert etwa
+  zwei Minuten. Sa ist D wie im Klavierstück, damit der Wechsel zwischen den Orten nicht schmerzt.
+- **Tiefe und Gefahr:** in der Tiefe dunkler, die Flöte eine Oktave tiefer und mit längeren Pausen; naht Gefahr, tritt
+  die Flöte zurück, die Tanpura bleibt.
+
 **Wasseratmosphäre** (`src/audio/OceanAmbience.ts`) läuft auf einer eigenen, dezenten Spur: langsames weiches
 Meeresrauschen, vereinzelte Blasen und unregelmäßiges Krabbeln bzw. Kiesknistern kleiner Wassertiere. Die lange
 Stereo-Wasserschleife geht mit zwei Sekunden Überblendung nahtlos in sich über; sie ist keine kurze Rauschschleife im
@@ -1286,6 +1306,7 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: ruhiges, zusammenhängendes Klavierstück; in der Tiefe dunkler und eine Oktave tiefer
+├── audio/RagaScore.ts   die Musik des Laichflusses: Alapana in Neelambari (Tanpura, Flöte mit Gamakas, tiefes Klavier)
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)
