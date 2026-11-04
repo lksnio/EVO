@@ -6,6 +6,8 @@ import { mulberry32 } from '../util/math';
 import { plateLevel } from '../state/GameState';
 import { eye, ivory, skin, tooth } from './paint';
 import { gradeAnimal as grade, INK, inkOn, lineOf, shadowOf, withInk } from './ink';
+import { validStarterForm } from '../sim/starterFish';
+import { starterLayout } from './fish/starterLayout';
 
 // ---------------------------------------------------------------------------
 // Die Spielfigur. Sie wird aus stufenlosen Merkmalen gezeichnet:
@@ -22,6 +24,8 @@ import { gradeAnimal as grade, INK, inkOn, lineOf, shadowOf, withInk } from './i
 
 export interface Morph {
   cls: ClassId;
+  /** Stabile Kennung der 25 gezeichneten Startfischformen (auch im Koop). */
+  fishForm?: number;
   size: number;
   jaw: number;
   skull: number;
@@ -93,6 +97,7 @@ const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3)
 export function quantize(m: Morph): Morph {
   return {
     cls: m.cls,
+    fishForm: validStarterForm(m.fishForm) ? m.fishForm : undefined,
     size: q(m.size, 0.04),
     jaw: q(m.jaw, 0.05),
     skull: q(m.skull, 0.05),
@@ -140,7 +145,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
+  return [k.cls, k.fishForm, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
 }
 
 export interface Pal {
@@ -351,6 +356,7 @@ export interface Layout {
 }
 
 export function layoutOf(m: Morph): Layout {
+  if (m.cls === 'fish' && validStarterForm(m.fishForm)) return starterLayout(m);
   const g = geo(m);
   const s = g.s;
   const land = m.cls !== 'fish';

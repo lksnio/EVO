@@ -6,6 +6,8 @@ import {
 import { drawEyeLids } from '../art/eyeLids';
 import { FishRig, fishTextures } from '../art/fish/rig';
 import { liftKey, LIFT_STEPS } from '../art/fish/finish';
+import { StarterFishRig } from '../art/fish/starterRig';
+import { starterReady } from '../art/fish/starterAssets';
 
 /** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
 export type AnimMode = 'swim' | 'walk' | 'air' | 'idle' | 'crawl';
@@ -64,7 +66,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private legs: Img[] = [];
   private fin?: Img;
   /** der Fisch (WebGL): ein verformbares Netz statt starrer Teile – siehe art/fish/rig.ts */
-  private rig?: FishRig;
+  private rig?: FishRig | StarterFishRig;
   private t = Math.random() * 10;
   private phase = 0;
   private biteT = -1;
@@ -101,7 +103,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   /** Die Anatomie des Fisches (nur mit dem Netz-Rig), z. B. für Vorlagen und Größenvergleiche. */
   get fishAnatomy() {
-    return this.rig?.A;
+    return this.rig instanceof FishRig ? this.rig.A : undefined;
   }
 
   /** Baut die Figur neu, wenn sich das Aussehen (in Stufen) verändert hat. */
@@ -117,6 +119,15 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.legs = [];
     this.fin = undefined;
     this.rig = undefined;
+    if (m.cls === 'fish' && m.fishForm !== undefined && starterReady(this.scene, m.fishForm) && !LEGACY_FISH) {
+      if (old) release(this.tm, old);
+      this.L = layoutOf(m);
+      this.rig = new StarterFishRig(this.scene, m);
+      this.lid = this.rig.lid;
+      this.add(this.rig.parts);
+      this.drawLid(); this.applyScale(); this.applyTint();
+      return this;
+    }
     if (m.cls === 'fish' && this.scene.sys.game.renderer.type === Phaser.WEBGL && !LEGACY_FISH) {
       const FT = fishTextures(this.scene, m);
       if (old) release(this.tm, old);

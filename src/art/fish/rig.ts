@@ -146,7 +146,7 @@ export function fishTextures(scene: Phaser.Scene, mIn: Morph, style?: FishStyle)
 }
 
 /** Ein verformbares Netz: Spalten × Zeilen über einer Textur, die Ruhepositionen bleiben unverändert erhalten. */
-class Grid {
+export class Grid {
   readonly mesh: Phaser.GameObjects.Mesh2D;
   private idx: number[] = [];
   private ord: number[] = [];

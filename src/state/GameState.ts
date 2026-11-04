@@ -13,6 +13,7 @@ import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type LifeK } from '../sim/life';
 import { KTRAIN } from '../data/karbon';
 import { fishStaminaMax } from '../sim/stamina';
+import { advanceStarterFish, resolveStarterForm, type StarterScores } from '../sim/starterFish';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
   type Brood, type Egg, type Gene,
@@ -52,6 +53,9 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface Traits {
+  /** Form bei der Geburt; Primärattribut 1 Gebiss, 2 Flossen, 3 Kopfplatte. Nur numerische, vererbbare Daten. */
+  fishForm?: number;
+  fishPrimary?: number;
   /** Additive vererbte Punkte. Ältere Spielstände ohne diese Felder behalten ihre bisherigen Werte. */
   vitality?: number;
   biteGain?: number;
@@ -1123,8 +1127,10 @@ class GameState {
     const t = o.traits ?? run?.traits ?? ZERO;
     const grown = this.stats(cls, t, ADULT);
     const biteScore = Math.round(10 * grown.bite / (CLASSES[cls].base.bite * adultSize(ZERO)));
+    const fishForm = cls === 'fish' ? resolveStarterForm(this.starterScores(t), t.fishForm) : undefined;
     return {
       cls,
+      fishForm,
       size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
       jaw: clamp(t.jaw + (t.biteGain ?? 0) / 35, 0, 1),
       skull: clamp(t.skull + (t.ramGain ?? 0) / 40, 0, 1),
@@ -1434,6 +1440,11 @@ class GameState {
     this.save();
   }
 
+  private starterScores(t: Traits): StarterScores {
+    const st = this.stats('fish', t, ADULT), base = CLASSES.fish.base, size = adultSize(ZERO);
+    return [10 * st.bite / (base.bite * size), finPoints(t), 10 * st.ram / (base.ram * size)];
+  }
+
   private applyEvolution(start: Traits, gains: Gains, random = Math.random, fixed?: Gains): Traits {
     const d = evolutionStep(gains, random, fixed);
     const t = full({ ...start });
@@ -1442,6 +1453,16 @@ class GameState {
     t.ramGain = (t.ramGain ?? 0) + d.skull;
     t.finGain = (t.finGain ?? 0) + d.fins;
     t.scaleGain = (t.scaleGain ?? 0) + d.scales;
+    if (this.r.cls === 'fish') {
+      const before = this.starterScores(start), after = this.starterScores(t);
+      const birth = advanceStarterFish(before, after, start.fishForm, start.fishPrimary);
+      const pointUnit = 10 * .07 / adultSize(ZERO);
+      t.biteGain = (t.biteGain ?? 0) + (birth.scores[0] - after[0]) / pointUnit;
+      t.finGain = (t.finGain ?? 0) + birth.scores[1] - after[1];
+      t.ramGain = (t.ramGain ?? 0) + (birth.scores[2] - after[2]) / pointUnit;
+      t.fishForm = birth.form;
+      t.fishPrimary = birth.primary;
+    }
     return t;
   }
 

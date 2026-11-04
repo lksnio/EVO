@@ -1,8 +1,17 @@
 # Grafiken – wie du eigene Bilder einbaust
 
-Bisher hat EVO **keine Bilddateien**: Alle Grafiken werden beim Start im Code gezeichnet
-(`src/art/*.ts`, Canvas). Damit du sie durch eigene Bilder ersetzen kannst, habe ich den **Ist-Stand
-als PNG** hier abgelegt – genau so, wie das Spiel ihn gerade benutzt.
+## Aktuell: 25 Startfischformen
+
+Die 25 gezeichneten Startfischformen sind im Spiel eingebunden. Die PNG-Master liegen in
+`art/EVO_startfish_*`, die komprimierten Laufzeitbilder in `src/assets/fish/starter/`.
+`src/art/fish/starterRig.ts` animiert Körper, Flossen, Kiefer und Lider anhand der Bezugspunkte
+in `starterRegistration.json`. Die Stufen und Vererbungsregeln stehen in `src/sim/starterFish.ts`.
+Weitere Hinweise und die Vorschau aller Formen stehen in `src/assets/fish/starter/README.md`.
+
+## Frühere Vorlagen
+
+Die folgende Übersicht dokumentiert die ursprünglichen, im Code gezeichneten Grafiken
+(`src/art/*.ts`, Canvas) und den damaligen Austausch über `alt/` und `neu/`.
 
 ## Ordner
 

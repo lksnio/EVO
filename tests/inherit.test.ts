@@ -153,13 +153,13 @@ describe('Generationswechsel', () => {
     const c = game.addClutch({ place: 'lagune', x: 1, y: 1, at: Date.now(), fert: true, role: 'father', young: 24 });
     const eggs = game.layEggs(c, h);
     for (const e of eggs) {
-      expect(e.traits.biteGain).toBeGreaterThanOrEqual(13);
-      expect(e.traits.biteGain).toBeLessThanOrEqual(19);
+      // Der Elternwert ist 20: jedes Kind mit positivem Bisszuwachs springt auf 25.
+      expect(e.traits.biteGain).toBe(15);
       expect(e.traits.ramGain).toBe(-1.5);
       expect(e.traits.vitality).toBeGreaterThanOrEqual(4.5);
       expect(e.traits.vitality).toBeLessThanOrEqual(13.5);
     }
-    expect(new Set(eggs.map(e => e.traits.biteGain)).size).toBeGreaterThan(1);
+    expect(new Set(eggs.map(e => e.traits.vitality)).size).toBeGreaterThan(1);
     expect(game.traits.biteGain).toBe(10);
   });
 

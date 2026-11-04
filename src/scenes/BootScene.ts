@@ -10,6 +10,7 @@ import { preloadReef } from '../art/reefProps';
 import { preloadEditorUnits } from '../editor/catalog';
 import { preloadWorldFish } from '../art/fish/worldFish';
 import { preloadPainted } from '../art/fish/painted';
+import { preloadStarterFish } from '../art/fish/starterAssets';
 
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
@@ -21,6 +22,7 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // die gemalten Fischtexturen
     preloadPainted(this);
+    preloadStarterFish(this);
     preloadRiver(this);
     preloadWaterSurface(this);
     preloadReef(this);

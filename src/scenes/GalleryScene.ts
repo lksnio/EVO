@@ -12,6 +12,7 @@ import { CreatureView } from '../objects/CreatureView';
 import { WORLD_FISH_IDS } from '../art/fish/worldFish';
 import { WorldFishView } from '../objects/WorldFishView';
 import { text } from '../ui/ui';
+import { STARTER_FORMS, validStarterForm } from '../sim/starterFish';
 
 /** Nur für Entwickler (?debug&gallery): viele Ausprägungen der Spielfigur und alle Tierarten. Leertaste blättert. */
 export class GalleryScene extends Phaser.Scene {
@@ -48,6 +49,24 @@ export class GalleryScene extends Phaser.Scene {
   private ids() {
     const only = new URLSearchParams(location.search).get('gallery');
     return only === 'devon' ? epochSpecies(EPOCHS.find((e) => e.id === 'devon')!).filter((id) => SPECIES[id]) : Object.keys(SPECIES);
+  }
+
+  /** Die tatsächlich im Spiel verwendeten 25 Master mit Schwimmen, Biss und Rammhaltung. */
+  private starterLab() {
+    const q=new URLSearchParams(location.search);
+    const forms=q.has('forms') ? q.get('forms')!.split(',').map(Number).filter(validStarterForm) : STARTER_FORMS.map((_,i)=>i);
+    const cols=Math.min(forms.length,Number(q.get('cols')??5)),rows=Math.ceil(forms.length/cols);
+    const cw=this.scale.width/cols,ch=this.scale.height/rows;
+    const zoom=Number(q.get('zoom')??Math.min(cw/135,(ch-24)/65));
+    this.cameras.main.setBackgroundColor('#163b44');
+    forms.forEach((form,i)=>{
+      const m:Morph={cls:'fish',size:1,fishForm:form,jaw:STARTER_FORMS[form][0]/3,skull:STARTER_FORMS[form][2]/3,stealth:0,diet:0,scars:0,belly:1,fierce:0,hue:1,seed:7};
+      const x=(i%cols+.5)*cw,y=(Math.floor(i/cols)+.44)*ch;
+      const view=new CreatureView(this,x,y,m,zoom);
+      view.headTilt=Number(q.get('pitch')??0);view.setFacing(q.has('left')?-1:1);
+      this.views.push(view);
+      text(this,x,(Math.floor(i/cols)+1)*ch-20,STARTER_FORMS[form].join(' – '),14).setOrigin(.5);
+    });
   }
 
   /** ?gallery=fish: die Fisch-Werkstatt – wenige Fische groß, jede Taste 1–5 stellt eine Bewegung ein (siehe art/fish/rig.ts) */
@@ -195,6 +214,7 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   private show() {
+    if (new URLSearchParams(location.search).get('gallery') === 'starter') return this.starterLab();
     if (new URLSearchParams(location.search).get('gallery') === 'sizes') return this.sizeLab();
     if (new URLSearchParams(location.search).get('gallery') === 'river') return this.riverLab();
     if (new URLSearchParams(location.search).get('gallery') === 'world') return this.worldLab();
