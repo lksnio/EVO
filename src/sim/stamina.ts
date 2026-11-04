@@ -1,8 +1,8 @@
 /** Feste Kosten relativ zur Anfangsausdauer, unabhängig von der späteren Reserve. */
-export const FISH_ATTACK_COST = { bite: 1 / 2, ram: 1 / 3 } as const;
+export const FISH_ATTACK_COST = { bite: 1 / 5, ram: 1 / 8 } as const;
 
 // Flossenwert nach dem Generationssprung → Reserve. Damit reichen volle Leisten ohne
-// Regeneration für 2/3, 3/4, 4/6 und 6/10 Bisse/Stöße. Dazwischen linear wachsen.
+// Regeneration für 5/8, 7/12, 10/16 und 16/26 Bisse/Stöße. Dazwischen linear wachsen.
 const RESERVES = [[10, 1], [25, 1.5], [60, 2], [125, 10 / 3]] as const;
 
 export function fishStaminaMax(fins: number): number {
@@ -14,7 +14,7 @@ export function fishStaminaMax(fins: number): number {
   return RESERVES[0][1];
 }
 
-/** Kein Angriff auf Kredit; Toleranz nur für Rundungsreste nach mehreren Dritteln. */
+/** Kein Angriff auf Kredit; Toleranz nur für Rundungsreste nach mehreren Angriffen. */
 export function spendStamina(available: number, cost: number): number | null {
   if (!Number.isFinite(available) || available + 1e-9 < cost) return null;
   return Math.max(0, available - cost);

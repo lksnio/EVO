@@ -528,7 +528,7 @@ export class Player {
     else if (c.pressed.bite && time >= this.biteReady && (!fishStamina || this.spendAttack(FISH_ATTACK_COST.bite, time))) {
       this.biteReady = time + 380;
       this.bitAt = time;
-      // Beim Fisch gilt immer die Hälfte der Anfangsausdauer, unabhängig von Kiefer und Reserve.
+      // Beim Fisch gilt immer ein Fünftel der Anfangsausdauer, unabhängig von Kiefer und Reserve.
       if (!fishStamina) this.stamina = Math.max(0, this.stamina - 0.035 * (1 + 1.4 * game.traits.jaw) / en);
       this.usedAt = time;
       this.view.bite();

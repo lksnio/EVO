@@ -6,7 +6,7 @@ import { ADULT } from '../src/sim/life';
 describe('Flossen und absolute Angriffskosten', () => {
   beforeEach(() => { game.resetAll(); game.newRun(); });
 
-  it.each([[10, 1, 2, 3], [25, 1.5, 3, 4], [60, 2, 4, 6], [125, 10 / 3, 6, 10]])(
+  it.each([[10, 1, 5, 8], [25, 1.5, 7, 12], [60, 2, 10, 16], [125, 10 / 3, 16, 26]])(
     'Flossen %s: Reserve %s für %s Bisse oder %s Stöße ohne Regeneration', (fins, reserve, bites, rams) => {
       game.traits.finGain = fins - 10;
       expect(game.staminaMax).toBeCloseTo(reserve);
@@ -35,7 +35,7 @@ describe('Flossen und absolute Angriffskosten', () => {
 
   it('gibt bei fehlender Kraft keinen Kredit und toleriert nur Rundungsreste', () => {
     expect(spendStamina(0, FISH_ATTACK_COST.bite)).toBeNull();
-    expect(spendStamina(0.49, FISH_ATTACK_COST.bite)).toBeNull();
-    expect(spendStamina(1 / 3 - 1e-12, FISH_ATTACK_COST.ram)).toBe(0);
+    expect(spendStamina(FISH_ATTACK_COST.bite - .01, FISH_ATTACK_COST.bite)).toBeNull();
+    expect(spendStamina(FISH_ATTACK_COST.ram - 1e-12, FISH_ATTACK_COST.ram)).toBe(0);
   });
 });

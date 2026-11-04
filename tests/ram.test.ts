@@ -152,9 +152,9 @@ describe('Schädelstoß', () => {
 });
 
 describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
-  it.each([[10, 2, 3], [25, 3, 4], [60, 4, 6], [125, 6, 10]])(
+  it.each([[10, 5, 8], [25, 7, 12], [60, 10, 16], [125, 16, 26]])(
     'Flossen %s erlauben %s Bisse oder %s Stöße pro voller Leiste', (fins, bites, rams) => {
-      for (const [action, expected, cost] of [['bite', bites, 0.5], ['ram', rams, 1 / 3]] as const) {
+      for (const [action, expected, cost] of [['bite', bites, 0.2], ['ram', rams, 1 / 8]] as const) {
         const s = swimmer(0.6, false, { fins, refill: false });
         s.p.stats.recover = 0; // Nur die Reserve messen, keine Wartezeit-Regeneration.
         game.traits.jaw = 0.8; // Starke Waffen verändern die festen Kosten nicht.
@@ -178,7 +178,7 @@ describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
   it('führt den letzten vollständig bezahlten Stoß trotz danach leerer Leiste kraftvoll aus', () => {
     const s = swimmer(0, false, { refill: false });
     s.p.stats.recover = 0;
-    s.p.stamina = 1 / 3;
+    s.p.stamina = 1 / 8;
     s.ram();
     let peak = 0;
     for (let i = 0; i < 30; i++) { s.step(); peak = Math.max(peak, s.p.body.velocity.x); }
@@ -191,12 +191,12 @@ describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
     s.p.stats.recover = 0;
     s.ram(); s.step(); s.c.held.ram = false;
     for (let i = 0; i < 120; i++) s.step();
-    expect(s.p.stamina).toBeCloseTo(2 / 3);
-    s.p.stamina = 0.3;
+    expect(s.p.stamina).toBeCloseTo(7 / 8);
+    s.p.stamina = 0.1;
     s.ram(); s.step();
-    expect(s.p.stamina).toBeCloseTo(0.3);
+    expect(s.p.stamina).toBeCloseTo(0.1);
     s.c.pressed.bite = true; s.step();
-    expect(s.p.stamina).toBeCloseTo(0.3);
+    expect(s.p.stamina).toBeCloseTo(0.1);
     expect(s.host.playerBite).not.toHaveBeenCalled();
   });
 });
