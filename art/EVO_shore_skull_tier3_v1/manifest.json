@@ -1,0 +1,38 @@
+{
+  "id": "shore_skull_tier3",
+  "created": "2026-11-05",
+  "node": "shore",
+  "visual_trait": "skull_plate",
+  "visual_stage": 3,
+  "status": "art_only",
+  "file": "masters/shore_skull_tier3.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    20,
+    146,
+    2145,
+    648
+  ],
+  "sha256": "aab4044c16778bf8874594db89b8c908bd2a0924d02ee186c5fd2ce06bd50e6f",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-48155560-0b55-4271-bbb2-e24b9c916e9a.png",
+  "references": [
+    "art/EVO_shore_base_v1/masters/shore_base.png",
+    "art/EVO_startfish_node_v1/masters/startfish_g0_f0_k3.png"
+  ],
+  "notes": [
+    "Original PNG bytes preserved.",
+    "Skull specialization only: broad cranial roof, reinforced blunt nasal surface and integrated cheek buttresses.",
+    "Four limbs; base swimming tail and modest closed mouth retained.",
+    "No background, text, stats or runtime integration.",
+    "Animation registration and separated parts remain future work."
+  ]
+}
