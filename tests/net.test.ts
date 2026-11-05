@@ -30,6 +30,36 @@ describe('Spielserver (Colyseus)', () => {
     await server.listen(PORT);
   });
 
+  it('bewahrt einen leer gefressenen Bestand für spätere Mitspieler und beginnt nach dem gemeinsamen Verlassen neu', async () => {
+    const visits: Room<unknown, ZoneState>[] = [];
+    try {
+      const host = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Erster Besuch'), ZoneState);
+      visits.push(host);
+      await until(() => host.state.host === host.sessionId);
+      expect(host.state.populated).toBe(false);
+      host.send('fauna', { a: [] });
+      await until(() => host.state.populated);
+      const guest = await new Client(URL).joinById<ZoneState>(host.roomId, opts('Später dazu'), ZoneState);
+      visits.push(guest);
+      await until(() => guest.state.populated);
+      expect(guest.state.animals.size).toBe(0);
+      await host.leave();
+      await until(() => guest.state.host === guest.sessionId);
+      expect(guest.state.populated).toBe(true);
+      expect(guest.state.animals.size).toBe(0);
+      const oldRoom = guest.roomId;
+      await guest.leave();
+      const fresh = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Neuer Besuch'), ZoneState);
+      visits.push(fresh);
+      await until(() => fresh.state.host === fresh.sessionId);
+      expect(fresh.roomId).not.toBe(oldRoom);
+      expect(fresh.state.populated).toBe(false);
+      await fresh.leave();
+    } finally {
+      for (const room of visits) await Promise.race([room.leave().catch(() => undefined), wait(500)]);
+    }
+  });
+
   it('bestätigt verschluckte Beute nur vom Ortswächter, einmal und ausschließlich an den fressenden Gast',async()=>{
     const zone=zoneId(0,'garten');
     const host=await join(opts('Fresswächter',{zone})),guest=await join(opts('Fresser',{zone})),other=await join(opts('Zuschauer',{zone}));

@@ -43,6 +43,39 @@ let now = 10000;
 beforeEach(() => { now = 10000; vi.spyOn(performance, 'now').mockImplementation(() => now); });
 
 describe('Gemeinsame Tiere: Sicht und Wiederherstellung', () => {
+  it('teilt beim ersten Besuch die neue lokale Verteilung und ersetzt beim Beitritt die eigene durch die gemeinsame', () => {
+    const host = setup();
+    host.h.animals.push(animal(0));
+    host.h.animals[0].x = 3456;
+    host.world.setHost(true);
+    host.world.update();
+    const rows = host.sent.flatMap(m => m.a ?? []);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].x).toBe(3456);
+
+    const guest = setup();
+    guest.h.animals.push(animal(83));
+    for (const r of rows) guest.add(r);
+    guest.world.setHost(false);
+    expect(guest.h.animals.map(a => a.netId)).toEqual(rows.map(r => r.id));
+    expect(guest.h.animals[0].netId).not.toBe(83);
+    // Wird der Gast Wächter, übernimmt er den aktuellen Bestand statt seine erste Verteilung wiederherzustellen.
+    guest.state.animals.get(String(rows[0].id))!.x = 4000;
+    guest.world.setHost(true);
+    expect(guest.h.animals).toHaveLength(1);
+    expect(guest.h.animals[0].x).toBe(4000);
+  });
+
+  it('würfelt einen bestehenden leeren Bestand beim ersten Wächterstatus nicht neu und meldet auch neue leere Orte', () => {
+    const existing = setup();
+    existing.state.populated = true;
+    existing.h.animals.push(animal(0));
+    existing.world.setHost(true);
+    expect(existing.h.animals).toHaveLength(0);
+    existing.world.update();
+    expect(existing.sent.some(m => Array.isArray(m.a) && !m.a.length)).toBe(true);
+  });
+
   it('belohnt bestätigte ganze Beute einmal, keine Vorhersage oder doppelte Nachricht',()=>{
     const {world,h}=setup();
     const eat=vi.fn(),defeat=vi.fn();

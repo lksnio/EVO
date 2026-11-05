@@ -111,6 +111,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const z = parseZone(o?.zone);
     if (!z) throw new Error('Diesen Ort gibt es nicht.');
     this.state.zone = `${z.epoch}/${z.place}`;
+    this.state.populated = false;
     const ep = EPOCHS[z.epoch];
     const L = loadLevel(ep, WORLD.seed, placesOf(ep).find((p) => p.id === z.place)!);
     this.bounds = { x0: 0, x1: L.width, y0: Math.min(0, L.surfaceY) - 600, y1: Math.max(L.height, L.chasm?.exitY ?? 0) + 300, sx: L.start.x, sy: L.start.y };
@@ -167,6 +168,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.swallowed.clear();
       this.state.meats.clear();
       this.state.plants.clear();
+      this.state.populated = false;
     }
   }
 
@@ -177,6 +179,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Der Ortswächter meldet seine Tiere und das Fleisch: Sie gehen an alle (nur geänderte Werte). */
   private onFauna(client: Client, m: FaunaMsg) {
     if (client.sessionId !== this.state.host || !m) return;
+    this.state.populated = true;
     const b = this.bounds;
     const A = this.state.animals, M = this.state.meats;
     const sent = num(m.t, 0);

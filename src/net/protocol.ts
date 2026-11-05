@@ -102,6 +102,8 @@ export interface SnapMsg {
 // (fauna). Alle anderen sehen dieselben Tiere als Stellvertreter. Beißen sie zu, geht der Treffer an den Ortswächter (hit);
 // beißt ein Tier einen anderen Spieler, geht der Schaden an diesen (hurt); frisst jemand vom Fleisch, erfährt es der
 // Ortswächter (eat). Geht der Ortswächter, übernimmt der nächste Spieler – mit den Tieren, wie sie gerade sind.
+// Der erste Wächter bringt eine zufällige Besuchsverteilung mit; spätere Spieler übernehmen den Serverbestand.
+// populated bewahrt dabei auch leere Bestände. Erst nach dem gemeinsamen Verlassen beginnt ein neuer Besuch.
 
 /** Ein Tier, wie es der Ortswächter meldet. */
 export interface AnimalRow {

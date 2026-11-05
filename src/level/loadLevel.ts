@@ -10,9 +10,10 @@ export function publishedMap(epoch: string, place: string): WorldMap | undefined
   return input === undefined ? undefined : parseWorldMap(input);
 }
 /** Used by both client and server. Drafts never silently replace a multiplayer map. */
-export function loadLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry): LevelData {
+export function loadLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry, encounterSalt?: string | number): LevelData {
   const map = publishedMap(ep.id, place.id);
-  if (!map) return generateLevel(ep, salt, place, edge);
+  if (!map) return generateLevel(ep, salt, place, edge, encounterSalt);
+  // Im Editor ausdrücklich gesetzte Tiere behalten ihre Plätze.
   const L = cloneMap(map.layout);
   L.authoredObjects = cloneMap(map.objects);
   L.solids.push(...objectSolids(map));

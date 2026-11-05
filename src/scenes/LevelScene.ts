@@ -374,8 +374,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const ep = this.ep;
     // Grafikspeicher: Was ab jetzt gemalt wird, gehört zu diesem Ort bzw. Zeitalter (art/texBudget.ts)
     texEnter(this, ep.id, this.place.id);
-    // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
-    const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge));
+    // Das Gelände bleibt gleich; neue Besuche bekommen eine neue Tierverteilung. Im Koop gilt anschließend der
+    // Bestand des Ortswächters für alle – ein weiterer Spieler oder Wächterwechsel würfelt ihn nicht neu aus.
+    const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge, Math.floor(Math.random() * 0x100000000)));
     this.water = L.mode === 'water';
     this.amphibious = !!L.amphibious;
     this.surfaceY = L.surfaceY;

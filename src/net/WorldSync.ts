@@ -107,6 +107,7 @@ export class WorldSync {
   private sendAt = 0;
   /** Ortswächter: wann wieder alles gemeldet wird (dazwischen nur die Tiere in der Nähe eines anderen Spielers) */
   private fullAt = 0;
+  private publishInitial = true;
   /** Gast: vorhergesagt gestorben – bis dahin nicht wieder hervorholen */
   private deadUntil = new Map<number, number>();
 
@@ -149,7 +150,7 @@ export class WorldSync {
     this.started = true;
     this.host = host;
     if (host) {
-      if (!first || this.z?.state.animals.size) this.takeOver();
+      if (!first || this.z?.state.populated || this.z?.state.animals.size) this.takeOver();
       this.sentA.clear();
       this.sentM.clear();
       this.sentP.clear();
@@ -158,6 +159,7 @@ export class WorldSync {
       this.byId.clear();
       this.sendAt = 0;
       this.fullAt = 0;
+      this.publishInitial = true;
     } else {
       this.h.dropShared();
       // die Pflanzen rechnet der Ortswächter: Bissen gehen an ihn
@@ -248,6 +250,9 @@ export class WorldSync {
     const z = this.z;
     if (!z) return;
     const a = msg.a ?? [], m = msg.m ?? [], t = msg.t;
+    // Selbst ein völlig leerer Bestand muss als initialisiert gelten, damit spätere Spieler ihn nicht neu besiedeln.
+    if (this.publishInitial && !a.length) z.fauna({ t, a: [] });
+    this.publishInitial = false;
     for (let i = 0; i < a.length; i += ROWS_PER_MSG) z.fauna({ t, a: a.slice(i, i + ROWS_PER_MSG) });
     for (let i = 0; i < m.length; i += ROWS_PER_MSG) z.fauna({ m: m.slice(i, i + ROWS_PER_MSG) });
     for (let i = 0; i < (msg.gone?.length ?? 0); i += 200) z.fauna({ gone: msg.gone!.slice(i, i + 200) });

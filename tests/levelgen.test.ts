@@ -5,6 +5,10 @@ import { STEP } from '../src/level/terrain';
 import { maxSlope } from '../src/sim/brood';
 import { placesOf } from '../src/data/world';
 import { generateLevel } from '../src/level/LevelGen';
+import { loadLevel } from '../src/level/loadLevel';
+import { faunaAffinity, nearNursery } from '../src/sim/habitat';
+import { WORLD } from '../src/data/life';
+import { TILE } from '../src/config';
 
 // Die Welt ist für alle gleich: dieselbe Saat ergibt denselben Ort – egal, wer ihn betritt und von wo.
 const ep = EPOCHS[0];
@@ -44,6 +48,46 @@ describe('Weltgenerator', () => {
   it('andere Saat – andere Welt', () => {
     const place = placesOf(ep)[1];
     expect(shape(generateLevel(ep, 'welt-a', place))).not.toEqual(shape(generateLevel(ep, 'welt-b', place)));
+  });
+});
+
+describe('Neue Begegnungen auf demselben Gelände', () => {
+  it('variiert freie Tiere pro Besuch, ohne Gelände, Nahrung, Gelege oder deren Eltern zu verschieben', () => {
+    for (const epoch of [ep, EPOCHS[epochIndex('karbon')]]) for (const place of placesOf(epoch)) {
+      const base = loadLevel(epoch, WORLD.seed, place);
+      const a = loadLevel(epoch, WORLD.seed, place, undefined, 'besuch-a');
+      const b = loadLevel(epoch, WORLD.seed, place, undefined, 'besuch-b');
+      const { spawns: original, ...fixed } = base;
+      const { spawns: first, ...fixedA } = a;
+      const { spawns: second, ...fixedB } = b;
+      expect(fixedA).toEqual(fixed);
+      expect(fixedB).toEqual(fixed);
+      expect(first.filter(s => s.guard !== undefined)).toEqual(original.filter(s => s.guard !== undefined));
+      expect(second.filter(s => s.guard !== undefined)).toEqual(original.filter(s => s.guard !== undefined));
+      if (!place.safe) expect(first).not.toEqual(second);
+      // Eine gemeinsame Besuchssaat funktioniert unabhängig davon, aus welcher Richtung die Spieler kommen.
+      const via = loadLevel(epoch, WORLD.seed, place, { side: 'left', frac: .4 }, 'besuch-a');
+      expect(via.spawns).toEqual(first);
+    }
+  });
+
+  it('verändert auch die Zusammensetzung und hält Lebensräume, Kinderstube und Schlucht über viele Besuche frei', () => {
+    const mixes = new Set<string>();
+    for (let visit = 0; visit < 24; visit++) for (const place of placesOf(ep)) {
+      const L = loadLevel(ep, WORLD.seed, place, undefined, visit);
+      const counts = new Map<string, number>();
+      for (const s of L.spawns) {
+        counts.set(s.id, (counts.get(s.id) ?? 0) + 1);
+        expect(faunaAffinity(place, SPECIES[s.id])).toBeGreaterThan(0);
+        expect(nearNursery(place, s, L.roe)).toBe(false);
+        if (L.cave) expect(s.x).toBeGreaterThan(L.cave.x + L.cave.w + 400);
+        if (L.chasm) expect(s.x < L.chasm.x0 - 4 * TILE || s.x > L.chasm.x1 + 4 * TILE).toBe(true);
+        if (s.guard !== undefined) expect(L.roe[s.guard].species).toBe(s.id);
+      }
+      if (place.waterway === 0) expect(L.spawns.length).toBeLessThanOrEqual(40);
+      if (place.id === 'garten') mixes.add(JSON.stringify([...counts].sort()));
+    }
+    expect(mixes.size).toBeGreaterThan(12);
   });
 });
 

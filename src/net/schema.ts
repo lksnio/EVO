@@ -71,6 +71,8 @@ export const ZoneState = schema(
     zone: t.string(),
     /** der Ortswächter: Sein Spiel rechnet die Tiere dieses Ortes */
     host: t.string(),
+    /** Auch ein bereits leer gefressener Ort ist ein bestehender Bestand, der beim Wächterwechsel erhalten bleibt. */
+    populated: t.boolean(),
     players: t.map(NetFish),
     /** die Tiere und das Fleisch des Ortes (Schlüssel: ihre Nummer) */
     animals: t.map(NetAnimal),

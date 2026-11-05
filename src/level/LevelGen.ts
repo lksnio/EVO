@@ -13,7 +13,8 @@ import { buildHeightfield, caveRock, flatness, flatten, groundAt, groundRects, m
 // Jedes Zeitalter hat mehrere Orte (siehe data/world.ts). Ein Ort ist ein Stück Meer, das man in
 // beide Richtungen durchstreifen kann – an seinen Rändern geht es direkt im Nachbargebiet weiter. Er wird für
 // jeden Lauf aus einer Saat erzeugt (derselbe Ort sieht beim Wiederkommen gleich aus): Gelände,
-// Pflanzen, Dickicht und Felsspalten zum Verstecken, Muscheln und die Tiere (in Herden, Räuber abseits).
+// Pflanzen, Dickicht und Felsspalten zum Verstecken, Muscheln und Gelege. Die freien Tiere können mit einer eigenen
+// Besuchssaat neu verteilt werden (in Herden, Räuber abseits), ohne den gemeinsamen Ort zu verändern.
 
 export interface Spawn {
   id: string;
@@ -327,7 +328,7 @@ function placeRoe(L: LevelData, place: PlaceDef, r: Rng, G: Ground, startCol: nu
 
 // ---------------------------------------------------------------------------
 
-function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): LevelData {
+function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encounter?: Rng): LevelData {
   const cols = Math.round(ep.len * place.wide);
   const extra = place.deep;
   // das Meer ist tief: Unten wird es dunkel, oben fällt das Licht herein
@@ -436,6 +437,14 @@ function genWater(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   // Die Kinderstube bleibt ruhig; gewöhnliche Fische leben auch im Fluss.
   placeFauna(L, ep, place, r, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
   placeRoe(L, place, r, G, startCol, arrCols, riverEndCol);
+  if (encounter) {
+    // Gelege und Eltern bleiben Teil des festen Ortes. Nur frei lebende Tiere ändern sich beim Wiederkommen.
+    // Die erste Verteilung oben verbraucht weiterhin die Weltsaat, damit Pflanzen, Gelege und Gelände gleich bleiben.
+    const guards = L.spawns.filter((s) => s.guard !== undefined);
+    L.spawns = [];
+    placeFauna(L, ep, place, encounter, G, arrCols, riverEndCol ? riverEndCol + 12 : 4);
+    L.spawns.push(...guards);
+  }
   // Am Ankunftsplatz soll man sein Tier sehen: kein Dickicht direkt dort
   L.cover = L.cover.filter((c) => (c.x > (startCol + 9) * T || c.x + c.w < (startCol - 5) * T) && arrCols.every((a) => c.x > (a + 9) * T || c.x + c.w < (a - 9) * T));
   // … und vor der großen Muschel kein Dickicht, das sie verdeckt
@@ -837,10 +846,11 @@ export interface EdgeEntry {
   frac: number;
 }
 
-/** Ein Ort dieses Zeitalters – bei jedem Lauf etwas anders, aber immer derselbe für einen Lauf. */
-export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry): LevelData {
+/** Festes Gelände aus salt; eine optionale Besuchssaat verteilt die freien Tiere unabhängig davon. */
+export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceDef, edge?: EdgeEntry, encounterSalt?: string | number): LevelData {
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
-  const L = place.sky ? genSwamp(ep, r, place, edge) : genWater(ep, r, place, edge);
+  const encounter = encounterSalt === undefined ? undefined : mulberry32(hashStr(`${ep.id}_${place.id}_fauna_${encounterSalt}`));
+  const L = place.sky ? genSwamp(ep, r, place, edge, encounter) : genWater(ep, r, place, edge, encounter);
   openWaterEdges(L);
   if (edge?.side === 'chasm' && L.chasm) L.start = { x: (L.chasm.x0 + L.chasm.x1) / 2, y: L.chasm.exitY - 280 };
   if (!edge && L.cave) {
@@ -885,7 +895,7 @@ function hillRow(h: Hill, c: number, sea: number) {
   return row;
 }
 
-function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): LevelData {
+function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encounter?: Rng): LevelData {
   const cols = Math.round(ep.len * place.wide);
   const S = place.sky ?? 9;
   const F = S + place.deep;
@@ -1024,7 +1034,7 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry): Leve
   placeShrine(L, G, startCol, shrine);
   if (L.shrine && isLand(L.shrine.x)) L.shrine.y = G.at(L.shrine.x);
   L.start = edge ? L.start : arrive(startCol, 0.5);
-  placeFaunaSwamp(L, ep, place, r, G, arrCols, isLand);
+  placeFaunaSwamp(L, ep, place, encounter ?? r, G, arrCols, isLand);
   // keine Tiere im Fels und nicht im Boden
   for (const sp of L.spawns) sp.y = Math.min(sp.y, G.at(sp.x) - 24);
   L.groundRects = groundRects(hp, rows * T);
