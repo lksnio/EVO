@@ -6,6 +6,7 @@ import { CollectionPickup } from '../objects/CollectionPickup';
 import { collectionSpot } from '../level/collectionPlacement';
 import { worldLength } from '../data/animalSize';
 import { WaterSurface } from '../art/WaterSurface';
+import { enterPlace as texEnter, settle as texSettle, textureStats } from '../art/texBudget';
 import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
 import { recordDefeat, type CombatSkill } from '../sim/evolution';
@@ -362,6 +363,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dark = false;
     game.beginLife();
     const ep = this.ep;
+    // Grafikspeicher: Was ab jetzt gemalt wird, gehört zu diesem Ort bzw. Zeitalter (art/texBudget.ts)
+    texEnter(this, ep.id, this.place.id);
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
     const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge));
     this.water = L.mode === 'water';
@@ -678,6 +681,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     bus.on('quitCancel', onQuitCancel);
     this.restoreCollections();
     this.events.on('player-dead', () => this.onDeath());
+    // Wenn der Ort steht (und die Anzeige auch): freigeben, was andere Zeitalter und länger verlassene Orte gemalt haben
+    this.time.delayedCall(400, () => {
+      const freed = texSettle(this, this.ink ? [this.ink.id] : []);
+      if (DEBUG && freed) console.info(`Grafikspeicher: ${freed} Bilder freigegeben`);
+    });
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
       bus.off('handOver', onHandOver);
@@ -2336,12 +2344,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const vis = this.animals.filter((a) => a.visitor).length;
       // links unten im Bild – auch wenn die Kamera beim Jungtier näher heranzoomt
       const z = this.cameras.main.zoom;
-      this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
+      this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 192 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
         `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.pool.length}  Laich ${game.roe.length}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
-          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
+          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}\n` +
+          this.perfLine(time),
       );
     }
   }
@@ -3182,6 +3191,22 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.look.x += (lead.x * vw - this.look.x) * k;
     this.look.y += (lead.y * vh - this.look.y) * k;
     cam.setFollowOffset(-this.look.x, -this.look.y);
+  }
+
+  /**
+   * Für die Entwickleranzeige (?debug): Bilder je Sekunde, Grafikspeicher (gemalte und geladene Bilder), Arbeitsspeicher
+   * von JavaScript (nur in Chrome) und wie viele Objekte gezeichnet werden. Wird höchstens einmal je Sekunde neu gezählt.
+   */
+  private perf = { at: 0, line: '' };
+  private perfLine(time: number) {
+    if (time - this.perf.at < 1000) return this.perf.line;
+    this.perf.at = time;
+    const tex = textureStats(this.textures);
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+    const objects = this.children.list.length + (this.scene.get('Hud')?.children.list.length ?? 0);
+    this.perf.line = `FPS ${Math.round(this.game.loop.actualFps)}  Bilder ${tex.count} (${tex.mb.toFixed(0)} MB)` +
+      (mem ? `  JS ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : '') + `  Objekte ${objects}`;
+    return this.perf.line;
   }
 
   /** Das Wetter, wie es zur Weltzeit sein soll (oder wie es ?weather=… festlegt – siehe forcedWeather). */

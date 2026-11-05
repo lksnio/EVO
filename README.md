@@ -536,6 +536,26 @@ Böen. Erst ziehen Wolken auf, dann setzt der Regen ein; am Ende ziehen die Wolk
 Zum Ausprobieren: `?weather=rain`, `?weather=clouds` oder `?weather=clear` legt das Wetter fest; `?weather=demo` zeigt
 einen ganzen Regen im Zeitraffer (70 Sekunden).
 
+## Grafikspeicher
+
+Fast alle Bilder werden zur Laufzeit gemalt und bleiben danach als Textur liegen. Damit der Speicher über viele Orte und
+Zeitalter nicht immer weiter wächst, bekommt jedes gemalte Bild einen Besitzer (`src/art/texBudget.ts`, Regeln in
+`src/art/texRules.ts`): das Zeitalter, in dem es entstand, oder – bei großen ortsgebundenen Bildern wie Hintergründen,
+trübem Wasser und Schluchtschatten – den Ort. Kurz nachdem ein Ort steht, wird freigegeben:
+
+- alles, was andere Zeitalter gemalt haben,
+- ortsgebundene Bilder von Orten, die länger zurückliegen als die letzten zwei (wer hin- und herschwimmt, findet sie noch vor).
+
+Nie freigegeben wird, was gerade irgendwo zu sehen ist oder in einer laufenden Animation steckt – samt allen Bildern mit
+demselben Namensstamm (Bewegungsphasen, Teile eines Fisches) –, was schon vor dem ersten Ort da war (Titel,
+Grundausstattung) und geladene Bilddateien. Freigegebenes wird bei Bedarf neu gemalt; Animationen, die darauf zeigten,
+entstehen mit. Gemessen: Devon → Karbon gibt rund 75 MB frei (≈ 205 → 129 MB); zurück im Devon wird neu gemalt.
+
+Im Koop gilt das je Rechner: Jeder zeichnet und berechnet nur den Ort seines eigenen Tiers.
+
+Mit `?debug` zeigt die Entwickleranzeige unten links zusätzlich Bilder je Sekunde, Zahl und Größe aller Bilder, den
+JavaScript-Speicher (Chrome) und die Zahl der Objekte. `?keeptex` schaltet das Freigeben zum Vergleichen ab.
+
 Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsächlichen unteren Kartenrand hinaus. Dort wechselt man mit erhaltener Schwimmgeschwindigkeit ins Tiefental; eine einmalige Aufnahme des vorherigen Bildes gleitet beim Überblenden nach oben. Der Rückweg nach oben funktioniert entsprechend. Generator, importierte Karten und Weltbaukasten verwenden dieselbe Randgeometrie (`src/level/waterBounds.ts`).
 
 ## So spielt sich EVO
@@ -1330,6 +1350,7 @@ src/
 ├── audio/OceanScore.ts  die Musik des Ozeans: ruhiges, zusammenhängendes Klavierstück; in der Tiefe dunkler und eine Oktave tiefer
 ├── audio/RagaScore.ts   die Musik des Laichflusses: Alapana in Neelambari (Tanpura, Flöte mit Gamakas, tiefes Klavier)
 ├── sim/weather.ts       das Wetter nach der Weltzeit: Wolken, Regen, Seegang und Licht
+├── art/texBudget.ts     Grafikspeicher: gemalte Bilder je Zeitalter bzw. Ort freigeben, sichtbare schützen
 ├── sim/swell.ts         der Seegang: Oberfläche, Licht und Strömung aus denselben Wellen
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
