@@ -9,6 +9,9 @@ Flossen und Köpfe für insgesamt 48 erreichbare Formen. Die PNG-Master liegen i
 in `starterRegistration.json`. Die Stufen und Vererbungsregeln stehen in `src/sim/starterFish.ts`.
 Weitere Hinweise und die Vorschau aller Formen stehen in `src/assets/fish/starter/README.md`.
 
+[EVO_startfish_bite_tier1_v2](EVO_startfish_bite_tier1_v2/README.md) enthält die überarbeitete
+erste Gebissform sowie Spielaufnahmen der ruhigeren Körperanimation und der C-Übersicht.
+
 ## Gemalte Lagune im Laichfluss
 
 [EVO_nursery_cliff_v3](EVO_nursery_cliff_v3/README.md) enthält die zusammenhängende Klippe am

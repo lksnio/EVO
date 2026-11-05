@@ -285,7 +285,7 @@ export class Overview {
   }
 
   update(dt: number) {
-    this.portrait.animate(dt, this.portrait.L.land ? 'idle' : 'swim', 0.22);
+    this.portrait.animate(dt, 'idle', 0);
   }
 
   destroy() {

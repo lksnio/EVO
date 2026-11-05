@@ -1,0 +1,23 @@
+{
+  "forms": {
+    "count": 48,
+    "maxCoreLengthError": 1.4210854715202004e-14,
+    "tailMoves": 48,
+    "finMoves": 48,
+    "eyesAttached": true,
+    "finite": true,
+    "stableTextures": true,
+    "sameFinMask": true
+  },
+  "inGameSwim": true,
+  "overview": {
+    "frames": 50,
+    "modes": [
+      "idle:0"
+    ],
+    "maxCoreLengthError": 1.4210854715202004e-14,
+    "tailMovement": 0.7877222778322666,
+    "form": 1
+  },
+  "errors": []
+}

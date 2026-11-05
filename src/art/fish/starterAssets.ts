@@ -6,6 +6,8 @@ export interface StarterRegistration {
   id: string; state: number[]; source: string; width: number; height: number; bounds: number[];
   eye: number[]; hinge: number[]; mouth: number[][]; skin: number;
   teeth: { box: number[]; polygon: number[][]; upper: boolean }[];
+  /** Optional fixed attack rectangle in local world units when a painting's jaw is revised. */
+  bite?: number[];
 }
 const painted=registration as StarterRegistration[];
 export function starterSourceForm(form:number) {

@@ -6,6 +6,7 @@ import { newCanvas } from '../../util/canvas';
 import { Grid, type FishPose, type Box } from './rig';
 import { starterGeometry } from './starterLayout';
 import { starterBodyTexture, starterJawTexture, starterTexture, type StarterRegistration, starterSourceForm, starterFinForm } from './starterAssets';
+import { starterPoint, type StarterMotionGeometry, type StarterMotionPose } from './starterMotion';
 
 interface CutArt { body:string; jaw:string; jawBox:Box }
 const cuts = new WeakMap<Phaser.Textures.TextureManager, Map<number,CutArt>>();
@@ -119,13 +120,13 @@ export class StarterFishRig {
   readonly lid:Phaser.GameObjects.Graphics;
   private cavity:Phaser.GameObjects.Graphics;
   private body?:Grid;
+  private finWeights?:Float32Array;
   private jaw?:Grid;
   private bodyImage?:Phaser.GameObjects.Image;
   private jawImage?:Phaser.GameObjects.Image;
   private art:CutArt;
   private r:StarterRegistration;
   private width:number;
-  private height:number;
   private phase=Math.random()*6;
   private speed=0;
   private closed=0;
@@ -136,14 +137,32 @@ export class StarterFishRig {
   private lunge=0;
   private opening=0;
   private still=0;
+  private geometry:StarterMotionGeometry;
+  private motion:StarterMotionPose={phase:0,speed:0,still:0,pitch:0,bob:0,lunge:0,opening:0};
   constructor(private scene:Phaser.Scene,readonly morph:Morph) {
-    const {r,width,height}=starterGeometry(morph.fishForm??0);this.r=r;this.width=width;this.height=height;
+    const {r,width,height}=starterGeometry(morph.fishForm??0);this.r=r;this.width=width;
+    this.geometry={width,height,hinge:r.hinge};
     const source=cutArt(scene,morph.fishForm??0,r);
     this.art={...source,body:colored(scene,source.body,morph,r),jaw:colored(scene,source.jaw,morph,r,source.jawBox)};
     this.cavity=new Phaser.GameObjects.Graphics(scene);this.lid=new Phaser.GameObjects.Graphics(scene);
     this.parts.push(this.cavity);
     if(scene.sys.game.renderer.type===Phaser.WEBGL){
       this.body=new Grid(scene,this.art.body,{x0:0,x1:1,y0:0,y1:1},32,18);
+      // Read the original ivory fin rays once. Colour upgrades must not change which parts move.
+      const canvas=scene.textures.get(source.body).getSourceImage() as HTMLCanvasElement;
+      const pixels=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;
+      const radius=Math.max(2,Math.round(canvas.width*.009));
+      this.finWeights=new Float32Array(this.body.vx.length);
+      for(let k=0;k<this.finWeights.length;k++){
+        const x=Math.round(this.body.vx[k]*(canvas.width-1)),y=Math.round(this.body.vy[k]*(canvas.height-1));
+        let warmth=0;
+        for(const dx of [-radius,0,radius])for(const dy of [-radius,0,radius]){
+          const px=clamp(x+dx,0,canvas.width-1),py=clamp(y+dy,0,canvas.height-1),i=(py*canvas.width+px)*4;
+          if(pixels[i+3]<64)continue;
+          warmth=Math.max(warmth,clamp((pixels[i]-pixels[i+2]+12)/28,0,1)*clamp((pixels[i+1]-pixels[i+2]+8)/20,0,1));
+        }
+        this.finWeights[k]=smooth(.45,.85,warmth);
+      }
       this.jaw=new Grid(scene,this.art.jaw,this.art.jawBox,12,6);
       this.body.mesh.setSize(width*morph.size,height*morph.size);
       this.jaw.mesh.setSize(width*morph.size,height*morph.size);
@@ -159,27 +178,9 @@ export class StarterFishRig {
     this.parts.push(this.lid);
     this.pose({t:0,dt:0,speed01:0,mode:'idle',open:0,lunge:0,clench:0,grind:0,coil:0,dip:0,pitch:0,still:0,crawlPhase:0});
   }
-  private map(u:number,v:number,jaw=false) {
-    const s=this.morph.size,px=(.74-.55)*this.width,py=0;
-    let x=(u-.55)*this.width,y=(v-.54)*this.height;
-    if(jaw){
-      const hx=(this.r.hinge[0]-.55)*this.width,hy=(this.r.hinge[1]-.54)*this.height;
-      const dx=x-hx,dy=y-hy,c=Math.cos(this.opening),n=Math.sin(this.opening);
-      x=hx+dx*c-dy*n;y=hy+dx*n+dy*c;
-    }
-    const head=this.body?smooth(.62,.77,u):1;
-    const angle=this.pitch*head,c=Math.cos(angle),n=Math.sin(angle),dx=x-px,dy=y-py;
-    x=px+dx*c-dy*n+this.lunge*head;
-    y=py+dx*n+dy*c;
-    if(this.body){
-      const tail=Math.pow(clamp((.74-u)/.7,0,1),2.2);
-      y+=Math.sin(this.phase-(.74-u)*6)*(1.2+this.speed*6)*tail*(1-.85*this.still);
-      const dorsal=1-smooth(.25,.35,v),ventral=smooth(.62,.9,v);
-      const fin=(dorsal+ventral)*(1-smooth(.76,.84,u))*smooth(.2,.4,u);
-      x+=Math.sin(this.phase*.75-u*4)*fin*.8;
-      y+=Math.sin(this.phase*.85-u*4)*fin*1.2*(1-.85*this.still);
-    }
-    return {x:x*s,y:(y+this.bob)*s,rot:angle};
+  private map(u:number,v:number,jaw=false,finWeight=0) {
+    const q=starterPoint(u,v,this.geometry,this.motion,jaw,finWeight);
+    q.x*=this.morph.size;q.y*=this.morph.size;return q;
   }
   eyes(closed:number,attack:number){this.closed=clamp(closed,0,1);this.attack=clamp(attack,0,1);this.drawEyes();}
   private drawEyes(){
@@ -196,18 +197,20 @@ export class StarterFishRig {
   pose(p:FishPose){
     this.speed+=(clamp(p.speed01,0,1.5)-this.speed)*Math.min(1,p.dt*5);
     this.phase+=p.dt*(p.mode==='idle'?2.4:5+this.speed*8);
-    this.still=p.still;this.pitch=p.pitch+Math.sin(this.phase*.5)*.018*(1-p.still)+p.dip*.07;
-    this.bob=Math.sin(p.t*2.2)*.35*(1-p.still);
+    this.still=p.still;this.pitch=p.pitch+Math.sin(this.phase*.5)*.005*(1-p.still)+p.dip*.04;
+    this.bob=Math.sin(p.t*2.2)*.1*(1-p.still);
     this.lunge=p.lunge*2.5;
     this.opening=clamp(p.open,0,1)*(.42-.035*this.r.state[0]);
+    this.motion.phase=this.phase;this.motion.speed=this.speed;this.motion.still=this.still;this.motion.pitch=this.pitch;
+    this.motion.bob=this.bob;this.motion.lunge=this.lunge;this.motion.opening=this.opening;
     for(const [grid,jaw] of [[this.body,false],[this.jaw,true]] as const)if(grid){
       for(let j=0;j<=grid.rows;j++)for(let i=0;i<=grid.cols;i++){
-        const k=j*(grid.cols+1)+i,q=this.map(grid.vx[k],grid.vy[k],jaw);grid.set(i,j,q.x,q.y);
+        const k=j*(grid.cols+1)+i,q=this.map(grid.vx[k],grid.vy[k],jaw,jaw?0:this.finWeights?.[k]);grid.set(i,j,q.x,q.y);
       }
     }
     if(this.bodyImage){
-      const px=(.74-.55)*this.width,s=this.morph.size;
-      this.bodyImage.setPosition((px*(1-Math.cos(this.pitch))+this.lunge)*s,(this.bob-px*Math.sin(this.pitch))*s).setRotation(this.pitch);
+      const s=this.morph.size;
+      this.bodyImage.setPosition(this.lunge*s,this.bob*s).setRotation(this.pitch);
       const h=this.map(this.r.hinge[0],this.r.hinge[1]);
       this.jawImage!.setPosition(h.x,h.y).setRotation(this.pitch+this.opening);
     }
@@ -215,8 +218,9 @@ export class StarterFishRig {
     if(this.opening>.003){
       this.cavity.fillStyle(0x0b111b,1);this.cavity.beginPath();
       const line=this.r.mouth;
-      line.forEach(([u,v],i)=>{const q=this.map(u,v);if(i)this.cavity.lineTo(q.x,q.y);else this.cavity.moveTo(q.x,q.y);});
-      for(let i=line.length-1;i>=0;i--){const q=this.map(line[i][0],line[i][1],true);this.cavity.lineTo(q.x,q.y);}
+      // The terminal point extends the clipping mask beyond the lips, not the visible mouth interior.
+      for(let i=0;i<line.length-1;i++){const q=this.map(line[i][0],line[i][1]);if(i)this.cavity.lineTo(q.x,q.y);else this.cavity.moveTo(q.x,q.y);}
+      for(let i=line.length-2;i>=0;i--){const q=this.map(line[i][0],line[i][1],true);this.cavity.lineTo(q.x,q.y);}
       this.cavity.closePath();this.cavity.fillPath();
     }
     this.drawEyes();

@@ -6,11 +6,21 @@ import { game, newStyle, packTraits } from '../src/state/GameState';
 import { ADULT } from '../src/sim/life';
 import { morphKey, quantize } from '../src/art/creatureArt';
 import { STARTER_REGISTRATION } from '../src/art/fish/starterAssets';
+import { starterLayout } from '../src/art/fish/starterLayout';
 
 vi.mock('phaser', () => ({ default: {} }));
 beforeEach(() => { game.resetAll(); game.newRun(); });
 
 describe('Die 48 erreichbaren Startfischformen', () => {
+  it('behält nach der Gebiss-1-Zeichnung dieselbe Trefferfläche und Bissreichweite', () => {
+    const morph=game.morph({traits:{...game.traits,biteGain:15,fishForm:1},life:ADULT});
+    const layout=starterLayout(morph),s=morph.size;
+    expect(layout.halfW/s).toBe(33);expect(layout.topY/s).toBe(-16);expect(layout.footY/s).toBe(16);
+    expect(layout.bite.x/s).toBeCloseTo(24.277593502083146,10);
+    expect(layout.bite.y/s).toBeCloseTo(-1.8123171481366995,10);
+    expect(layout.bite.w/s).toBeCloseTo(30.861453678921986,10);
+    expect(layout.bite.h/s).toBe(20);
+  });
   it('hat genau 48 eindeutige Zustände und die passenden transparenten Laufzeitbilder', () => {
     expect(new Set(STARTER_FORMS.map(s => s.join(','))).size).toBe(48);
     expect(STARTER_REGISTRATION).toHaveLength(48);
