@@ -1,5 +1,7 @@
 # Laichfluss: ruhige Kulisse im Spielstil
 
+Frühere Designfassung. Die räumlich getrennte Unterwasserklippe und Baumküste sind inzwischen durch die zusammenhängende [Klippe mit fernem Land in Version 3](../EVO_nursery_cliff_v3/README.md) ersetzt. Die folgenden Angaben und Aufnahmen dokumentieren Version 2.
+
 Die zweite Fassung ersetzt den detaillierten, goldgrünen Illustrationshintergrund durch eine schlichte blaugrüne Felskulisse. Die vorhandenen Stein- und Höhlenbilder dienten als Stilreferenzen: große Felsflächen, erkennbare Konturen und wenige Farbstufen. Der offene Schwimmraum bleibt ruhig; Fossilien, Korallenbeete und ausgearbeitete Lichtstrahlen sind aus der Hintergrundmalerei entfernt.
 
 Die entfernte Küste besteht aus kleinen, locker verteilten Gruppen früher baumartiger Pflanzen, in derselben gedämpften Farbwelt. Die Bäume sind etwa 100 Weltpixel hoch. Ihre Küstenlinie wird anhand der gemalten Grundlinie registriert, unabhängig vom transparenten Rand der Leinwand. Die Wellen liegen davor.

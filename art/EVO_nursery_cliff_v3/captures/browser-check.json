@@ -1,0 +1,43 @@
+{
+  "report": {
+    "webgl": true,
+    "waterMoves": true,
+    "stableTextures": true,
+    "stableObjects": true,
+    "layers": {
+      "water": 2,
+      "coast": 1,
+      "cliff": 2
+    },
+    "cliffRegistered": true,
+    "cliffCrossesSurface": true,
+    "landmarkFixed": true,
+    "singleFarShore": true,
+    "distantTrees": true,
+    "noWaterStripe": true,
+    "world": {
+      "width": 6480,
+      "height": 1360,
+      "cave": {
+        "x": 120,
+        "y": 528,
+        "w": 420,
+        "h": 152
+      },
+      "coastWidth": 2085.0823529411764,
+      "cliffScale": 1.1
+    },
+    "sameGeometry": true,
+    "quietFloor": true,
+    "noExtraEffects": true,
+    "currentOnly": true,
+    "paintedTextureMiB": 19.5
+  },
+  "cleanup": {
+    "released": true,
+    "count": 10
+  },
+  "otherPlaceUntouched": true,
+  "reentered": true,
+  "errors": []
+}

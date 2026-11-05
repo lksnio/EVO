@@ -11,11 +11,12 @@ Weitere Hinweise und die Vorschau aller Formen stehen in `src/assets/fish/starte
 
 ## Gemalte Lagune im Laichfluss
 
-[EVO_nursery_lagoon_v2](EVO_nursery_lagoon_v2/README.md) enthält die ruhige Unterwasserklippe
-und eine entfernte frühe Baumküste im Zeichenstil der Spielobjekte. Die Landschaftsebenen haben
-unterschiedliche Parallaxe; vorhandene Wellen und Wasserlichteffekte bringen Bewegung ins Bild.
-Originale, WebGL-Aufnahmen und der Browser-Prüfbericht liegen im Paket. Die detailliertere erste
-Fassung bleibt unter `EVO_nursery_lagoon_v1` als frühere Designfassung erhalten.
+[EVO_nursery_cliff_v3](EVO_nursery_cliff_v3/README.md) enthält die zusammenhängende Klippe am
+linken Ufer, die über und unter Wasser weiterläuft. Die entfernte Küste trägt wenige einzeln
+gesetzte Bäume; ihre Größe bleibt unabhängig von der Breite des Horizonts. Die nahe Klippe ist
+an der Welt verankert, während das ferne Land eine langsame Parallaxe hat. Originale,
+WebGL-Aufnahmen und der Browser-Prüfbericht liegen im Paket. Versionen 1 und 2 bleiben als
+frühere Designfassungen erhalten.
 
 ## Frühere Vorlagen
 
