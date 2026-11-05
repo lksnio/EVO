@@ -6,10 +6,13 @@ import { CollectionPickup } from '../objects/CollectionPickup';
 import { collectionSpot } from '../level/collectionPlacement';
 import { worldLength } from '../data/animalSize';
 import { WaterSurface } from '../art/WaterSurface';
+import { enterPlace as texEnter, settle as texSettle, textureStats } from '../art/texBudget';
 import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
 import { recordDefeat, type CombatSkill } from '../sim/evolution';
-import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM } from '../config';
+import { W, H, DEPTH, GRAVITY, DEBUG, TILE, LEVEL_ZOOM, PLAY_VIEW, CAMERA } from '../config';
+import { frameZoom, leadOf } from '../sim/camera';
+import { lean, swellAt } from '../sim/swell';
 import { audio } from '../audio/Audio';
 import { bus, FOOD, game, kcalOf, meatChunks, meatOf, newStyle, type Clutch, type Member, type PlayStyle } from '../state/GameState';
 import type { RoeData } from './RoeScene';
@@ -19,7 +22,8 @@ import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs'
 import { SPECIES, type SpeciesDef } from '../data/species';
 import { edgeNeighbor, placeOf, placesOf, type PlaceDef } from '../data/world';
 import { FLOW, INHERIT, LIFE, MISC, RAM, WORLD } from '../data/life';
-import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
+import { diesOfAge, phases, STAGE_NAME, stageOf, worldSeconds, worldYears, type Stage } from '../sim/life';
+import { forcedWeather, stormSwell, weatherAt, type Weather } from '../sim/weather';
 import { type LevelData, type Zone } from '../level/LevelGen';
 import { loadLevel } from '../level/loadLevel';
 import { chasmArt } from '../art/chasmArt';
@@ -70,10 +74,10 @@ const DUST: Record<Theme, number> = { ozean: 0xcfe0dc, sumpf: 0x5a4a32, reptil: 
 const QUIT_SECONDS = 5;
 const Z = LEVEL_ZOOM;
 const VW = W / Z, VH = H / Z, VX = (W - VW) / 2, VY = (H - VH) / 2;
-/** So viel näher ist die Kamera beim frisch geschlüpften Jungtier (mit dem Wachsen zieht sie zurück) */
-const GROW_ZOOM = 0.45;
+/** Zoom des früheren Bildes, an dem Größen in der Welt gemessen sind (Dunkelheit, Sicht – siehe PLAY_VIEW) */
+const Z0 = W / PLAY_VIEW.w;
 /** Beim Einschlafen und Aufwachen kommt die Kamera so viel näher heran */
-const WAKE_ZOOM = 3;
+const WAKE_ZOOM = 2.2;
 
 /** Daten für den Einschnitt zwischen zwei Leben (GenerationScene). */
 export interface SuccessionData {
@@ -123,6 +127,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private dark = false;
   /** beim Aufwachen ist die Kamera ganz nah am Tier (so sieht man die Augen) und zieht dann langsam zurück */
   private near = { k: 1 };
+  /** das Wetter über dem Meer (sim/weather.ts): wie zugezogen und wie stark es regnet – folgt der Weltzeit weich */
+  private weather: Weather = { cloud: 0, rain: 0 };
+  private weatherOn = false;
+  /** unter Wolken wird das ganze Bild etwas dunkler */
+  private weatherShade?: Phaser.GameObjects.Rectangle;
+  /** der Zoom nach der Größe des Tiers (folgt ihr weich, siehe cameraStep) */
+  private frameZ = 0;
+  /** wohin die Kamera gerade vorausschaut (Bildpunkte der Welt, folgt weich) */
+  private look = { x: 0, y: 0 };
   /** Laichen im Laichfluss */
   spawning?: SpawnCtl;
   /** Mehrspieler: die anderen Spieler an diesem Ort (solange ein Server erreichbar ist) */
@@ -139,6 +152,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private lava: Phaser.GameObjects.TileSprite[] = [];
   private shots: PImg[] = [];
   private bgFar!: Phaser.GameObjects.TileSprite;
+  /** Rand des Bildes (bildschirmfest, folgt dem Zoom – siehe screenLayers) */
+  private vignette?: Phaser.GameObjects.Image;
   private bgMid!: Phaser.GameObjects.TileSprite;
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
@@ -337,6 +352,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dreadAt = -1e9;
     this.flows = [];
     this.near = { k: 1 };
+    this.frameZ = 0;
+    this.look = { x: 0, y: 0 };
+    this.weather = { cloud: 0, rain: 0 };
+    this.weatherOn = false;
+    this.weatherShade = undefined;
     this.train = { ...newStyle(), ...prog.train, hab: { ...prog.train.hab }, best: { ...prog.train.best } };
     this.lastBitten = null;
     this.ink = undefined;
@@ -350,6 +370,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.dark = false;
     if(!waiting)game.beginLife();
     const ep = this.ep;
+    // Grafikspeicher: Was ab jetzt gemalt wird, gehört zu diesem Ort bzw. Zeitalter (art/texBudget.ts)
+    texEnter(this, ep.id, this.place.id);
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
     const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge));
     this.water = L.mode === 'water';
@@ -395,6 +417,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     this.buildDecor();
     this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink && new URLSearchParams(location.search).has('oldwater') ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss', ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) : undefined;
+    if (this.drift) this.drift.swell = swellAt(this.place.kind);
     if (this.amphibious) this.swampWater();
     // (keine Wasseroberfläche mehr: Nach oben ist es zu – das Wasser geht dort weiter)
     plantTextures(this, L.theme);
@@ -537,17 +560,17 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }).setDepth(DEPTH.fx);
     this.ambient();
     if (L.variant !== 'normal') {
-      this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z).setDepth(DEPTH.dark);
+      this.darkness = this.add.image(0, 0, 'darkness').setScale((L.variant === 'dark' ? 3.4 : 4.2) / Z0).setDepth(DEPTH.dark);
     }
     // in der Tiefe wird es dunkel – unter Wasser übernimmt das die Sicht (sie wird dort enger und dunkler, siehe sightStep)
     if ((this.place.kind === 'deep' || this.place.kind === 'abyss') && !this.water) {
-      this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z);
+      this.deepDark = this.add.image(0, 0, 'deepdark').setDepth(DEPTH.dark).setAlpha(0).setScale(5 / Z0);
     }
     // Sicht: Unter Wasser sieht man vor allem nach vorn – überall sonst ist nur Wasser (über den Tieren und dem Dickicht,
     // unter den Schattenrissen ganz vorn)
     this.sight = this.water && !this.amphibious
-      ? new Sight(this, this.ink ? inkMurk(this, this.ink.id, 1) : murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, VW / 2, this.ink ? 0x07101c : 0x000000, this.ink ? 0.6 : 1) : undefined;
-    this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.ink ? 0.36 : this.place.kind === 'start' ? 0.32 : 0.55);
+      ? new Sight(this, this.ink ? inkMurk(this, this.ink.id, 1) : murkTexture(this, L.theme, L.variant, 1, this.place.kind === 'start'), DEPTH.cover + 1, PLAY_VIEW.w / 2, this.ink ? 0x07101c : 0x000000, this.ink ? 0.6 : 1) : undefined;
+    this.vignette = this.add.image(W / 2, H / 2, 'vignette').setScrollFactor(0).setDisplaySize(VW, VH).setDepth(DEPTH.dark + 1).setAlpha(this.ink ? 0.36 : this.place.kind === 'start' ? 0.32 : 0.55);
     // sauberes Wasser im Startgebiet: ein Hauch kühles, helles Blau über allem
     if (this.place.kind === 'start' && this.water && !this.amphibious && !this.ink) {
       this.add.rectangle(VX, VY, VW, VH, 0x7fd6e6, 0.08).setOrigin(0).setScrollFactor(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.decoFront + 1.5);
@@ -556,9 +579,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.veil = this.add.rectangle(VX, VY, VW, VH, 0x000000, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2);
     // Ein Riese naht: das Bild wird dunkler und kälter
     this.dread = this.add.rectangle(VX, VY, VW, VH, 0x02081a, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 3);
+    // Wetter: im Meer des Devons ziehen ab und zu Regen und Wolken durch (für alle Spieler zur selben Weltzeit)
+    this.weatherOn = ep.id === 'devon' && this.water && !this.amphibious;
+    if (this.weatherOn) {
+      this.weather = this.weatherTarget();
+      this.weatherShade = this.add.rectangle(VX, VY, VW, VH, 0x0a1620, 1).setAlpha(0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2.5);
+    }
+    // ohne Wetter (an Land, in anderen Zeitaltern) verstummt auch der Regen
+    else audio.rain(0);
 
     // Kamera: etwas herausgezoomt; an Land reicht der Blick auch über den oberen Levelrand in den Himmel
     const cam = this.cameras.main;
+    this.frameZ = frameZoom(this.player.rect.width);
     cam.setZoom(this.camZoom);
     const bottom = L.chasm ? L.chasm.exitY + 700 : this.water ? L.height : L.height - 70;
     const sky = skyAbove(ep, this.place, L);
@@ -566,6 +598,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.setBounds(0, top, L.width, bottom - top);
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
+    // nach allen Bewegungen des Bildes (auch den Kino-Momenten der Kamera) die fernen Ebenen dem Zoom anpassen
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.screenLayers, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.screenLayers, this));
+    this.screenLayers();
 
     if(waiting){this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;this.time.delayedCall(0,()=>this.beginWatching(game.run?.waitCause??'Kein Laich'));}
     else this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
@@ -574,7 +610,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.waterTravel = undefined;
       this.player.body.setVelocity(travel.vx, travel.vy);
       cam.centerOn(this.player.x, this.player.y);
-      const shot = this.add.image(VW / 2, VH / 2, travel.key).setScrollFactor(0).setDepth(1000).setDisplaySize(VW / cam.zoom, VH / cam.zoom);
+      // das letzte Bild des alten Ortes, bildschirmfüllend und 1:1 – bei jedem Zoom
+      const shot = this.add.image(W / 2, H / 2, travel.key).setScrollFactor(0).setDepth(1000).setDisplaySize(W / cam.zoom, H / cam.zoom);
       const release = () => { shot.destroy(); if (this.textures.exists(travel.key)) this.textures.remove(travel.key); };
       this.events.once('shutdown', release);
       this.tweens.add({ targets: shot, y: shot.y - travel.direction * 120 / cam.zoom, alpha: 0, duration: 650, ease: 'Sine.out', onComplete: () => { this.events.off('shutdown', release); release(); } });
@@ -608,7 +645,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       bus.off('speciesAdvanced', onAdvanced);
       bus.off('speciesOver', onOver);
     });
-    audio.music(ep.music);
+    audio.music(this.musicName);
     // Im Wasser rauscht leise das Meer.
     audio.musicLevel(1, 0.3);
     audio.sea(this.water ? 0.08 : 0, 2);
@@ -652,6 +689,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     bus.on('quitCancel', onQuitCancel);
     this.restoreCollections();
     this.events.on('player-dead', () => this.onDeath());
+    // Wenn der Ort steht (und die Anzeige auch): freigeben, was andere Zeitalter und länger verlassene Orte gemalt haben
+    this.time.delayedCall(400, () => {
+      const freed = texSettle(this, this.ink ? [this.ink.id] : []);
+      if (DEBUG && freed) console.info(`Grafikspeicher: ${freed} Bilder freigegeben`);
+    });
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
       bus.off('handOver', onHandOver);
@@ -926,7 +968,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private surfaceLight() {
     const L = this.L;
     if (this.ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) {
-      this.waterAtmosphere = new WaterAtmosphere(this, L);
+      this.waterAtmosphere = new WaterAtmosphere(this, L, swellAt(this.place.kind));
       return;
     }
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
@@ -1240,7 +1282,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const c of this.caustics) c.s.setAlpha(c.a * this.zoneLight);
     // Pflanzen wiegen sich (nur die sichtbaren)
     const t = time / 1000;
-    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp);
+    // … und unter Wasser zusätzlich alle gemeinsam mit dem Seegang: Eine Welle läuft sichtbar durch den Bewuchs
+    const sy = this.L.surfaceY, sea = this.water && !this.amphibious;
+    const storm = stormSwell(this.weather);
+    for (const w of this.swayList) if (w.o.visible) w.o.setAngle(Math.sin(t * w.sp + w.ph) * w.amp + (sea ? lean(w.o.x, w.o.y, sy, t, storm) : 0));
   }
 
   /** Gemeinsame Werte für Artgenossen bestehender Gruppen. */
@@ -1625,11 +1670,14 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private views(): { x: number; y: number; right: number; bottom: number }[] {
     const v = this.cameras.main.worldView;
+    // für die Spielregeln zählt wenigstens das frühere, weitere Bild (PLAY_VIEW): Die nahe Kamera lässt Beute nicht
+    // schneller entkommen und Tiere nicht näher auftauchen
+    const hw0 = Math.max(v.width, PLAY_VIEW.w) / 2, hh0 = Math.max(v.height, PLAY_VIEW.h) / 2;
+    const out = [{ x: v.centerX - hw0, y: v.centerY - hh0, right: v.centerX + hw0, bottom: v.centerY + hh0 }];
     const ts = this.net?.world.targets;
-    if (!ts || !ts.size) return [v];
-    const out = [{ x: v.x, y: v.y, right: v.right, bottom: v.bottom }];
+    if (!ts || !ts.size) return out;
     // Die Kamera des anderen kann weiter herausgezoomt sein; zusätzlich Platz für Bewegung während der Netzverzögerung.
-    const hw = Math.max(v.width, VW) / 2 + 900, hh = Math.max(v.height, VH) / 2 + 900;
+    const hw = Math.max(v.width, PLAY_VIEW.w) / 2 + 900, hh = Math.max(v.height, PLAY_VIEW.h) / 2 + 900;
     for (const t of ts.values()) if (!t.dead) out.push({ x: t.x - hw, y: t.y - hh, right: t.x + hw, bottom: t.y + hh });
     return out;
   }
@@ -1987,8 +2035,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (v < 1) return;
     // dezent: klein, gedämpfte Farben, steigt kurz auf und vergeht
     const col = kind === 'meat' ? '#e0806c' : kind === 'toxic' ? '#b49ad0' : kind === 'roe' ? '#e8c890' : '#a8d088';
-    const t = text(this, x, y, `+${v}`, Math.round(19 / Z), col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
-      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0).setName('food-gain');
+    // gleich groß und scharf auf dem Bildschirm, egal wie nah die Kamera ist
+    const t = text(this, x, y, `+${v}`, 19, col, { fontStyle: '600', stroke: '#0a0605', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(DEPTH.text).setAlpha(0).setName('food-gain').setScale(1 / this.cameras.main.zoom);
     this.tweens.add({ targets: t, alpha: 0.8, duration: 200 });
     this.tweens.add({ targets: t, y: y - 40, duration: 1300, ease: 'Sine.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 800, duration: 500, onComplete: () => t.destroy() });
@@ -2194,6 +2243,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.ended && time > this.shrineReadyAt) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
+    this.cameraStep(dt);
     this.shrineStep(time, dt);
     this.chasmStep();
     this.quitStep(dt);
@@ -2250,8 +2300,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
     this.backSea?.update(time, dt, this.deepK, quiet);
     this.drift?.update(time, dt);
-    this.waterAtmosphere?.update(time, dt);
-    this.waterSurface?.update(time);
+    this.weatherStep(dt);
+    this.waterAtmosphere?.update(time, dt, this.weather);
+    this.waterSurface?.update(time, this.weather);
     this.reefScenery?.update(time, dt, p);
     this.mapScenery?.update(p);
     if (!p.dead && !this.ended) this.siltStep(time);
@@ -2302,12 +2353,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const vis = this.animals.filter((a) => a.visitor).length;
       // links unten im Bild – auch wenn die Kamera beim Jungtier näher heranzoomt
       const z = this.cameras.main.zoom;
-      this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 175 - H / 2) / z).setScale(1 / z);
+      this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 192 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
         `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.pool.length}  Laich ${game.roe.length}\n` +
           `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
           `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
-          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}`,
+          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}\n` +
+          this.perfLine(time),
       );
     }
   }
@@ -2356,7 +2408,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (p.x > L.width - 1100) fromLeft = true;
     const dir = fromLeft ? 1 : -1;
     const riverMin = this.place.waterway === 0 ? (L.riverEnd ?? 0) + 300 : 0;
-    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const spawnAway = Math.max(1000, Math.max(this.cameras.main.worldView.width, PLAY_VIEW.w) / 2 + 450);
     const sx = clamp(p.x - dir * spawnAway, Math.max(50, riverMin), L.width - 50);
     const endX = clamp(p.x + dir * 1600, Math.max(40, riverMin), L.width - 40);
     if (def.boss || def.role === 'apex') this.warnGiant({ x: sx, y: p.y });
@@ -2409,7 +2461,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!pool.length) return;
     const L = this.L;
     const side = Math.random() < 0.5 ? -1 : 1;
-    const spawnAway = Math.max(1000, this.cameras.main.worldView.width / 2 + 450);
+    const spawnAway = Math.max(1000, Math.max(this.cameras.main.worldView.width, PLAY_VIEW.w) / 2 + 450);
     const x = clamp(this.player.x + side * (spawnAway + Math.random() * 400), 70, L.width - 70);
     // im Jagdgebiet kommen eher Jäger, im ruhigen eher Beute
     const z = this.zoneAt(x).def;
@@ -2755,7 +2807,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const k = this.deepK;
     // Wer lange unten ist, bekommt bessere Augen für die Nachkommen (nur so wächst die Sicht)
     if (frac > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
-    this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z).setAlpha(Math.min(0.96, k * 1.15));
+    this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z0).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
       // die Musik nimmt die Tiefe selbst (huntMood) – die eigene Wasseratmosphäre bleibt im Hintergrund
@@ -3127,11 +3179,85 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   /**
-   * Der Zoom der Kamera (ohne Kino-Momente): Ein Jungtier sieht man näher – mit dem Wachsen zieht die Kamera zurück, bis
-   * zum gewohnten Bild beim ausgewachsenen Tier.
+   * Der Zoom der Kamera (ohne Kino-Momente): nach der Größe des eigenen Tiers (sim/camera.ts) – ein Jungtier sieht man
+   * näher, mit dem Wachsen zieht die Kamera zurück.
    */
   get camZoom() {
-    return Z * (1 + GROW_ZOOM * clamp((1 - game.lifeK.grow) / (1 - LIFE.hatch), 0, 1)) * this.near.k;
+    return (this.frameZ || frameZoom(this.player.rect.width)) * this.near.k;
+  }
+
+  /**
+   * Die Kamera folgt dem Tier: Der Zoom gleitet zur Größe des Tiers, und sie schaut in Schwimmrichtung voraus (in voller
+   * Fahrt weiter, beim Steigen und Sinken auch nach oben bzw. unten). Wendet das Tier, schwenkt sie ruhig hinüber.
+   */
+  private cameraStep(dt: number) {
+    const p = this.player, cam = this.cameras.main;
+    const target = frameZoom(p.rect.width);
+    this.frameZ = this.frameZ ? this.frameZ + (target - this.frameZ) * Math.min(1, dt * CAMERA.ease) : target;
+    const live = !p.dead && !this.ended && this.near.k === 1;
+    const top = Math.max(60, p.stats.speed || 0);
+    const lead = live ? leadOf(p.facing, p.speed01, (p.body?.velocity.y ?? 0) / top) : { x: 0, y: 0 };
+    const vw = W / cam.zoom, vh = H / cam.zoom, k = Math.min(1, dt * CAMERA.leadEase);
+    this.look.x += (lead.x * vw - this.look.x) * k;
+    this.look.y += (lead.y * vh - this.look.y) * k;
+    cam.setFollowOffset(-this.look.x, -this.look.y);
+  }
+
+  /**
+   * Für die Entwickleranzeige (?debug): Bilder je Sekunde, Grafikspeicher (gemalte und geladene Bilder), Arbeitsspeicher
+   * von JavaScript (nur in Chrome) und wie viele Objekte gezeichnet werden. Wird höchstens einmal je Sekunde neu gezählt.
+   */
+  private perf = { at: 0, line: '' };
+  private perfLine(time: number) {
+    if (time - this.perf.at < 1000) return this.perf.line;
+    this.perf.at = time;
+    const tex = textureStats(this.textures);
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+    const objects = this.children.list.length + (this.scene.get('Hud')?.children.list.length ?? 0);
+    this.perf.line = `FPS ${Math.round(this.game.loop.actualFps)}  Bilder ${tex.count} (${tex.mb.toFixed(0)} MB)` +
+      (mem ? `  JS ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : '') + `  Objekte ${objects}`;
+    return this.perf.line;
+  }
+
+  /** Das Wetter, wie es zur Weltzeit sein soll (oder wie es ?weather=… festlegt – siehe forcedWeather). */
+  private weatherTarget(): Weather {
+    return forcedWeather(location.search, this.time.now / 1000) ?? weatherAt(worldSeconds());
+  }
+
+  /**
+   * Das Wetter folgt der Weltzeit weich: Wolken machen das Bild dunkler, Wind und Regen rühren das Wasser auf (Seegang,
+   * Schwebeteilchen, Bewuchs), und nahe der Oberfläche hört man den Regen aufs Wasser prasseln.
+   */
+  private weatherStep(dt: number) {
+    if (!this.weatherOn) return;
+    const to = this.weatherTarget(), k = Math.min(1, dt / 2.5);
+    this.weather.cloud += (to.cloud - this.weather.cloud) * k;
+    this.weather.rain += (to.rain - this.weather.rain) * k;
+    const w = this.weather, p = this.player;
+    // tief unten ist es ohnehin dunkel – dort nimmt das Wetter weniger
+    this.weatherShade?.setAlpha(w.cloud * 0.38 * (1 - this.deepK * 0.6));
+    if (this.drift) this.drift.swell = swellAt(this.place.kind) * stormSwell(w);
+    if (this.reefScenery) this.reefScenery.swell = stormSwell(w);
+    const near = clamp(1 - (p.y - this.L.surfaceY) / 1000, 0, 1);
+    audio.rain(this.ended || p.dead ? 0 : w.rain * near);
+  }
+
+  /**
+   * Die fernen Ebenen (Hintergrund, Dunst, Bildrand) zoomen nicht mit: Sie füllen bei jedem Zoom genau das Bild, in voller
+   * Auflösung – nur das Nahe kommt näher. Das gibt Tiefe und hält die gemalten Fernen scharf.
+   */
+  private screenLayers() {
+    // ein Hauch größer als das Bild: Zoomt die Kamera im selben Bild noch weiter heraus, bleibt kein Spalt am Rand
+    const z = this.cameras.main.zoom, vw = W / z * 1.02, vh = H / z * 1.02, vx = (W - vw) / 2, vy = (H - vh) / 2;
+    this.bgFar.setPosition(vx, vy).setSize(vw, vh).setTileScale(1 / z);
+    this.bgMid.setPosition(vx, vy).setSize(vw, vh).setTileScale(1 / z);
+    this.fog.setPosition(vx, vy + vh * 0.35).setSize(vw, vh * 0.65).setTileScale(1 / z);
+    this.vignette?.setDisplaySize(vw, vh);
+  }
+
+  /** Die Musik dieses Ortes: im Laichfluss des Devons die Alapana in Neelambari (audio/RagaScore.ts), sonst die der Epoche. */
+  get musicName() {
+    return this.ep.id === 'devon' && this.place.kind === 'start' ? 'laichfluss' : this.ep.music;
   }
 
   /** Am Laich öffnet die Aktion die Eiübersicht (Player.update). */
@@ -3162,7 +3288,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   resumeRoeVisit() {
     this.controls.clear();
-    audio.music(this.ep.music);
+    audio.music(this.musicName);
     this.scene.resume('Hud');
     this.scene.resume();
   }

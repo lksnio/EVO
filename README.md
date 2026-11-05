@@ -482,7 +482,81 @@ Echte Browseraufnahmen, Testumfang und Messgrenzen: `art/vorlagen/fluss/README.m
 
 Im Laichfluss liegt der eigene Laich in der gemalten Höhle. Hier werden neue Gelege abgelegt; gespeicherte Gelege wandern beim Laden an diesen geschützten Platz. Die Aktionstaste öffnet dort die Eiübersicht.
 
-Laichfluss und Korallengarten zeigen oben eine ruhige gemalte Wasserlinie. Im Fluss erlaubt die Kamera 270 Weltpixel Himmel, im Korallengarten nur 46. Im Tiefental bleibt über dem oberen Rand tiefes Wasser. Zwei lange Wellenbänder verschieben sich langsam gegeneinander und heben sich um höchstens zwei Pixel; außerhalb des Bildes sind alle fünf Oberflächenobjekte unsichtbar. Es entstehen keine Texturen pro Frame. Quellen, Aufbereitung und Aufnahmen stehen in `art/EVO_water_edges_v1/`.
+Laichfluss und Korallengarten zeigen oben eine gemalte Wasserlinie, die mit dem Seegang wogt (siehe [Kamera und Seegang](#kamera-und-seegang)). Im Fluss erlaubt die Kamera 270 Weltpixel Himmel, im Korallengarten nur 46. Im Tiefental bleibt über dem oberen Rand tiefes Wasser. Außerhalb des Bildes sind alle Oberflächenobjekte unsichtbar. Es entstehen keine Texturen pro Frame. Quellen, Aufbereitung und Aufnahmen stehen in `art/EVO_water_edges_v1/`.
+
+## Kamera und Seegang
+
+**Die Kamera ist nah am Tier.** Sie richtet sich nach seiner Körperbreite (`CAMERA` in `src/config.ts`, Rechnung in
+`src/sim/camera.ts`): Ein ausgewachsenes Starttier sieht man mit Zoom 1,22 (früher 0,72), ein frisch geschlüpftes rückt sie
+näher heran (bis 1,9), größere Tiere bekommen mehr Raum – gedämpft, damit Wachsen spürbar bleibt. Das gilt ohne Sonderregeln
+auch für spätere, anders gebaute Tiere. In Schwimmrichtung schaut sie ein Stück voraus (in voller Fahrt weiter, beim Steigen
+und Sinken nach oben bzw. unten) und schwenkt beim Wenden ruhig hinüber. Die fernen Ebenen (Hintergrund, Dunst, Bildrand)
+zoomen nicht mit: Sie füllen bei jedem Zoom genau das Bild in voller Auflösung.
+
+**Die Spielregeln bleiben gleich.** Sichtweite in der Tiefe, Entkommen „aus dem Bild“, Nachschub außerhalb des Bildes und
+Abstände beim Auftauchen von Tieren rechnen weiter mit dem früheren, weiteren Bild (`PLAY_VIEW`). Die nähere Kamera macht
+Jagd und Flucht also nicht schwerer.
+
+**Der Seegang** (`src/sim/swell.ts`) ist eine gemeinsame Bewegung für das ganze Wasser: vier Gerstner-Wellenzüge
+verschiedener Länge, die teils gegeneinander laufen, dazu langsame Wellengruppen. Die Kämme sind schmal und spitz, die Täler
+breit; das Bild wiederholt sich praktisch nie. Dieselbe Rechnung treibt:
+
+- **die Oberfläche:** Die gemalte Wellenkante liegt auf biegsamen Bändern, die dem Seegang folgen; ein zweiter, heller Kamm
+  wogt versetzt dahinter. Über dem Kamm ist die Kante mit der Himmelsfarbe aufgefüllt, so bleibt nie ein Spalt.
+- **das Licht:** Unter einem Kamm bündelt sich das Licht wie unter einer Linse. Darunter leuchtet ein Lichtsaum auf; in den
+  Lichtbahnen hängen schmale Lichtfäden an der Oberfläche, die aufleuchten, wenn ein Kamm über sie läuft, und mit ihr hin und
+  her wandern. Die breiten Lichtbahnen atmen mit der langen Dünung, die Lichtnetze am Grund blenden weich ineinander und werden
+  heller, wenn darüber ein Kamm vorbeizieht.
+- **das Wasser selbst:** Schwebeteilchen kreisen mit den Wellen (oben deutlich, unten nur noch eine träge Dünung), Tang und
+  Bewuchs neigen sich gemeinsam, sodass eine Welle sichtbar durch den Bewuchs läuft, und weiche helle Schlieren ziehen in zwei
+  Lagen durchs obere Wasser.
+
+Im geschützten Laichfluss ist der Seegang ruhiger (`swellAt`). Je Bild sind das einige hundert Sinus-Rechnungen; es entstehen
+keine Texturen oder Teilchen zur Laufzeit.
+
+## Wetter: Wolken und Regen
+
+Über dem Meer des Devons zieht ab und zu ein Regen durch (`src/sim/weather.ts`). Das Wetter hängt an der gemeinsamen
+Weltzeit – alle Spieler am selben Ort erleben denselben Regen. Die Zeit ist in Abschnitte von acht Minuten geteilt; in etwa
+jedem zweiten regnet es zwei bis viereinhalb Minuten lang, jedes Mal etwas früher oder später, stärker oder schwächer und in
+Böen. Erst ziehen Wolken auf, dann setzt der Regen ein; am Ende ziehen die Wolken langsamer ab, als sie kamen.
+
+- **Dunkler:** Wolken ziehen über den Himmel, Himmel, Luft und Wasserkante werden gemeinsam grauer, das ganze Bild dunkler
+  (in der Tiefe weniger). Unter Wasser fällt weniger Licht: Lichtbahnen, Lichtfäden, Lichtsaum, Lichtnetze und Schlieren
+  werden matter.
+- **Wind und Seegang:** Schon mit den Wolken frischt der Wind auf; im Regen wird der Seegang deutlich höher. Schwebeteilchen
+  und Bewuchs bewegen sich entsprechend stärker. Die gemalte Kante trägt darum einen Streifen Himmel über sich, damit auch bei
+  hohen Wellen nie ein Spalt zum Himmel entsteht.
+- **Regen und Tropfen:** schräg im Wind fallende Striche in zwei Tiefen; jeder Tropfen schlägt genau auf der wogenden
+  Kante auf – mit kleinem Spritzer und flachem Aufschlag –, unter Wasser steigen feine Bläschen auf, und der Lichtsaum
+  blitzt, wo Tropfen einschlagen.
+- **Klang:** Nahe der Oberfläche hört man den Regen als feines Prasseln, dazu einzelne helle „Plinks“: Ein Tropfen schlägt
+  eine winzige Luftblase ein, die kurz nach oben klingt – so klingt Regen von unter Wasser (`OceanAmbience.setRain`).
+
+Zum Ausprobieren: `?weather=rain`, `?weather=clouds` oder `?weather=clear` legt das Wetter fest; `?weather=demo` zeigt
+einen ganzen Regen im Zeitraffer (70 Sekunden).
+
+## Grafikspeicher
+
+Fast alle Bilder werden zur Laufzeit gemalt und bleiben danach als Textur liegen. Damit der Speicher über viele Orte und
+Zeitalter nicht immer weiter wächst, bekommt jedes gemalte Bild einen Besitzer (`src/art/texBudget.ts`, Regeln in
+`src/art/texRules.ts`): das Zeitalter, in dem es entstand, oder – bei großen ortsgebundenen Bildern wie Hintergründen,
+trübem Wasser und Schluchtschatten – den Ort. Kurz nachdem ein Ort steht, wird freigegeben:
+
+- alles, was andere Zeitalter gemalt haben,
+- ortsgebundene Bilder von Orten, die länger zurückliegen als die letzten zwei (wer hin- und herschwimmt, findet sie noch vor).
+
+Freigegeben werden nur Bildfamilien, deren Neumalen geprüft ist (`EVICTABLE`): die großen Hintergründe, Arten,
+Pflanzen, Licht und Wasser. Die verformbaren Fischnetze (Spielerfisch, Artgenossen, gemalte Fische) bleiben außen vor –
+ihre Zwischenspeicher hängen an den Bildern. Nie freigegeben wird außerdem, was gerade irgendwo zu sehen ist oder in einer
+laufenden Animation steckt – samt allen Bildern mit demselben Namensstamm –, was schon vor dem ersten Ort da war (Titel,
+Grundausstattung) und geladene Bilddateien. Freigegebenes wird bei Bedarf neu gemalt; Animationen, die darauf zeigten,
+entstehen mit. Gemessen: Devon → Karbon ≈ 205 → 141 MB (ohne Freigeben 198 MB); im Devon bleibt es bei höchstens ≈ 214 MB.
+
+Im Koop gilt das je Rechner: Jeder zeichnet und berechnet nur den Ort seines eigenen Tiers.
+
+Mit `?debug` zeigt die Entwickleranzeige unten links zusätzlich Bilder je Sekunde, Zahl und Größe aller Bilder, den
+JavaScript-Speicher (Chrome) und die Zahl der Objekte. `?keeptex` schaltet das Freigeben zum Vergleichen ab.
 
 Die Schlucht im Korallengarten führt als offener Wasserkanal über den tatsächlichen unteren Kartenrand hinaus. Dort wechselt man mit erhaltener Schwimmgeschwindigkeit ins Tiefental; eine einmalige Aufnahme des vorherigen Bildes gleitet beim Überblenden nach oben. Der Rückweg nach oben funktioniert entsprechend. Generator, importierte Karten und Weltbaukasten verwenden dieselbe Randgeometrie (`src/level/waterBounds.ts`).
 
@@ -966,6 +1040,26 @@ keinen Swing, keine Jazz-Erweiterungen und kein Rauschen.
   alle 100 ms mit 900 ms Vorlauf geplant. Nach Verzögerungen werden überfällige Noten ausgelassen, statt gleichzeitig
   nachgeholt zu werden. Jeder Ton klingt endlich aus; die Raumantwort hat keine Echo-Rückkopplung.
 
+### Die Musik des Laichflusses
+
+Im Laichfluss (der Heimat und Kinderstube der Linie) spielt statt des Klavierstücks eine **Alapana im Raga Neelambari**
+(`src/audio/RagaScore.ts`). Neelambari ist der Schlaflied-Raga der karnatischen, tamilischen Kunstmusik; eine Alapana
+ist ihr freier Anfang ohne Takt und ohne Trommeln: Der Raga wird Ton für Ton erkundet, vom tiefen Grundton hinauf zum
+hohen Sa und wieder zur Ruhe. Es werden keine fremden Melodien oder Aufnahmen verwendet – nur die Tonleiter und ihre
+überlieferten Verzierungen; alles entsteht im Browser.
+
+- **Tanpura:** vier gezupfte Saiten (Pa, Sa, Sa, tiefes Sa) im immer gleichen Kreis – ein Grund, der nie aufhört. Das
+  Schnarren der Saiten (Jivari) wandert nach jedem Zupfen hell-dunkel durch die Obertöne; zwei Saiten schweben gegeneinander.
+- **Flöte (Venu):** jede Phrase ein Atem, die Töne gleiten legato ineinander. Gamakas: Kampita (der Ton schwingt zum oberen
+  Nachbarn), Nokku (von oben angestoßen), Jaru (langsames Gleiten). Leiser Atem nur im engen Band um den Ton, etwas mehr
+  beim Anblasen (`BREATH`, 0 = reiner Ton).
+- **Klavier:** wenige tiefe Töne zu Beginn einer Phrase, wie Steine im Wasser, selten ein heller Tropfen danach.
+- **Form:** vier Teile (tief um den Grundton – das wiegende Ga und Ma – hinauf zum hohen Sa – Rückkehr), je Durchgang
+  neu aus einem Vorrat an Phrasen zusammengestellt, danach eine lange Stille nur mit Tanpura. Ein Durchgang dauert etwa
+  zwei Minuten. Sa ist D wie im Klavierstück, damit der Wechsel zwischen den Orten nicht schmerzt.
+- **Tiefe und Gefahr:** in der Tiefe dunkler, die Flöte eine Oktave tiefer und mit längeren Pausen; naht Gefahr, tritt
+  die Flöte zurück, die Tanpura bleibt.
+
 **Wasseratmosphäre** (`src/audio/OceanAmbience.ts`) läuft auf einer eigenen, dezenten Spur: langsames weiches
 Meeresrauschen, vereinzelte Blasen und unregelmäßiges Krabbeln bzw. Kiesknistern kleiner Wassertiere. Die lange
 Stereo-Wasserschleife geht mit zwei Sekunden Überblendung nahtlos in sich über; sie ist keine kurze Rauschschleife im
@@ -1256,6 +1350,10 @@ src/
 ├── assets/eras/         die Bilder der drei Zeitalter in der Auswahl
 ├── audio/Audio.ts       Soundeffekte und Musik (Web Audio, live erzeugt)
 ├── audio/OceanScore.ts  die Musik des Ozeans: ruhiges, zusammenhängendes Klavierstück; in der Tiefe dunkler und eine Oktave tiefer
+├── audio/RagaScore.ts   die Musik des Laichflusses: Alapana in Neelambari (Tanpura, Flöte mit Gamakas, tiefes Klavier)
+├── sim/weather.ts       das Wetter nach der Weltzeit: Wolken, Regen, Seegang und Licht
+├── art/texBudget.ts     Grafikspeicher: gemalte Bilder je Zeitalter bzw. Ort freigeben, sichtbare schützen
+├── sim/swell.ts         der Seegang: Oberfläche, Licht und Strömung aus denselben Wellen
 ├── objects/             Spielfigur, Tiere (KI, Bindung, Durchzügler), Artgenossen, Nahrung, Steuerung, Drift.ts (Plankton, Schnee, Graptolithen), Swarm.ts (deine Gruppe rufen, begleiten, fortschicken), Spawning.ts (Laichen: Gelege, Partner, Schlüpfen), Shrine.ts (die große Muschel), Sight.ts (das trübe Wasser über dem Bild), Nest.ts (das Gelege im Brutsumpf)
 ├── util/                Mathe, Zeichnen, Fehler abfangen (guard.ts), ein Ereignis-Bus ohne Phaser (emitter.ts)
 ├── ui/                  Knöpfe, Texte, Menü-Steuerung (ui.ts), die Übersicht (overview.ts), der Sammelstern (collectionPanel.ts), die Entwickler-Einstellung (devConfig.ts), Bildschirm-Knöpfe (touchPad.ts)

@@ -15,6 +15,7 @@ import { LAYER_NAMES } from '../objects/MapScenery';
 import { CreatureView } from '../objects/CreatureView';
 import type { Morph } from '../art/creatureArt';
 import '../editor/editor.css';
+import { CAMERA } from '../config';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) => {
   const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;
@@ -387,7 +388,8 @@ export class WorldEditorScene extends Phaser.Scene {
     this.testCollider = this.physics.add.collider(this.tester, this.testSolids);
     const m: Morph = { cls: L.amphibious || L.mode === 'land' ? 'amphibian' : 'fish', size: 1, jaw: 0, skull: 0, stealth: 0, diet: 0, scars: 0, belly: 1, fierce: 0, hue: 0, seed: 50, sex: 0 };
     this.fish = new CreatureView(this, x, y, m, .7).setDepth(20); this.fish.setLift(.24);
-    this.cameras.main.setZoom(.72).startFollow(this.tester, true, .1, .1);
+    // so nah wie im Spiel beim ausgewachsenen Starttier
+    this.cameras.main.setZoom(CAMERA.adult).startFollow(this.tester, true, .1, .1);
     this.say('Begehung · WASD/Pfeile bewegen · Leertaste beschleunigt · Esc zurück. Keine Änderung am Spielstand.');
   }
   private stopTest() {
