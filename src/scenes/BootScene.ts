@@ -6,6 +6,7 @@ import { lifeTextures } from '../art/lifeArt';
 import { uiTextures } from '../art/uiArt';
 import { collectionGlintTexture } from '../art/shellArt';
 import { preloadRiver } from '../art/riverProps';
+import { preloadLagoon } from '../art/lagoonAssets';
 import { preloadReef } from '../art/reefProps';
 import { preloadEditorUnits } from '../editor/catalog';
 import { preloadWorldFish } from '../art/fish/worldFish';
@@ -24,6 +25,7 @@ export class BootScene extends Phaser.Scene {
     preloadPainted(this);
     preloadStarterFish(this);
     preloadRiver(this);
+    preloadLagoon(this);
     preloadWaterSurface(this);
     preloadReef(this);
     preloadEditorUnits(this);

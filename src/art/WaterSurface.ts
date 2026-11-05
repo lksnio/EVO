@@ -8,6 +8,7 @@ import { newCanvas } from '../util/canvas';
 import { DEPTH } from '../config';
 import { focus, surface, swellAt } from '../sim/swell';
 import { stormSwell, sunlight, type Weather } from '../sim/weather';
+import { lagoonEnabled } from './lagoonAssets';
 
 const FILES = {
   sky: new URL('../assets/water/sky.webp', import.meta.url).href,
@@ -214,9 +215,9 @@ export class WaterSurface {
 
   static create(scene: Phaser.Scene, ep: EpochDef, place: PlaceDef, L: LevelData) {
     if (skyAbove(ep, place, L) === undefined || !scene.textures.exists('surface_sky')) return undefined;
-    return new WaterSurface(scene, L, swellAt(place.kind));
+    return new WaterSurface(scene, L, swellAt(place.kind), lagoonEnabled(scene, ep, place));
   }
-  private constructor(private scene: Phaser.Scene, private L: LevelData, strength: number) {
+  private constructor(private scene: Phaser.Scene, private L: LevelData, strength: number, paintedCoast: boolean) {
     const y = L.surfaceY;
     this.strength = strength;
     rainTextures(scene);
@@ -243,6 +244,9 @@ export class WaterSurface {
       // ein zweiter, heller Kamm dahinter, durchscheinend: Er wogt versetzt und schwächer
       band(panorama(scene, 'waterline'), DEPTH.decoFront + .8, .4, src.width * 1.43, 14, -3.2, .75, 140, 0xc1e5dc, .28),
     ];
+    // The coast sits over the band's opaque sky padding. Repeat only its transparent painted crest in front of the
+    // shoreline: identical points and drift keep the waves aligned, without cutting a gray stripe through the trees.
+    if (paintedCoast) this.bands.push(band(panorama(scene, 'waterline'), DEPTH.decoFront + .72, .5, src.width * 2, 17, 7, 1, 0, 0xffffff));
     // der Lichtsaum folgt der Kamera (er ist waagrecht gleichförmig – nur die Helligkeit je Punkt kommt aus dem Seegang)
     this.glintCount = Math.ceil((1280 / .8 + 400) / GLINT_STEP) + 2;
     const gp = Array.from({ length: this.glintCount }, (_, i) => new Phaser.Math.Vector2(i * GLINT_STEP, 0));
@@ -307,7 +311,7 @@ export class WaterSurface {
       this.tint = tint;
       this.sky.setTint(tint);
       this.air.setFillStyle(overcast(0xb6c9c3, cloud * 0.62));
-      for (const b of this.bands) for (const r of b.ropes) r.setColors(b === this.bands[0] ? tint : overcast(b.color, cloud * 0.5));
+      for (const b of this.bands) for (const r of b.ropes) r.setColors(b.color === 0xffffff ? tint : overcast(b.color, cloud * 0.5));
     }
     for (const b of this.bands) {
       // die Malerei treibt langsam; die Bänder liegen Stück an Stück, ein Band je Wiederholung
@@ -315,7 +319,7 @@ export class WaterSurface {
       const first = Math.floor((x - off) / b.span);
       while (b.ropes.length < Math.ceil(width / b.span) + 1) {
         const r = b.make();
-        r.setColors(b === this.bands[0] ? this.tint : overcast(b.color, cloud * 0.5));
+        r.setColors(b.color === 0xffffff ? this.tint : overcast(b.color, cloud * 0.5));
         b.ropes.push(r);
       }
       b.ropes.forEach((r, j) => {

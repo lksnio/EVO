@@ -6,6 +6,7 @@ import { CollectionPickup } from '../objects/CollectionPickup';
 import { collectionSpot } from '../level/collectionPlacement';
 import { worldLength } from '../data/animalSize';
 import { WaterSurface } from '../art/WaterSurface';
+import { NurseryBackdrop } from '../objects/NurseryBackdrop';
 import { enterPlace as texEnter, settle as texSettle, textureStats } from '../art/texBudget';
 import { skyAbove } from '../level/waterBounds';
 import Phaser from 'phaser';
@@ -157,6 +158,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private bgMid!: Phaser.GameObjects.TileSprite;
   /** das Meer hinter dem Spielfeld: ferne Fische, nur Kulisse */
   private backSea?: BackSea;
+  private nurseryBackdrop?: NurseryBackdrop;
   private reefScenery?: ReefScenery;
   private mapScenery?: MapScenery;
   /** Plankton, Meeresschnee und treibende Kolonien */
@@ -406,6 +408,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.fog = this.add.tileSprite(VX, VY + VH * 0.35, VW, VH * 0.65, fog).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg + 2).setAlpha(0.35).setTileScale(1 / Z);
 
     this.waterSurface = WaterSurface.create(this, ep, this.place, L);
+    this.nurseryBackdrop = NurseryBackdrop.create(this, ep, this.place, L);
+    if (this.nurseryBackdrop) { this.bgFar.setVisible(false); this.bgMid.setVisible(false); }
 
     // Gelände: ein glatter Boden aus Sand, Fels und Schlamm, dazu Felsen und Kiesel
     this.solids = this.physics.add.staticGroup();
@@ -2475,6 +2479,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Auch beim Zuschauen bleiben Wasser, Wetter und Bewuchs am beobachteten Tier lebendig. */
   private environmentStep(time: number, dt: number, p: { x: number; y: number }) {
     const cam = this.cameras.main;
+    this.nurseryBackdrop?.update(time, this.weather);
     // im Tuschestil wiegen sich die Ebenen ganz leicht (der Tang der Ferne und Mitte, im Takt der Strömung)
     const sway = this.ink ? Math.sin(this.t * 0.45) * 6 : 0;
     this.bgFar.tilePositionX = cam.scrollX * 0.08 + sway * 0.4;

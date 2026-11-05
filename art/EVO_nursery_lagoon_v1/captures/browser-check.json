@@ -1,0 +1,25 @@
+{
+  "report": {
+    "webgl": true,
+    "moved": true,
+    "stableTextures": true,
+    "stableObjects": true,
+    "layers": {
+      "water": 2,
+      "coast": 4,
+      "fronds": 16,
+      "rays": 6
+    },
+    "sameGeometry": true,
+    "anchored": true,
+    "currentOnly": true,
+    "paintedTextureMiB": 13
+  },
+  "cleanup": {
+    "released": true,
+    "count": 28
+  },
+  "otherPlaceUntouched": true,
+  "reentered": true,
+  "errors": []
+}

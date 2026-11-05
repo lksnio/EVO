@@ -9,6 +9,13 @@ Flossen und Köpfe für insgesamt 48 erreichbare Formen. Die PNG-Master liegen i
 in `starterRegistration.json`. Die Stufen und Vererbungsregeln stehen in `src/sim/starterFish.ts`.
 Weitere Hinweise und die Vorschau aller Formen stehen in `src/assets/fish/starter/README.md`.
 
+## Gemalte Lagune im Laichfluss
+
+[EVO_nursery_lagoon_v1](EVO_nursery_lagoon_v1/README.md) enthält die neue Unterwasserlandschaft,
+die frühe Baumküste und separate Seelilien. Im Spiel bewegen sich Licht und Bewuchs unabhängig;
+die Landschaftsebenen folgen der Kamera mit unterschiedlicher Parallaxe. Originale, WebGL-Aufnahmen
+und der Browser-Prüfbericht liegen im Paket.
+
 ## Frühere Vorlagen
 
 Die folgende Übersicht dokumentiert die ursprünglichen, im Code gezeichneten Grafiken
