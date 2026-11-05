@@ -11,7 +11,8 @@ const rolls=(...values:number[])=>{let i=0;return ()=>values[i++]??.5;};
 describe('Ernährung und feste Untergrenzen',()=>{
  it.each([[90,3, -1],[100,4,-2],[10,-1,3],[0,-2,4],[75,1,0],[89,2,0],[25,0,1],[11,0,2]])('Nahrung %s Prozent Fleisch', (meat,hp,stamina)=>{
   const high=hp===4||stamina===4||hp===2||stamina===2||hp===-2;
-  const g=fishBirthGains(plan(meat),rolls(.5,high?.75:.25,high?.75:.25)).gains;
+  const nutritionRolls=meat>=90||meat<=10?2:1;
+  const g=fishBirthGains(plan(meat),rolls(.5,...Array(nutritionRolls).fill(high?.75:.25))).gains;
   expect(g.hp).toBe(hp);expect(g.stamina).toBe(stamina);
  });
  it.each([[.25,.25,-1,-1],[.25,.75,-1,1],[.75,.25,1,-1],[.75,.75,1,1]])('gemischte Kost, unabhängige Münzwürfe %s/%s',(a,b,hp,stamina)=>{
@@ -30,6 +31,56 @@ describe('Ernährung und feste Untergrenzen',()=>{
  });
 });
 describe('Schaden, Schuppen und seltene Flossen',()=>{
+ it('respektiert trotz Streuung Startwerte, sichtbare Stufensprünge und die Grenze der sekundären Waffe',()=>{
+  const birth=(r:number)=>{
+   const spy=vi.spyOn(Math,'random').mockReturnValue(r);
+   try{const c=game.addClutch({place:'riff',x:300,y:500,at:Date.now(),fert:true,role:'father',young:1});return game.layEggs(c,game.inherit({meat:0,plant:0},newStyle()))[0];}
+   finally{spy.mockRestore();}
+  };
+  const base=game.roeShown(),low=game.roeShown(birth(.2));expect(low).toEqual(base);
+  game.traits.biteGain=9;
+  const step=birth(.8);expect(game.roeShown(step).bite).toBe(25);expect(step.traits.fishForm).toBe(1);
+  Object.assign(game.traits,{biteGain:30,ramGain:15,fishForm:18,fishPrimary:1});
+  expect(game.roeShown(birth(.8)).ram).toBe(25);
+ });
+ it('würfelt jeden der fünf Werte unabhängig mit exakt drei gleich großen Zufallsbereichen',()=>{
+  const p={eaten:{meat:0,plant:0},effort:{biteDamage:60,ramDamage:80,minHealth:.4}};
+  const keys=['hp','stamina','bite','skull','scales'] as const;
+  const base=fishBirthGains(p,()=>.5,true).gains;
+  const counts=keys.map(()=>[0,0,0]);
+  for(let n=0;n<243;n++){
+   const offsets=keys.map((_,i)=>Math.floor(n/3**i)%3-1);
+   const result=fishBirthGains(p,rolls(.5,...offsets.map(v=>(v+1.5)/3)));
+   keys.forEach((key,i)=>{expect(result.gains[key]).toBeCloseTo(base[key]+offsets[i]);counts[i][offsets[i]+1]++;});
+   expect(result.gains.fins).toBe(base.fins);expect(result.mutation).toBe(false);
+  }
+  expect(counts).toEqual(keys.map(()=>[81,81,81]));
+  for(const [roll,offset]of [[0,-1],[1/3-1e-8,-1],[1/3,0],[2/3-1e-8,0],[2/3,1],[1-1e-8,1]]){
+   expect(fishBirthGains(p,rolls(.5,...keys.map(()=>roll))).gains.hp).toBe(offset);
+  }
+ });
+ it('hält die Vorschau zufallsfrei und berechnet den Flossenverlust aus der Verletzung statt aus zufälligen Schuppen',()=>{
+  const random=vi.fn(()=>.99),p=plan(50,.2);
+  expect(fishBirthGains(p,random,true).gains.scales).toBe(2);expect(random).not.toHaveBeenCalled();
+  const low=fishBirthGains(p,rolls(.5,.5,.5,0,0,0,0,0));
+  const high=fishBirthGains(p,rolls(.5,.5,.5,.99,.99,.99,.99,.99));
+  expect(low.gains.scales).toBe(1);expect(high.gains.scales).toBe(3);
+  expect(low.gains.fins).toBe(-1);expect(high.gains.fins).toBe(-1);
+ });
+ it('speichert den individuellen Wurf pro Ei und würfelt bei Anzeige oder Schlüpfen nicht erneut',()=>{
+  Object.assign(game.traits,{vitality:10,staminaGain:10,scaleGain:10,biteGain:5,ramGain:5,finGain:10,fishForm:4});
+  const parent={...game.traits},h=game.inherit({meat:0,plant:0},{...newStyle(),biteDamage:50,ramDamage:50,minHealth:.4});
+  const lay=(r:number)=>{
+   const spy=vi.spyOn(Math,'random').mockReturnValue(r);
+   try{const c=game.addClutch({place:'riff',x:300,y:500,at:Date.now(),fert:true,role:'father',young:1});return game.layEggs(c,h)[0];}
+   finally{spy.mockRestore();}
+  };
+  const a=lay(.2),b=lay(.8);
+  for(const key of ['vitality','staminaGain','scaleGain','biteGain','ramGain'] as const)expect((b.traits[key]??0)-(a.traits[key]??0)).toBe(2);
+  expect(a.traits.finGain).toBe(10);expect(b.traits.finGain).toBe(10);expect(game.traits).toEqual(parent);
+  const saved=JSON.stringify(a),shown=game.roeShown(a);expect(game.roeShown(a)).toEqual(shown);expect(JSON.stringify(a)).toBe(saved);
+  game.hatchRoe(a,2);expect(game.traits.biteGain).toBe(a.traits.biteGain);expect(game.roeShown().bite).toBe(shown.bite);
+ });
  it('zählt tatsächlich verursachten Schaden ohne Nahrung oder Sieg, größer gewichtet, bis +4 je Waffe',()=>{
   expect(weightedFishDamage(20,400,100)).toBe(40);
   const g=fishBirthGains({eaten:{meat:0,plant:0},effort:{biteDamage:50,ramDamage:1000}},()=>.5).gains;

@@ -28,6 +28,10 @@ export function fishBirthGains(plan: FishPlan, random = Math.random, preview = f
   const low = Math.max(0, Math.min(1, plan.effort.minHealth ?? 1));
   g.scales = low < .1 ? 3 : low < .25 ? 2 : low < .5 ? 1 : low >= .75 ? -1 : 0;
   if (g.scales >= 2) g.fins = -1;
+  // Independent final variance for each ordinary egg. Floss mutations, injury costs and the mean preview stay unchanged.
+  if (!preview) for (const key of ['hp', 'stamina', 'bite', 'skull', 'scales'] as const) {
+    g[key] += Math.floor(random() * 3) - 1;
+  }
   return { gains: g, mutation: false };
 }
 export function weightedFishDamage(damage: number, targetHp: number, baseHp: number) {
