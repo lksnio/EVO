@@ -17,7 +17,7 @@ export class ReefScenery {
   /** wie stark der Seegang gerade ist (bei Wind und Regen mehr) */
   swell = 1;
 
-  constructor(private scene: Phaser.Scene, level: LevelData, place: string) {
+  constructor(private scene: Phaser.Scene, level: LevelData, place: string, quiet = false) {
     this.surfaceY = level.surfaceY;
     const r = mulberry32(hashStr('reef/' + place));
     const floor = (x: number) => groundCurve(level.terrain.hp, x);
@@ -34,21 +34,21 @@ export class ReefScenery {
       return img;
     };
     // Loosely grouped, with deliberate gaps. Never put a new vignette inside a playable cave or narrow shelter.
-    for (let x = 180; x < level.width - 120; x += 240 + r() * 240) {
+    for (let x = 180; x < level.width - 120; x += quiet ? 650 + r() * 300 : 240 + r() * 240) {
       if (blocked(x, 135) || floor(x) > level.height - 60) continue;
-      const part = r() < 0.48 ? 'kelp' : 'coral';
-      const h = part === 'kelp' ? 155 + r() * 110 : 75 + r() * 42;
+      const part = quiet || r() < 0.48 ? 'kelp' : 'coral';
+      const h = quiet ? 80 + r() * 55 : part === 'kelp' ? 155 + r() * 110 : 75 + r() * 42;
       const img = make(part, x, floor(x) + 9, h, DEPTH.decoBack + 0.3);
       this.middle.push({ img, phase: r() * 6, sway: part === 'kelp' ? 1.3 : 0 });
       if (r() < 0.6) make('stones', x + 80 + r() * 35, floor(x + 80) + 5, 26 + r() * 16, DEPTH.terrain + 0.7);
       // Same painted language in the distance, mixed into the water rather than black cutouts.
-      if (r() < 0.55) {
+      if (!quiet && r() < 0.55) {
         const back = make('kelp', x + 135, floor(x + 135) + 4, 230 + r() * 90, DEPTH.decoBack - 5);
         back.setTint(0x47777b).setAlpha(0.3);
       }
     }
     // Sparse foreground cadence leaves most of the swimming space open; these plants share the ground's movement.
-    for (let x = 320; x < level.width - 150; x += 850 + r() * 600) {
+    for (let x = 320; !quiet && x < level.width - 150; x += 850 + r() * 600) {
       if (blocked(x, 210) || floor(x) > level.height - 60) continue;
       const h = 260 + r() * 125;
       const img = make(r() < 0.5 ? 'frame' : 'kelp', x, floor(x) + 65, h, DEPTH.decoFront + 2);

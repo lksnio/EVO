@@ -1,5 +1,7 @@
 # Der Laichfluss: eine lebendige Lagune
 
+Frühere Designfassung. Im Spiel durch die ruhigere, an den vorhandenen Spielgrafiken orientierte [Version 2](../EVO_nursery_lagoon_v2/README.md) ersetzt. Die folgenden Angaben und Aufnahmen dokumentieren die erste Fassung.
+
 Drei neue, separat gemalte Bildebenen für das Devon: eine lichtdurchflutete Unterwasserlandschaft, eine ferne Küste mit frühen Bäumen und eine freigestellte Seeliliengruppe. Die Originale liegen in `source/`, die komprimierten Spielbilder in `src/assets/lagoon/`.
 
 Die Gestaltung orientiert sich am späten Devon: frühe, fein gefiederte Bäume nach Archaeopteris und Cladoxylopsiden an Land; unter Wasser geschichteter Sandstein, Stromatoporen, kleine Korallen, Brachiopoden und Seelilien. Die beinahe magische Stimmung entsteht durch goldgrünes Streiflicht, Wassertrübung und räumliche Staffelung. Es handelt sich um stilisierte Paleoillustrationen, keine Rekonstruktion eines bestimmten Fossilfundorts.

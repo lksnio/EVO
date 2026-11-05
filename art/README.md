@@ -11,10 +11,11 @@ Weitere Hinweise und die Vorschau aller Formen stehen in `src/assets/fish/starte
 
 ## Gemalte Lagune im Laichfluss
 
-[EVO_nursery_lagoon_v1](EVO_nursery_lagoon_v1/README.md) enthält die neue Unterwasserlandschaft,
-die frühe Baumküste und separate Seelilien. Im Spiel bewegen sich Licht und Bewuchs unabhängig;
-die Landschaftsebenen folgen der Kamera mit unterschiedlicher Parallaxe. Originale, WebGL-Aufnahmen
-und der Browser-Prüfbericht liegen im Paket.
+[EVO_nursery_lagoon_v2](EVO_nursery_lagoon_v2/README.md) enthält die ruhige Unterwasserklippe
+und eine entfernte frühe Baumküste im Zeichenstil der Spielobjekte. Die Landschaftsebenen haben
+unterschiedliche Parallaxe; vorhandene Wellen und Wasserlichteffekte bringen Bewegung ins Bild.
+Originale, WebGL-Aufnahmen und der Browser-Prüfbericht liegen im Paket. Die detailliertere erste
+Fassung bleibt unter `EVO_nursery_lagoon_v1` als frühere Designfassung erhalten.
 
 ## Frühere Vorlagen
 

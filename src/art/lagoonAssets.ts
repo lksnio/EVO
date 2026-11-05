@@ -5,7 +5,6 @@ import type { PlaceDef } from '../data/world';
 const FILES = {
   water: new URL('../assets/lagoon/lagoon.webp', import.meta.url).href,
   coast: new URL('../assets/lagoon/coast.webp', import.meta.url).href,
-  crinoids: new URL('../assets/lagoon/crinoids.webp', import.meta.url).href,
 };
 export const lagoonKey = (id: keyof typeof FILES) => 'lagoon_' + id;
 

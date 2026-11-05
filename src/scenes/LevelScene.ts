@@ -972,7 +972,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private surfaceLight() {
     const L = this.L;
     if (this.ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) {
-      this.waterAtmosphere = new WaterAtmosphere(this, L, swellAt(this.place.kind));
+      this.waterAtmosphere = new WaterAtmosphere(this, L, swellAt(this.place.kind), this.nurseryBackdrop ? .4 : 1);
       return;
     }
     // etwas kürzer als die Textur – sonst schimmert unten deren helle Oberkante durch (Kachel-Wiederholung)
@@ -1230,6 +1230,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       return img;
     };
     for (const d of L.decor) {
+      // The nursery stays sparse; the richer attached reef fauna belongs to the garden beyond it.
+      if (this.nurseryBackdrop && (d.k.startsWith('coral') || d.k.startsWith('sponge') || d.k.startsWith('crinoid') || d.k === 'stromatoporoid')) continue;
       // The painted garden has space between vignettes; retain small fauna, hanging growth and edible gameplay plants.
       if (reef && !d.hang && (SWAYS.has(d.k) || d.k === 'coral' || d.k === 'sponge') && hashStr(d.k + '/' + d.x) % 4 !== 0) continue;
       const base = 'd2_' + d.k;
@@ -1271,7 +1273,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         put(pick(rnd, low), x, L.ground[col], 1.5 + rnd() * 0.8, DEPTH.decoFront, foreTint, 0.88, -14);
       }
     }
-    this.reefScenery = reef ? new ReefScenery(this, L, this.place.id) : undefined;
+    this.reefScenery = reef ? new ReefScenery(this, L, this.place.id, !!this.nurseryBackdrop) : undefined;
   }
 
   /** Gebiet: Schleier, Nebel und Licht gehen beim Durchschwimmen fließend ineinander über. */
@@ -2479,7 +2481,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Auch beim Zuschauen bleiben Wasser, Wetter und Bewuchs am beobachteten Tier lebendig. */
   private environmentStep(time: number, dt: number, p: { x: number; y: number }) {
     const cam = this.cameras.main;
-    this.nurseryBackdrop?.update(time, this.weather);
+    this.nurseryBackdrop?.update(this.weather);
     // im Tuschestil wiegen sich die Ebenen ganz leicht (der Tang der Ferne und Mitte, im Takt der Strömung)
     const sway = this.ink ? Math.sin(this.t * 0.45) * 6 : 0;
     this.bgFar.tilePositionX = cam.scrollX * 0.08 + sway * 0.4;

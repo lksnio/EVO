@@ -98,7 +98,7 @@ export class WaterAtmosphere {
   private veils: { image: Phaser.GameObjects.TileSprite; f: number; vx: number; vy: number; scale: number; alpha: number }[] = [];
   private phase = -1;
 
-  constructor(private scene: Phaser.Scene, private L: LevelData, private swell = 1) {
+  constructor(private scene: Phaser.Scene, private L: LevelData, private swell = 1, private glow = 1) {
     textures(scene);
     for (const [i, surface] of waterSurfaces(L).entries()) {
       const xs = surface.points.map(p => p[0]), ys = surface.points.map(p => p[1]);
@@ -150,7 +150,7 @@ export class WaterAtmosphere {
 
   /** weather: das Wetter am Ort – unter Wolken fällt weniger Licht ins Wasser, bei Wind und Regen wogt es stärker. */
   update(time: number, dt: number, weather: Weather = { cloud: 0, rain: 0 }) {
-    const t = time / 1000, cam = this.scene.cameras.main, v = cam.worldView, sw = this.swell * stormSwell(weather), sun = sunlight(weather);
+    const t = time / 1000, cam = this.scene.cameras.main, v = cam.worldView, sw = this.swell * stormSwell(weather), sun = sunlight(weather) * this.glow;
     const step = t * CAUSTIC_RATE, frame = Math.floor(step) % FRAMES, u = step - Math.floor(step);
     const light = (this.L.zones[0]?.def.light ?? 1) * sun;
     for (const s of this.surfaces) {
