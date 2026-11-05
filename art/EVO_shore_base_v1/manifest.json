@@ -1,0 +1,36 @@
+{
+  "id": "shore_base",
+  "created": "2026-11-05",
+  "node": "shore",
+  "stage": "base",
+  "status": "art_only",
+  "file": "masters/shore_base.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    21,
+    159,
+    2149,
+    646
+  ],
+  "sha256": "f5bb4b826d9b3f335c5679c6f618127192d4c1f52d2f786575052a1a0d9d35ee",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-8376c12b-8d0b-48e2-9e42-4749b6dce847.png",
+  "references": [
+    "art/EVO_startfish_node_v1/masters/startfish_g0_f0_k0.png",
+    "current_game_fish_style"
+  ],
+  "notes": [
+    "Original PNG bytes preserved.",
+    "Four limbs; neutral lateral pose, muscular swimming tail.",
+    "No text, stats, background or runtime integration.",
+    "Part separation and animation registration remain future work."
+  ]
+}
