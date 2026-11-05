@@ -1,5 +1,7 @@
 # Ufer-Grundtier · Epoche 2
 
+**Aktuelle Grundform:** [Version 2 mit kurzen Beinen](../EVO_shore_base_v2/README.md). Diese erste Zeichnung entspricht nach der korrigierten Designvorgabe bereits einer stärker entwickelten Beinform und bleibt als Vorlage erhalten.
+
 Ein früher Vierfüßer für den Uferpfad: im Wasser fortpflanzungsfähig, mit kurzen tragenden Beinen für die ersten Schritte an Land und einem langen, seitlich abgeflachten Schwimmschwanz.
 
 Die Grundform verbindet den Ausgangsfisch mit einem flachen Kopf, vier seitlich gestellten Beinen und breiten Füßen. Gedeckte Schieferblau-, Oliv- und Sandtöne, matte gemalte Flächen und dunkle Tuschekonturen orientieren sich an den vorhandenen Spieltieren.

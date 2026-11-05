@@ -1,0 +1,36 @@
+{
+  "id": "shore_base_shortlegs",
+  "created": "2026-11-05",
+  "node": "shore",
+  "stage": "base",
+  "status": "art_only",
+  "file": "masters/shore_base_shortlegs.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    22,
+    162,
+    2149,
+    538
+  ],
+  "sha256": "209088233973d3a13b12a3e3011a80d4072ef91a565fced76f6bd256681601d8",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-7e07b8a7-5dca-45c5-bdec-db0106d7ff45.png",
+  "reference": "art/EVO_shore_base_v1/masters/shore_base.png",
+  "supersedes_base_design": "art/EVO_shore_base_v1/masters/shore_base.png",
+  "notes": [
+    "Original PNG bytes preserved.",
+    "Revised base with four much shorter, slimmer limbs and smaller webbed feet.",
+    "Low belly and swimming tail emphasize the aquatic transition.",
+    "Previous long-legged drawings remain available for a developed leg form.",
+    "Two-stage gameplay rules are pending user specification; no runtime changes.",
+    "No background, text, stats or runtime integration."
+  ]
+}
