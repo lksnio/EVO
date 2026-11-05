@@ -2289,28 +2289,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     for (const c of this.meats) c.update(time, dt);
     this.meats = this.meats.filter((c) => !c.gone);
 
-    const cam = this.cameras.main;
-    // im Tuschestil wiegen sich die Ebenen ganz leicht (der Tang der Ferne und Mitte, im Takt der Strömung)
-    const sway = this.ink ? Math.sin(this.t * 0.45) * 6 : 0;
-    this.bgFar.tilePositionX = cam.scrollX * 0.08 + sway * 0.4;
-    this.bgMid.tilePositionX = cam.scrollX * 0.28 + sway;
-    this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
-    // im Fluss am Start ist es still: die Fische in der Ferne tauchen erst zur Mündung hin auf
-    const re = this.L.riverEnd ?? 0;
-    const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
-    this.backSea?.update(time, dt, this.deepK, quiet);
-    this.drift?.update(time, dt);
-    this.weatherStep(dt);
-    this.waterAtmosphere?.update(time, dt, this.weather);
-    this.waterSurface?.update(time, this.weather);
-    this.reefScenery?.update(time, dt, p);
-    this.mapScenery?.update(p);
     if (!p.dead && !this.ended) this.siltStep(time);
-    for (const t of this.lava) t.tilePositionX += dt * 25;
-    for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
-    this.darkness?.setPosition(p.x, p.y);
-    this.zoneFx(time);
-    this.cullStep(time);
+    this.environmentStep(time, dt, p);
     if (!this.ended) {
       this.flowStep(dt);
       this.dreadStep(dt);
@@ -2490,6 +2470,31 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const a = this.spawnAnimal(id, x, y);
     a.presence = 0;
     this.tweens.add({ targets: a, presence: 1, duration: 800 });
+  }
+
+  /** Auch beim Zuschauen bleiben Wasser, Wetter und Bewuchs am beobachteten Tier lebendig. */
+  private environmentStep(time: number, dt: number, p: { x: number; y: number }) {
+    const cam = this.cameras.main;
+    // im Tuschestil wiegen sich die Ebenen ganz leicht (der Tang der Ferne und Mitte, im Takt der Strömung)
+    const sway = this.ink ? Math.sin(this.t * 0.45) * 6 : 0;
+    this.bgFar.tilePositionX = cam.scrollX * 0.08 + sway * 0.4;
+    this.bgMid.tilePositionX = cam.scrollX * 0.28 + sway;
+    this.fog.tilePositionX = cam.scrollX * 0.5 + this.t * 12;
+    // im Fluss am Start ist es still: die Fische in der Ferne tauchen erst zur Mündung hin auf
+    const re = this.L.riverEnd ?? 0;
+    const quiet = re ? clamp(1 - (p.x - (re - 500)) / 800, 0, 1) : 0;
+    this.backSea?.update(time, dt, this.deepK, quiet);
+    this.drift?.update(time, dt);
+    this.weatherStep(dt, p);
+    this.waterAtmosphere?.update(time, dt, this.weather);
+    this.waterSurface?.update(time, this.weather);
+    this.reefScenery?.update(time, dt, p);
+    this.mapScenery?.update(p);
+    for (const t of this.lava) t.tilePositionX += dt * 25;
+    for (const c of this.caustics) c.s.tilePositionX += dt * c.v;
+    this.darkness?.setPosition(p.x, p.y);
+    this.zoneFx(time);
+    this.cullStep(time);
   }
 
   /**
@@ -2796,9 +2801,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * In der Tiefe wird es dunkel und still: Der Lichtkreis um dich schrumpft (unter Wasser: die Sicht wird enger und dunkler),
    * das Klavier klingt dunkler und tiefer, das Meer rauscht, und vereinzelt sind kleine Wassertiere zu hören.
    */
-  private deepStep(time: number, dt: number) {
+  private deepStep(time: number, dt: number, p: { x: number; y: number } = this.player) {
     if (this.place.kind !== 'deep' && this.place.kind !== 'abyss') return;
-    const p = this.player;
     // die Dunkelheit wächst mit dem Anteil der Tiefe, den man schon hinabgeschwommen ist (die Orte sind verschieden tief)
     const frac = (p.y - this.L.surfaceY) / Math.max(400, this.L.height - this.L.surfaceY);
     const abyss = this.place.kind === 'abyss';
@@ -2806,7 +2810,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.deepK += (target - this.deepK) * Math.min(1, dt * 1.2);
     const k = this.deepK;
     // Wer lange unten ist, bekommt bessere Augen für die Nachkommen (nur so wächst die Sicht)
-    if (frac > SIGHT.trainFrom && !p.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
+    if (frac > SIGHT.trainFrom && !this.watching && !this.player.dead) this.train.deepTime = (this.train.deepTime ?? 0) + dt;
     this.deepDark?.setPosition(p.x, p.y).setScale((5 - 2.6 * k) / Z0).setAlpha(Math.min(0.96, k * 1.15));
     if (time > this.deepBeatAt) {
       this.deepBeatAt = time + 600;
@@ -3228,18 +3232,18 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * Das Wetter folgt der Weltzeit weich: Wolken machen das Bild dunkler, Wind und Regen rühren das Wasser auf (Seegang,
    * Schwebeteilchen, Bewuchs), und nahe der Oberfläche hört man den Regen aufs Wasser prasseln.
    */
-  private weatherStep(dt: number) {
+  private weatherStep(dt: number, p: { x: number; y: number } = this.player) {
     if (!this.weatherOn) return;
     const to = this.weatherTarget(), k = Math.min(1, dt / 2.5);
     this.weather.cloud += (to.cloud - this.weather.cloud) * k;
     this.weather.rain += (to.rain - this.weather.rain) * k;
-    const w = this.weather, p = this.player;
+    const w = this.weather;
     // tief unten ist es ohnehin dunkel – dort nimmt das Wetter weniger
     this.weatherShade?.setAlpha(w.cloud * 0.38 * (1 - this.deepK * 0.6));
     if (this.drift) this.drift.swell = swellAt(this.place.kind) * stormSwell(w);
     if (this.reefScenery) this.reefScenery.swell = stormSwell(w);
     const near = clamp(1 - (p.y - this.L.surfaceY) / 1000, 0, 1);
-    audio.rain(this.ended || p.dead ? 0 : w.rain * near);
+    audio.rain(this.ended || (this.player.dead && !this.watching) ? 0 : w.rain * near);
   }
 
   /**
@@ -3308,7 +3312,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /**
    * Das eigene Tier ist gestorben – solange Laich da ist, ist das kein Ende: Man wählt ein Ei (RoeScene), entweder ein
    * Geschwister (dieselbe Generation) oder eines aus dem Laich deiner Generation (die nächste – ohne Weg zurück). Ohne
-   * beides stirbt die Linie aus.
+   * beides schaut man einem lebenden Mitspieler zu; ohne Mitspieler endet die Linie.
    */
   private succession(cause:string,wait:number){
     if(this.ended||this.watching)return;
@@ -3328,7 +3332,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     game.waitForEgg(cause);this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;
     this.controls.clear();this.sight?.hide();
     this.stamG.clear();this.scene.stop('Hud');this.scene.launch('Watch');
-    this.cameras.main.stopFollow();this.cameras.main.fadeIn(450,2,3,4);
+    this.tweens.killTweensOf(this.near);this.near.k=1;
+    this.cameras.main.stopFollow();this.cameras.main.setFollowOffset(0,0);this.cameras.main.fadeIn(450,2,3,4);
+    audio.music(this.musicName);
     this.watchAutoRoe=true;
   }
   cycleWatch(delta:number){
@@ -3338,8 +3344,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private watchStep(time:number,dt:number){
     this.controls.clear();this.net?.update();
     for(const a of [...this.animals])if(!a.dead)a.tick(time,dt);
-    this.waterSurface?.update(time);this.waterAtmosphere?.update(time,dt);this.drift?.update(time,dt);
     const peers=species.livingPeers,peer=peers.find(p=>p.id===this.watchPeer)??peers[0];
+    let focus:{x:number;y:number}=this.player;
     this.watchName=peer?.name??'';
     if(peer){
       this.watchPeer=peer.id;
@@ -3348,10 +3354,16 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       }
       const target=this.net?.spectatorTarget(peer.identity,peer.name);
       if(target){
-        this.cameras.main.startFollow(target.view,true,.12,.12);
-        this.darkness?.setPosition(target.x,target.y);this.cullStep(time);
+        focus=target;
+        const zoom=frameZoom(target.view.L.halfW*2);
+        this.frameZ+=(zoom-this.frameZ)*Math.min(1,dt*CAMERA.ease);
+        this.cameras.main.setZoom(this.camZoom).startFollow(target.view,true,.12,.12);
       }
     }
+    this.deepStep(time,dt,focus);
+    this.environmentStep(time,dt,focus);
+    const frac=clamp((focus.y-this.L.surfaceY)/Math.max(300,this.L.height-this.L.surfaceY),0,1);
+    audio.mood({depth:Math.max(this.deepK,clamp((frac-.2)/.8,0,1)*.55),threat:0});
     if(this.watchAutoRoe&&(game.pool.length||game.roe.length)){this.watchAutoRoe=false;this.openWatcherRoe();}
   }
   openWatcherRoe(){

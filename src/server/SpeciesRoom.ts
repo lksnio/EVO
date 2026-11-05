@@ -73,8 +73,8 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
   }
 
   /**
-   * Ein Spieler meldet sich mit seinem Laich: Gibt es noch keine Art (ist sie ausgestorben, oder ist er allein da), beginnt
-   * sie mit seinem Laich und seiner Generation. Sonst kommen seine Eier dazu – nur die, die die Art noch nicht kennt.
+   * Die erste lebende Linie setzt die Generation, ebenso ein Neustart nach dem Aussterben. Weitere Meldungen behalten
+   * die gemeinsame Generation bei; nur unbekannte Eier innerhalb ihres Fensters kommen dazu.
    */
   private onHello(_client: Client, m: SpeciesHello) {
     const s = this.state;

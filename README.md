@@ -1179,10 +1179,11 @@ Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen 
   jetzigen Generation und den Laich der nächsten, jedes Ei unter seiner Kennung. Wer laicht, legt seine Eier dorthin
   (Eier aus einer vergangenen Generation verfallen); wer stirbt, wählt aus dem gemeinsamen Laich, und der Server **teilt
   das Ei zu** (wer zuerst kommt). Wählt jemand ein Ei der nächsten Generation, beginnt sie **für alle**. Stirbt jemand
-  ohne Laich, meldet der Server allen das **Aussterben**. Der Raum bleibt bestehen, wenn alle gegangen sind (bis der
-  Server endet); wer sich meldet, bringt seinen eigenen Laich mit – ist er allein im Raum (oder die Art ausgestorben),
-  beginnt die Art mit seinem Laich neu. Ohne Server bleibt alles beim eigenen Laich. (Im Karbon hat vorerst jeder sein
-  eigenes Gelege.)
+  ohne Laich, **schaut er einem lebenden Mitspieler zu**, auch über Ortsgrenzen hinweg. Legt dieser neuen Laich, kann
+  der Zuschauer ein Ei wählen und wieder einsteigen. Erst ohne lebende Spieler und ohne nutzbare Eier stirbt die Art aus.
+  Der Raum bleibt bestehen, wenn alle gegangen sind (bis der Server endet); zurückkehrende Spieler bringen nur Eier
+  der gemeinsamen jetzigen oder nächsten Generation mit. Alte Eier lassen sich nicht wiederbeleben. Ohne Server bleibt
+  alles beim eigenen Laich. (Im Karbon hat vorerst jeder sein eigenes Gelege.)
 - **Verbindung weg?** Der Platz bleibt 20 Sekunden frei (der Fisch wartet halb durchsichtig), der Client verbindet sich
   von selbst neu. Ist gar kein Server erreichbar, geht es still allein weiter.
 - **Gemeinsame Tiere und Pflanzen:** Alle am Ort sehen **dieselben Tiere**, dasselbe Fleisch und **dieselben Pflanzen**
@@ -1397,8 +1398,8 @@ insbesondere Epochenaufteilung und Vererbung werden überarbeitet. Muschelsegen 
 - [ ] **Geschlecht:** vorerst immer männlich (Laich zum Befruchten liegt im Startgebiet immer bereit). Später wieder zufällig.
 - [ ] **Aussterben:** ohne Laich und ohne wartende Geschwister Neustart als Urfisch (wie bisher).
 - [ ] **Koop-Laich:** Im Koop teilen sich alle Spieler eines Zeitalters auf dem Server die Art; wer neu dazukommt, schließt sich
-      ihrer Generation an (seine eigenen Eier aus einer früheren Generation verfallen). Stirbt jemand ohne Laich, endet
-      auch das Leben der anderen (so wie gewünscht: „durch zu wenig Artgenossen ausgestorben“). Der Laich der Art lebt nur,
+      ihrer Generation an (seine eigenen Eier aus einer früheren Generation verfallen). Stirbt jemand ohne Laich, schaut
+      er einem lebenden Mitspieler zu und kann über dessen neuen Laich zurückkehren. Der Laich der Art lebt nur,
       solange der Server läuft (jeder hat eine Kopie im eigenen Spielstand).
 - [ ] **Der Laich (Devon):** Die Eier tragen die Werte zur Laichzeit (nicht erst beim Tod); die Streuung betrifft nur
       Fähigkeiten, die die Linie schon entwickelt hat, und ist erblich. Passen mehr als 26 Eier in eine Gruppe, stehen die

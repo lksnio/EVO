@@ -3,7 +3,7 @@ import { EPOCHS } from '../data/epochs';
 import type { SpeciesAdvanced, SpeciesOver, SpeciesPicked } from './protocol';
 import { netWanted, playerName, serverUrl } from './NetSync';
 
-// Der gemeinsame Laich im Koop: Spieler behalten unabhängige Generationen und teilen ihre Eier (server/SpeciesRoom.ts). Die Verbindung
+// Der gemeinsame Laich im Koop: Nur Eier der aktuellen und nächsten Generation bleiben nutzbar (server/SpeciesRoom.ts). Die Verbindung
 // bleibt über alle Szenen hinweg bestehen (Level, Laich-Wahl, Karte) – sie spiegelt den gemeinsamen Laich in den Spielstand
 // (GameState.syncShared) und meldet, was man laicht. Ohne Server (offline) bleibt alles beim eigenen Laich.
 //
