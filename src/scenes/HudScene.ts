@@ -191,7 +191,7 @@ export class HudScene extends Phaser.Scene {
     const onRam = () => this.ramUnlocked();
     const onShell = () => this.updateGlow();
     const onDex = (ids: string[]) => {
-      for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEU IN DER CHRONIK DES LEBENS', name: SPECIES[id].name });
+      for (const id of ids) if (SPECIES[id]) this.dexQueue.push({ head: 'NEW IN THE CHRONICLE OF LIFE', name: SPECIES[id].name });
       this.nextDex();
     };
     bus.on('dex', onDex);
@@ -276,14 +276,14 @@ export class HudScene extends Phaser.Scene {
     g.fillStyle(0xffe0a0, 1);
     g.fillCircle(x0 + w * f, y + 1.5, 3);
     if (!this.broodText) return;
-    const eggs = `${b.eggs} ${b.eggs === 1 ? 'Ei' : 'Eier'}`;
+    const eggs = `${b.eggs} ${b.eggs === 1 ? 'egg' : 'eggs'}`;
     let line: string;
-    if (young) line = `Generation ${b.gen}  ·  ${eggs}  ·  Nahrung ${Math.floor(b.food)}/${BROOD.food} bis zur Metamorphose`;
+    if (young) line = `Generation ${b.gen}  ·  ${eggs}  ·  Food ${Math.floor(b.food)}/${BROOD.food} until metamorphosis`;
     else {
       const s = Math.ceil(b.left), mm = Math.floor(s / 60), ss = `${s % 60}`.padStart(2, '0');
       const lvl = this.scene.get('Level') as LevelScene;
       const away = lvl?.place && lvl.place.id !== b.nest.place;
-      line = `Generation ${b.gen}  ·  ${eggs}  ·  neues Gelege in ${mm}:${ss}${away ? '  ·  das Nest ist ungeschützt!' : ''}`;
+      line = `Generation ${b.gen}  ·  ${eggs}  ·  new clutch in ${mm}:${ss}${away ? '  ·  the nest is unprotected!' : ''}`;
     }
     if (line !== this.broodText.text) this.broodText.setText(line);
     this.broodText.setColor(b.eggs <= 10 && !young ? '#e0806a' : UI.bone);
@@ -331,9 +331,9 @@ export class HudScene extends Phaser.Scene {
       // dazu, wie lange eine Nachricht zum Server und zurück braucht (ab 150 ms merkt man es)
       const ms = netInfo.ping ? ` · ${Math.round(netInfo.ping)} ms` : '';
       const msg =
-        state === 'online' ? (n ? `● ${n === 1 ? 'ein weiterer Spieler' : `${n} weitere Spieler`} hier${ms}` : `● online – allein hier${ms}`)
-        : state === 'unterbrochen' ? '○ Verbindung unterbrochen …'
-        : '○ getrennt – es geht allein weiter';
+        state === 'online' ? (n ? `● ${n === 1 ? 'one other player' : `${n} other players`} here${ms}` : `● online — alone here${ms}`)
+        : state === 'unterbrochen' ? '○ Connection interrupted …'
+        : '○ Disconnected — continuing solo';
       t.setText(msg).setColor(state === 'online' && netInfo.ping < 150 ? UI.boneDim : UI.ochre).setAlpha(0.85);
       if (state === 'getrennt') this.tweens.add({ targets: t, alpha: 0, delay: 6000, duration: 1200 });
     };
@@ -549,7 +549,7 @@ export class HudScene extends Phaser.Scene {
     const c = this.add.container(0, 0).setDepth(50);
     c.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.66).setOrigin(0).setInteractive());
     c.add(panel(this, W / 2 - 380, 130, 760, 460, 0.92));
-    c.add(title(this, W / 2, 182, 'Rast', 48).setOrigin(0.5));
+    c.add(title(this, W / 2, 182, 'Rest', 48).setOrigin(0.5));
 
     const lv = this.scene.get('Level') as unknown as { player?: { morph(): Morph } };
     const m = lv.player?.morph() ?? game.morph();
@@ -564,20 +564,20 @@ export class HudScene extends Phaser.Scene {
     // Liegt Laich deiner Generation, kann man sein Leben an die Nachkommen weitergeben (statt die Linie aufzugeben)
     const heir = game.roe.length > 0;
     const y0 = heir ? 236 : 252, step = heir ? 58 : 66, h = heir ? 50 : 54;
-    const b1 = new Button(this, bx, y0, 'Weiter', { w: 300, h, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
-    const b3 = new Button(this, bx, y0 + step, 'Steuerung', { w: 300, h, onClick: () => this.showControls() });
+    const b1 = new Button(this, bx, y0, 'Continue', { w: 300, h, icon: 'ic_play', color: UI.ochreN, onClick: () => this.resumeGame() });
+    const b3 = new Button(this, bx, y0 + step, 'Controls', { w: 300, h, onClick: () => this.showControls() });
     // Zum Hauptmenü: Das Spiel läuft noch 5 Sekunden weiter (so entkommt man keiner Gefahr), dann geht es genau hier weiter
-    const b4 = new Button(this, bx, y0 + step * 2, 'Hauptmenü', { w: 300, h, icon: 'ic_home', onClick: () => this.quit() });
+    const b4 = new Button(this, bx, y0 + step * 2, 'Main menu', { w: 300, h, icon: 'ic_home', onClick: () => this.quit() });
     const items = [b1, b3, b4];
-    if (heir) items.push(new Button(this, bx, y0 + step * 3, 'Leben weitergeben', { w: 300, h, icon: 'ic_swarm', onClick: () => this.handOver() }));
-    const b2 = new Button(this, bx, y0 + step * items.length, 'Aufgeben', { w: 300, h, icon: 'ic_skull', onClick: () => this.abort() });
+    if (heir) items.push(new Button(this, bx, y0 + step * 3, 'Pass on life', { w: 300, h, icon: 'ic_swarm', onClick: () => this.handOver() }));
+    const b2 = new Button(this, bx, y0 + step * items.length, 'Give up', { w: 300, h, icon: 'ic_skull', onClick: () => this.abort() });
     items.push(b2);
     this.giveUp = b2;
     this.giveUpArmed = false;
     c.add(items);
     const note = heir
-      ? 'Weitergeben: Du spielst als Jungtier aus deinem Gelege weiter.\nAufgeben: Die Linie stirbt aus.'
-      : 'Wer aufgibt, lässt seine Linie aussterben.\nDas Spiel ist dann vorbei.';
+      ? 'Pass on life: continue as a hatchling from your clutch.\nGive up: your lineage becomes extinct.'
+      : 'Giving up ends your lineage.\nThe game will be over.';
     c.add(text(this, bx, y0 + step * (items.length - 1) + 50, note, 16, UI.boneDim, { align: 'center' }).setOrigin(0.5, 0));
     this.pauseC = c;
     this.pauseNav = new MenuNav(this, items);
@@ -622,7 +622,7 @@ export class HudScene extends Phaser.Scene {
     bg.lineStyle(1.5, 0xd8b070, 0.5);
     bg.strokeRoundedRect(-190, -34, 380, 68, 12);
     const head = title(this, 0, -10, '', 22, UI.ochre).setOrigin(0.5);
-    const sub = text(this, 0, 16, this.isTouch ? 'Tippen: abbrechen' : 'Esc: abbrechen', 15, UI.boneDim).setOrigin(0.5);
+    const sub = text(this, 0, 16, this.isTouch ? 'Tap to cancel' : 'Esc: cancel', 15, UI.boneDim).setOrigin(0.5);
     c.add([bg, head, sub]);
     c.setSize(380, 68).setInteractive({ cursor: CURSOR.pointer }).on('pointerdown', () => this.quitting && bus.emit('quitCancel'));
     const onCount = (n: number) => {
@@ -632,7 +632,7 @@ export class HudScene extends Phaser.Scene {
         this.tweens.add({ targets: c, alpha: 0, duration: 300 });
         return;
       }
-      head.setText(`Zum Hauptmenü in ${n} …`);
+      head.setText(`Returning to the main menu in ${n} …`);
       c.setAlpha(1).setScale(1.06);
       this.tweens.add({ targets: c, scale: 1, duration: 260, ease: 'Sine.out' });
       audio.sfx('select');
@@ -651,7 +651,7 @@ export class HudScene extends Phaser.Scene {
   private abort() {
     if (!this.giveUpArmed) {
       this.giveUpArmed = true;
-      this.giveUp?.setLabel('Wirklich?').setColor(0x5a2420);
+      this.giveUp?.setLabel('Are you sure?').setColor(0x5a2420);
       return;
     }
     this.resumeGame();
@@ -667,11 +667,11 @@ export class HudScene extends Phaser.Scene {
     this.touchBtn(150, 540, 40, '▲', 'up');
     this.touchBtn(150, 680, 36, '▼', 'down');
     // Am Laich öffnet derselbe Knopf die Eiübersicht (wie E).
-    const bite = this.touchBtn(1190, 600, 60, 'Biss', 'bite', 0xc8473a);
-    const onAble = (on: boolean) => bite.setText(on ? 'Laich' : 'Biss');
+    const bite = this.touchBtn(1190, 600, 60, 'Bite', 'bite', 0xc8473a);
+    const onAble = (on: boolean) => bite.setText(on ? 'Eggs' : 'Bite');
     bus.on('spawnable', onAble);
     this.events.once('shutdown', () => bus.off('spawnable', onAble));
-    this.touchBtn(1060, 650, 50, water ? 'Hoch' : 'Sprung', 'jump', 0x9ab8b0);
+    this.touchBtn(1060, 650, 50, water ? 'Surface' : 'Jump', 'jump', 0x9ab8b0);
     this.touchBtn(1070, 520, 44, 'Sprint', 'sprint', 0xc8913c);
     if (game.canRam) this.ramButton();
     this.talkButton();
@@ -685,7 +685,7 @@ export class HudScene extends Phaser.Scene {
     g.fillCircle(x, y, r);
     g.lineStyle(2.5, 0xe0a848, 0.6);
     g.strokeCircle(x, y, r);
-    const t = text(this, x, y, 'Beten', 19, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
+    const t = text(this, x, y, 'Interact', 19, UI.bone, { fontStyle: '700', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(6);
     const z = this.add.zone(x, y, r * 2, r * 2).setInteractive(new Phaser.Geom.Circle(r, r, r), Phaser.Geom.Circle.Contains).setDepth(7);
     const all = [g, t];
     for (const o of all) o.setAlpha(0);
@@ -711,7 +711,7 @@ export class HudScene extends Phaser.Scene {
   private ramButton() {
     if (this.ramBtn) return;
     this.ramBtn = true;
-    this.touchBtn(1195, 460, 44, 'Stoß', 'ram', 0xb89a70);
+    this.touchBtn(1195, 460, 44, 'Ram', 'ram', 0xb89a70);
   }
 
   private touchBtn(x: number, y: number, r: number, label: string, key: keyof typeof touch, color = 0xe6dcc4) {

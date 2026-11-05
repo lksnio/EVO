@@ -435,7 +435,7 @@ const ease = (x: number) => x * x * (3 - 2 * x);
 const SHADOW = { offsetX: 0, offsetY: 1, color: 'rgba(0,0,0,.85)', blur: 6, fill: true };
 
 /** „vor 359 bis 299 Millionen Jahren“ */
-const span = (ep: EpochDef) => `vor ${ep.period[0]} bis ${ep.period[1]} Millionen Jahren`;
+const span = (ep: EpochDef) => `${ep.period[0]} to ${ep.period[1]} million years ago`;
 
 export class EraScene extends Phaser.Scene {
   private panels: Panel[] = [];
@@ -699,19 +699,19 @@ export class EraScene extends Phaser.Scene {
     small(86, String(ep.period[0]), 14, UI.bone);
     nc.add(this.add.rectangle(0, 101, 16, 1, 0xc8913c, 0.8));
     small(116, String(ep.period[1]), 14, UI.bone);
-    small(134, 'MIO. J.', 9, UI.ochre, 3);
+    small(134, 'MILLION YR', 9, UI.ochre, 3);
     nc.add(this.add.text(0, H - 112, ep.name.toUpperCase(), {
       fontFamily: TITLE_FONT, fontSize: '25px', color: '#f0e6cf', fontStyle: '700', resolution: 2,
       shadow: { offsetX: 0, offsetY: 2, color: 'rgba(0,0,0,.8)', blur: 10, fill: true },
     }).setOrigin(0, 0.5).setAngle(-90).setLetterSpacing(7));
     small(H - 80, ROMAN[p.k], 15, UI.ochre, 3);
-    if (p.playable) small(H - 52, run ? `GEN. ${run.life.gen}` : 'SPIELBAR', 10, '#e2b876', 3);
+    if (p.playable) small(H - 52, run ? `GEN. ${run.life.gen}` : 'PLAYABLE', 10, '#e2b876', 3);
     else nc.add(this.add.image(0, H - 50, 'era_fossil').setScale(0.36).setAlpha(0.85));
 
     // ---- weit geöffnet: der ganze Block unten links
     const wc = p.wideC;
     const x = TEXT_X;
-    wc.add(this.add.text(x, H - 376, `ZEITALTER ${ROMAN[p.k]}`, { fontFamily: TITLE_FONT, fontSize: '13px', color: '#d9a24c', fontStyle: '700', resolution: 2, shadow: SHADOW }).setLetterSpacing(7));
+    wc.add(this.add.text(x, H - 376, `ERA ${ROMAN[p.k]}`, { fontFamily: TITLE_FONT, fontSize: '13px', color: '#d9a24c', fontStyle: '700', resolution: 2, shadow: SHADOW }).setLetterSpacing(7));
     const name = this.add.text(x - 3, H - 358, ep.name.toUpperCase(), {
       fontFamily: TITLE_FONT, fontSize: '54px', color: '#f3ead4', fontStyle: '400', resolution: 2,
       shadow: { offsetX: 0, offsetY: 4, color: 'rgba(0,0,0,.6)', blur: 16, fill: true },
@@ -724,15 +724,15 @@ export class EraScene extends Phaser.Scene {
       // die Weltzeit (sie läuft für alle gleich) und die eigene Linie
       p.clock = text(this, x, H - 142, '', 15, UI.ochre, { fontStyle: '700' }).setLetterSpacing(1);
       wc.add(p.clock);
-      const line = run ? `Deine Linie: ${speciesName({ cls: run.cls, traits: run.traits, epoch: p.i })} · Generation ${run.life.gen}` : 'Hier beginnt deine Linie – mit einem Urfisch.';
+      const line = run ? `Your lineage: ${speciesName({ cls: run.cls, traits: run.traits, epoch: p.i })} · Generation ${run.life.gen}` : 'Your lineage begins here, with an early fish.';
       wc.add(text(this, x, H - 120, line, 15, UI.bone, { fontStyle: 'italic' }).setAlpha(0.85));
-      const main = new Button(this, x + 124, H - 64, run ? 'Weiterleben' : 'Leben beginnen', {
+      const main = new Button(this, x + 124, H - 64, run ? 'Continue life' : 'Begin life', {
         w: 248, h: 52, size: 19, icon: 'ic_play', color: UI.ochreN, sound: null, onClick: () => this.launch(p, run ? 'continue' : 'new'),
       });
       p.buttons.push(main);
       wc.add(main);
       if (run) {
-        const fresh = new Button(this, x + 248 + 22 + 96, H - 64, 'Neue Linie', { w: 192, h: 46, size: 17, sound: 'select', onClick: () => this.askNew(p) });
+        const fresh = new Button(this, x + 248 + 22 + 96, H - 64, 'New lineage', { w: 192, h: 46, size: 17, sound: 'select', onClick: () => this.askNew(p) });
         p.buttons.push(fresh);
         wc.add(fresh);
       }
@@ -741,17 +741,17 @@ export class EraScene extends Phaser.Scene {
       const em = this.add.image(x + 16, H - 68, 'era_fossil').setScale(0.5);
       wc.add(em);
       p.wideC.setData('emblem', em);
-      wc.add(this.add.text(x + 46, H - 86, 'NOCH IM GESTEIN', { fontFamily: TITLE_FONT, fontSize: '17px', color: '#e2b876', fontStyle: '700', resolution: 2 }).setLetterSpacing(6));
-      wc.add(text(this, x + 46, H - 60, p.look.url ? 'Diese Welt ruht noch im Fels – bald bricht sie auf.' : 'Ihr Bild liegt noch im Fels – bald bricht es auf.', 16, UI.boneDim, { fontStyle: 'italic' }));
+      wc.add(this.add.text(x + 46, H - 86, 'STILL IN STONE', { fontFamily: TITLE_FONT, fontSize: '17px', color: '#e2b876', fontStyle: '700', resolution: 2 }).setLetterSpacing(6));
+      wc.add(text(this, x + 46, H - 60, p.look.url ? 'This world still sleeps in stone — one day it will emerge.' : 'Its image still lies in stone — one day it will emerge.', 16, UI.boneDim, { fontStyle: 'italic' }));
     }
   }
 
   private header() {
     // oben: wohin es geht, links zurück, rechts der Ton
-    const head = this.add.text(W / 2, 30, 'WÄHLE DEIN ZEITALTER', { fontFamily: TITLE_FONT, fontSize: '14px', color: UI.ochre, fontStyle: '700', resolution: 2, shadow: SHADOW })
+    const head = this.add.text(W / 2, 30, 'CHOOSE YOUR ERA', { fontFamily: TITLE_FONT, fontSize: '14px', color: UI.ochre, fontStyle: '700', resolution: 2, shadow: SHADOW })
       .setOrigin(0.5).setLetterSpacing(9).setDepth(10);
     const rule = this.add.image(W / 2 - 75, 52, 'era_rule').setDisplaySize(150, 3).setAlpha(0.8).setOrigin(0, 0.5).setDepth(10);
-    const back = this.add.text(30, 30, '‹  TITELBILD', { fontFamily: TITLE_FONT, fontSize: '13px', color: UI.boneDim, fontStyle: '700', resolution: 2, shadow: SHADOW })
+    const back = this.add.text(30, 30, '‹  TITLE SCREEN', { fontFamily: TITLE_FONT, fontSize: '13px', color: UI.boneDim, fontStyle: '700', resolution: 2, shadow: SHADOW })
       .setOrigin(0, 0.5).setLetterSpacing(4).setDepth(10).setInteractive({ cursor: CURSOR.pointer });
     back.on('pointerover', () => {
       back.setColor(UI.bone);
@@ -760,7 +760,7 @@ export class EraScene extends Phaser.Scene {
     back.on('pointerout', () => back.setColor(UI.boneDim));
     back.on('pointerdown', () => this.back());
     soundIcon(this, W - 40, 30, 24).setDepth(10);
-    const hint = text(this, W / 2, H - 16, '← →  wählen   ·   Eingabe  aufbrechen   ·   Esc  zurück', 13, UI.boneDim).setOrigin(0.5).setAlpha(0.55).setDepth(10);
+    const hint = text(this, W / 2, H - 16, '← → choose · Enter: set out · Esc: back', 13, UI.boneDim).setOrigin(0.5).setAlpha(0.55).setDepth(10);
     for (const o of [head, rule, back, hint]) {
       const a = o.alpha;
       o.setAlpha(0);
@@ -869,10 +869,10 @@ export class EraScene extends Phaser.Scene {
     g.lineStyle(1, 0xc8913c, 0.4);
     g.strokeRoundedRect(x + 0.5, y + 0.5, w - 1, h - 1, 8);
     c.add([shade, g]);
-    c.add(this.add.text(W / 2, y + 44, 'NEUE LINIE', { fontFamily: TITLE_FONT, fontSize: '17px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(10));
-    c.add(text(this, W / 2, y + 112, `${inEra(p.ep).replace(/^./, (c) => c.toUpperCase())} schlüpft ein neuer Urfisch –\ndeine jetzige Linie endet dann.`, 21, UI.bone, { align: 'center', lineSpacing: 6 }).setOrigin(0.5));
-    const no = new Button(this, W / 2 - 130, y + 210, 'Abbrechen', { w: 220, h: 48, size: 18, sound: 'back', onClick: () => this.closeOverlay() });
-    const yes = new Button(this, W / 2 + 130, y + 210, 'Neu beginnen', { w: 220, h: 48, size: 18, color: UI.bloodN, sound: null, onClick: () => {
+    c.add(this.add.text(W / 2, y + 44, 'NEW LINEAGE', { fontFamily: TITLE_FONT, fontSize: '17px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(10));
+    c.add(text(this, W / 2, y + 112, `${inEra(p.ep).replace(/^./, (c) => c.toUpperCase())} a new early fish hatches —\nyour current lineage will end.`, 21, UI.bone, { align: 'center', lineSpacing: 6 }).setOrigin(0.5));
+    const no = new Button(this, W / 2 - 130, y + 210, 'Cancel', { w: 220, h: 48, size: 18, sound: 'back', onClick: () => this.closeOverlay() });
+    const yes = new Button(this, W / 2 + 130, y + 210, 'Begin again', { w: 220, h: 48, size: 18, color: UI.bloodN, sound: null, onClick: () => {
       this.closeOverlay();
       this.launch(p, 'new');
     } });

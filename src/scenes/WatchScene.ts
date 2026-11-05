@@ -12,12 +12,12 @@ export class WatchScene extends Phaser.Scene {
   constructor(){super('Watch');}
   create(){
     this.add.rectangle(W/2,55,600,86,0x051015,.9).setStrokeStyle(1,0x648184,.7);
-    this.label=text(this,W/2,27,'Zuschauen',24,UI.bone).setOrigin(.5,0);
-    this.hint=text(this,W/2,64,'Warte auf neuen Laich.',16,UI.boneDim).setOrigin(.5,0);
-    this.eggs=new Button(this,W/2,H-65,'Laich ansehen',{w:290,h:46,onClick:()=>this.level.openWatcherRoe()});
+    this.label=text(this,W/2,27,'Spectating',24,UI.bone).setOrigin(.5,0);
+    this.hint=text(this,W/2,64,'Waiting for new eggs.',16,UI.boneDim).setOrigin(.5,0);
+    this.eggs=new Button(this,W/2,H-65,'View eggs',{w:290,h:46,onClick:()=>this.level.openWatcherRoe()});
     new Button(this,95,55,'‹',{w:48,h:38,onClick:()=>this.level.cycleWatch(-1)});
     new Button(this,W-95,55,'›',{w:48,h:38,onClick:()=>this.level.cycleWatch(1)});
-    new Button(this,W-130,H-36,'Titelbild',{w:180,h:35,size:16,onClick:()=>{game.save();this.scene.stop('Level');fadeTo(this,'Title');}});
+    new Button(this,W-130,H-36,'Title screen',{w:180,h:35,size:16,onClick:()=>{game.save();this.scene.stop('Level');fadeTo(this,'Title');}});
     this.input.keyboard?.on('keydown-E',()=>this.level.openWatcherRoe());
     this.input.keyboard?.on('keydown-ENTER',()=>this.level.openWatcherRoe());
     this.input.keyboard?.on('keydown-LEFT',()=>this.level.cycleWatch(-1));
@@ -27,8 +27,8 @@ export class WatchScene extends Phaser.Scene {
   private get level(){return this.scene.get('Level') as LevelScene;}
   update(){
     const count=game.pool.length+game.roe.length;
-    this.label.setText(this.level.watchName?`Du schaust ${this.level.watchName} zu`:'Zuschauen');
-    this.hint.setText(count?`${count} ${count===1?'Ei ist':'Eier sind'} verfügbar. Wähle dein nächstes Leben.`:'Sobald dein Mitspieler laicht, kannst du wieder einsteigen.');
+    this.label.setText(this.level.watchName?`You are watching ${this.level.watchName}`:'Spectating');
+    this.hint.setText(count?`${count} ${count===1?'egg is':'eggs are'} available. Choose your next life.`:'You can rejoin as soon as your partner spawns.');
     this.eggs.setDisabled(!count);
   }
 }

@@ -49,18 +49,18 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
       const presence=JSON.parse(this.state.presence.get(client.sessionId)??'{}');
       this.state.presence.set(client.sessionId,JSON.stringify({...presence,alive:false}));
       if(m.ended!==false){const raw=this.state.branches.get(client.sessionId);if(raw){try{this.state.branches.set(client.sessionId,JSON.stringify({...JSON.parse(raw),extinct:true}));}catch{}}}
-      this.maybeOver(String(m.cause??'Kein Laich mehr'),client.sessionId);
+      this.maybeOver(String(m.cause??'No eggs left'),client.sessionId);
     },
   };
 
   onCreate(o: SpeciesJoin) {
     const epoch = Math.round(num(o?.epoch, -1));
-    if (!EPOCHS[epoch]?.playable) throw new Error('Dieses Zeitalter gibt es nicht.');
+    if (!EPOCHS[epoch]?.playable) throw new Error('This era does not exist.');
     this.state.epoch = epoch;
   }
 
   onJoin(client: Client, o: SpeciesJoin) {
-    this.state.members.set(client.sessionId, cleanName(o?.name) || 'Fisch');
+    this.state.members.set(client.sessionId, cleanName(o?.name) || 'Fish');
     this.state.presence.set(client.sessionId,JSON.stringify({alive:true,place:'',identity:client.sessionId}));
   }
 
@@ -69,7 +69,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     this.state.selections.delete(client.sessionId);
     this.memberGen.delete(client.sessionId);
     this.state.presence.delete(client.sessionId);this.deadMembers.delete(client.sessionId);
-    this.maybeOver('Kein lebender Artgenosse mehr',client.sessionId);
+    this.maybeOver('No living fellow creatures remain',client.sessionId);
   }
 
   /**
@@ -88,7 +88,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     this.branch(_client,m.trace);
     for (const raw of pool.slice(0, SPECIES_MAX_EGGS)) this.place(gen, raw);
     for (const raw of next.slice(0, SPECIES_MAX_EGGS)) this.place(gen + 1, raw);
-    if(m.waiting)this.maybeOver('Kein Laich mehr',_client.sessionId);
+    if(m.waiting)this.maybeOver('No eggs left',_client.sessionId);
   }
 
   private maybeOver(cause:string,who:string) {
@@ -120,7 +120,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
         const id=`past-${client.sessionId}-${prior.trace.map((m:{form:number})=>m.form).join('-')}`;
         this.state.branches.set(id,JSON.stringify({...prior,id,extinct:true}));
       }}
-      this.state.branches.set(client.sessionId,JSON.stringify({id:`peer-${client.sessionId}`,name:this.state.members.get(client.sessionId)??'Artgenosse',trace,...(this.deadMembers.has(client.sessionId)?{extinct:true}:{})}));
+      this.state.branches.set(client.sessionId,JSON.stringify({id:`peer-${client.sessionId}`,name:this.state.members.get(client.sessionId)??'Fellow creature',trace,...(this.deadMembers.has(client.sessionId)?{extinct:true}:{})}));
     }catch{}
   }
 

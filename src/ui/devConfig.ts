@@ -52,7 +52,7 @@ const CSS = `
 .evo-dev .hide { display: none; }
 `;
 
-const fmt = (v: number) => (Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000)).replace('.', ',');
+const fmt = (v: number) => Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000);
 const parse = (s: string) => Number(s.trim().replace(/\s/g, '').replace(',', '.'));
 
 /** Öffnet die Einstellung. onChange: nach jeder Änderung (z. B. für den Hinweis im Titelbild); onClose: beim Schließen. */
@@ -72,21 +72,21 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
   const sheet = el('div', 'sheet');
   root.appendChild(sheet);
   const header = el('header');
-  header.appendChild(el('h1', '', 'ENTWICKLER-EINSTELLUNG'));
-  header.appendChild(el('div', 'sub', 'Alle Zahlen für das Gleichgewicht des Spiels. Geänderte Werte merkt sich dieser Browser – sie gelten ab dem nächsten Ort bzw. Leben.'));
+  header.appendChild(el('h1', '', 'DEVELOPER SETTINGS'));
+  header.appendChild(el('div', 'sub', 'Game balance settings. This browser remembers changed values; they take effect at the next location or life.'));
   const bar = el('div', 'bar');
   const search = document.createElement('input');
   search.type = 'search';
-  search.placeholder = 'Suchen …';
+  search.placeholder = 'Search …';
   const count = el('span', 'count');
-  const bExport = button('Exportieren', () => modal('export'));
-  const bImport = button('Importieren', () => modal('import'));
-  const bReset = button('Alles zurücksetzen', () => {
-    if (!changedCount() || !confirm('Alle Werte auf den Standard zurücksetzen?')) return;
+  const bExport = button('Export', () => modal('export'));
+  const bImport = button('Import', () => modal('import'));
+  const bReset = button('Reset all', () => {
+    if (!changedCount() || !confirm('Reset all values to their defaults?')) return;
     resetAll();
     refreshAll();
   });
-  const bClose = button('Schließen ✕', () => close());
+  const bClose = button('Close ✕', () => close());
   bClose.classList.add('close');
   bar.append(search, count, bExport, bImport, bReset, bClose);
   header.appendChild(bar);
@@ -132,13 +132,13 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
         lab.title = p.hint;
         lab.appendChild(el('small', '', p.hint));
       }
-      const def = el('div', 'def', `Standard: ${fmt(p.def())}`);
+      const def = el('div', 'def', `Default: ${fmt(p.def())}`);
       const undo = button('↺', () => {
         resetParam(p);
         refresh(p);
       });
       undo.classList.add('undo');
-      undo.title = 'Zurück auf den Standard';
+      undo.title = 'Restore default';
       row.append(lab, numInput(p, row), def, undo);
       det.appendChild(row);
       rows.push({ box: row, text: `${g.title} ${p.label} ${p.hint ?? ''} ${p.id}`.toLowerCase() });
@@ -152,14 +152,14 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
     const det = document.createElement('details');
     det.open = false;
     const sum = document.createElement('summary');
-    sum.textContent = 'TIERE EINZELN';
+    sum.textContent = 'INDIVIDUAL ANIMALS';
     const n = el('span', 'n');
     sum.appendChild(n);
     det.appendChild(sum);
-    det.appendChild(el('div', 'note', 'Nahrung: so viel gibt ein erlegtes Tier (bei Größe 1; ohne eigenen Wert nach seiner Lebenskraft). Lebenskraft, Biss, Tempo und Stärke wie im Spiel – die Faktoren für alle Tiere kommen obendrauf.'));
+    det.appendChild(el('div', 'note', 'Food is the amount yielded by a defeated animal at size 1; if unspecified, it follows vitality. Vitality, bite, speed and power match the game; global animal multipliers apply on top.'));
     const table = document.createElement('table');
     const head = document.createElement('tr');
-    for (const h of ['Art', 'Zeitalter', ...SPECIES_ROWS[0].params.map((p) => p.label)]) head.appendChild(el('th', '', h));
+    for (const h of ['Species', 'Era', ...SPECIES_ROWS[0].params.map((p) => p.label)]) head.appendChild(el('th', '', h));
     table.appendChild(head);
     const rows: { box: HTMLElement; text: string }[] = [];
     for (const r of SPECIES_ROWS) {
@@ -168,7 +168,7 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
       tr.appendChild(el('td', 'ep', r.epoch));
       for (const p of r.params) {
         const td = document.createElement('td');
-        td.title = `Standard: ${fmt(p.def())}`;
+        td.title = `Default: ${fmt(p.def())}`;
         td.appendChild(numInput(p, td));
         td.addEventListener('dblclick', () => {
           resetParam(p);
@@ -180,7 +180,7 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
       rows.push({ box: tr, text: `${r.name} ${r.id} ${r.epoch}`.toLowerCase() });
     }
     det.appendChild(table);
-    det.appendChild(el('div', 'note', 'Doppelklick auf ein Feld: zurück auf den Standard.'));
+    det.appendChild(el('div', 'note', 'Double-click a field to restore its default.'));
     main.appendChild(det);
     sections.push({ det, n, params: SPECIES_ROWS.flatMap((r) => r.params), rows });
   }
@@ -191,7 +191,7 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
       if (it.p !== p && isChanged(it.p)) continue;
       if (document.activeElement !== it.input || it.p === p) it.input.value = String(it.p.get());
       it.box.classList.toggle('changed', isChanged(it.p));
-      if (it.box.tagName === 'TD') it.box.title = `Standard: ${fmt(it.p.def())}`;
+      if (it.box.tagName === 'TD') it.box.title = `Default: ${fmt(it.p.def())}`;
     }
     counts();
   }
@@ -206,10 +206,10 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
 
   function counts() {
     const c = changedCount();
-    count.textContent = c ? `${c} geändert` : 'alles Standard';
+    count.textContent = c ? `${c} changed` : 'all defaults';
     for (const s of sections) {
       const k = s.params.filter(isChanged).length;
-      s.n.textContent = k ? `${k} geändert` : '';
+      s.n.textContent = k ? `${k} changed` : '';
     }
     onChange();
   }
@@ -232,26 +232,26 @@ export function openDevConfig(onChange: () => void, onClose: () => void) {
     const m = el('div', 'modal');
     const box = el('div');
     box.appendChild(el('p', '', kind === 'export'
-      ? 'Deine geänderten Werte. Kopieren und weitergeben – oder später über „Importieren“ wieder einsetzen.'
-      : 'Werte einfügen (wie beim Exportieren). Sie ersetzen alle bisher geänderten.'));
+      ? 'Your changed values. Copy and share them, or restore them later using Import.'
+      : 'Paste settings from an export. They replace all previously changed values.'));
     const ta = document.createElement('textarea');
     ta.value = kind === 'export' ? exportTuning() : '';
     box.appendChild(ta);
     const mb = el('div', 'bar');
     if (kind === 'export') {
-      mb.appendChild(button('Kopieren', () => {
+      mb.appendChild(button('Copy', () => {
         ta.select();
         navigator.clipboard?.writeText(ta.value).catch(() => document.execCommand('copy'));
       }));
     } else {
-      mb.appendChild(button('Übernehmen', () => {
+      mb.appendChild(button('Apply', () => {
         const n = importTuning(ta.value);
-        if (n < 0) return alert('Das sind keine gültigen Werte.');
+        if (n < 0) return alert('These values are not valid.');
         refreshAll();
         m.remove();
       }));
     }
-    mb.appendChild(button('Schließen', () => m.remove()));
+    mb.appendChild(button('Close', () => m.remove()));
     box.appendChild(mb);
     m.appendChild(box);
     m.addEventListener('pointerdown', (e) => e.target === m && m.remove());

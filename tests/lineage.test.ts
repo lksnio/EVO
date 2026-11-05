@@ -24,7 +24,7 @@ describe('Persönlicher gespielter Stammbaum', () => {
   it('datiert Geburt und Dauer nach Weltzeit; bloßes Besuchen eines Gebiets erzeugt keinen Knoten', () => {
     game.newRun(0);
     const r = game.data.lineage.runs[0], s = r.segments[0];
-    expect(s.site.name).toBe('Der Laichfluss');
+    expect(s.site.name).toBe('The Spawning River');
     expect(s.from).toBe(worldYears(EPOCHS[0].from, EPOCHS[0].to));
     now += 600_000; game.ageBy(600); game.enterPlace('garten', { side: 'left', frac: .5 });
     expect(s.from - s.to).toBeCloseTo(600 * WORLD.yearsPerSecond);
@@ -104,7 +104,7 @@ describe('Persönlicher gespielter Stammbaum', () => {
     expect(ended.legacy).toBe(true); expect(alive.legacy).toBe(true);
     expect(ended.segments[0].from).toBe(EPOCHS[0].from - .3 * (EPOCHS[0].from - EPOCHS[0].to));
     expect(ended.segments[0].to).toBe(ended.segments[0].from);
-    expect(alive.segments[0].site.name).toMatch(/nicht überliefert/);
+    expect(alive.segments[0].site.name).toBe('Spawning site not recorded');
     const before = JSON.stringify(game.data.lineage); game.load('lineagetest');
     expect(JSON.stringify(game.data.lineage)).toBe(before);
   });

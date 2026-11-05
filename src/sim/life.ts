@@ -37,7 +37,7 @@ export const lifeK = (age: number, gen = 1): LifeK => ({ grow: growthAt(age, gen
 
 export type Stage = 'jung' | 'heran' | 'adult' | 'alt';
 
-export const STAGE_NAME: Record<Stage, string> = { jung: 'Jungtier', heran: 'Heranwachsend', adult: 'Ausgewachsen', alt: 'Alt' };
+export const STAGE_NAME: Record<Stage, string> = { jung: 'Juvenile', heran: 'Growing', adult: 'Adult', alt: 'Old' };
 
 export function stageOf(age: number, gen = 1): Stage {
   const P = phases(gen);

@@ -14,11 +14,11 @@ function announce() {
     .filter((a) => a && a.family === 'IPv4' && !a.internal)
     .map((a) => a!.address);
   const tail = ips.filter((ip) => ip.startsWith('100.'));
-  console.log('\n  EVO: Living World läuft.');
-  console.log(`  Du selbst:        http://localhost:${PORT}/?name=DeinName`);
-  for (const ip of tail) console.log(`  Freunde (Tailscale): http://${ip}:${PORT}/?name=IhrName`);
-  if (!tail.length) console.log('  Tailscale nicht gefunden – läuft es? (Adresse sonst mit: tailscale ip -4)');
-  for (const ip of ips.filter((x) => !x.startsWith('100.'))) console.log(`  Im eigenen Netz:  http://${ip}:${PORT}/`);
+  console.log('\n  EVO: Living World is running.');
+  console.log(`  This computer:    http://localhost:${PORT}/?name=YourName`);
+  for (const ip of tail) console.log(`  Friends (Tailscale): http://${ip}:${PORT}/?name=YourName`);
+  if (!tail.length) console.log('  Tailscale not found — is it running? (Or find your address with: tailscale ip -4)');
+  for (const ip of ips.filter((x) => !x.startsWith('100.'))) console.log(`  Local network:    http://${ip}:${PORT}/`);
   console.log('');
 }
 

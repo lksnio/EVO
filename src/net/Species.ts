@@ -68,7 +68,7 @@ class SpeciesLink {
 
   get livingPeers():{id:string;name:string;place:string;identity:string}[] {
     const r=this.room;if(!r)return [];
-    return [...r.state.presence.entries()].flatMap(([id,raw])=>{try{const p=JSON.parse(raw);return id!==r.sessionId&&p.alive?[{id,name:r.state.members.get(id)??'Artgenosse',place:p.place??'',identity:p.identity??''}]:[];}catch{return [];}});
+    return [...r.state.presence.entries()].flatMap(([id,raw])=>{try{const p=JSON.parse(raw);return id!==r.sessionId&&p.alive?[{id,name:r.state.members.get(id)??'Fellow creature',place:p.place??'',identity:p.identity??''}]:[];}catch{return [];}});
   }
 
   /** Was andere Spieler gerade ansehen, mit ihrer Kennung statt einer Platznummer. */
@@ -76,7 +76,7 @@ class SpeciesLink {
     const r = this.room;
     if (!r || !this.active) return [];
     return [...r.state.selections.entries()].filter(([id]) => id !== r.sessionId)
-      .map(([player, egg]) => ({ player, name: r.state.members.get(player) ?? 'Artgenosse', egg }));
+      .map(([player, egg]) => ({ player, name: r.state.members.get(player) ?? 'Fellow creature', egg }));
   }
 
   mark(id: string | null) {
@@ -133,7 +133,7 @@ class SpeciesLink {
       // Auch einen bereits vollständigen Anfangsstand übernehmen, wenn hello nichts mehr ändert.
       this.mirror();
     } catch (e) {
-      console.warn('[EVO] Gemeinsame Art nicht erreichbar – es bleibt beim eigenen Laich.', e);
+      console.warn('[EVO] Shared species unavailable — using local eggs.', e);
     }
   }
 

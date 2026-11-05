@@ -10,14 +10,14 @@ export function mapEditorPlugin(): Plugin {
     server.middlewares.use('/__evo/maps', (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       const fail = (status: number, error: string) => { res.statusCode = status; res.end(JSON.stringify({ error })); };
-      if (req.method !== 'POST') { fail(405, 'Bitte die Karte im Editor speichern.'); return; }
+      if (req.method !== 'POST') { fail(405, 'Please save the map from the editor.'); return; }
       if (!req.headers['content-type']?.startsWith('application/json') || (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host)) {
-        fail(403, 'Die Speicheranfrage muss aus dem Karteneditor dieser Seite kommen.'); return;
+        fail(403, 'Save requests must come from this page\'s map editor.'); return;
       }
       let body = '', bytes = 0, oversized = false;
       req.on('data', chunk => { bytes += chunk.length; if (bytes > 4 * 1024 * 1024) oversized = true; else body += chunk.toString(); });
       req.on('end', () => {
-        if (oversized) { fail(413, 'Die Kartendatei ist zu groß (maximal 4 MB).'); return; }
+        if (oversized) { fail(413, 'The map file is too large (maximum 4 MB).'); return; }
         queue = queue.catch(() => {}).then(async () => {
           try {
             const map = parseWorldMap(JSON.parse(body));
@@ -27,7 +27,7 @@ export function mapEditorPlugin(): Plugin {
             await writeFile(file + '.tmp', JSON.stringify(all, null, 2) + '\n');
             await rename(file + '.tmp', file);
             res.end(JSON.stringify({ saved: true, key: mapKey(map.epoch, map.place) }));
-          } catch (e) { fail(400, e instanceof Error ? e.message : 'Die Karte konnte nicht gespeichert werden.'); }
+          } catch (e) { fail(400, e instanceof Error ? e.message : 'Could not save the map.'); }
         });
       });
     });

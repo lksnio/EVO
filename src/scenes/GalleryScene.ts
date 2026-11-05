@@ -152,9 +152,9 @@ export class GalleryScene extends Phaser.Scene {
     const ratio = this.game.canvas.getBoundingClientRect().width / this.scale.width;
     for (const [i, width] of [80, 110, 140].entries()) {
       this.add.image(210 + i * 350, 180, riverRoeTexture(this, 5, 5)).setOrigin(0.5, 1).setScale(width / (72 * ratio));
-      text(this, 210 + i * 350, 205, `${width} px · 5 Eier`, 16).setOrigin(0.5);
+      text(this, 210 + i * 350, 205, `${width} px · 5 eggs`, 16).setOrigin(0.5);
       this.add.image(210 + i * 350, 290, riverRoeTexture(this, i, 5)).setOrigin(0.5, 1).setScale(1.5);
-      text(this, 210 + i * 350, 310, `${i} Eier`, 16).setOrigin(0.5);
+      text(this, 210 + i * 350, 310, `${i} eggs`, 16).setOrigin(0.5);
     }
     const cave = riverCave(this, { x: 300, y: 500, w: 320, h: 150 });
     cave.back.setDepth(-7); cave.front.setDepth(40);
@@ -164,7 +164,7 @@ export class GalleryScene extends Phaser.Scene {
       const view = new CreatureView(this, x, y, m, 1.1).setDepth(depth);
       this.views.push(view);
     }
-    text(this, 840, 460, 'Gemeinsamer Höhlenrahmen\nRückwand → Fisch → Felsrand', 20).setOrigin(0.5);
+    text(this, 840, 460, 'Shared cave frame\nBack wall → fish → rock rim', 20).setOrigin(0.5);
   }
 
   private sizeIds() {
@@ -185,8 +185,8 @@ export class GalleryScene extends Phaser.Scene {
     });
     let k = Math.min(.72, 900 / max);
     while (heights.reduce((n, h) => n + Math.max(74, h * k + 32), 100) > 705) k *= .92;
-    text(this, 35, 20, 'Körpergrößen · gestauchter Spielmaßstab', 22);
-    text(this, 35, 51, 'Kleine Tiere vergrößert · gemeinsame Spielansicht · Leertaste blättert', 14);
+    text(this, 35, 20, 'Body sizes · compressed game scale', 22);
+    text(this, 35, 51, 'Small animals enlarged · shared game view · Space changes pages', 14);
     const ruler = this.add.graphics();
     ruler.lineStyle(1, 0x91b5b5, .5).lineBetween(300, 87, 300 + max * k, 87);
     for (let pixels = 0; pixels <= max; pixels += 200) {
@@ -199,8 +199,8 @@ export class GalleryScene extends Phaser.Scene {
       const x = 300 + span * k / 2, cy = y + h / 2;
       text(this, 35, cy - 15, def.name, 17);
       const reference = adultLengthCm(def), chosen = playLengthCm(def);
-      text(this, 35, cy + 6, `Referenz: ${lengthText(reference)}`, 13);
-      if (chosen !== reference) text(this, 35, cy + 23, `Spielauswahl: ${lengthText(chosen)}`, 11);
+      text(this, 35, cy + 6, `Reference: ${lengthText(reference)}`, 13);
+      if (chosen !== reference) text(this, 35, cy + 23, `Game selection: ${lengthText(chosen)}`, 11);
       if (FaunaView.supports(this, def)) {
         const view = new FaunaView(this, def);
         this.add.existing(view); view.setPosition(x, cy).setScale(span * k / view.referenceSpan); this.fauna.push(view);
@@ -237,13 +237,13 @@ export class GalleryScene extends Phaser.Scene {
     }
     const classes: ClassId[] = ['fish', 'amphibian', 'reptile', 'mammal'];
     const variants: [string, Partial<Morph>][] = [
-      ['neu', {}],
-      ['Kiefer', { jaw: 0.6, diet: 0.6 }],
-      ['Kiefer++', { jaw: 1, diet: 1, size: 1.25, scars: 3, fierce: 1 }],
-      ['Schädel', { skull: 0.6 }],
-      ['Schädel++', { skull: 1, size: 1.2, scars: 2 }],
-      ['Tarnung', { stealth: 0.6, diet: -0.6, size: 0.8 }],
-      ['Tarnung++', { stealth: 1, diet: -1, size: 0.7, belly: 0 }],
+      ['Base', {}],
+      ['Jaw', { jaw: 0.6, diet: 0.6 }],
+      ['Jaws++', { jaw: 1, diet: 1, size: 1.25, scars: 3, fierce: 1 }],
+      ['Skull', { skull: 0.6 }],
+      ['Skull++', { skull: 1, size: 1.2, scars: 2 }],
+      ['Camouflage', { stealth: 0.6, diet: -0.6, size: 0.8 }],
+      ['Camouflage++', { stealth: 1, diet: -1, size: 0.7, belly: 0 }],
     ];
     classes.forEach((cls, r) => {
       variants.forEach(([name, v], i) => {
@@ -285,7 +285,7 @@ export class GalleryScene extends Phaser.Scene {
       if (this.perfT > 500) {
         this.perfT = 0;
         const l = this.game.loop;
-        this.perfText.setText(`${this.views.length} Fische · ${l.actualFps.toFixed(0)} B/s · ${(1000 / Math.max(1, l.actualFps)).toFixed(1)} ms/Bild · ${this.game.renderer.type === Phaser.WEBGL ? 'WebGL' : 'Canvas'}`);
+        this.perfText.setText(`${this.views.length} fish · ${l.actualFps.toFixed(0)} FPS · ${(1000 / Math.max(1, l.actualFps)).toFixed(1)} ms/frame · ${this.game.renderer.type === Phaser.WEBGL ? 'WebGL' : 'Canvas'}`);
       }
     }
   }

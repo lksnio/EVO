@@ -22,7 +22,7 @@ describe('Tastenbelegung', () => {
   it('die Grundbelegung: Pfeiltasten schwimmen, E beißt, F spricht an – keine Taste doppelt', () => {
     expect(isDefault()).toBe(true);
     expect(keyLabel('bite')).toBe('E');
-    expect(keysText('sprint')).toBe('W oder Shift');
+    expect(keysText('sprint')).toBe('W or Shift');
     expect(keyLabel('left')).toBe('←');
     const all = BINDS.flatMap((b) => [...DEFAULT_KEYS[b.id]]);
     expect(new Set(all).size).toBe(all.length);
@@ -64,6 +64,8 @@ describe('Tastenbelegung', () => {
     capture.on = true;
     expect(matches('call', { keyCode: 71 })).toBe(false);
     expect(keyName(112)).toBe('F1');
-    expect(keyName(32)).toBe('Leertaste');
+    expect(keyName(32)).toBe('Space');
+    expect(keyName(18)).toBe('Alt');
+    expect(keyName(36)).toBe('Home');
   });
 });

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { historyCause } from '../ui/historyText';
 import { W, H, UI, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { EPOCHS, yearsAgo } from '../data/epochs';
@@ -33,7 +34,7 @@ export function speciesEnd(epoch: number, years: number, by: string, names: stri
   const ep = EPOCHS[epoch];
   const frac = clamp((ep.from - years) / (ep.from - ep.to), 0, 1);
   const gen = game.poolGen;
-  const cause = 'Zu wenige Artgenossen';
+  const cause = 'Too few of your species remain';
   const leaf = game.extinct(frac, cause);
   return { epoch, years, cause, gen, by, names, leaf, morph };
 }
@@ -114,21 +115,21 @@ export class ExtinctScene extends Phaser.Scene {
     this.add.image(W / 2, 410, 'glow').setTint(0x7a1e16).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(900, 200).setAlpha(0.18);
 
     const ep = EPOCHS[d.epoch];
-    const head = this.add.text(W / 2, 400, 'DIE LINIE IST AUSGESTORBEN', { fontFamily: TITLE_FONT, fontSize: '40px', color: '#c8473a', resolution: 2 })
+    const head = this.add.text(W / 2, 400, 'THE LINEAGE IS EXTINCT', { fontFamily: TITLE_FONT, fontSize: '40px', color: '#c8473a', resolution: 2 })
       .setOrigin(0.5).setLetterSpacing(10).setAlpha(0);
     const line = this.add.rectangle(W / 2, 440, 340, 1, 0xa4322a, 1).setAlpha(0);
-    const why = text(this, W / 2, 470, d.cause, 24, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
-    const who = d.by ? `${d.by} starb` : 'Du starbst';
-    const body = text(this, W / 2, 512, `${who} – und es lag kein Laich mehr da, aus dem ein Nachkomme hätte schlüpfen können.`, 18, UI.boneDim, { align: 'center', wordWrap: { width: 760 } }).setOrigin(0.5).setAlpha(0);
+    const why = text(this, W / 2, 470, historyCause(d.cause), 24, UI.bone, { fontStyle: 'italic' }).setOrigin(0.5).setAlpha(0);
+    const who = d.by ? `${d.by} died` : 'You died';
+    const body = text(this, W / 2, 512, `${who} — and no eggs remained from which a descendant could hatch.`, 18, UI.boneDim, { align: 'center', wordWrap: { width: 760 } }).setOrigin(0.5).setAlpha(0);
     const all = [...new Set([...(d.names ?? [])])].filter(Boolean);
-    const last = text(this, W / 2, 566, all.length ? `Mit dir verbunden: Du · ${all.join(' · ')}` : 'Dein Weg bleibt in der Muschel erhalten.', 16, '#8c826e').setOrigin(0.5).setAlpha(0);
+    const last = text(this, W / 2, 566, all.length ? `Connected to you: You · ${all.join(' · ')}` : 'Your path is preserved in the shell.', 16, '#8c826e').setOrigin(0.5).setAlpha(0);
     const when = text(this, W / 2, 600, `${ep.name} · Generation ${d.gen} · ${yearsAgo(d.years, 1)}`, 15, '#6c6454').setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: head, alpha: 1, duration: 1600, delay: 1200 });
     this.tweens.add({ targets: line, alpha: 0.6, scaleX: { from: 0.1, to: 1 }, duration: 1600, delay: 1500, ease: 'Sine.out' });
     this.tweens.add({ targets: why, alpha: 1, duration: 1200, delay: 2300 });
     this.tweens.add({ targets: body, alpha: 0.9, duration: 1200, delay: 3000 });
     this.tweens.add({ targets: [last, when], alpha: 1, duration: 1200, delay: 3700 });
-    const hint = text(this, W / 2, H - 34, 'Eine Taste – zurück zum Titelbild', 14, '#6c6454').setOrigin(0.5).setAlpha(0);
+    const hint = text(this, W / 2, H - 34, 'Press any key to return to the title screen', 14, '#6c6454').setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: hint, alpha: 0.8, duration: 900, delay: 5200 });
     this.time.delayedCall(4200, () => {
       this.input.keyboard?.once('keydown', () => this.next());

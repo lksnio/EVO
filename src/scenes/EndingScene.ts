@@ -9,18 +9,18 @@ import { CreatureView } from '../objects/CreatureView';
 import { Button, MenuNav, fadeIn, fadeTo, text, title } from '../ui/ui';
 
 const LINES = [
-  'Du hast das Zeitalter der Fische überstanden.',
-  'Generationen haben gekämpft, gehungert, überlebt –',
-  'und jede hat dich ein Stück weit geformt.',
-  'Das Fischreich wird weiter ausgebaut.',
+  'You survived the Age of Fishes.',
+  'Generations fought, went hungry and survived —',
+  'and each helped shape what you became.',
+  'The realm of fishes will continue to grow.',
 ];
 
 /** Karbon: Der Gipfel des steilen Felsens ist erreicht. */
 const KARBON_LINES = [
-  'Deine Art hat den steilen Fels erklommen.',
-  'Generationen sind gelaufen, geklettert, haben ihr Gelege verteidigt –',
-  'und jede hat ihre Nachfahren ein Stück weiter ans Land gebracht.',
-  'Das Karbon ist gemeistert.',
+  'Your species has climbed the steep cliff.',
+  'Generations walked, climbed and defended their eggs —',
+  'and each brought its descendants a little farther onto land.',
+  'The Carboniferous is complete.',
 ];
 
 /** Die Demo endet, wenn die Fischzeit vorbei ist. */
@@ -71,7 +71,7 @@ export class EndingScene extends Phaser.Scene {
     this.hero.setY(this.hero.L.land ? 612 - this.hero.L.footY * 1.9 : 540);
     this.tweens.add({ targets: this.hero, x: W * 0.68, duration: 5200, ease: 'Sine.out' });
 
-    const head = title(this, W / 2, 86, karbon ? 'Zeitalter gemeistert' : 'Demo beendet', 68, '#f0e2c0').setOrigin(0.5).setAlpha(0);
+    const head = title(this, W / 2, 86, karbon ? 'Era completed' : 'Demo complete', 68, '#f0e2c0').setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: head, alpha: 1, duration: 1600, delay: 800 });
     (karbon ? KARBON_LINES : LINES).forEach((l, i) => {
       const t = text(this, W / 2, 168 + i * 44, l, 25, UI.bone, { stroke: '#050403', strokeThickness: 5 }).setOrigin(0.5).setAlpha(0);
@@ -79,12 +79,12 @@ export class EndingScene extends Phaser.Scene {
     });
     const runs = game.data.runs;
     const shells = game.shells;
-    const lived = karbon ? `Generation ${game.brood?.gen ?? 0}` : `${path.length} Zeitalter überlebt`;
-    const stats = text(this, W / 2, 360, `${lived}  ·  ${shells} ${shells === 1 ? 'Muschel' : 'Muscheln'}  ·  ${runs} ${runs === 1 ? 'Versuch' : 'Versuche'} bis hierher`, 20, UI.boneDim, { stroke: '#050403', strokeThickness: 4 })
+    const lived = karbon ? `Generation ${game.brood?.gen ?? 0}` : `${path.length} ${path.length === 1 ? 'era' : 'eras'} survived`;
+    const stats = text(this, W / 2, 360, `${lived}  ·  ${shells} ${shells === 1 ? 'shell' : 'shells'}  ·  ${runs} ${runs === 1 ? 'attempt' : 'attempts'} to get here`, 20, UI.boneDim, { stroke: '#050403', strokeThickness: 4 })
       .setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: stats, alpha: 1, duration: 1000, delay: 9800 });
     this.time.delayedCall(10400, () => {
-      const b2 = new Button(this, W / 2, 668, 'Titelbild', { w: 300, onClick: () => fadeTo(this, 'Title') });
+      const b2 = new Button(this, W / 2, 668, 'Title screen', { w: 300, onClick: () => fadeTo(this, 'Title') });
       new MenuNav(this, [b2]);
     });
     this.time.delayedCall(1200, () => audio.sfx('victory'));

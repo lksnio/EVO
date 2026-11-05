@@ -79,9 +79,9 @@ function later(id: string, name: string, tagline: string, period: [number, numbe
 export const EPOCHS: EpochDef[] = [
   // ---------------------------------------------------------------- I. Devon – hier beginnt alles
   {
-    id: 'devon', apex: 'dunkleosteus', name: 'Devon', playable: true, tagline: 'Das Zeitalter der Fische', period: [419, 359],
-    blurb: 'Riffe aus Korallen und Schwämmen säumen die Küsten. Panzerfische, frühe Haie und Fleischflosser ringen um die Vorherrschaft – über allen thront Dunkleosteus.',
-    place: 'Panzerfischriff', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
+    id: 'devon', apex: 'dunkleosteus', name: 'Devonian', playable: true, tagline: 'The Age of Fishes', period: [419, 359],
+    blurb: 'Reefs of coral and sponges line the coasts. Armoured fishes, early sharks and lobe-finned fishes vie for dominance — above them all reigns Dunkleosteus.',
+    place: 'Placoderm Reef', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     from: 383 * M, to: 371 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.85, cover: 0.55,
     // viel kleine Beute, wenige Jäger (die meisten in der Tiefe) – das erste Zeitalter soll man überleben können
     fauna: [
@@ -98,9 +98,9 @@ export const EPOCHS: EpochDef[] = [
   // das Unterkarbon (vor etwa 348 Millionen Jahren): Man lebt als Pederpes, einer der ersten Vierfüßer. Statt zu laichen gibt es
   // ein Gelege voller Eier – die Leben der Art (siehe data/karbon.ts). Räuber kommen nicht als Ereignis, sondern ans Nest.
   {
-    id: 'karbon', apex: 'rhizodus', name: 'Karbon', playable: true, brood: true, meta: 'oxy', tagline: 'Die Kohlewälder', period: [359, 299],
-    blurb: 'Dampfende Sümpfe zwischen Inseln und Ufern. Riesige Fleischflosser lauern im Wasser, Tausendfüßer und Skorpione kriechen durch die ersten Wälder – und die ersten Vierfüßer wagen sich ans Land.',
-    place: 'Kohlesumpf', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
+    id: 'karbon', apex: 'rhizodus', name: 'Carboniferous', playable: true, brood: true, meta: 'oxy', tagline: 'The Coal Forests', period: [359, 299],
+    blurb: 'Steaming swamps lie between islands and shores. Giant lobe-finned fishes lurk in the water; millipedes and scorpions crawl through the first forests — and the first tetrapods venture onto land.',
+    place: 'Coal Swamp', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
     from: 349 * M, to: 341 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.9, cover: 0.5,
     fauna: [
       ['elonichthys', 8], ['acanthodes', 4], ['tealliocaris', 3], ['bellinurus', 2.5], ['ctenodus', 1],
@@ -109,20 +109,20 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['megalichthys', 3], ['crassigyrinus', 2], ['strepsodus', 1.5], ['stethacanthus', 1]],
   },
-  later('perm', 'Perm', 'Das Reich der Segelrücken', [299, 252],
-    'Alle Kontinente sind zu Pangäa verschmolzen. Im trockenen Land herrschen Segelechsen wie Dimetrodon – die fernen Vorfahren der Säugetiere. Am Ende steht das größte Massensterben der Erdgeschichte.',
-    'Pangäa', 'reptil', 'reptile', 'land'),
-  later('trias', 'Trias', 'Die ersten Dinosaurier', [252, 201],
-    'Nach dem großen Sterben erholt sich das Leben. In der heißen Pangäa erscheinen die ersten Dinosaurier, im Meer jagen Fischechsen, und die ersten Säugetiere huschen durch die Nacht.',
-    'Pangäa', 'reptil', 'reptile', 'land', true),
-  later('jura', 'Jura', 'Das Zeitalter der Giganten', [201, 145],
-    'Pangäa bricht auseinander. Riesige Langhalssaurier ziehen durch Farnwälder, Flugsaurier segeln über Lagunen, und im Meer jagen Plesiosaurier.',
-    'Lagunen und Farnwälder', 'reptil', 'reptile', 'land'),
+  later('perm', 'Permian', 'The Realm of Sailbacks', [299, 252],
+    'All continents have joined into Pangaea. Sail-backed animals such as Dimetrodon, distant relatives of mammals, rule the dry land. The era ends in the greatest mass extinction in Earth\'s history.',
+    'Pangaea', 'reptil', 'reptile', 'land'),
+  later('trias', 'Triassic', 'The First Dinosaurs', [252, 201],
+    'Life recovers after the great extinction. The first dinosaurs appear in hot Pangaea, ichthyosaurs hunt at sea, and the first mammals scurry through the night.',
+    'Pangaea', 'reptil', 'reptile', 'land', true),
+  later('jura', 'Jurassic', 'The Age of Giants', [201, 145],
+    'Pangaea breaks apart. Giant long-necked dinosaurs roam fern forests, pterosaurs soar over lagoons, and plesiosaurs hunt at sea.',
+    'Lagoons and Fern Forests', 'reptil', 'reptile', 'land'),
   // die späte Kreidezeit: das Westliche Binnenmeer, das Nordamerika teilte (die Zahlen sind vorläufig)
   {
-    id: 'kreide', apex: 'mosasaurus', name: 'Kreidezeit', fem: true, tagline: 'Die Herrschaft der Meeresechsen', period: [145, 66],
-    blurb: 'Ein warmes Binnenmeer teilt Nordamerika. Mosasaurier und Plesiosaurier jagen, Riesenhaie ziehen ihre Bahnen, und Ammoniten treiben im Licht.',
-    place: 'Westliches Binnenmeer', theme: 'ozean', cls: 'fish', habitat: 'water',
+    id: 'kreide', apex: 'mosasaurus', name: 'Cretaceous', fem: true, tagline: 'The Reign of Marine Reptiles', period: [145, 66],
+    blurb: 'A warm inland sea divides North America. Mosasaurs and plesiosaurs hunt, giant sharks cruise the waters, and ammonites drift in the light.',
+    place: 'Western Interior Seaway', theme: 'ozean', cls: 'fish', habitat: 'water',
     from: 82 * M, to: 72 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 95, plants: 0.6, cover: 0.45,
     fauna: [
       ['apsopelix', 9], ['gillicus', 2.5], ['ammonit', 3], ['baculites', 2], ['enchodus', 1.2], ['protosphyraena', 0.6], ['squalicorax', 0.6],
@@ -130,14 +130,14 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['platecarpus', 3], ['elasmosaurus', 2], ['cretoxyrhina', 2], ['xiphactinus', 2], ['tylosaurus', 1]],
   },
-  later('palaeogen', 'Paläogen', 'Die Zeit der Säugetiere', [66, 23],
-    'Die Dinosaurier sind verschwunden. Säugetiere erobern Land und Meer – die ersten Wale tasten sich ins Wasser, und Wälder bedecken die Erde bis an die Pole.',
-    'Urwälder und Küsten', 'eden', 'mammal', 'land'),
+  later('palaeogen', 'Paleogene', 'The Age of Mammals', [66, 23],
+    'The dinosaurs are gone. Mammals spread across land and sea — the first whales venture into the water, and forests cover the Earth as far as the poles.',
+    'Primeval Forests and Coasts', 'eden', 'mammal', 'land'),
   // ---------------------------------------------------------------- verborgen (für später)
   {
-    id: 'ordovizium', apex: 'cameroceras', name: 'Ordovizium', hidden: true, tagline: 'Die ersten Fische', period: [485, 443],
-    blurb: 'Flache, warme Meere bedecken die Erde. Riesige Kopffüßer jagen im offenen Wasser, Trilobiten pflügen durch den Schlamm – und mittendrin schwimmen die ersten Fische, noch ohne Kiefer.',
-    place: 'Seichte Lagune', theme: 'ozean', cls: 'fish', habitat: 'water',
+    id: 'ordovizium', apex: 'cameroceras', name: 'Ordovician', hidden: true, tagline: 'The First Fishes', period: [485, 443],
+    blurb: 'Shallow, warm seas cover the Earth. Giant cephalopods hunt in open water and trilobites plough through the mud — among them swim the first fishes, still without jaws.',
+    place: 'Shallow Lagoon', theme: 'ozean', cls: 'fish', habitat: 'water',
     from: 470 * M, to: 458 * M, seconds: 450, music: 'ozean', hazardDmg: 3, len: 80, plants: 0.95, cover: 0.5,
     fauna: [
       ['kieferlos', 8], ['sacabambaspis', 4.5], ['arandaspis', 4.5], ['astraspis', 4.9], ['eriptychius', 2.4], ['trilobit', 3.6], ['isotelus', 1.8],
@@ -146,9 +146,9 @@ export const EPOCHS: EpochDef[] = [
     passers: [['orthoceras', 3], ['megalograptus', 2], ['cameroceras', 0.8]],
   },
   {
-    id: 'silur', apex: 'pterygotus', name: 'Silur', hidden: true, tagline: 'Die ersten Kiefer', period: [443, 419],
-    blurb: 'Tangwälder wiegen sich in der Strömung. Die ersten Fische mit Kiefern jagen – und riesige Seeskorpione lauern am Grund.',
-    place: 'Kelpwald', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
+    id: 'silur', apex: 'pterygotus', name: 'Silurian', hidden: true, tagline: 'The First Jaws', period: [443, 419],
+    blurb: 'Kelp forests sway in the current. The first jawed fishes hunt, while giant sea scorpions lurk on the bottom.',
+    place: 'Kelp Forest', theme: 'ozean', cls: 'fish', habitat: 'water', kelp: true,
     from: 438 * M, to: 427 * M, seconds: 500, music: 'ozean', hazardDmg: 3, len: 85, plants: 0.8, cover: 0.95,
     fauna: [
       ['kieferlos', 4], ['birkenia', 10.4], ['cephalaspis', 2.6], ['pteraspis', 4.5], ['thelodus', 8.2], ['jamoytius', 2.5], ['lasanius', 5.9], ['climatius', 1.6],
@@ -165,15 +165,15 @@ export const ERAS: { i: number; ep: EpochDef }[] = EPOCHS.map((ep, i) => ({ i, e
 export const isPlayable = (i: number) => !!EPOCHS[i]?.playable;
 
 /** „im Devon“, „in der Trias“, „in der Kreidezeit“ */
-export const inEra = (ep: EpochDef) => (ep.fem ? `in der ${ep.name}` : `im ${ep.name}`);
+export const inEra = (ep: EpochDef) => `in the ${ep.name}`;
 /** „des Devons“, „der Trias“, „der Kreidezeit“ */
-export const ofEra = (ep: EpochDef) => (ep.fem ? `der ${ep.name}` : `des ${ep.name}s`);
+export const ofEra = (ep: EpochDef) => `of the ${ep.name}`;
 
 export const epochIndex = (id: string) => EPOCHS.findIndex((e) => e.id === id);
 
 // ---------------------------------------------------------------- Zeitangaben
 
-const de = (n: number) => Math.round(n).toLocaleString('de-DE');
+const number = (n: number) => Math.round(n).toLocaleString('en-GB');
 
 /**
  * "vor 452.320.000 Jahren": Die Uhr zählt in Zehnerpotenzen – so fein, wie die Zeit
@@ -182,26 +182,26 @@ const de = (n: number) => Math.round(n).toLocaleString('de-DE');
 export function yearsAgo(years: number, step: number) {
   const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, step)))));
   const v = Math.round(years / p) * p;
-  return v <= 0 ? 'heute' : `vor ${de(v)} Jahren`;
+  return v <= 0 ? 'today' : `${number(v)} years ago`;
 }
 
 /** Kurz: "470 Mio. J.", "400.000 J." */
 export function shortYears(years: number) {
   if (years >= 1e6) {
     const m = years / 1e6;
-    return `${m >= 10 ? de(m) : m.toLocaleString('de-DE', { maximumFractionDigits: 1 })} Mio. J.`;
+    return `${m >= 10 ? number(m) : m.toLocaleString('en-GB', { maximumFractionDigits: 1 })} million yr`;
   }
-  return `${de(years)} J.`;
+  return `${number(years)} yr`;
 }
 
 /** Dauer in Worten: "11 Millionen Jahre", "388.000 Jahre" */
 export function spanWords(years: number) {
   if (years >= 1e6) {
     const m = years / 1e6;
-    const s = m >= 10 ? de(m) : m.toLocaleString('de-DE', { maximumFractionDigits: 1 });
-    return `${s} ${m < 1.5 ? 'Million' : 'Millionen'} Jahre`;
+    const s = m >= 10 ? number(m) : m.toLocaleString('en-GB', { maximumFractionDigits: 1 });
+    return `${s} million years`;
   }
-  return `${de(years)} Jahre`;
+  return `${number(years)} years`;
 }
 
 /** Alle Arten der regulären Tierwelt, ohne doppelte Einträge. */

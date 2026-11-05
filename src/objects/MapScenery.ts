@@ -4,7 +4,7 @@ import type { LevelData } from '../level/LevelGen';
 import { MAP_LAYERS, objectY, type MapLayer, type MapObject } from '../editor/document';
 import { inkTexture } from '../art/inkFilter';
 const DEPTH: Record<MapLayer, number> = { far: -16, back: -10, world: .7, front: 44, frame: 45 };
-export const LAYER_NAMES: Record<MapLayer, string> = { far: 'Ferne', back: 'Hintergrund', world: 'Spielebene', front: 'Vordergrund am Boden', frame: 'Nahe Kulisse' };
+export const LAYER_NAMES: Record<MapLayer, string> = { far: 'Distance', back: 'Background', world: 'Gameplay', front: 'Grounded foreground', frame: 'Near scenery' };
 export class MapScenery {
   readonly images = new Map<string, Phaser.GameObjects.Image>();
   private cleanup = () => this.destroy();

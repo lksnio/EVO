@@ -1,24 +1,25 @@
 import { cloneMap, newMapId, objectY, rebuildSolids, rockBounds, transformRock, type WorldMap, type MapObject } from './document';
 import { groundCurve } from '../level/terrain';
+import { SPECIES } from '../data/species';
 import type { Rect } from '../util/math';
 export interface EditorItem { key: string; name: string; x: number; y: number; width: number; height: number; bounds: Rect; object?: MapObject }
-const pointNames: Record<string, string> = { start: 'Spielerstart', shrine: 'Große Muschel', nest: 'Nest' };
+const pointNames: Record<string, string> = { start: 'Player start', shrine: 'Great shell', nest: 'Nest' };
 const kinds = { solid: 'editorSolids', cover: 'cover', crevice: 'crevices', plant: 'plants', animal: 'spawns', roe: 'roe', hazard: 'hazards', current: 'currents' } as const;
 export function items(map: WorldMap): EditorItem[] {
   const out: EditorItem[] = [], L = map.layout;
   for (const o of map.objects) { const y = objectY(o, L); out.push({ key: 'obj:' + o.id, name: o.asset.replace(/^(reef_unit_|reef_|d2_)/, ''), x: o.x, y, width: o.width, height: o.height, bounds: { x: o.x - o.width / 2, y: y - o.height, w: o.width, h: o.height }, object: o }); }
   for (const kind of ['rock', 'fore'] as const) (kind === 'rock' ? L.rocks : L.fore).forEach((r, i) => {
-    const b = rockBounds(r); out.push({ key: kind + ':' + i, name: r.paintedProp === 'cave' ? 'Laichhöhle' : kind === 'fore' ? 'Fels im Vordergrund' : 'Fels', x: r.x, y: r.y, width: r.rx * 2, height: r.ry * 2, bounds: b });
+    const b = rockBounds(r); out.push({ key: kind + ':' + i, name: r.paintedProp === 'cave' ? 'Spawning cave' : kind === 'fore' ? 'Foreground rock' : 'Rock', x: r.x, y: r.y, width: r.rx * 2, height: r.ry * 2, bounds: b });
   });
   for (const [kind, field] of Object.entries(kinds)) (L[field as keyof typeof L] as unknown[] ?? []).forEach((value, i) => {
     const v = value as { x: number; y: number; w?: number; h?: number; id?: string; species?: string };
     const w = v.w ?? 24, h = v.h ?? 24;
-    out.push({ key: kind + ':' + i, name: ({ solid: 'Kollision', cover: 'Versteck', crevice: 'Felsspalte', plant: 'Futterpflanze', animal: 'Tier · ' + v.id, roe: 'Laich · ' + v.species, hazard: 'Gefahr', current: 'Strömung' } as Record<string, string>)[kind], x: v.w ? v.x + w / 2 : v.x, y: v.h ? v.y + h : v.y, width: w, height: h, bounds: { x: v.w ? v.x : v.x - 12, y: v.h ? v.y : v.y - 12, w, h } });
+    out.push({ key: kind + ':' + i, name: ({ solid: 'Collision', cover: 'Cover', crevice: 'Rock crevice', plant: 'Food plant', animal: 'Animal · ' + (SPECIES[v.id ?? '']?.name ?? v.id), roe: 'Eggs · ' + (SPECIES[v.species ?? '']?.name ?? v.species), hazard: 'Hazard', current: 'Current' } as Record<string, string>)[kind], x: v.w ? v.x + w / 2 : v.x, y: v.h ? v.y + h : v.y, width: w, height: h, bounds: { x: v.w ? v.x : v.x - 12, y: v.h ? v.y : v.y - 12, w, h } });
   });
   for (const [key, name] of Object.entries(pointNames)) {
     const p = L[key as 'start' | 'shrine' | 'nest']; if (p) out.push({ key, name, ...p, width: 30, height: 30, bounds: { x: p.x - 15, y: p.y - 15, w: 30, h: 30 } });
   }
-  if (L.chasm) { const c = L.chasm; out.push({ key: 'chasm', name: 'Tiefenzugang · Schlucht', x: (c.x0 + c.x1) / 2, y: c.floorY, width: c.x1 - c.x0, height: c.floorY - c.rimY, bounds: { x: c.x0, y: c.rimY, w: c.x1 - c.x0, h: c.floorY - c.rimY } }); }
+  if (L.chasm) { const c = L.chasm; out.push({ key: 'chasm', name: 'Deep-water entrance · chasm', x: (c.x0 + c.x1) / 2, y: c.floorY, width: c.x1 - c.x0, height: c.floorY - c.rimY, bounds: { x: c.x0, y: c.rimY, w: c.x1 - c.x0, h: c.floorY - c.rimY } }); }
   return out;
 }
 export function moveItem(map: WorldMap, key: string, x: number, y: number, width?: number, height?: number) {

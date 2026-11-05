@@ -23,11 +23,11 @@ export interface ClassDef {
 export const CLASSES: Record<ClassId, ClassDef> = {
   fish: {
     id: 'fish',
-    name: 'Urfisch',
+    name: 'Early fish',
     habitat: 'water',
     // etwas gemächlicher als früher (215): Platz nach oben für schnellere Nachkommen; zäher als früher (30)
     base: { hp: 45, bite: 5, ram: 4, speed: 183, jump: 0 },
-    dawn: 'Im dunklen Urozean beginnt dein Leben.',
+    dawn: 'Your life begins in the dark primeval ocean.',
   },
   amphibian: {
     id: 'amphibian',
@@ -35,21 +35,21 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     habitat: 'land',
     // ein früher Vierfüßer (Pederpes): kräftig im Wasser, an Land noch schwerfällig – kleine Sprünge aufs Ufer
     base: { hp: 52, bite: 7, ram: 6, speed: 190, jump: 430 },
-    dawn: 'Deine Nachfahren kriechen aus dem Wasser.\nDie Flossen sind zu Beinen geworden.',
+    dawn: 'Your descendants crawl out of the water.\nFins have become legs.',
   },
   reptile: {
     id: 'reptile',
-    name: 'Echse',
+    name: 'Reptile',
     habitat: 'land',
     base: { hp: 85, bite: 12, ram: 12, speed: 215, jump: 590 },
-    dawn: 'Schuppen schützen nun deine Haut.\nDie Sümpfe trocknen aus – eine neue Zeit beginnt.',
+    dawn: 'Scales now protect your skin.\nThe swamps dry out — a new age begins.',
   },
   mammal: {
     id: 'mammal',
-    name: 'Säuger',
+    name: 'Mammal',
     habitat: 'land',
     base: { hp: 125, bite: 18, ram: 18, speed: 235, jump: 620 },
-    dawn: 'Warmes Blut, dichtes Fell.\nDie Großen Echsen sind verschwunden – die Welt wird kalt.',
+    dawn: 'Warm blood, thick fur.\nThe great reptiles are gone — the world grows cold.',
   },
 };
 

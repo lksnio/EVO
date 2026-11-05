@@ -41,16 +41,16 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
   g.lineStyle(1, 0xc8913c, 0.55);
   g.lineBetween(cx - 54, y + 66, cx + 54, y + 66);
   c.add([shade, g]);
-  c.add(scene.add.text(cx, y + 40, 'STEUERUNG', { fontFamily: TITLE_FONT, fontSize: '18px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(10));
-  c.add(text(scene, cx, y + 88, 'Eine Taste anklicken und die neue drücken  ·  Entf leert sie  ·  Esc bricht ab', 14, UI.boneDim).setOrigin(0.5).setAlpha(0.85));
+  c.add(scene.add.text(cx, y + 40, 'CONTROLS', { fontFamily: TITLE_FONT, fontSize: '18px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(10));
+  c.add(text(scene, cx, y + 88, 'Click a binding, then press a key · Delete clears it · Esc cancels', 14, UI.boneDim).setOrigin(0.5).setAlpha(0.85));
 
   // Spaltenköpfe
   const x0 = x + 74, c1 = cx + 160, c2 = cx + 316;
   const head = (hx: number, s: string, origin = 0.5) =>
     c.add(scene.add.text(hx, y + 120, s, { fontFamily: TITLE_FONT, fontSize: '11px', color: UI.ochre, fontStyle: '700', resolution: 2 }).setOrigin(origin, 0.5).setLetterSpacing(4).setAlpha(0.8));
-  head(x0, 'HANDLUNG', 0);
-  head(c1, 'TASTE');
-  head(c2, 'ZWEITE TASTE');
+  head(x0, 'ACTION', 0);
+  head(c1, 'KEY');
+  head(c2, 'SECONDARY KEY');
 
   const chips: Chip[] = [];
   const lines = scene.add.graphics();
@@ -91,13 +91,13 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
   // unten: was gerade geschah, und die beiden Knöpfe
   const msg = text(scene, cx, y + SHEET.h - 88, '', 15, UI.boneDim, { fontStyle: 'italic' }).setOrigin(0.5);
   c.add(msg);
-  const reset = new Button(scene, cx - 130, y + SHEET.h - 44, 'Grundbelegung', { w: 230, h: 46, size: 17, sound: null, onClick: () => {
+  const reset = new Button(scene, cx - 130, y + SHEET.h - 44, 'Default bindings', { w: 230, h: 46, size: 17, sound: null, onClick: () => {
     stop();
     resetKeys();
     audio.sfx('confirm');
-    say('Alle Tasten liegen wieder auf ihrem Platz.');
+    say('All keys are back to their default bindings.');
   } });
-  const done = new Button(scene, cx + 130, y + SHEET.h - 44, 'Fertig', { w: 230, h: 46, size: 17, color: UI.ochreN, sound: 'back', onClick: () => c.destroy() });
+  const done = new Button(scene, cx + 130, y + SHEET.h - 44, 'Done', { w: 230, h: 46, size: 17, color: UI.ochreN, sound: 'back', onClick: () => c.destroy() });
   c.add([reset, done]);
   const buttons = [reset, done];
 
@@ -109,7 +109,7 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
     msg.setText(s).setColor(strong ? '#e2b876' : UI.boneDim).setAlpha(0);
     scene.tweens.add({ targets: msg, alpha: 1, duration: 200 });
   }
-  const idle = () => say(isDefault() ? 'Auf dem Handy erscheinen Knöpfe auf dem Bildschirm.' : 'Die Belegung gilt sofort – auch im laufenden Spiel.');
+  const idle = () => say(isDefault() ? 'On mobile, controls appear on screen.' : 'Changes take effect immediately, including during play.');
 
   function draw() {
     chips.forEach((ch, i) => {
@@ -120,7 +120,7 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
       ch.g.fillRoundedRect(ch.x - CHIP.w / 2, ch.y - CHIP.h / 2, CHIP.w, CHIP.h, 6);
       ch.g.lineStyle(on ? 1.6 : 1.2, 0xc8913c, on ? 1 : lit ? 0.85 : code ? 0.4 : 0.18);
       ch.g.strokeRoundedRect(ch.x - CHIP.w / 2 + 0.5, ch.y - CHIP.h / 2 + 0.5, CHIP.w - 1, CHIP.h - 1, 6);
-      if (on) return void ch.t.setText('Taste drücken …').setFontFamily(TITLE_FONT).setColor('#f2c46e').setFontSize(13);
+      if (on) return void ch.t.setText('Press a key …').setFontFamily(TITLE_FONT).setColor('#f2c46e').setFontSize(13);
       // Pfeile in der Schrift des Fließtexts (in der Zierschrift sind sie winzig)
       const arrow = !!code && code >= 37 && code <= 40;
       ch.t.setText(code ? keyName(code) : '—').setFontFamily(arrow ? FONT : TITLE_FONT).setFontSize(arrow ? 19 : 14)
@@ -135,7 +135,7 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
     capture.on = true;
     audio.sfx('select');
     const label = BINDS.find((d) => d.id === ch.b)!.label;
-    say(`${label}: Welche Taste soll es ${ch.slot ? 'außerdem ' : ''}sein?`, true);
+    say(`Choose ${ch.slot ? 'a secondary key' : 'a key'} for “${label}”.`, true);
     draw();
     blink = scene.tweens.add({ targets: ch.t, alpha: 0.45, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
   }
@@ -162,11 +162,11 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
     const label = BINDS.find((d) => d.id === ch.b)!.label;
     if (code === null) {
       audio.sfx('click');
-      say(before ? `${label}: ${ch.slot ? 'Zweite Taste' : 'Taste'} geleert.` : `${label} hat hier keine Taste.`);
+      say(before ? `${label}: ${ch.slot ? 'Secondary key' : 'Key'} cleared.` : `${label} has no key assigned here.`);
     } else {
       audio.sfx('confirm');
-      if (took) say(`${keyName(code)} gehörte bisher zu „${BINDS.find((d) => d.id === took)!.label}“ – jetzt: ${label}.`, true);
-      else say(`${label}: ${keysOf(ch.b).map(keyName).join(' oder ')}`);
+      if (took) say(`${keyName(code)} previously belonged to “${BINDS.find((d) => d.id === took)!.label}” — now: ${label}.`, true);
+      else say(`${label}: ${keysOf(ch.b).map(keyName).join(' or ')}`);
     }
     draw();
   }

@@ -62,15 +62,15 @@ export function fishTemplates(mIn: Morph, name = 'neutral', pxPerUnit = 16): Tem
     const ovBox: Box = { x0: A.hx - 13, x1: A.hx + 9, y0: A.hy - A.hg.H * 0.34, y1: A.hy + A.hg.H * 0.54 };
     const jawBox: Box = { x0: -4, x1: A.jawLen + 4, y0: -(m.diet < -0.3 ? 3 : 5), y1: A.jawH + 3 };
     const defs: { name: string; box: Box; at: [number, number]; mesh: { cols: number; rows: number } | null; note: string; draw: (ctx: Ctx) => void }[] = [
-      { name: 'pectoral_far', box: finBox('pectoral', A.pectoral), at: A.pectoral.at, mesh: { cols: 3, rows: 2 }, note: 'ferne Brustflosse (dunkler), liegt hinter dem Körper; Ursprung = Flossenansatz', draw: (c) => paintPectoral(c, A.pectoral, P, true) },
-      { name: 'pelvic', box: finBox('pelvic', A.pelvic), at: A.pelvic.at, mesh: { cols: 4, rows: 2 }, note: 'Bauchflosse, hinter dem Körper; Ursprung = Ansatz an der Bauchlinie', draw: (c) => paintPelvicFin(c, A.pelvic, P) },
-      { name: 'dorsal', box: finBox('dorsal', A.dorsal), at: A.dorsal.at, mesh: { cols: 4, rows: 2 }, note: 'Rückenflosse, hinter dem Körper; Ursprung = Mitte des Ansatzes (liegt 2–4 Einheiten unter der Haut)', draw: (c) => paintMedianFin(c, A.dorsal, P, -1, true) },
-      { name: 'anal', box: finBox('anal', A.anal), at: A.anal.at, mesh: { cols: 4, rows: 2 }, note: 'Afterflosse, hinter dem Körper', draw: (c) => paintMedianFin(c, A.anal, P, 1, false) },
-      { name: 'jaw', box: jawBox, at: A.hinge, mesh: null, note: 'Unterkiefer; Ursprung = Kiefergelenk; dreht sich beim Öffnen um diesen Punkt; trägt die unteren Zähne', draw: (c) => paintJaw(c, A, P) },
-      { name: 'body', box: A.bounds, at: [0, 0], mesh: { cols: COLS, rows: ROWS }, note: 'Kopf, Rumpf, Schwanzstiel und Schwanzflosse mit den oberen Zähnen – ohne Auge, ohne Kiemendeckel-Überlagerung; verformt sich als Netz', draw: (c) => paintBody(c, A, P) },
-      { name: 'pectoral', box: finBox('pectoral', A.pectoral), at: A.pectoral.at, mesh: { cols: 3, rows: 2 }, note: 'nahe Brustflosse, liegt vor dem Körper, unter der Überlagerung', draw: (c) => paintPectoral(c, A.pectoral, P, false) },
-      { name: 'overlay', box: ovBox, at: [0, 0], mesh: { cols: 5, rows: 3 }, note: 'Kiemendeckel: liegt über dem Ansatz der Brustflosse; folgt dem Körper', draw: (c) => paintOverlay(c, A, P) },
-      { name: 'eye', box: eyeBox(A), at: [A.eye.x, A.eye.y], mesh: null, note: 'Auge (Augapfel, Iris, Pupille, Glanz); Ursprung = Augenmitte; wird als Bild an den Kopf gehängt', draw: (c) => paintEye(c, A, P) },
+      { name: 'pectoral_far', box: finBox('pectoral', A.pectoral), at: A.pectoral.at, mesh: { cols: 3, rows: 2 }, note: 'Far pectoral fin (darker), behind the body; origin = fin root', draw: (c) => paintPectoral(c, A.pectoral, P, true) },
+      { name: 'pelvic', box: finBox('pelvic', A.pelvic), at: A.pelvic.at, mesh: { cols: 4, rows: 2 }, note: 'Pelvic fin, behind the body; origin = belly attachment', draw: (c) => paintPelvicFin(c, A.pelvic, P) },
+      { name: 'dorsal', box: finBox('dorsal', A.dorsal), at: A.dorsal.at, mesh: { cols: 4, rows: 2 }, note: 'Dorsal fin, behind the body; origin = midpoint of its root, 2–4 units below the skin', draw: (c) => paintMedianFin(c, A.dorsal, P, -1, true) },
+      { name: 'anal', box: finBox('anal', A.anal), at: A.anal.at, mesh: { cols: 4, rows: 2 }, note: 'Anal fin, behind the body', draw: (c) => paintMedianFin(c, A.anal, P, 1, false) },
+      { name: 'jaw', box: jawBox, at: A.hinge, mesh: null, note: 'Lower jaw; origin = jaw joint; rotates here when opening; includes lower teeth', draw: (c) => paintJaw(c, A, P) },
+      { name: 'body', box: A.bounds, at: [0, 0], mesh: { cols: COLS, rows: ROWS }, note: 'Head, trunk, tail peduncle and caudal fin with upper teeth; no eye or gill-cover overlay; deforms as a mesh', draw: (c) => paintBody(c, A, P) },
+      { name: 'pectoral', box: finBox('pectoral', A.pectoral), at: A.pectoral.at, mesh: { cols: 3, rows: 2 }, note: 'Near pectoral fin, in front of the body and beneath the overlay', draw: (c) => paintPectoral(c, A.pectoral, P, false) },
+      { name: 'overlay', box: ovBox, at: [0, 0], mesh: { cols: 5, rows: 3 }, note: 'Gill cover: above the pectoral root; follows the body', draw: (c) => paintOverlay(c, A, P) },
+      { name: 'eye', box: eyeBox(A), at: [A.eye.x, A.eye.y], mesh: null, note: 'Eye (eyeball, iris, pupil, highlight); origin = eye centre; attached to the head as an image', draw: (c) => paintEye(c, A, P) },
     ];
 
     const canvases: Record<string, HTMLCanvasElement> = {};
@@ -118,8 +118,8 @@ export function fishTemplates(mIn: Morph, name = 'neutral', pxPerUnit = 16): Tem
 
     const manifest = {
       name, pxPerUnit: R,
-      koordinaten: 'g-Einheiten; Ursprung Körpermitte, +x zur Schnauze (Blick nach rechts), +y nach unten; Bildpixel = (x − union.x0) · pxPerUnit',
-      blickrichtung: 'nach rechts', hintergrund: 'transparent (Alpha), Ränder ≥ 4 Einheiten leer',
+      koordinaten: 'g units; origin at body centre, +x towards the snout (facing right), +y downwards; image pixels = (x − union.x0) · pxPerUnit',
+      blickrichtung: 'facing right', hintergrund: 'transparent alpha, at least 4 units of empty margin',
       union: U, bildPx: [comp.width, comp.height],
       morph: m,
       anker: {
@@ -131,7 +131,7 @@ export function fishTemplates(mIn: Morph, name = 'neutral', pxPerUnit = 16): Tem
         rueckenflosse: A.dorsal, afterflosse: A.anal, bauchflosse: A.pelvic, brustflosse: A.pectoral,
         kopfpanzer: A.plate,
       },
-      netz: { koerper: { spalten: COLS, zeilen: ROWS, box: A.bounds }, uv: 'u = (x − box.x0)/(box.x1 − box.x0), v = (y − box.y0)/(box.y1 − box.y0); v wird beim Zeichnen gespiegelt (flipV)' },
+      netz: { koerper: { spalten: COLS, zeilen: ROWS, box: A.bounds }, uv: 'u = (x − box.x0)/(box.x1 − box.x0), v = (y − box.y0)/(box.y1 − box.y0); v is flipped during rendering (flipV)' },
       silhouette: A.loop,
       teile: parts,
     };
@@ -188,7 +188,7 @@ function guideMesh(A: FishAnatomy, defs: { name: string; box: Box; mesh: { cols:
     const [x, y] = toPx(U, R, b.x0 + ((b.x1 - b.x0) * i) / COLS, b.y1);
     label(ctx, String(i), x - 4, y + 16, '#ffd400', 12);
   }
-  label(ctx, 'Körpernetz: 16 Spalten (Gelenke 0 … 16) × 3 Zeilen', toPx(U, R, b.x0, b.y1)[0] + 20, toPx(U, R, b.x0, b.y1)[1] + 34, '#ffd400', 14);
+  label(ctx, 'Body mesh: 16 columns (joints 0 … 16) × 3 rows', toPx(U, R, b.x0, b.y1)[0] + 20, toPx(U, R, b.x0, b.y1)[1] + 34, '#ffd400', 14);
   void A;
   return c;
 }
@@ -213,21 +213,21 @@ function guidePoints(A: FishAnatomy, U: Box, R: number) {
   const [, y0] = P(0, 0);
   ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(c.width, y0); ctx.stroke(); ctx.setLineDash([]);
-  label(ctx, 'Wirbelsäule y = 0', 8, y0 - 6, '#ffffff', 13);
-  vline(A.anchorX, '#c9a0ff', 'Drehpunkt (Rumpf bleibt in Ruhe)', 22);
-  vline(A.neckX, '#c9a0ff', 'Halszone beginnt (ab hier folgt es dem Kopf)', 40);
-  vline(A.pedX - 1, '#ff9a9a', 'Schwanzstiel endet / Flossenansatz', 58);
+  label(ctx, 'Spine y = 0', 8, y0 - 6, '#ffffff', 13);
+  vline(A.anchorX, '#c9a0ff', 'Pivot (trunk stays at rest)', 22);
+  vline(A.neckX, '#c9a0ff', 'Neck zone begins (follows the head from here)', 40);
+  vline(A.pedX - 1, '#ff9a9a', 'Tail peduncle ends / fin root', 58);
   // Maul: Oberlippe und Unterkiefer
   const [hx, hy] = P(A.hinge[0], A.hinge[1]), [tx, ty] = P(A.tip[0], A.tip[1]);
   ctx.strokeStyle = '#ff4fa8'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + tx) / 2, hy + 0.7 * R, tx, ty); ctx.stroke();
-  dot(A.hinge[0], A.hinge[1], '#ff4fa8', 'Kiefergelenk (Drehpunkt Unterkiefer)', -250, 60);
-  dot(A.tip[0], A.tip[1], '#ff4fa8', 'Maulspitze (Oberkiefer)', -190, -26);
+  dot(A.hinge[0], A.hinge[1], '#ff4fa8', 'Jaw joint (lower-jaw pivot)', -250, 60);
+  dot(A.tip[0], A.tip[1], '#ff4fa8', 'Mouth tip (upper jaw)', -190, -26);
   // Unterkieferspitze (in Ruhe) und Öffnungswinkel
   const jt = P(A.hinge[0] + A.jawLen, A.hinge[1] + 0.3);
   ctx.beginPath(); ctx.arc(jt[0], jt[1], 5, 0, Math.PI * 2); ctx.fillStyle = '#ff4fa8'; ctx.fill();
-  label(ctx, 'Unterkiefer-Spitze', jt[0] - 60, jt[1] + A.jawH * R + 20, '#ff4fa8');
-  dot(A.eye.x, A.eye.y, '#ffffff', 'Auge', -20, -18, Math.max(2.6, A.eye.r * 1.3) * R);
+  label(ctx, 'Lower jaw tip', jt[0] - 60, jt[1] + A.jawH * R + 20, '#ff4fa8');
+  dot(A.eye.x, A.eye.y, '#ffffff', 'Eye', -20, -18, Math.max(2.6, A.eye.r * 1.3) * R);
   // Flossenansätze mit Achse der Flosse
   const fin = (f: { at: [number, number] }, ax: number, ay: number, len: number, col: string, txt: string) => {
     const [px, py] = P(f.at[0], f.at[1]);
@@ -235,15 +235,15 @@ function guidePoints(A: FishAnatomy, U: Box, R: number) {
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + ax * len * R, py + ay * len * R); ctx.stroke();
     dot(f.at[0], f.at[1], col, txt, ax < 0 ? -420 : 8, ax < 0 ? 70 : ay < 0 ? -10 : 22);
   };
-  fin(A.dorsal, 0, -1, A.dorsal.len, '#4fd1ff', 'Ansatz Rückenflosse');
-  fin(A.anal, 0, 1, A.anal.len, '#4fd1ff', 'Ansatz Afterflosse');
-  fin(A.pelvic, 0, 1, A.pelvic.len, '#4fd1ff', 'Ansatz Bauchflosse');
-  fin(A.pectoral, -0.7, 0.7, A.pectoral.len, '#7dff7a', 'Ansatz Brustflosse (unter dem Kiemendeckel)');
+  fin(A.dorsal, 0, -1, A.dorsal.len, '#4fd1ff', 'Dorsal fin root');
+  fin(A.anal, 0, 1, A.anal.len, '#4fd1ff', 'Anal fin root');
+  fin(A.pelvic, 0, 1, A.pelvic.len, '#4fd1ff', 'Pelvic fin root');
+  fin(A.pectoral, -0.7, 0.7, A.pectoral.len, '#7dff7a', 'Pectoral fin root (under the gill cover)');
   // Schwanzflosse: Umriss der Spannweite
   const [sx, sy0] = P(A.pedX - 1 - A.tail.lobe, -A.tail.spread), [, sy1] = P(0, A.tail.spread);
   ctx.setLineDash([6, 5]); ctx.strokeStyle = '#ff9a9a'; ctx.lineWidth = 1.5;
   ctx.strokeRect(sx, sy0, P(A.pedX - 1, 0)[0] - sx, sy1 - sy0); ctx.setLineDash([]);
-  label(ctx, `Schwanzflosse: Länge ${A.tail.lobe.toFixed(1)}, Spannweite ±${A.tail.spread.toFixed(1)}`, sx + 4, sy1 + 18, '#ff9a9a', 14);
+  label(ctx, `Tail fin: length ${A.tail.lobe.toFixed(1)}, span ±${A.tail.spread.toFixed(1)}`, sx + 4, sy1 + 18, '#ff9a9a', 14);
   return c;
 }
 

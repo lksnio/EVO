@@ -138,30 +138,30 @@ function zoneFor(kind: PlaceKind, name: string, veils: { lush: number; murky: nu
 const EPOCH_PLACES: Record<string, { names: Record<Role, [string, string]>; veils: { lush: number; murky: number }; light: number; hunters: number; roles?: Partial<Record<Role, Partial<RoleDef>>> }> = {
   ordovizium: {
     names: {
-      start: ['lagune', 'Der Laichfluss'], lush1: ['tang', 'Tangwiese'], lush2: ['schwamm', 'Schwammgarten'], murky1: ['bucht', 'Trübe Bucht'], murky2: ['sandfeld', 'Sandfeld'],
-      deep1: ['kante', 'Tiefe Kante'], deep2: ['klippe', 'Klippenhang'], deep3: ['spalt', 'Der Spalt'], abyss1: ['abgrund', 'Der Abgrund'], abyss2: ['tiefsee', 'Schwarze Tiefe'],
+      start: ['lagune', 'The Spawning River'], lush1: ['tang', 'Kelp Meadow'], lush2: ['schwamm', 'Sponge Garden'], murky1: ['bucht', 'Murky Bay'], murky2: ['sandfeld', 'Sand Flats'],
+      deep1: ['kante', 'Deep Ledge'], deep2: ['klippe', 'Cliff Slope'], deep3: ['spalt', 'The Fissure'], abyss1: ['abgrund', 'The Abyss'], abyss2: ['tiefsee', 'Black Depths'],
     },
     veils: { lush: 0x1a4a2c, murky: 0x2e3a1c }, light: 1, hunters: 1,
   },
   silur: {
     names: {
-      start: ['kelp', 'Kelpmündung'], lush1: ['dickicht', 'Tangdickicht'], lush2: ['teppich', 'Algenteppich'], murky1: ['schlick', 'Schlickebene'], murky2: ['nebel', 'Nebelbank'],
-      deep1: ['graben', 'Dunkler Graben'], deep2: ['hang', 'Schroffer Hang'], deep3: ['schlund', 'Der Schlund'], abyss1: ['tiefe', 'Die Tiefe'], abyss2: ['nacht', 'Ewige Nacht'],
+      start: ['kelp', 'Kelp Estuary'], lush1: ['dickicht', 'Kelp Thicket'], lush2: ['teppich', 'Algal Carpet'], murky1: ['schlick', 'Silt Plain'], murky2: ['nebel', 'Fog Bank'],
+      deep1: ['graben', 'Dark Trench'], deep2: ['hang', 'Rugged Slope'], deep3: ['schlund', 'The Maw'], abyss1: ['tiefe', 'The Depths'], abyss2: ['nacht', 'Eternal Night'],
     },
     veils: { lush: 0x1a4a2a, murky: 0x2a2e1c }, light: 0.95, hunters: 1.05,
   },
   devon: {
     names: {
-      start: ['riff', 'Der Laichfluss'], lush1: ['garten', 'Korallengarten'], lush2: ['wald', 'Schwammwald'], murky1: ['delta', 'Trübes Delta'], murky2: ['bank', 'Schlammbank'],
-      deep1: ['wand', 'Steilwand'], deep2: ['terrasse', 'Terrassenhang'], deep3: ['kluft', 'Die Kluft'], abyss1: ['maul', 'Das Maul der Tiefe'], abyss2: ['grund', 'Der Letzte Grund'],
+      start: ['riff', 'The Spawning River'], lush1: ['garten', 'Coral Garden'], lush2: ['wald', 'Sponge Forest'], murky1: ['delta', 'Murky Delta'], murky2: ['bank', 'Mud Bank'],
+      deep1: ['wand', 'Sheer Wall'], deep2: ['terrasse', 'Terraced Slope'], deep3: ['kluft', 'The Chasm'], abyss1: ['maul', 'Maw of the Deep'], abyss2: ['grund', 'The Final Seabed'],
     },
     veils: { lush: 0x1a4a3a, murky: 0x302e18 }, light: 0.95, hunters: 1,
   },
   // das Karbon: Sümpfe, Ufer und Inseln – das Land ragt aus dem Wasser, und ganz am Ende wartet der steile Fels
   karbon: {
     names: {
-      start: ['brut', 'Der Brutsumpf'], lush1: ['farn', 'Farnufer'], lush2: ['inseln', 'Schachtelhalm-Inseln'], murky1: ['moor', 'Torfmoor'], murky2: ['schlamm', 'Schlammbänke'],
-      deep1: ['lagune', 'Brackige Lagune'], deep2: ['see', 'Der Rhizodus-See'], deep3: ['rinne', 'Die Tiefe Rinne'], abyss1: ['fels', 'Der Steile Fels'], abyss2: ['kueste', 'Steilküste'],
+      start: ['brut', 'The Nursery Swamp'], lush1: ['farn', 'Fern Shore'], lush2: ['inseln', 'Horsetail Islands'], murky1: ['moor', 'Peat Bog'], murky2: ['schlamm', 'Mud Banks'],
+      deep1: ['lagune', 'Brackish Lagoon'], deep2: ['see', 'Rhizodus Lake'], deep3: ['rinne', 'The Deep Channel'], abyss1: ['fels', 'The Steep Cliff'], abyss2: ['kueste', 'Cliff Coast'],
     },
     veils: { lush: 0x2a3a18, murky: 0x34301a }, light: 0.9, hunters: 1,
     roles: {
@@ -202,7 +202,7 @@ function buildPlaces(epId: string): PlaceDef[] {
   // Rechts im Korallengarten geht es nicht weiter, das Tal selbst hat rechts und links Wände.
   Object.assign(river, { links: [shelf.id], wide: 1.8, deep: 3, safe: false, waterway: 0, seabed: [17, 28], spawningCave: true });
   Object.assign(shelf, { links: [river.id, valley.id], wide: 2.4, deep: 24, waterway: 1, seabed: [28, 28], descent: valley.id, closed: { right: true } });
-  Object.assign(valley, { name: 'Das Tiefental', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: undefined, ascent: shelf.id, closed: { left: true, right: true }, apex: true });
+  Object.assign(valley, { name: 'The Deep Valley', links: [shelf.id], wide: 3.6, deep: 80, waterway: 2, seabed: undefined, ascent: shelf.id, closed: { left: true, right: true }, apex: true });
   valley.def.name = valley.name;
   return [river, shelf, valley];
 }

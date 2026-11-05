@@ -68,37 +68,37 @@ export const ENTRIES: Entry[] = (() => {
 })();
 
 export const ROLE_TEXT: Record<Role, string> = {
-  prey: 'Beute',
-  defender: 'Wehrhaft',
-  predator: 'Jäger',
-  hazard: 'Nesseltier',
-  apex: 'Herrscher',
+  prey: 'Prey',
+  defender: 'Defender',
+  predator: 'Predator',
+  hazard: 'Stinging animal',
+  apex: 'Apex predator',
 };
 
-export const DIET_TEXT: Record<SpeciesDef['diet'], string> = { plant: 'Pflanzen und Kleinzeug', meat: 'Fleisch', none: 'Nesselt, frisst Plankton' };
+export const DIET_TEXT: Record<SpeciesDef['diet'], string> = { plant: 'Plants and small organisms', meat: 'Meat', none: 'Stings; feeds on plankton' };
 
-export const LAYER_TEXT = { floor: 'Nahe am Grund', mid: 'Mittleres Wasser', open: 'Offenes Wasser' } as const;
+export const LAYER_TEXT = { floor: 'Near the bottom', mid: 'Midwater', open: 'Open water' } as const;
 
-export const PLACE_TEXT: Record<PlaceKind, string> = { start: 'Startgewässer', lush: 'bewachsene Orte', murky: 'trübe Orte', deep: 'tiefe Orte', abyss: 'Abgründe' };
+export const PLACE_TEXT: Record<PlaceKind, string> = { start: 'Starting waters', lush: 'vegetated areas', murky: 'murky areas', deep: 'deep areas', abyss: 'abysses' };
 
 export function lengthText(cm: number) {
-  const fmt = (n: number, d = 0) => n.toLocaleString('de-DE', { maximumFractionDigits: d });
-  return cm >= 100 ? `ca. ${fmt(cm / 100, 1)} m` : `ca. ${fmt(cm)} cm`;
+  const fmt = (n: number, d = 0) => n.toLocaleString('en-GB', { maximumFractionDigits: d });
+  return cm >= 100 ? `approx. ${fmt(cm / 100, 1)} m` : `approx. ${fmt(cm)} cm`;
 }
 
 export function herdText(d: SpeciesDef) {
-  if (!d.herd) return 'Einzelgänger';
+  if (!d.herd) return 'Solitary';
   const [a, b] = d.herd;
-  const n = a === b ? `${a}` : `${a} bis ${b}`;
-  return d.role === 'predator' || d.role === 'apex' ? `Rudel aus ${n} Tieren` : `Schwärme aus ${n} Tieren`;
+  const n = a === b ? `${a}` : `${a} to ${b}`;
+  return d.role === 'predator' || d.role === 'apex' ? `Packs of ${n} animals` : `Schools of ${n} animals`;
 }
 
 /** Wo die Art häufiger vorkommt als anderswo. */
 export function placesText(d: SpeciesDef) {
   const w = d.where;
-  if (!w) return 'überall';
+  if (!w) return 'everywhere';
   const kinds = (Object.keys(PLACE_TEXT) as PlaceKind[]).filter((k) => (w[k] ?? 1) >= 1.2);
-  return kinds.length ? kinds.map((k) => PLACE_TEXT[k]).join(', ') : 'überall';
+  return kinds.length ? kinds.map((k) => PLACE_TEXT[k]).join(', ') : 'everywhere';
 }
 
 /** Größte Werte über alle Tiere – damit die Balken vergleichbar sind. */

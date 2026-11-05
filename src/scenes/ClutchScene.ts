@@ -1,5 +1,6 @@
 import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
+import { historyCause } from '../ui/historyText';
 import { W, H, UI, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
 import { game } from '../state/GameState';
@@ -19,7 +20,7 @@ export interface ClutchData {
   cause?: string;
 }
 
-const GENE_NAME: Record<Gene, string> = { jaw: 'Gebiss', limb: 'Beine', grip: 'Griff', armor: 'Schuppen' };
+const GENE_NAME: Record<Gene, string> = { jaw: 'Jaws', limb: 'Legs', grip: 'Grip', armor: 'Scales' };
 
 /** Ein Ei als Bild: glasige Hülle, gelblicher Dotter, darin der eingerollte Keim. */
 function eggTexture(scene: Phaser.Scene) {
@@ -126,11 +127,11 @@ export class ClutchScene extends Phaser.Scene {
       scale: { start: 0.35, end: 0 }, alpha: { start: 0, end: 0.5, ease: 'Sine.inOut' }, speedY: { min: -14, max: -3 }, tint: [0xd8e8b0, 0xf0e0a0],
     });
     const gen = this.d.mode === 'gen';
-    const head = gen ? `Generation ${b.gen}` : 'Das Gelege';
+    const head = gen ? `Generation ${b.gen}` : 'The clutch';
     this.add.text(W / 2, 64, head.toUpperCase(), { fontFamily: TITLE_FONT, fontSize: '30px', color: UI.bone, resolution: 2 }).setOrigin(0.5).setLetterSpacing(8);
     const sub = gen
-      ? `Die Gefahr ist überstanden – ein neues Gelege mit ${b.eggs} Eiern.`
-      : `${this.d.cause ?? 'Gestorben'} – noch ${b.eggs} ${b.eggs === 1 ? 'Ei' : 'Eier'} im Nest.`;
+      ? `The danger has passed — a new clutch of ${b.eggs} eggs.`
+      : `${historyCause(this.d.cause ?? 'Died')} — ${b.eggs} ${b.eggs === 1 ? 'egg' : 'eggs'} left in the nest.`;
     text(this, W / 2, 112, sub, 19, UI.boneDim).setOrigin(0.5);
     const eggs = game.eggOffer();
     const best = { jaw: 0, limb: 0, grip: 0, armor: 0 } as Record<Gene, number>;
@@ -143,7 +144,7 @@ export class ClutchScene extends Phaser.Scene {
     const list = same ? eggs.slice(0, 1) : eggs;
     const pick = (e: Egg) => () => this.hatch(e);
     const cards = list.map((e, i) => new EggCard(this, W / 2 + (i - (list.length - 1) / 2) * 290, 330, e, same ? { jaw: 0, limb: 0, grip: 0, armor: 0 } : best, pick(e)));
-    text(this, W / 2, H - 58, same ? 'E, Eingabe oder Antippen: Das Ei schlüpft.' : '← → wählen  ·  E, Eingabe oder Antippen: Das Ei schlüpft.', 17, UI.boneDim).setOrigin(0.5);
+    text(this, W / 2, H - 58, same ? 'E, Enter or tap: hatch the egg.' : '← → choose · E, Enter or tap: hatch the egg.', 17, UI.boneDim).setOrigin(0.5);
     const nav = new MenuNav(this, cards, cards.length);
     this.input.keyboard?.on('keydown-E', () => cards[nav.idx]?.click());
   }

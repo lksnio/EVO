@@ -7,22 +7,23 @@ import { fishMarkKey } from '../sim/fishEvolution';
 import { fishTree, fishTreeBranches, type FishBranch, type FishTreeNode } from '../sim/fishTree';
 import { species } from '../net/Species';
 import { CURSOR } from '../ui/cursor';
+import { historyBranchName } from '../ui/historyText';
 import { Button, text, title } from '../ui/ui';
 
 const AREA = { x: 30, y: 132, w: 890, h: 498 };
 const PANEL = { x: 954, y: 118, w: 300, h: 516 };
 const GOLD = 0xe4c18d, GREEN = 0x8ac6b8, GHOST = 0x71817d;
 const ROMAN = ['—', 'I', 'II', 'III'];
-const TRAITS = ['Gebiss', 'Flossen', 'Schädel'];
+const TRAITS = ['Jaws', 'Fins', 'Skull'];
 const ROW = 68;
 type Point = { x: number; y: number };
 
 function formName(node: FishTreeNode) {
   const [g, f, k] = STARTER_FORMS[node.mark.form];
-  if (!(g || f || k)) return 'Urfisch';
-  if (node.mark.primary === 1 || g > k) return `Beißfisch ${ROMAN[g]}`;
-  if (node.mark.primary === 3 || k) return `Stoßfisch ${ROMAN[k]}`;
-  return `Flossenfisch ${ROMAN[f]}`;
+  if (!(g || f || k)) return 'Early fish';
+  if (node.mark.primary === 1 || g > k) return `Biting fish ${ROMAN[g]}`;
+  if (node.mark.primary === 3 || k) return `Ramming fish ${ROMAN[k]}`;
+  return `Fin-specialist fish ${ROMAN[f]}`;
 }
 
 /** The shell opens a living fan of exact shared ancestry, with legal, subdued paths beside the played routes. */
@@ -54,9 +55,9 @@ export class EvolutionScene extends Phaser.Scene {
     this.add.rectangle(0, 0, W, H, 0x090e0e).setOrigin(0).setInteractive();
     this.add.image(457, 386, 'glow').setDisplaySize(1120, 830).setTint(0xd8bc86)
       .setAlpha(.045).setBlendMode(Phaser.BlendModes.ADD);
-    title(this, 32, 20, 'Stammbaum des Lebens', 30);
-    text(this, 34, 65, 'Devon · Aus einem Anfang werden eure eigenen Wege.', 17, UI.boneDim, { fontStyle: 'italic' });
-    new Button(this, W - 145, 48, 'Weiterschwimmen', { w: 236, h: 43, size: 16, onClick: () => this.close() });
+    title(this, 32, 20, 'Tree of Life', 30);
+    text(this, 34, 65, 'Devonian · One beginning, your own paths.', 17, UI.boneDim, { fontStyle: 'italic' });
+    new Button(this, W - 145, 48, 'Keep swimming', { w: 236, h: 43, size: 16, onClick: () => this.close() });
     const lines = this.add.graphics();
     lines.lineStyle(1, 0xc5b08b, .16).lineBetween(32, 114, W - 30, 114);
     lines.lineStyle(1, 0xc5b08b, .13).lineBetween(PANEL.x - 18, 136, PANEL.x - 18, 625);
@@ -67,10 +68,10 @@ export class EvolutionScene extends Phaser.Scene {
     this.info = this.add.container(PANEL.x, PANEL.y);
     new Button(this, 51, 684, '−', { w: 37, h: 32, size: 20, onClick: () => this.zoom(1 / 1.25) });
     new Button(this, 96, 684, '+', { w: 37, h: 32, size: 20, onClick: () => this.zoom(1.25) });
-    new Button(this, 204, 684, 'Ganzer Baum', { w: 155, h: 32, size: 13, onClick: () => this.frame() });
-    text(this, 301, 675, 'Mausrad: vergrößern · Ziehen: verschieben', 14, UI.boneDim);
-    text(this, 301, 695, 'Tier berühren: Form ansehen · Anklicken: festhalten', 12, '#7e8981');
-    text(this, W - 33, 684, 'ESC · ZURÜCK', 12, UI.boneDim).setOrigin(1, .5).setLetterSpacing(2);
+    new Button(this, 204, 684, 'Whole tree', { w: 155, h: 32, size: 13, onClick: () => this.frame() });
+    text(this, 301, 675, 'Scroll: zoom · Drag: pan', 14, UI.boneDim);
+    text(this, 301, 695, 'Hover over an animal: preview · Click: pin', 12, '#7e8981');
+    text(this, W - 33, 684, 'ESC · BACK', 12, UI.boneDim).setOrigin(1, .5).setLetterSpacing(2);
     // A camera viewport clips both ink graphics and fish meshes, including while zooming and dragging.
     const treeCamera = this.cameras.add(AREA.x, AREA.y, AREA.w, AREA.h).setScroll(AREA.x, AREA.y);
     treeCamera.ignore(this.children.list.filter(child => child !== this.plot));
@@ -125,8 +126,8 @@ export class EvolutionScene extends Phaser.Scene {
 
   private branches(): FishBranch[] {
     const id = `local-${game.run?.id}`;
-    const own = { id, name: 'Deine Linie', trace: game.run?.fishTrace ?? [{ form: 0, primary: 0 }] };
-    return fishTreeBranches(game.data.fishBranches ?? [], own, species.peerBranches);
+    const own = { id, name: 'Your lineage', trace: game.run?.fishTrace ?? [{ form: 0, primary: 0 }] };
+    return fishTreeBranches(game.data.fishBranches ?? [], own, species.peerBranches).map(b => ({ ...b, name: historyBranchName(b) }));
   }
 
   private draw(initial = false) {
@@ -201,8 +202,8 @@ export class EvolutionScene extends Phaser.Scene {
     const parent = node.id.includes('/') ? this.model.nodes.find(n => n.children.includes(node)) : undefined;
     const axis = parent ? STARTER_FORMS[node.mark.form].findIndex((v, i) => v > STARTER_FORMS[parent.mark.form][i]) : -1;
     const endpoints = node.branches.some(b => !b.archived) ? node.branches.filter(b => !b.archived) : node.branches;
-    const label = endpoints.length ? [...new Set(endpoints.map(b => b.name + (b.extinct ? ' ×' : b.archived ? ' · früher' : '')))].slice(0, 2).join(' · ')
-      : axis < 0 ? 'Urfisch' : `${TRAITS[axis]} ${ROMAN[STARTER_FORMS[node.mark.form][axis]]}`;
+    const label = endpoints.length ? [...new Set(endpoints.map(b => b.name + (b.extinct ? ' ×' : b.archived ? ' · earlier' : '')))].slice(0, 2).join(' · ')
+      : axis < 0 ? 'Early fish' : `${TRAITS[axis]} ${ROMAN[STARTER_FORMS[node.mark.form][axis]]}`;
     const t = text(this, p.x, p.y + 24, label, node.branches.length ? 12 : 11,
       node.possible ? '#7c8981' : node.branches.length ? UI.bone : UI.boneDim, { align: 'center', wordWrap: { width: 116 } }).setOrigin(.5, 0);
     t.setAlpha(node.possible ? .65 : .95); this.plot.add(t);
@@ -218,7 +219,7 @@ export class EvolutionScene extends Phaser.Scene {
       this.legend.add([g, label]); x += Math.min(200, label.width + 58);
     }
     const g = this.add.graphics().lineStyle(1, GHOST, .55).lineBetween(x + 8, -4, x + 30, -4);
-    this.legend.add([g, text(this, x + 39, -13, 'Mögliche Wege', 14, '#7c8981')]);
+    this.legend.add([g, text(this, x + 39, -13, 'Possible paths', 14, '#7c8981')]);
   }
 
   private morph(node: FishTreeNode) {
@@ -233,7 +234,7 @@ export class EvolutionScene extends Phaser.Scene {
     if (this.detailKey === node.id) return;
     this.detailKey = node.id; this.info.removeAll(true); this.portrait = undefined;
     const cx = PANEL.w / 2;
-    this.info.add(text(this, cx, 27, node.possible ? 'MÖGLICHE FORM' : 'GELEBTE FORM', 11, node.possible ? '#84948a' : UI.ochre).setOrigin(.5).setLetterSpacing(3));
+    this.info.add(text(this, cx, 27, node.possible ? 'POSSIBLE FORM' : 'OBSERVED FORM', 11, node.possible ? '#84948a' : UI.ochre).setOrigin(.5).setLetterSpacing(3));
     this.info.add(title(this, cx, 55, formName(node), 26).setOrigin(.5, 0));
     const m = this.morph(node);
     const view = new CreatureView(this, cx, 174, m, Math.min(2.8, 220 / Math.max(60, m.size * 80)));
@@ -243,16 +244,16 @@ export class EvolutionScene extends Phaser.Scene {
     TRAITS.forEach((name, i) => {
       const y = 267 + i * 51;
       this.info.add(text(this, 24, y, name, 17, UI.boneDim));
-      this.info.add(text(this, PANEL.w - 23, y + 1, stages[i] ? `Stufe ${ROMAN[stages[i]]}` : 'Grundform', 14, stages[i] ? UI.bone : '#77867d').setOrigin(1, 0));
+      this.info.add(text(this, PANEL.w - 23, y + 1, stages[i] ? `Stage ${ROMAN[stages[i]]}` : 'Base form', 14, stages[i] ? UI.bone : '#77867d').setOrigin(1, 0));
       for (let tier = 0; tier < 3; tier++) bars.fillStyle(tier < stages[i] ? [GOLD, GREEN, 0xafa5c7][i] : 0x39433c, tier < stages[i] ? .85 : .4)
         .fillRoundedRect(24 + tier * 85, y + 29, 79, 3, 1);
     });
     const routes = node.routes.some(b => !b.extinct && !b.archived) ? node.routes.filter(b => !b.extinct && !b.archived) : node.routes;
-    const names = [...new Set(routes.map(b => b.name + (b.extinct ? ' · ausgestorben' : b.archived ? ' · früherer Verlauf' : '')))].slice(0, 3);
-    const note = node.possible ? 'Ein unbeschrittener Weg. Diese Form kann in einer nächsten Generation entstehen.'
-      : names.length ? names.join('\n') : 'Euer gemeinsamer Anfang.';
+    const names = [...new Set(routes.map(b => b.name + (b.extinct ? ' · extinct' : b.archived ? ' · earlier lineage' : '')))].slice(0, 3);
+    const note = node.possible ? 'An unexplored path. This form may emerge in a future generation.'
+      : names.length ? names.join('\n') : 'Your shared beginning.';
     this.info.add(text(this, cx, 443, note, 15, node.possible ? '#84948a' : UI.boneDim, { align: 'center', wordWrap: { width: 248 } }).setOrigin(.5, 0));
-    this.info.add(text(this, cx, 226, node.mark.primary === 1 ? 'Gebiss als Hauptmerkmal' : node.mark.primary === 3 ? 'Schädel als Hauptmerkmal' : 'Der Anfang ist noch offen.', 13, '#84948a').setOrigin(.5));
+    this.info.add(text(this, cx, 226, node.mark.primary === 1 ? 'Primary trait: jaws' : node.mark.primary === 3 ? 'Primary trait: skull' : 'Your path is still open.', 13, '#84948a').setOrigin(.5));
   }
 
   private showSelected() { const n = this.model.nodes.find(n => n.id === this.selected) ?? this.model.roots[0]; if (n) this.show(n); }

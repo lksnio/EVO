@@ -32,7 +32,7 @@ export function sizeBasis(def: SpeciesDef): SizeBasis {
 }
 export function adultLengthCm(def: Pick<SpeciesDef, 'id'>) {
   const fact = SPECIES_FACTS[def.id];
-  if (!fact || !(fact.cm > 0)) throw Error(`Keine biologische Größenreferenz für ${def.id}`);
+  if (!fact || !(fact.cm > 0)) throw Error(`No biological size reference for ${def.id}`);
   return fact.cm;
 }
 export function playLengthCm(def: Pick<SpeciesDef, 'id'>) {
@@ -69,6 +69,6 @@ export function spriteReferenceSpan(def: SpeciesDef, textureWidth: number) {
   }
 }
 export function animalScale(def: SpeciesDef, referenceSpan: number) {
-  if (!(referenceSpan > 0) || !Number.isFinite(referenceSpan)) throw Error(`Ungültiger Zeichenmaßstab für ${def.id}`);
+  if (!(referenceSpan > 0) || !Number.isFinite(referenceSpan)) throw Error(`Invalid drawing scale for ${def.id}`);
   return worldLength(def) / referenceSpan;
 }

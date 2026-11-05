@@ -8,7 +8,7 @@ export function reportError(where: string, e: unknown) {
   const key = where + ': ' + msg;
   if (reported.has(key)) return;
   reported.add(key);
-  console.error(`[EVO] Fehler (${where}) – das Spiel läuft weiter.`, e);
+  console.error(`[EVO] Error (${where}) — the game continues.`, e);
 }
 
 /**
@@ -24,7 +24,7 @@ export function keepAlive(g: Phaser.Game) {
       try {
         step(time, delta);
       } catch (e) {
-        reportError('Bild', e);
+        reportError('frame', e);
       }
     };
   });

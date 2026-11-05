@@ -431,11 +431,11 @@ export class TitleScene extends Phaser.Scene {
 
     // das Menü: weiterleben – oder ein Zeitalter wählen (für das erste Leben heißt das „Leben beginnen“)
     const entries: [string, () => void, Sfx][] = [];
-    if (run) entries.push(['Weiterleben', () => this.continueGame(), 'confirm']);
-    entries.push([run ? 'Zeitalter' : 'Leben beginnen', () => !this.overlay && fadeTo(this, 'Eras', {}, 600), 'open']);
-    entries.push(['Chronik des Lebens', () => !this.overlay && fadeTo(this, 'Aquapendium', { epoch: game.chosenEpoch }, 600), 'open']);
-    entries.push(['Steuerung', () => this.showHelp(), 'select']);
-    entries.push(['Weltbaukasten', () => !this.overlay && fadeTo(this, 'WorldEditor', {}, 300), 'open']);
+    if (run) entries.push(['Continue life', () => this.continueGame(), 'confirm']);
+    entries.push([run ? 'Era' : 'Begin life', () => !this.overlay && fadeTo(this, 'Eras', {}, 600), 'open']);
+    entries.push(['Chronicle of Life', () => !this.overlay && fadeTo(this, 'Aquapendium', { epoch: game.chosenEpoch }, 600), 'open']);
+    entries.push(['Controls', () => this.showHelp(), 'select']);
+    entries.push(['World Editor', () => !this.overlay && fadeTo(this, 'WorldEditor', {}, 300), 'open']);
     const items: MenuItem[] = [];
     entries.forEach(([label, fn, sound], i) => {
       const it = new MenuItem(this, X, 300 + i * 42, label, fn, () => !this.overlay && this.nav?.focus(i), sound);
@@ -505,7 +505,7 @@ export class TitleScene extends Phaser.Scene {
     const note = text(this, x + 22, y + 24, '', 12, UI.ochre).setOrigin(1, 0).setDepth(60).setAlpha(0.8);
     const upd = () => {
       const n = changedCount();
-      note.setText(n ? 'eigene Werte' : '');
+      note.setText(n ? 'custom settings' : '');
       img.setTint(n ? 0xe8c07a : 0xffffff);
     };
     upd();

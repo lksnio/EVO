@@ -236,12 +236,12 @@ export class SpawnCtl {
     const block = spawnBlock({ age: life.age, gen: life.gen, fed: life.fed, base: this.base, young: game.young,
       lastSpawn: life.lastSpawn, inGrounds: this.grounds, atGround: !!this.target, male: true });
     const reason: Record<SpawnBlock, string> = {
-      jung: 'Ab der Laichzeit kannst du neue Eier befruchten.',
-      nahrung: `Noch ${Math.max(1, Math.ceil(this.base - life.fed))} Nahrung für das nächste Ei.`,
-      voll: `Bereits ${SPAWN.maxYoung} Nachkommen in diesem Leben befruchtet.`,
-      pause: 'Schwimme eine Weile weiter, bevor du erneut befruchtest.',
-      ort: 'Befruchten ist im Laichfluss möglich.',
-      grund: 'Schwimme näher an den Laich.', gelege: 'Schwimme näher an den Laich.',
+      jung: 'You can fertilise new eggs once spawning season begins.',
+      nahrung: `Need ${Math.max(1, Math.ceil(this.base - life.fed))} more food for the next egg.`,
+      voll: `Already fertilised ${SPAWN.maxYoung} eggs during this life.`,
+      pause: 'Swim for a while before fertilising again.',
+      ort: 'You can fertilise eggs in the spawning river.',
+      grund: 'Swim closer to the eggs.', gelege: 'Swim closer to the eggs.',
     };
     return { count: block ? 0 : Math.min(youngOf(life.fed, this.base), SPAWN.maxYoung - game.young), reason: block ? reason[block] : '' };
   }
@@ -283,14 +283,14 @@ export class SpawnCtl {
     let msg = '';
     {
       const b = this.block;
-      msg = b === null ? (male || !eats ? 'Laichzeit' : 'Laichzeit · ein Stück weiter')
-        : b === 'gelege' ? 'Laichzeit'
-        : b === 'grund' ? 'Laichzeit · am Grund'
-        : b === 'ort' ? 'Laichzeit · im Laichfluss'
-        : b === 'nahrung' ? `Laichzeit · noch ${Math.max(1, Math.ceil(this.base - life.fed))} Nahrung`
+      msg = b === null ? (male || !eats ? 'Spawning time' : 'Spawning time · swim a little farther')
+        : b === 'gelege' ? 'Spawning time'
+        : b === 'grund' ? 'Spawning time · near the bottom'
+        : b === 'ort' ? 'Spawning time · in the spawning river'
+        : b === 'nahrung' ? `Spawning time · need ${Math.max(1, Math.ceil(this.base - life.fed))} food`
         : '';
     }
-    bus.emit('spawnHint', msg || 'Laichzeit');
+    bus.emit('spawnHint', msg || 'Spawning time');
   }
 
   /** Befruchtbarer Laich schimmert warm, solange Laichzeit ist – der in Reichweite stärker. */
@@ -344,7 +344,7 @@ export class SpawnCtl {
     const c = game.addClutch({ place: h.place.id, x, y, at: worldNow(), fert: false, role: 'mother', young });
     const b = this.addBrood(c.x, c.y, c.at, { clutch: c });
     this.layFx(b, p.x, p.y);
-    bus.emit('notice', 'Laichen', 'Gelege abgelegt');
+    bus.emit('notice', 'Spawning', 'Clutch laid');
     this.callMale(b, rnd(SPAWN.maleDelay));
   }
 
@@ -472,7 +472,7 @@ export class SpawnCtl {
 
   /** Newly fertilised offspring are described by their visible inherited values. */
   private told(_b: Brood, eggs: RoeEgg[]) {
-    bus.emit('notice', 'LAICH BEFRUCHTET', `${eggs.length} ${eggs.length === 1 ? 'Ei trägt' : 'Eier tragen'} das Erbgut deiner Linie.`);
+    bus.emit('notice', 'EGGS FERTILISED', `${eggs.length} ${eggs.length === 1 ? 'egg carries' : 'eggs carry'} your lineage's genes.`);
   }
 
   /** Ein anderes Gelege, das schon an dieser Stelle liegt (derselbe Laichhaufen). */
@@ -522,7 +522,7 @@ export class SpawnCtl {
       const t = this.twin(b.x, b.y);
       if (t && b.roe.img.visible) t.roe.img.setVisible(true);
       if (t && b.glow && !t.glow && t.clutch?.fert) this.glow(t);
-      if (b.clutch) bus.emit('notice', 'Gelege verdorben', 'Es wurde nicht befruchtet.');
+      if (b.clutch) bus.emit('notice', 'Clutch spoiled', 'It was not fertilised.');
     }
   }
 

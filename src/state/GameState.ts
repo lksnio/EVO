@@ -527,12 +527,12 @@ export function packTraits(t: Traits): Partial<Traits> {
 /** Name einer erspielten Fähigkeit (wie sie auf den Karten und im Werte-Bildschirm steht). */
 export function skillName(k: SkillKey, t: Partial<Traits>) {
   switch (k) {
-    case 'jaw': return 'Gebiss';
-    case 'skull': return (t.spike ?? 0) < -0.25 ? 'Panzerkopf' : 'Dickschädel';
-    case 'stealth': return 'Tarnung';
-    case 'growth': return 'Wuchs';
-    case 'green': return 'Grüntarnung';
-    case 'sand': return 'Sandtarnung';
+    case 'jaw': return 'Jaws';
+    case 'skull': return (t.spike ?? 0) < -0.25 ? 'Armoured head' : 'Thick skull';
+    case 'stealth': return 'Camouflage';
+    case 'growth': return 'Growth';
+    case 'green': return 'Green camouflage';
+    case 'sand': return 'Sand camouflage';
   }
 }
 
@@ -553,7 +553,7 @@ export function skillName(k: SkillKey, t: Partial<Traits>) {
 
 export type PlateId = 'st' | 'bs' | 'vf' | 'sw';
 export const PLATE_IDS: PlateId[] = ['st', 'bs', 'vf', 'sw'];
-export const PLATE_NAME: Record<PlateId, string> = { st: 'Stoßfisch', bs: 'Beißfisch', vf: 'Verfolgungsfisch', sw: 'Schwarmfisch' };
+export const PLATE_NAME: Record<PlateId, string> = { st: 'Ramming fish', bs: 'Biting fish', vf: 'Pursuit fish', sw: 'Schooling fish' };
 
 /** So viele Punkte sammelt eine Platte höchstens. */
 const PLATE_MAX = 4;
@@ -696,7 +696,7 @@ const EPITHET: Record<string, string> = { herb: 'phytophagus', omni: 'vulgaris',
 
 /** Ein wissenschaftlich klingender Name für eine Linie (nur im Stammbaum zu sehen). */
 export function speciesName(n: Pick<TreeNode, 'cls' | 'traits' | 'epoch'> & { parent?: string | null }) {
-  if (n.parent === null || n.epoch < 0) return 'Der Urahn';
+  if (n.parent === null || n.epoch < 0) return 'The ancestor';
   const t = full(n.traits);
   const diet = t.diet < -0.3 ? 'herb' : t.diet > 0.3 ? 'carn' : 'omni';
   // Pederpes und seine Nachfahren: nach der Richtung, in die sie sich am deutlichsten entwickelt haben
@@ -2096,7 +2096,7 @@ class GameState {
     const index = this.shells ? Math.min(c.heard, this.shells - 1) : -1;
     if (index >= 0) c.heard = Math.max(c.heard, index + 1);
     this.save();
-    return { index, text: index < 0 ? '... unter Stein und Strömung ... warten sieben stille Spuren ...' : SHELL_WISDOM[index], total: COLLECTION_SHELLS.length };
+    return { index, text: index < 0 ? '... beneath stone and current ... seven silent traces await ...' : SHELL_WISDOM[index], total: COLLECTION_SHELLS.length };
   }
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
@@ -2168,13 +2168,13 @@ class GameState {
       r.fishTrace??=appendFishMark(undefined,resolveStarterForm(this.starterScores(r.traits),r.traits.fishForm),r.traits.fishPrimary??0);
       const branches=this.data.fishBranches??=[];
       const id=`local-${r.id}`;
-      const branch={id,name:'Deine Linie',trace:r.fishTrace.map(m=>({...m}))};
+      const branch={id,name:'Your lineage',trace:r.fishTrace.map(m=>({...m}))};
       const index=branches.findIndex(b=>b.id===id);
       if(index<0)branches.push(branch);else branches[index]=branch;
       bus.emit('fishLineage');
     }
     const site: LineageSite = { key: `${ep.id}:${legacy ? 'unknown' : place.id}`, place: place.id,
-      name: legacy ? 'Laichplatz nicht überliefert' : place.name, x: at.x, y: at.y };
+      name: legacy ? 'Spawning site not recorded' : place.name, x: at.x, y: at.y };
     recordBirth(this.data.lineage, r.id, r.epoch, worldYears(ep.from, ep.to), r.brood ? r.brood.gen + 1 : r.life.gen, site, this.lineageForm(r), legacy);
   }
 
@@ -2186,7 +2186,7 @@ class GameState {
       if (!ep || ep.hidden) continue;
       const years = ep.from - n.dead.frac * (ep.from - ep.to), place = startPlace(ep);
       const r = recordBirth(this.data.lineage, n.dead.run, n.epoch, years, Math.max(1, (n.dead.gens ?? n.gen ?? 1) + (ep.brood ? 1 : 0)),
-        { key: `${ep.id}:unknown`, place: place.id, name: 'Laichplatz nicht überliefert', x: 0, y: 0 },
+        { key: `${ep.id}:unknown`, place: place.id, name: 'Spawning site not recorded', x: 0, y: 0 },
         this.lineageForm({ ...n, sex: 1 }), true);
       endLineage(r, years, n.dead.cause);
     }

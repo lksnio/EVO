@@ -15,7 +15,7 @@ export function exportMap(map: WorldMap) {
 export async function saveProject(map: WorldMap) {
   const response = await fetch('/__evo/maps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(map) });
   if (!response.ok) {
-    let message = 'Projektspeichern ist nur mit npm run dev verfügbar. Nutze sonst den Datei-Export.';
+    let message = 'Saving to the project is only available with npm run dev. Otherwise, export the map as a file.';
     try { message = (await response.json()).error || message; } catch { /* static hosting has no save endpoint */ }
     throw Error(message);
   }

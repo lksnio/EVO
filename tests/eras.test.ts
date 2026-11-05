@@ -27,9 +27,10 @@ describe('Zeitalter', () => {
     expect(EPOCHS[0].id).toBe('devon');
     // die Zeiträume schließen lückenlos aneinander an
     ERAS.slice(1).forEach((e, k) => expect(e.ep.period[0]).toBe(ERAS[k].ep.period[1]));
-    expect(inEra(EPOCHS[0])).toBe('im Devon');
-    expect(ofEra(ERAS[3].ep)).toBe('der Trias');
-    expect(inEra(ERAS[5].ep)).toBe('in der Kreidezeit');
+    expect(inEra(EPOCHS[0])).toBe('in the Devonian');
+    expect(ofEra(EPOCHS[0])).toBe('of the Devonian');
+    expect(ofEra(ERAS[3].ep)).toBe('of the Triassic');
+    expect(inEra(ERAS[5].ep)).toBe('in the Cretaceous');
   });
 
   it('jedes Zeitalter hat seinen Teil im Aquapendium – und jedes Tier dort einen Steckbrief', () => {

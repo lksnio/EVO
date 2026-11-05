@@ -109,7 +109,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   onCreate(o: JoinOptions) {
     const z = parseZone(o?.zone);
-    if (!z) throw new Error('Diesen Ort gibt es nicht.');
+    if (!z) throw new Error('This place does not exist.');
     this.state.zone = `${z.epoch}/${z.place}`;
     this.state.populated = false;
     const ep = EPOCHS[z.epoch];
@@ -122,7 +122,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   onJoin(client: Client, o: JoinOptions) {
     const b = this.bounds;
     const f = new NetFish();
-    f.name = cleanName(o?.name) || 'Fisch';
+    f.name = cleanName(o?.name) || 'Fish';
     f.identity=typeof o?.identity==='string'?o.identity.slice(0,40):'';f.observer=!!o?.observer;f.anim=f.observer?5:0;
     f.x = clamp(num(o?.x, b.sx), b.x0, b.x1);
     f.y = clamp(num(o?.y, b.sy), b.y0, b.y1);

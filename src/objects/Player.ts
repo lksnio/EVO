@@ -70,7 +70,7 @@ export class Player {
   /** wann zuletzt zugebissen wurde (Spielzeit in ms) – so sehen die anderen Spieler den Biss */
   bitAt = -1e9;
   /** woran das Tier zuletzt Schaden nahm (für den Stammbaum) */
-  lastCause = 'unbekannt';
+  lastCause = 'unknown';
   private invulnUntil = 0;
   private biteReady = 0;
   private biteChargeAt = -1;
@@ -596,7 +596,7 @@ export class Player {
     this.hp = Math.max(0, this.hp - r.dry * this.stats.maxHp);
     // auch das Austrocknen an Land ist eine überstandene Gefahr
     if (this.hp > 0) this.hurtRun += r.dry;
-    this.lastCause = 'Ausgetrocknet';
+    this.lastCause = 'Dried out';
     this.lastHurt = time;
     if (time > this.dryAt) {
       this.dryAt = time + 700;
@@ -692,7 +692,7 @@ export class Player {
         this.hurtRun += clamp(d / Math.max(1, this.stats.maxHp), 0, 1);
       }
       this.lastHurt = this.host.time.now;
-      this.lastCause = 'Beim Zusammenstoß verletzt';
+      this.lastCause = 'Injured in a collision';
       this.view.flash(0xffa080);
       this.host.time.delayedCall(90, () => this.view.flash(null));
       if (this.hp <= 0) this.die();

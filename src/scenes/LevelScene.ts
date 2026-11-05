@@ -608,7 +608,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.screenLayers, this));
     this.screenLayers();
 
-    if(waiting){this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;this.time.delayedCall(0,()=>this.beginWatching(game.run?.waitCause??'Kein Laich'));}
+    if(waiting){this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;this.time.delayedCall(0,()=>this.beginWatching(game.run?.waitCause??'No eggs'));}
     else this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
     const travel = this.waterTravel;
     if (travel) {
@@ -641,7 +641,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.net && !ep.brood) species.connect(this.epochIdx,this.place.id);
     const onAdvanced = (name: unknown, gen: unknown) => {
       if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
-      bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Eure Linien können unabhängig weiterleben.');
+      bus.emit('notice', `${String(name || 'A fellow creature')} is in generation ${gen}`, 'Your lineages can continue independently.');
     };
     const onOver = (name: unknown) => {if(!this.scene.isActive('Roe')){this.scene.resume();this.speciesOver(String(name??''));}};
     bus.on('speciesAdvanced', onAdvanced);
@@ -676,7 +676,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const onAbort = () => this.abort();
     bus.on('abortLevel', onAbort);
     // das Leben an die Nachkommen weitergeben (aus der Rast; nur mit einem befruchteten Gelege)
-    const onHandOver = () => !this.ended && game.roe.length > 0 && this.passAway('Lebensende – an die Nachkommen weitergegeben');
+    const onHandOver = () => !this.ended && game.roe.length > 0 && this.passAway('Life ended — passed on to descendants');
     bus.on('handOver', onHandOver);
     // zum Hauptmenü (aus der Rast): erst nach fünf Sekunden – so entkommt niemand einer brenzligen Lage
     this.quitLeft = -1;
@@ -697,7 +697,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Wenn der Ort steht (und die Anzeige auch): freigeben, was andere Zeitalter und länger verlassene Orte gemalt haben
     this.time.delayedCall(400, () => {
       const freed = texSettle(this, this.ink ? [this.ink.id] : []);
-      if (DEBUG && freed) console.info(`Grafikspeicher: ${freed} Bilder freigegeben`);
+      if (DEBUG && freed) console.info(`Video memory: ${freed} images released`);
     });
     this.events.once('shutdown', () => {
       bus.off('abortLevel', onAbort);
@@ -1302,7 +1302,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const d = game.traits.diet;
     const diet = d > 0.3 ? 'meat' : 'plant';
     this.kinDef = {
-      id: 'kin', name: 'Artgenosse', art: { t: 'jelly', r: 1, c: 0 }, role: 'prey', diet,
+      id: 'kin', name: 'Fellow creature', art: { t: 'jelly', r: 1, c: 0 }, role: 'prey', diet,
       habitat: this.water ? 'water' : 'land',
       // so viel Lebenskraft wie du – aber schwächer im Angriff (siehe SWARM)
       hp: Math.max(8, st.maxHp), dmg: Math.max(1, st.bite * game.swarmStrength()), power: st.power * game.swarmStrength(),
@@ -1443,7 +1443,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const s = this.physics.add.image(x, y, tex).setDepth(DEPTH.fx - 1);
     s.setData('dmg', dmg);
     s.setData('wave', tex === 'pr_wave');
-    s.setData('by', tex === 'pr_wave' ? 'Druckwelle' : tex === 'fireball' ? 'Feuerregen' : 'Steinschlag');
+    s.setData('by', tex === 'pr_wave' ? 'Shockwave' : tex === 'fireball' ? 'Fire rain' : 'Rockfall');
     s.setData('die', this.time.now + 4500);
     const b = s.body as Phaser.Physics.Arcade.Body;
     b.setAllowGravity(gravity && !this.water);
@@ -2265,7 +2265,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         a.tick(time, dt);
       } catch (e) {
         // Ein Fehler im Verhalten eines Tieres darf nicht das ganze Spiel anhalten
-        reportError('Tier ' + a.def.id, e);
+        reportError('Animal ' + a.def.id, e);
         this.removeAnimal(a);
         a.vanish();
         continue;
@@ -2342,10 +2342,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const z = this.cameras.main.zoom;
       this.dbg.setPosition(W / 2 + (12 - W / 2) / z, H / 2 + (H - 192 - H / 2) / z).setScale(1 / z);
       this.dbg.setText(
-        `LP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Ausd ${(p.stamina * 100).toFixed(0)}  Versteckt ${p.hidden}  Alter ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Nahrung ${game.life.fed.toFixed(0)}/${game.broodBase}  Geschw ${game.pool.length}  Laich ${game.roe.length}\n` +
-          `Kiefer ${t.jaw.toFixed(3)}  Schädel ${t.skull.toFixed(3)}  Tarnung ${t.stealth.toFixed(3)}  Wachstum ${t.growth.toFixed(3)}\n` +
-          `Kost ${t.diet.toFixed(2)}  Narben ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Ruf ${game.run?.infamy.toFixed(2)}  Bedrohung ${this.playerThreat().toFixed(1)}\n` +
-          `Biss ${p.stats.bite.toFixed(1)}  Ramme ${p.stats.ram.toFixed(1)}  Tempo ${p.stats.speed.toFixed(0)}  Tiere ${this.animals.length}  Artgenossen ${kin}  Verbündete ${allies}  Durchzügler ${vis}\n` +
+        `HP ${p.hp.toFixed(0)}/${p.stats.maxHp}  Stam ${(p.stamina * 100).toFixed(0)}  Hidden ${p.hidden}  Age ${game.life.age.toFixed(0)}/${phases(game.life.gen).span.toFixed(0)} (${STAGE_NAME[stageOf(game.life.age, game.life.gen)]})  Gen ${game.life.gen}  Food ${game.life.fed.toFixed(0)}/${game.broodBase}  Siblings ${game.pool.length}  Eggs ${game.roe.length}\n` +
+          `Jaw ${t.jaw.toFixed(3)}  Skull ${t.skull.toFixed(3)}  Camouflage ${t.stealth.toFixed(3)}  Growth ${t.growth.toFixed(3)}\n` +
+          `Diet ${t.diet.toFixed(2)}  Scars ${t.scars}  Aggr ${game.run?.aggression.toFixed(2)}  Call ${game.run?.infamy.toFixed(2)}  Threat ${this.playerThreat().toFixed(1)}\n` +
+          `Bite ${p.stats.bite.toFixed(1)}  Ram ${p.stats.ram.toFixed(1)}  Speed ${p.stats.speed.toFixed(0)}  Animals ${this.animals.length}  Kin ${kin}  Allies ${allies}  Visitors ${vis}\n` +
           this.perfLine(time),
       );
     }
@@ -2658,13 +2658,13 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       if (!overlaps(pr, h)) continue;
       if (h.h > 40) fell = true;
       else {
-        p.hurt(this.ep.hazardDmg, p.x - p.facing * 10, this.L.theme === 'reptil' ? 'Glühende Felsen' : 'Dornen');
+        p.hurt(this.ep.hazardDmg, p.x - p.facing * 10, this.L.theme === 'reptil' ? 'Scorching rocks' : 'Thorns');
         if (!p.dead) p.body.setVelocityY(-420);
       }
       break;
     }
     if (fell) {
-      p.hurt(this.ep.hazardDmg, p.x, this.L.theme === 'reptil' ? 'Lava' : 'Sturz in die Tiefe');
+      p.hurt(this.ep.hazardDmg, p.x, this.L.theme === 'reptil' ? 'Lava' : 'Fell into the depths');
       if (!p.dead) {
         p.body.reset(p.lastSafe.x, p.lastSafe.y - 10);
         this.cameras.main.flash(260, 0, 0, 0);
@@ -2931,7 +2931,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     sh.take(); audio.sfx('shell');
     this.puff(sh.x,sh.y-16,6,0xe3d2a3);
     const name=kind==='shell'?COLLECTION_SHELLS.find(s=>s.id===id)?.name:COLLECTION_FOSSILS.find(f=>f.id===id)?.name;
-    bus.emit('notice',kind==='shell'?'MUSCHEL GEFUNDEN':'FOSSIL GEFUNDEN',name??'Eine bleibende Spur');
+    bus.emit('notice',kind==='shell'?'SHELL FOUND':'FOSSIL FOUND',name??'A lasting trace');
   }
 
   private bossFossil(species:string,x:number,y:number) {
@@ -2939,7 +2939,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if(!game.recordFossilDrop({id:species,epoch:game.epoch.id,place:this.place.id,x,y}))return;
     this.makeFossil(species,x,y);
     audio.sfx('drop');
-    bus.emit('notice','EINE SPUR BLEIBT',`${COLLECTION_FOSSILS.find(f=>f.id===species)!.name} hinterlässt eine Fossilplatte.`);
+    bus.emit('notice','A TRACE REMAINS',`${COLLECTION_FOSSILS.find(f=>f.id===species)!.name} leaves behind a fossil slab.`);
   }
 
   private makeFossil(id:FossilId,x:number,y:number) {
@@ -3059,7 +3059,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
         a.leaveDir = a.x < nx ? -1 : 1;
         a.hunger = 0;
       }
-      if (b.eggs <= 0) bus.emit('notice', 'DAS NEST IST LEER', 'Überlebe, bis das neue Gelege kommt – sonst stirbt deine Art aus.');
+      if (b.eggs <= 0) bus.emit('notice', 'THE NEST IS EMPTY', 'Survive until the new clutch arrives, or your species will die out.');
     }
     for (const a of gone ?? []) {
       this.removeAnimal(a);
@@ -3106,7 +3106,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.glitter(p.x, p.y, 26);
     this.cameras.main.flash(500, 220, 230, 170);
     audio.sfx('evolve');
-    bus.emit('notice', 'METAMORPHOSE', `Die Kiemen schwinden. Überlebe ${Math.round(BROOD.danger / 60)} Minuten und schütze das Gelege.`);
+    bus.emit('notice', 'METAMORPHOSIS', `Your gills are fading. Survive ${Math.round(BROOD.danger / 60)} minutes and protect the clutch.`);
     game.save();
   }
 
@@ -3129,7 +3129,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.flushTrain();
     const b = game.brood!;
     this.ended = true;
-    bus.emit('notice', 'EIN NEUES GELEGE', `Generation ${b.gen} hat überlebt – ${BROOD.eggs} neue Eier.`);
+    bus.emit('notice', 'A NEW CLUTCH', `Generation ${b.gen} survived — ${BROOD.eggs} new eggs.`);
     this.glitter(this.player.x, this.player.y, 20);
     audio.sfx('victory');
     game.newClutch();
@@ -3146,7 +3146,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.glitter(p.x, p.y - 20, 40);
     this.cameras.main.flash(900, 255, 240, 200);
     audio.sfx('victory');
-    bus.emit('notice', 'DER GIPFEL', 'Deine Art hat den steilen Fels erklommen.');
+    bus.emit('notice', 'THE SUMMIT', 'Your species has climbed the steep cliff.');
     const node = game.run!.node;
     const morph = p.morph();
     this.time.delayedCall(4200, () => this.exitTo('Ending', { node, morph, epoch: this.epochIdx }));
@@ -3174,9 +3174,9 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!this.oldWarned && left < 60) {
       this.oldWarned = true;
       // nur wenn es darauf ankommt: Ohne Laich deiner Generation geht es nur mit einem Geschwister weiter – oder gar nicht
-      if (!game.roe.length) bus.emit('notice', 'Das Leben neigt sich dem Ende zu', game.pool.length ? 'Noch kein Laich deiner Generation' : 'Noch kein Laich – ohne ihn endet deine Linie');
+      if (!game.roe.length) bus.emit('notice', 'Life is drawing to a close', game.pool.length ? 'No eggs from your generation yet' : 'No eggs yet — without them, your lineage will end');
     }
-    if (diesOfAge(age, gen)) this.passAway('Altersschwäche');
+    if (diesOfAge(age, gen)) this.passAway('Old age');
   }
 
   /** Ein Artgenosse (kein Mitglied deiner Gruppe) – z. B. ein Partner beim Laichen. */
@@ -3226,8 +3226,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const tex = textureStats(this.textures);
     const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
     const objects = this.children.list.length + (this.scene.get('Hud')?.children.list.length ?? 0);
-    this.perf.line = `FPS ${Math.round(this.game.loop.actualFps)}  Bilder ${tex.count} (${tex.mb.toFixed(0)} MB)` +
-      (mem ? `  JS ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : '') + `  Objekte ${objects}`;
+    this.perf.line = `FPS ${Math.round(this.game.loop.actualFps)}  Images ${tex.count} (${tex.mb.toFixed(0)} MB)` +
+      (mem ? `  JS ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : '') + `  Objects ${objects}`;
     return this.perf.line;
   }
 
@@ -3285,7 +3285,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (this.ended || this.player.dead || this.scene.isActive('Roe')) return;
     this.controls.clear();
     this.scene.pause('Hud');
-    this.scene.launch('Roe', { epoch: this.epochIdx, cause: 'Das Leben weitergeben', years: worldYears(this.ep.from, this.ep.to), living: true } satisfies RoeData);
+    this.scene.launch('Roe', { epoch: this.epochIdx, cause: 'Pass on life', years: worldYears(this.ep.from, this.ep.to), living: true } satisfies RoeData);
     this.scene.pause();
   }
 
@@ -3428,7 +3428,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   private abort() {
     if (this.ended) return;
-    this.endLine('Aufgegeben', 300);
+    this.endLine('Gave up', 300);
   }
 
   /**
@@ -3443,7 +3443,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     audio.music(null);
     // wer noch lebt: kurz die Nachricht im Bild, dann der Abschied
     if (by && !this.player.dead) {
-      bus.emit('notice', 'DIE ART IST AUSGESTORBEN', `${by} starb – es lag kein Laich mehr da.`);
+      bus.emit('notice', 'THE SPECIES IS EXTINCT', `${by} died — no eggs remained.`);
       wait = Math.max(wait, 2600);
     }
     this.time.delayedCall(wait, () => this.exitTo('Extinct', data));

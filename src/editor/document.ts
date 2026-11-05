@@ -48,25 +48,25 @@ export function rebuildSolids(L: LevelData) {
 }
 
 const record = (v: unknown): Record<string, unknown> => {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) throw Error('Ungültiges Kartenobjekt.');
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw Error('Invalid map object.');
   return v as Record<string, unknown>;
 };
 function num(v: unknown, lo = -100000, hi = 100000) {
-  if (typeof v !== 'number' || !Number.isFinite(v) || v < lo || v > hi) throw Error('Eine Kartenkoordinate ist ungültig.');
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < lo || v > hi) throw Error('A map coordinate is invalid.');
   return v;
 }
 function str(v: unknown, max = 120) {
-  if (typeof v !== 'string' || !v.trim() || v.length > max) throw Error('Eine Kartenbezeichnung ist ungültig.');
+  if (typeof v !== 'string' || !v.trim() || v.length > max) throw Error('A map label is invalid.');
   return v;
 }
 function array<T>(v: unknown, parse: (v: unknown) => T, max = 5000): T[] {
-  if (!Array.isArray(v) || v.length > max) throw Error('Eine Kartenliste fehlt oder ist zu groß.');
+  if (!Array.isArray(v) || v.length > max) throw Error('A map list is missing or too large.');
   return v.map(parse);
 }
 const point = (v: unknown) => { const p = record(v); return { x: num(p.x), y: num(p.y) }; };
 const rect = (v: unknown): Rect => { const p = record(v); return { ...point(p), w: num(p.w, 0.1, 40000), h: num(p.h, 0.1, 40000) }; };
 const poly = (v: unknown) => array(v, p => {
-  if (!Array.isArray(p) || p.length !== 2) throw Error('Ungültiger Felsumriss.');
+  if (!Array.isArray(p) || p.length !== 2) throw Error('Invalid rock outline.');
   return [num(p[0]), num(p[1])] as [number, number];
 }, 2048);
 function rock(v: unknown): RockSpec {
@@ -74,11 +74,11 @@ function rock(v: unknown): RockSpec {
   const r: RockSpec = { ...point(p), rx: num(p.rx, 0.1, 10000), ry: num(p.ry, 0.1, 10000), seed: num(p.seed, 0, 2 ** 32), tone: num(p.tone, 0, 2) };
   if (p.poly !== undefined) r.poly = poly(p.poly);
   if (p.form !== undefined) {
-    if (!['boulder', 'slab', 'arch'].includes(String(p.form))) throw Error('Unbekannte Felsform.');
+    if (!['boulder', 'slab', 'arch'].includes(String(p.form))) throw Error('Unknown rock shape.');
     r.form = p.form as RockSpec['form'];
   }
   if (p.paintedProp !== undefined) {
-    if (!['cave', 'deep-cave', 'shelter-support'].includes(String(p.paintedProp))) throw Error('Unbekanntes Felsbauteil.');
+    if (!['cave', 'deep-cave', 'shelter-support'].includes(String(p.paintedProp))) throw Error('Unknown rock component.');
     r.paintedProp = p.paintedProp as RockSpec['paintedProp'];
   }
   if (p.collision !== undefined) r.collision = array(p.collision, rect, 10000);
@@ -88,18 +88,18 @@ function rock(v: unknown): RockSpec {
 /** Parse files, browser drafts and project data through the same bounded, finite, versioned schema. No executable fields/URLs. */
 export function parseWorldMap(input: unknown): WorldMap {
   const p = record(input);
-  if (p.format !== 'evo-world-map' || p.version !== MAP_VERSION) throw Error('Dieses Kartenformat wird nicht unterstützt (erwartet Version 1).');
+  if (p.format !== 'evo-world-map' || p.version !== MAP_VERSION) throw Error('This map format is not supported (expected version 1).');
   const epoch = EPOCHS.find(e => e.id === p.epoch), place = epoch && placesOf(epoch).find(d => d.id === p.place);
-  if (!epoch || !place) throw Error('Zeitalter und Ort passen nicht zusammen.');
+  if (!epoch || !place) throw Error('The era and location do not match.');
   const l = record(p.layout), width = num(l.width, 640, 40000), height = num(l.height, 480, 20000);
   const t = record(l.terrain), hp = array(t.hp, v => num(v, -5000, height + 4000), 2002);
-  if (hp.length < Math.ceil(width / STEP)) throw Error('Die Bodenlinie ist unvollständig.');
+  if (hp.length < Math.ceil(width / STEP)) throw Error('The ground line is incomplete.');
   const terrainZones = array(t.zones, v => {
     const z = record(v);
-    if (!['sand', 'rock', 'mud'].includes(String(z.kind))) throw Error('Unbekanntes Bodenmaterial.');
+    if (!['sand', 'rock', 'mud'].includes(String(z.kind))) throw Error('Unknown ground material.');
     return { x0: num(z.x0), x1: num(z.x1), kind: z.kind as 'sand' | 'rock' | 'mud' };
   }, 100);
-  if (!terrainZones.length) throw Error('Das Bodenmaterial fehlt.');
+  if (!terrainZones.length) throw Error('Ground material is missing.');
   const L: LevelData = {
     width, height, mode: l.amphibious === true ? 'water' : epoch.habitat, theme: epoch.theme, variant: l.variant === 'cave' ? 'cave' : l.variant === 'dark' ? 'dark' : 'normal',
     surfaceY: num(l.surfaceY, 0, height), terrain: { hp, zones: terrainZones },
@@ -111,18 +111,18 @@ export function parseWorldMap(input: unknown): WorldMap {
     decor: [], mats: array(l.mats, v => { const m = record(v); return { x0: num(m.x0), x1: num(m.x1), tone: num(m.tone, 0, 10), seed: num(m.seed, 0, 2 ** 32) }; }),
     lit: array(l.lit, v => { const a = record(v); return { x0: num(a.x0), x1: num(a.x1) }; }),
     plants: array(l.plants, v => { const a = record(v); return { ...point(a), v: num(a.v, 0, 4) }; }),
-    spawns: array(l.spawns, v => { const a = record(v), id = str(a.id); if (!SPECIES[id]) throw Error('Unbekannte Tierart: ' + id); return { ...point(a), id, ...(a.herd !== undefined ? { herd: num(a.herd) } : {}), ...(a.guard !== undefined ? { guard: num(a.guard) } : {}) }; }),
+    spawns: array(l.spawns, v => { const a = record(v), id = str(a.id); if (!SPECIES[id]) throw Error('Unknown animal species: ' + id); return { ...point(a), id, ...(a.herd !== undefined ? { herd: num(a.herd) } : {}), ...(a.guard !== undefined ? { guard: num(a.guard) } : {}) }; }),
     roe: array(l.roe, v => { const a = record(v); return { ...point(a), species: str(a.species), tone: num(a.tone, 0, 20), own: a.own === true }; }),
     currents: array(l.currents, v => { const a = record(v); return { ...rect(a), dir: a.dir === -1 ? -1 : 1 }; }),
   };
   for (const k of ['shrine', 'nest'] as const) if (l[k] !== undefined) L[k] = point(l[k]);
   for (const k of ['summit'] as const) if (l[k] !== undefined) L[k] = rect(l[k]);
   if (l.cave !== undefined) { const c = record(l.cave); L.cave = { ...rect(c), hollow: poly(c.hollow) }; }
-  if (l.deepCave !== undefined) throw Error('Diese Karte nutzt die alte Schlund-Höhle. Bitte die aktuelle Vorlage mit offener Schlucht verwenden.');
+  if (l.deepCave !== undefined) throw Error('This map uses the old cavern entrance. Please use the current template with an open chasm.');
   if (l.chasm !== undefined) {
     const c = record(l.chasm);
     L.chasm = { x0: num(c.x0, 0, width), x1: num(c.x1, 0, width), rimY: num(c.rimY), floorY: num(c.floorY), exitY: num(c.exitY) };
-    if (L.chasm.x1 <= L.chasm.x0 || L.chasm.floorY <= L.chasm.rimY || L.chasm.exitY >= L.chasm.floorY || L.chasm.exitY <= L.chasm.rimY) throw Error('Der Tiefenzugang hat ungültige Grenzen.');
+    if (L.chasm.x1 <= L.chasm.x0 || L.chasm.floorY <= L.chasm.rimY || L.chasm.exitY >= L.chasm.floorY || L.chasm.exitY <= L.chasm.rimY) throw Error('The deep-water entrance has invalid bounds.');
   }
   if (l.riverEnd !== undefined) L.riverEnd = num(l.riverEnd, 0, width);
   if (l.amphibious === true) L.amphibious = true;
@@ -130,10 +130,10 @@ export function parseWorldMap(input: unknown): WorldMap {
   const ids = new Set<string>();
   const objects = array(p.objects, v => {
     const o = record(v), id = str(o.id);
-    if (ids.has(id)) throw Error('Doppelte Bauteil-ID.'); ids.add(id);
+    if (ids.has(id)) throw Error('Duplicate component ID.'); ids.add(id);
     const asset = str(o.asset);
-    if (!/^(reef|d2)_[a-z0-9_]+$/.test(asset)) throw Error('Unbekannter Bauteilschlüssel.');
-    if (!MAP_LAYERS.includes(o.layer as MapLayer)) throw Error('Unbekannte Bildebene.');
+    if (!/^(reef|d2)_[a-z0-9_]+$/.test(asset)) throw Error('Unknown component key.');
+    if (!MAP_LAYERS.includes(o.layer as MapLayer)) throw Error('Unknown display layer.');
     return { id, asset, ...point(o), width: num(o.width, 2, 5000), height: num(o.height, 2, 5000), angle: num(o.angle, -360, 360),
       flipX: o.flipX === true, layer: o.layer as MapLayer, alpha: num(o.alpha, 0, 1), grounded: o.grounded === true,
       ...(o.solid === true ? { solid: true } : {}),

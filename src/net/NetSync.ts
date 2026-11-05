@@ -47,11 +47,11 @@ export function playerName() {
     if (q) localStorage.setItem('evo-name', q);
     const s = cleanName(localStorage.getItem('evo-name'));
     if (s) return s;
-    const n = `Fisch ${100 + Math.floor(Math.random() * 900)}`;
+    const n = `Fish ${100 + Math.floor(Math.random() * 900)}`;
     localStorage.setItem('evo-name', n);
     return n;
   } catch {
-    return q || 'Fisch';
+    return q || 'Fish';
   }
 }
 
@@ -122,7 +122,7 @@ export class NetSync {
       // steht schon fest, wer die Tiere des Ortes rechnet? (sonst gleich, mit dem ersten Stand des Ortes)
       this.decideRole();
     } catch (e) {
-      console.warn('[EVO] Kein Spielserver erreichbar – es geht allein weiter.', e);
+      console.warn('[EVO] No game server available — continuing solo.', e);
       tell('offline', 0);
     }
   }

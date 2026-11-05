@@ -16,19 +16,19 @@ export interface BindDef {
 
 /** Die Handlungen in der Reihenfolge der Seite „Steuerung“. */
 export const BINDS: BindDef[] = [
-  { id: 'left', label: 'Nach links' },
-  { id: 'right', label: 'Nach rechts' },
-  { id: 'up', label: 'Nach oben' },
-  { id: 'down', label: 'Nach unten' },
-  { id: 'bite', label: 'Beißen und Fressen', note: 'am Laich: Eiübersicht öffnen' },
-  { id: 'sprint', label: 'Sprinten', note: 'kostet Kraft' },
-  { id: 'ram', label: 'Stoß', note: 'Anlauf nehmen' },
-  { id: 'talk', label: 'Beten', note: 'an der großen Muschel' },
-  { id: 'call', label: 'Gruppe rufen', note: 'oder fortschicken' },
-  { id: 'jump', label: 'Auftauchen' },
-  { id: 'overview', label: 'Übersicht' },
-  { id: 'pause', label: 'Rast', note: 'auch Esc' },
-  { id: 'mute', label: 'Ton an/aus' },
+  { id: 'left', label: 'Move left' },
+  { id: 'right', label: 'Move right' },
+  { id: 'up', label: 'Move up' },
+  { id: 'down', label: 'Move down' },
+  { id: 'bite', label: 'Bite and eat', note: 'at eggs: open the egg selection' },
+  { id: 'sprint', label: 'Sprint', note: 'uses stamina' },
+  { id: 'ram', label: 'Ram', note: 'build up momentum' },
+  { id: 'talk', label: 'Interact', note: 'at the great shell' },
+  { id: 'call', label: 'Call group', note: 'or dismiss it' },
+  { id: 'jump', label: 'Surface' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'pause', label: 'Rest', note: 'also Esc' },
+  { id: 'mute', label: 'Toggle sound' },
 ];
 
 /** Die Grundbelegung: Pfeiltasten schwimmen, die linke Hand liegt auf Q W E R. */
@@ -151,11 +151,11 @@ export function matches(b: Bind, e: { keyCode: number }) {
 }
 
 const NAMES: Record<number, string> = {
-  8: 'Rücktaste', 9: 'Tab', 13: 'Eingabe', 16: 'Shift', 17: 'Strg', 18: 'Alt', 20: 'Feststell', 32: 'Leertaste',
-  33: 'Bild ↑', 34: 'Bild ↓', 35: 'Ende', 36: 'Pos1', 37: '←', 38: '↑', 39: '→', 40: '↓', 45: 'Einfg', 46: 'Entf',
-  91: 'Win', 92: 'Win', 93: 'Menü', 106: 'Num *', 107: 'Num +', 109: 'Num -', 110: 'Num ,', 111: 'Num /',
-  160: '^', 163: '#', 171: '+', 173: '-', 186: 'Ü', 187: '+', 188: ',', 189: '-', 190: '.', 191: '#', 192: 'Ö', 219: 'ß',
-  220: '^', 221: '´', 222: 'Ä', 226: '<',
+  8: 'Backspace', 9: 'Tab', 13: 'Enter', 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 20: 'Caps Lock', 32: 'Space',
+  33: 'Page Up', 34: 'Page Down', 35: 'End', 36: 'Home', 37: '←', 38: '↑', 39: '→', 40: '↓', 45: 'Insert', 46: 'Delete',
+  91: 'Win', 92: 'Win', 93: 'Menu', 106: 'Num *', 107: 'Num +', 109: 'Num -', 110: 'Num .', 111: 'Num /',
+  160: '^', 163: '#', 171: '+', 173: '-', 186: ';', 187: '=', 188: ',', 189: '-', 190: '.', 191: '/', 192: '`', 219: '[',
+  220: '\\', 221: ']', 222: "'", 226: '\\',
 };
 
 /** Der Name einer Taste, wie er auf der Tastatur steht. */
@@ -164,7 +164,7 @@ export function keyName(code: number): string {
   if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90)) return String.fromCharCode(code);
   if (code >= 96 && code <= 105) return `Num ${code - 96}`;
   if (code >= 112 && code <= 123) return `F${code - 111}`;
-  return `Taste ${code}`;
+  return `Key ${code}`;
 }
 
 /** Die Haupttaste einer Handlung (für Zeichen über dem Kopf und Hinweise) – „–“, wenn keine vergeben ist. */
@@ -175,7 +175,7 @@ export function keyLabel(b: Bind) {
 
 /** Alle Tasten einer Handlung: „E oder Q“. */
 export function keysText(b: Bind) {
-  return keys[b].length ? keys[b].map(keyName).join(' oder ') : 'keine Taste';
+  return keys[b].length ? keys[b].map(keyName).join(' or ') : 'unbound';
 }
 
 loadKeys();

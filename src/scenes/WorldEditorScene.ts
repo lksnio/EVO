@@ -104,30 +104,30 @@ export class WorldEditorScene extends Phaser.Scene {
     const b = el('button', text); b.type = 'button'; b.className = className; b.onclick = action; parent.append(b); return b;
   }
   private buildUI() {
-    this.root = el('div'); this.root.className = 'evo-editor'; this.root.setAttribute('aria-label', 'Weltbaukasten');
+    this.root = el('div'); this.root.className = 'evo-editor'; this.root.setAttribute('aria-label', 'World Editor');
     this.root.addEventListener('keydown', e => { this.onKey(e); e.stopPropagation(); });
     this.root.addEventListener('keyup', e => { this.keys.delete(e.code); e.stopPropagation(); });
     this.root.addEventListener('keypress', e => e.stopPropagation());
-    const bar = el('header'); bar.append(el('h1', 'WELTBAUKASTEN')); this.root.append(bar);
-    this.epochSelect = el('select'); this.epochSelect.setAttribute('aria-label', 'Zeitalter');
+    const bar = el('header'); bar.append(el('h1', 'WORLD EDITOR')); this.root.append(bar);
+    this.epochSelect = el('select'); this.epochSelect.setAttribute('aria-label', 'Era');
     for (const ep of EPOCHS.filter(e => !e.hidden)) { const o = el('option', ep.name); o.value = ep.id; this.epochSelect.append(o); }
-    this.placeSelect = el('select'); this.placeSelect.setAttribute('aria-label', 'Ort');
+    this.placeSelect = el('select'); this.placeSelect.setAttribute('aria-label', 'Location');
     this.epochSelect.onchange = () => { this.persist(); const ep = EPOCHS.find(e => e.id === this.epochSelect.value)!; this.openMap(ep, placesOf(ep)[0]); };
     this.placeSelect.onchange = () => { this.persist(); this.openMap(this.ep, placesOf(this.ep).find(p => p.id === this.placeSelect.value)!); };
     bar.append(this.epochSelect, this.placeSelect);
-    this.undoButton = this.button(bar, '↶', () => this.undo(), 'edit-only'); this.undoButton.title = 'Rückgängig · Strg+Z';
-    this.redoButton = this.button(bar, '↷', () => this.redo(), 'edit-only'); this.redoButton.title = 'Wiederholen · Strg+Umschalt+Z';
-    this.previewButton = this.button(bar, 'Begehung', () => this.togglePreview(), 'primary');
-    this.button(bar, 'Datei exportieren', () => { try { exportMap(this.map); this.say('Kartendatei exportiert.'); } catch (e) { this.error(e); } });
+    this.undoButton = this.button(bar, '↶', () => this.undo(), 'edit-only'); this.undoButton.title = 'Undo · Ctrl+Z';
+    this.redoButton = this.button(bar, '↷', () => this.redo(), 'edit-only'); this.redoButton.title = 'Redo · Ctrl+Shift+Z';
+    this.previewButton = this.button(bar, 'Walkthrough', () => this.togglePreview(), 'primary');
+    this.button(bar, 'Export file', () => { try { exportMap(this.map); this.say('Map file exported.'); } catch (e) { this.error(e); } });
     const file = el('input'); file.type = 'file'; file.accept = '.json,application/json'; file.className = 'hidden';
     file.onchange = async () => { try {
-      const f = file.files?.[0]; if (!f) return; if (f.size > 4 * 1024 * 1024) throw Error('Die Kartendatei ist zu groß (maximal 4 MB).');
-      const map = parseWorldMap(JSON.parse(await f.text())); this.persist(); this.openMap(EPOCHS.find(e => e.id === map.epoch)!, placesOf(map.epoch).find(p => p.id === map.place)!, map); this.persist(); this.say('Kartendatei importiert und als Entwurf gespeichert.');
+      const f = file.files?.[0]; if (!f) return; if (f.size > 4 * 1024 * 1024) throw Error('The map file is too large (maximum 4 MB).');
+      const map = parseWorldMap(JSON.parse(await f.text())); this.persist(); this.openMap(EPOCHS.find(e => e.id === map.epoch)!, placesOf(map.epoch).find(p => p.id === map.place)!, map); this.persist(); this.say('Map file imported and saved as a draft.');
     } catch (e) { this.error(e); } finally { file.value = ''; } };
-    bar.append(file); this.button(bar, 'Datei öffnen', () => file.click(), 'edit-only');
-    this.button(bar, 'Im Projekt speichern', async () => { try { this.persist(); this.say('Karte wird im Projekt gespeichert …'); await saveProject(this.map); this.say('Im Projekt gespeichert · das Hauptspiel lädt diese Karte.'); } catch (e) { this.error(e); } }, 'edit-only');
+    bar.append(file); this.button(bar, 'Open file', () => file.click(), 'edit-only');
+    this.button(bar, 'Save to project', async () => { try { this.persist(); this.say('Saving map to the project …'); await saveProject(this.map); this.say('Saved to project · the main game will load this map.'); } catch (e) { this.error(e); } }, 'edit-only');
     this.status = el('span'); this.status.className = 'status grow'; this.status.setAttribute('role', 'status'); bar.append(this.status);
-    this.button(bar, 'Menü', () => { if (this.preview) this.togglePreview(); this.persist(); const q = new URLSearchParams(location.search); q.delete('editor'); history.replaceState(null, '', location.pathname + (q.size ? '?' + q : '')); this.scene.start('Title'); });
+    this.button(bar, 'Menu', () => { if (this.preview) this.togglePreview(); this.persist(); const q = new URLSearchParams(location.search); q.delete('editor'); history.replaceState(null, '', location.pathname + (q.size ? '?' + q : '')); this.scene.start('Title'); });
     this.palette = el('aside'); this.palette.className = 'palette'; this.root.append(this.palette);
     this.inspector = el('aside'); this.inspector.className = 'inspector'; this.root.append(this.inspector);
     this.footer = el('footer'); this.root.append(this.footer); document.body.append(this.root);
@@ -137,7 +137,7 @@ export class WorldEditorScene extends Phaser.Scene {
     if (this.preview) this.togglePreview();
     this.ep = ep; this.place = place; this.initialLoadError = '';
     let draft: WorldMap | undefined;
-    try { draft = imported ?? readDraft(ep.id, place.id); } catch (e) { this.initialLoadError = 'Entwurf konnte nicht geladen werden. Die Vorlage bleibt verfügbar. ' + (e instanceof Error ? e.message : ''); }
+    try { draft = imported ?? readDraft(ep.id, place.id); } catch (e) { this.initialLoadError = 'Could not load the draft. The template is still available. ' + (e instanceof Error ? e.message : ''); }
     this.map = draft ?? publishedMap(ep.id, place.id) ?? createMap(this, ep, place);
     this.selected.clear(); this.history = new MapHistory();
     this.catalog = assetCatalog(this, ep.theme); this.thumbs.clear();
@@ -151,16 +151,16 @@ export class WorldEditorScene extends Phaser.Scene {
     const x = L.crevices[0]?.x ?? L.start.x + 400;
     cam.centerOn(x, groundCurve(L.terrain.hp, x) - 260);
     this.renderPalette(); this.renderInspector();
-    this.say(this.initialLoadError || (draft ? 'Browserentwurf geladen · Änderungen werden automatisch gesichert.' : publishedMap(ep.id, place.id) ? 'Projektkarte geladen.' : 'Vorlage geladen · baue daraus deinen eigenen Ort.'), !!this.initialLoadError);
+    this.say(this.initialLoadError || (draft ? 'Browser draft loaded · changes are saved automatically.' : publishedMap(ep.id, place.id) ? 'Project map loaded.' : 'Template loaded · build your own location from it.'), !!this.initialLoadError);
   }
   private rebuild() { this.view?.destroy(); this.view = new MapView(this, this.map, this.ep, this.place); }
   private persist() {
     if (!this.map) return;
-    try { saveDraft(this.map); } catch { this.say('Browserentwurf konnte nicht gesichert werden. Bitte als Datei exportieren.', true); }
+    try { saveDraft(this.map); } catch { this.say('Could not save the browser draft. Please export it as a file.', true); }
   }
   private changed(rebuild = true) {
     this.persist(); if (rebuild) this.rebuild(); this.renderInspector();
-    this.say('Entwurf im Browser gesichert · für das Hauptspiel im Projekt speichern.');
+    this.say('Draft saved in this browser · save to the project to use it in the main game.');
   }
   private edit(action: () => void, rebuild = true) { this.history.checkpoint(this.map); action(); this.changed(rebuild); }
   private restore(map: WorldMap) {
@@ -178,18 +178,18 @@ export class WorldEditorScene extends Phaser.Scene {
     const url = cv.toDataURL(); this.thumbs.set(key, url); return url;
   }
   private renderPalette() {
-    this.palette.replaceChildren(el('h2', 'BAUTEILE'));
-    const search = el('input'); search.type = 'search'; search.placeholder = 'Bauteile suchen …'; search.value = this.search;
+    this.palette.replaceChildren(el('h2', 'ASSETS'));
+    const search = el('input'); search.type = 'search'; search.placeholder = 'Search components …'; search.value = this.search;
     const listing = el('div'); search.oninput = () => { this.search = search.value; this.fillAssets(listing); };
     this.palette.append(search, listing); this.fillAssets(listing);
-    this.palette.append(el('h3', 'Gelände & Spielbereiche'));
+    this.palette.append(el('h3', 'Terrain & gameplay areas'));
     const tools = el('div'); tools.className = 'grid';
-    for (const [key, label] of Object.entries({ select: 'Auswählen', ground: 'Boden formen', solid: 'Kollision', cover: 'Versteck', crevice: 'Felsspalte', plant: 'Futterpflanze', animal: 'Tier', roe: 'Laich', start: 'Startpunkt', chasm: 'Tiefenzugang' })) {
+    for (const [key, label] of Object.entries({ select: 'Select', ground: 'Sculpt ground', solid: 'Collision', cover: 'Cover', crevice: 'Rock crevice', plant: 'Food plant', animal: 'Animal', roe: 'Eggs', start: 'Start point', chasm: 'Deep-water entrance' })) {
       if (key === 'chasm' && !this.place.descent) continue;
-      this.button(tools, label, () => { this.tool = key as typeof this.tool; this.renderPalette(); this.say(label + ' · auf die Karte klicken.' ); }, this.tool === key ? 'active' : '');
+      this.button(tools, label, () => { this.tool = key as typeof this.tool; this.renderPalette(); this.say(label + ' · click on the map.' ); }, this.tool === key ? 'active' : '');
     }
-    this.palette.append(tools, el('p', 'Bauteile ins Bild ziehen oder anklicken. Umschalt: mehrere auswählen. Kleine Teile lassen sich frei kombinieren.'));
-    this.button(this.palette, 'Bewuchs leeren', () => this.edit(() => { this.map.objects = []; this.selected.clear(); }));
+    this.palette.append(tools, el('p', 'Drag components into the scene or click them. Shift selects multiple items. Combine small pieces freely.'));
+    this.button(this.palette, 'Clear vegetation', () => this.edit(() => { this.map.objects = []; this.selected.clear(); }));
   }
   private fillAssets(container: HTMLElement) {
     container.replaceChildren(); const categories = new Map<string, HTMLElement>();
@@ -218,11 +218,11 @@ export class WorldEditorScene extends Phaser.Scene {
   }
   private field(parent: HTMLElement, name: string, value: number, change: (v: number) => void, min = -100000, max = 100000) {
     const label = el('label', name), input = el('input'); input.type = 'number'; input.value = String(Math.round(value * 100) / 100); input.min = String(min); input.max = String(max); input.step = '1';
-    input.onchange = () => { const v = Number(input.value); if (Number.isFinite(v) && v >= min && v <= max) change(v); else { input.value = String(value); this.say('Dieser Wert liegt außerhalb des erlaubten Bereichs.', true); } };
+    input.onchange = () => { const v = Number(input.value); if (Number.isFinite(v) && v >= min && v <= max) change(v); else { input.value = String(value); this.say('This value is outside the allowed range.', true); } };
     label.append(input); parent.append(label); return input;
   }
   private renderInspector() {
-    this.inspector.replaceChildren(el('h2', 'AUSWAHL'));
+    this.inspector.replaceChildren(el('h2', 'SELECTION'));
     const selected = items(this.map).filter(i => this.selected.has(i.key));
     this.undoButton.disabled = !this.history.canUndo; this.redoButton.disabled = !this.history.canRedo;
     if (selected.length === 1) {
@@ -230,26 +230,26 @@ export class WorldEditorScene extends Phaser.Scene {
       this.inspector.append(el('h3', this.catalog.find(a => a.key === o?.asset)?.name ?? i.name));
       const fields = el('div'); fields.className = 'fields'; this.inspector.append(fields);
       this.field(fields, 'X', i.x, v => this.edit(() => moveItem(this.map, i.key, v, o?.grounded ? groundCurve(this.map.layout.terrain.hp, v) + o.y : i.y)));
-      if (o?.grounded) this.field(fields, 'Bodenabstand', o.y, v => this.edit(() => { o.y = v; }));
-      else this.field(fields, o ? 'Y · Fußpunkt' : 'Y', i.y, v => this.edit(() => moveItem(this.map, i.key, i.x, v)));
-      this.field(fields, 'Breite', i.width, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, v, i.height)), 2, 5000);
-      this.field(fields, 'Höhe', i.height, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, i.width, v)), 2, 5000);
+      if (o?.grounded) this.field(fields, 'Ground offset', o.y, v => this.edit(() => { o.y = v; }));
+      else this.field(fields, o ? 'Y · anchor' : 'Y', i.y, v => this.edit(() => moveItem(this.map, i.key, i.x, v)));
+      this.field(fields, 'Width', i.width, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, v, i.height)), 2, 5000);
+      this.field(fields, 'Height', i.height, v => this.edit(() => moveItem(this.map, i.key, i.x, i.y, i.width, v)), 2, 5000);
       if (i.key === 'chasm' && this.map.layout.chasm) {
         const ch = this.map.layout.chasm;
-        this.field(fields, 'Austrittshöhe Y', ch.exitY, v => this.edit(() => { ch.exitY = v; }), ch.rimY + 1, ch.floorY - 1);
-        this.inspector.append(el('p', 'Wer in diesem Bereich unter die Austrittshöhe schwimmt, gelangt ins Tiefental. Den freien Weg dorthin mit dem Bodenpinsel gestalten.'));
+        this.field(fields, 'Exit height Y', ch.exitY, v => this.edit(() => { ch.exitY = v; }), ch.rimY + 1, ch.floorY - 1);
+        this.inspector.append(el('p', 'Swimming below the exit height in this area leads to the Deep Valley. Use the ground brush to create a clear passage.'));
       }
       if (o) {
-        this.field(fields, 'Drehung °', o.angle, v => this.edit(() => { o.angle = v; }), -360, 360);
-        this.field(fields, 'Deckkraft %', o.alpha * 100, v => this.edit(() => { o.alpha = v / 100; }), 0, 100);
+        this.field(fields, 'Rotation °', o.angle, v => this.edit(() => { o.angle = v; }), -360, 360);
+        this.field(fields, 'Opacity %', o.alpha * 100, v => this.edit(() => { o.alpha = v / 100; }), 0, 100);
         const layer = el('select'); for (const key of MAP_LAYERS) { const option = el('option', LAYER_NAMES[key]); option.value = key; layer.append(option); } layer.value = o.layer;
         layer.onchange = () => this.edit(() => { o.layer = layer.value as MapLayer; }); this.inspector.append(layer);
-        this.check(this.inspector, 'Am Boden verankern', o.grounded, v => this.edit(() => groundObject(o, this.map, v)));
-        this.button(this.inspector, 'Auf Boden setzen', () => this.edit(() => { o.grounded = true; o.y = 5; }));
-        this.check(this.inspector, 'Spiegeln', o.flipX, v => this.edit(() => { o.flipX = v; }));
-        this.check(this.inspector, 'Fester Körper · Kollision', o.solid === true, v => this.edit(() => { o.solid = v; }));
-        this.check(this.inspector, 'Sanfte Bewegung', !!o.sway, v => this.edit(() => { o.sway = v ? 1 : 0; }));
-        this.inspector.append(el('p', o.layer === 'frame' ? 'Die nahe Kulisse hat eigene Parallaxe und wächst aus dem unteren Bildrand.' : 'Vordergrund am Boden behält seinen Fußpunkt auch beim Bewegen der Kamera.'));
+        this.check(this.inspector, 'Anchor to ground', o.grounded, v => this.edit(() => groundObject(o, this.map, v)));
+        this.button(this.inspector, 'Place on ground', () => this.edit(() => { o.grounded = true; o.y = 5; }));
+        this.check(this.inspector, 'Flip', o.flipX, v => this.edit(() => { o.flipX = v; }));
+        this.check(this.inspector, 'Solid body · collision', o.solid === true, v => this.edit(() => { o.solid = v; }));
+        this.check(this.inspector, 'Gentle motion', !!o.sway, v => this.edit(() => { o.sway = v ? 1 : 0; }));
+        this.inspector.append(el('p', o.layer === 'frame' ? 'Near scenery has its own parallax and grows from the lower edge of the screen.' : 'Grounded foreground scenery keeps its anchor when the camera moves.'));
       }
       if (i.key.startsWith('animal:') || i.key.startsWith('roe:')) {
         const field = i.key.startsWith('animal:') ? 'spawns' : 'roe', index = Number(i.key.split(':')[1]), select = el('select');
@@ -258,29 +258,29 @@ export class WorldEditorScene extends Phaser.Scene {
         const item = this.map.layout[field][index] as unknown as { id?: string; species?: string }; select.value = item.id ?? item.species ?? '';
         select.onchange = () => this.edit(() => { if (field === 'spawns') item.id = select.value; else item.species = select.value; }); this.inspector.append(select);
       }
-    } else this.inspector.append(el('p', selected.length ? selected.length + ' Bauteile ausgewählt.' : 'Klicke ein Bauteil an. Der goldene Punkt zeigt seinen Fußpunkt; die Griffe ändern Größe und Drehung.'));
+    } else this.inspector.append(el('p', selected.length ? selected.length + ' components selected.' : 'Click a component. The gold point is its ground anchor; the handles change its size and rotation.'));
     if (selected.length) {
       const row = el('div'); row.className = 'row'; this.inspector.append(row);
-      this.button(row, 'Duplizieren', () => this.edit(() => { this.selected = new Set(duplicateObjects(this.map, this.selected)); }));
-      this.button(row, 'Löschen', () => this.remove());
+      this.button(row, 'Duplicate', () => this.edit(() => { this.selected = new Set(duplicateObjects(this.map, this.selected)); }));
+      this.button(row, 'Delete', () => this.remove());
       if (selected.some(i => i.object)) {
         const row = el('div'); row.className = 'row'; this.inspector.append(row);
-        this.button(row, 'Gruppieren', () => this.edit(() => { const group = newMapId(); for (const i of selected) if (i.object) i.object.group = group; }));
-        this.button(row, 'Auflösen', () => this.edit(() => { for (const i of selected) if (i.object) delete i.object.group; }));
+        this.button(row, 'Group', () => this.edit(() => { const group = newMapId(); for (const i of selected) if (i.object) i.object.group = group; }));
+        this.button(row, 'Ungroup', () => this.edit(() => { for (const i of selected) if (i.object) delete i.object.group; }));
       }
     }
-    this.inspector.append(el('h3', 'Ansicht'));
-    this.check(this.inspector, '10er-Raster beim Platzieren', this.snap, v => { this.snap = v; });
-    this.check(this.inspector, 'Raster anzeigen', this.grid, v => { this.grid = v; });
-    this.check(this.inspector, 'Spielbereiche anzeigen', this.regions, v => { this.regions = v; });
+    this.inspector.append(el('h3', 'View'));
+    this.check(this.inspector, 'Snap to a 10-unit grid', this.snap, v => { this.snap = v; });
+    this.check(this.inspector, 'Show grid', this.grid, v => { this.grid = v; });
+    this.check(this.inspector, 'Show gameplay areas', this.regions, v => { this.regions = v; });
     const layers = el('div'); layers.className = 'layers'; this.inspector.append(layers);
     for (const key of MAP_LAYERS) this.check(layers, LAYER_NAMES[key], !this.hidden.has(key), v => { if (v) this.hidden.delete(key); else this.hidden.add(key); });
-    this.button(this.inspector, 'Ganze Karte', () => { const L = this.map.layout; this.cameras.main.setZoom(Math.max(.15, Math.min(1280 / L.width, 620 / L.height))).centerOn(L.width / 2, L.height / 2); });
-    this.inspector.append(el('h3', 'Bauteile im Bild'));
+    this.button(this.inspector, 'Whole map', () => { const L = this.map.layout; this.cameras.main.setZoom(Math.max(.15, Math.min(1280 / L.width, 620 / L.height))).centerOn(L.width / 2, L.height / 2); });
+    this.inspector.append(el('h3', 'Visible components'));
     const list = el('div'); list.className = 'list'; this.inspector.append(list);
     const v = this.cameras.main.worldView;
     for (const i of items(this.map).filter(i => i.x > v.x - 100 && i.x < v.right + 100).slice(-70)) this.button(list, i.name, () => { this.selected = new Set([i.key]); this.renderInspector(); });
-    this.inspector.append(el('p', 'Browserentwürfe sind lokal. Datei-Export sichert eine transportable Kopie. „Im Projekt speichern“ übernimmt die Karte in der Entwicklungsumgebung ins Hauptspiel.'));
+    this.inspector.append(el('p', 'Browser drafts are local. Export a file for a portable copy. Save to project applies the map to the main game in the development environment.'));
   }
   private remove() { if (this.selected.has('start')) this.selected.delete('start'); this.edit(() => { deleteItems(this.map, this.selected); this.selected.clear(); }); }
   private snapped(n: number) { return this.snap ? Math.round(n / 10) * 10 : n; }
@@ -376,8 +376,8 @@ export class WorldEditorScene extends Phaser.Scene {
   private togglePreview() {
     this.pointerUp(); this.preview = !this.preview; this.root.classList.toggle('preview', this.preview);
     this.keys.clear();
-    this.previewButton.textContent = this.preview ? 'Zurück zum Bauen' : 'Begehung';
-    if (!this.preview) { this.stopTest(); this.say('Zurück im Baukasten · dein Spielstand blieb unverändert.'); return; }
+    this.previewButton.textContent = this.preview ? 'Back to editing' : 'Walkthrough';
+    if (!this.preview) { this.stopTest(); this.say('Back in the editor · your saved game is unchanged.'); return; }
     this.restoreCamera = { x: this.cameras.main.scrollX, y: this.cameras.main.scrollY, zoom: this.cameras.main.zoom };
     const L = this.map.layout, target = items(this.map).find(i => this.selected.has(i.key));
     const x = target?.x ?? this.cameras.main.midPoint.x, y = target ? target.y - 100 : groundCurve(L.terrain.hp, x) - 140;
@@ -390,7 +390,7 @@ export class WorldEditorScene extends Phaser.Scene {
     this.fish = new CreatureView(this, x, y, m, .7).setDepth(20); this.fish.setLift(.24);
     // so nah wie im Spiel beim ausgewachsenen Starttier
     this.cameras.main.setZoom(CAMERA.adult).startFollow(this.tester, true, .1, .1);
-    this.say('Begehung · WASD/Pfeile bewegen · Leertaste beschleunigt · Esc zurück. Keine Änderung am Spielstand.');
+    this.say('Walkthrough · WASD/arrows to move · Space to accelerate · Esc to return. Your save is unchanged.');
   }
   private stopTest() {
     // Phaser shuts down camera/physics plugins before user shutdown listeners.
@@ -420,8 +420,8 @@ export class WorldEditorScene extends Phaser.Scene {
       this.undoButton.disabled = !this.history.canUndo; this.redoButton.disabled = !this.history.canRedo;
     }
     this.drawOverlay();
-    this.footer.textContent = this.preview ? 'BEGEHUNG · gleiche Gelände- und Kollisionsdaten wie im Hauptspiel · Tiere und Lebenszyklus starten erst im Hauptspiel.'
-      : `Zoom ${Math.round(cam.zoom * 100)} % · ${this.map.objects.length} Bauteile · Mausrad: Zoom · Leertaste + Ziehen / rechte Maustaste: Kamera · Umschalt: Mehrfachauswahl · Strg+Z: Rückgängig`;
+    this.footer.textContent = this.preview ? 'WALKTHROUGH · same terrain and collisions as the main game · animals and the life cycle begin in the main game.'
+      : `Zoom ${Math.round(cam.zoom * 100)} % · ${this.map.objects.length} components · Scroll: zoom · Space + drag / right mouse: pan · Shift: multiselect · Ctrl+Z: undo`;
   }
   private drawOverlay() {
     const g = this.overlay; g.clear(); if (this.preview) return;

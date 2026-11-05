@@ -6,7 +6,7 @@ import { fadeTo } from '../ui/ui';
 export function startNewLife(scene: Phaser.Scene, epoch = game.chosenEpoch) {
   game.enterEpoch(epoch);
   // Ein noch laufendes Leben dieses Zeitalters endet dabei – die Linie gilt als verschollen.
-  if (game.hasRun()) game.extinct(0, 'Verschollen');
+  if (game.hasRun()) game.extinct(0, 'Lost');
   const run = game.newRun(epoch);
   if (!game.data.seenIntro) fadeTo(scene, 'Intro', {}, 800);
   else fadeTo(scene, 'Level', { epoch: run.epoch }, 900);

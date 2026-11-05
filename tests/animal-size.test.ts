@@ -27,7 +27,7 @@ describe('biological reference and readable play scale', () => {
     expect(playLengthCm(SPECIES.mosasaurus)).toBe(1100);
     expect(playLengthCm(SPECIES.rolfosteus)).toBe(adultLengthCm(SPECIES.rolfosteus));
     expect(entryOf('dunkleosteus')?.cm).toBe(410);
-    expect(entryOf('dunkleosteus')?.note).toContain('geschätzt');
+    expect(entryOf('dunkleosteus')?.note).toContain('estimated');
   });
 
   it('keeps tiny adults visible at ordinary zoom and even the largest animal larger than before', () => {

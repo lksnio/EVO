@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { historyCause, historySiteName } from '../ui/historyText';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
 import { game, speciesName, ZERO_TRAITS, type Traits } from '../state/GameState';
@@ -23,7 +24,7 @@ const PER_PAGE = 3;
 const STRAND = 0xe9d4a8;
 const INK = 0x080706;
 const ERA_COLORS = [0x243b39, 0x303c29, 0x433629, 0x45302b, 0x303b34, 0x283c41, 0x3e3628];
-const minutes = (seconds: number) => `${Math.round(seconds / 60)} Min. gespielt`;
+const minutes = (seconds: number) => `${Math.round(seconds / 60)} min played`;
 
 /** A personal record of played lives. Vertical position is geological time; there are no hypothetical branches. */
 export class TreeScene extends Phaser.Scene {
@@ -62,12 +63,12 @@ export class TreeScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x15120e, 0x0d0c09, 0x050505, 0x080706, 1).fillRect(0, 0, W, H);
     this.add.image(490, 330, 'glow').setDisplaySize(1100, 950).setTint(0xffd9a0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(.035);
-    title(this, 28, 17, 'Stammbaum des Lebens', 30);
-    text(this, 30, 59, 'Deine Linien. Die Weltzeit läuft von oben nach unten.', 17, UI.boneDim, { fontStyle: 'italic' });
+    title(this, 28, 17, 'Tree of Life', 30);
+    text(this, 30, 59, 'Your lineages. World time flows from top to bottom.', 17, UI.boneDim, { fontStyle: 'italic' });
     this.rangeText = text(this, 220, 112, '', 14, UI.boneDim).setName('lineage-range');
     this.pageText = text(this, 815, 112, '', 13, UI.boneDim).setOrigin(1, 0);
-    new Button(this, 291, 93, 'Alle Epochen', { w: 145, h: 31, size: 15, onClick: () => this.setWindow(TIME_WORLD) }).setName('lineage-world');
-    new Button(this, 451, 93, 'Dein Verlauf', { w: 145, h: 31, size: 15, onClick: () => this.focusRun() }).setName('lineage-fit');
+    new Button(this, 291, 93, 'All eras', { w: 145, h: 31, size: 15, onClick: () => this.setWindow(TIME_WORLD) }).setName('lineage-world');
+    new Button(this, 451, 93, 'Your history', { w: 145, h: 31, size: 15, onClick: () => this.focusRun() }).setName('lineage-fit');
     new Button(this, 569, 93, '−', { w: 55, h: 31, size: 21, onClick: () => this.zoom(1.7) });
     new Button(this, 633, 93, '+', { w: 55, h: 31, size: 21, onClick: () => this.zoom(1 / 1.7) });
     new Button(this, 844, 93, '‹', { w: 39, h: 31, size: 25, onClick: () => this.changePage(-1) });
@@ -84,13 +85,13 @@ export class TreeScene extends Phaser.Scene {
     panel.fillStyle(0x14120f, .94).fillRoundedRect(PANEL, 97, W - PANEL - 18, 493, 13);
     panel.lineStyle(2, UI.panelEdge, .6).strokeRoundedRect(PANEL + 1, 98, W - PANEL - 20, 491, 13);
     const cx = PANEL + (W - PANEL - 18) / 2;
-    this.main = new Button(this, cx, 624, game.hasRun() ? 'Weiterleben' : 'Leben beginnen',
+    this.main = new Button(this, cx, 624, game.hasRun() ? 'Continue life' : 'Begin life',
       { w: 290, h: 51, icon: 'ic_play', color: UI.ochreN, sound: null, onClick: () => this.play() }).setDepth(25).setName('lineage-play');
-    this.home = new Button(this, cx, 680, 'Titelbild',
+    this.home = new Button(this, cx, 680, 'Title screen',
       { w: 290, h: 42, size: 19, icon: 'ic_home', onClick: () => fadeTo(this, 'Title') }).setDepth(25);
-    text(this, 29, 624, '●  Laichplatz     │  Generation     ×  Ende einer Linie', 16, UI.boneDim);
-    text(this, 29, 653, 'Mausrad: Zeitzoom · Ziehen: Zeit verschieben · Knoten anklicken: ansehen', 15, UI.boneDim);
-    text(this, 29, 679, '↑ ↓ Knoten · ← → Seiten · + − Zoom · G alle Epochen · L dein Verlauf', 13, '#766c5b');
+    text(this, 29, 624, '●  Spawning site     │  Generation     ×  End of a lineage', 16, UI.boneDim);
+    text(this, 29, 653, 'Scroll: zoom through time · Drag: pan · Click a node: inspect', 15, UI.boneDim);
+    text(this, 29, 679, '↑ ↓ nodes · ← → pages · + − zoom · G all eras · L your history', 13, '#766c5b');
 
     const leafRun = this.d.mode === 'extinct' ? game.data.nodes[this.d.leaf]?.dead?.run : undefined;
     const marked = game.data.lineage.marked;
@@ -144,13 +145,13 @@ export class TreeScene extends Phaser.Scene {
     const visible = this.visibleRuns();
     for (const run of visible) this.drawRun(g, run);
     if (!visible.length) {
-      this.plot.add(text(this, 566, 319, 'Hier beginnt deine Geschichte.', 28, UI.bone).setOrigin(.5));
-      this.plot.add(text(this, 566, 365, 'Spiele dein erstes Tier. Sein Weg bleibt hier erhalten.', 17, UI.boneDim).setOrigin(.5));
+      this.plot.add(text(this, 566, 319, 'Your story begins here.', 28, UI.bone).setOrigin(.5));
+      this.plot.add(text(this, 566, 365, 'Play your first animal. Its path will be preserved here.', 17, UI.boneDim).setOrigin(.5));
     }
     const digits = Math.max(0, Math.min(6, 7 - Math.floor(Math.log10(this.window.from - this.window.to))));
-    const date = (years: number) => (years / 1e6).toLocaleString('de-DE', { maximumFractionDigits: digits });
-    this.rangeText.setText(`${date(this.window.from)} → ${date(this.window.to)} Mio. Jahre vor heute`);
-    this.pageText.setText(this.runs.length ? `${this.page * PER_PAGE + 1}–${Math.min((this.page + 1) * PER_PAGE, this.runs.length)} / ${this.runs.length} Läufe` : 'Noch kein Lauf');
+    const date = (years: number) => (years / 1e6).toLocaleString('en-GB', { maximumFractionDigits: digits });
+    this.rangeText.setText(`${date(this.window.from)} → ${date(this.window.to)} million years ago`);
+    this.pageText.setText(this.runs.length ? `${this.page * PER_PAGE + 1}–${Math.min((this.page + 1) * PER_PAGE, this.runs.length)} / ${this.runs.length} runs` : 'No runs yet');
     if (this.selected) {
       const old = this.selected;
       this.selected = this.picks.find(p => p.run === old.run && p.segment === old.segment && p.kind === old.kind);
@@ -160,7 +161,7 @@ export class TreeScene extends Phaser.Scene {
 
   private drawEras(g: Phaser.GameObjects.Graphics) {
     const mini = this.add.graphics(); this.mini.add(mini);
-    this.mini.add(text(this, 28, 112, 'EPOCHEN', 12, UI.boneDim));
+    this.mini.add(text(this, 28, 112, 'ERAS', 12, UI.boneDim));
     ERAS.forEach(({ ep }, i) => {
       const from = ep.period[0] * 1e6, to = ep.period[1] * 1e6;
       const top = PLOT.y + timeFraction(from, TIME_WORLD) * HEIGHT, bottom = PLOT.y + timeFraction(to, TIME_WORLD) * HEIGHT;
@@ -188,10 +189,10 @@ export class TreeScene extends Phaser.Scene {
       const y = this.y(years);
       g.lineStyle(1, 0xd8c39b, .075).lineBetween(PLOT.x - 4, y, PLOT.right + 4, y);
       g.lineStyle(1, STRAND, .5).lineBetween(123, y, PLOT.x - 16, y);
-      const label = `${(years / 1e6).toLocaleString('de-DE', { maximumFractionDigits: precision })}`;
+      const label = `${(years / 1e6).toLocaleString('en-GB', { maximumFractionDigits: precision })}`;
       this.plot.add(text(this, PLOT.x - 23, y - 5, label, 12, UI.boneDim).setOrigin(1, 1));
     }
-    this.mini.add(text(this, 137, 127, 'Mio. Jahre', 11, UI.boneDim));
+    this.mini.add(text(this, 137, 127, 'million years', 11, UI.boneDim));
   }
 
   private drawRun(g: Phaser.GameObjects.Graphics, run: LineageRun) {
@@ -242,7 +243,7 @@ export class TreeScene extends Phaser.Scene {
     });
     const x = this.stationX(run, run.segments[0]), firstY = this.y(run.segments[0].from);
     const y = clamp(firstY - 22, PLOT.y + 14, PLOT.bottom - 18);
-    this.plot.add(text(this, x + 20, y, `Linie ${run.id}`, 16, active ? UI.bone : UI.boneDim));
+    this.plot.add(text(this, x + 20, y, `Lineage ${run.id}`, 16, active ? UI.bone : UI.boneDim));
   }
 
   private drawSelection() {
@@ -267,44 +268,44 @@ export class TreeScene extends Phaser.Scene {
     const form = p.kind === 'tip' ? s.last : s.first;
     const traits = { ...ZERO_TRAITS, ...form.traits } as Traits;
     const shownGen = p.kind === 'tip' ? last.gen : first.gen;
-    const name = shownGen === 1 && !run.legacy ? 'Der Urahn' : speciesName({ cls: form.cls, traits, epoch: s.epoch, parent: 'played' });
+    const name = shownGen === 1 && !run.legacy ? 'The ancestor' : speciesName({ cls: form.cls, traits, epoch: s.epoch, parent: 'played' });
     const ep = EPOCHS[s.epoch];
-    this.info.add(title(this, cx, 117, ep?.name.toUpperCase() ?? 'WELTZEIT', 13, UI.ochre).setOrigin(.5));
-    const heading = p.kind === 'tip' ? run.status === 'extinct' ? 'Die Linie endete hier' : 'Der letzte Nachkomme'
-      : s === run.segments[0] ? run.legacy ? 'Überlieferter Verlauf' : 'Hier begann deine Linie' : 'Ein neuer Laichplatz';
+    this.info.add(title(this, cx, 117, ep?.name.toUpperCase() ?? 'WORLD TIME', 13, UI.ochre).setOrigin(.5));
+    const heading = p.kind === 'tip' ? run.status === 'extinct' ? 'The lineage ended here' : 'The last descendant'
+      : s === run.segments[0] ? run.legacy ? 'Recorded history' : 'Your lineage began here' : 'A new spawning site';
     this.info.add(title(this, cx, 142, heading, 19, UI.bone).setOrigin(.5));
-    this.info.add(text(this, cx, 174, s.site.name, 20, UI.bone, { align: 'center', wordWrap: { width: 275 } }).setOrigin(.5, 0).setName('lineage-site'));
+    this.info.add(text(this, cx, 174, historySiteName(s), 20, UI.bone, { align: 'center', wordWrap: { width: 275 } }).setOrigin(.5, 0).setName('lineage-site'));
     this.info.add(this.add.image(cx, 302, 'pedestal').setScale(.82, .6).setAlpha(.6));
     this.infoView = this.formView(form, cx, 260); this.info.add(this.infoView);
     this.info.add(text(this, cx, 326, name, 17, UI.boneDim, { fontStyle: 'italic', align: 'center', wordWrap: { width: 275 } }).setOrigin(.5, 0));
     const at = p.kind === 'tip' ? s.to : s.from;
-    const gens = first.gen === last.gen ? `Generation ${first.gen}` : `Generationen ${first.gen}–${last.gen}`;
+    const gens = first.gen === last.gen ? `Generation ${first.gen}` : `Generations ${first.gen}–${last.gen}`;
     const duration = Math.max(0, s.from - s.to);
-    const lines = [`Linie ${run.id} · ${yearsAgo(at, 1)}`, gens,
-      `${s.births.length} ${s.births.length === 1 ? 'Tier gewählt' : 'Tiere gewählt'} · ${minutes(s.seconds)}`,
-      `${spanWords(duration)} an diesem Laichplatz`];
-    if (p.kind === 'tip' && run.status === 'extinct') lines.push(`Ende: ${run.cause ?? 'Unbekannt'}`);
-    else if (game.runIn(run.epoch)?.id === run.id) lines.push('Diese Linie lebt weiter.');
-    else if (run.status === 'alive') lines.push('Ein früherer persönlicher Verlauf.');
-    if (run.legacy) lines.push('Älterer Spielstand: frühere Zeitmarken fehlen.');
+    const lines = [`Lineage ${run.id} · ${yearsAgo(at, 1)}`, gens,
+      `${s.births.length} ${s.births.length === 1 ? 'animal chosen' : 'animals chosen'} · ${minutes(s.seconds)}`,
+      `${spanWords(duration)} at this spawning site`];
+    if (p.kind === 'tip' && run.status === 'extinct') lines.push(`End: ${historyCause(run.cause ?? 'Unknown')}`);
+    else if (game.runIn(run.epoch)?.id === run.id) lines.push('This lineage lives on.');
+    else if (run.status === 'alive') lines.push('An earlier personal history.');
+    if (run.legacy) lines.push('Older save: earlier time records are unavailable.');
     const details = text(this, cx, 374, lines.join('\n'), 15, UI.boneDim,
       { align: 'center', lineSpacing: 5, wordWrap: { width: 278 } }).setOrigin(.5, 0).setName('lineage-details');
     if (details.height > 167) details.setScale(167 / details.height);
     this.info.add(details);
     const key = markKey(run, s), marked = game.data.lineage.marked === key;
-    this.mark = new Button(this, cx, 563, marked ? 'Markierung entfernen' : 'Laichplatz merken', {
+    this.mark = new Button(this, cx, 563, marked ? 'Remove marker' : 'Mark spawning site', {
       w: 267, h: 33, size: 15, color: marked ? UI.ochreN : UI.stone, onClick: () => {
         game.markLineage(game.data.lineage.marked === key ? undefined : key); this.draw(); this.showInfo(p);
       },
     }).setName('lineage-mark');
     this.info.add(this.mark);
     const target = game.runIn(run.epoch);
-    this.main.setLabel(target?.id === run.id ? 'Linie fortsetzen' : game.hasRun() ? 'Weiterleben' : 'Leben beginnen');
+    this.main.setLabel(target?.id === run.id ? 'Continue lineage' : game.hasRun() ? 'Continue life' : 'Begin life');
   }
   private showEmpty() {
     const cx = PANEL + (W - PANEL - 18) / 2;
-    this.info.add(title(this, cx, 157, 'Dein erster Vorfahr', 23, UI.bone).setOrigin(.5));
-    this.info.add(text(this, cx, 224, 'Jeder gewählte Nachkomme führt\ndeinen persönlichen Weg weiter.\n\nEin anderer Laichplatz wird\nein neuer Knoten.\n\nDie Höhe zeigt, wann das\nin der Welt geschah.', 19, UI.boneDim, { align: 'center', lineSpacing: 7 }).setOrigin(.5, 0));
+    this.info.add(title(this, cx, 157, 'Your first ancestor', 23, UI.bone).setOrigin(.5));
+    this.info.add(text(this, cx, 224, 'Each descendant you choose continues\nyour own path.\n\nA different spawning site becomes\na new node.\n\nHeight shows when it happened\nin the world.', 19, UI.boneDim, { align: 'center', lineSpacing: 7 }).setOrigin(.5, 0));
   }
 
   private hit(x: number, y: number) {

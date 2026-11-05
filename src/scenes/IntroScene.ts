@@ -7,10 +7,10 @@ import { CreatureView } from '../objects/CreatureView';
 import { Button, fadeIn, fadeTo, text } from '../ui/ui';
 
 const PAGES = [
-  'Vor 380 Millionen Jahren, im Devon, wimmeln die Meere vor Fischen.',
-  'Gepanzerte Riesen jagen in der Tiefe, an den Küsten wachsen Riffe.',
-  'Du bist ein kleiner Urfisch – geschlüpft in einem stillen Fluss.\nEiner von wenigen deiner Art.',
-  'Wachse heran. Kehre zum Laichen in den Fluss zurück –\nund lebe in deinen Nachkommen weiter.',
+  '380 million years ago, in the Devonian, the seas teem with fish.',
+  'Armoured giants hunt in the depths; reefs grow along the coasts.',
+  'You are a small early fish, hatched in a quiet river.\nOne of the few of your kind.',
+  'Grow. Return to the river to spawn —\nand live on through your descendants.',
 ];
 
 export class IntroScene extends Phaser.Scene {
@@ -37,8 +37,8 @@ export class IntroScene extends Phaser.Scene {
     this.tweens.add({ targets: this.fish, y: 466, yoyo: true, repeat: -1, duration: 1800, ease: 'Sine.inOut' });
     this.add.image(W / 2, H / 2, 'vignette').setDisplaySize(W, H).setAlpha(0.85);
     this.label = text(this, W / 2, 220, '', 32, UI.bone, { align: 'center', lineSpacing: 12, stroke: '#030405', strokeThickness: 5 }).setOrigin(0.5);
-    new Button(this, W - 150, H - 56, 'Weiter', { w: 200, color: UI.ochreN, onClick: () => this.next(), sound: 'select' });
-    new Button(this, 130, H - 56, 'Überspringen', { w: 200, h: 48, size: 18, onClick: () => this.finish() });
+    new Button(this, W - 150, H - 56, 'Continue', { w: 200, color: UI.ochreN, onClick: () => this.next(), sound: 'select' });
+    new Button(this, 130, H - 56, 'Skip', { w: 200, h: 48, size: 18, onClick: () => this.finish() });
     this.input.keyboard!.on('keydown-ENTER', () => this.next());
     this.input.keyboard!.on('keydown-SPACE', () => this.next());
     this.input.keyboard!.on('keydown-ESC', () => this.finish());

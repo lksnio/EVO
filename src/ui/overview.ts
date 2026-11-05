@@ -18,7 +18,7 @@ export interface OverviewData {
   hpMax: number;
 }
 
-const nf = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
+const nf = (n: number) => n.toLocaleString('en-GB', { maximumFractionDigits: 0 });
 
 /** Der Rahmen: dunkel und warm, doppelte feine Linie, kleine Rauten in den Ecken. */
 function frame(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number) {
@@ -94,9 +94,9 @@ export class Overview {
     const left = 76, leftW = 608, mid = left + leftW / 2;
     const v = game.shown();
     const big: { label: string; value: string; of?: string }[] = [
-      { label: 'LEBENSKRAFT', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
-      brood ? { label: 'SAUERSTOFF', value: String(v.oxy), of: ' s' } : { label: 'SICHT', value: String(v.sight) },
-      { label: 'AUSDAUER', value: String(v.stam) },
+      { label: 'VITALITY', value: String(Math.max(0, Math.ceil(d.hp))), of: `/${d.hpMax}` },
+      brood ? { label: 'OXYGEN', value: String(v.oxy), of: ' s' } : { label: 'VISION', value: String(v.sight) },
+      { label: 'STAMINA', value: String(v.stam) },
     ];
     big.forEach((b, i) => {
       const cx = left + leftW / 3 * (i + 0.5);
@@ -122,16 +122,16 @@ export class Overview {
     // Im Karbon formen sich Beine und Griff statt Schädel und Flossen.
     const small = brood
       ? [
-          { label: 'GEBISS', key: 'bite', value: v.bite },
-          { label: 'BEINE', key: 'legs', value: v.legs },
-          { label: 'GRIFF', key: 'grip', value: v.grip },
-          { label: 'SCHUPPEN', key: 'scales', value: v.scales },
+          { label: 'JAWS', key: 'bite', value: v.bite },
+          { label: 'LEGS', key: 'legs', value: v.legs },
+          { label: 'GRIP', key: 'grip', value: v.grip },
+          { label: 'SCALES', key: 'scales', value: v.scales },
         ] as const
       : [
-          { label: 'GEBISS', key: 'bite', value: v.bite },
-          { label: 'SCHÄDEL', key: 'skull', value: v.skull },
-          { label: 'FLOSSEN', key: 'fins', value: v.fins },
-          { label: 'SCHUPPEN', key: 'scales', value: v.scales },
+          { label: 'JAWS', key: 'bite', value: v.bite },
+          { label: 'SKULL', key: 'skull', value: v.skull },
+          { label: 'FINS', key: 'fins', value: v.fins },
+          { label: 'SCALES', key: 'scales', value: v.scales },
         ] as const;
     const delta = game.inheritedDelta(), step = (leftW - 24) / small.length;
     small.forEach((b, i) => {
@@ -188,10 +188,10 @@ export class Overview {
     const P = phases(life.gen);
     const m = P.mature / P.span, o = P.old / P.span, f = clamp(life.age / P.span, 0, 1);
     this.track(scene, g, x, y, w, f, [[m, 0x6fa8a0], [o, 0xc8913c], [1, 0xa4503a]], [
-      [0, 'Schlüpfen', f < m],
-      [m, 'Laichzeit', f >= m && f < o],
-      [o, 'Alter', f >= o],
-      [1, 'Tod', false],
+      [0, 'Hatching', f < m],
+      [m, 'Spawning time', f >= m && f < o],
+      [o, 'Age', f >= o],
+      [1, 'Death', false],
     ], game.roe.length > 0);
   }
 
@@ -201,9 +201,9 @@ export class Overview {
     const meta = 0.32, young = b.phase === 'young';
     const f = young ? meta * Math.min(1, b.food / BROOD.food) : meta + (1 - meta) * (1 - b.left / BROOD.danger);
     this.track(scene, g, x, y, w, f, [[meta, 0x6fa8a0], [0.9, 0xc8913c], [1, 0xa4503a]], [
-      [0, 'Larve', young],
-      [meta, 'Metamorphose', false],
-      [1, 'Neues Gelege', !young],
+      [0, 'Larva', young],
+      [meta, 'Metamorphosis', false],
+      [1, 'New clutch', !young],
     ], false);
   }
 
@@ -253,7 +253,7 @@ export class Overview {
   /** Beute und Pflanzen-/Fleischanteil, ohne Rangliste einzelner Arten. */
   private prey(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, x: number, y: number, w: number) {
     const c = this.c;
-    c.add(text(scene, x, y, 'BEUTE', 13, UI.ochre, { fontStyle: '700' }).setLetterSpacing(3));
+    c.add(text(scene, x, y, 'PREY', 13, UI.ochre, { fontStyle: '700' }).setLetterSpacing(3));
     c.add(title(scene, x, y + 34, nf(Math.floor(game.brood?.food ?? game.life.fed)), 34).setOrigin(0, 0.5));
 
     // Grünzeug gegen Fleisch

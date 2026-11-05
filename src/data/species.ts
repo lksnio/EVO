@@ -135,7 +135,7 @@ function toughen(d: SpeciesDef): SpeciesDef {
 export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
   [
     // ---------------------------------------------------------------- Urozean
-    S({ id: 'kieferlos', name: 'Kieferloser Fisch', art: { t: 'fish', len: 34, h: 13, c: 0x6e7a6c, belly: 0xb8bca4, fin: 0x4e5a50, jawless: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.5, speed: 95, sense: 230, meat: 2, herd: [5, 9], sprint: 1.7 }),
+    S({ id: 'kieferlos', name: 'Jawless fish', art: { t: 'fish', len: 34, h: 13, c: 0x6e7a6c, belly: 0xb8bca4, fin: 0x4e5a50, jawless: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.5, speed: 95, sense: 230, meat: 2, herd: [5, 9], sprint: 1.7 }),
     // weitere Fische ihrer Zeit
     S({ id: 'sacabambaspis', name: 'Sacabambaspis', art: { t: 'fish', len: 40, h: 16, c: 0x7a6a50, belly: 0xc8b890, fin: 0x5a4c38, jawless: true, armor: true, eyesFront: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.6, speed: 72, sense: 200, meat: 2, herd: [4, 8], sprint: 1.5 }),
     S({ id: 'birkenia', name: 'Birkenia', art: { t: 'fish', len: 26, h: 8, c: 0x4e6262, belly: 0xb0bca8, fin: 0x34443e, jawless: true, spines: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 1, speed: 125, sense: 240, meat: 1, herd: [8, 14], sprint: 1.8 }),
@@ -226,11 +226,11 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     // Acanthodes: zahnloser Stachelhai – zieht in silbrigen Schwärmen durch das offene Wasser
     S({ id: 'acanthodes', name: 'Acanthodes', art: { t: 'fish', len: 38, h: 9, c: 0x8a9a94, belly: 0xdce6e0, fin: 0x5a6a66, spines: true, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 6, dmg: 0, power: 1.4, speed: 122, sense: 250, meat: 2, herd: [8, 14], sprint: 1.85,
       layer: 'open', where: { start: 1.2, lush: 1.2, murky: 0.9, deep: 0.3, abyss: 0 } }),
-    S({ id: 'trilobit', name: 'Trilobit', art: { t: 'trilo', len: 34, c: 0x5e4c38 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.2, speed: 34, sense: 120, meat: 2, herd: [3, 6], crawl: true, sprint: 1.4 }),
-    S({ id: 'qualle', name: 'Qualle', art: { t: 'jelly', r: 16, c: 0x7a5a96 }, role: 'hazard', diet: 'none', habitat: 'water', hp: 5, dmg: 4, power: 2, speed: 24, sense: 0, meat: 1, herd: [2, 4], hit: [0.7, 0.7] }),
+    S({ id: 'trilobit', name: 'Trilobite', art: { t: 'trilo', len: 34, c: 0x5e4c38 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 1.2, speed: 34, sense: 120, meat: 2, herd: [3, 6], crawl: true, sprint: 1.4 }),
+    S({ id: 'qualle', name: 'Jellyfish', art: { t: 'jelly', r: 16, c: 0x7a5a96 }, role: 'hazard', diet: 'none', habitat: 'water', hp: 5, dmg: 4, power: 2, speed: 24, sense: 0, meat: 1, herd: [2, 4], hit: [0.7, 0.7] }),
     S({ id: 'orthoceras', name: 'Orthoceras', art: { t: 'cone', len: 74, c: 0x7a6248 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 22, dmg: 5, power: 6, speed: 118, sense: 300, meat: 3, herd: [2, 4], hit: [0.75, 0.6] }),
-    S({ id: 'cameroceras', name: 'Riesenkopffüßer', art: { t: 'cone', len: 250, c: 0x5e4a3a }, role: 'apex', diet: 'meat', habitat: 'water', hp: 140, dmg: 8, power: 18, speed: 82, sense: 380, meat: 8, boss: true, hit: [0.75, 0.5] }),
-    S({ id: 'seeskorpion', name: 'Seeskorpion', art: { t: 'bug', len: 72, h: 18, segs: 8, c: 0x4e3228, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 30, dmg: 6, power: 8, speed: 104, sense: 260, meat: 4, herd: [2, 3] }),
+    S({ id: 'cameroceras', name: 'Giant cephalopod', art: { t: 'cone', len: 250, c: 0x5e4a3a }, role: 'apex', diet: 'meat', habitat: 'water', hp: 140, dmg: 8, power: 18, speed: 82, sense: 380, meat: 8, boss: true, hit: [0.75, 0.5] }),
+    S({ id: 'seeskorpion', name: 'Sea scorpion', art: { t: 'bug', len: 72, h: 18, segs: 8, c: 0x4e3228, legs: 3, pincers: true, paddles: true, stinger: 'straight' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 30, dmg: 6, power: 8, speed: 104, sense: 260, meat: 4, herd: [2, 3] }),
     // Dunkleosteus (Devon, ~380 Mio. Jahre): bis zu 8 m, gepanzert, statt Zähnen Knochenklingen – gewaltige Bisskraft
     S({ id: 'dunkleosteus', name: 'Dunkleosteus', art: { t: 'fish', len: 250, h: 108, c: 0x39444a, belly: 0x7e8a86, fin: 0x252c32, armor: true, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 220, dmg: 16, power: 28, speed: 105, sense: 430, meat: 12, boss: true, hit: [0.8, 0.7] }),
     // seltene große Herumtreiber: am Anfang besser meiden – oder mit viel Geschick besiegen
@@ -250,8 +250,8 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     // Hibbertopterus: ein riesiger Seeskorpion, der mit seinen Kämmen den Schlamm durchsiebt – er läuft sogar an Land
     S({ id: 'hibbertopterus', name: 'Hibbertopterus', art: { t: 'bug', len: 150, h: 40, segs: 9, c: 0x5a3e2a, legs: 4, paddles: true, stinger: 'straight' }, role: 'defender', diet: 'plant', habitat: 'water', hp: 60, dmg: 6, power: 10, speed: 40, sense: 200, meat: 6, crawl: true, hit: [0.8, 0.6] }),
     // an Land: Tausendfüßer, Urinsekten und kleine Spinnentiere – die Beute, die ans Ufer lockt
-    S({ id: 'tausendfuss', name: 'Tausendfüßer', art: { t: 'bug', len: 54, h: 9, segs: 14, c: 0x4a3426, legs: 12, antenna: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1, speed: 44, sense: 130, meat: 1, herd: [2, 4], crawl: true, land: true, sprint: 1.4 }),
-    S({ id: 'urinsekt', name: 'Urinsekt', art: { t: 'bug', len: 24, h: 7, segs: 5, c: 0x7a6a50, legs: 3, antenna: true, stinger: 'straight' }, role: 'prey', diet: 'plant', habitat: 'water', hp: 3, dmg: 0, power: 0.6, speed: 70, sense: 150, meat: 1, herd: [3, 6], crawl: true, land: true, sprint: 1.8 }),
+    S({ id: 'tausendfuss', name: 'Millipede', art: { t: 'bug', len: 54, h: 9, segs: 14, c: 0x4a3426, legs: 12, antenna: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1, speed: 44, sense: 130, meat: 1, herd: [2, 4], crawl: true, land: true, sprint: 1.4 }),
+    S({ id: 'urinsekt', name: 'Early insect', art: { t: 'bug', len: 24, h: 7, segs: 5, c: 0x7a6a50, legs: 3, antenna: true, stinger: 'straight' }, role: 'prey', diet: 'plant', habitat: 'water', hp: 3, dmg: 0, power: 0.6, speed: 70, sense: 150, meat: 1, herd: [3, 6], crawl: true, land: true, sprint: 1.8 }),
     S({ id: 'trigonotarbid', name: 'Trigonotarbid', art: { t: 'bug', len: 22, h: 10, segs: 3, c: 0x5c4434, legs: 4 }, role: 'prey', diet: 'meat', habitat: 'water', hp: 4, dmg: 0, power: 0.8, speed: 62, sense: 150, meat: 1, herd: [1, 3], crawl: true, land: true, sprint: 1.6 }),
     // Pulmonoscorpius: ein Skorpion so lang wie ein Arm – an Land gefährlich
     S({ id: 'pulmonoscorpius', name: 'Pulmonoscorpius', art: { t: 'bug', len: 76, h: 20, segs: 8, c: 0x3e2a1e, legs: 4, pincers: true, stinger: 'up' }, role: 'predator', diet: 'meat', habitat: 'water', hp: 26, dmg: 6, power: 8, speed: 80, sense: 240, meat: 3, crawl: true, land: true, hit: [0.8, 0.6] }),
@@ -267,7 +267,7 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'gillicus', name: 'Gillicus', art: { t: 'fish', len: 74, h: 22, c: 0x687a88, belly: 0xd0d8dc, fin: 0x4a5866 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 12, dmg: 0, power: 2.4, speed: 118, sense: 260, meat: 3, herd: [3, 6], sprint: 1.7,
       layer: 'open', where: { start: 1, lush: 1, murky: 0.8, deep: 0.8, abyss: 0.2 } }),
     // Placenticeras: ein Ammonit – treibt gemächlich im Mittelwasser
-    S({ id: 'ammonit', name: 'Ammonit', art: { t: 'ammo', r: 20, c: 0xa8865c, band: 0x6e4c30, tent: 0x8a5a4c }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.8, speed: 44, sense: 180, meat: 2, herd: [2, 4], sprint: 1.5,
+    S({ id: 'ammonit', name: 'Ammonite', art: { t: 'ammo', r: 20, c: 0xa8865c, band: 0x6e4c30, tent: 0x8a5a4c }, role: 'prey', diet: 'plant', habitat: 'water', hp: 9, dmg: 0, power: 1.8, speed: 44, sense: 180, meat: 2, herd: [2, 4], sprint: 1.5,
       layer: 'mid', where: { start: 1, lush: 1.2, murky: 1, deep: 0.8, abyss: 0.3 } }),
     // Baculites: ein Ammonit mit fast gerader Schale
     S({ id: 'baculites', name: 'Baculites', art: { t: 'cone', len: 64, c: 0x8c7650 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 10, dmg: 0, power: 2, speed: 50, sense: 200, meat: 2, herd: [2, 5], sprint: 1.5,

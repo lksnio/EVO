@@ -39,7 +39,7 @@ interface Page {
 const PAGES: Page[] = SECTIONS.flatMap((s, k) => [{ sec: k }, ...s.entries.map((entry) => ({ sec: k, entry }))]);
 const firstPage = (sec: number) => Math.max(0, PAGES.findIndex((p) => p.sec === sec));
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
-const ORDINAL = ['ERSTER', 'ZWEITER', 'DRITTER', 'VIERTER', 'FÜNFTER', 'SECHSTER', 'SIEBTER', 'ACHTER', 'NEUNTER'];
+const ORDINAL = ['FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH', 'SIXTH', 'SEVENTH', 'EIGHTH', 'NINTH'];
 const DIGITS = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
 
 // Buchmaße
@@ -323,16 +323,16 @@ export class AquapendiumScene extends Phaser.Scene {
     const seen = list.filter((e) => game.hasSeen(e.id)).length;
     const n = list.length;
     // linke Seite: das Buch, der Teil und wie viel davon gefunden ist
-    this.head(c, LEFT + PW / 2, PY + 70, 'CHRONIK DES LEBENS', 32, INK_SOFT).setOrigin(0.5).setLetterSpacing(3);
-    this.ink(c, LEFT + PW / 2, PY + 108, 'Alle Tiere der Urzeit', 20, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.head(c, LEFT + PW / 2, PY + 70, 'CHRONICLE OF LIFE', 32, INK_SOFT).setOrigin(0.5).setLetterSpacing(3);
+    this.ink(c, LEFT + PW / 2, PY + 108, 'Animals of the ancient world', 20, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     this.rule(c, LEFT + 80, PY + 140, PW - 160);
-    this.ink(c, LEFT + PW / 2, PY + 178, `${ORDINAL[k]} TEIL`, 15, INK_RED, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4);
+    this.ink(c, LEFT + PW / 2, PY + 178, `${ORDINAL[k]} PART`, 15, INK_RED, { fontStyle: '700' }).setOrigin(0.5).setLetterSpacing(4);
     this.head(c, LEFT + PW / 2, PY + 222, sec.ep.name.toUpperCase(), 46).setOrigin(0.5).setLetterSpacing(4);
-    this.ink(c, LEFT + PW / 2, PY + 270, `${sec.ep.tagline} · vor ${sec.ep.period[0]} bis ${sec.ep.period[1]} Mio. Jahren`, 19, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.ink(c, LEFT + PW / 2, PY + 270, `${sec.ep.tagline} · ${sec.ep.period[0]} to ${sec.ep.period[1]} million years ago`, 19, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     if (!n) return this.blank(c, k);
     const big = this.add.text(LEFT + PW / 2, PY + 370, `${seen}`, { fontFamily: TITLE_FONT, fontSize: '96px', color: INK, fontStyle: '700', resolution: 2 }).setOrigin(0.5);
     c.add(big);
-    this.ink(c, LEFT + PW / 2, PY + 440, `von ${n} Tieren gefunden`, 22, INK_SOFT).setOrigin(0.5);
+    this.ink(c, LEFT + PW / 2, PY + 440, `of ${n} animals discovered`, 22, INK_SOFT).setOrigin(0.5);
     const bar = this.add.graphics();
     bar.fillStyle(0x2a1a0e, 0.18);
     bar.fillRoundedRect(LEFT + 90, PY + 474, PW - 180, 14, 7);
@@ -345,11 +345,11 @@ export class AquapendiumScene extends Phaser.Scene {
     c.add(bar);
     if (!sec.ep.playable) {
       // ein ruhendes Zeitalter: noch hat es niemand betreten
-      this.ink(c, LEFT + PW / 2, PY + 532, 'Dieses Zeitalter ruht noch im Gestein.\nSeine Tiere zeigen sich, sobald es erwacht.', 17, INK_RED, { fontStyle: 'italic', align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
+      this.ink(c, LEFT + PW / 2, PY + 532, 'This era still sleeps in stone.\nIts animals will appear when it awakens.', 17, INK_RED, { fontStyle: 'italic', align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
     }
 
     // rechte Seite: Verzeichnis (bei vielen Tieren in zwei Spalten)
-    this.head(c, RIGHT + PW / 2, PY + 36, 'Inhalt', 28).setOrigin(0.5);
+    this.head(c, RIGHT + PW / 2, PY + 36, 'Contents', 28).setOrigin(0.5);
     this.rule(c, RIGHT + 60, PY + 62, PW - 120);
     const two = n > 18, per = two ? Math.ceil(n / 2) : n, rowH = Math.min(30, Math.floor(500 / per));
     list.forEach((e, i) => {
@@ -400,9 +400,9 @@ export class AquapendiumScene extends Phaser.Scene {
       g.lineBetween(cx + Math.cos(th - 1.2) * r0, cy + Math.sin(th - 1.2) * r0, cx + Math.cos(th - 1.2) * r1, cy + Math.sin(th - 1.2) * r1);
     }
     c.add(g);
-    this.ink(c, cx, PY + 500, 'Dieses Zeitalter ruht noch im Gestein.\nSeine Tiere zeigen sich, sobald es erwacht.', 17, INK_RED, { fontStyle: 'italic', align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
+    this.ink(c, cx, PY + 500, 'This era still sleeps in stone.\nIts animals will appear when it awakens.', 17, INK_RED, { fontStyle: 'italic', align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
     // rechte Seite: das Verzeichnis ist angelegt, aber noch leer
-    this.head(c, RIGHT + PW / 2, PY + 36, 'Inhalt', 28).setOrigin(0.5);
+    this.head(c, RIGHT + PW / 2, PY + 36, 'Contents', 28).setOrigin(0.5);
     this.rule(c, RIGHT + 60, PY + 62, PW - 120);
     const lines = this.add.graphics();
     for (let i = 0; i < 12; i++) {
@@ -413,7 +413,7 @@ export class AquapendiumScene extends Phaser.Scene {
       lines.fillCircle(RIGHT + 102, y, 4);
     }
     c.add(lines);
-    this.ink(c, RIGHT + PW / 2, PY + PH - 92, `Die Seiten ${ofEra(SECTIONS[k].ep)} sind noch nicht beschrieben.`, 17, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.ink(c, RIGHT + PW / 2, PY + PH - 92, `Pages ${ofEra(SECTIONS[k].ep)} have not yet been written.`, 17, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
   }
 
   // ---------------------------------------------------------------- Eine Tierseite
@@ -436,14 +436,14 @@ export class AquapendiumScene extends Phaser.Scene {
     this.picture(c, e, known, fx + FRAME.w / 2, fy + FRAME.h / 2);
     const nameT = this.head(c, LEFT + PW / 2, PY + 470, known ? d.name : '???', known && d.name.length > 14 ? 30 : 36).setOrigin(0.5);
     void nameT;
-    this.ink(c, LEFT + PW / 2, PY + 514, known ? e.latin : 'Noch unbekannt', 22, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
+    this.ink(c, LEFT + PW / 2, PY + 514, known ? e.latin : 'Not yet discovered', 22, INK_SOFT, { fontStyle: 'italic' }).setOrigin(0.5);
     this.rule(c, LEFT + 110, PY + 552, PW - 220);
     this.ink(c, LEFT + PW / 2, PY + PH - 40, `– ${e.no} –`, 17, INK_SOFT).setOrigin(0.5);
 
     // ---- rechte Seite: Steckbrief
     const rx = RIGHT + 44;
-    this.head(c, rx, PY + 22, 'Steckbrief', 26);
-    const tag = known ? ROLE_TEXT[d.role].toUpperCase() : 'UNBEKANNT';
+    this.head(c, rx, PY + 22, 'Profile', 26);
+    const tag = known ? ROLE_TEXT[d.role].toUpperCase() : 'UNKNOWN';
     const tt = this.ink(c, RIGHT + PW - 44, PY + 28, tag, 14, INK_RED, { fontStyle: '700' }).setOrigin(1, 0).setLetterSpacing(2);
     const tg = this.add.graphics();
     tg.lineStyle(1.5, 0x7a2a20, 0.8);
@@ -451,16 +451,16 @@ export class AquapendiumScene extends Phaser.Scene {
     c.add(tg);
     this.rule(c, rx, PY + 66, PW - 88);
 
-    const layer = d.crawl ? 'Kriecht am Grund' : d.art.t === 'jelly' ? 'Treibt im Wasser' : d.layer ? LAYER_TEXT[d.layer] : 'Überall im Wasser';
+    const layer = d.crawl ? 'Crawls along the bottom' : d.art.t === 'jelly' ? 'Drifts in the water' : d.layer ? LAYER_TEXT[d.layer] : 'Throughout the water';
     const rows: [string, string][] = [
-      ['Zeitalter', e.eras.join(', ') || '–'],
-      ['Gelebt', `vor ca. ${e.ma} Mio. Jahren`],
-      ['Länge', lengthText(e.cm)],
-      ['Rolle', ROLE_TEXT[d.role]],
-      ['Nahrung', DIET_TEXT[d.diet]],
-      ['Lebensweise', herdText(d)],
-      ['Lebensraum', layer],
-      ['Häufig in', placesText(d)],
+      ['Era', e.eras.join(', ') || '–'],
+      ['Lived', `about ${e.ma} million years ago`],
+      ['Length', lengthText(e.cm)],
+      ['Role', ROLE_TEXT[d.role]],
+      ['Food', DIET_TEXT[d.diet]],
+      ['Lifestyle', herdText(d)],
+      ['Habitat', layer],
+      ['Common in', placesText(d)],
     ];
     rows.forEach(([k, v], i) => {
       const y = PY + 82 + i * 30;
@@ -470,14 +470,14 @@ export class AquapendiumScene extends Phaser.Scene {
     });
 
     // Werte aus dem Spiel
-    this.head(c, rx, PY + 336, 'Werte', 22);
+    this.head(c, rx, PY + 336, 'Stats', 22);
     this.rule(c, rx + 84, PY + 350, PW - 88 - 84);
     const stats: [string, number, number, string][] = [
-      ['Lebenskraft', d.hp, MAXES.hp, `${d.hp}`],
-      ['Biss', d.dmg, MAXES.dmg, d.dmg ? `${d.dmg}` : '–'],
-      ['Stärke', d.power, MAXES.power, `${d.power}`],
-      ['Tempo', d.speed, MAXES.speed, `${d.speed}`],
-      ['Sinne', d.sense, MAXES.sense, d.sense ? `${d.sense}` : '–'],
+      ['Vitality', d.hp, MAXES.hp, `${d.hp}`],
+      ['Bite', d.dmg, MAXES.dmg, d.dmg ? `${d.dmg}` : '–'],
+      ['Power', d.power, MAXES.power, `${d.power}`],
+      ['Speed', d.speed, MAXES.speed, `${d.speed}`],
+      ['Senses', d.sense, MAXES.sense, d.sense ? `${d.sense}` : '–'],
     ];
     const bar = this.add.graphics();
     stats.forEach(([k, v, max, label], i) => {
