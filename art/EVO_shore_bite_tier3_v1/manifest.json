@@ -1,0 +1,35 @@
+{
+  "id": "shore_bite_tier3",
+  "created": "2026-11-05",
+  "node": "shore",
+  "visual_trait": "bite",
+  "visual_stage": 3,
+  "status": "art_only",
+  "file": "masters/shore_bite_tier3.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    19,
+    125,
+    2154,
+    650
+  ],
+  "sha256": "dfa72f749c35630ad71da0047ab639bc7febbd3a3dfb6a1d2f9fc8d0d4055bfc",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-9fdc866f-6675-40d9-92e2-67a2cb0fa80b.png",
+  "reference": "art/EVO_shore_base_v1/masters/shore_base.png",
+  "notes": [
+    "Original PNG bytes preserved.",
+    "Bite specialization only: larger head, deep mandible, stronger jaw muscles and enlarged conical gripping teeth.",
+    "Four limbs; original aquatic tail and neutral lateral stance retained.",
+    "No background, text, stats or runtime integration.",
+    "Animation registration and separated parts remain future work."
+  ]
+}
