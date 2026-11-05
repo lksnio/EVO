@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { placeBound, protectedKey, stemsOf } from './texRules';
+import { evictable, placeBound, protectedKey, stemsOf } from './texRules';
 
 // ---------------------------------------------------------------------------
 // Grafikspeicher im Griff: Fast alle Bilder des Spiels werden zur Laufzeit gemalt (Canvas) und bleiben danach als Textur
@@ -9,10 +9,11 @@ import { placeBound, protectedKey, stemsOf } from './texRules';
 //   – alles aus anderen Zeitaltern,
 //   – ortsgebundene Bilder von Orten, die länger zurückliegen als die letzten KEEP_PLACES (wer hin- und herschwimmt,
 //     findet sie noch vor).
-// Nie freigegeben wird, was gerade irgendwo zu sehen ist oder in einer laufenden Animation steckt (samt seiner
-// Geschwisterbilder mit demselben Namensstamm, z. B. allen Bewegungsphasen und Teilen einer Art), was schon vor dem ersten Ort da war (Titelbild,
-// Grundausstattung) und geladene Bilddateien (sie ließen sich nicht neu malen). Freigegebenes wird bei Bedarf einfach neu
-// gemalt – die Maler prüfen, ob es ihr Bild schon gibt.
+// Freigegeben werden nur Bildfamilien, deren Neumalen geprüft ist (art/texRules.ts: EVICTABLE) – die großen
+// Hintergründe, die Arten, Pflanzen, Licht und Wasser. Nie freigegeben wird, was gerade irgendwo zu sehen ist oder in
+// einer laufenden Animation steckt (samt Geschwisterbildern mit demselben Namensstamm, z. B. allen Bewegungsphasen einer
+// Art), was schon vor dem ersten Ort da war (Titelbild, Grundausstattung) und geladene Bilddateien (sie ließen sich nicht
+// neu malen). Freigegebenes wird bei Bedarf einfach neu gemalt – die Maler prüfen, ob es ihr Bild schon gibt.
 //
 // Im Koop gilt das je Rechner: Jeder zeichnet nur den Ort seines eigenen Tiers und gibt nur seine eigenen Bilder frei.
 // ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ export function settle(scene: Phaser.Scene, keep: string[] = []) {
   const used = inUse(scene.game);
   const gone = new Set<string>(), staleAnims = new Set<string>();
   for (const [key, s] of owner) {
-    if (!tm.exists(key) || !generated(tm, key)) continue;
+    if (!evictable(key) || !tm.exists(key) || !generated(tm, key)) continue;
     if (protectedKey(key, used)) continue;
     const otherEpoch = s.epoch !== current.epoch;
     const stalePlace = placeBound(key) && !kept.has(placeOf(s)) && !keep.some(k => key.includes('_' + k));

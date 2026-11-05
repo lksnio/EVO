@@ -546,10 +546,12 @@ trübem Wasser und Schluchtschatten – den Ort. Kurz nachdem ein Ort steht, wir
 - alles, was andere Zeitalter gemalt haben,
 - ortsgebundene Bilder von Orten, die länger zurückliegen als die letzten zwei (wer hin- und herschwimmt, findet sie noch vor).
 
-Nie freigegeben wird, was gerade irgendwo zu sehen ist oder in einer laufenden Animation steckt – samt allen Bildern mit
-demselben Namensstamm (Bewegungsphasen, Teile eines Fisches) –, was schon vor dem ersten Ort da war (Titel,
+Freigegeben werden nur Bildfamilien, deren Neumalen geprüft ist (`EVICTABLE`): die großen Hintergründe, Arten,
+Pflanzen, Licht und Wasser. Die verformbaren Fischnetze (Spielerfisch, Artgenossen, gemalte Fische) bleiben außen vor –
+ihre Zwischenspeicher hängen an den Bildern. Nie freigegeben wird außerdem, was gerade irgendwo zu sehen ist oder in einer
+laufenden Animation steckt – samt allen Bildern mit demselben Namensstamm –, was schon vor dem ersten Ort da war (Titel,
 Grundausstattung) und geladene Bilddateien. Freigegebenes wird bei Bedarf neu gemalt; Animationen, die darauf zeigten,
-entstehen mit. Gemessen: Devon → Karbon gibt rund 75 MB frei (≈ 205 → 129 MB); zurück im Devon wird neu gemalt.
+entstehen mit. Gemessen: Devon → Karbon ≈ 205 → 141 MB (ohne Freigeben 198 MB); im Devon bleibt es bei höchstens ≈ 214 MB.
 
 Im Koop gilt das je Rechner: Jeder zeichnet und berechnet nur den Ort seines eigenen Tiers.
 

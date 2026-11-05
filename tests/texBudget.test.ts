@@ -22,3 +22,11 @@ describe('Grafikspeicher', () => {
     expect(protectedKey('inkbg_far_river', used)).toBe(false);
   });
 });
+
+describe('Grafikspeicher: was freigegeben werden darf', () => {
+  it('nur geprüfte Familien – nie Fischnetze oder Unbekanntes', async () => {
+    const { evictable } = await import('../src/art/texRules');
+    for (const k of ['inkbg_far_river_water_reef', 'sp_dunkleosteus_1', 'sea_sil_moythomasia_0', 'food_ozean_1_2', 'river_caustic_3', 'surface_loop_sky']) expect(evictable(k)).toBe(true);
+    for (const k of ['starter_g0_f0_k0_body', 'wf_moythomasia_fb', 'fauna_dunkleosteusP_fb', 'cr2_abc_fb', 'ttl_fossil', 'vignette']) expect(evictable(k)).toBe(false);
+  });
+});

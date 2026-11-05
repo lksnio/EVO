@@ -5,6 +5,18 @@ const PLACE_FAMILIES = [/^inkbg_/, /^inkmurk_/, /^chasm_shade/, /^shade_gap_/];
 
 export const placeBound = (key: string) => PLACE_FAMILIES.some(r => r.test(key));
 
+/**
+ * Bildfamilien, die sich gefahrlos freigeben lassen: Ihre Maler prüfen je Bild, ob es noch da ist, und malen es sonst neu;
+ * niemand hält ihre Bilder anderswo fest. Nicht dabei sind die verformbaren Fischnetze (Spielerfisch, Artgenossen, gemalte
+ * Fische – ihre Zwischenspeicher und Netze hängen an den Bildern), Bedienelemente und alles Unbekannte.
+ */
+const EVICTABLE = [
+  ...PLACE_FAMILIES, /^depth_shade/,
+  /^sp_/, /^sea_sil_/, /^food_/, /^ink_food_/, /^plankton$/, /^grapto$/,
+  /^river_/, /^swell_/, /^rain_/, /^surface_loop_/, /^surface_clouds$/, /^surface_glint$/,
+];
+export const evictable = (key: string) => EVICTABLE.some(r => r.test(key));
+
 /** Die Stämme sichtbarer Bilder: „wf_moythomasia_fb“ → „wf_moythomasia“. */
 export function stemsOf(keys: Iterable<string>) {
   const stems = new Set<string>();
