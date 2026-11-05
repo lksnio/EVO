@@ -2115,12 +2115,13 @@ class GameState {
   }
 
   /**
-   * Die Werte des eigenen Tiers, wie die Übersicht sie zeigt – ganze Zahlen, so wie es gerade ist (ein Jungtier ist noch
-   * schwächer). Gebiss und Schädel messen sich am ersten Fisch, ausgewachsen: Er hat je 10.
+   * Die Werte des eigenen Tiers. Beim Startfisch zeigen die Waffen das Erbgut ab 10 Punkten; das Wachstum verändert
+   * den tatsächlichen Schaden, nicht diese Punkteskala.
    */
   shown() {
     const points=this.r.cls==='fish'?(n:number)=>Math.floor(n+1e-9):Math.round;
     const st = this.stats(this.r.cls, undefined, this.lifeK);
+    const weapons = this.r.cls === 'fish' ? this.stats('fish', this.r.traits, ADULT) : st;
     // im Karbon misst sich das Gebiss am ersten Pederpes, sonst am ersten Fisch
     const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT));
     const t = this.r.traits;
@@ -2132,8 +2133,8 @@ class GameState {
       sight: Math.round(100 * sightOf(t.sightGain ?? 0)),
       /** so lange reicht die Kraft für einen Spurt (in Zehntelsekunden: ein Kreis, normaler Körperbau → 30) */
       stam: Math.round(10 * STAMINA.sprint * st.endurance),
-      bite: points((10 * st.bite) / s0.bite),
-      skull: points((10 * st.ram) / s0.ram),
+      bite: points((10 * weapons.bite) / s0.bite),
+      skull: points((10 * weapons.ram) / s0.ram),
       /** deine Gruppe: so viele, wie auf deinen Ruf kommen, mal ihre Angriffskraft (du selbst wärst 10) */
       swarm: Math.round(10 * n * this.swarmStrength()),
       /** Schuppen: robustere Schuppen bis zum Schuppenpanzer (aus überstandenen Angriffen) */

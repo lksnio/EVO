@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT, DEPTH } from '../config';
 import { audio } from '../audio/Audio';
@@ -17,7 +18,7 @@ import { orderRoe } from '../sim/roe';
  *   – Nächste Generation: der Laich, den du und deine Geschwister gelegt habt. Wer daraus wählt, beginnt die nächste
  *     Generation. Der übrige Laich und die anderen Linien bleiben erhalten.
  * Jedes Ei zeigt, was in ihm steckt: das ausgewachsene Tier und seine Erbgutwerte (Lebenskraft, Ausdauer, Gebiss, Stoß,
- * Tempo, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Sammelfunde
+ * Flossen, Schuppen), daneben der Unterschied zu deinem Tier, das gerade gestorben ist. Sammelfunde
  * verändern die sichtbaren oder späteren Erbgutwerte nicht.
  *
  * Im Koop ist der Laich der gemeinsame (net/Species.ts): Die Liste ändert sich, wenn ein Artgenosse ein Ei nimmt; ein Ei
@@ -35,14 +36,13 @@ export interface RoeData {
   years: number;
 }
 
-type StatKey = 'hp' | 'stam' | 'bite' | 'ram' | 'fins' | 'speed' | 'scales';
+type StatKey = 'hp' | 'stam' | 'bite' | 'ram' | 'fins' | 'scales';
 const STATS: [StatKey, string][] = [
   ['hp', 'Lebenskraft'],
   ['stam', 'Ausdauer'],
   ['bite', 'Gebiss'],
   ['ram', 'Schädel'],
   ['fins', 'Flossen'],
-  ['speed', 'Tempo'],
   ['scales', 'Schuppen'],
 ];
 type Shown = Record<StatKey, number>;
@@ -255,7 +255,7 @@ export class RoeScene extends Phaser.Scene {
 
       L.add([ring, img]);
       const k = this.slots.length;
-      img.setInteractive({ useHandCursor: true });
+      img.setInteractive({ cursor: CURSOR.pointer });
       img.on('pointerover', () => !this.confirm && this.setFocus(k));
       img.on('pointerdown', () => {
         if (this.confirm) return;

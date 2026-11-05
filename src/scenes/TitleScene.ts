@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, DEBUG, FONT, TITLE_FONT, UI } from '../config';
 import { audio, type Sfx } from '../audio/Audio';
@@ -176,7 +177,7 @@ class MenuItem extends Phaser.GameObjects.Container implements NavItem {
     this.add([this.glow, this.mark, this.label, this.shine]);
     scene.add.existing(this);
     // die Trefferfläche: die ganze Zeile, etwas großzügiger als die Schrift
-    const zone = (this.zone = scene.add.zone(x - 12, y, this.label.width + 90, 42).setOrigin(0, 0.5).setInteractive({ useHandCursor: true }));
+    const zone = (this.zone = scene.add.zone(x - 12, y, this.label.width + 90, 42).setOrigin(0, 0.5).setInteractive({ cursor: CURSOR.pointer }));
     zone.on('pointerover', () => {
       if (!this.focused && this.visible && this.alpha > 0.5) audio.sfx('hover');
       onHover();
@@ -500,7 +501,7 @@ export class TitleScene extends Phaser.Scene {
    * bestimmen. Sind eigene Werte gesetzt, steht darunter leise „eigene Werte“.
    */
   private devButton(x: number, y: number) {
-    const img = this.add.image(x, y, 'ic_gear').setDisplaySize(26, 26).setAlpha(0.45).setDepth(60).setInteractive({ useHandCursor: true });
+    const img = this.add.image(x, y, 'ic_gear').setDisplaySize(26, 26).setAlpha(0.45).setDepth(60).setInteractive({ cursor: CURSOR.pointer });
     const note = text(this, x + 22, y + 24, '', 12, UI.ochre).setOrigin(1, 0).setDepth(60).setAlpha(0.8);
     const upd = () => {
       const n = changedCount();

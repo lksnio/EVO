@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, TITLE_FONT, UI } from '../config';
 import { audio } from '../audio/Audio';
@@ -751,7 +752,7 @@ export class EraScene extends Phaser.Scene {
       .setOrigin(0.5).setLetterSpacing(9).setDepth(10);
     const rule = this.add.image(W / 2 - 75, 52, 'era_rule').setDisplaySize(150, 3).setAlpha(0.8).setOrigin(0, 0.5).setDepth(10);
     const back = this.add.text(30, 30, '‹  TITELBILD', { fontFamily: TITLE_FONT, fontSize: '13px', color: UI.boneDim, fontStyle: '700', resolution: 2, shadow: SHADOW })
-      .setOrigin(0, 0.5).setLetterSpacing(4).setDepth(10).setInteractive({ useHandCursor: true });
+      .setOrigin(0, 0.5).setLetterSpacing(4).setDepth(10).setInteractive({ cursor: CURSOR.pointer });
     back.on('pointerover', () => {
       back.setColor(UI.bone);
       audio.sfx('hover');

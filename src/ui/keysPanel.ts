@@ -1,3 +1,4 @@
+import { CURSOR } from './cursor';
 import Phaser from 'phaser';
 import { W, H, FONT, TITLE_FONT, UI } from '../config';
 import { audio } from '../audio/Audio';
@@ -64,7 +65,7 @@ export function openKeys(scene: Phaser.Scene, depth: number, onClose: () => void
     for (const slot of [0, 1] as const) {
       const chip: Chip = { b: d.id, slot, x: slot ? c2 : c1, y: ry, g: scene.add.graphics(), t: scene.add.text(slot ? c2 : c1, ry, '', { fontFamily: TITLE_FONT, fontSize: '14px', color: UI.bone, fontStyle: '700', resolution: 2 }).setOrigin(0.5).setLetterSpacing(1) };
       c.add([chip.g, chip.t]);
-      const zone = scene.add.zone(chip.x, ry, CHIP.w, CHIP.h + 2).setInteractive({ useHandCursor: true });
+      const zone = scene.add.zone(chip.x, ry, CHIP.w, CHIP.h + 2).setInteractive({ cursor: CURSOR.pointer });
       zone.on('pointerover', () => {
         hover = chips.indexOf(chip);
         audio.sfx('hover');

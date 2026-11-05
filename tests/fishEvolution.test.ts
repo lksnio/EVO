@@ -1,6 +1,7 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {fishBirthGains,weightedFishDamage,finSpeed,appendFishMark} from '../src/sim/fishEvolution';
-import {fishTree} from '../src/sim/fishTree';
+import {fishTree,fishSuccessors,fishTreeBranches} from '../src/sim/fishTree';
+import {STARTER_FORMS,starterFormIndex} from '../src/sim/starterFish';
 import {game,newStyle} from '../src/state/GameState';
 import {ADULT} from '../src/sim/life';
 vi.mock('phaser',()=>({default:{}}));
@@ -68,6 +69,68 @@ describe('Nur beobachtete Evolutionspfade',()=>{
   const tree=fishTree([{id:'a',name:'A',trace:[root,bite],extinct:true},{id:'b',name:'B',trace:[root,skull]},{id:'c',name:'A',trace:[root,skull,{form:8,primary:3}]}]);
   expect(tree.nodes).toHaveLength(4);expect(tree.nodes[0].children).toHaveLength(2);expect(Math.max(...tree.nodes.map(n=>n.depth))).toBe(2);
  });
+});
+
+describe('Erreichbare Möglichkeiten neben euren Wegen',()=>{
+ it('zeigt nur aktuelle Spieler als lebende Stränge und bewahrt ältere echte Verläufe als Geschichte',()=>{
+  const root={form:0,primary:0};
+  const own={id:'local-2',name:'Deine Linie',trace:[root,{form:1,primary:1}]};
+  const ben={id:'peer-now',name:'Ben',trace:[root,{form:7,primary:3}]};
+  const old={id:'peer-old',name:'Ben',trace:[root,{form:4,primary:0}]};
+  const tree=fishTreeBranches([old,{id:'peer-empty',name:'Alt',trace:[root]}, {...ben,trace:[root]}],own,[ben]);
+  expect(tree.filter(b=>!b.archived&&!b.extinct)).toEqual([own,ben]);
+  expect(tree.find(b=>b.id===old.id)).toEqual({...old,archived:true});
+  expect(tree.some(b=>b.id==='peer-empty')).toBe(false);
+  expect(fishTree(tree,true).nodes.find(n=>!n.possible&&n.mark.form===4)!.children).toEqual([]);
+ });
+ it('zeigt alle 48 Formen über legale Einzelschritte, unabhängige Flossen und begrenzten Sekundärschaden',()=>{
+  const pending=[{form:0,primary:0}],seen=new Set<string>(),forms=new Set<number>();
+  while(pending.length){
+   const mark=pending.pop()!,key=`${mark.form}.${mark.primary}`;
+   if(seen.has(key))continue;seen.add(key);forms.add(mark.form);
+   const before=STARTER_FORMS[mark.form];
+   for(const next of fishSuccessors(mark)){
+    const after=STARTER_FORMS[next.form];
+    expect(after.reduce((sum,v,i)=>sum+v-before[i],0)).toBe(1);
+    if(mark.primary)expect(next.primary).toBe(mark.primary);
+    if(next.primary===1)expect(after[2]).toBeLessThanOrEqual(1);
+    if(next.primary===3)expect(after[0]).toBeLessThanOrEqual(1);
+    pending.push(next);
+   }
+  }
+  expect(forms.size).toBe(48);
+ });
+ it('trennt ungespielte Äste von beiden echten Verläufen, ohne ihre gemeinsame Abstammung zu verändern',()=>{
+  const root={form:0,primary:0},a={id:'a',name:'Anna',trace:[root,{form:1,primary:1}]},b={id:'b',name:'Ben',trace:[root,{form:7,primary:3}]};
+  const observed=fishTree([a,b]),tree=fishTree([a,b],true);
+  expect(tree.nodes.filter(n=>!n.possible).map(n=>n.id)).toEqual(observed.nodes.map(n=>n.id));
+  expect(tree.roots[0].routes.map(b=>b.name)).toEqual(['Anna','Ben']);
+  expect(tree.nodes.some(n=>n.possible)).toBe(true);
+  for(const parent of tree.nodes)for(const child of parent.children)if(child.possible){
+   expect(fishSuccessors(parent.mark)).toContainEqual(child.mark);
+   expect(child.routes).toEqual([]);expect(child.branches).toEqual([]);
+  }
+  expect(Math.max(...tree.nodes.map(n=>n.depth))).toBeLessThanOrEqual(7);
+  expect(tree.nodes.every(n=>Number.isFinite(n.x))).toBe(true);
+ });
+ it('endet am vollständig entwickelten Tier und setzt keine weiteren scheinbaren Stufen dahinter',()=>{
+  const mark={form:starterFormIndex([3,3,1]),primary:1};
+  expect(fishSuccessors(mark)).toEqual([]);
+  const tree=fishTree([{id:'a',name:'A',trace:[{form:0,primary:0},mark]}],true);
+  expect(tree.nodes.find(n=>!n.possible&&n.mark.form===mark.form)!.children).toEqual([]);
+ });
+});
+
+it('verstärkt Grundbiss und alle Gebissstufen um 25 Prozent bei unveränderten sichtbaren Punkten',()=>{
+ for(const points of [10,25,60,125]){
+  const traits={...game.traits,biteGain:points-10};
+  const st=game.stats('fish',traits,ADULT),base=game.stats('fish',{...game.traits,biteGain:0},ADULT);
+  const oldBaseBite=4*base.size*Math.pow(ADULT.grow,.6);
+  expect(st.bite).toBeCloseTo(oldBaseBite*1.25*points/10);
+  expect(game.roeShown({traits}).bite).toBe(points);
+  expect(st.ram).toBe(base.ram);
+ }
+ expect(game.shown().bite).toBe(10);
 });
 
 it('beim Übernehmen eines fremden Eis bleibt der bisherige Ast erhalten und der fremde Pfad wird fortgesetzt',()=>{

@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, FONT, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
@@ -159,7 +160,7 @@ export class AquapendiumScene extends Phaser.Scene {
       const t = this.add.text(x + TAB.w / 2, TAB.y + TAB.h / 2 + 1, sec.ep.name.toUpperCase(), {
         fontFamily: TITLE_FONT, fontSize: '12px', color: '#e8d6ac', fontStyle: '700', resolution: 2,
       }).setOrigin(0.5).setLetterSpacing(2);
-      const hit = this.add.zone(x, TAB.y, TAB.w, TAB.h + 6).setOrigin(0).setInteractive({ useHandCursor: true });
+      const hit = this.add.zone(x, TAB.y, TAB.w, TAB.h + 6).setOrigin(0).setInteractive({ cursor: CURSOR.pointer });
       hit.on('pointerover', () => {
         if (PAGES[this.page].sec !== k) {
           t.setColor('#fff2d2');
@@ -363,7 +364,7 @@ export class AquapendiumScene extends Phaser.Scene {
       c.add(g);
       this.ink(c, x + 20, y + 1, `${e.no}`.padStart(2, '0'), 15, INK_SOFT);
       const name = this.ink(c, x + 48, y, known ? e.def.name : '· · · · · · ·', 18, known ? INK : INK_SOFT, { fontStyle: known ? '700' : '500' });
-      const hit = this.add.rectangle(x - 4, y - 1, two ? 240 : 300, rowH, 0x7a4a1c, 0).setOrigin(0).setInteractive({ useHandCursor: true });
+      const hit = this.add.rectangle(x - 4, y - 1, two ? 240 : 300, rowH, 0x7a4a1c, 0).setOrigin(0).setInteractive({ cursor: CURSOR.pointer });
       hit.on('pointerover', () => {
         hit.setFillStyle(0x7a4a1c, 0.16);
         name.setColor('#7a2a20');

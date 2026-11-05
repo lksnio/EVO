@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, UI } from '../config';
 import { audio } from '../audio/Audio';
@@ -623,7 +624,7 @@ export class HudScene extends Phaser.Scene {
     const head = title(this, 0, -10, '', 22, UI.ochre).setOrigin(0.5);
     const sub = text(this, 0, 16, this.isTouch ? 'Tippen: abbrechen' : 'Esc: abbrechen', 15, UI.boneDim).setOrigin(0.5);
     c.add([bg, head, sub]);
-    c.setSize(380, 68).setInteractive({ useHandCursor: true }).on('pointerdown', () => this.quitting && bus.emit('quitCancel'));
+    c.setSize(380, 68).setInteractive({ cursor: CURSOR.pointer }).on('pointerdown', () => this.quitting && bus.emit('quitCancel'));
     const onCount = (n: number) => {
       this.tweens.killTweensOf(c);
       this.quitting = n >= 0;

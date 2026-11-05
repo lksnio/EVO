@@ -3,6 +3,7 @@ import { FONT, TITLE_FONT, UI } from '../config';
 import { audio, type Sfx } from '../audio/Audio';
 import { tex, type Ctx } from '../util/canvas';
 import { capture } from '../state/keymap';
+import { CURSOR } from './cursor';
 
 export function text(
   scene: Phaser.Scene,
@@ -218,7 +219,7 @@ export class Button extends Phaser.GameObjects.Container {
     this.setSize(this.bw, this.bh);
     // Trefferfläche: bei Containern liegt (0,0) oben links
     this.setInteractive(new Phaser.Geom.Rectangle(0, 0, this.bw, this.bh), Phaser.Geom.Rectangle.Contains);
-    if (this.input) this.input.cursor = 'pointer';
+    if (this.input) this.input.cursor = CURSOR.pointer;
     this.on('pointerover', () => {
       this.hover = true;
       if (!this.disabled) audio.sfx('hover');
@@ -371,7 +372,7 @@ export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 50
 /** Ton an/aus als schlichtes Symbol, ohne Knopf darum (für das Titelbild). */
 export function soundIcon(scene: Phaser.Scene, x: number, y: number, size = 30) {
   const key = () => (audio.muted ? 'ic_mute' : 'ic_sound');
-  const img = scene.add.image(x, y, key()).setDisplaySize(size, size).setAlpha(0.5).setInteractive({ useHandCursor: true });
+  const img = scene.add.image(x, y, key()).setDisplaySize(size, size).setAlpha(0.5).setInteractive({ cursor: CURSOR.pointer });
   img.on('pointerover', () => img.setAlpha(0.95));
   img.on('pointerout', () => img.setAlpha(0.5));
   img.on('pointerdown', () => toggleMute());

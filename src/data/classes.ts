@@ -26,7 +26,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     name: 'Urfisch',
     habitat: 'water',
     // etwas gemächlicher als früher (215): Platz nach oben für schnellere Nachkommen; zäher als früher (30)
-    base: { hp: 45, bite: 4, ram: 4, speed: 183, jump: 0 },
+    base: { hp: 45, bite: 5, ram: 4, speed: 183, jump: 0 },
     dawn: 'Im dunklen Urozean beginnt dein Leben.',
   },
   amphibian: {

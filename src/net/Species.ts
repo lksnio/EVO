@@ -2,6 +2,7 @@ import { bus, game, type RoeEgg } from '../state/GameState';
 import { EPOCHS } from '../data/epochs';
 import type { SpeciesAdvanced, SpeciesOver, SpeciesPicked } from './protocol';
 import { netWanted, playerName, serverUrl } from './NetSync';
+import type { FishBranch } from '../sim/fishTree';
 
 // Der gemeinsame Laich im Koop: Nur Eier der aktuellen und nächsten Generation bleiben nutzbar (server/SpeciesRoom.ts). Die Verbindung
 // bleibt über alle Szenen hinweg bestehen (Level, Laich-Wahl, Karte) – sie spiegelt den gemeinsamen Laich in den Spielstand
@@ -55,6 +56,14 @@ class SpeciesLink {
     const r = this.room;
     if (!r) return [];
     return [...r.state.members.entries()].filter(([id]) => id !== r.sessionId).map(([, n]) => n);
+  }
+
+  /** Current peers only; the persistent branch archive also contains earlier, disconnected sessions. */
+  get peerBranches(): FishBranch[] {
+    const r=this.room;if(!r)return [];
+    return [...r.state.members.keys()].filter(id=>id!==r.sessionId).flatMap(id=>{
+      try{const b=JSON.parse(r.state.branches.get(id)??'null');return b&&Array.isArray(b.trace)&&b.trace.length&&b.trace.length<=8?[b as FishBranch]:[];}catch{return [];}
+    });
   }
 
   get livingPeers():{id:string;name:string;place:string;identity:string}[] {

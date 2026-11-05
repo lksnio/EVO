@@ -12,6 +12,7 @@ import { preloadEditorUnits } from '../editor/catalog';
 import { preloadWorldFish } from '../art/fish/worldFish';
 import { preloadPainted } from '../art/fish/painted';
 import { preloadStarterFish } from '../art/fish/starterAssets';
+import { CURSOR } from '../ui/cursor';
 
 
 /** Zeichnet beim Start die Grafiken, die überall gebraucht werden. */
@@ -33,6 +34,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this.input.setDefaultCursor(CURSOR.arrow);
     this.cameras.main.setBackgroundColor('#030405');
     // schlicht wie im Titelbild: EVO, darunter Living World
     this.add.text(W / 2, H / 2 - 18, 'EVO', { fontFamily: TITLE_FONT, fontSize: '72px', color: UI.bone, fontStyle: '400', resolution: 2 })

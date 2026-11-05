@@ -1,3 +1,4 @@
+import { CURSOR } from '../ui/cursor';
 import Phaser from 'phaser';
 import { W, H, UI, TITLE_FONT } from '../config';
 import { audio } from '../audio/Audio';
@@ -74,7 +75,7 @@ class EggCard extends Phaser.GameObjects.Container {
       this.add(scene.add.rectangle(-104, y0 + 14, 208 * Math.min(1, (shown - 10) / 20 + 0.04), 6, top ? 0xc8913c : 0x8a9a6a, 1).setOrigin(0, 0.5));
     });
     this.setSize(250, 330);
-    this.ring.setInteractive({ useHandCursor: true });
+    this.ring.setInteractive({ cursor: CURSOR.pointer });
     this.ring.on('pointerover', () => this.setFocus(true));
     this.ring.on('pointerdown', () => this.click());
     scene.add.existing(this);

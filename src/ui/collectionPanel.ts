@@ -1,3 +1,4 @@
+import { CURSOR } from './cursor';
 import Phaser from 'phaser';
 import { COLLECTION_FOSSILS, COLLECTION_SHELLS } from '../data/collection';
 import { collectionFossilTexture, collectionShellTexture, collectionStarTexture, starPoint } from '../art/collectionArt';
@@ -18,7 +19,7 @@ export function collectionStar(scene: Phaser.Scene, parent: Phaser.GameObjects.C
       .setDisplaySize(radius * .19, radius * .19).setName(`collection-shell-${s.id}`);
     star.add([fossil,shell]);
     if (inspect) for (const [img,kind] of [[fossil,'fossil'],[shell,'shell']] as const) {
-      img.setInteractive({useHandCursor:true});
+      img.setInteractive({cursor: CURSOR.pointer});
       img.on('pointerover',()=>inspect(kind,i)).on('pointerdown',()=>inspect(kind,i));
     }
   }
