@@ -18,6 +18,8 @@ export interface StarterMotionPose {
   bob: number;
   lunge: number;
   opening: number;
+  finPhase?: number;
+  kick?: number;
 }
 
 /** Rigid trunk and head, a bending tail peduncle, and small fin strokes. Every pose starts from the painting. */
@@ -31,17 +33,24 @@ export function starterPoint(u: number, v: number, g: StarterMotionGeometry, p: 
   const calm = 1 - .85 * p.still;
   if (!jaw && u < .44) {
     // The caudal fin rotates as one shape; only its narrow attachment bends towards the stable trunk.
-    const angle = Math.sin(p.phase) * (.025 + clamp(p.speed, 0, 1.5) * .12) * (1 - smooth(.24, .44, u)) * calm;
+    const angle = Math.sin(p.phase) * (.038 + clamp(p.speed, 0, 1.5) * .17) * (1 + (p.kick ?? 0) * .35) * (1 - smooth(.24, .44, u)) * calm;
     const pivot = (.44 - .55) * g.width, dx = x - pivot, c = Math.cos(angle), s = Math.sin(angle);
     x = pivot + dx * c - y * s; y = dx * s + y * c;
   }
   if (!jaw && finWeight > 0) {
     const dorsal = (1 - smooth(.25, .38, v)) * smooth(.25, .38, u) * (1 - smooth(.72, .8, u));
     const ventral = smooth(.64, .78, v) * smooth(.25, .36, u) * (1 - smooth(.6, .72, u));
-    const pectoral = smooth(.55, .7, v) * (1 - smooth(.6, .74, u)) * smooth(.48, .56, u);
-    const tip = Math.max(dorsal, ventral, pectoral) * finWeight * calm;
-    x += Math.sin(p.phase * .8 - .6) * .32 * tip;
-    y += Math.cos(p.phase * .8 - .6) * .22 * tip;
+    const pectoral = smooth(.57, .73, v) * (1 - smooth(.59, .69, u)) * smooth(.46, .55, u);
+    const phase = p.finPhase ?? p.phase * .8, speed = clamp(p.speed, 0, 1);
+    const median = Math.max(dorsal, ventral) * finWeight * calm;
+    // Fin rays trail with the flow; the pectoral fin makes a slower paddle stroke from its root.
+    x += (Math.sin(phase - u * 1.5) * .9 - speed * .65) * median;
+    y += Math.cos(phase - u * 1.5) * .4 * median;
+    const flap = (.12 + Math.sin(phase * 1.15) * .34 * (1 - .55 * speed) - (.15 + .55 * speed) * .35) * calm;
+    const px = (.65 - .55) * g.width, py = (.6 - .54) * g.height, dx = x - px, dy = y - py;
+    const weight = pectoral * finWeight;
+    x += (dx * (Math.cos(flap) - 1) - dy * Math.sin(flap)) * weight;
+    y += (dx * Math.sin(flap) + dy * (Math.cos(flap) - 1)) * weight;
   }
   // Posture and bite recoil move the whole body; the cheek and belly never ripple or stretch.
   const c = Math.cos(p.pitch), s = Math.sin(p.pitch);

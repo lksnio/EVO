@@ -7,15 +7,16 @@ import { Grid, type FishPose, type Box } from './rig';
 import { starterGeometry } from './starterLayout';
 import { starterBodyTexture, starterJawTexture, starterTexture, type StarterRegistration, starterSourceForm, starterFinForm } from './starterAssets';
 import { starterPoint, type StarterMotionGeometry, type StarterMotionPose } from './starterMotion';
+import { starterInkColor, starterInkPainting } from './starterAppearance';
 
 interface CutArt { body:string; jaw:string; jawBox:Box }
 const cuts = new WeakMap<Phaser.Textures.TextureManager, Map<number,CutArt>>();
 const smooth = (a:number,b:number,v:number) => { const k=clamp((v-a)/(b-a),0,1);return k*k*(3-2*k); };
 
-/** Reuse the painted parts for all independent fin/weapon combinations; masters stay unchanged. */
+/** Style each source once, then reuse its parts for every fin/weapon combination; masters stay unchanged. */
 function painting(scene:Phaser.Scene,form:number):HTMLImageElement|HTMLCanvasElement {
   const texture=starterTexture(form);
-  if(scene.textures.exists(texture))return scene.textures.get(texture).getSourceImage() as HTMLImageElement;
+  if(scene.textures.exists(texture))return starterInkPainting(scene.textures.get(texture).getSourceImage() as HTMLImageElement,starterGeometry(form).width);
   const cut=cuts.get(scene.textures)?.get(form);
   if(cut){
     const body=scene.textures.get(cut.body).getSourceImage() as HTMLCanvasElement;
@@ -93,7 +94,7 @@ function cutArt(scene:Phaser.Scene,form:number,r:StarterRegistration):CutArt {
   scene.textures.addCanvas(bodyKey,body);scene.textures.addCanvas(jawKey,small);
   // Once split, release the full uploaded source texture. The two shared parts replace it.
   if(scene.textures.exists(starterTexture(form)))scene.textures.remove(starterTexture(form));
-  jaw.width=jaw.height=1;
+  jaw.width=jaw.height=image.width=image.height=1;
   const result={body:bodyKey,jaw:jawKey,jawBox:{x0:x0/w,x1:x1/w,y0:y0/h,y1:y1/h}};
   cache.set(form,result);return result;
 }
@@ -129,6 +130,8 @@ export class StarterFishRig {
   private width:number;
   private phase=Math.random()*6;
   private speed=0;
+  private finPhase=0;
+  private kick=0;
   private closed=0;
   private attack=0;
   private liftStep=-1;
@@ -186,7 +189,7 @@ export class StarterFishRig {
   private drawEyes(){
     const p=this.map(this.r.eye[0],this.r.eye[1]);
     this.lid.setPosition(p.x,p.y).setRotation(p.rot);
-    drawEyeLids(this.lid,0,0,this.r.eye[2]*this.width*this.morph.size,this.r.skin,0x0b111b,this.closed,this.attack);
+    drawEyeLids(this.lid,0,0,this.r.eye[2]*this.width*this.morph.size,starterInkColor(this.r.skin),0x06090c,this.closed,this.attack);
   }
   setLift(value:number){
     const step=Math.round(clamp(value,0,.5)*16);if(step===this.liftStep)return;
@@ -195,14 +198,18 @@ export class StarterFishRig {
     this.bodyImage?.setTexture(body);this.jawImage?.setTexture(jaw);this.liftStep=step;
   }
   pose(p:FishPose){
-    this.speed+=(clamp(p.speed01,0,1.5)-this.speed)*Math.min(1,p.dt*5);
-    this.phase+=p.dt*(p.mode==='idle'?2.4:5+this.speed*8);
+    const idle=p.mode==='idle',target=idle?0:clamp(p.speed01,0,1.5),accel=target-this.speed;
+    this.speed+=accel*Math.min(1,p.dt*5);
+    this.kick=Math.max(0,this.kick-p.dt*2.4,Math.min(.7,accel*1.6));
+    this.phase+=p.dt*(idle?2.2:5+Math.min(1,this.speed)*8.5);
+    this.finPhase+=p.dt*(idle?2.4:4.6+Math.min(1,this.speed)*3);
     this.still=p.still;this.pitch=p.pitch+Math.sin(this.phase*.5)*.005*(1-p.still)+p.dip*.04;
     this.bob=Math.sin(p.t*2.2)*.1*(1-p.still);
     this.lunge=p.lunge*2.5;
     this.opening=clamp(p.open,0,1)*(.42-.035*this.r.state[0]);
     this.motion.phase=this.phase;this.motion.speed=this.speed;this.motion.still=this.still;this.motion.pitch=this.pitch;
     this.motion.bob=this.bob;this.motion.lunge=this.lunge;this.motion.opening=this.opening;
+    this.motion.finPhase=this.finPhase;this.motion.kick=this.kick;
     for(const [grid,jaw] of [[this.body,false],[this.jaw,true]] as const)if(grid){
       for(let j=0;j<=grid.rows;j++)for(let i=0;i<=grid.cols;i++){
         const k=j*(grid.cols+1)+i,q=this.map(grid.vx[k],grid.vy[k],jaw,jaw?0:this.finWeights?.[k]);grid.set(i,j,q.x,q.y);

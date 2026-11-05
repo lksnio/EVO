@@ -173,4 +173,4 @@ export function sensed(d: number, threat: boolean) {
  * Bereich liegt vor dem Fisch, er selbst sitzt am hinteren Rand): base immer, range zusätzlich, je trüber es dort ist; weich nachgeführt.
  * Die Sicht selbst (Reichweite, clarityAt, Freigabe und Wahrnehmung der Tiere) bleibt unberührt – die Klarheit wird nur gelesen.
  */
-export const LIFT = { base: 0.24, range: 0.12, rate: 2.2 };
+export const LIFT = { base: 0.09, range: 0.06, rate: 2.2 };

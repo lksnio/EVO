@@ -8,6 +8,23 @@ const pose = (over: Partial<StarterMotionPose> = {}): StarterMotionPose => ({
 const distance = (a: {x: number; y: number}, b: {x: number; y: number}) => Math.hypot(a.x - b.x, a.y - b.y);
 
 describe('Bewegung der gemalten Startfische', () => {
+  it('lässt Brustflossen unabhängig vom Schwanz paddeln und schützt dabei auch einen hellen Schädelpanzer', () => {
+    const a=pose({phase:.7,finPhase:0,speed:.5}),b=pose({...a,finPhase:2});
+    expect(distance(starterPoint(.56,.79,geometry,a,false,1),starterPoint(.56,.79,geometry,b,false,1))).toBeGreaterThan(1);
+    for(const [u,v] of [[.7,.6],[.84,.48],[.8,.65]])expect(starterPoint(u,v,geometry,a,false,1)).toEqual(starterPoint(u,v,geometry,b,false,1));
+    expect(starterPoint(.1,.5,geometry,a)).toEqual(starterPoint(.1,.5,geometry,b));
+  });
+
+  it('verstärkt den Schwanzschlag beim Anschwimmen und lässt ihn in Ruhe sanft werden, ohne die Schwanzflosse zu dehnen', () => {
+    const rest=starterPoint(.1,.5,geometry,pose());
+    const quiet=distance(rest,starterPoint(.1,.5,geometry,pose({phase:Math.PI/2})));
+    const fast=distance(rest,starterPoint(.1,.5,geometry,pose({phase:Math.PI/2,speed:1})));
+    const kick=distance(rest,starterPoint(.1,.5,geometry,pose({phase:Math.PI/2,speed:1,kick:.7})));
+    expect(fast).toBeGreaterThan(quiet*3);expect(kick).toBeGreaterThan(fast);
+    const still=distance(rest,starterPoint(.1,.5,geometry,pose({phase:Math.PI/2,speed:1,still:1})));
+    expect(still).toBeLessThan(quiet);
+  });
+
   it('erhält Kopf- und Rumpfproportionen beim Schwimmen, Neigen und Zubeißen', () => {
     const points = [[.46, .4], [.56, .65], [.7, .42], [.9, .54]];
     for (let frame = 0; frame < 120; frame++) {
