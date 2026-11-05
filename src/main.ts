@@ -1,3 +1,5 @@
+import { species } from './net/Species';
+import { WatchScene } from './scenes/WatchScene';
 import { EvolutionScene } from './scenes/EvolutionScene';
 import Phaser from 'phaser';
 import '@fontsource/cinzel/latin-400.css';
@@ -81,14 +83,14 @@ async function start() {
     // Float-Vergleich aus – auf manchen Grafiktreibern verschwinden dadurch zufällig Körperteile.
     render: { maxTextures: 1 },
     input: { activePointers: 4 },
-    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, EvolutionScene, AquapendiumScene, EndingScene, GalleryScene, WorldEditorScene],
+    scene: [BootScene, TitleScene, EraScene, IntroScene, LevelScene, HudScene, GenerationScene, ClutchScene, RoeScene, ExtinctScene, TreeScene, EvolutionScene, WatchScene, AquapendiumScene, EndingScene, GalleryScene, WorldEditorScene],
   });
 
   // Ein Fehler in einem einzelnen Bild darf nie das ganze Spiel einfrieren
   keepAlive(g);
 
   // Für Tests und Entwickler-Konsole
-  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, audio, OceanScore, debug: DEBUG, fishTemplates };
+  (window as unknown as Record<string, unknown>).__evo = { game: g, state: game, species, audio, OceanScore, debug: DEBUG, fishTemplates };
 }
 
 start();

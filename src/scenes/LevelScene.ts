@@ -17,7 +17,7 @@ import { species } from '../net/Species';
 import { speciesEnd, type ExtinctData } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import { edgeNeighbor, placeOf, type PlaceDef } from '../data/world';
+import { edgeNeighbor, placeOf, placesOf, type PlaceDef } from '../data/world';
 import { FLOW, INHERIT, LIFE, MISC, RAM, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldYears, type Stage } from '../sim/life';
 import { type LevelData, type Zone } from '../level/LevelGen';
@@ -253,6 +253,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private t = 0;
   private waterTravel?: { key: string; direction: number; vx: number; vy: number };
   private travelReadyAt = 0;
+  private watching=false;
+  private watchPeer='';
+  private watchMoving=false;
+  private watchAutoRoe=false;
+  watchName='';
 
   constructor() {
     super('Level');
@@ -263,6 +268,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   init(d: { epoch?: number; place?: string; waterTravel?: { key: string; direction: number; vx: number; vy: number } }) {
+    this.watching=false;this.watchMoving=false;this.watchAutoRoe=false;this.watchName='';
     this.waterTravel = d?.waterTravel;
     this.travelReadyAt = this.time.now + (d?.waterTravel ? 900 : 0);
     this.combat.clear();
@@ -338,10 +344,11 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   create() {
     // wer gerade schlüpft, wacht langsam auf (siehe unten); sonst geht es zügig los
-    const waking = !!game.prog.at;
+    const waiting=!!game.run?.waiting;
+    const waking = !!game.prog.at&&!waiting;
     if (!this.waterTravel) fadeIn(this, waking ? 2600 : 900);
     this.dark = false;
-    game.beginLife();
+    if(!waiting)game.beginLife();
     const ep = this.ep;
     // Die Welt ist für alle Spieler und in jedem Leben dieselbe (feste Saat)
     const L = (this.L = loadLevel(ep, WORLD.seed, this.place, game.prog.edge));
@@ -431,10 +438,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Spieler, Artgenossen, Tiere
     this.controls = new Controls(this);
     // ein neues Leben beginnt dort, wo sein Gelege liegt (einmalig)
-    const born = game.prog.at;
+    const born = waiting?undefined:game.prog.at;
     if (born) game.prog.at = undefined;
     // … und wer zum Hauptmenü gegangen war, kommt genau dort wieder an, wo er war (einmalig)
-    const back = born ? undefined : game.prog.resume;
+    const back = waiting||born ? undefined : game.prog.resume;
     game.prog.resume = undefined;
     const nursery = L.cave && L.roe.find(r => r.own);
     const spawn = born ? { x: nursery?.x ?? born.x, y: (nursery?.y ?? born.y) - 40 } : back ? { ...back } : { ...L.start };
@@ -560,7 +567,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     cam.startFollow(this.player.rect, true, 0.1, 0.1);
     cam.setDeadzone(90, 70);
 
-    this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
+    if(waiting){this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;this.time.delayedCall(0,()=>this.beginWatching(game.run?.waitCause??'Kein Laich'));}
+    else this.scene.launch('Hud', { epoch: this.epochIdx, place: this.place.name, wake: !!born });
     const travel = this.waterTravel;
     if (travel) {
       this.waterTravel = undefined;
@@ -588,12 +596,12 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Mehrspieler: diesen Ort auf dem Server betreten – die anderen Spieler hier erscheinen
     this.net = netWanted() ? new NetSync(this) : undefined;
     // … und die gemeinsame Art: Der Laich gehört allen Spielern des Zeitalters (net/Species.ts)
-    if (this.net && !ep.brood) species.connect(this.epochIdx);
+    if (this.net && !ep.brood) species.connect(this.epochIdx,this.place.id);
     const onAdvanced = (name: unknown, gen: unknown) => {
       if (this.ended || this.player.dead || !(Number(gen) > game.life.gen)) return;
       bus.emit('notice', `${String(name || 'Ein Artgenosse')} ist in Generation ${gen}`, 'Eure Linien können unabhängig weiterleben.');
     };
-    const onOver = (name: unknown) => this.speciesOver(String(name ?? ''));
+    const onOver = (name: unknown) => {if(!this.scene.isActive('Roe')){this.scene.resume();this.speciesOver(String(name??''));}};
     bus.on('speciesAdvanced', onAdvanced);
     bus.on('speciesOver', onOver);
     this.events.once('shutdown', () => {
@@ -2182,6 +2190,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const dt = Math.min(0.05, delta / 1000);
     this.t += dt;
     const L = this.L;
+    if(this.watching){this.watchStep(time,dt);return;}
     if (!this.ended && time > this.shrineReadyAt) this.controls.update();
     else this.controls.clear();
     p.update(time, dt, this.controls);
@@ -2831,6 +2840,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Zustand für den nächsten Wasserabschnitt festhalten. */
   private saveProgress() {
+    if(game.run?.waiting)return;
     const p = this.player;
     // wer von deiner Gruppe bei dir ist, kommt mit – mit der Lebenskraft, die er gerade hat
     this.swarm?.storeAll();
@@ -3146,7 +3156,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.spawning?.settle();
     this.swarm?.storeAll();
     this.ended = true;
-    this.scene.stop('Hud');
+    this.scene.stop('Hud');this.scene.stop('Watch');
     this.scene.stop();
   }
 
@@ -3174,25 +3184,56 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    * Geschwister (dieselbe Generation) oder eines aus dem Laich deiner Generation (die nächste – ohne Weg zurück). Ohne
    * beides stirbt die Linie aus.
    */
-  private succession(cause: string, wait: number) {
-    if (this.ended) return;
-    if (game.brood) return this.broodDeath(cause, wait);
-    // ein Männchen, das schon unterwegs war, befruchtet das Gelege noch
+  private succession(cause:string,wait:number){
+    if(this.ended||this.watching)return;
+    if(game.brood)return this.broodDeath(cause,wait);
     this.spawning?.settle();
-    if (!game.pool.length && !game.roe.length) {
-      // im Koop: kein Laich mehr für die ganze Art – sie ist ausgestorben, für alle
-      if (species.active) {
-        species.extinct(cause);
-        return this.speciesOver('', wait);
-      }
-      return this.endLine(cause, wait);
-    }
-    this.ended = true;
-    this.swarm?.storeAll();
-    const data: RoeData = { epoch: this.epochIdx, cause, years: worldYears(this.ep.from, this.ep.to) };
-    audio.music(null);
-    this.time.delayedCall(wait, () => this.exitTo('Roe', data));
+    const eggs=game.pool.length+game.roe.length;
+    const cooperative=species.active||species.livingPeers.length>0;
+    if(cooperative)species.extinct(cause,!eggs);
+    if(!eggs&&!cooperative)return this.endLine(cause,wait);
+    game.waitForEgg(cause);this.ended=true;this.swarm?.storeAll();
+    this.time.delayedCall(wait,()=>{if(game.run)this.beginWatching(cause);});
   }
+
+  private beginWatching(cause:string){
+    if(!game.run)return;
+    this.watching=true;this.ended=false;this.watchMoving=false;
+    game.waitForEgg(cause);this.player.dead=true;this.player.view.setVisible(false);this.player.body.enable=false;
+    this.controls.clear();this.sight?.hide();
+    this.stamG.clear();this.scene.stop('Hud');this.scene.launch('Watch');
+    this.cameras.main.stopFollow();this.cameras.main.fadeIn(450,2,3,4);
+    this.watchAutoRoe=true;
+  }
+  cycleWatch(delta:number){
+    const peers=species.livingPeers;if(!peers.length)return;
+    const i=peers.findIndex(p=>p.id===this.watchPeer);this.watchPeer=peers[(Math.max(0,i)+delta+peers.length)%peers.length].id;
+  }
+  private watchStep(time:number,dt:number){
+    this.controls.clear();this.net?.update();
+    for(const a of [...this.animals])if(!a.dead)a.tick(time,dt);
+    this.waterSurface?.update(time);this.waterAtmosphere?.update(time,dt);this.drift?.update(time,dt);
+    const peers=species.livingPeers,peer=peers.find(p=>p.id===this.watchPeer)??peers[0];
+    this.watchName=peer?.name??'';
+    if(peer){
+      this.watchPeer=peer.id;
+      if(peer.place&&peer.place!==this.place.id&&placesOf(this.ep).some(p=>p.id===peer.place)&&!this.watchMoving){
+        this.watchMoving=true;this.scene.stop('Watch');this.scene.restart({epoch:this.epochIdx,place:peer.place});return;
+      }
+      const target=this.net?.spectatorTarget(peer.identity,peer.name);
+      if(target){
+        this.cameras.main.startFollow(target.view,true,.12,.12);
+        this.darkness?.setPosition(target.x,target.y);this.cullStep(time);
+      }
+    }
+    if(this.watchAutoRoe&&(game.pool.length||game.roe.length)){this.watchAutoRoe=false;this.openWatcherRoe();}
+  }
+  openWatcherRoe(){
+    if(!this.watching||this.scene.isActive('Roe')||!(game.pool.length||game.roe.length))return;
+    this.scene.pause('Watch');this.scene.pause();
+    this.scene.launch('Roe',{epoch:this.epochIdx,cause:game.run?.waitCause??'',years:worldYears(this.ep.from,this.ep.to),watching:true} satisfies RoeData);
+  }
+  resumeWatching(){this.scene.resume();this.scene.resume('Watch');}
 
   /**
    * Was das eigene Tier gerade weitergibt (zur Laichzeit): Nachkommen, angepasst an die Spielweise bis jetzt – daraus werden
@@ -3206,7 +3247,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Weiter zur nächsten Szene – ist das Bild schon dunkel (eingeschlafen), ohne erneutes Abblenden. */
   private exitTo(key: string, data: object) {
-    this.scene.stop('Hud');
+    this.scene.stop('Watch');this.scene.stop('Hud');
     if (this.dark) this.scene.start(key, data);
     else fadeTo(this, key, data, 1200);
   }
@@ -3250,6 +3291,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private speciesOver(by: string, wait = 1800) {
     if (this.ended) return;
+    this.watching=false;this.scene.stop('Watch');
     this.ended = true;
     const data = speciesEnd(this.epochIdx, worldYears(this.ep.from, this.ep.to), by, species.others, this.player.morph());
     audio.music(null);
@@ -3262,6 +3304,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   }
 
   private endLine(cause: string, wait: number) {
+    if(species.active)species.extinct(cause);
     this.ended = true;
     const years = worldYears(this.ep.from, this.ep.to);
     const frac = clamp((this.ep.from - years) / (this.ep.from - this.ep.to), 0, 1);

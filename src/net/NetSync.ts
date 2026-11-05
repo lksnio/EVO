@@ -113,7 +113,7 @@ export class NetSync {
       if (this.closed) return;
       const zone = await joinZone(
         serverUrl(),
-        { zone: zoneId(h.epochIdx, h.place.id), name: playerName(), look: JSON.stringify(p.morph()), gen: game.life.gen, x: p.x, y: p.y },
+        {identity:game.playerId,observer:!!game.run?.waiting, zone: zoneId(h.epochIdx, h.place.id), name: playerName(), look: JSON.stringify(p.morph()), gen: game.life.gen, x: p.x, y: p.y },
         this.handlers(),
       );
       if (this.closed) return zone.leave();
@@ -189,6 +189,8 @@ export class NetSync {
   players(): RemoteFish[] {
     return [...this.fish.values()].filter((f) => !f.gone);
   }
+
+  spectatorTarget(identity:string,name:string){return this.players().find(f=>!f.dead&&(identity?f.identity===identity:f.name===name));}
 
   /** Wer rechnet die Tiere? Erst entscheiden, wenn der Ortswächter bekannt ist (beim Betreten kommt der Stand etwas später). */
   private decideRole() {

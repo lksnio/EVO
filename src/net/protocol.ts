@@ -54,6 +54,8 @@ export const zoneId = (epoch: number, place: string) => `${epoch}/${place}`;
 
 /** Beim Betreten: wer man ist, wie man aussieht, wo man ist. */
 export interface JoinOptions {
+  identity?:string;
+  observer?:boolean;
   zone: string;
   name: string;
   /** Aussehen (JSON eines Morph) */
@@ -230,6 +232,9 @@ export interface SpeciesJoin {
  * es die Art schon, kommen nur Eier dazu, die sie noch nicht kennt (und keine aus vergangenen Generationen).
  */
 export interface SpeciesHello {
+  identity?:string;
+  place?:string;
+  waiting?:boolean;
   trace?: string;
   gen: number;
   pool: string[];

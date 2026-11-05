@@ -12,7 +12,7 @@ import { netWanted, playerName, serverUrl } from './NetSync';
 
 interface RoomLike {
   sessionId: string;
-  state: { gen: number; pool: Map<string, string>; next: Map<string, string>; members: Map<string, string>; selections: Map<string, string>; branches: Map<string,string>; over: string };
+  state: { gen: number; pool: Map<string, string>; next: Map<string, string>; members: Map<string, string>; selections: Map<string, string>; branches: Map<string,string>; presence:Map<string,string>; over: string };
   send(type: string, m: unknown): void;
   leave(): Promise<unknown>;
   connection: { isOpen: boolean };
@@ -30,6 +30,7 @@ const list = (m: Map<string, string> | undefined) => [...(m?.values() ?? [])].ma
 class SpeciesLink {
   private room?: RoomLike;
   private epoch = -1;
+  private place='';
   private joining?: Promise<void>;
   private req = 1;
   private waits = new Map<number, (r: SpeciesPicked) => void>();
@@ -56,6 +57,11 @@ class SpeciesLink {
     return [...r.state.members.entries()].filter(([id]) => id !== r.sessionId).map(([, n]) => n);
   }
 
+  get livingPeers():{id:string;name:string;place:string;identity:string}[] {
+    const r=this.room;if(!r)return [];
+    return [...r.state.presence.entries()].flatMap(([id,raw])=>{try{const p=JSON.parse(raw);return id!==r.sessionId&&p.alive?[{id,name:r.state.members.get(id)??'Artgenosse',place:p.place??'',identity:p.identity??''}]:[];}catch{return [];}});
+  }
+
   /** Was andere Spieler gerade ansehen, mit ihrer Kennung statt einer Platznummer. */
   get selections(): { player: string; name: string; egg: string }[] {
     const r = this.room;
@@ -72,11 +78,12 @@ class SpeciesLink {
   }
 
   /** In diesem Zeitalter mit der gemeinsamen Art verbinden (einmal; ein anderes Zeitalter: neu). */
-  connect(epoch: number) {
+  connect(epoch: number,place=game.prog.place) {
+    this.place=place;
     if (!netWanted() || EPOCHS[epoch]?.brood) return;
     if(this.epoch===epoch&&this.room){
       const run=game.run;
-      if(run){this.room.send('hello',{gen:game.poolGen,pool:game.pool.map(e=>JSON.stringify(e)),next:game.roe.map(e=>JSON.stringify(e)),trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}])});this.lastLaich='';this.mirror();}
+      if(run){this.room.send('hello',{identity:game.playerId,place,waiting:!!run.waiting,gen:game.poolGen,pool:game.pool.map(e=>JSON.stringify(e)),next:game.roe.map(e=>JSON.stringify(e)),trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}])});this.lastLaich='';this.mirror();}
       return;
     }
     if(this.epoch===epoch&&this.joining)return;
@@ -112,7 +119,7 @@ class SpeciesLink {
       // der eigene Laich: Gibt es die Art noch nicht, beginnt sie damit – sonst kommt er dazu
       const run = game.run;
       if (run && run.epoch === epoch && !run.brood) {
-        room.send('hello', {trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]), gen: game.poolGen, pool: game.pool.map((e) => JSON.stringify(e)), next: game.roe.map((e) => JSON.stringify(e)) });
+        room.send('hello', {identity:game.playerId,place:this.place||game.prog.place,waiting:!!run.waiting,trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]), gen: game.poolGen, pool: game.pool.map((e) => JSON.stringify(e)), next: game.roe.map((e) => JSON.stringify(e)) });
       }
       // Auch einen bereits vollständigen Anfangsstand übernehmen, wenn hello nichts mehr ändert.
       this.mirror();
@@ -181,8 +188,8 @@ class SpeciesLink {
   }
 
   /** Gestorben, und es lag kein Laich mehr da: Die Art ist ausgestorben – das erfahren alle. */
-  extinct(cause: string) {
-    this.room?.send('extinct', { cause });
+  extinct(cause: string,ended=true) {
+    this.room?.send('extinct', { cause,ended });
   }
 
   leave() {

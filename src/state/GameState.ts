@@ -358,6 +358,8 @@ export interface Heir {
 }
 
 export interface Run {
+  waiting?:boolean;
+  waitCause?:string;
   fishTrace?: FishMark[];
   id: number;
   cls: ClassId;
@@ -496,6 +498,7 @@ export interface SaveData {
   collection: CollectionState;
   /** Personal played history; independent of shared eggs and trait-signature nodes. */
   lineage: LineageArchive;
+  playerId?:string;
   fishBranches?: { id: string; name: string; trace: FishMark[]; extinct?: boolean }[];
 }
 
@@ -864,6 +867,9 @@ class GameState {
           // früher gab es auch Stachelköpfe – heute wird ein viel benutzter Kopf zum Panzer
           r.traits.spike = -Math.abs(r.traits.spike);
           fishFormsChanged=this.repairFishRun(r)||fishFormsChanged;
+          const current=Math.max(r.life.gen,r.coopGen??0);
+          r.pool=(r.pool??[]).filter(e=>(e.generation??current)===current);
+          r.next=(r.next??[]).filter(e=>(e.generation??current+1)===current+1);
           r.social ??= 0.55;
           r.canRam = true;
           // vorerst schlüpft man immer als Männchen – auch ein Weibchen aus einem älteren Spielstand wird zu einem
@@ -1420,18 +1426,25 @@ class GameState {
     return true;
   }
 
-  /** Wartende Eier bis zur eigenen Generation, einschließlich anderer Linien. */
+  /** Wartende Eier der aktuellen gemeinsamen Generation. */
+  get playerId(){return this.data.playerId??=eggId();}
+  waitForEgg(cause:string) {
+    const run=this.r;run.waiting=true;run.waitCause=cause;
+    const branch=this.data.fishBranches?.find(b=>b.id===`local-${run.id}`);if(branch)branch.extinct=true;
+    this.save();
+  }
+
   get pool(): RoeEgg[] {
     return this.data.run?.pool ?? [];
   }
 
   /**
-   * Die Generation der Geschwister (pool): deine eigene – im Koop die der gemeinsamen Art (sie kann schon weiter sein als
-   * dein Tier). Der Laich (roe) gehört zur nächsten.
+   * Die aktuelle gemeinsame Generation (pool), im Koop gegebenenfalls weiter als
+   * dein eigenes Tier. Der Laich (roe) gehört zur nächsten.
    */
   get poolGen(): number {
     const run = this.data.run;
-    return run ? run.life.gen : 1;
+    return run ? Math.max(run.life.gen,run.coopGen??0) : 1;
   }
 
   /** Der Laich für die nächste Generation – von dir und deinen Geschwistern zusammen (siehe Run.next). */
@@ -1459,7 +1472,8 @@ class GameState {
     // die Eier gehören zur Generation nach deiner: Im Koop kann das schon die der Geschwister sein (ein Artgenosse war
     // schneller) – oder eine vergangene, in die kein Weg mehr zurückführt
     const g = run.life.gen + 1;
-    (run.next ??= []).push(...out);
+    if(g===this.poolGen)(run.pool??=[]).push(...out);
+    else if(g===this.poolGen+1)(run.next??=[]).push(...out);
     this.save();
     // im Koop: an die gemeinsame Art (net/Species.ts)
     bus.emit('roeLaid', g, out);
@@ -1476,8 +1490,8 @@ class GameState {
     run.coopGen = gen;
     const eggs=[...pool,...next];
     if(run.cls==='fish')for(const egg of eggs)this.repairFishEgg(egg);
-    run.pool=eggs.filter(e=>(e.generation??gen)<=run.life.gen);
-    run.next=eggs.filter(e=>(e.generation??gen+1)>run.life.gen);
+    run.pool=pool.filter(e=>(e.generation??gen)===gen);
+    run.next=next.filter(e=>(e.generation??gen+1)===gen+1);
     this.save();
   }
 
@@ -1634,8 +1648,9 @@ class GameState {
     const egg = list?.[i];
     if (!list || !egg) return false;
     const gen = egg.generation ?? (group === 'pool' ? this.poolGen : this.poolGen + 1);
+    if(gen!==this.poolGen&&gen!==this.poolGen+1)return false;
     list.splice(i, 1);
-    if (group === 'next') { run.pool=[...(run.pool??[]),...list]; run.next=[]; }
+    if (group === 'next') { run.pool=list; run.next=[]; }
     this.hatchRoe(egg, gen);
     return true;
   }
@@ -1647,6 +1662,8 @@ class GameState {
    */
   hatchRoe(egg: RoeEgg, gen: number) {
     const run = this.r;
+    if(gen!==this.poolGen&&gen!==this.poolGen+1)return;
+    run.waiting=false;run.waitCause=undefined;
     if(run.cls==='fish')this.repairFishEgg(egg);
     const jump = gen > run.life.gen;
     if (jump) {
@@ -1665,8 +1682,9 @@ class GameState {
       const at = this.data.nodes[run.node] ?? this.rootOf(run.epoch);
       if (sigOf(run.cls, run.traits) !== at.sig) run.node = this.node(at, run.epoch, run.cls, run.traits, run.id, true, gen).id;
     }
-    const remaining=[...(run.pool??[]),...(run.next??[])];
-    run.pool=remaining.filter(e=>(e.generation??gen)<=gen);run.next=remaining.filter(e=>(e.generation??gen)>gen);
+    const remaining=[...(run.pool??[]),...(run.next??[])].filter(e=>egg.id?e.id!==egg.id:e!==egg);
+    run.pool=remaining.filter(e=>(e.generation??gen)===gen);run.next=remaining.filter(e=>(e.generation??gen+1)===gen+1);
+    run.coopGen=gen;
     this.hatchAt(run, gen, egg);
   }
 

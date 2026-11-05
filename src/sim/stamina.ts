@@ -1,5 +1,5 @@
 /** Feste Kosten relativ zur Anfangsausdauer, unabhängig von der späteren Reserve. */
-export const FISH_ATTACK_COST = { bite: 1 / 5, ram: 1 / 8 } as const;
+export const FISH_ATTACK_COST = { bite: 1 / 8, ram: 1 / 8 } as const;
 
 /** Reserve points are independent of fins. Start reserve: 30 points = one full base bar. */
 export function fishStaminaMax(stamina:number):number {

@@ -27,7 +27,7 @@ Each egg has a separate 10% chance to replace ALL ordinary changes with fins +5.
 ## Effects
 
 * Adult size scales with the cube root of adult health relative to the ancestor. Weapons do not become stronger merely because health increased.
-* Reserve is `reserve points / 30` base bars. Attack costs remain 1/5 and 1/8 of a base bar, respectively. Fins do not affect reserve.
+* Reserve is `reserve points / 30` base bars. Bite and ram each cost 1/8 of a base bar. Any sufficiently funded action is available immediately, even after exhaustion; the fish never waits for a full refill. Fins do not affect reserve.
 * Fin points alone change normal swim speed: 10 → ×1; 20 → ×1.5; 50 → ×2; 100 → ×3, linearly between anchors. Flows, sprint and attacks temporarily modify movement. Legacy length, mass, body shape, age and camouflage do not change the fish's normal speed.
 * Reserve colors the fins towards turquoise. Scales darken the skin towards black, preserve the eye, and improve damage resistance. These colors do not create extra form states.
 * Fin visual stages are 20/50/100, independent of the damage group. A one-point loss can reduce speed but does not reverse a visual milestone.
@@ -38,7 +38,7 @@ Stage 0 always allows quick attacks. Holding unlocks at stage 1, reaching full c
 
 A full charged bite doubles damage. A quick bite eats at most one meat chunk; a charged bite can eat up to 3/5/7 chunks at weapon stages 1/2/3. Bite stages 2/3 slow a surviving opponent by 25%/50% for two seconds; repeated hits refresh the effect without adding percentages.
 
-A held ram slows movement to 45% during preparation, then releases a faster, stronger lunge. Quick rams remain available. Ram stun is discrete: stages 0/1 none, stage 2 one second, stage 3 two seconds, independent of age. Slow effects, charge poses and mouth opening are sent to other clients; stage-3 charged movement fits the server's movement budget.
+A held ram allows 68% of ordinary swim speed while aiming from rest and preserves sprint momentum with a gradual decay during preparation, then releases a faster, stronger lunge. Quick rams remain available. Ram stun is discrete: stages 0/1 none, stage 2 one second, stage 3 two seconds, independent of age. Slow effects, charge poses and mouth opening are sent to other clients; stage-3 charged movement fits the server's movement budget.
 
 ## Evolution and co-op
 
@@ -46,4 +46,6 @@ There are 48 forms: twelve allowed bite/skull combinations × four independent f
 
 Eggs carry their own generation and a compact ancestry trace. The shell opens an in-game evolution view showing only observed prefixes. Small numerical changes never add a node. A complete path has at most seven form transitions (three primary, one secondary, three fins), plus its root.
 
-The shared room allocates each egg once, keeps other eggs when a player advances, and does not force other players into that generation. Adopting an egg follows that egg's exact path and archives the previous path. A player's extinction does not extinguish living peers. Shared extinction requires all connected players to be extinct and no eggs to remain.
+The shared room exposes exactly the current generation and the next brood. Advancing clears all older eggs for everyone; late messages, reconnects and local hatch calls cannot revive them. Living players may finish an older life, but may only re-enter through the current shared generation or its next brood. A chosen egg is removed immediately, including the local copy before a network patch arrives.
+
+When a player dies without a usable egg, the player watches a living peer instead of ending the shared species. The watcher follows across areas, remains invisible and cannot attack, eat, train or become the animal authority. New brood automatically opens the egg choice; choosing a valid egg returns the watcher to play on that egg's ancestry. A dead branch remains archived. Waiting survives a reload, so the parent's body cannot be revived. Shared extinction requires no eggs and no living connected player.

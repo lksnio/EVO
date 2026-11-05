@@ -53,6 +53,8 @@ export class Sight {
   cy = 0;
 
   /** murkKey: das trübe Wasser (ein Bild mit dem Farbverlauf des Wassers); full: so weit ist es vom Fisch bis zum Bildrand. */
+  hide(){this.murkImg.setVisible(false);this.shade.setVisible(false);}
+
   constructor(private scene: Phaser.Scene, private murkKey: string, depth: number, readonly full: number, private darkColor = 0x000000, private darkScale = 1) {
     const n = ++uid;
     this.fieldKey = `sight_field_${n}`;

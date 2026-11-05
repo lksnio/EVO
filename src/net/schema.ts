@@ -6,6 +6,8 @@ import { schema, t, type SchemaType } from '@colyseus/schema';
 export const NetFish = schema(
   {
     name: t.string(),
+    identity:t.string(),
+    observer:t.boolean(),
     x: t.float32(),
     y: t.float32(),
     facing: t.int8(),
@@ -96,6 +98,7 @@ export const SpeciesState = schema(
     /** Momentan markiertes Ei je Spieler; eine Markierung reserviert kein Ei. */
     selections: t.map('string'),
     branches:t.map('string'),
+    presence:t.map('string'),
     /** ausgestorben: warum (sonst leer) */
     over: t.string(),
   },

@@ -6,7 +6,7 @@ import { ADULT } from '../src/sim/life';
 describe('Ausdauer und absolute Angriffskosten', () => {
   beforeEach(() => { game.resetAll(); game.newRun(); });
 
-  it.each([[30, 1, 5, 8], [45, 1.5, 7, 12], [60, 2, 10, 16], [100, 10 / 3, 16, 26]])(
+  it.each([[30, 1, 8, 8], [45, 1.5, 12, 12], [60, 2, 16, 16], [100, 10 / 3, 26, 26]])(
     'Ausdauer %s: Reserve %s für %s Bisse oder %s Stöße ohne Regeneration', (points, reserve, bites, rams) => {
       game.traits.staminaGain = points-30;
       expect(game.staminaMax).toBeCloseTo(reserve);

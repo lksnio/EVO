@@ -169,7 +169,7 @@ export class Player {
   }
 
   private spendAttack(cost: number, time: number): boolean {
-    if (this.exhausted) return false;
+    if (game.cls!=='fish' && this.exhausted) return false;
     const remaining = spendStamina(this.stamina, cost);
     if (remaining === null) return false;
     this.stamina = remaining;
@@ -337,13 +337,13 @@ export class Player {
     const en = fishStamina ? 1 : this.stats.endurance;
     // Sprint: Die größere Fischreserve hält bei gleichem Grundverbrauch länger.
     const wantSprint = c.held.sprint && (dir !== 0 || (wet && (c.held.up || c.held.down)));
-    this.sprinting = wantSprint && this.dash === 'none' && time >= this.ramReady && !this.exhausted && this.stamina > 0.05;
+    this.sprinting = wantSprint && this.dash === 'none' && time >= this.ramReady && (fishStamina || !this.exhausted) && this.stamina > 0.05;
     const max = this.staminaMax;
     // kräftiger schlagen: das Tempo baut sich langsam auf und klingt nach dem Spurt langsam ab
-    this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : 0.9));
+    this.surge = approach(this.surge, this.sprinting ? 1 : 0, dt / (this.sprinting ? 1.4 : this.ramHoldAt>=0 ? 2.5 : 0.9));
     // Ausdauer: Der Spurt zehrt sie auf (ein Kreis reicht STAMINA.sprint Sekunden, schwere Tiere kürzer). Kurz nach dem
-    // Verbrauch füllt sich der Kreis wieder – beim Schwimmen langsam, beim Treiben rasch. Ganz leer ist man erschöpft:
-    // Dann füllt er sich rot, und erst wenn er voll ist, geht es wieder (wie in Breath of the Wild).
+    // Verbrauch füllt sich der Kreis wieder – beim Schwimmen langsam, beim Treiben rasch.
+    // Fische können jede ausreichend bezahlbare Aktion sofort wieder ausführen.
     const refill = this.stats.recover;
     if (this.sprinting) this.usedAt = time;
     const regen = time - this.usedAt < 550 ? 0 : this.exhausted || this.resting ? refill / 5 : refill / 14;
@@ -351,7 +351,7 @@ export class Player {
     if (!this.exhausted && this.stamina <= 0.02) {
       this.exhausted = true;
       this.host.puff(this.x + this.facing * this.view.L.halfW, this.y - 6, 4, wet ? 0xffffff : 0xcfd8dc);
-    } else if (this.exhausted && this.stamina >= max - 0.001) this.exhausted = false;
+    } else if (this.exhausted && this.stamina >= (fishStamina ? .02 : max-.001)) this.exhausted = false;
     // verletzt: ein klein wenig langsamer – gerade so, dass man es merkt
     const hurtSlow = 1 - 0.12 * clamp((0.45 - this.hp / this.stats.maxHp) / 0.45, 0, 1);
     // am Lebensende: langsamer
@@ -362,7 +362,9 @@ export class Player {
       this.exhausted = false;
     }
     const ramRecovery = 1 - 0.4 * clamp((this.ramReady - time) / RAM_RECOVERY_MS, 0, 1);
-    const sp = this.stats.speed * (1 + 0.45 * this.surge) * (1 + FLOW.speed * this.flow * (1 + FLOW.sprint * this.surge)) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted ? 0.68 : 1) * ramRecovery;
+    const aiming=fishStamina&&this.ramHoldAt>=0;
+    const aimSpeed=aiming ? .68+.32*this.surge : 1;
+    const sp = this.stats.speed * (1 + 0.45 * this.surge) * (1 + FLOW.speed * this.flow * (1 + FLOW.sprint * this.surge)) * hurtSlow * starving * (boosted ? 1.25 : this.exhausted && !aiming ? 0.68 : 1) * aimSpeed * ramRecovery;
 
     this.slipping = false;
     this.climbing = false;
@@ -491,12 +493,11 @@ export class Player {
       if(this.ramHoldAt>=0) {
         this.usedAt=time;this.sprinting=false;
         this.ramCharge=clamp((time-this.ramHoldAt-150)/1200,0,1);
-        b.setVelocityX(b.velocity.x*.45);if(wet)b.setVelocityY(b.velocity.y*.45);
         if(knocked) {this.ramHoldAt=-1;this.ramCharge=0;}
         else if(!c.held.ram || time-this.ramHoldAt>=2500) {ramRequest=true;ramPaid=true;this.ramHoldAt=-1;}
       }
     } else if(this.dash==='none') this.ramCharge=0;
-    if (this.dash === 'none' && ramRequest && game.canRam && time >= this.ramReady && (!this.exhausted || ramPaid) && !knocked
+    if (this.dash === 'none' && ramRequest && game.canRam && time >= this.ramReady && (fishStamina || !this.exhausted || ramPaid) && !knocked
       && (ramPaid || (fishStamina ? this.spendAttack(FISH_ATTACK_COST.ram, time) : this.stamina > 0.12))) {
       this.dash = 'charge';
       this.dashAge = 0;

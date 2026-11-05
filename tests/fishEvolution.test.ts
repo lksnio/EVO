@@ -72,7 +72,7 @@ describe('Nur beobachtete Evolutionspfade',()=>{
 
 it('beim Übernehmen eines fremden Eis bleibt der bisherige Ast erhalten und der fremde Pfad wird fortgesetzt',()=>{
  const old=[{form:0,primary:0},{form:1,primary:1}];const peer=[{form:0,primary:0},{form:7,primary:3},{form:8,primary:3}];
- game.run!.fishTrace=old;game.data.fishBranches=[{id:`local-${game.run!.id}`,name:'Deine Linie',trace:old}];
+ game.run!.fishTrace=old;game.run!.coopGen=4;game.data.fishBranches=[{id:`local-${game.run!.id}`,name:'Deine Linie',trace:old}];
  game.hatchRoe({id:'adoptpeer',traits:{fishForm:8,fishPrimary:3,ramGain:50},trace:peer,generation:4,seed:1,sex:1,place:'riff',x:200,y:500},4);
  expect(game.run!.fishTrace).toEqual(peer);expect(game.data.fishBranches!.some(b=>b.extinct&&b.trace[1].form===1)).toBe(true);
  const child=appendFishMark(game.run!.fishTrace,9,3);expect(child.slice(0,3)).toEqual(peer);

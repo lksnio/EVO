@@ -21,10 +21,11 @@ import { orderRoe } from '../sim/roe';
  * verändern die sichtbaren oder späteren Erbgutwerte nicht.
  *
  * Im Koop ist der Laich der gemeinsame (net/Species.ts): Die Liste ändert sich, wenn ein Artgenosse ein Ei nimmt; ein Ei
- * schlüpft erst, wenn der Server es zuteilt. Die Generation jedes Eis bleibt unabhängig von den Mitspielern erhalten.
- * Liegt nach dem Tod gar kein Laich mehr da, ist die Art ausgestorben – für alle.
+ * schlüpft erst, wenn der Server es zuteilt. Ein Generationswechsel verwirft ältere Eier für alle.
+ * Ohne Laich wartet ein Zuschauer auf lebende Mitspieler; erst ohne lebende Spieler und Eier endet die Art.
  */
 export interface RoeData {
+  watching?:boolean;
   /** Besuch am Laich: ansehen und zurückkehren oder das lebende Tier bewusst ablösen. */
   living?: boolean;
   epoch: number;
@@ -98,6 +99,7 @@ interface Slot {
 export class RoeScene extends Phaser.Scene {
   private d!: RoeData;
   private going = false;
+  private ending=false;
   private slots: Slot[] = [];
   private focus = -1;
   /** die Generation deines Tiers, das gerade gestorben ist */
@@ -121,7 +123,7 @@ export class RoeScene extends Phaser.Scene {
 
   init(d: RoeData) {
     this.d = d;
-    this.going = false;
+    this.going = false;this.ending=false;
     this.slots = [];
     this.focus = -1;
     this.confirm = undefined;
@@ -193,6 +195,7 @@ export class RoeScene extends Phaser.Scene {
       bus.off('speciesOver', onOver);
       bus.off('speciesSelection', onSelection);
       species.mark(null);
+      if(this.d.watching&&!this.going&&this.scene.isPaused('Level'))(this.scene.get('Level') as LevelScene).resumeWatching();
       if (this.d.living && !this.going && this.scene.isPaused('Level')) (this.scene.get('Level') as LevelScene).resumeRoeVisit();
     });
     this.build();
@@ -206,6 +209,7 @@ export class RoeScene extends Phaser.Scene {
     this.slots = [];
     this.focus = -1;
     const pool = game.pool, roe = game.roe;
+    if(this.d.watching&&!pool.length&&!roe.length){this.closeVisit();return;}
     if (!this.d.living && !pool.length && !roe.length) {
       // nichts mehr da: im Koop ist die Art ausgestorben, allein endet die Linie
       if (species.active) {
@@ -216,8 +220,8 @@ export class RoeScene extends Phaser.Scene {
     }
     const plural=(n:number)=>`${n} ${n===1?'Ei':'Eier'}`;
     const sibs=pool.length>0;
-    if(sibs)this.group('pool',60,120,pool,'WARTENDE EIER',`${plural(pool.length)} aus euren bisherigen Linien`,false);
-    this.group('next',60,sibs?340:190,roe,'NACHKOMMEN',roe.length?`${plural(roe.length)} aus eurem Laich – jede Linie geht ihren eigenen Weg.`:'Noch kein Laich.',false);
+    if(sibs)this.group('pool',60,120,pool,'AKTUELLE GENERATION',`${plural(pool.length)} der aktuellen Generation`,false);
+    this.group('next',60,sibs?340:190,roe,'NACHKOMMEN',roe.length?`${plural(roe.length)} aus eurem Laich – beim Wechsel endet die alte Generation.`:'Noch kein Laich.',false);
     const again = keep ? this.slots.findIndex((s) => s.egg.id === keep) : -1;
     const start = again >= 0 ? again : this.slots.findIndex((s) => s.group === (pool.length ? 'pool' : 'next'));
     if (this.slots.length) this.setFocus(Math.max(0, start));
@@ -279,6 +283,7 @@ export class RoeScene extends Phaser.Scene {
       c.add(text(this, x, 601, value, 30, UI.bone, { fontStyle: '600' }).setOrigin(0.5));
       if (i) c.add(this.add.rectangle(x - 120, 588, 1, 46, 0x4a5a5e, 0.45));
     });
+    if(this.d.watching){c.add(new Button(this,404,645,'Weiter zuschauen',{w:310,h:42,onClick:()=>this.closeVisit()}));return;}
     if (!this.d.living) return;
     const offer = (this.scene.get('Level') as LevelScene).spawning!.offer;
     const label = offer.count ? `${offer.count} ${offer.count === 1 ? 'Ei' : 'Eier'} befruchten` : 'Laich befruchten';
@@ -298,6 +303,7 @@ export class RoeScene extends Phaser.Scene {
   }
 
   private closeVisit() {
+    if(this.d.watching&&!this.going){this.scene.stop();(this.scene.get('Level') as LevelScene).resumeWatching();return;}
     if (!this.d.living || this.going) return;
     (this.scene.get('Level') as LevelScene).resumeRoeVisit();
     this.scene.stop();
@@ -396,7 +402,7 @@ export class RoeScene extends Phaser.Scene {
       if (diff !== 0) c.add(text(this, 170, y, diff > 0 ? `+${diff}` : `−${-diff}`, 16, top ? UI.ochre : UI.boneDim).setOrigin(1, 0));
     });
     c.add(text(this, 0, 204, 'Das Erbgut dieses Eis bestimmt seine Eigenschaften.', 13, UI.boneDim, { wordWrap: { width: 350 }, align: 'center' }).setOrigin(0.5));
-    const note=next?`Mit diesem Ei beginnt dein Leben in Generation ${gen}. Die anderen Linien bleiben erhalten.`:'';
+    const note=next?`Mit diesem Ei beginnt dein Leben in Generation ${gen}. Die Eier der vorherigen Generation gehen verloren.`:'';
     if(note)c.add(text(this,0,224,note,15,UI.boneDim,{wordWrap:{width:350},align:'center'}).setOrigin(.5,0));
   }
 
@@ -424,7 +430,7 @@ export class RoeScene extends Phaser.Scene {
     c.add(this.add.text(0, -104, heading, { fontFamily: TITLE_FONT, fontSize: '24px', color: UI.bone, resolution: 2 }).setOrigin(0.5).setLetterSpacing(4));
     const gen = s.egg.generation ?? (next ? pg + 1 : pg);
     const ending = this.d.living ? 'Dein jetziges Tier kehrt nicht zurück. ' : '';
-    const message=`${ending}Du schlüpfst in Generation ${gen}. Der übrige Laich und die Linien deiner Mitspieler bleiben erhalten.`;
+    const message=`${ending}Du schlüpfst in Generation ${gen}. Beim Generationswechsel gehen die Eier der alten Generation für alle verloren.`;
     c.add(text(this, 0, -30, message, 17, '#d4c4a4', { wordWrap: { width: 560 }, align: 'center' }).setOrigin(0.5));
     const yes = new Button(this, -130, 84, next ? `Generation ${gen} beginnen` : 'Als Geschwister schlüpfen', { w: 330, h: 50, size: 17, color: UI.ochreN, onClick: () => void this.hatch(s) });
     const no = new Button(this, 175, 84, 'Zurück', { w: 190, h: 50, size: 17, onClick: () => this.closeConfirm() });
@@ -455,20 +461,20 @@ export class RoeScene extends Phaser.Scene {
     if (species.active && s.egg.id) {
       this.say('…', UI.boneDim);
       const r = await species.pick(s.egg.id);
-      if (!this.scene.isActive()) return;
+      if (!this.scene.isActive()||this.ending||!game.run) return;
       if (!r) {
         this.going = false;
         this.build();
         this.say('Dieses Ei hat gerade ein Artgenosse genommen.', '#e0b070');
         return;
       }
-      if (this.d.living) (this.scene.get('Level') as LevelScene).finishRoeVisit();
+      if (this.d.living||this.d.watching) (this.scene.get('Level') as LevelScene).finishRoeVisit();
       game.hatchRoe(r.egg, r.gen);
     } else {
       const list = s.group === 'next' ? game.roe : game.pool;
       const index = s.egg.id ? list.findIndex((e) => e.id === s.egg.id) : list.indexOf(s.egg);
       if (index < 0) { this.going = false; this.build(); return; }
-      if (this.d.living) (this.scene.get('Level') as LevelScene).finishRoeVisit();
+      if (this.d.living||this.d.watching) (this.scene.get('Level') as LevelScene).finishRoeVisit();
       if (!game.hatch(s.group, index)) { this.going = false; return; }
     }
     audio.sfx('laich');
@@ -489,9 +495,9 @@ export class RoeScene extends Phaser.Scene {
 
   /** Die gemeinsame Art ist ausgestorben (by: wer zuletzt starb – leer: du). */
   private extinct(by: string) {
-    if (this.going || !game.run) return;
-    this.going = true;
-    if (this.d.living) (this.scene.get('Level') as LevelScene).finishRoeVisit();
+    if (this.ending || !game.run) return;
+    this.ending=true;this.going = true;
+    if (this.d.living||this.d.watching) (this.scene.get('Level') as LevelScene).finishRoeVisit();
     const others = species.others;
     const data = speciesEnd(this.d.epoch, this.d.years, by, others, game.morph());
     fadeTo(this, 'Extinct', data, 1200);

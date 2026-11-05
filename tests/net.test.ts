@@ -50,6 +50,17 @@ describe('Spielserver (Colyseus)', () => {
     await host.leave();await guest.leave();await other.leave();
   });
 
+  it('Zuschauer werden nicht Ortswächter und können weder angreifen noch fressen',async()=>{
+    const watcher=await new Client(URL).create<ZoneState>(ZONE_ROOM,opts('Beobachter',{observer:true,identity:'observer123'}),ZoneState);
+    const host=await new Client(URL).joinById<ZoneState>(watcher.roomId,opts('Lebender Fisch'),ZoneState);
+    const hits:unknown[]=[],eats:unknown[]=[];host.onMessage('hit',m=>hits.push(m));host.onMessage('eat',m=>eats.push(m));
+    await until(()=>watcher.state.players.size===2&&watcher.state.host===host.sessionId);
+    expect(watcher.state.players.get(watcher.sessionId)!.observer).toBe(true);
+    watcher.send('pos',{x:900,y:500,facing:1,anim:0,size:1});watcher.send('hit',{id:7,dmg:200,kind:'bite',stun:1000});watcher.send('eat',{id:3,amount:1});
+    await wait(100);expect(hits).toEqual([]);expect(eats).toEqual([]);expect(host.state.players.get(watcher.sessionId)!.anim).toBe(5);
+    await host.leave();await until(()=>watcher.state.host==='');await watcher.leave();
+  });
+
   afterAll(async () => {
     // wer schon gegangen ist, antwortet nicht mehr – nicht ewig warten
     for (const r of rooms) await Promise.race([r.leave().catch(() => undefined), wait(500)]);

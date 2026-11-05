@@ -146,9 +146,9 @@ describe('Schädelstoß', () => {
 });
 
 describe('Angriffsreserve im tatsächlichen Spieler-Update', () => {
-  it.each([[30, 5, 8], [45, 7, 12], [60, 10, 16], [100, 16, 26]])(
+  it.each([[30, 8, 8], [45, 12, 12], [60, 16, 16], [100, 26, 26]])(
     'Ausdauer %s erlaubt %s Bisse oder %s Stöße pro voller Leiste', (reservePoints, bites, rams) => {
-      for (const [action, expected, cost] of [['bite', bites, 0.2], ['ram', rams, 1 / 8]] as const) {
+      for (const [action, expected, cost] of [['bite', bites, 1/8], ['ram', rams, 1 / 8]] as const) {
         const s = swimmer(0.6, false, { reservePoints, refill: false });
         s.p.stats.recover = 0; // Nur die Reserve messen, keine Wartezeit-Regeneration.
         game.traits.jaw = 0.8; // Starke Waffen verändern die festen Kosten nicht.
@@ -200,13 +200,13 @@ describe('Aufladbare Waffen',()=>{
  it('Stufe 0 beißt sofort, Stufe 1 hält das Maul offen und bezahlt beim Start genau einmal',()=>{
   const base=swimmer(0,false,{refill:false});base.c.pressed.bite=true;base.c.held.bite=true;base.step();expect(base.host.playerBite).toHaveBeenCalledTimes(1);
   const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=true;s.step();
-  for(let i=0;i<82;i++)s.step();expect(s.host.playerBite).not.toHaveBeenCalled();expect(s.p.view.holdOpen).toBeCloseTo(1);expect(s.p.stamina).toBeCloseTo(.8);
+  for(let i=0;i<82;i++)s.step();expect(s.host.playerBite).not.toHaveBeenCalled();expect(s.p.view.holdOpen).toBeCloseTo(1);expect(s.p.stamina).toBeCloseTo(7/8);
   s.c.held.bite=false;s.step();expect(s.host.playerBite).toHaveBeenCalledTimes(1);expect(s.host.playerBite).toHaveBeenLastCalledWith(expect.anything(),expect.any(Number),1);
-  expect(s.p.view.holdOpen).toBe(0);expect(s.p.stamina).toBeCloseTo(.8);
+  expect(s.p.view.holdOpen).toBe(0);expect(s.p.stamina).toBeCloseTo(7/8);
  });
  it('ein kurzer Tipp bleibt auch mit entwickeltem Gebiss ein schneller Biss',()=>{
   const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=false;s.step();
-  expect(s.host.playerBite).toHaveBeenCalledWith(expect.anything(),expect.any(Number),0);expect(s.p.stamina).toBeCloseTo(.8);
+  expect(s.host.playerBite).toHaveBeenCalledWith(expect.anything(),expect.any(Number),0);expect(s.p.stamina).toBeCloseTo(7/8);
  });
  it('löst nach 2,5 Sekunden einmal aus und startet bei weiter gehaltener Taste keinen zweiten Biss',()=>{
   const s=swimmer(0,false,{refill:false});game.traits.biteGain=15;s.c.pressed.bite=true;s.c.held.bite=true;
@@ -217,5 +217,31 @@ describe('Aufladbare Waffen',()=>{
   for(let i=0;i<82;i++)s.step();expect(s.p.isRamming).toBe(false);expect(s.p.stamina).toBeCloseTo(7/8);
   s.c.held.ram=false;s.step();let peak=0;for(let i=0;i<12;i++){s.step();peak=Math.max(peak,s.p.body.velocity.x);}
   expect(peak).toBeGreaterThan(s.p.stats.speed*3);expect(s.p.stamina).toBeCloseTo(7/8);
+ });
+});
+
+describe('Ausdauer ohne vollständiges Wiederaufladen',()=>{
+ it.each(['bite','ram'] as const)('erlaubt %s mit genau einem Achtel trotz zuvor erschöpfter Leiste',action=>{
+  const s=swimmer(0,false,{refill:false});s.p.stats.recover=0;s.p.exhausted=true;s.p.stamina=1/8;
+  s.c.held[action]=false;s.c.pressed[action]=true;s.step();
+  expect(s.p.stamina).toBe(0);
+  if(action==='bite')expect(s.host.playerBite).toHaveBeenCalledTimes(1);
+  else{for(let i=0;i<7;i++)s.step();expect(s.p.isRamming).toBe(true);}
+ });
+ it('kann mit kleiner wieder verfügbarer Reserve sofort wieder sprinten',()=>{
+  const s=swimmer(0,false,{refill:false});s.p.stats.recover=0;s.p.exhausted=true;s.p.stamina=.1;s.c.held.sprint=true;s.step();
+  expect(s.p.sprinting).toBe(true);expect(s.p.exhausted).toBe(false);expect(s.p.stamina).toBeLessThan(.1);
+ });
+ it('bewegt sich beim Zielen ungefähr so schnell wie mit leerer Leiste',()=>{
+  const s=swimmer(1,false,{refill:false});s.ram();s.c.held.ram=true;
+  for(let i=0;i<60;i++)s.step();
+  expect(s.p.isRamming).toBe(false);expect(s.p.body.velocity.x/s.p.stats.speed).toBeGreaterThan(.65);expect(s.p.body.velocity.x/s.p.stats.speed).toBeLessThan(.72);
+ });
+ it('nimmt Sprintschwung ins Zielen mit und bremst ihn allmählich ab',()=>{
+  const s=swimmer(1,false,{reservePoints:100,refill:false});s.c.held.sprint=true;
+  for(let i=0;i<90;i++)s.step();const sprint=s.p.body.velocity.x;
+  s.c.held.sprint=false;s.ram();s.c.held.ram=true;
+  for(let i=0;i<8;i++)s.step();
+  expect(s.p.body.velocity.x).toBeGreaterThan(sprint*.85);expect(s.p.body.velocity.x).toBeLessThanOrEqual(sprint*1.01);
  });
 });

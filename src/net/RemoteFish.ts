@@ -29,7 +29,7 @@ function parseLook(s: string): Morph {
 }
 
 /** Was ein Fisch eines anderen Spielers am Ort meldet. */
-export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'> & {mouth?:number;charge?:number};
+export type FishRow = Pick<NetFish, 'name' | 'x' | 'y' | 'facing' | 'anim' | 'look' | 't' | 'away'> & {mouth?:number;charge?:number;identity?:string;observer?:boolean};
 
 /**
  * Der Fisch eines anderen Spielers: Er wird etwas verzögert gezeigt und zwischen den Meldungen geglättet (net/Interp.ts),
@@ -47,6 +47,8 @@ export class RemoteFish {
   private away = false;
   /** sein Name */
   name = '';
+  identity='';
+  private observer=false;
 
   constructor(scene: Phaser.Scene, f: FishRow, now: number) {
     this.look = f.look;
@@ -97,6 +99,7 @@ export class RemoteFish {
     }
     if (f.anim !== this.anim && (f.anim === ANIM.bite || f.anim === ANIM.ram)) this.view.bite(this.view.holdOpen>0);
     this.anim = f.anim;
+    this.identity=f.identity??'';this.observer=!!f.observer;this.view.setVisible(!this.observer);this.label.setVisible(!this.observer);
     this.view.holdOpen=(f.mouth??0)/100;this.charge=f.charge??0;
     this.facing = f.facing < 0 ? -1 : 1;
     this.away = f.away;

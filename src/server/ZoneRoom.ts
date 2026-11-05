@@ -52,17 +52,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // der Ortswächter gibt ab (sein Fenster ist im Hintergrund – dort rechnet der Browser kaum noch): ein anderer übernimmt
     yield: (client: Client) => {
       if (client.sessionId !== this.state.host) return;
-      const next = [...this.state.players.entries()].find(([id, f]) => id !== client.sessionId && !f.away);
+      const next = [...this.state.players.entries()].find(([id, f]) => id !== client.sessionId && !f.away && !f.observer && f.anim!==5);
       if (next) this.state.host = next[0];
     },
     // ein Spieler trifft ein Tier bzw. frisst vom Fleisch: Das rechnet der Ortswächter
     hit: (client: Client, m: HitMsg) => {
+      if(this.state.players.get(client.sessionId)?.observer)return;
       const id = int(m?.id);
       if (!id || client.sessionId === this.state.host) return;
       const kind = m.kind === 'ram' || m.kind === 'other' ? m.kind : 'bite';
       this.toHost({ type: 'hit', msg: { id, dmg: clamp(num(m.dmg, 0), 0, 200), kind, stun: clamp(num(m.stun, 0), 0, 3000), ...(m.slow&&m.slowMs?{slow:clamp(num(m.slow,0),0,.5),slowMs:clamp(num(m.slowMs,0),0,2000)}:{}), from: client.sessionId } satisfies HitMsg });
     },
     eat: (client: Client, m: EatMsg) => {
+      if(this.state.players.get(client.sessionId)?.observer)return;
       const id = int(m?.id);
       if (!id || client.sessionId === this.state.host) return;
       this.toHost({ type: 'eat', msg: { id, amount: clamp(num(m.amount, 0), 0, 60) } satisfies EatMsg });
@@ -77,6 +79,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     },
     // ein Spieler beißt in eine Pflanze: Das rechnet der Ortswächter
     plant: (client: Client, m: PlantMsg) => {
+      if(this.state.players.get(client.sessionId)?.observer)return;
       const i = m?.i;
       if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= MAX_PLANTS || client.sessionId === this.state.host) return;
       this.toHost({ type: 'plant', msg: { i } satisfies PlantMsg });
@@ -119,6 +122,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const b = this.bounds;
     const f = new NetFish();
     f.name = cleanName(o?.name) || 'Fisch';
+    f.identity=typeof o?.identity==='string'?o.identity.slice(0,40):'';f.observer=!!o?.observer;f.anim=f.observer?5:0;
     f.x = clamp(num(o?.x, b.sx), b.x0, b.x1);
     f.y = clamp(num(o?.y, b.sy), b.y0, b.y1);
     f.facing = 1;
@@ -128,7 +132,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.state.players.set(client.sessionId, f);
     this.budget.set(client.sessionId, { left: MOVE_BURST, at: Date.now() });
     // der Erste am Ort (oder wenn keiner mehr da ist) wird Ortswächter
-    if (!this.state.players.has(this.state.host)) this.state.host = client.sessionId;
+    if ((!this.state.players.has(this.state.host)||!this.state.host)&&!f.observer) this.state.host = client.sessionId;
     client.send('welcome', { now: Date.now(), you: client.sessionId } satisfies WelcomeMsg);
   }
 
@@ -156,7 +160,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Ein anderer Spieler wird Ortswächter (wer verbunden ist). Ist keiner da, rechnet der Nächste, der kommt, neu. */
   private newHost(old: string) {
     let next = '';
-    for (const [id, f] of this.state.players) if (id !== old && !f.away) next = next || id;
+    for (const [id, f] of this.state.players) if (id !== old && !f.away && !f.observer && f.anim!==5) next = next || id;
     this.state.host = next;
     if (!next && !this.state.players.size) {
       this.state.animals.clear();
@@ -264,7 +268,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
     f.t = num(m.t, 0);
     f.facing = num(m.facing, 1) < 0 ? -1 : 1;
-    f.anim = clamp(Math.round(num(m.anim, 0)), 0, 7);
+    f.anim = f.observer?5:clamp(Math.round(num(m.anim, 0)), 0, 7);
+    if(f.anim===5 && this.state.host===client.sessionId)this.newHost(client.sessionId);
+    if(f.anim===5)f.observer=true;
     f.mouth=clamp(Math.round(num(m.mouth,0)),0,100);f.charge=clamp(Math.round(num(m.charge,0)),0,2);
     f.size = clamp(num(m.size, 1), 0.1, 3);
     // wer die Höhle verlässt, ist nicht mehr eingeloggt
