@@ -1,95 +1,93 @@
-# Frühes Perm – Artenliste (Entwurf)
+# Frühes Perm – Karten und Arten für den Prototyp (Entwurf)
 
-Zielzeit: **Unterperm / Cisuralium, etwa 295–280 Mio. Jahre**. Die Welt verbindet Wasser, Ufer und Land:
-Seen und Flüsse (wie das Rotliegend im Saar-Nahe-Becken), sumpfige Ufer und trockeneres Hochland (wie der
-**Bromacker in Thüringen**). Für die Tiefe gibt es zwei Möglichkeiten: einen tiefen See (Süßwasser) oder, falls
-gewünscht, ein Randmeer.
+Zielzeit: **Unterperm / Cisuralium, etwa 295–280 Mio. Jahre**. Der Prototyp spielt nur hier; Devon und Karbon
+kommen später („demnächst“ in der Zeitalterübersicht).
 
-Stand: Vorschlag, noch nichts im Spiel. Die Rollen folgen `src/data/species.ts`:
-`prey` (flieht), `predator` (jagt), `defender` (friedlich, wehrt sich heftig), `hazard` (nur bei Berührung
-gefährlich), `apex` (Spitzenräuber, mit `boss: true` ein Boss). Lebensräume im Code sind `water`, `land` und `air`;
-„Ufer“ heißt hier: lebt im Wasser **und** an Land (amphibisch wie Pederpes im Karbon).
+Stand: Vorschlag, noch nichts im Spiel. Rollen wie in `src/data/species.ts`: `prey` (flieht), `predator` (jagt),
+`defender` (friedlich, wehrt sich heftig), `hazard` (nur bei Berührung gefährlich), `apex` (Spitzenräuber, mit
+`boss: true` ein Boss). Längen sind reale Größen (gerundet); ⚠ heißt: vor dem Steckbrief nachschlagen.
 
-Längen sind reale Größen der Tiere (gerundet). Mit ⚠ markierte Angaben vor dem Steckbrief noch einmal prüfen
-(Zeitraum, Fundort oder Größe sind in der Literatur unterschiedlich angegeben).
+## Fünf Karten und die Weltkarte
 
-## Bosse
+Jede Karte läuft von links nach rechts. Am rechten Rand öffnet sich die Weltkarte; man wählt einen benachbarten
+Knoten. So entsteht eine Gabelung mit steigender Schwierigkeit:
 
-| Lebensraum | Boss | Länge | Warum |
+```
+                 ┌── 2 Lagune ────── 3 Die Tiefe      (Wasserweg, Boss Orthacanthus)
+ 1 Laichfluss ───┤        │
+                 └── 4 Ufersumpf ─── 5 Hochland       (Landweg, Boss Dimetrodon)
+```
+
+| Stufe | Karte | Grundlage im Spiel | Lebensraum |
 |---|---|---|---|
-| **Tiefes Wasser (See)** | ***Orthacanthus*** – Süßwasserhai | bis ~3 m | größter Jäger der Seen und Flüsse; langer Nackenstachel, aalartiger Körper, frisst auch Amphibien |
-| **Land** | ***Dimetrodon grandis*** – Segelrücken | ~3–3,5 m | Spitzenjäger an Land, große Säbelzähne vorn, das bekannteste Tier des Perms |
-| *(optional)* Tiefes Meer | ***Helicoprion*** – Kreissägenhai | ~5–8 m ⚠ | Unterkiefer mit spiralförmigem Zahnkranz; tritt erst etwas später auf (ab ~290–280 Mio.) ⚠ |
+| 1 | **Laichfluss** | vorhandener Laichfluss | Flussmündung, ruhig, Kinderstube |
+| 2 | **Lagune** | Korallengarten, umgemalt | flache, warme Bucht zum Meer hin ⚠ Korallen nur meeresnah plausibel |
+| 3 | **Die Tiefe** | vorhandenes Tiefental | tiefer, dunkler Grund – Boss im Wasser |
+| 2 | **Ufersumpf** | neu (Karbon-Sumpfwelt als Grundlage) | Wasser und Land wechseln, Schachtelhalme, Schlamm |
+| 3 | **Hochland** | neu | trockenes Land, Farnsamer, rote Erde – Boss an Land |
 
-Zwischenbosse (stark, aber nicht `boss`): ***Ophiacodon*** am Ufer, ***Eryops*** an der Wasserlinie.
+Die Verbindung Lagune ↔ Ufersumpf erlaubt einen Seitenwechsel auf mittlerer Stufe.
 
-## Wasser (Seen, Flüsse, Tiefe)
+## Die Arten je Karte (je 5, zusammen 23 verschiedene)
 
-| Art | Rolle | Kost | Länge | Wo | Spielidee |
-|---|---|---|---|---|---|
-| *Paramblypterus* / *Aeduella* (Strahlenflosser) | prey | Plankton | 10–25 cm | Flachwasser, offen | Schwärme, Grundfutter; Rotliegend-Seen (auch Deutschland) |
-| *Acanthodes bronni* (Stachelhai) | prey | Plankton (Filterer) | ~30 cm | offen, Mitte | Schwarm, Stacheln: beim Fressen Schaden ⚠ |
-| *Uronectes* (Krebstier) | prey | Abfall | ~5 cm | Grund | winzige Beute für Jungtiere |
-| *Apateon* (Branchiosaurier-Larve) | prey | Kleinzeug | 5–10 cm | Flachwasser | Amphibienlarven mit Kiemenbüscheln – Futter |
-| *Gnathorhiza* (Lungenfisch) | defender | Muscheln, Kleintiere | ~40 cm | Grund, Schlamm | gräbt sich ein; zieht sich bei Trockenheit in Röhren zurück |
-| *Sagenodus* (Lungenfisch) | defender | gemischt | ~1 m ⚠ | Grund | großer friedlicher Brocken, beißt zurück |
-| *Xenacanthus* (Süßwasserhai) | predator | Fleisch | ~0,7–1 m | Flachwasser bis Mitte | Nackenstachel; schneller Jäger auf Fische |
-| *Archegosaurus decheni* (Langschnauzen-Amphibie) | predator | Fisch | ~1,5 m | offen | schnappt seitlich nach Schwärmen; Saar-Nahe |
-| *Sclerocephalus* (Amphibie) | predator | Fisch, Amphibien | bis ~1,5 m | See, Mitte bis Tiefe | Lauerjäger; Jungtiere als Beute, Alte gefährlich; Saar-Nahe |
-| *Trimerorhachis* (Amphibie) | predator | Fisch | ~1 m | Grund | flach, liegt im Schlamm und schnappt zu |
-| *Diplocaulus* (Bumerangkopf) | defender | Kleintiere | ~1 m | Grund | Bumerangkopf als Waffe; unverwechselbares Profil |
-| ***Orthacanthus*** | **apex, boss** | Fleisch | bis ~3 m | **Tiefe** | zieht in der Tiefe Kreise; bewacht den tiefen Laichplatz |
-
-## Ufer (Wasser und Land)
-
-| Art | Rolle | Kost | Länge | Spielidee |
+### 1 · Laichfluss – leicht
+| Art | Gruppe | Rolle | Länge | Spielidee |
 |---|---|---|---|---|
-| *Cacops* (gepanzerte Amphibie) | defender | Insekten | ~40 cm | Knochenplatten am Rücken: schwer zu beißen |
-| *Seymouria* | predator | Kleintiere | ~60 cm | robuster Ufergänger; jagt Jungtiere an der Wasserlinie (auch Bromacker) |
-| ***Eryops*** | predator (Zwischenboss) | Fisch, Amphibien | ~2 m | krokodilartiger Lauerjäger halb im Wasser – die Gefahr beim Übertritt ans Land |
-| ***Ophiacodon*** | predator (Zwischenboss) | Fisch | ~2–3 m | früher Synapside, lang und schwer, jagt im seichten Wasser und am Rand |
-| Pfeilschwanzkrebse | prey | Abfall | ~10 cm | laichen am Ufer: leichte Beute (optional) |
+| *Paramblypterus* | kleiner Fisch | prey | ~15 cm | Schwärme, Grundfutter (Rotliegend, auch Deutschland) |
+| *Acanthodes* | kleiner Fisch | prey | ~30 cm | aalartig, Flossenstacheln: kostet beim Fressen etwas |
+| *Apateon* | Amphibienlarve | prey | ~8 cm | Kiemenbüschel; leichte Beute fürs Jungtier |
+| *Gnathorhiza* | mittlerer Fisch (Lungenfisch) | defender | ~50 cm | gräbt sich im Schlamm ein, beißt zurück |
+| *Archegosaurus* | Amphibie | predator | ~1,5 m | Langschnauze, schnappt nach Schwärmen – die erste Gefahr |
 
-## Land (Ebene, Wald, Hochland)
-
-| Art | Rolle | Kost | Länge | Spielidee |
+### 2 · Lagune – mittel
+| Art | Gruppe | Rolle | Länge | Spielidee |
 |---|---|---|---|---|
-| Schaben, Tausendfüßer, Spinnentiere | prey | – | wenige cm | Kleinbeute im Laub |
-| *Captorhinus* | prey | Insekten, Pflanzen | ~25 cm | kleine frühe Reptilien in Gruppen |
-| *Eudibamus cursoris* | prey | Pflanzen | ~25 cm | rennt auf zwei Beinen: sehr schnell, kaum zu fangen (Bromacker) |
-| *Orobates pabsti* | prey | Pflanzen | ~1 m | gemütlicher Pflanzenfresser; seine Spuren sind berühmt (Bromacker) |
-| *Casea* | prey | Pflanzen | ~1,2 m | dicker Pflanzenfresser, langsam |
-| *Diadectes* | defender | Pflanzen | ~2–3 m | großer Pflanzenfresser, schlägt zu, wenn man ihn bedrängt (auch Bromacker) |
-| *Edaphosaurus* | defender | Pflanzen | ~3 m | Segelrücken mit Querstreben, friedlich, aber schwer |
-| *Arthropleura* | defender | Pflanzenreste | bis ~2,5 m | Riesentausendfüßer; späte Vorkommen im frühesten Perm ⚠ |
-| *Varanops* / *Tambacarnifex* | predator | Fleisch | ~1–1,5 m | flinke, waranartige Jäger; *Tambacarnifex* vom Bromacker |
-| *Sphenacodon* | predator | Fleisch | ~2–3 m | Verwandter von Dimetrodon ohne hohes Segel; jagt im Paar ⚠ |
-| *Dimetrodon teutonis* | predator | Kleintiere | ~1,7 m | kleiner „deutscher“ Dimetrodon vom Bromacker – Vorbote des Bosses |
-| ***Dimetrodon grandis*** | **apex, boss** | Fleisch | ~3–3,5 m | Herrscher des Landes; bewacht den Laichplatz an Land |
+| *Aeduella* | kleiner Fisch | prey | ~20 cm | schlanker Schwarmfisch, schneller als *Paramblypterus* |
+| *Platysomus* | mittlerer Fisch | prey | ~30 cm | hochrückig, fast scheibenförmig – ganz eigene Silhouette |
+| *Diplocaulus* | Amphibie | defender | ~1 m | Bumerangkopf am Grund, rammt zurück |
+| *Xenacanthus* | Hai | predator | ~1 m | Nackenstachel, schneller Fischjäger |
+| *Ectosteorhachis* | großer Fisch (Fleischflosser) | predator | ~1 m ⚠ | schwerer Lauerjäger – ein entfernter Verwandter der eigenen Linie |
 
-## Luft
+### 3 · Die Tiefe – schwer
+| Art | Gruppe | Rolle | Länge | Spielidee |
+|---|---|---|---|---|
+| *Platysomus* | mittlerer Fisch | prey | ~30 cm | (aus der Lagune) Futter in der Tiefe |
+| *Aeduella* | kleiner Fisch | prey | ~20 cm | (aus der Lagune) dunkle Schwärme |
+| *Ectosteorhachis* | großer Fisch | predator | ~1 m ⚠ | (aus der Lagune) häufiger und größer |
+| *Sclerocephalus* | Amphibie | predator | ~1,5 m | Lauerjäger am Grund |
+| ***Orthacanthus*** | Hai | **apex, boss** | bis ~3 m | größter Jäger der Gewässer, aalartig, langer Stachel |
 
-| Art | Rolle | Spielidee |
-|---|---|---|
-| *Meganeuropsis* (Riesen-Greifenfliege) | predator / hazard | ~70 cm Spannweite; stößt an Land auf Jungtiere herab ⚠ |
-| kleinere Insekten | prey | Futter für Landtiere |
+### 4 · Ufersumpf – mittel
+| Art | Gruppe | Rolle | Länge | Spielidee |
+|---|---|---|---|---|
+| *Captorhinus* | frühes Reptil | prey | ~25 cm | kleine Landbeute in Gruppen |
+| *Cacops* | gepanzerte Amphibie | defender | ~40 cm | Knochenplatten: schwer zu beißen |
+| *Seymouria* | Ufergänger | predator | ~60 cm | jagt Jungtiere an der Wasserlinie |
+| *Ophiacodon* | früher Synapside | predator | ~2–3 m | jagt im seichten Wasser, Zwischenboss |
+| *Eryops* | Großamphibie | predator | ~2 m | krokodilartiger Lauerjäger an der Wasserlinie, Zwischenboss |
 
-## So ergibt sich die Weggabelung
+### 5 · Hochland – schwer
+| Art | Gruppe | Rolle | Länge | Spielidee |
+|---|---|---|---|---|
+| *Eudibamus* | frühes Reptil | prey | ~25 cm | rennt auf zwei Beinen, kaum zu fangen (Bromacker, Thüringen) |
+| *Edaphosaurus* | Segelrücken, Pflanzenfresser | defender | ~3 m | friedlich, aber schwer und wehrhaft |
+| *Diadectes* | großer Pflanzenfresser | defender | ~2,5 m | schlägt zu, wenn man ihn bedrängt (auch Bromacker) |
+| *Varanops* | Landjäger | predator | ~1,2 m | flink, waranartig, jagt im Paar |
+| ***Dimetrodon grandis*** | Segelrücken, Jäger | **apex, boss** | ~3,5 m | Herrscher des Landes |
 
-- **Wasserweg:** Fisch → großer Raubfisch; Gegner *Xenacanthus*, *Sclerocephalus*, Boss *Orthacanthus*.
-- **Uferweg:** Fisch mit Beinen → Lauerjäger an der Wasserlinie; Gegner *Eryops*, *Ophiacodon*; Beute auf beiden Seiten.
-- **Landweg:** Ufertier geht an Land → Gegner *Varanops*, *Sphenacodon*, *Dimetrodon teutonis*, Boss
-  *Dimetrodon grandis*; dazu wehrhafte Pflanzenfresser (*Diadectes*, *Edaphosaurus*) als Hindernis.
+Optional für Stimmung (nicht in der Zählung): *Meganeuropsis* (Riesen-Greifenfliege, Luft), Insekten, Tausendfüßer.
 
-Jeder Lebensraum hat damit Kleinbeute, mittlere Jäger, wehrhafte Friedliche und eine Spitze.
+## Vielfalt im Wasser
 
-## Fossilplatten für die Sammlung (Vorschlag)
-
-Passend zu den sieben großen Gegnern der Sammelstern-Idee: *Orthacanthus*, *Dimetrodon grandis*, *Eryops*,
-*Ophiacodon*, *Edaphosaurus*, *Diplocaulus*, *Helicoprion* (falls das Meer kommt; sonst *Diadectes*).
+- **3 kleine Fische:** *Paramblypterus* (gedrungen), *Aeduella* (schlank, schnell), *Acanthodes* (aalartig mit Stacheln)
+- **2 mittlere Fische:** *Gnathorhiza* (Lungenfisch, am Grund), *Platysomus* (hochrückig)
+- **1 großer Fisch:** *Ectosteorhachis* (Fleischflosser)
+- **2 Haie:** *Xenacanthus* (mittel), *Orthacanthus* (Boss)
+- **Andersartige:** Larve *Apateon*, Amphibien *Archegosaurus*, *Diplocaulus*, *Sclerocephalus*
 
 ## Noch zu entscheiden
 
-- Gibt es ein Meer mit *Helicoprion*, oder bleibt die Tiefe ein See mit *Orthacanthus*?
-- Welche Arten aus dem Karbon dürfen ins Perm mitwandern (z. B. *Xenacanthus*, Lungenfische, Pfeilschwanzkrebse)?
-- Wie viele Arten je Ort – im Devon sind es pro Ort etwa 10–15 sichtbare Arten.
+- Lagune: meeresnah (dann passen Korallen, später vielleicht *Helicoprion*) oder Süßwassersee (dann Armleuchteralgen und
+  Schachtelhalme statt Korallen)?
+- Name und Aussehen der Weltkarte; wie viel man vor dem ersten Besuch von einem Knoten sieht.
+- Welche Devon-Arten im Code bleiben (für später) und welche Perm-Arten zuerst gemalt werden.
