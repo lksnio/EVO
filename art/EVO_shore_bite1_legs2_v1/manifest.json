@@ -1,0 +1,45 @@
+{
+  "id": "shore_bite1_legs2",
+  "created": "2026-11-06",
+  "node": "shore",
+  "visual_trait": "bite",
+  "visual_stage": 1,
+  "visual_traits": {
+    "legs": 2,
+    "bite": 1,
+    "skull_plate": 0
+  },
+  "status": "art_only",
+  "file": "masters/shore_bite1_legs2.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    22,
+    160,
+    2154,
+    648
+  ],
+  "sha256": "3d1151d85580ed0d64253c2c637c0afb1b45db14862183e0db63e4ce1d0e1615",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-6755ffb7-5ed6-404e-88af-1d7be62f5e43.png",
+  "references": [
+    "art/EVO_shore_base_v1/masters/shore_base.png",
+    "art/EVO_shore_bite_tier3_v1/masters/shore_bite_tier3.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "Requested phenotype: legs level two and jaws level one, with an unarmoured head.",
+    "Intermediate between the normal nearly toothless shoreline animal and the large-jawed predator reference.",
+    "Short visible conical teeth in both jaws, a narrow mouth opening and a moderately firmer lower jaw.",
+    "Four developed supporting legs, webbed feet, low stance, body, swimming tail and slate-olive / sandy palette follow the normal shoreline reference.",
+    "Legs two is a trait level, not a bipedal posture.",
+    "Source filenames retain historical tier labels; runtime rules, textures and animation registration are unchanged."
+  ]
+}
