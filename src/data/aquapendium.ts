@@ -1,7 +1,7 @@
 import { SPECIES_FACTS as FACTS } from './speciesFacts';
-import { epochSpecies, ERAS, type EpochDef } from './epochs';
+import { ERAS, type EpochDef } from './epochs';
 import { SPECIES, type Role, type SpeciesDef } from './species';
-import type { PlaceKind } from './world';
+import { homesOf, speciesOf, type PlaceKind } from './world';
 
 // ---------------------------------------------------------------------------
 // Die Chronik des Lebens (im Code „Chronik des Lebens“): ein Buch mit einer Seite für jedes Tier der Urmeere, in sieben Teilen – einer je Zeitalter (Devon bis
@@ -38,7 +38,7 @@ const size = (d: SpeciesDef) => FACTS[d.id].cm;
 
 /** Die Tiere eines Zeitalters: die Bewohner seiner Orte, die Durchzügler und die großen Gäste. */
 function idsOf(ep: EpochDef): string[] {
-  return epochSpecies(ep).filter((id) => SPECIES[id]);
+  return speciesOf(ep).filter((id) => SPECIES[id]);
 }
 
 function entry(id: string, no: number): Entry {
@@ -95,6 +95,9 @@ export function herdText(d: SpeciesDef) {
 
 /** Wo die Art häufiger vorkommt als anderswo. */
 export function placesText(d: SpeciesDef) {
+  // Zeitalter mit Weltkarte: die Orte, an denen die Art lebt
+  const homes = [...new Set(ERAS.filter((e) => e.ep.playable).flatMap((e) => homesOf(e.ep, d.id).map((p) => p.name.replace(/^The /, ''))))];
+  if (homes.length) return homes.join(', ');
   const w = d.where;
   if (!w) return 'everywhere';
   const kinds = (Object.keys(PLACE_TEXT) as PlaceKind[]).filter((k) => (w[k] ?? 1) >= 1.2);

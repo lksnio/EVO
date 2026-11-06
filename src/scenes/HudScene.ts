@@ -72,7 +72,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   init(d: { epoch: number; place?: string; wake?: boolean }) {
-    this.ep = EPOCHS[d?.epoch ?? 0];
+    this.ep = EPOCHS[d?.epoch ?? game.chosenEpoch];
     this.wake = !!d?.wake;
     this.placeName = d?.place ?? this.ep.place;
     this.pauseC = undefined;

@@ -12,7 +12,7 @@ export const COLLECTION_SHELLS = [
 export const COLLECTION_FOSSILS = [
   { id: 'dunkleosteus', name: 'Dunkleosteus', epoch: 'Devonian', shape: 'armoured-fish' },
   { id: 'anthracosaurus', name: 'Anthracosaurus', epoch: 'Carboniferous', shape: 'amphibian' },
-  { id: 'inostrancevia', name: 'Inostrancevia', epoch: 'Permian', shape: 'sabre' },
+  { id: 'dimetrodon', name: 'Dimetrodon', epoch: 'Permian', shape: 'sailback' },
   { id: 'postosuchus', name: 'Postosuchus', epoch: 'Triassic', shape: 'archosaur' },
   { id: 'liopleurodon', name: 'Liopleurodon', epoch: 'Jurassic', shape: 'pliosaur' },
   { id: 'mosasaurus', name: 'Mosasaurus', epoch: 'Cretaceous', shape: 'mosasaur' },
@@ -37,4 +37,5 @@ export const SHELL_WISDOM = [
 /** The other six fixed finds will be authored with their future maps. */
 export const SHELL_PLACEMENTS: readonly { id: ShellId; epoch: string; place: string; anchor: 'deepest-floor' }[] = [
   { id: 'abyss', epoch: 'devon', place: 'wand', anchor: 'deepest-floor' },
+  { id: 'abyss', epoch: 'perm', place: 'wand', anchor: 'deepest-floor' },
 ];

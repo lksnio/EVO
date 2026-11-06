@@ -3,6 +3,7 @@ import { Client, type Room } from '@colyseus/sdk';
 import { server } from '../src/server/index';
 import { SPECIES_ROOM, type SpeciesOver, type SpeciesPicked } from '../src/net/protocol';
 import { SpeciesState } from '../src/net/schema';
+import { firstPlayable } from '../src/data/epochs';
 
 // Koop: Zwei Spieler teilen ihren Laich (ein Raum je Zeitalter). Wählt einer ein Ei der nächsten Generation, beginnt sie
 // für beide; stirbt jemand und es liegt kein Laich mehr da, ist die Art für beide ausgestorben.
@@ -38,7 +39,7 @@ describe('Gemeinsame Generation mit Zuschauer-Wiedereinstieg',()=>{
  beforeAll(async()=>{await server.listen(PORT);});
  afterAll(async()=>{for(const r of rooms)await Promise.race([r.leave().catch(()=>undefined),wait(500)]);await server.gracefullyShutdown(false);});
  async function pair(){
-  const a=await new Client(URL).create<SpeciesState>(SPECIES_ROOM,{epoch:0,name:'Anna'},SpeciesState);
+  const a=await new Client(URL).create<SpeciesState>(SPECIES_ROOM,{epoch:firstPlayable(),name:'Anna'},SpeciesState);
   const b=await new Client(URL).joinById<SpeciesState>(a.roomId,{name:'Ben'},SpeciesState);rooms.push(a,b);
   a.onMessage('advanced',()=>undefined);b.onMessage('advanced',()=>undefined);
   return {a,b};

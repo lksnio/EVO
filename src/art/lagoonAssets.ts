@@ -19,5 +19,5 @@ export function lagoonReady(scene: Phaser.Scene) {
 }
 
 export function lagoonEnabled(scene: Phaser.Scene, ep: EpochDef, place: PlaceDef) {
-  return ep.id === 'devon' && place.kind === 'start' && lagoonReady(scene) && !new URLSearchParams(globalThis.location?.search ?? '').has('oldlagoon');
+  return !!ep.painted && place.kind === 'start' && lagoonReady(scene) && !new URLSearchParams(globalThis.location?.search ?? '').has('oldlagoon');
 }

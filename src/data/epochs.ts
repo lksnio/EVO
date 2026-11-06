@@ -4,9 +4,10 @@ import type { ClassId } from './classes';
 // Die Zeitalter (Epochen). Jedes ist eine eigene Welt – ein fester Zeitraum der Erdgeschichte, in dem eine Uhr von "from"
 // bis "to" läuft (Jahre vor heute). Man lebt immer in einem Zeitalter: Jede Linie beginnt dort mit dessen Urahn und
 // entwickelt sich über Generationen – im Mehrspieler treffen sich alle, die dasselbe Zeitalter gewählt haben.
-// Sieben stehen zur Wahl: Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen. Spielbar sind vorerst das Devon und das
-// Karbon (mit Gelege und Generationen, siehe data/karbon.ts), die anderen ruhen noch („im Gestein“). Ordovizium und Silur
-// sind verborgen (ihre Tiere, Orte und Karten bleiben für später).
+// Sieben stehen zur Wahl: Devon, Karbon, Perm, Trias, Jura, Kreidezeit, Paläogen. Spielbar ist für den Prototyp nur das
+// frühe Perm: fünf Orte – Laichfluss, Lagune, Tiefe, Ufersumpf und Hochland –, verbunden über eine Weltkarte. Devon und
+// Karbon ruhen wieder „im Gestein“ (ihre Welten, Tiere und Regeln bleiben im Code für später), die übrigen ebenso.
+// Ordovizium und Silur sind verborgen (ihre Tiere, Orte und Karten bleiben für später).
 // Die Reihenfolge ist Teil des Spielstands (Nummern): Nummer 0 war früher das Ordovizium – ältere Spielstände leben deshalb
 // im Devon weiter. Neue Zeitalter kommen ans Ende.
 // ---------------------------------------------------------------------------
@@ -57,6 +58,14 @@ export interface EpochDef {
   brood?: boolean;
   /** das dritte Merkmal an der großen Muschel: Sicht (unter Wasser) oder Sauerstoff (an Land) */
   meta?: 'sight' | 'oxy';
+  /**
+   * Gemalter Stil (wie das Devon): Die Wasserorte bekommen die gemalten Hintergründe, Riffe, den gemalten Laichfluss, Licht,
+   * Seegang, Wetter, Himmel über der Oberfläche und die Laichfluss-Musik. Orte mit Land (Ufer, Hochland) bleiben im
+   * gezeichneten Sumpfstil.
+   */
+  painted?: boolean;
+  /** Reisen über die Weltkarte: Wer eine Karte links oder rechts verlässt, wählt auf der Weltkarte einen Nachbarort. */
+  overworld?: boolean;
   /** Tiere: Art und Anzahl der Gruppen */
   fauna: [string, number][];
   /** Größter ansässiger Jäger, ausschließlich in dafür geeigneten tiefen Gebieten. */
@@ -79,7 +88,7 @@ function later(id: string, name: string, tagline: string, period: [number, numbe
 export const EPOCHS: EpochDef[] = [
   // ---------------------------------------------------------------- I. Devon – hier beginnt alles
   {
-    id: 'devon', apex: 'dunkleosteus', name: 'Devonian', playable: true, tagline: 'The Age of Fishes', period: [419, 359],
+    id: 'devon', apex: 'dunkleosteus', name: 'Devonian', painted: true, tagline: 'The Age of Fishes', period: [419, 359],
     blurb: 'Reefs of coral and sponges line the coasts. Armoured fishes, early sharks and lobe-finned fishes vie for dominance — above them all reigns Dunkleosteus.',
     place: 'Placoderm Reef', theme: 'ozean', cls: 'fish', habitat: 'water', reef: true,
     from: 383 * M, to: 371 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.85, cover: 0.55,
@@ -98,7 +107,7 @@ export const EPOCHS: EpochDef[] = [
   // das Unterkarbon (vor etwa 348 Millionen Jahren): Man lebt als Pederpes, einer der ersten Vierfüßer. Statt zu laichen gibt es
   // ein Gelege voller Eier – die Leben der Art (siehe data/karbon.ts). Räuber kommen nicht als Ereignis, sondern ans Nest.
   {
-    id: 'karbon', apex: 'rhizodus', name: 'Carboniferous', playable: true, brood: true, meta: 'oxy', tagline: 'The Coal Forests', period: [359, 299],
+    id: 'karbon', apex: 'rhizodus', name: 'Carboniferous', brood: true, meta: 'oxy', tagline: 'The Coal Forests', period: [359, 299],
     blurb: 'Steaming swamps lie between islands and shores. Giant lobe-finned fishes lurk in the water; millipedes and scorpions crawl through the first forests — and the first tetrapods venture onto land.',
     place: 'Coal Swamp', theme: 'sumpf', cls: 'amphibian', habitat: 'land',
     from: 349 * M, to: 341 * M, seconds: 600, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.9, cover: 0.5,
@@ -109,9 +118,26 @@ export const EPOCHS: EpochDef[] = [
     ],
     passers: [['megalichthys', 3], ['crassigyrinus', 2], ['strepsodus', 1.5], ['stethacanthus', 1]],
   },
-  later('perm', 'Permian', 'The Realm of Sailbacks', [299, 252],
-    'All continents have joined into Pangaea. Sail-backed animals such as Dimetrodon, distant relatives of mammals, rule the dry land. The era ends in the greatest mass extinction in Earth\'s history.',
-    'Pangaea', 'reptil', 'reptile', 'land'),
+  // ---------------------------------------------------------------- III. Perm – der Prototyp
+  // das frühe Perm (vor etwa 290 Millionen Jahren): Man beginnt als Fisch im Laichfluss. Fünf Orte liegen auf der Weltkarte –
+  // drei im Wasser (Laichfluss, Lagune und durch deren Schlucht die Tiefe), dazu der Ufersumpf und das trockene Hochland.
+  // Jeder Ort hat seine eigenen Tiere (siehe data/world.ts), zwei Bosse: Orthacanthus in der Tiefe, Dimetrodon im Hochland.
+  {
+    id: 'perm', apex: 'orthacanthus', name: 'Permian', playable: true, painted: true, overworld: true, reef: true,
+    tagline: 'The Realm of Sailbacks', period: [299, 252],
+    blurb: 'All continents have joined into Pangaea. Freshwater sharks hunt in rivers and lakes, giant amphibians lurk at the shore, and sail-backed animals such as Dimetrodon rule the dry uplands.',
+    place: 'Pangaea', theme: 'ozean', cls: 'fish', habitat: 'water',
+    from: 295 * M, to: 283 * M, seconds: 540, music: 'ozean', hazardDmg: 4, len: 90, plants: 0.85, cover: 0.55,
+    // Richtwerte für alle Orte – welche Arten wo leben, legt jeder Ort selbst fest (PlaceDef.fauna)
+    fauna: [
+      ['paramblypterus', 8], ['aeduella', 8], ['acanthodes', 5], ['apateon', 3], ['platysomus', 4], ['gnathorhiza', 1.5],
+      ['diplocaulus', 1.5], ['archegosaurus', 0.5], ['xenacanthus', 0.8], ['ectosteorhachis', 0.6], ['sclerocephalus', 0.6],
+      ['eryops', 0.5], ['ophiacodon', 0.4],
+      ['captorhinus', 3], ['cacops', 1.2], ['seymouria', 1], ['tausendfuss', 2.5], ['urinsekt', 2.5],
+      ['eudibamus', 3], ['edaphosaurus', 0.6], ['diadectes', 0.6], ['varanops', 0.8],
+    ],
+    passers: [['xenacanthus', 2], ['ectosteorhachis', 1.5], ['archegosaurus', 1]],
+  },
   later('trias', 'Triassic', 'The First Dinosaurs', [252, 201],
     'Life recovers after the great extinction. The first dinosaurs appear in hot Pangaea, ichthyosaurs hunt at sea, and the first mammals scurry through the night.',
     'Pangaea', 'reptil', 'reptile', 'land', true),
@@ -163,6 +189,9 @@ export const ERAS: { i: number; ep: EpochDef }[] = EPOCHS.map((ep, i) => ({ i, e
 
 /** Kann man in diesem Zeitalter (Nummer) leben? */
 export const isPlayable = (i: number) => !!EPOCHS[i]?.playable;
+
+/** Das erste Zeitalter, in dem man leben kann (Ersatz für ältere Spielstände und den allerersten Start). */
+export const firstPlayable = () => Math.max(0, EPOCHS.findIndex((e) => e.playable));
 
 /** „im Devon“, „in der Trias“, „in der Kreidezeit“ */
 export const inEra = (ep: EpochDef) => `in the ${ep.name}`;

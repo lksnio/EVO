@@ -1400,6 +1400,217 @@ function drawAmmo(ctx: Ctx, p: Extract<Art, { t: 'ammo' }>, f: number, E: Eyes) 
   eye(ctx, ex, ey, r * 0.11, E.iris, { glow: E.glow, lid: E.attack });
 }
 
+
+// ---------------------------------------------------------------------------- Perm: Vierbeiner
+
+/**
+ * Ein Bein aus Oberschenkel, Unterschenkel und Fuß: von der Hüfte (x, y) schräg nach unten. ang: Schwung nach vorn (Bogenmaß,
+ * positiv = Richtung Kopf), bend: wie stark das Knie knickt, swim: angelegt wie ein Paddel.
+ */
+function quadLeg(ctx: Ctx, x: number, y: number, len: number, wd: number, ang: number, bend: number, col: number, lw: number, swim: boolean) {
+  const a1 = Math.PI / 2 - ang;
+  const kx = x + Math.cos(a1) * len * 0.52, ky = y + Math.sin(a1) * len * 0.52;
+  const a2 = a1 + bend;
+  const fx = kx + Math.cos(a2) * len * 0.5, fy = ky + Math.sin(a2) * len * 0.5;
+  const path = () => {
+    taper(ctx, [[x, y], [kx, ky], [fx, fy]], wd, wd * 0.5);
+  };
+  skin(ctx, path, { base: col, top: shade(col, 0.1), y0: y, y1: fy, noise: 'mottle', noiseAlpha: 0.25, noiseScale: 0.3, edge: shade(col, -0.62), edgeW: lw, rim: 0.3 });
+  // der Fuß: flach auf dem Boden (bzw. als kleine Flosse im Wasser), Zehen nach vorn
+  const toe = swim ? wd * 1.3 : wd * 1.15;
+  const foot = () => {
+    ctx.beginPath();
+    ctx.moveTo(fx - wd * 0.35, fy - wd * 0.25);
+    ctx.quadraticCurveTo(fx + toe, fy - wd * 0.45, fx + toe * 1.15, fy + wd * 0.12);
+    ctx.quadraticCurveTo(fx + toe * 0.4, fy + wd * 0.32, fx - wd * 0.4, fy + wd * 0.2);
+    ctx.closePath();
+  };
+  skin(ctx, foot, { base: shade(col, -0.08), y0: fy - wd, y1: fy + wd, edge: shade(col, -0.62), edgeW: lw * 0.9, rim: 0.2 });
+}
+
+/**
+ * Ein Vierbeiner des Perms: Amphibie, frühes Reptil oder Synapside. Rumpf, langer Schwanz, Kopf und vier Beine – dazu, je nach
+ * Art, ein Rückensegel (mit Querstreben), Knochenplatten, ein Bumerangkopf, Kiemenbüschel oder ein Lauf auf zwei Beinen.
+ * Schwimmer legen die Beine an und tragen einen Flossensaum am Schwanz; Läufer setzen die Beine im Kreuzgang (Bild 0 und 1).
+ */
+function drawQuad(ctx: Ctx, p: Extract<Art, { t: 'quad' }>, f: number, E: Eyes, mouth = true) {
+  const L = p.len, hw = L / 2, h = p.h, c = p.c, D = dark(c);
+  const lw = Math.max(1, L / 120);
+  const snout = p.snout ?? 0;
+  const tip = hw * (1 + 0.3 * snout);
+  const tailK = p.tail ?? 0.42;
+  const hipX = -hw + L * tailK;
+  const headLen = L * (p.flat ? 0.17 : 0.15) * (1 + snout * 0.9);
+  const shoulderX = hw - headLen - L * 0.07;
+  const legLen = h * (p.leg ?? 0.9);
+  const swim = !!p.swim;
+  const s = f ? 1 : -1;
+  const legCol = shade(c, -0.05);
+  ctx.save();
+  // auf zwei Beinen: der Körper richtet sich vorn auf
+  if (p.biped) ctx.rotate(-0.22);
+  const back = (x: number) => -h * 0.48 + Math.abs(x - (hipX + shoulderX) / 2) / L * h * 0.25;
+  // ---- Beine der fernen Seite (dunkler)
+  const swing = swim ? 0.18 : 0.42;
+  const farCol = shade(legCol, -0.28);
+  const hindLen = p.biped ? legLen * 1.25 : legLen, foreLen = p.biped ? legLen * 0.45 : legLen * 0.92;
+  const legW = Math.max(lw * 1.4, h * (swim ? 0.2 : 0.24));
+  if (swim) {
+    quadLeg(ctx, shoulderX - L * 0.02, h * 0.18, foreLen * 0.9, legW, -1.05 + s * swing, 0.5, farCol, lw, true);
+    quadLeg(ctx, hipX + L * 0.03, h * 0.16, hindLen * 0.95, legW, -1.15 - s * swing, 0.45, farCol, lw, true);
+  } else {
+    quadLeg(ctx, shoulderX - L * 0.02, h * 0.3, foreLen, legW, -s * swing, -0.35, farCol, lw, false);
+    quadLeg(ctx, hipX + L * 0.03, h * 0.28, hindLen, legW * 1.1, s * swing, 0.5, farCol, lw, false);
+  }
+  // ---- Rückensegel (hinter dem Rumpf): Stacheln mit Haut dazwischen
+  if (p.sail) {
+    const x0 = hipX + L * 0.02, x1 = shoulderX - L * 0.01;
+    const H = p.sail * L;
+    const topAt = (t: number) => H * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) ** 0.8;
+    const n = Math.max(7, Math.round((x1 - x0) / (L * 0.035)));
+    const sailPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(x0, back(x0) + h * 0.06);
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, x = x0 + (x1 - x0) * t;
+        ctx.lineTo(x, back(x) - topAt(t * 0.98 + 0.01));
+      }
+      ctx.lineTo(x1, back(x1) + h * 0.06);
+      ctx.closePath();
+    };
+    skin(ctx, sailPath, { base: shade(mix(c, 0xb0502a, 0.35), 0.12), top: shade(c, -0.1), y0: -h * 0.5 - H, y1: -h * 0.4, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.3, edge: D, edgeW: lw, rim: 0.3 });
+    for (let i = 1; i < n; i++) {
+      const t = i / n, x = x0 + (x1 - x0) * t, top = back(x) - topAt(t);
+      pen(ctx, Math.max(0.8, lw * 0.9), shade(c, -0.45), () => { ctx.beginPath(); ctx.moveTo(x, back(x) + h * 0.04); ctx.lineTo(x, top + lw); });
+      if (p.sailBars) for (let k = 1; k < 4; k++) {
+        const y = back(x) - (back(x) - top) * (k / 4);
+        pen(ctx, Math.max(0.7, lw * 0.7), shade(c, -0.4), () => { ctx.beginPath(); ctx.moveTo(x - L * 0.007, y); ctx.lineTo(x + L * 0.007, y); });
+      }
+    }
+  }
+  // ---- Flossensaum am Schwanz (Schwimmer)
+  if (swim) {
+    const sw = f ? 0.06 : -0.05;
+    ctx.save();
+    ctx.translate(-hw * 0.6, 0);
+    ctx.rotate(sw);
+    const fin = () => {
+      ctx.beginPath();
+      ctx.moveTo(hw * 0.25, -h * 0.18);
+      ctx.quadraticCurveTo(-hw * 0.1, -h * 0.42, -hw * 0.42, -h * 0.02);
+      ctx.quadraticCurveTo(-hw * 0.1, h * 0.36, hw * 0.25, h * 0.16);
+      ctx.closePath();
+    };
+    skin(ctx, fin, { base: shade(c, -0.15), y0: -h * 0.4, y1: h * 0.4, noise: 'mottle', noiseAlpha: 0.25, noiseScale: 0.3, edge: D, edgeW: lw * 0.9, rim: 0.2 });
+    ctx.restore();
+  }
+  // ---- der Körper: vom Schwanz über den Rumpf bis zur Schnauze
+  const tailY = swim ? 0 : h * 0.12;
+  const sway = swim ? (f ? h * 0.08 : -h * 0.06) : 0;
+  const headTop = p.flat ? -h * 0.24 : -h * 0.34;
+  const outline: P2[] = [
+    [-hw, tailY + sway], [-hw * 0.72, tailY * 0.6 - h * 0.08 + sway * 0.6], [(-hw + hipX) / 2, -h * 0.2], [hipX, back(hipX)],
+    [(hipX + shoulderX) / 2, back((hipX + shoulderX) / 2)], [shoulderX, back(shoulderX)], [shoulderX + L * 0.05, headTop - h * 0.02],
+    [hw - headLen * 0.55, headTop], [tip * 0.96 - headLen * 0.12, headTop * 0.55], [tip, -h * 0.02], [tip * 0.97, h * 0.1],
+    [hw - headLen * 0.55, h * (p.flat ? 0.16 : 0.2)], [shoulderX + L * 0.03, h * 0.3], [shoulderX, h * 0.44],
+    [(hipX + shoulderX) / 2, h * 0.5], [hipX, h * 0.42], [(-hw + hipX) / 2, h * 0.18 + tailY * 0.4], [-hw * 0.72, tailY * 0.6 + h * 0.08 + sway * 0.6],
+  ];
+  const body = () => smooth(ctx, outline, true);
+  skin(ctx, body, {
+    base: c, top: shade(c, -0.35), belly: p.belly, bellyBand: [h * 0.3, h * 0.24, (shoulderX - hipX) * 0.62, (hipX + shoulderX) / 2], y0: -h * 0.5, y1: h * 0.5,
+    noise: 'mottle', noiseAlpha: 0.32, noiseScale: 0.26, edge: D, edgeW: lw, rim: 0.3, wet: swim,
+    inner: p.stripes || p.spots
+      ? (cx) => {
+          cx.fillStyle = css(D, p.stripes ? 0.22 : 0.26);
+          if (p.stripes) for (let i = 0; i < 9; i++) {
+            const x = -hw * 0.7 + i * (shoulderX + hw * 0.7) / 9;
+            cx.beginPath();
+            cx.ellipse(x, back(x) + h * 0.16, L * 0.012, h * 0.2, 0.25, 0, Math.PI * 2);
+            cx.fill();
+          }
+          if (p.spots) {
+            const rnd = mulberry32(Math.round(L * 7 + h));
+            for (let i = 0; i < 16; i++) {
+              const x = -hw * 0.6 + rnd() * (tip + hw * 0.6) * 0.9, y = -h * 0.3 + rnd() * h * 0.35;
+              cx.beginPath();
+              cx.ellipse(x, y, h * 0.05, h * 0.035, 0, 0, Math.PI * 2);
+              cx.fill();
+            }
+          }
+        }
+      : undefined,
+  });
+  // ---- Knochenplatten auf dem Rücken (Cacops)
+  if (p.plates) {
+    const n = 7;
+    for (let i = 0; i < n; i++) {
+      const x = shoulderX - (i + 0.5) * (shoulderX - hipX) / n;
+      const y = back(x);
+      const plate = () => { ctx.beginPath(); ctx.ellipse(x, y + h * 0.02, (shoulderX - hipX) / n * 0.42, h * 0.1, 0, Math.PI, Math.PI * 2); ctx.closePath(); };
+      skin(ctx, plate, { base: shade(c, 0.18), y0: y - h * 0.12, y1: y + h * 0.04, edge: D, edgeW: lw * 0.9, rim: 0.4 });
+    }
+  }
+  // ---- Bumerangkopf (Diplocaulus): breite Hörner, die nach hinten auslaufen
+  if (p.boomerang) {
+    // von der Seite gesehen: ein breiter, flacher Keil, der weit über die Schultern nach hinten reicht
+    const hx = hw - headLen * 0.4;
+    const horn = () => {
+      ctx.beginPath();
+      ctx.moveTo(hx + headLen * 0.35, -h * 0.2);
+      ctx.quadraticCurveTo(hx - headLen * 1.2, -h * 0.62, hx - headLen * 3.1, -h * 0.28);
+      ctx.quadraticCurveTo(hx - headLen * 2.6, -h * 0.02, hx - headLen * 1.2, h * 0.04);
+      ctx.quadraticCurveTo(hx - headLen * 0.3, h * 0.1, hx + headLen * 0.2, h * 0.08);
+      ctx.closePath();
+    };
+    skin(ctx, horn, { base: shade(c, 0.06), top: shade(c, -0.25), y0: -h * 0.6, y1: h * 0.1, noise: 'mottle', noiseAlpha: 0.3, noiseScale: 0.3, edge: D, edgeW: lw, rim: 0.35 });
+  }
+  // ---- Kiemenbüschel (Larven)
+  if (p.gills) {
+    const gx = shoulderX + L * 0.06;
+    for (let i = 0; i < 3; i++) {
+      const y0 = -h * 0.12 + i * h * 0.13;
+      pen(ctx, Math.max(0.8, lw), 0xb8584a, () => {
+        ctx.beginPath();
+        ctx.moveTo(gx, y0);
+        ctx.quadraticCurveTo(gx - L * 0.06, y0 - h * 0.3, gx - L * 0.12, y0 - h * 0.12 + i * h * 0.08);
+      }, 0.9);
+    }
+  }
+  // ---- der Kopf: Maulspalte, Zähne, Auge, Nasenloch
+  const mouthEnd = hw - headLen * 0.72;
+  const mouthY = (x: number) => h * 0.05 + ((tip - x) / Math.max(1, tip - mouthEnd)) * h * 0.04;
+  if (mouth && p.teeth) {
+    const n = Math.max(5, Math.round((tip - mouthEnd) / (h * 0.11)));
+    for (let i = 0; i < n; i++) {
+      const x = tip * 0.96 - (i * (tip * 0.96 - mouthEnd - h * 0.04)) / Math.max(1, n - 1);
+      const big = i === 1 || (p.sail && i === 2) ? 1.6 : 1;
+      tooth(ctx, x, mouthY(x) - h * 0.01, h * 0.04, h * 0.08 * big, 1, false, 0.1);
+    }
+  }
+  if (mouth) {
+    ctx.beginPath();
+    ctx.moveTo(tip * 0.99, h * 0.04);
+    ctx.quadraticCurveTo((tip + mouthEnd) / 2, mouthY((tip + mouthEnd) / 2) + h * 0.01, mouthEnd, h * 0.08);
+    ctx.strokeStyle = css(shade(c, -0.8), 0.85);
+    ctx.lineWidth = lw * 1.2;
+    ctx.stroke();
+  }
+  ell(ctx, tip * 0.95, -h * 0.06, h * 0.025, h * 0.016, -0.2);
+  ctx.fillStyle = css(shade(c, -0.8), 0.8);
+  ctx.fill();
+  const ex = hw - headLen * (p.flat ? 0.5 : 0.42), ey = p.flat ? -h * 0.15 : -h * 0.18;
+  eye(ctx, ex, ey, Math.max(1.4, h * (p.flat ? 0.065 : 0.075)), E.iris, { glow: E.glow, lid: Math.max(0.3, E.attack ?? 0) });
+  // ---- Beine der nahen Seite
+  if (swim) {
+    quadLeg(ctx, shoulderX, h * 0.24, foreLen, legW, -1.0 - s * swing, 0.5, legCol, lw, true);
+    quadLeg(ctx, hipX + L * 0.05, h * 0.22, hindLen, legW, -1.1 + s * swing, 0.45, legCol, lw, true);
+  } else {
+    quadLeg(ctx, shoulderX, h * 0.34, foreLen, legW, s * swing, -0.35, legCol, lw, false);
+    quadLeg(ctx, hipX + L * 0.05, h * 0.32, hindLen, legW * 1.1, -s * swing, 0.5, legCol, lw, false);
+  }
+  ctx.restore();
+}
+
 function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes, mouth = true) {
   switch (art.t) {
     case 'fish': return drawFish(ctx, art, f, E, mouth);
@@ -1411,6 +1622,7 @@ function drawArt(ctx: Ctx, art: Art, f: number, E: Eyes, mouth = true) {
     case 'plesio': return drawPlesio(ctx, art, f, E);
     case 'turtle': return drawTurtle(ctx, art, f, E);
     case 'ammo': return drawAmmo(ctx, art, f, E);
+    case 'quad': return drawQuad(ctx, art, f, E, mouth);
   }
 }
 
@@ -1454,6 +1666,13 @@ interface JawShape {
 }
 
 function jawShape(art: Art): JawShape | null {
+  if (art.t === 'quad') {
+    if (art.biped) return null;
+    const hw = art.len / 2, h = art.h, snout = art.snout ?? 0;
+    const tip = hw * (1 + 0.3 * snout);
+    const headLen = art.len * (art.flat ? 0.17 : 0.15) * (1 + snout * 0.9);
+    return { hx: hw - headLen * 0.78, hy: h * 0.1, ux: tip * 0.99, uy: h * 0.04, front: tip * 1.08, half: 0.22, wide: 0.5, kind: art.teeth ? 'teeth' : 'gums', tw: h * 0.05, tl: h * 0.1, lw: Math.max(1, art.len / 120) };
+  }
   if (art.t === 'mosa') {
     const hw = art.len / 2, h = art.h;
     const tip = hw * (1 + 0.28 * (art.snout ?? 0));
@@ -1604,10 +1823,10 @@ export const JAW_HALF = 2;
 export const JAW_WIDE = 3;
 export const jawAnim = (id: string) => `jaw_${id}`;
 
-/** Die Tiere des Devons werden im Tuschestil gemalt (siehe art/ink.ts); die der anderen Zeitalter bleiben, wie sie sind. */
+/** Die Tiere der gemalten Zeitalter (Devon, Perm) werden im Tuschestil gemalt (siehe art/ink.ts); die anderen bleiben, wie sie sind. */
 let inkIds: Set<string> | undefined;
 export function isInkSpecies(id: string) {
-  inkIds ??= new Set(epochSpecies(EPOCHS.find((e) => e.id === 'devon')!));
+  inkIds ??= new Set(EPOCHS.filter((e) => e.painted).flatMap((e) => epochSpecies(e)));
   return inkIds.has(id);
 }
 

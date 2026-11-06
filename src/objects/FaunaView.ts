@@ -6,9 +6,13 @@ import { InvertebrateRig } from '../art/fauna/invertebrate';
 import { speciesFishTextures } from '../art/fauna/fish';
 import { WORLD_FISH_IDS } from '../art/fish/worldFish';
 import { EPOCHS, epochSpecies } from '../data/epochs';
+import { SPECIES } from '../data/species';
 
-const supported = new Set([...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus',
-  'elonichthys', 'apsopelix', 'gillicus', 'enchodus', 'protosphyraena', 'xiphactinus']);
+/** Gezeichnete Fische und Wirbellose der gemalten Zeitalter (Devon, Perm …); Vierbeiner behalten ihre Bilder. */
+const RIGGED = new Set(['fish', 'jelly', 'cone', 'trilo', 'bug']);
+const supported = new Set([
+  ...EPOCHS.filter(e => e.painted).flatMap(epochSpecies).filter(id => RIGGED.has(SPECIES[id]?.art.t ?? '')),
+  'rhizodus', 'elonichthys', 'apsopelix', 'gillicus', 'enchodus', 'protosphyraena', 'xiphactinus']);
 
 /** A visual child of the existing Arcade sprite: no changes to collisions, attack reach or network state. */
 export class FaunaView extends Phaser.GameObjects.Container {

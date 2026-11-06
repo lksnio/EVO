@@ -240,7 +240,7 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
     if (place.kind === 'start') return 0.85 + 0.3 * hash01('b' + key);
     return hash01('a' + key) < 0.25 ? 0.12 : 0.55 + 1.3 * hash01('b' + key);
   };
-  for (const [id, groups] of ep.fauna) {
+  for (const [id, groups] of place.fauna ?? ep.fauna) {
     const d = SPECIES[id];
     const danger = d.role !== 'prey';
     const hunter = d.role === 'predator' || d.role === 'apex';
@@ -270,8 +270,8 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
       put(id, cx, hunter && place.deep > 0);
     }
   }
-  // Im tiefsten Wasser lebt einer der ganz Großen
-  const apex = ep.apex;
+  // Im tiefsten Wasser lebt einer der ganz Großen (der Boss des Ortes oder der Spitzenräuber des Zeitalters)
+  const apex = place.boss ?? ep.apex;
   if (apex && place.apex) put(apex, Math.floor(cols * 0.62), true);
 }
 
@@ -901,6 +901,7 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encou
   const F = S + place.deep;
   const rows = F + 4;
   const L = base(ep, 'water', cols * T, rows * T);
+  L.theme = place.theme ?? ep.theme;
   L.surfaceY = S * T;
   L.amphibious = true;
   L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
@@ -949,6 +950,27 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encou
     floor = (c: number) => F - (F - S - 3) * Math.max(0, 1 - Math.min(c, cols - c) / 22) + Math.sin(c * 0.11) * 1.2;
     hills.push({ c: -4, w: 6, top: S - 2, slope: 26 });
     hills.push({ c: cols + 4, w: 6, top: S - 2, slope: 26 });
+  } else if (shape === 'ufer') {
+    // Perm, Ufersumpf: tiefe Tümpel, getrennt von flachen Schlammbänken. Die Bänke ragen nur wenig aus dem Wasser und sind
+    // schmal – ein Fisch robbt in ein paar Sekunden hinüber (siehe Player: an Land wird die Luft knapp). Dort warten die
+    // kleinen Landtiere; im Wasser lauern Eryops und Ophiacodon.
+    let c = 22 + r() * 8;
+    while (c < cols - 18) {
+      const w = 0.8 + r() * 1.4;
+      isle(c, w, 0.9 + r() * 0.7, 22 + r() * 5);
+      c += 24 + r() * 14;
+    }
+  } else if (shape === 'highland') {
+    // Perm, Hochland: trockenes, welliges Land. Ein paar Wasserlöcher liegen in Senken – sonst nur Erde, Farne und Steine.
+    floor = (c: number) => S + 3 + Math.sin(c * 0.13) * 0.4;
+    let c = -4;
+    while (c < cols + 6) {
+      const w = 6 + r() * 10;
+      const above = 2 + r() * 4;
+      isle(c + w, w, above, 16 + r() * 10);
+      // meist schließt das nächste Stück direkt an, ab und zu bleibt eine Senke mit Wasser
+      c += 2 * w + (r() < 0.3 ? 7 + r() * 5 : -2 - r() * 3);
+    }
   } else if (shape === 'peak') {
     // der steile Fels: aus flachem Wasser ragt ein Berg, dessen Hänge nach oben immer steiler werden – bis zum Gipfel. Unten
     // kommt jeder Pederpes ein Stück hinauf (dort übt er das Klettern), weiter oben nur, wer kräftige Beine und Griff geerbt hat.
@@ -1125,21 +1147,27 @@ function placeFaunaSwamp(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G:
       L.spawns.push({ id, x, y, herd });
     }
   };
-  for (const [id, groups] of ep.fauna) {
+  for (const [id, groups] of place.fauna ?? ep.fauna) {
     const d = SPECIES[id];
     if (!d) continue;
     const hunter = d.role === 'predator' || d.role === 'apex';
     if (nest && (hunter || d.role === 'defender')) continue;
-    const mul = (hunter ? place.def.hunters : d.role === 'prey' ? place.def.prey : 1);
+    const mul = (hunter ? place.def.hunters : d.role === 'prey' ? place.def.prey : 1) * faunaAffinity(place, d);
+    if (mul <= 0) continue;
     const avgHerd = d.herd ? (d.herd[0] + d.herd[1]) / 2 : 1;
     const want = (groups * mul * place.wide * 0.7) / avgHerd;
     const count = Math.min(hunter ? Math.max(1, Math.round(9 / avgHerd)) : 99, Math.floor(want) + (r() < want - Math.floor(want) ? 1 : 0));
     const pool = (d.land ? landCols : wetCols).filter((c) => !arrCols.some((a) => Math.abs(c - a) < (hunter ? 18 : 6)));
     for (let g = 0; g < count; g++) put(id, pool);
   }
-  // im tiefen See lebt einer der ganz Großen
-  const apex = ep.apex;
-  if (apex && place.apex && wetCols.length) {
+  // im tiefen See lebt einer der ganz Großen – ein Boss an Land (Dimetrodon) streift über das Land, weit weg vom Ankunftsort
+  const apex = place.boss ?? ep.apex;
+  const boss = apex ? SPECIES[apex] : undefined;
+  if (boss && place.apex && boss.land) {
+    const pool = landCols.filter((c) => !arrCols.some((a) => Math.abs(c - a) < 30));
+    const c = pool.length ? pool.reduce((best, c) => (Math.abs(c - cols * 0.62) < Math.abs(best - cols * 0.62) ? c : best), pool[0]) : -1;
+    if (c >= 0) L.spawns.push({ id: apex!, x: (c + 0.5) * T, y: G.at((c + 0.5) * T) - 24 });
+  } else if (apex && place.apex && wetCols.length) {
     let deepest = wetCols[0];
     for (const c of wetCols) if (G.at((c + 0.5) * T) > G.at((deepest + 0.5) * T)) deepest = c;
     L.spawns.push({ id: apex, x: (deepest + 0.5) * T, y: (sea + G.at((deepest + 0.5) * T)) / 2 });

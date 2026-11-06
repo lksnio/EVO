@@ -1,13 +1,24 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EPOCHS, epochIndex, firstPlayable } from '../src/data/epochs';
 import { game } from '../src/state/GameState';
+
+const P = firstPlayable();
+/** ein zweites Zeitalter mit eigener Beute: das (ruhende) Karbon, für diese Tests spielbar */
+const K = epochIndex('karbon');
 
 // Die Beute in der Übersicht: was deine Linie an einem Ort gefressen hat – die drei häufigsten Arten und ihr Anteil.
 
 describe('Beute', () => {
-  beforeEach(() => game.resetAll());
+  beforeEach(() => {
+    EPOCHS[K].playable = true;
+    game.resetAll();
+  });
+  afterEach(() => {
+    EPOCHS[K].playable = undefined;
+  });
 
   it('zählt je Ort – die drei häufigsten mit ihrem Anteil an allem, was dort gefressen wurde', () => {
-    game.newRun(0);
+    game.newRun(P);
     const here = game.prog.place;
     for (const [id, n] of [['a', 5], ['b', 3], ['c', 1], ['d', 1]] as const) for (let i = 0; i < n; i++) game.noteEaten(id);
     const { top, total } = game.topPrey();
@@ -26,19 +37,19 @@ describe('Beute', () => {
   });
 
   it('zeigt die Nahrungsanteile über Orte und Generationen einer Epoche', () => {
-    game.newRun(0);
+    game.newRun(P);
     game.noteFood('plant', 60);
     game.prog.place = 'woanders';
     game.noteFood('meat', 40);
     expect(game.dietAt()).toEqual({ plant: 0.6, meat: 0.4 });
-    game.newRun(0);
+    game.newRun(P);
     expect(game.dietAt()).toEqual({ plant: 0.6, meat: 0.4 });
-    game.newRun(1);
+    game.newRun(K);
     expect(game.dietAt()).toBeNull();
   });
 
   it('übernimmt alte Ortsdaten einmalig, ohne sie beim nächsten Essen doppelt zu zählen', () => {
-    game.newRun(0);
+    game.newRun(P);
     game.run!.prey = { riff: { a: 2 }, delta: { a: 1, b: 1 } };
     game.run!.diet = { riff: { plant: 60, meat: 40 } };
     expect(game.topPrey().total).toBe(4);
@@ -51,14 +62,14 @@ describe('Beute', () => {
   });
 
   it('gilt über alle Linien derselben Epoche; andere Epochen haben ihre eigene Beute', () => {
-    game.newRun(0);
+    game.newRun(P);
     game.noteEaten('a');
     game.noteEaten('a');
     expect(game.topPrey().total).toBe(2);
     game.extinct(0.5, 'Test');
-    game.newRun(0);
+    game.newRun(P);
     expect(game.topPrey().total).toBe(2);
-    game.newRun(1);
+    game.newRun(K);
     expect(game.topPrey()).toEqual({ top: [], total: 0 });
   });
 });

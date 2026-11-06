@@ -62,6 +62,22 @@ export const OXYGEN = {
 };
 
 /**
+ * Ein Fisch an Land (Perm, Ufersumpf): Er schnellt sich mit dem Schwanz über die Schlammbänke – langsam, in kleinen
+ * Sprüngen und nur für ein paar Atemzüge. Das Hochland erreicht er so nicht (dafür braucht es Beine, siehe OverworldScene).
+ */
+export const FISH_LAND = {
+  /** Tempo an Land (Anteil des Schwimmtempos) */
+  speed: 0.36,
+  /** Satz aus dem Wasser auf eine Bank bzw. an Land (Startgeschwindigkeit nach oben, Bildpunkte je Sekunde) */
+  jump: 330,
+  /** so viele Sekunden reicht die Luft an Land */
+  seconds: 9,
+  /** beim Robben: kleine Sprünge (Startgeschwindigkeit) in diesem Takt (Sekunden) */
+  flop: 150,
+  flopEvery: 0.42,
+};
+
+/**
  * Klettern: Wie steil ein Hang sein darf, hängt an Beinen und Griff (Grad): base + limb × Beine + grip × Griff. Wer steiler
  * hinauf will, rutscht ab. Klettern kostet Ausdauer – ein Schuppenpanzer ist schwer und kostet mehr.
  */

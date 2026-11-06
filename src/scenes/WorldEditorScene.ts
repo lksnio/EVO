@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { EPOCHS, type EpochDef } from '../data/epochs';
+import { EPOCHS, firstPlayable, type EpochDef } from '../data/epochs';
 import { placesOf, type PlaceDef } from '../data/world';
 import { audio } from '../audio/Audio';
 import { assetCatalog, type MapAsset } from '../editor/catalog';
@@ -67,8 +67,8 @@ export class WorldEditorScene extends Phaser.Scene {
     this.overlay = this.add.graphics().setDepth(100);
     this.buildUI();
     const q = new URLSearchParams(location.search), requested = q.get('editor')?.split(':');
-    const epoch = EPOCHS.find(e => e.id === requested?.[0]) ?? EPOCHS.find(e => e.id === 'devon')!;
-    const place = placesOf(epoch).find(p => p.id === requested?.[1]) ?? placesOf(epoch)[epoch.id === 'devon' ? 1 : 0];
+    const epoch = EPOCHS.find(e => e.id === requested?.[0]) ?? EPOCHS[firstPlayable()];
+    const place = placesOf(epoch).find(p => p.id === requested?.[1]) ?? placesOf(epoch)[epoch.painted ? 1 : 0];
     this.openMap(epoch, place);
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', this.pointerDown, this);

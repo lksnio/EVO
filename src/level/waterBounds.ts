@@ -5,7 +5,7 @@ import { groundAt, groundCurve, groundRects, STEP } from './terrain';
 
 /** How much sky the play camera can reveal above the waterline (world pixels). */
 export function skyAbove(ep: EpochDef, place: PlaceDef, L: LevelData): number | undefined {
-  if (ep.id !== 'devon' || L.mode !== 'water' || L.amphibious) return undefined;
+  if (!ep.painted || L.mode !== 'water' || L.amphibious) return undefined;
   return place.waterway === 0 ? 270 : place.waterway === 1 ? 46 : undefined;
 }
 

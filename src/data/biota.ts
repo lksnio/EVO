@@ -77,11 +77,13 @@ export const BIOTA: Bio[] = [
 
 const KINDS = ['start', 'lush', 'murky', 'deep', 'abyss'];
 const EPOCHS = ['ordovizium', 'silur', 'devon'];
+/** jüngere Zeitalter wachsen (vorerst) wie das Devon */
+const ALIAS: Record<string, string> = { perm: 'devon' };
 const MATS: Material[] = ['sand', 'rock', 'mud'];
 
 /** Was wächst hier? Gewichtete Wahl nach Ortsart, Zeitalter und Untergrund. */
 export function pickBio(r: Rng, kind: string, epochId: string, mat: Material, reef = false): Bio | null {
-  const ki = Math.max(0, KINDS.indexOf(kind)), ei = Math.max(0, EPOCHS.indexOf(epochId)), mi = MATS.indexOf(mat);
+  const ki = Math.max(0, KINDS.indexOf(kind)), ei = Math.max(0, EPOCHS.indexOf(ALIAS[epochId] ?? epochId)), mi = MATS.indexOf(mat);
   const ws = BIOTA.map((b) => b.w[ki] * (b.ep?.[ei] ?? 1) * (b.on?.[mi] ?? 1) * (reef && b.reef ? 1.6 : 1));
   const total = ws.reduce((a, b) => a + b, 0);
   if (total <= 0) return null;

@@ -60,7 +60,39 @@ export type Art =
   /** Meeresschildkröte: gewölbter Panzer, große Vorderflossen, Hakenschnabel */
   | { t: 'turtle'; len: number; c: number; shell: number }
   /** Ammonit: aufgerollte, gerippte Schale, aus der Kopf und Fangarme schauen */
-  | { t: 'ammo'; r: number; c: number; band: number; tent: number };
+  | { t: 'ammo'; r: number; c: number; band: number; tent: number }
+  /**
+   * Ein Vierbeiner (Amphibie, frühes Reptil, Synapside): Rumpf, Schwanz, Kopf und vier Beine. Schwimmer legen die Beine an und
+   * tragen einen Flossensaum am Schwanz; Läufer setzen die Beine im Schritt.
+   */
+  | {
+      t: 'quad'; len: number; h: number; c: number; belly: number;
+      /** Beinlänge (Anteil der Rumpfhöhe) */
+      leg?: number;
+      /** schwimmt (Beine angelegt, Saum am Schwanz) – sonst läuft es */
+      swim?: boolean;
+      /** Rückensegel: Höhe als Anteil der Körperlänge (Dimetrodon, Edaphosaurus) */
+      sail?: number;
+      /** Querstreben an den Segelstacheln (Edaphosaurus) */
+      sailBars?: boolean;
+      /** Knochenplatten auf dem Rücken (Cacops) */
+      plates?: boolean;
+      /** Bumerangkopf (Diplocaulus) */
+      boomerang?: boolean;
+      /** Kiemenbüschel hinter dem Kopf (Larven) */
+      gills?: boolean;
+      /** längere Schnauze (Anteil der halben Körperlänge) */
+      snout?: number;
+      /** breiter, flacher Amphibienkopf */
+      flat?: boolean;
+      /** läuft auf den Hinterbeinen (Eudibamus) */
+      biped?: boolean;
+      teeth?: boolean;
+      /** Schwanz als Anteil der Körperlänge (sonst 0,42) */
+      tail?: number;
+      stripes?: boolean;
+      spots?: boolean;
+    };
 
 export interface SpeciesDef {
   id: string;
@@ -298,5 +330,30 @@ export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(
     S({ id: 'tylosaurus', name: 'Tylosaurus', art: { t: 'mosa', len: 310, h: 52, c: 0x4a5450, belly: 0xb2b098, fin: 0x30383a, snout: 0.3, stripes: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 260, dmg: 20, power: 30, speed: 140, sense: 450, meat: 14, boss: true, roam: true, hit: [0.85, 0.6] }),
     // Mosasaurus: der Herrscher der späten Kreidemeere
     S({ id: 'mosasaurus', name: 'Mosasaurus', art: { t: 'mosa', len: 350, h: 64, c: 0x3e4a52, belly: 0xa8aca0, fin: 0x283036, fluke: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 320, dmg: 24, power: 34, speed: 150, sense: 480, meat: 16, boss: true, hit: [0.85, 0.65] }),
+    // ---------------------------------------------------------------- frühes Perm (der Prototyp, siehe docs/PERM_ARTEN.md)
+    // Wasser: drei kleine Fische, zwei mittlere, ein großer, zwei Haie – und Amphibien, die im Wasser jagen
+    S({ id: 'paramblypterus', name: 'Paramblypterus', art: { t: 'fish', len: 30, h: 11, c: 0x8c8456, belly: 0xe2d8a8, fin: 0x625a34, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.2, speed: 128, sense: 240, meat: 1, herd: [8, 14], sprint: 1.85, layer: 'open' }),
+    S({ id: 'aeduella', name: 'Aeduella', art: { t: 'fish', len: 32, h: 8, c: 0x7c94a0, belly: 0xdce6ea, fin: 0x52646e }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 1, speed: 140, sense: 250, meat: 1, herd: [9, 15], sprint: 1.95, layer: 'open' }),
+    S({ id: 'apateon', name: 'Apateon', art: { t: 'quad', len: 24, h: 6, c: 0x7a7a5a, belly: 0xc8c4a0, swim: true, gills: true, leg: 0.6 }, role: 'prey', diet: 'plant', habitat: 'water', hp: 3, dmg: 0, power: 0.7, speed: 70, sense: 160, meat: 1, herd: [3, 6], sprint: 1.6, layer: 'floor' }),
+    S({ id: 'platysomus', name: 'Platysomus', art: { t: 'fish', len: 36, h: 30, c: 0x5e6e80, belly: 0xc8d0d8, fin: 0x3e4a58, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 8, dmg: 0, power: 2, speed: 108, sense: 230, meat: 2, herd: [4, 7], sprint: 1.6, layer: 'mid' }),
+    S({ id: 'gnathorhiza', name: 'Gnathorhiza', art: { t: 'fish', len: 52, h: 13, c: 0x6e6a44, belly: 0xbcb48a, fin: 0x4a4630, lobed: true, spots: true }, role: 'defender', diet: 'plant', habitat: 'water', hp: 22, dmg: 3, power: 4.5, speed: 66, sense: 210, meat: 3, layer: 'floor', hit: [0.8, 0.65] }),
+    S({ id: 'archegosaurus', name: 'Archegosaurus', art: { t: 'quad', len: 150, h: 20, c: 0x5a5a3a, belly: 0xb0a878, swim: true, snout: 0.55, teeth: true, leg: 0.7, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 46, dmg: 7, power: 8.5, speed: 118, sense: 300, meat: 5, roam: true, hit: [0.85, 0.6], layer: 'open' }),
+    S({ id: 'diplocaulus', name: 'Diplocaulus', art: { t: 'quad', len: 92, h: 15, c: 0x6a6e52, belly: 0xbcbc94, swim: true, boomerang: true, leg: 0.6 }, role: 'defender', diet: 'meat', habitat: 'water', hp: 34, dmg: 5, power: 6.5, speed: 64, sense: 220, meat: 4, layer: 'floor', hit: [0.85, 0.6] }),
+    S({ id: 'xenacanthus', name: 'Xenacanthus', art: { t: 'fish', len: 104, h: 17, c: 0x4a5450, belly: 0xbcc4bc, fin: 0x2e3632, shark: true, spiny: true, teeth: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 40, dmg: 7, power: 10, speed: 158, sense: 340, meat: 5, herd: [1, 2], roam: true, sprint: 1.45, layer: 'open', hit: [0.8, 0.6] }),
+    S({ id: 'ectosteorhachis', name: 'Ectosteorhachis', art: { t: 'fish', len: 112, h: 28, c: 0x5e5a36, belly: 0xc0b07a, fin: 0x463e22, lobed: true, teeth: true, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 52, dmg: 9, power: 12, speed: 118, sense: 320, meat: 5, roam: true, hit: [0.8, 0.6] }),
+    S({ id: 'sclerocephalus', name: 'Sclerocephalus', art: { t: 'quad', len: 150, h: 26, c: 0x4e5236, belly: 0xa8a274, swim: true, flat: true, teeth: true, leg: 0.8, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 70, dmg: 11, power: 15, speed: 112, sense: 320, meat: 6, layer: 'floor', hit: [0.85, 0.6] }),
+    S({ id: 'orthacanthus', name: 'Orthacanthus', art: { t: 'fish', len: 290, h: 56, c: 0x3c4642, belly: 0x9aa49c, fin: 0x262e2c, shark: true, spiny: true, teeth: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 240, dmg: 18, power: 28, speed: 120, sense: 440, meat: 12, boss: true, hit: [0.8, 0.6] }),
+    // Ufer: zwei große Jäger im seichten Wasser, an Land kleine Vierbeiner
+    S({ id: 'eryops', name: 'Eryops', art: { t: 'quad', len: 190, h: 36, c: 0x5a4e34, belly: 0xb09c70, swim: true, flat: true, teeth: true, leg: 0.9, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 110, dmg: 14, power: 20, speed: 104, sense: 300, meat: 8, layer: 'floor', hit: [0.85, 0.6] }),
+    S({ id: 'ophiacodon', name: 'Ophiacodon', art: { t: 'quad', len: 220, h: 32, c: 0x5a4630, belly: 0xb4986a, swim: true, snout: 0.35, teeth: true, leg: 1, stripes: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 95, dmg: 13, power: 18, speed: 122, sense: 340, meat: 7, roam: true, hit: [0.85, 0.6] }),
+    S({ id: 'captorhinus', name: 'Captorhinus', art: { t: 'quad', len: 30, h: 8, c: 0x8a6a46, belly: 0xd2b88c, leg: 0.9, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 5, dmg: 0, power: 1.2, speed: 85, sense: 170, meat: 1, herd: [2, 4], crawl: true, land: true, sprint: 1.6 }),
+    S({ id: 'cacops', name: 'Cacops', art: { t: 'quad', len: 46, h: 13, c: 0x7a5a3a, belly: 0xc4a47a, flat: true, plates: true, leg: 0.8 }, role: 'defender', diet: 'meat', habitat: 'water', hp: 24, dmg: 4, power: 5, speed: 55, sense: 180, meat: 3, crawl: true, land: true, hit: [0.85, 0.65] }),
+    S({ id: 'seymouria', name: 'Seymouria', art: { t: 'quad', len: 62, h: 16, c: 0x6a5a3e, belly: 0xbca882, leg: 1, teeth: true, spots: true }, role: 'predator', diet: 'meat', habitat: 'water', hp: 26, dmg: 5, power: 6, speed: 88, sense: 240, meat: 3, crawl: true, land: true, hit: [0.85, 0.65] }),
+    // Hochland: wehrhafte Pflanzenfresser, flinke Jäger und Dimetrodon
+    S({ id: 'eudibamus', name: 'Eudibamus', art: { t: 'quad', len: 30, h: 7, c: 0x9a7a4e, belly: 0xdcc49a, biped: true, leg: 1.6, stripes: true }, role: 'prey', diet: 'plant', habitat: 'water', hp: 4, dmg: 0, power: 1, speed: 150, sense: 220, meat: 1, herd: [2, 3], crawl: true, land: true, sprint: 2.2 }),
+    S({ id: 'edaphosaurus', name: 'Edaphosaurus', art: { t: 'quad', len: 290, h: 56, c: 0x6e6448, belly: 0xc0b48a, sail: 0.24, sailBars: true, leg: 0.8 }, role: 'defender', diet: 'plant', habitat: 'water', hp: 130, dmg: 9, power: 16, speed: 48, sense: 220, meat: 9, crawl: true, land: true, hit: [0.85, 0.6] }),
+    S({ id: 'diadectes', name: 'Diadectes', art: { t: 'quad', len: 240, h: 60, c: 0x6a5a40, belly: 0xbca886, leg: 0.8, tail: 0.36 }, role: 'defender', diet: 'plant', habitat: 'water', hp: 120, dmg: 10, power: 15, speed: 52, sense: 220, meat: 8, crawl: true, land: true, hit: [0.85, 0.6] }),
+    S({ id: 'varanops', name: 'Varanops', art: { t: 'quad', len: 110, h: 18, c: 0x6a5034, belly: 0xc0a074, leg: 1, teeth: true, stripes: true, tail: 0.5 }, role: 'predator', diet: 'meat', habitat: 'water', hp: 40, dmg: 8, power: 9, speed: 125, sense: 300, meat: 4, herd: [1, 2], crawl: true, land: true, hit: [0.85, 0.6] }),
+    S({ id: 'dimetrodon', name: 'Dimetrodon', art: { t: 'quad', len: 330, h: 60, c: 0x7a4a30, belly: 0xc89c6a, sail: 0.36, teeth: true, leg: 1, stripes: true }, role: 'apex', diet: 'meat', habitat: 'water', hp: 260, dmg: 20, power: 30, speed: 110, sense: 430, meat: 14, boss: true, crawl: true, land: true, hit: [0.85, 0.6] }),
   ].map((d) => [d.id, toughen(paced(d))]),
 );

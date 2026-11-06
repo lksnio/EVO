@@ -4,7 +4,8 @@ import Phaser from 'phaser';
 import type { Morph } from '../art/creatureArt';
 import type { ClassId } from '../data/classes';
 import { SPECIES } from '../data/species';
-import { EPOCHS, epochSpecies } from '../data/epochs';
+import { EPOCHS, epochSpecies, firstPlayable } from '../data/epochs';
+import { speciesOf } from '../data/world';
 import { makeSpeciesTextures, speciesKey } from '../art/speciesArt';
 import { riverCave, riverRoeTexture } from '../art/riverProps';
 import { FaunaView } from '../objects/FaunaView';
@@ -26,7 +27,7 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor(new URLSearchParams(location.search).has('gallery') && new URLSearchParams(location.search).get('gallery') === 'devon' ? '#1b4048' : '#1a1814');
+    this.cameras.main.setBackgroundColor(['devon', 'perm'].includes(new URLSearchParams(location.search).get('gallery') ?? '') ? '#1b4048' : '#1a1814');
     this.views = [];
     this.worldViews = [];
     this.fauna = [];
@@ -45,10 +46,12 @@ export class GalleryScene extends Phaser.Scene {
     });
   }
 
-  /** ?gallery=devon zeigt nur die Tiere des Devons (Reihenfolge wie in der Chronik) */
+  /** ?gallery=devon bzw. ?gallery=perm zeigt nur die Tiere dieses Zeitalters (Reihenfolge wie in der Chronik) */
   private ids() {
     const only = new URLSearchParams(location.search).get('gallery');
-    return only === 'devon' ? epochSpecies(EPOCHS.find((e) => e.id === 'devon')!).filter((id) => SPECIES[id]) : Object.keys(SPECIES);
+    const ep = EPOCHS.find((e) => e.id === only);
+    // im Perm auch die Bewohner und Bosse der einzelnen Orte (Hochland: Dimetrodon)
+    return ep ? speciesOf(ep).filter((id) => SPECIES[id]) : Object.keys(SPECIES);
   }
 
   /** Die tatsächlich im Spiel verwendeten 25 Master mit Schwimmen, Biss und Rammhaltung. */
@@ -97,7 +100,7 @@ export class GalleryScene extends Phaser.Scene {
 
   private faunaIds() {
     return new URLSearchParams(location.search).get('ids')?.split(',')
-      ?? [...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus'];
+      ?? [...epochSpecies(EPOCHS.find(e => e.id === 'devon')!), 'rhizodus', ...epochSpecies(EPOCHS[firstPlayable()]).filter(id => SPECIES[id]?.art.t === 'fish')];
   }
 
   /** Living fauna, including future rayfins, without unlocking another epoch. */

@@ -3,7 +3,7 @@ import { endLineage, newLineage, observeLineage, readLineage, recordBirth, type 
 import { COLLECTION_SHELLS, SHELL_WISDOM, type ShellId, type FossilId } from '../data/collection';
 import { newCollection, readCollection, removeLegacyShells, findShell, dropFossil, findFossil, type CollectionState, type FossilDrop } from '../sim/collection';
 import { CLASSES, type ClassId } from '../data/classes';
-import { EPOCHS, isPlayable, type EpochDef } from '../data/epochs';
+import { EPOCHS, firstPlayable, isPlayable, type EpochDef } from '../data/epochs';
 import { linkKey, placeOf, placesOf, startPlace, type PlaceKind } from '../data/world';
 import { SWARM } from '../data/swarm';
 import type { Morph } from '../art/creatureArt';
@@ -12,7 +12,7 @@ import { Emitter } from '../util/emitter';
 import { evolutionBonus, evolutionBudget, evolutionStep, type Defeats, type Gains } from '../sim/evolution';
 import { INHERIT, LIFE, MOVEMENT, SPAWN, STAMINA, VISION } from '../data/life';
 import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type LifeK } from '../sim/life';
-import { KTRAIN } from '../data/karbon';
+import { FISH_LAND, KTRAIN } from '../data/karbon';
 import { fishBirthGains, finStage, finSpeed as fishFinSpeed, FISH_BASE_STAMINA, appendFishMark, type FishPlan, type FishMark, type FishEffort } from '../sim/fishEvolution';
 import { STARTER_FORMS } from '../sim/starterFish';
 import { advanceStarterFish, resolveStarterForm, starterFormIndex, type StarterScores } from '../sim/starterFish';
@@ -875,7 +875,7 @@ class GameState {
           // vorerst schlüpft man immer als Männchen – auch ein Weibchen aus einem älteren Spielstand wird zu einem
           if (SPAWN.alwaysMale) r.sex = 1;
         }
-        this.data.epoch = isPlayable(this.data.epoch ?? -1) ? this.data.epoch : this.data.run?.epoch ?? 0;
+        this.data.epoch = isPlayable(this.data.epoch ?? -1) ? this.data.epoch : this.data.run && isPlayable(this.data.run.epoch) ? this.data.run.epoch : firstPlayable();
         const lineageBefore = this.data.lineage.runs.length;
         // A legacy run can only be observed from now on; no generation-based dates are invented.
         for (const r of [this.data.run, ...Object.values(this.data.parked ?? {})]) {
@@ -914,9 +914,15 @@ class GameState {
       if (d.lastEnd && !d.nodes[d.lastEnd]) d.lastEnd = null;
     }
     d.deepest = Math.min(d.deepest, EPOCHS.length - 1);
-    const ok = (r: Run) => isPlayable(r.epoch) && r.cls === EPOCHS[r.epoch].cls && !!d.nodes[r.node];
+    const ok = (r: Run) => !!EPOCHS[r.epoch] && r.cls === EPOCHS[r.epoch].cls && !!d.nodes[r.node];
     if (d.run && !ok(d.run)) d.run = null;
-    // Linien in Zeitaltern, in denen man (noch) nicht leben kann, ruhen nicht weiter
+    // Eine Linie in einem Zeitalter, in dem man gerade nicht leben kann (das Devon ruht im Gestein, seit das Perm der Prototyp
+    // ist), ruht dort, statt verloren zu gehen – sie lebt weiter, sobald das Zeitalter wieder spielbar ist.
+    if (d.run && !isPlayable(d.run.epoch)) {
+      d.parked ??= {};
+      d.parked[d.run.epoch] ??= d.run;
+      d.run = null;
+    }
     for (const [k, r] of Object.entries(d.parked ?? {})) if (!ok(r) || Number(k) !== r.epoch || r.epoch === d.run?.epoch) delete d.parked![k];
   }
 
@@ -973,7 +979,7 @@ class GameState {
 
   /** Das gewählte Zeitalter: Dort lebt die laufende Linie – oder beginnt die nächste. */
   get chosenEpoch(): number {
-    return this.data.run?.epoch ?? this.data.epoch ?? 0;
+    return this.data.run?.epoch ?? this.data.epoch ?? firstPlayable();
   }
 
   /** Die Linie eines Zeitalters: die laufende oder die, die dort ruht, während man anderswo lebt. */
@@ -1010,7 +1016,7 @@ class GameState {
   /** Eine neue Linie beginnt – als frisch geschlüpftes Tier am Urahn des Zeitalters. */
   newRun(epoch = this.chosenEpoch): Run {
     const d = this.data;
-    if (!isPlayable(epoch)) epoch = 0;
+    if (!isPlayable(epoch)) epoch = firstPlayable();
     d.runs += 1;
     const root = this.rootOf(epoch);
     const ep = EPOCHS[epoch];
@@ -1156,6 +1162,9 @@ class GameState {
       stats.digestMeat=stats.digestPlant=1;
       stats.power=stats.bite*.6+stats.ram*.4;
       stats.upkeep=1;
+      // an Land (Ufersumpf): robben statt laufen – langsam, mit einem kleinen Satz aus dem Wasser
+      stats.landSpeed=stats.speed*FISH_LAND.speed;
+      stats.jump=FISH_LAND.jump;
     }
     return stats;
   }
@@ -2101,6 +2110,8 @@ class GameState {
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
   get oxygenSeconds() {
+    // ein Fisch atmet mit Kiemen: An Land reicht die Luft nur kurz
+    if (this.data.run?.cls === 'fish') return FISH_LAND.seconds;
     return oxygenSeconds(this.data.run?.brood?.phase === 'young');
   }
 

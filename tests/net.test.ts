@@ -4,12 +4,15 @@ import { server } from '../src/server/index';
 import { parseZone } from '../src/server/ZoneRoom';
 import { ZONE_ROOM, zoneId, type EatMsg, type HitMsg, type HurtMsg, type JoinOptions, type PingMsg, type PlantMsg, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
 import { ZoneState } from '../src/net/schema';
+import { firstPlayable } from '../src/data/epochs';
 
 // Meilenstein 1: Zwei Clients betreten denselben Ort und sehen die Bewegungen des jeweils anderen.
 
 const PORT = 25670 + Math.floor(Math.random() * 200);
 const URL = `http://localhost:${PORT}`;
-const ZONE = zoneId(0, 'riff');
+/** das spielbare Zeitalter (das Perm) – seine Wasserorte heißen wie früher im Devon */
+const P = firstPlayable();
+const ZONE = zoneId(P, 'riff');
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function until(fn: () => boolean, ms = 3000) {
@@ -61,7 +64,7 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('bestätigt verschluckte Beute nur vom Ortswächter, einmal und ausschließlich an den fressenden Gast',async()=>{
-    const zone=zoneId(0,'garten');
+    const zone=zoneId(P, 'garten');
     const host=await join(opts('Fresswächter',{zone})),guest=await join(opts('Fresser',{zone})),other=await join(opts('Zuschauer',{zone}));
     const meals:unknown[]=[],others:unknown[]=[];
     guest.onMessage('swallowed',m=>meals.push(m));other.onMessage('swallowed',m=>others.push(m));
@@ -98,8 +101,11 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('kennt nur Orte, die es gibt', () => {
-    expect(parseZone('0/riff')).toEqual({ epoch: 0, place: 'riff' });
-    expect(parseZone('0/gibtsnicht')).toBeNull();
+    expect(parseZone(`${P}/riff`)).toEqual({ epoch: P, place: 'riff' });
+    expect(parseZone(`${P}/ufer`)).toEqual({ epoch: P, place: 'ufer' });
+    expect(parseZone(`${P}/gibtsnicht`)).toBeNull();
+    // das Devon ruht: Dort gibt es gerade keine Orte zum Betreten
+    expect(parseZone('0/riff')).toBeNull();
     expect(parseZone('9/riff')).toBeNull();
     // ruhende und verborgene Zeitalter (hier das Ordovizium) haben keine Orte, die man betreten kann
     expect(parseZone('7/lagune')).toBeNull();
@@ -150,11 +156,11 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('andere Orte sind andere Räume, und wer geht, verschwindet', async () => {
-    const d = await join(opts('Dora', { zone: zoneId(0, 'garten') }));
+    const d = await join(opts('Dora', { zone: zoneId(P, 'garten') }));
     const e = await join(opts('Emil'));
     rooms.push(d);
     expect(d.roomId).not.toBe(e.roomId);
-    expect(d.state.zone).toBe('0/garten');
+    expect(d.state.zone).toBe(`${P}/garten`);
     const watcher = rooms[0];
     await until(() => watcher.state.players.has(e.sessionId));
     await e.leave();
@@ -162,7 +168,7 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('der Ortswächter rechnet die Tiere: Gäste sehen sie, Treffer und Fressen gehen an ihn, Schaden an den Getroffenen', async () => {
-    const zone = zoneId(0, 'wand');
+    const zone = zoneId(P, 'wand');
     const host = await join(opts('Wächter', { zone }));
     const hits: HitMsg[] = [], eats: EatMsg[] = [];
     host.onMessage('hit', (m: HitMsg) => hits.push(m));
@@ -226,7 +232,7 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('ein Ortswächter im Hintergrund gibt ab – an einen anderen Spieler am Ort', async () => {
-    const zone = zoneId(1, 'farn');
+    const zone = zoneId(P, 'ufer');
     const a = await join(opts('Ada', { zone }));
     const b = await join(opts('Bo', { zone }));
     rooms.push(a, b);
@@ -239,8 +245,8 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('liefert den aktuellen Angreifer mit dem Schaden, auch vor dem ersten Tierpaket', async () => {
-    const host = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Wächter', { zone: '0/garten' }), ZoneState);
-    const guest = await new Client(URL).joinById<ZoneState>(host.roomId, opts('Gast', { zone: '0/garten' }), ZoneState);
+    const host = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Wächter', { zone: `${P}/garten` }), ZoneState);
+    const guest = await new Client(URL).joinById<ZoneState>(host.roomId, opts('Gast', { zone: `${P}/garten` }), ZoneState);
     rooms.push(host, guest);
     const hurts: HurtMsg[] = [];
     guest.onMessage('hurt', (m: HurtMsg) => hurts.push(m));
@@ -261,6 +267,6 @@ describe('Spielserver (Colyseus)', () => {
   });
 
   it('einen Ort, den es nicht gibt, kann man nicht betreten', async () => {
-    await expect(join(opts('Fritz', { zone: '0/nirgendwo' }))).rejects.toThrow();
+    await expect(join(opts('Fritz', { zone: `${P}/nirgendwo` }))).rejects.toThrow();
   });
 });

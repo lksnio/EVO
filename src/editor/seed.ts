@@ -19,11 +19,11 @@ export function createMap(scene: Phaser.Scene, ep: EpochDef, place: PlaceDef): W
   for (const d of L.decor) {
     if (d.hang) continue;
     const key = 'd2_' + d.k;
-    if (ep.id === 'devon' && ['kelp', 'coral', 'seaweed', 'sponge'].includes(d.k)) add('reef_unit_' + (next % 2 ? 'ribbon' : 'fan'), d.x, d.y + 4, 95 + next % 4 * 25);
+    if (ep.painted && !L.amphibious && ['kelp', 'coral', 'seaweed', 'sponge'].includes(d.k)) add('reef_unit_' + (next % 2 ? 'ribbon' : 'fan'), d.x, d.y + 4, 95 + next % 4 * 25);
     else if (scene.textures.exists(key)) add(key, d.x, d.y + 4, scene.textures.get(key).getSourceImage().height);
   }
   for (const c of L.cover) {
-    const key = ep.id === 'devon' ? 'reef_unit_ribbon' : 'd2_' + (ep.theme === 'sumpf' ? 'reed' : 'bush');
+    const key = ep.painted && !L.amphibious ? 'reef_unit_ribbon' : 'd2_' + ((place.theme ?? ep.theme) === 'sumpf' ? 'reed' : 'bush');
     for (let i = 0; i < Math.max(2, Math.ceil(c.w / 100)); i++) add(key, c.x + (i + .5) * 100, c.y + c.h + 8, c.h + 15);
   }
   L.decor = []; L.editorSolids = [];

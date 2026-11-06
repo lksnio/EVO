@@ -7,7 +7,7 @@ import type { Controls } from './Controls';
 import { approach, clamp, type Rect } from '../util/math';
 import { DEPTH, GRAVITY } from '../config';
 import { FLOW, STAMINA } from '../data/life';
-import { CLIMB } from '../data/karbon';
+import { CLIMB, FISH_LAND } from '../data/karbon';
 import { breathe, climbCost } from '../sim/brood';
 import { STARTER_FORMS } from '../sim/starterFish';
 import { FISH_ATTACK_COST, spendStamina } from '../sim/stamina';
@@ -148,6 +148,8 @@ export class Player {
   /** überstandener Schaden seit dem letzten Abruf (in vollen Lebenskräften) – für die Schuppen der Nachkommen (Karbon) */
   private hurtRun = 0;
   private dryAt = 0;
+  /** Fisch an Land: wann er sich das nächste Mal mit dem Schwanz voranschnellt */
+  private flopAt = 0;
 
   constructor(private host: PlayerHost, x: number, y: number, readonly water: boolean) {
     this.stamina = game.staminaMax;
@@ -461,6 +463,13 @@ export class Player {
       } else if (amph) this.view.rotation *= 0.9;
       if (!knocked) b.setVelocityX(approach(b.velocity.x, vxWant, (onGround ? 2600 : 1600) * dt));
       if (dir) this.facing = dir;
+      // ein Fisch an Land robbt: Er schnellt sich in kleinen Sprüngen voran, der Schlamm spritzt
+      if (amph && game.cls === 'fish' && onGround && dir !== 0 && !knocked && !this.slipping && time > this.flopAt) {
+        this.flopAt = time + FISH_LAND.flopEvery * 1000;
+        b.setVelocityY(-FISH_LAND.flop);
+        this.lastGround = -1e9;
+        this.host.puff(this.x, b.bottom, 2, 0x6a5a3a);
+      }
       if (c.pressed.jump && !this.slipping) this.jumpBuf = time;
       if (time - this.jumpBuf < 130 && time - this.lastGround < 110 && !knocked) {
         b.setVelocityY(-this.stats.jump);

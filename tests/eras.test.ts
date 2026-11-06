@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EPOCHS, ERAS, inEra, isPlayable, ofEra } from '../src/data/epochs';
+import { EPOCHS, ERAS, firstPlayable, inEra, isPlayable, ofEra } from '../src/data/epochs';
 import { SECTIONS } from '../src/data/aquapendium';
 import { SPECIES } from '../src/data/species';
 import { INHERIT } from '../src/data/life';
 import { game, rootId, type Clutch, type Traits } from '../src/state/GameState';
 
 // Sieben Zeitalter zur Wahl (Devon bis Paläogen) – jedes eine eigene Welt mit eigener Linie und eigenem Stammbaum.
+// Der Prototyp spielt nur im frühen Perm; Devon und Karbon ruhen im Stein, bis sie wiederkommen.
+const P = firstPlayable();
 
 /** Die nächste Generation schlüpft – mit diesen Merkmalen (wie nach dem Laichen). */
 function nextGen(t: Partial<Traits>) {
@@ -18,11 +20,15 @@ function nextGen(t: Partial<Traits>) {
 }
 
 describe('Zeitalter', () => {
-  it('sieben zur Wahl, Devon und Karbon sind schon spielbar', () => {
+  it('sieben zur Wahl, nur das Perm ist spielbar – mit Weltkarte und im gemalten Stil', () => {
     expect(ERAS.map((e) => e.ep.id)).toEqual(['devon', 'karbon', 'perm', 'trias', 'jura', 'kreide', 'palaeogen']);
-    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['devon', 'karbon']);
-    expect(isPlayable(0)).toBe(true);
-    for (const { i } of ERAS.slice(2)) expect(isPlayable(i)).toBe(false);
+    expect(ERAS.filter((e) => e.ep.playable).map((e) => e.ep.id)).toEqual(['perm']);
+    expect(EPOCHS[P].id).toBe('perm');
+    expect(EPOCHS[P].overworld).toBe(true);
+    expect(EPOCHS[P].painted).toBe(true);
+    // das Devon bleibt gemalt (für später), ist aber nicht spielbar
+    expect(EPOCHS[0].painted).toBe(true);
+    for (const { i } of ERAS.filter((e) => e.i !== P)) expect(isPlayable(i)).toBe(false);
     // die Reihenfolge ist Teil des Spielstands: Nummer 0 (früher das Ordovizium) ist heute das Devon
     expect(EPOCHS[0].id).toBe('devon');
     // die Zeiträume schließen lückenlos aneinander an
@@ -36,7 +42,7 @@ describe('Zeitalter', () => {
   it('jedes Zeitalter hat seinen Teil im Aquapendium – und jedes Tier dort einen Steckbrief', () => {
     expect(SECTIONS.map((s) => s.ep.id)).toEqual(ERAS.map((e) => e.ep.id));
     const filled = SECTIONS.filter((s) => s.entries.length);
-    expect(filled.map((s) => s.ep.id)).toEqual(['devon', 'karbon', 'kreide']);
+    expect(filled.map((s) => s.ep.id)).toEqual(['devon', 'karbon', 'perm', 'kreide']);
     for (const s of filled) {
       expect(s.entries.length).toBeGreaterThan(8);
       s.entries.forEach((e, k) => {
@@ -50,6 +56,8 @@ describe('Zeitalter', () => {
     for (const id of ['dunkleosteus', 'thelodus', 'pteraspis', 'drepanaspis']) expect(ids('devon')).toContain(id);
     for (const id of ['mosasaurus', 'elasmosaurus', 'archelon', 'ammonit', 'cretoxyrhina']) expect(ids('kreide')).toContain(id);
     for (const id of ['rhizodus', 'strepsodus', 'tausendfuss', 'pulmonoscorpius', 'elonichthys']) expect(ids('karbon')).toContain(id);
+    // im Perm auch die Tiere, die nur an einzelnen Orten leben – samt Dimetrodon, dem Boss des Hochlands
+    for (const id of ['paramblypterus', 'orthacanthus', 'dimetrodon', 'eryops', 'diplocaulus', 'eudibamus']) expect(ids('perm')).toContain(id);
   });
 });
 
@@ -57,16 +65,16 @@ describe('Stammbaum je Zeitalter', () => {
   beforeEach(() => game.resetAll());
 
   it('jede Linie beginnt am Urahn ihres Zeitalters; eine neue Art ist ein neuer Abschnitt des Astes', () => {
-    const run = game.newRun(0);
-    expect(run.node).toBe(rootId(0));
+    const run = game.newRun(P);
+    expect(run.node).toBe(rootId(P));
     nextGen({});
     // dieselbe Art: kein neuer Abschnitt
-    expect(game.run!.node).toBe(rootId(0));
+    expect(game.run!.node).toBe(rootId(P));
     nextGen({ bs: 1 });
     const n = game.data.nodes[game.run!.node];
-    expect(n.parent).toBe(rootId(0));
+    expect(n.parent).toBe(rootId(P));
     expect(n.gen).toBe(3);
-    expect(n.epoch).toBe(0);
+    expect(n.epoch).toBe(P);
     const leaf = game.data.nodes[game.extinct(0.5, 'Gefressen')];
     expect(leaf.parent).toBe(n.id);
     expect(leaf.gen).toBe(3);
@@ -74,11 +82,11 @@ describe('Stammbaum je Zeitalter', () => {
   });
 
   it('Linien, die zur selben Art werden, teilen sich den Ast', () => {
-    game.newRun(0);
+    game.newRun(P);
     nextGen({ bs: 1 });
     const a = game.run!.node;
     game.extinct(0.3, 'Gefressen');
-    game.newRun(0);
+    game.newRun(P);
     nextGen({});
     nextGen({ bs: 1 });
     expect(game.run!.node).toBe(a);
@@ -89,36 +97,38 @@ describe('Stammbaum je Zeitalter', () => {
 });
 
 describe('eine Linie je Zeitalter', () => {
-  // Ein zweites spielbares Zeitalter gibt es noch nicht – für diesen Test wird das (verborgene) Ordovizium eines: Es hat Orte
-  const devon = EPOCHS.findIndex((e) => e.id === 'ordovizium');
+  // Ein zweites spielbares Zeitalter gibt es gerade nicht – für diesen Test wird das (verborgene) Ordovizium eines: Es hat Orte
+  const other = EPOCHS.findIndex((e) => e.id === 'ordovizium');
   beforeEach(() => {
-    EPOCHS[devon].playable = true;
+    EPOCHS[other].playable = true;
     game.resetAll();
   });
   afterEach(() => {
-    EPOCHS[devon].playable = undefined;
+    EPOCHS[other].playable = undefined;
   });
 
   it('wer das Zeitalter wechselt, lässt seine Linie dort ruhen – und findet sie bei der Rückkehr wieder', () => {
-    const a = game.newRun(0);
-    game.enterEpoch(devon);
+    const a = game.newRun(P);
+    game.enterEpoch(other);
     expect(game.run).toBeNull();
-    expect(game.runIn(0)).toBe(a);
-    const b = game.newRun(devon);
-    expect(b.node).toBe(rootId(devon));
-    expect(game.chosenEpoch).toBe(devon);
-    game.enterEpoch(0);
+    expect(game.runIn(P)).toBe(a);
+    const b = game.newRun(other);
+    expect(b.node).toBe(rootId(other));
+    expect(game.chosenEpoch).toBe(other);
+    game.enterEpoch(P);
     expect(game.run).toBe(a);
-    expect(game.runIn(devon)).toBe(b);
-    expect(game.chosenEpoch).toBe(0);
+    expect(game.runIn(other)).toBe(b);
+    expect(game.chosenEpoch).toBe(P);
   });
 
-  it('in ruhende Zeitalter kann man nicht wechseln', () => {
-    const perm = EPOCHS.findIndex((e) => e.id === 'perm');
-    const a = game.newRun(0);
-    game.enterEpoch(perm);
+  it('in ruhende Zeitalter kann man nicht wechseln – auch nicht ins Devon', () => {
+    const a = game.newRun(P);
+    game.enterEpoch(0);
     expect(game.run).toBe(a);
-    expect(game.chosenEpoch).toBe(0);
+    expect(game.chosenEpoch).toBe(P);
+    // eine neue Linie in einem ruhenden Zeitalter beginnt im Perm
+    game.extinct(0.5, 'Test');
+    expect(game.newRun(0).epoch).toBe(P);
   });
 });
 
@@ -154,12 +164,33 @@ describe('ältere Spielstände', () => {
     expect(game.data.nodes.n1.gen).toBe(5);
     expect(game.data.nodes.n3).toBeUndefined();
     expect(game.data.nodes.n2.children).toEqual([]);
-    expect(game.chosenEpoch).toBe(0);
+    // ohne laufende Linie geht es im ersten spielbaren Zeitalter weiter
+    expect(game.chosenEpoch).toBe(P);
+  });
+
+  it('eine Linie im Devon geht nicht verloren: Sie ruht dort, bis das Devon wieder spielbar ist', () => {
+    EPOCHS[0].playable = true;
+    try {
+      game.resetAll();
+      game.newRun(0);
+      game.ageBy(30);
+      store.set('evo-save-v3', JSON.stringify(game.data));
+    } finally {
+      EPOCHS[0].playable = undefined;
+    }
+    game.load();
+    expect(game.run).toBeNull();
+    expect(game.runIn(0)?.life.age).toBe(30);
+    expect(game.chosenEpoch).toBe(P);
+    // eine neue Linie beginnt im Perm, die im Devon ruht weiter
+    const b = game.newRun();
+    expect(b.epoch).toBe(P);
+    expect(game.runIn(0)).not.toBeNull();
   });
 
   it('entfernt alte Aufgaben, Wand- und Bosszustände, erhält aber die laufende Linie', () => {
     game.resetAll();
-    game.newRun(0);
+    game.newRun(P);
     game.ageBy(40);
     game.collectShell('abyss');
     const old = JSON.parse(JSON.stringify(game.data));

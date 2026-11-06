@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { epochIndex } from '../src/data/epochs';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EPOCHS, epochIndex } from '../src/data/epochs';
 import { BROOD, KTRAIN } from '../src/data/karbon';
 import { game, ZERO_TRAITS } from '../src/state/GameState';
 
@@ -9,7 +9,14 @@ import { game, ZERO_TRAITS } from '../src/state/GameState';
 const K = epochIndex('karbon');
 
 describe('Karbon im Spielstand', () => {
-  beforeEach(() => game.resetAll());
+  // Das Karbon ruht vorerst im Stein (der Prototyp spielt im Perm) – seine Regeln bleiben geprüft, bis es wiederkommt
+  beforeEach(() => {
+    EPOCHS[K].playable = true;
+    game.resetAll();
+  });
+  afterEach(() => {
+    EPOCHS[K].playable = undefined;
+  });
 
   it('eine neue Linie: Pederpes, ein Gelege mit 100 Eiern, Generation 0, Grundwerte', () => {
     const run = game.newRun(K);

@@ -21,7 +21,7 @@ import { species } from '../net/Species';
 import { speciesEnd, type ExtinctData } from './ExtinctScene';
 import { EPOCHS, epochSpecies, type EpochDef, type Theme } from '../data/epochs';
 import { SPECIES, type SpeciesDef } from '../data/species';
-import { edgeNeighbor, placeOf, placesOf, type PlaceDef } from '../data/world';
+import { edgeNeighbor, edgeOpen, mapNeighbors, placeOf, placesOf, type PlaceDef } from '../data/world';
 import { FLOW, INHERIT, LIFE, MISC, RAM, WORLD } from '../data/life';
 import { diesOfAge, phases, STAGE_NAME, stageOf, worldSeconds, worldYears, type Stage } from '../sim/life';
 import { forcedWeather, stormSwell, weatherAt, type Weather } from '../sim/weather';
@@ -37,6 +37,7 @@ import { caveBack, caveShade, terrainArt } from '../art/terrainArt';
 import { inkBackdrop, inkMurk, moodOf, MOODS, type Mood, type MoodId } from '../art/inkWorld';
 import { inkTexture } from '../art/inkFilter';
 import { setInkWorld } from '../art/ink';
+import type { OverworldData } from './OverworldScene';
 import { LIFE_KEYS, LIFE_SWAY } from '../art/lifeArt';
 import { makeSpeciesTextures } from '../art/speciesArt';
 import { Controls, touch } from '../objects/Controls';
@@ -390,7 +391,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // im Wasser gibt es an den Rändern keine Wand: Wer hinausschwimmt, kommt in den Nachbarort
     // Quelle und äußerster Talrand schließen das Meer ab. Über der Höhle im Laichfluss ist links freies Wasser: Dort ziehen
     // Tiere aus dem Bild – die Spielerfische hält eine eigene Wand (siehe unten).
-    world.setBoundsCollision(!this.water || (!edgeNeighbor(ep, this.place, 'left', 0.5) && !L.cave), !this.water || !edgeNeighbor(ep, this.place, 'right', 0.5), true, this.water && !L.chasm);
+    world.setBoundsCollision(!this.water || (!edgeOpen(ep, this.place, 'left') && !L.cave), !this.water || !edgeOpen(ep, this.place, 'right'), true, this.water && !L.chasm);
     // Der Boden besteht aus schmalen Säulen: Wer am Grund entlangschwimmt, soll kleine Stufen (bis etwa 22 Bildpunkte) hinaufgleiten
     // statt an jeder Kante hängenzubleiben – dafür gilt eine Überlappung bis dahin als Auflage, nicht als Wand.
     if (this.water) world.OVERLAP_BIAS = 22;
@@ -401,7 +402,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // im Karbon (Land über dem Wasser) ein heller, dunstiger Tag über dem Sumpf
     const clean = this.place.kind === 'start' || this.amphibious;
     // das Devon wird im Tuschestil gemalt: gestaffelte Silhouetten, je Ort eine eigene Stimmung
-    this.ink = ep.id === 'devon' ? { id: moodOf(this.place), mood: MOODS[moodOf(this.place)] } : undefined;
+    this.ink = this.painted ? { id: moodOf(this.place), mood: MOODS[moodOf(this.place)] } : undefined;
     setInkWorld(!!this.ink);
     const [far, mid, fog] = this.ink ? inkBackdrop(this, this.ink.id, !new URLSearchParams(location.search).has('oldwater')) : levelBackgrounds(this, L.theme, L.variant, clean);
     this.bgFar = this.add.tileSprite(VX, VY, VW, VH, far).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bg).setTileScale(1 / Z);
@@ -421,7 +422,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       for (const r of L.hazards) this.addHazard(r, gts[0].hz);
     }
     this.buildDecor();
-    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink && new URLSearchParams(location.search).has('oldwater') ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss', ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) : undefined;
+    this.drift = this.water && !this.amphibious ? new Drift(this, L, driftCounts(this.place.kind, ep.id, this.ink && new URLSearchParams(location.search).has('oldwater') ? 0.55 : 1), this.place.kind === 'deep' || this.place.kind === 'abyss', this.painted && !new URLSearchParams(location.search).has('oldwater')) : undefined;
     if (this.drift) this.drift.swell = swellAt(this.place.kind);
     if (this.amphibious) this.swampWater();
     // (keine Wasseroberfläche mehr: Nach oben ist es zu – das Wasser geht dort weiter)
@@ -585,7 +586,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     // Ein Riese naht: das Bild wird dunkler und kälter
     this.dread = this.add.rectangle(VX, VY, VW, VH, 0x02081a, 0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 3);
     // Wetter: im Meer des Devons ziehen ab und zu Regen und Wolken durch (für alle Spieler zur selben Weltzeit)
-    this.weatherOn = ep.id === 'devon' && this.water && !this.amphibious;
+    this.weatherOn = this.painted && this.water;
     if (this.weatherOn) {
       this.weather = this.weatherTarget();
       this.weatherShade = this.add.rectangle(VX, VY, VW, VH, 0x0a1620, 1).setAlpha(0).setOrigin(0).setScrollFactor(0).setDepth(DEPTH.decoFront + 2.5);
@@ -717,10 +718,10 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   private buildTerrain() {
     const L = this.L;
     // im Devon wird der Boden im Tuschestil gemalt (art/ink.ts)
-    const reef = this.ep.id === 'devon' && paintedReef(this);
+    const reef = this.painted && paintedReef(this);
     const replaces = (r: RockSpec) => reef && (r.form === 'slab' || r.paintedProp === 'shelter-support');
-    const visual = { ...L, rocks: L.rocks.filter(r => !(this.ep.id === 'devon' && paintedRiver(this) && r.paintedProp === 'cave') && !replaces(r)) };
-    const art = terrainArt(this, visual, L.theme, this.zoneAt(0).def.ground, this.ep.id === 'devon');
+    const visual = { ...L, rocks: L.rocks.filter(r => !(this.painted && paintedRiver(this) && r.paintedProp === 'cave') && !replaces(r)) };
+    const art = terrainArt(this, visual, L.theme, this.zoneAt(0).def.ground, this.painted);
     this.terrainKeys = art.keys;
     for (const c of art.chunks) {
       const img = this.add.image(c.x, c.y, c.key).setOrigin(0).setDisplaySize(c.w, c.h).setDepth(DEPTH.terrain);
@@ -790,7 +791,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
   /** Dickicht: einzelne Büsche – dahinter dunkler, davor halbtransparent. */
   private buildCover() {
     if (this.L.authoredObjects) { this.coverFront = this.L.cover.map(() => []); return; }
-    const reef = this.ep.id === 'devon' && paintedReef(this);
+    const reef = this.painted && paintedReef(this);
     const bushes = reef ? [reefKey('kelp')] : coverTextures(this, this.L.theme).map((k) => (this.ink ? inkTexture(this, k, { outline: 3, bands: 4, water: 0.16 }) : k));
     let bi = 0;
     for (const c of this.L.cover) {
@@ -822,7 +823,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
 
   /** Felsspalten: drinnen ist es dunkel – ein gutes Versteck, aber nur für Schlanke. */
   private buildCrevices() {
-    const painted = this.ep.id === 'devon' && paintedReef(this);
+    const painted = this.painted && paintedReef(this);
     for (const c of this.L.crevices) {
       const dark = tex(this, `crev_${painted ? 'painted' : 'dark'}_${Math.round(c.w)}x${Math.round(c.h)}`, c.w, c.h, (ctx, w, h) => {
         if (painted) {
@@ -857,7 +858,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.buildChasm();
     const c = this.L.cave;
     if (!c) return;
-    if (this.ep.id === 'devon' && paintedRiver(this)) {
+    if (this.painted && paintedRiver(this)) {
       this.paintedCave = true;
       const prop = riverCave(this, c);
       prop.back.setDepth(DEPTH.decoBack + 3);
@@ -972,7 +973,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private surfaceLight() {
     const L = this.L;
-    if (this.ep.id === 'devon' && !new URLSearchParams(location.search).has('oldwater')) {
+    if (this.painted && !new URLSearchParams(location.search).has('oldwater')) {
       this.waterAtmosphere = new WaterAtmosphere(this, L, swellAt(this.place.kind), this.nurseryBackdrop ? .4 : 1);
       return;
     }
@@ -1213,7 +1214,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       this.mapScenery = new MapScenery(this, L, L.authoredObjects, !!this.ink);
       return;
     }
-    const reef = this.ep.id === 'devon' && paintedReef(this);
+    const reef = this.painted && paintedReef(this);
     const rnd = Math.random;
     const tintOf = (f: number) => {
       const c = Math.round(255 * f);
@@ -2842,8 +2843,30 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     if (!side) return;
     const col = clamp(Math.floor(p.x / TILE), 0, L.ground.length - 1);
     const frac = clamp((p.y - L.surfaceY) / Math.max(80, L.ground[col] - L.surfaceY), 0, 1);
+    // Zeitalter mit Weltkarte (das Perm): Am Rand geht es auf die Übersicht, dort wählt man den nächsten Ort
+    if (this.ep.overworld) {
+      if (edgeOpen(this.ep, this.place, side) && mapNeighbors(this.ep, this.place).length) this.toOverworld(side, frac);
+      return;
+    }
     const to = edgeNeighbor(this.ep, this.place, side, frac);
     if (to) this.leave(to.id, { side, frac });
+  }
+
+  /**
+   * Zur Weltkarte (OverworldScene): Der Zustand wird gesichert wie bei jedem Ortswechsel; wer dort nichts wählt, kehrt an
+   * denselben Rand zurück.
+   */
+  private toOverworld(side: 'left' | 'right', frac: number) {
+    if (this.ended) return;
+    this.ended = true;
+    this.saveProgress();
+    audio.sfx('travel');
+    this.player.body.setVelocity(0, 0);
+    this.cameras.main.fadeOut(280, 2, 3, 4);
+    this.time.delayedCall(300, () => {
+      this.scene.stop('Hud');
+      this.scene.start('Overworld', { epoch: this.epochIdx, from: this.place.id, side, frac } satisfies OverworldData);
+    });
   }
 
   /** Zustand sichern und ohne Reiseauswahl im benachbarten Abschnitt weiterschwimmen. */
@@ -3267,9 +3290,15 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     this.vignette?.setDisplaySize(vw, vh);
   }
 
-  /** Die Musik dieses Ortes: im Laichfluss des Devons die Alapana in Neelambari (audio/RagaScore.ts), sonst die der Epoche. */
+  /** Die Musik dieses Ortes: im Laichfluss die Alapana in Neelambari (audio/RagaScore.ts), sonst die der Epoche. */
   get musicName() {
-    return this.ep.id === 'devon' && this.place.kind === 'start' ? 'laichfluss' : this.ep.music;
+    return this.ep.painted && this.place.kind === 'start' ? 'laichfluss' : this.ep.music;
+  }
+
+  /** Wird dieser Ort im gemalten Stil gezeigt? Nur die Wasserorte eines gemalten Zeitalters – Ufer und Hochland
+   *  (Land über dem Wasser) behalten die bisherige Sumpf- bzw. Landgrafik. */
+  get painted() {
+    return !!this.ep.painted && !this.amphibious;
   }
 
   /** Am Laich öffnet die Aktion die Eiübersicht (Player.update). */

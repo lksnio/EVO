@@ -21,7 +21,7 @@ export class MapView {
   private keys: string[] = [];
   private backgrounds: Phaser.GameObjects.TileSprite[] = [];
   constructor(private scene: Phaser.Scene, readonly map: WorldMap, ep: EpochDef, place: PlaceDef) {
-    const L = map.layout, ink = ep.id === 'devon', reef = ink && paintedReef(scene);
+    const L = map.layout, ink = !!ep.painted && !L.amphibious, reef = ink && paintedReef(scene);
     setInkWorld(ink); plantTextures(scene, L.theme); roeTextures(scene);
     const [far, mid] = ink ? inkBackdrop(scene, moodOf(place), true) : levelBackgrounds(scene, L.theme, L.variant, place.kind === 'start');
     const bg = scene.add.tileSprite(640, 360, 1280, 720, far).setScrollFactor(0).setDepth(-100);

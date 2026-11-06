@@ -3,6 +3,8 @@ import type { PlaceDef } from '../data/world';
 
 /** Bewohner und Zuwanderer teilen ihre Verteilung; ein einzelner größerer Fisch darf selten durch den Laichfluss ziehen. */
 export function faunaAffinity(place: PlaceDef, animal: SpeciesDef, passing = false): number {
+  // Orte mit eigener Tierliste (Perm): Hier lebt nur, was darin steht – der Boss des Ortes kommt eigens dazu
+  if (place.fauna) return place.fauna.some(([id]) => id === animal.id) || place.boss === animal.id ? 1 : 0;
   if (place.waterway === undefined) return 1;
   const i = place.waterway;
   if (i === 0) {

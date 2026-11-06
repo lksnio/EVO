@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EPOCHS } from '../src/data/epochs';
 import { SPECIES } from '../src/data/species';
 import { edgeNeighbor, placeOf, placesOf } from '../src/data/world';
@@ -132,7 +132,9 @@ describe('Zusammenhängendes Meer', () => {
 });
 
 describe('Direkter Gebietswechsel', () => {
-  beforeEach(() => { game.resetAll(); game.newRun(0); });
+  // ein Leben im Devon (es ruht vorerst; alte Spielstände dort behalten ihre Orte)
+  beforeEach(() => { EPOCHS[0].playable = true; game.resetAll(); game.newRun(0); });
+  afterEach(() => { EPOCHS[0].playable = undefined; });
   it('behält Nahrung, Leben und Fähigkeiten bei und verbraucht keine zusätzliche Reisezeit', () => {
     game.feed(72);
     const age = game.life.age, traits = { ...game.traits };

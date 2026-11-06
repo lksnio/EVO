@@ -101,7 +101,7 @@ export class BackSea {
     /** im sicheren Startgebiet: Dort lebt außer der eigenen Art kein Tier – auch in der Ferne zieht keines vorbei */
     calm = false,
   ) {
-    this.painted = ep.id === 'devon' && !new URLSearchParams(globalThis.location?.search ?? '').has('oldreef');
+    this.painted = !!ep.painted && !new URLSearchParams(globalThis.location?.search ?? '').has('oldreef');
     this.layers = this.painted ? PAINTED_LAYERS : LAYERS;
     if (!calm) this.buildPool(ep);
     if (!this.pool.length) {

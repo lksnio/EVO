@@ -451,7 +451,7 @@ export class AquapendiumScene extends Phaser.Scene {
     c.add(tg);
     this.rule(c, rx, PY + 66, PW - 88);
 
-    const layer = d.crawl ? 'Crawls along the bottom' : d.art.t === 'jelly' ? 'Drifts in the water' : d.layer ? LAYER_TEXT[d.layer] : 'Throughout the water';
+    const layer = d.land ? 'On land and at the shore' : d.crawl ? 'Crawls along the bottom' : d.art.t === 'jelly' ? 'Drifts in the water' : d.layer ? LAYER_TEXT[d.layer] : 'Throughout the water';
     const rows: [string, string][] = [
       ['Era', e.eras.join(', ') || '–'],
       ['Lived', `about ${e.ma} million years ago`],
