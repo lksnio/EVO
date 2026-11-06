@@ -1,0 +1,49 @@
+{
+  "id": "shore_skull_tier1_v2",
+  "created": "2026-11-06",
+  "node": "shore",
+  "visual_trait": "skull_plate",
+  "visual_stage": 1,
+  "visual_traits": {
+    "skull_plate": 1
+  },
+  "preserved_traits": [
+    "legs",
+    "bite",
+    "body",
+    "tail",
+    "pose",
+    "colour_palette"
+  ],
+  "status": "art_only",
+  "file": "masters/shore_skull_tier1.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    21,
+    155,
+    2152,
+    650
+  ],
+  "sha256": "63ee3fcd3fa3ab1ca6bd0c02e127a39539d0bf8d9ab366344146d136bfef8eb0",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-312662a2-5863-4c52-9d06-8277d66ab505.png",
+  "references": [
+    "art/EVO_shore_skull_tier2_v1/masters/shore_skull_tier2_legs1.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "A skull-only reduction from head armour two to head armour one.",
+    "Thinner, closely fitted forehead plates and small temple supports replace the heavy roof and large cheek buttresses.",
+    "The exposed lower cheek returns to natural scaled skin; the base jaws remain closed and toothless.",
+    "Four legs, feet, stance, body, swimming tail, eye and slate-olive / sandy palette retain the reference design.",
+    "No evolution rules, combat values, runtime textures or animation registration changed."
+  ]
+}
