@@ -2,9 +2,9 @@
   "id": "startfish_bite_tier2_v3",
   "created": "2026-11-06",
   "node": "water_start",
-  "stage": "bite_2",
+  "stage": "bite_1",
   "state": [
-    2,
+    1,
     0,
     0
   ],
@@ -38,10 +38,12 @@
   ],
   "notes": [
     "Original generated PNG bytes preserved.",
-    "Stronger second jaw stage of the current fish lineage.",
+    "Current first jaw stage under the updated user classification.",
     "Two dominant opposing front gripping fangs and sharper supporting teeth establish a distinct fish dentition.",
     "A deeper mandible, stronger jaw hinge and more open mouth communicate the increased bite strength.",
     "Base fins, tail, body, eye and slate-olive / sandy palette retain the species identity; no head-armour upgrade.",
-    "Visual concept only: no evolution rules, combat values, runtime textures or animation registration changed."
-  ]
+    "Visual concept only: no evolution rules, combat values, runtime textures or animation registration changed.",
+    "The user classifies this illustration as jaws one. The original filename and image bytes are retained; the new jaws-two drawing is in art/EVO_startfish_bite_tier2_v4."
+  ],
+  "classification_updated": "2026-11-06"
 }

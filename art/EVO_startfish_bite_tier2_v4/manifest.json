@@ -1,0 +1,46 @@
+{
+  "id": "startfish_bite_tier2_v4",
+  "created": "2026-11-06",
+  "node": "water_start",
+  "stage": "bite_2",
+  "state": [
+    2,
+    0,
+    0
+  ],
+  "trait_order": [
+    "bite",
+    "fins",
+    "skull_plate"
+  ],
+  "status": "art_only",
+  "file": "masters/startfish_g2_f0_k0.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    63,
+    154,
+    2122,
+    614
+  ],
+  "sha256": "c5350328ea26d444f6fb46a85d7d5fdd8d186f4e6939ce37fecf2802031afbae",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-cffc0631-10e8-4b89-8748-820e2b8cffd2.png",
+  "references": [
+    "art/EVO_startfish_bite_tier2_v3/masters/startfish_g2_f0_k0.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "Redrawn jaw level two under the updated user classification; the preceding v3 drawing is now jaw level one.",
+    "Much longer opposing front fangs, enlarged curved supporting teeth, a deep mandible and robust jaw hinge create a clear increase in bite specialisation.",
+    "Fish identity, small fins, tail, lateral line, golden eye and slate-olive / sandy palette remain recognisable; no skull-plate upgrade.",
+    "Visual concept only: no evolution rules, combat values, runtime textures or animation registration changed."
+  ]
+}

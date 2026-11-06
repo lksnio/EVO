@@ -43,6 +43,8 @@
     "Body, eye, fins, tail, lateral line and slate-olive back / sand belly preserve the species identity.",
     "Leaves visual headroom for later jaw upgrades; no large fangs or skull armour.",
     "Visual concept only: no numeric evolution thresholds, combat values or runtime textures changed.",
-    "Animation registration and separated parts remain future work."
-  ]
+    "Animation registration and separated parts remain future work.",
+    "Earlier jaw-level-one concept. The current first-stage visual reference is the stronger fang fish in art/EVO_startfish_bite_tier2_v3, as classified by the user."
+  ],
+  "superseded_by": "art/EVO_startfish_bite_tier2_v3/manifest.json"
 }
