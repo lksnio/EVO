@@ -1,0 +1,48 @@
+{
+  "id": "startfish_skull_tier2_v2",
+  "created": "2026-11-06",
+  "node": "water_start",
+  "stage": "skull_plate_2",
+  "state": [
+    0,
+    0,
+    2
+  ],
+  "trait_order": [
+    "bite",
+    "fins",
+    "skull_plate"
+  ],
+  "status": "art_only",
+  "file": "masters/startfish_g0_f0_k2.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    75,
+    157,
+    2134,
+    587
+  ],
+  "sha256": "e93c596e0d44d7b4cd7adbf19f1beb66c0e9fbf66647549db7b32394a6490f11",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-14d9698d-c1fe-48ed-8317-4389fb71fd5a.png",
+  "references": [
+    "art/EVO_startfish_skull_tier1_v2/masters/startfish_g0_f0_k1.png",
+    "art/EVO_shore_skull_tier2_v1/masters/shore_skull_tier2_legs1.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "Maximum head-armour level two of the current two-stage visual design.",
+    "A thick broad forehead, blunt frontal surface and integrated cheek buttresses strengthen the natural ramming skull.",
+    "The organic plate design matches the maximum-armoured shoreline relative while preserving fish anatomy.",
+    "Base jaws, small fins, tail, body, eye and slate-olive / sandy palette retain the fish design.",
+    "No evolution rules, combat values, runtime textures or animation registration changed."
+  ]
+}
