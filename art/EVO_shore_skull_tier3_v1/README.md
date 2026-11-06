@@ -1,4 +1,6 @@
-# Ufertier · Kopfplatte-Stufe 3
+# Ufertier · Kopfpanzer 1, Beine 1
+
+Nach der aktuellen Vorgabe ist diese Zeichnung **Kopfpanzer-Level 1 und Beine-Level 1**. Der ursprüngliche Dateiname bleibt erhalten. Die darauf aufbauende [maximale Kopfpanzerung auf Level 2](../EVO_shore_skull_tier2_v1/README.md) behält dieselben Beine.
 
 Kopfplatten-Spezialisierung der [Ufer-Grundform](../EVO_shore_base_v1/README.md). Ein breites, flaches Schädeldach, ein verstärkter stumpfer Nasenbereich und kräftige Wangenstützen bilden einen deutlich erkennbaren Rammkopf. Warme graubeige Knochenflächen und natürliche Nähte verbinden die Spezialisierung mit den Kopfplatten der Fischlinie.
 

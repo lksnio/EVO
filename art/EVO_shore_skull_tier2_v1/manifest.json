@@ -1,0 +1,43 @@
+{
+  "id": "shore_skull_tier2_legs1",
+  "created": "2026-11-06",
+  "node": "shore",
+  "visual_trait": "skull_plate",
+  "visual_stage": 2,
+  "visual_traits": {
+    "legs": 1,
+    "skull_plate": 2,
+    "bite": 0
+  },
+  "status": "art_only",
+  "file": "masters/shore_skull_tier2_legs1.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    21,
+    124,
+    2153,
+    649
+  ],
+  "sha256": "d6f2bdd9afd5158fe0ee5ed2e8797275e4ec6171d0b78002e829f9d2ed747aeb",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-06561422-f5c6-41d0-a8f8-b5ef3f655877.png",
+  "references": [
+    "art/EVO_shore_skull_tier3_v1/masters/shore_skull_tier3.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "Maximum head-armour level two, with level-one legs retained from the reference.",
+    "The source shoreline animal is classified as head armour one and legs one under the current user specification.",
+    "A deeper broad cranial roof, blunt frontal impact surface and heavier cheek buttresses strengthen the natural ramming skull.",
+    "Body, four limbs, feet, swimming tail, modest mouth, eye and slate-olive / sandy palette retain the source design.",
+    "No evolution rules, combat values, runtime textures or animation registration changed."
+  ]
+}

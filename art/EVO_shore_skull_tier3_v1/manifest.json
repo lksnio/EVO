@@ -3,7 +3,7 @@
   "created": "2026-11-05",
   "node": "shore",
   "visual_trait": "skull_plate",
-  "visual_stage": 3,
+  "visual_stage": 1,
   "status": "art_only",
   "file": "masters/shore_skull_tier3.png",
   "view": "side",
@@ -33,6 +33,13 @@
     "Skull specialization only: broad cranial roof, reinforced blunt nasal surface and integrated cheek buttresses.",
     "Four limbs; base swimming tail and modest closed mouth retained.",
     "No background, text, stats or runtime integration.",
-    "Animation registration and separated parts remain future work."
-  ]
+    "Animation registration and separated parts remain future work.",
+    "Current user classification: head armour level one and legs level one. The original filename and image bytes are retained."
+  ],
+  "visual_traits": {
+    "legs": 1,
+    "skull_plate": 1,
+    "bite": 0
+  },
+  "classification_updated": "2026-11-06"
 }
