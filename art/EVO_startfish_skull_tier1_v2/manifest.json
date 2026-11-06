@@ -1,0 +1,48 @@
+{
+  "id": "startfish_skull_tier1_v2",
+  "created": "2026-11-06",
+  "node": "water_start",
+  "stage": "skull_plate_1",
+  "state": [
+    0,
+    0,
+    1
+  ],
+  "trait_order": [
+    "bite",
+    "fins",
+    "skull_plate"
+  ],
+  "status": "art_only",
+  "file": "masters/startfish_g0_f0_k1.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    76,
+    160,
+    2112,
+    586
+  ],
+  "sha256": "73091004f03319b08b2ee0a1e23c83a0ff5e513102a311e55d452d1d29543076",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-4c18f735-0ed8-4156-999d-b6168908f06b.png",
+  "references": [
+    "art/EVO_startfish_base_v2/masters/startfish_g0_f0_k0.png",
+    "art/EVO_shore_skull_tier3_v1/masters/shore_skull_tier3.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "Gentle first head-armour specialisation of the latest base fish, suited to ramming.",
+    "A thin forehead shield and smaller rear support plates follow the existing skull contour, with shallow organic sutures.",
+    "The user regards the shoreline armour reference as visual armour level one; its legacy filename is retained.",
+    "The base mouth, jaw, eye, body, fins, tail and slate-olive / sand palette preserve the same species identity.",
+    "Visual concept only: no evolution thresholds, combat values, runtime textures or animation registration changed."
+  ]
+}
