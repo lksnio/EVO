@@ -1,0 +1,48 @@
+{
+  "id": "startfish_bite_tier1_v3",
+  "created": "2026-11-06",
+  "node": "water_start",
+  "stage": "bite_1",
+  "state": [
+    1,
+    0,
+    0
+  ],
+  "trait_order": [
+    "bite",
+    "fins",
+    "skull_plate"
+  ],
+  "status": "art_only",
+  "file": "masters/startfish_g1_f0_k0.png",
+  "view": "side",
+  "facing": "right",
+  "width": 2172,
+  "height": 724,
+  "mode": "RGBA",
+  "alpha_extrema": [
+    0,
+    255
+  ],
+  "visible_bounds_alpha16": [
+    76,
+    158,
+    2109,
+    588
+  ],
+  "sha256": "75021c72443cde1c3a11b63d5e38c1343840ed0a4d37ee2548596075f6e5c2d4",
+  "generator": "image_gen.imagegen",
+  "original": "/workspace/generated_images/exec-1783ac30-32e2-476f-a6e7-7529a0c0c90f.png",
+  "references": [
+    "art/EVO_startfish_base_v2/masters/startfish_g0_f0_k0.png"
+  ],
+  "notes": [
+    "Original generated PNG bytes preserved.",
+    "First restrained jaw specialisation of the latest base fish.",
+    "A deeper lower jaw, a slightly open mouth and short ivory gripping teeth make the stronger bite visible.",
+    "Body, eye, fins, tail, lateral line and slate-olive back / sand belly preserve the species identity.",
+    "Leaves visual headroom for later jaw upgrades; no large fangs or skull armour.",
+    "Visual concept only: no numeric evolution thresholds, combat values or runtime textures changed.",
+    "Animation registration and separated parts remain future work."
+  ]
+}
