@@ -243,16 +243,16 @@ function buildPerm(): PlaceDef[] {
   const swamp = { lush: 0x2a3a18, murky: 0x34301a };
   Object.assign(river, {
     links: ['garten', 'ufer'], closed: { left: true }, map: [0.12, 0.67], x: 0.12, y: 0.67, blurb: 'A quiet river mouth – the nursery.', tier: 1,
-    fauna: [['paramblypterus', 8], ['acanthodes', 5], ['apateon', 3], ['gnathorhiza', 1.5], ['archegosaurus', 0.4]],
+    fauna: [['paramblypterus', 8], ['acanthodes', 5], ['apateon', 3], ['gnathorhiza', 1.5], ['archegosaurus', 0.8]],
   });
   Object.assign(shelf, {
     name: 'The Coral Lagoon', links: ['riff', 'ufer', 'wand'], closed: undefined, map: [0.38, 0.4], x: 0.38, y: 0.4, blurb: 'A warm, shallow bay behind the reef.', tier: 2,
-    fauna: [['aeduella', 9], ['platysomus', 4], ['diplocaulus', 1.5], ['xenacanthus', 0.8], ['ectosteorhachis', 0.5]],
+    fauna: [['aeduella', 9], ['platysomus', 4], ['diplocaulus', 1.5], ['xenacanthus', 7], ['ectosteorhachis', 5]],
   });
   shelf.def.name = shelf.name;
   Object.assign(valley, {
     name: 'The Deep', map: [0.3, 0.13], x: 0.3, y: 0.13, below: 'garten', boss: 'orthacanthus', blurb: 'Dark water below the lagoon – reached only through the chasm.', tier: 3,
-    fauna: [['aeduella', 6], ['platysomus', 3], ['ectosteorhachis', 0.8], ['sclerocephalus', 0.7], ['xenacanthus', 0.4]],
+    fauna: [['aeduella', 14], ['platysomus', 6], ['ectosteorhachis', 0.12], ['sclerocephalus', 0.25], ['xenacanthus', 0.15]],
   });
   valley.def.name = valley.name;
   const shore: PlaceDef = {
@@ -260,15 +260,15 @@ function buildPerm(): PlaceDef[] {
     blurb: 'Water and mud banks along the river – the first animals on land.', tier: 2,
     links: ['riff', 'garten', 'hochland'], def: zoneFor('lush', 'The Shore Swamp', swamp, [1, 1, 1, 0.9], 0.9),
     deep: 7, wide: 2.6, sun: 4, sky: 9,
-    fauna: [['paramblypterus', 6], ['gnathorhiza', 1.5], ['eryops', 0.5], ['ophiacodon', 0.4],
-      ['captorhinus', 3], ['cacops', 1.2], ['seymouria', 1], ['tausendfuss', 2.5]],
+    fauna: [['paramblypterus', 6], ['gnathorhiza', 1.5], ['eryops', 1.5], ['ophiacodon', 1.2],
+      ['captorhinus', 3], ['cacops', 1.2], ['seymouria', 2], ['tausendfuss', 2.5]],
   };
   const upland: PlaceDef = {
     id: 'hochland', name: 'The Red Uplands', kind: 'lush', shape: 'highland', theme: 'reptil', x: 0.86, y: 0.36, map: [0.86, 0.36],
     blurb: 'Dry red earth and seed ferns – the land of the sailbacks.', tier: 3,
     links: ['ufer'], def: zoneFor('lush', 'The Red Uplands', { lush: 0x4a3018, murky: 0x4a3a20 }, [0.6, 0.5, 1, 1], 1.05),
     deep: 4, wide: 2.6, sun: 5, sky: 14, apex: true, boss: 'dimetrodon', needsLegs: true,
-    fauna: [['eudibamus', 3], ['edaphosaurus', 0.6], ['diadectes', 0.6], ['varanops', 0.8], ['tausendfuss', 2.5], ['urinsekt', 2.5]],
+    fauna: [['eudibamus', 3], ['edaphosaurus', 0.6], ['diadectes', 0.6], ['varanops', 2.5], ['tausendfuss', 2.5], ['urinsekt', 2.5]],
   };
   return [river, shelf, valley, shore, upland];
 }

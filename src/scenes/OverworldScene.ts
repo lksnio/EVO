@@ -121,10 +121,14 @@ export class OverworldScene extends Phaser.Scene {
     this.choices = this.nodes.filter((n) => n.state === 'open' || n.state === 'locked').sort((a, b) => a.x - b.x || a.y - b.y);
     this.walk();
     this.panel();
-    // Vorauswahl: der Nachbar in Richtung des Randes, an dem man hinausgeschwommen ist
-    const ahead = this.choices.filter((n) => n.state === 'open').sort((a, b) => (this.d.side === 'right' ? b.x - a.x : a.x - b.x));
-    const start = ahead.length ? this.choices.indexOf(ahead[ahead.length - 1]) : 0;
-    this.focus(Math.max(0, start));
+    // Vorauswahl: der nächste offene Nachbar in der Richtung, in der man hinausgeschwommen ist (sonst irgendein offener)
+    const here = this.nodes.find((n) => n.state === 'here')!;
+    const dir = this.d.side === 'right' ? 1 : -1;
+    const open = this.choices.filter((n) => n.state === 'open');
+    const dist = (n: MapNode) => Math.hypot(n.x - here.x, n.y - here.y);
+    const ahead = this.choices.filter((n) => (n.x - here.x) * dir > 0).sort((a, b) => dist(a) - dist(b));
+    // liegt in dieser Richtung nur ein gesperrter Ort (das Hochland für einen Fisch), steht er da – mit dem Grund
+    this.focus(Math.max(0, this.choices.indexOf(ahead.find((n) => n.state === 'open') ?? ahead[0] ?? open[0])));
 
     const kb = this.input.keyboard!;
     const step = (d: number) => () => !capture.on && !this.leaving && this.step(d);

@@ -237,7 +237,8 @@ function placeFauna(L: LevelData, ep: EpochDef, place: PlaceDef, r: Rng, G: Grou
   };
   const taste = (id: string) => {
     const key = ep.id + '/' + place.id + '/' + id;
-    if (place.kind === 'start') return 0.85 + 0.3 * hash01('b' + key);
+    // Orte mit eigener, ausgesuchter Tierliste (Perm): Jede Art darin soll man auch antreffen – keine zufällig seltenen
+    if (place.kind === 'start' || place.fauna) return 0.85 + 0.3 * hash01('b' + key);
     return hash01('a' + key) < 0.25 ? 0.12 : 0.55 + 1.3 * hash01('b' + key);
   };
   for (const [id, groups] of place.fauna ?? ep.fauna) {

@@ -1406,8 +1406,25 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     }
     this.groundIt(a);
     this.fitSwimmer(a);
+    this.fitWalker(a);
     this.animals.push(a);
     return a;
+  }
+
+  /**
+   * Land über dem Wasser (Ufer, Hochland): Ein Tier, das läuft oder am Grund kriecht, steht mit den Füßen auf dem Boden.
+   * Die Erzeugung setzt nur die Mitte knapp über den Boden – bei einem großen Tier wie Dimetrodon steckte der Körper sonst
+   * im Gelände und fiele hindurch.
+   */
+  private fitWalker(a: Animal) {
+    if (!this.amphibious || !a.def.crawl) return;
+    a.b.updateBounds();
+    const hw = a.b.halfWidth;
+    let floor = Infinity;
+    for (let x = a.x - hw; x <= a.x + hw + .1; x += Math.max(8, hw / 6)) floor = Math.min(floor, groundCurve(this.L.terrain.hp, x));
+    // Unterkante des Körpers unter der Bildmitte – mit seinem Versatz im Bild (Body.reset rechnet den erst im nächsten Schritt ein)
+    const below = a.scaleY * (a.b.offset.y - a.displayOriginY) + a.b.height;
+    if (a.y + below > floor - 2) a.b.reset(a.x, floor - below - 2);
   }
 
   /** A metre-sized swimmer needs clearance for its complete body at spawn, rather than a fixed 24-pixel offset. */

@@ -1,9 +1,11 @@
-# Frühes Perm – Karten und Arten für den Prototyp (Entwurf)
+# Frühes Perm – Karten und Arten für den Prototyp
 
 Zielzeit: **Unterperm / Cisuralium, etwa 295–280 Mio. Jahre**. Der Prototyp spielt nur hier; Devon und Karbon
 kommen später („demnächst“ in der Zeitalterübersicht).
 
-Stand: Vorschlag, noch nichts im Spiel. Rollen wie in `src/data/species.ts`: `prey` (flieht), `predator` (jagt),
+Stand: **im Spiel** – fünf Orte mit Weltkarte, alle Arten einfach gezeichnet (`PlaceDef.fauna` in `src/data/world.ts`,
+Arten in `src/data/species.ts`, Steckbriefe in `src/data/speciesFacts.ts`). Die Gewichte je Ort sind auf etwa diese Mischung
+abgestimmt; genaue Zahlen stehen im Code. Rollen wie in `src/data/species.ts`: `prey` (flieht), `predator` (jagt),
 `defender` (friedlich, wehrt sich heftig), `hazard` (nur bei Berührung gefährlich), `apex` (Spitzenräuber, mit
 `boss: true` ein Boss). Längen sind reale Größen (gerundet); ⚠ heißt: vor dem Steckbrief nachschlagen.
 
@@ -85,9 +87,18 @@ Optional für Stimmung (nicht in der Zählung): *Meganeuropsis* (Riesen-Greifenf
 - **2 Haie:** *Xenacanthus* (mittel), *Orthacanthus* (Boss)
 - **Andersartige:** Larve *Apateon*, Amphibien *Archegosaurus*, *Diplocaulus*, *Sclerocephalus*
 
+## Umgesetzt im Prototyp
+
+- **Weltkarte:** eine alte, dunkle Karte (Meer mit der Tiefe, Lagune hinter dem Riff, Flussmündung, Sumpf, rotes Hochland).
+  Vor dem ersten Besuch sieht man Name, Schwierigkeit und einen Satz; wer dort lebt, erst nach dem Besuch („unknown – go and
+  see“, bei Bossorten „Something big rules here.“).
+- **Lagune:** vorerst meeresnah gemalt (Riffbogen, Korallen aus dem Devon).
+- **Hochland:** nur mit Beinen (`needsLegs`); ein Fisch sieht es gesperrt. Mit `?debug` ist alles wählbar.
+- **Devon-Arten** bleiben vollständig im Code (das Devon ruht im Gestein).
+
 ## Noch zu entscheiden
 
-- Lagune: meeresnah (dann passen Korallen, später vielleicht *Helicoprion*) oder Süßwassersee (dann Armleuchteralgen und
-  Schachtelhalme statt Korallen)?
-- Name und Aussehen der Weltkarte; wie viel man vor dem ersten Besuch von einem Knoten sieht.
-- Welche Devon-Arten im Code bleiben (für später) und welche Perm-Arten zuerst gemalt werden.
+- Lagune endgültig meeresnah (dann später vielleicht *Helicoprion*) oder Süßwassersee (Armleuchteralgen und Schachtelhalme
+  statt Korallen)?
+- Wie eine Linie im Perm Beine bekommt (z. B. über Zeit an Land im Ufersumpf), damit das Hochland ohne `?debug` erreichbar wird.
+- Welche Perm-Arten zuerst richtig gemalt werden.

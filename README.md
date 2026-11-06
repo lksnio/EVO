@@ -3,8 +3,9 @@
 Ein Überlebensspiel über Evolution im Browser, gebaut mit [Phaser 4](https://phaser.io), TypeScript
 und [Vite](https://vite.dev).
 
-**Entwicklungsstand:** Spielbar sind die bisherigen Devon- und Karbon-Prototypen mit
-Weltbaukasten und Koop-Grundlagen. Die beschlossenen nächsten Schritte stehen unter
+**Entwicklungsstand:** Spielbar ist der Prototyp im **frühen Perm** – fünf Orte mit Weltkarte, je etwa fünf Tierarten
+und zwei Bossen (siehe [Das frühe Perm](#das-frühe-perm-fünf-orte-und-die-weltkarte)) –, dazu Weltbaukasten und
+Koop-Grundlagen. Devon und Karbon ruhen vorerst im Gestein. Die beschlossenen nächsten Schritte stehen unter
 [Entwicklungsrichtung](#entwicklungsrichtung). Die übrigen Spielbeschreibungen dokumentieren
 den vorhandenen Prototyp; geplante Änderungen sind noch keine eingebauten Funktionen.
 
@@ -19,9 +20,10 @@ Weitergeben**.
 Auf dem eigenen Server sehen sich Spieler bereits am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
 Die Hauptlinie soll durch **Devon**, **Karbon**, **Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** führen.
 Im aktuellen Prototyp wählt man die Zeitalter noch getrennt im Titelbild; jedes hat bisher seine eigene Welt und Linie.
-Spielbar sind das **Devon** mit dem ursprünglichen Urfisch und das **Karbon** mit *Pederpes*, Gelege und
-Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)); die anderen ruhen noch „im Gestein“
-(siehe [Zeitalter wählen](#zeitalter-wählen)).
+Spielbar ist das **frühe Perm** mit dem Urfisch (siehe [Das frühe Perm](#das-frühe-perm-fünf-orte-und-die-weltkarte));
+alle anderen ruhen „im Gestein“ (siehe [Zeitalter wählen](#zeitalter-wählen)) – auch das **Devon** und das **Karbon** mit
+*Pederpes*, Gelege und Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)). Ihr Code bleibt
+erhalten und geprüft; sie kommen später wieder.
 
 **Stirbst du, wählst du ein Ei aus dem Laich deiner Linie** – ein Geschwister oder eines der nächsten Generation. **Liegt
 kein Laich mehr da und wartet kein Geschwister, stirbt deine Linie aus** – und bleibt als
@@ -77,8 +79,9 @@ Die folgenden Ziele sind festgehalten und werden schrittweise umgesetzt:
 
 **Bereits umgesetzt:** Die Sternsammlung ist groß und direkt in der **C-Übersicht**
 sichtbar, ohne Überschrift, Zähler oder zusätzlichen Button. Sieben große Fossilplätze sitzen an den Spitzen, sieben kleine Muschelplätze
-in den inneren Winkeln. Ein fester Muschelfund liegt ganz unten im Devon-Tiefental.
-Der erste eigene Sieg über Dunkleosteus hinterlässt garantiert seine Fossilplatte.
+in den inneren Winkeln. Ein fester Muschelfund liegt ganz unten in der Tiefe (im Perm wie früher im Devon-Tiefental).
+Der erste eigene Sieg über einen Boss mit Fossilplatte hinterlässt sie garantiert – im Perm *Dimetrodon*, im Devon
+*Dunkleosteus*.
 Funde bleiben über Läufe erhalten; liegengebliebene Fossilien werden am Fundort wieder geladen.
 
 Die alten Zufalls-Muscheln, gekauften Werteboni und goldenen Ei-Boni sind entfernt.
@@ -111,22 +114,22 @@ Bildschirm. Das gewählte öffnet sich weit, die anderen bleiben schmale Streife
 Ammonit für „noch im Gestein“). Wer mit der Maus auf ein anderes Bild fährt (oder ← → drückt), öffnet es. Jedes Bild
 **lebt**, und ganz langsam kommt man näher – das geöffnete folgt dazu ein Stück der Maus:
 
-- **I · Devon** – *Das Zeitalter der Fische* (spielbar): Licht fällt von oben und atmet, ein Lichtnetz spielt auf dem
-  Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm *Moythomasia* zieht vorbei. Darunter **Weiterleben** (bzw.
-  **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die jetzige endet dann). Wer aufbricht, hört einen tiefen Sog
-  und einen weiten Chor, das Bild öffnet sich ganz, und man taucht hinein.
-- **II · Karbon** – *Die Kohlewälder* (spielbar): Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
+- **I · Devon** – *Das Zeitalter der Fische* (ruht): Licht fällt von oben und atmet, ein Lichtnetz spielt auf dem
+  Grund, Schwebeteilchen treiben, Blasen steigen, ein Schwarm *Moythomasia* zieht vorbei.
+- **II · Karbon** – *Die Kohlewälder* (ruht): Im Sumpfwald ziehen **Nebelbänke** in mehreren Höhen und Geschwindigkeiten zwischen
   den Stämmen hindurch und atmen dabei, fahles Licht fällt schräg herein, Sporen treiben, das stille Wasser glänzt matt
   (die Riesenlibelle des Bildes bleibt, wo sie ist).
-- **III · Perm** – *Das Reich der Segelrücken*: Hinter den Palmfarnen **glüht die Sonne im Dunst**, warme Strahlen fallen
-  schräg, goldener Staub steigt auf, ein Dunstband zieht am Horizont, vorn **wiegt sich ein Farn** im Wind, in der Ferne
-  eine Libelle.
+- **III · Perm** – *Das Reich der Segelrücken* (spielbar): Hinter den Palmfarnen **glüht die Sonne im Dunst**, warme
+  Strahlen fallen schräg, goldener Staub steigt auf, ein Dunstband zieht am Horizont, vorn **wiegt sich ein Farn** im Wind,
+  in der Ferne eine Libelle. Darunter **Weiterleben** (bzw. **Leben beginnen**) und **Neue Linie** (mit Rückfrage – die
+  jetzige endet dann). Wer aufbricht, hört einen tiefen Sog und einen weiten Chor, das Bild öffnet sich ganz, und man
+  taucht hinein.
 - **VI · Kreidezeit** – *Die Herrschaft der Meeresechsen*: das Meer wie im Devon, mit einem Schwarm *Apsopelix*.
 - **IV · Trias**, **V · Jura**, **VII · Paläogen**: Ihre Bilder fehlen noch – dort steht eine **dunkle Steintafel** aus
   Gesteinsschichten mit einem **eingemeißelten Fossil** (Ammonit, Plesiosaurier, Hai), feiner Staub rieselt, und in ihren
   **Rissen glimmt Glut**: Bald bricht sie auf. Titel, Zeile und Text stehen schon.
 
-Alle Zeitalter außer Devon und Karbon **ruhen noch im Gestein**: Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen;
+Alle Zeitalter außer dem Perm **ruhen im Gestein**: Ihre Bilder sind grau wie Stein, mit feiner Maserung und Rissen;
 wählt man eines an, kehrt die **Farbe zum großen Teil zurück**, Maserung und Risse treten zurück, und ein Lichtstreif
 streicht über den Fels wie über eine Fossilplatte. Statt der Knöpfe steht dort ein Ammonit-Zeichen und „Noch im Gestein“.
 Ein Klick darauf: Stein reibt über Stein, die Glut in den Rissen flackert auf – es rührt sich (noch) nichts.
@@ -136,13 +139,56 @@ Rückkehr wieder (`enterEpoch`, `runIn` in `src/state/GameState.ts`). Diese Tren
 Die Bilder liegen in `src/assets/eras/` (Devon, Karbon, Perm, Kreidezeit – neue Bilder für Trias, Jura und
 Paläogen kommen dorthin und in `LOOK` in `src/scenes/EraScene.ts`, wo auch steht, wie sie leben: Meer, Sumpf oder Land).
 
-**Die Reihenfolge ist Teil des Spielstands** (Nummern): Nummer 0 war früher das Ordovizium und ist jetzt das Devon –
-ältere Spielstände leben deshalb im Devon weiter. **Ordovizium und Silur sind verborgen** (`hidden`): Ihre Tiere, Orte
+**Die Reihenfolge ist Teil des Spielstands** (Nummern): Nummer 0 war früher das Ordovizium und ist jetzt das Devon,
+das Perm hat die Nummer 2. Eine Linie aus einem älteren Spielstand im Devon (oder Karbon) **ruht** dort (`parked`) und
+lebt weiter, sobald das Zeitalter wieder spielbar ist; neue Linien beginnen im ersten spielbaren Zeitalter
+(`firstPlayable()`). **Ordovizium und Silur sind verborgen** (`hidden`): Ihre Tiere, Orte
 und Karten bleiben im Spiel (auch das Ordovizium-Bild `ordovizium.webp`), sie erscheinen nur nirgends. Für die
-**Kreidezeit** gibt es 15 Tiere mit Steckbrief; ihre Orte und ihre Karte fehlen noch. Perm, Trias, Jura und
+**Kreidezeit** gibt es 15 Tiere mit Steckbrief; ihre Orte und ihre Karte fehlen noch. Trias, Jura und
 Paläogen haben bisher nur Name, Zeitraum, Zeile und Text (`later(...)` in `src/data/epochs.ts`). Spielbar wird ein
-Zeitalter mit `playable: true`; `brood: true` gibt ihm den Ablauf des Karbons (Gelege statt Laichen), `meta: 'oxy'`
+Zeitalter mit `playable: true`; `painted: true` zeigt seine Wasserorte im gemalten Stil (Devon, Perm), `overworld: true`
+führt an den Rändern auf die Weltkarte (Perm); `brood: true` gibt ihm den Ablauf des Karbons (Gelege statt Laichen), `meta: 'oxy'`
 setzt Sauerstoff statt Sicht an die große Muschel.
+
+## Das frühe Perm: fünf Orte und die Weltkarte
+
+Der Prototyp spielt im **Unterperm** (Cisuralium, vor etwa 295 bis 283 Millionen Jahren) am Rand von Pangaea. Es gibt
+**fünf Orte**; jeder läuft von links nach rechts. Wer einen Ort am linken oder rechten Rand verlässt, landet auf der
+**Weltkarte** (`src/scenes/OverworldScene.ts`) und wählt dort, wohin es geht – aber **nur in einen benachbarten Ort**. So
+entsteht eine Gabelung mit steigender Schwierigkeit:
+
+```
+                 ┌── Korallenlagune ─(Schlucht)─ Tiefe     (Wasserweg, Boss Orthacanthus)
+ Laichfluss ─────┤        │
+                 └── Ufersumpf ──────────────── Hochland   (Landweg, Boss Dimetrodon)
+```
+
+| Ort | Stufe | Bewohner (je Ort eine eigene Liste, `PlaceDef.fauna`) |
+|---|---|---|
+| **Laichfluss** (`riff`) | leicht | *Paramblypterus*, *Acanthodes*, *Apateon*, *Gnathorhiza*, *Archegosaurus* |
+| **Korallenlagune** (`garten`) | mittel | *Aeduella*, *Platysomus*, *Diplocaulus*, *Xenacanthus*, *Ectosteorhachis* |
+| **Tiefe** (`wand`) | schwer | *Aeduella*, *Platysomus*, *Ectosteorhachis*, *Sclerocephalus*, *Xenacanthus* – Boss ***Orthacanthus*** |
+| **Ufersumpf** (`ufer`) | mittel | *Paramblypterus*, *Gnathorhiza*, *Eryops*, *Ophiacodon*; an Land *Captorhinus*, *Cacops*, *Seymouria*, Tausendfüßer |
+| **Rotes Hochland** (`hochland`) | schwer | *Eudibamus*, *Edaphosaurus*, *Diadectes*, *Varanops*, Tausendfüßer, Urinsekten – Boss ***Dimetrodon*** |
+
+- **Die drei Wasserorte** sind die gemalten Orte des Devons (gleiche Kennungen – Gelände, Laichhöhle, Schlucht, Stimmungen,
+  Seegang, Regen und Raga bleiben), nur mit den Tieren des Perms und offenen Rändern zur Weltkarte. Die **Tiefe** erreicht
+  man weiterhin nur durch die Schlucht in der Lagune und verlässt sie nur nach oben; auf der Weltkarte ist sie zu sehen,
+  aber nicht wählbar (`below`).
+- **Ufersumpf und Hochland** sind Orte mit Land über dem Wasser (Grafik wie bisher im Karbon: Sumpf bzw. rote Erde mit
+  Vulkanen). Im **Ufersumpf** trennen schmale, flache **Schlammbänke** tiefe Tümpel. Ein **Fisch robbt** darüber
+  (`FISH_LAND` in `src/data/karbon.ts`): ein kleiner Satz aus dem Wasser, langsames Vorankommen in kleinen Sprüngen, und
+  die Luft reicht an Land nur **9 Sekunden** (Blasen neben dem Tier). Das **Hochland** ist trockenes, welliges Land mit
+  wenigen Wasserlöchern – dorthin kommt nur, wer **Beine** hat (`needsLegs`); für einen Fisch steht es auf der Weltkarte
+  als gesperrt da. Mit `?debug` lassen sich auf der Weltkarte alle Orte wählen, auch Tiefe und Hochland.
+- **Die Weltkarte** ist eine alte, dunkle Karte der Gegend: offenes Meer mit der Tiefe, die Lagune hinter ihrem Riff, die
+  Flussmündung des Laichflusses, den Fluss hinauf der Sumpf, rechts das rote Hochland (`src/art/overworldArt.ts`). Bekannte
+  Wege sind hell, unbekannte nur fein gepunktet. Unten stehen Name, Schwierigkeit, ein Satz und – wo man schon war – wer dort
+  lebt. Vorgewählt ist der nächste Nachbar in Laufrichtung; ← → wählen, Enter oder Klick reist (das Tier zieht den Weg
+  entlang), **Esc** kehrt an denselben Rand zurück. Wer nach Osten reist, kommt am linken Rand an, und umgekehrt.
+- **Die Tiere** sind vorerst **einfach gezeichnet** (`quad` in `src/art/speciesArt.ts` für alle Vierbeiner: Beine im
+  Kreuzgang, Segel, Platten, Bumerangkopf, Kiemenbüschel …; Fische nutzen das Fisch-Rig). Alle 21 neuen Arten haben einen
+  Steckbrief im Aquapendium. Die Artenliste mit Längen und Spielideen steht in [`docs/PERM_ARTEN.md`](docs/PERM_ARTEN.md).
 
 ## Das Karbon: Gelege, Metamorphose, Generationen
 
@@ -338,7 +384,8 @@ einer der ersten Vierfüßer, halb im Wasser, halb an Land. Alle Zahlen stehen a
 
 ## Der Tuschestil des Devons
 
-Das **Devon** ist im Stil handgezeichneter 2D-Welten gemalt (Vorbild: *Hollow Knight*) – statt Verläufen, Rauschen und Glanz gibt es
+Das **Devon** ist im Stil handgezeichneter 2D-Welten gemalt (heute auch die Wasserorte des **Perms**, die diese Orte
+übernommen haben – Zeitalter mit `painted: true`) (Vorbild: *Hollow Knight*) – statt Verläufen, Rauschen und Glanz gibt es
 **ruhige Farbflächen, wenige harte Schattenstreifen und eine kräftige dunkle Kontur**, die jede Silhouette trägt. Alle anderen
 Zeitalter (Karbon, Kreidezeit …) behalten ihre bisherige Malweise. Wie das geht, steht in `src/art/ink.ts`: `withInk(true, …)`
 schaltet beim Malen eines Devon-Tiers (der Fisch der Spielfigur, alle Arten aus `epochSpecies(devon)`) den Stil ein; Welt-Bilder
@@ -365,7 +412,8 @@ schaltet beim Malen eines Devon-Tiers (der Fisch der Spielfigur, alle Arten aus 
 - **Bewegung und Licht:** Pflanzen schwingen weich (nach `SWAYS`), Schwebstoffe sind sparsam (55 %), das Lichtnetz an der
   Oberfläche ist nur noch ein leiser Schimmer, breite Lichtkegel kommen von oben.
 - Mit `?debug&gallery=devon` zeigt die Galerie die Spielfigur und alle Tiere des Devons (Leertaste blättert), je einmal groß und
-  einmal so, wie sie im Spiel (Kamera 0,72) zu sehen sind.
+  einmal so, wie sie im Spiel (Kamera 0,72) zu sehen sind; `?debug&gallery=perm` zeigt die Tiere des Perms samt denen, die nur
+  an einzelnen Orten leben.
 
 ## Das Fisch-Rig (der Fisch als zusammenhängendes Tier)
 
@@ -516,7 +564,7 @@ keine Texturen oder Teilchen zur Laufzeit.
 
 ## Wetter: Wolken und Regen
 
-Über dem Meer des Devons zieht ab und zu ein Regen durch (`src/sim/weather.ts`). Das Wetter hängt an der gemeinsamen
+Über den gemalten Wasserorten (heute im Perm, früher im Devon) zieht ab und zu ein Regen durch (`src/sim/weather.ts`). Das Wetter hängt an der gemeinsamen
 Weltzeit – alle Spieler am selben Ort erleben denselben Regen. Die Zeit ist in Abschnitte von acht Minuten geteilt; in etwa
 jedem zweiten regnet es zwei bis viereinhalb Minuten lang, jedes Mal etwas früher oder später, stärker oder schwächer und in
 Böen. Erst ziehen Wolken auf, dann setzt der Regen ein; am Ende ziehen die Wolken langsamer ab, als sie kamen.
@@ -1163,7 +1211,7 @@ steht in `src/data/tuning.ts`, die Seite in `src/ui/devConfig.ts`.
 EVO wird ein persistentes Online-Spiel mit einem **autoritativen Server** ([Colyseus](https://colyseus.io) 0.18, TypeScript).
 Der erste Meilenstein steht: **Mehrere Spieler betreten denselben Ort und sehen einander schwimmen.**
 
-- **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `0/riff`);
+- **Ein Raum je Ort:** Wer einen Ort betritt, kommt in dessen Raum auf dem Server (Zeitalter und Ort, z. B. `2/riff` für den Laichfluss im Perm);
   wer ihn verlässt, verschwindet dort und erscheint im nächsten. Die Orte sehen für alle gleich aus (feste Weltsaat).
 - **Die anderen Spieler** schwimmen als ihr eigener Fisch – mit ihrem Aussehen, ihrer Größe (Jungtier oder ausgewachsen),
   Bissen und Stößen – und ihrem **Namen** darüber. Ihre Lage kommt etwa 20 Mal je Sekunde an und wird geglättet
