@@ -1,5 +1,4 @@
 import { weightedFishDamage } from '../sim/fishEvolution';
-import { STARTER_FORMS } from '../sim/starterFish';
 import { COLLECTION_FOSSILS, COLLECTION_SHELLS, SHELL_PLACEMENTS, type FossilId, type ShellId } from '../data/collection';
 import { isFossilId } from '../sim/collection';
 import { CollectionPickup } from '../objects/CollectionPickup';
@@ -473,7 +472,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
     const back = waiting||born ? undefined : game.prog.resume;
     game.prog.resume = undefined;
     const nursery = L.cave && L.roe.find(r => r.own);
-    const spawn = born ? { x: nursery?.x ?? born.x, y: (nursery?.y ?? born.y) - 40 } : back ? { ...back } : { ...L.start };
+    const spawn = born && born.x > 0 && born.y > 0 ? { x: nursery?.x ?? born.x, y: (nursery?.y ?? born.y) - 40 } : back ? { ...back } : { ...L.start };
     // Alte Spielstände können aus einem breiteren oder tieferen Abschnitt stammen.
     // In der Laichhöhle liegt das Dach dicht über dem schlüpfenden Tier.
     const c = L.cave;
@@ -1973,8 +1972,8 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       const before=a.hp;
       a.hurt(st.bite * (1+charge) * (sneak ? 2 + Math.min(1, game.traits.stealth * 2) : 1) * (held ? 1.25 : 1) * (1 + 0.6 * momentum), p, 'bite');
       this.trainDamage('biteDamage',a,Math.min(before,Math.max(0,before-a.hp)));
-      const stage=STARTER_FORMS[game.morph().fishForm??0][0];
-      if(!a.dead && stage>=2)a.slow(2000,stage>=3?.5:.25);
+      const stage = p.weaponTiers[0];
+      if(!a.dead && stage>=2)a.slow(2000,game.isLineageEvolution || stage>=3 ? .5 : .25);
       if (sneak) this.surprise(a);
       if (held && !a.dead && game.cls!=='fish') a.stun(550);
       if (!a.dead) this.callHunt(a);
@@ -1989,7 +1988,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
       return;
     }
     let eatenPieces=0;
-    const tier=STARTER_FORMS[game.morph().fishForm??0][0];
+    const tier = p.weaponTiers[0];
     const capacity=charge>0?1+Math.ceil(charge*tier*2):1;
     for (const m of this.meats) {
       if(eatenPieces>=capacity)break;
@@ -2124,7 +2123,7 @@ export class LevelScene extends Phaser.Scene implements KinWorld {
    */
   private drawOxygen(p: Player, dt: number) {
     const g = (this.oxyG ??= this.add.graphics().setDepth(DEPTH.text - 1));
-    const show = !p.dead && !this.ended && (!p.inWater || p.oxygen < 0.995);
+    const show = !p.dead && !this.ended && !(game.isLineageEvolution && game.evolution.habitat === 'shore') && (!p.inWater || p.oxygen < 0.995);
     this.oxyA = clamp(this.oxyA + (show ? dt * 5 : -dt * 2), 0, 1);
     g.clear();
     if (this.oxyA < 0.02) return;

@@ -9,6 +9,7 @@ import { species } from '../net/Species';
 import { CURSOR } from '../ui/cursor';
 import { historyBranchName } from '../ui/historyText';
 import { Button, text, title } from '../ui/ui';
+import { LineageTreeView } from '../ui/lineageTreeView';
 
 const AREA = { x: 30, y: 132, w: 890, h: 498 };
 const PANEL = { x: 954, y: 118, w: 300, h: 516 };
@@ -28,6 +29,7 @@ function formName(node: FishTreeNode) {
 
 /** The shell opens a living fan of exact shared ancestry, with legal, subdued paths beside the played routes. */
 export class EvolutionScene extends Phaser.Scene {
+  coreTree?: LineageTreeView;
   private plot!: Phaser.GameObjects.Container;
   private info!: Phaser.GameObjects.Container;
   private accent!: Phaser.GameObjects.Graphics;
@@ -50,6 +52,12 @@ export class EvolutionScene extends Phaser.Scene {
   constructor() { super('Evolution'); }
 
   create() {
+    this.coreTree = undefined;
+    if (game.isLineageEvolution) {
+      this.coreTree = new LineageTreeView(this, () => this.close());
+      this.events.once('shutdown', () => { this.coreTree = undefined; });
+      return;
+    }
     this.views = []; this.points.clear(); this.selected = undefined; this.hovered = undefined;
     this.drag = undefined; this.detailKey = ''; this.stamp = ''; this.navigated = false;
     this.add.rectangle(0, 0, W, H, 0x090e0e).setOrigin(0).setInteractive();
@@ -306,6 +314,7 @@ export class EvolutionScene extends Phaser.Scene {
   }
 
   update(_t: number, ms: number) {
+    if (this.coreTree) { this.coreTree.update(ms); return; }
     if (JSON.stringify(this.branches()) !== this.stamp) this.draw();
     const dt = Math.min(.05, ms / 1000);
     for (const view of this.views) view.animate(dt, 'idle', 0);

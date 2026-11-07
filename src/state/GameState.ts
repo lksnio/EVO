@@ -15,6 +15,8 @@ import { ADULT, broodBase, lifeK, phases, worldNow, worldYears, youngOf, type Li
 import { FISH_LAND, KTRAIN } from '../data/karbon';
 import { fishBirthGains, finStage, finSpeed as fishFinSpeed, FISH_BASE_STAMINA, appendFishMark, type FishPlan, type FishMark, type FishEffort } from '../sim/fishEvolution';
 import { STARTER_FORMS } from '../sim/starterFish';
+import { breedLineage, isLineageEvolution as validLineageEvolution, lineageForm as evolutionForm, lineageFormName, lineageModifiers,
+  newLineageEvolution, readLineageEvolution, type LineageEvolution, type LineageHabitat } from '../sim/lineageEvolution';
 import { advanceStarterFish, resolveStarterForm, starterFormIndex, type StarterScores } from '../sim/starterFish';
 import {
   feed as broodFeed, growOf, hatch as broodHatch, maxSlope, metamorph, newBrood, nextBrood, noGenes, offer, oxygenSeconds,
@@ -230,6 +232,7 @@ const newSex = (): Sex => (SPAWN.alwaysMale || Math.random() < 0.5 ? 1 : 2);
 
 /** Ein Vorfahre: so sah das Tier aus, als es ein Zeitalter überlebt hatte. */
 export interface Ancestor {
+  evolution?: LineageEvolution;
   cls: ClassId;
   traits: Traits;
   epoch: number;
@@ -274,6 +277,7 @@ export const newProg = (epoch: number): EpochProg => ({
  * befruchteten Gelege schlüpft die nächste Generation – unbefruchtete verderben nach einer Weile.
  */
 export interface Clutch {
+  breedingSite?: LineageHabitat;
   id: number;
   place: string;
   x: number;
@@ -321,12 +325,25 @@ export type DriftKey = TraitKey | 'light' | 'fin' | 'crest';
 
 export const newLife = (gen: number, age = 0): Life => ({ age, gen, spawns: 0, lastSpawn: -1e9, clutches: [], nextClutch: 1, fed: 0 });
 
+/** Record visible inherited milestones; ordinary training updates the latest animal rather than inventing a new form. */
+export function appendEvolutionTrace(trace: readonly LineageEvolution[] | undefined, state: LineageEvolution): LineageEvolution[] {
+  const out = (trace ?? []).filter(validLineageEvolution).map(readLineageEvolution);
+  const key = (s: LineageEvolution) => `${s.habitatProgress}/${evolutionForm(s)}/${s.primary ?? ''}`;
+  const next = readLineageEvolution(state);
+  if (out.length && key(out[out.length - 1]) === key(next)) out[out.length - 1] = next;
+  else out.push(next);
+  return out.slice(-24);
+}
+
 /**
  * Ein Ei aus dem Laich deiner Linie: So wird das Tier, das daraus schlüpft. Seine Merkmale stehen schon beim Laichen fest –
  * die Werte des Elterntiers zur Laichzeit (inherit) mit einer kleinen Streuung (INHERIT.vary). Es schlüpft dort, wo es
  * gelaicht wurde. Gespeichert werden nur die Merkmale, die nicht 0 sind.
  */
 export interface RoeEgg {
+  evolution?: LineageEvolution;
+  evolutionTrace?: LineageEvolution[];
+  breedingSite?: LineageHabitat;
   generation?: number;
   finMutation?: boolean;
   trace?: FishMark[];
@@ -345,6 +362,7 @@ export type RoeGroup = 'pool' | 'next';
 
 /** Die nächste Generation: so ist sie beschaffen – angepasst an die Spielweise der Eltern (zur Laichzeit). */
 export interface Heir {
+  lineagePlan?: { parent: LineageEvolution; effort: FishEffort };
   fishPlan?: { start: Traits; plan: FishPlan };
   /** Grundwerte und Zuwächse vor dem individuellen Wurf jedes Eis. */
   evolution?: { traits: Traits; gains: Gains; fixed?: Gains };
@@ -358,6 +376,8 @@ export interface Heir {
 }
 
 export interface Run {
+  evolution?: LineageEvolution;
+  evolutionTrace?: LineageEvolution[];
   waiting?:boolean;
   waitCause?:string;
   fishTrace?: FishMark[];
@@ -499,7 +519,7 @@ export interface SaveData {
   /** Personal played history; independent of shared eggs and trait-signature nodes. */
   lineage: LineageArchive;
   playerId?:string;
-  fishBranches?: { id: string; name: string; trace: FishMark[]; extinct?: boolean }[];
+  fishBranches?: { id: string; name: string; trace: FishMark[]; evolutionTrace?: LineageEvolution[]; extinct?: boolean }[];
 }
 
 const KEY = 'evo-save-v3';
@@ -977,6 +997,10 @@ class GameState {
     return this.r.epoch;
   }
 
+  /** The Perm prototype uses the habitat / weapon lineage; older eras retain their saved rules. */
+  get isLineageEvolution() { return EPOCHS[this.data.run?.epoch ?? this.chosenEpoch]?.id === 'perm'; }
+  get evolution(): LineageEvolution { return this.data.run?.evolution ?? newLineageEvolution(); }
+
   /** Das gewählte Zeitalter: Dort lebt die laufende Linie – oder beginnt die nächste. */
   get chosenEpoch(): number {
     return this.data.run?.epoch ?? this.data.epoch ?? firstPlayable();
@@ -1039,6 +1063,11 @@ class GameState {
       life: newLife(1),
       history: [],
     };
+    if (ep.id === 'perm') {
+      run.evolution = newLineageEvolution();
+      run.evolutionTrace = [readLineageEvolution(run.evolution)];
+      run.fishTrace = [{ form: 0, primary: 0 }];
+    }
     // Karbon: ein Gelege mit lauter Grundwerten im Brutsumpf (wo genau, weiß erst der Ort – siehe LevelScene)
     if (ep.brood) run.brood = newBrood(0, noGenes(), { place: startPlace(ep).id, x: 0, y: 0 }, 1 + Math.floor(Math.random() * 1e6));
     d.run = run;
@@ -1058,7 +1087,7 @@ class GameState {
    * gewachsen ist, und so alt, wie es ist; übergebene Merkmale gelten für ein ausgewachsenes Tier (life: ADULT), sofern
    * nichts anderes angegeben ist.
    */
-  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK): Stats {
+  stats(cls: ClassId = this.r.cls, traits?: Traits, life?: LifeK, evolution?: LineageEvolution): Stats {
     const t = traits ?? this.r.traits;
     const k = life ?? (traits ? ADULT : this.lifeK);
     const b = CLASSES[cls].base;
@@ -1166,24 +1195,41 @@ class GameState {
       stats.landSpeed=stats.speed*FISH_LAND.speed;
       stats.jump=FISH_LAND.jump;
     }
+    if (cls === 'fish' && this.isLineageEvolution) {
+      const state = evolution ?? this.evolution, m = lineageModifiers(state);
+      const baseSize = adultSize(ZERO), grow = Math.pow(k.grow, .6);
+      stats.bite = b.bite * baseSize * m.bite * grow;
+      stats.ram = b.ram * baseSize * m.ram * grow;
+      stats.speed = b.speed * m.swim;
+      stats.landSpeed = b.speed * m.walk * speedGrowth;
+      stats.jump = state.habitat === 'shore' ? 340 : state.habitat === 'water' ? 150 : 240;
+      stats.slope = state.habitat === 'shore' ? 58 : state.habitat === 'water' ? 24 : 36;
+      stats.ramStun = state.primary === 'skull' && state.tier === 2 ? 2000 : 0;
+      stats.ramSelf = b.ram * .4 / (state.primary === 'skull' ? 1 + state.tier * 2 : 1);
+      stats.defense = m.defense / (1 + Math.max(0, t.scaleGain ?? 0) * .025);
+      stats.groundSpeed = state.habitat === 'shore' ? 1.15 : .8;
+      stats.power = stats.bite * .6 + stats.ram * .4;
+    }
     return stats;
   }
 
   /** Das Aussehen zu einer Form und ihren Merkmalen. */
-  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number; life?: LifeK } = {}): Morph {
+  morph(o: { cls?: ClassId; traits?: Traits; belly?: number; fierce?: number; hue?: number; seed?: number; sex?: number; life?: LifeK; evolution?: LineageEvolution } = {}): Morph {
     const run = this.data.run;
     const cls = o.cls ?? run?.cls ?? 'fish';
     // das eigene Tier bleibt sein Leben lang, wie es geschlüpft ist – es wächst nur heran und altert
     const t = o.traits ?? run?.traits ?? ZERO;
-    const grown = this.stats(cls, t, ADULT);
+    const evolution = cls === 'fish' && this.isLineageEvolution ? o.evolution ?? this.evolution : undefined;
+    const grown = this.stats(cls, t, ADULT, evolution);
     const biteScore = Math.round(10 * grown.bite / (CLASSES[cls].base.bite * adultSize(ZERO)));
     const fishForm = cls === 'fish' ? resolveStarterForm(this.starterScores(t), t.fishForm, t.fishPrimary) : undefined;
     return {
       cls,
-      fishForm,
+      fishForm: evolution ? undefined : fishForm,
+      ...(evolution ? { lineageForm: evolutionForm(evolution) } : {}),
       finColor: cls === 'fish' ? clamp((t.staminaGain??0)/70,0,1) : 0,
       scaleShade: cls === 'fish' ? clamp((t.scaleGain??0)/60,0,1) : 0,
-      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK)).size,
+      size: this.stats(cls, t, o.life ?? (o.traits ? ADULT : this.lifeK), evolution).size,
       jaw: clamp(t.jaw + (t.biteGain ?? 0) / 35, 0, 1),
       skull: clamp(t.skull + (t.ramGain ?? 0) / 40, 0, 1),
       stealth: t.stealth,
@@ -1305,6 +1351,7 @@ class GameState {
   /** Der Name der eigenen Linie, wie er im Stammbaum stehen würde. */
   get currentName() {
     const r = this.r;
+    if (this.isLineageEvolution) return lineageFormName(evolutionForm(this.evolution));
     return speciesName({ cls: r.cls, traits: r.traits, epoch: Math.max(0, r.epoch) });
   }
 
@@ -1330,7 +1377,7 @@ class GameState {
    */
   gain(): number {
     const a = this.stats(this.r.cls, this.r.traits, ADULT);
-    const b = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const b = (this.s0 ??= this.stats('fish', ZERO, ADULT, newLineageEvolution()));
     const up = (x: number, y: number) => Math.max(0, x / Math.max(1e-6, y) - 1);
     return up(a.bite, b.bite) + up(a.ram, b.ram) + up(a.speed * a.cruise, b.speed * b.cruise) + up(a.maxHp, b.maxHp)
       + up(a.endurance, b.endurance) + up(b.defense, a.defense);
@@ -1338,6 +1385,7 @@ class GameState {
 
   /** So viel Nahrung braucht ein Nachkomme des eigenen Tiers (der Grundwert – je weiter entwickelt, desto mehr). */
   get broodBase(): number {
+    if (this.isLineageEvolution) return 20 + 5 * this.evolution.tier;
     return broodBase(this.gain());
   }
 
@@ -1472,10 +1520,15 @@ class GameState {
     c.eggs = true;
     const out: RoeEgg[] = [];
     for (let i = 0; i < Math.max(1, c.young ?? 1); i++) {
-      const fish=h.fishPlan?this.fishOffspring(h.fishPlan.start,h.fishPlan.plan):undefined;
+      const fish=h.fishPlan ? h.lineagePlan
+        ? { traits: this.lineageOffspringTraits(h.fishPlan.start, h.fishPlan.plan), mutation: false }
+        : this.fishOffspring(h.fishPlan.start,h.fishPlan.plan) : undefined;
       const traits=fish?.traits??driftColors(h.evolution ? this.applyEvolution(h.evolution.traits,h.evolution.gains,Math.random,h.evolution.fixed):h.traits);
+      const breedingSite = c.breedingSite ?? placeOf(EPOCHS[run.epoch], c.place).breedingSite ?? 'water';
+      const evolution = h.lineagePlan ? breedLineage(h.lineagePlan.parent, breedingSite, h.lineagePlan.effort) : undefined;
       const e:RoeEgg={id:eggId(),traits:packTraits(traits),sex:newSex(),seed:Math.floor(Math.random()*100000),place:c.place,x:c.x,y:c.y,
-        generation:run.life.gen+1,...(fish?{finMutation:fish.mutation,trace:appendFishMark(run.fishTrace,traits.fishForm??0,traits.fishPrimary??0)}:{})};
+        generation:run.life.gen+1,...(evolution ? { breedingSite, evolution, evolutionTrace: appendEvolutionTrace(run.evolutionTrace, evolution), trace: [{ form: 0, primary: 0 }] }
+          : fish ? { finMutation: fish.mutation, trace: appendFishMark(run.fishTrace, traits.fishForm ?? 0, traits.fishPrimary ?? 0) } : {})};
       out.push(e);
     }
     // die Eier gehören zur Generation nach deiner: Im Koop kann das schon die der Geschwister sein (ein Artgenosse war
@@ -1496,9 +1549,16 @@ class GameState {
   syncShared(gen: number, pool: RoeEgg[], next: RoeEgg[]) {
     const run = this.data.run;
     if (!run || run.brood) return;
+    // A returning line can join a younger shared population. Its ancestry stays on the egg/run, independently of the room's generation label.
+    if (this.isLineageEvolution && gen < run.life.gen) {
+      const ageFraction = run.life.age / Math.max(1, phases(run.life.gen).span);
+      run.life.gen = gen;
+      run.life.age = Math.min(phases(gen).span - 20, ageFraction * phases(gen).span);
+      run.life.lastSpawn = Math.min(run.life.lastSpawn, run.life.age);
+    }
     run.coopGen = gen;
     const eggs=[...pool,...next];
-    if(run.cls==='fish')for(const egg of eggs)this.repairFishEgg(egg);
+    if(run.cls==='fish')for(const egg of eggs) this.isLineageEvolution ? this.repairLineageEgg(egg) : this.repairFishEgg(egg);
     run.pool=pool.filter(e=>(e.generation??gen)===gen);
     run.next=next.filter(e=>(e.generation??gen+1)===gen+1);
     this.save();
@@ -1517,11 +1577,45 @@ class GameState {
   }
   private repairFishRun(run:Run) {
     if(run.cls!=='fish')return false;
+    if (EPOCHS[run.epoch]?.id === 'perm') {
+      const migrating = !validLineageEvolution(run.evolution);
+      run.evolution = readLineageEvolution(run.evolution);
+      run.evolutionTrace = appendEvolutionTrace(run.evolutionTrace, run.evolution);
+      run.fishTrace = [{ form: 0, primary: 0 }];
+      if (migrating) {
+        run.prog.place = startPlace(EPOCHS[run.epoch]).id;
+        delete run.prog.resume; delete run.prog.at; delete run.prog.edge; delete run.prog.hp;
+        run.life.age = Math.min(run.life.age, phases(run.life.gen).mature);
+        run.life.clutches = [];
+      }
+      for (const egg of [...run.pool ?? [], ...run.next ?? []]) this.repairLineageEgg(egg, run.epoch);
+      return migrating;
+    }
     const repaired=this.repairFishAppearance(run.traits,run.fishTrace);run.fishTrace=repaired.trace;
     let changed=repaired.changed;
     for(const egg of [...(run.pool??[]),...(run.next??[])])changed=this.repairFishEgg(egg)||changed;
     const branch=this.data.fishBranches?.find(b=>b.id===`local-${run.id}`);if(branch)branch.trace=run.fishTrace;
     return changed;
+  }
+
+  private repairLineageEgg(egg: RoeEgg, epoch = this.r.epoch) {
+    const missing = !validLineageEvolution(egg.evolution);
+    egg.evolution = readLineageEvolution(egg.evolution);
+    egg.evolutionTrace = appendEvolutionTrace(egg.evolutionTrace, egg.evolution);
+    egg.trace = [{ form: 0, primary: 0 }];
+    delete egg.finMutation;
+    if (missing) { egg.place = startPlace(EPOCHS[epoch]).id; egg.x = egg.y = 0; }
+  }
+
+  /** Nutrition and injury still change reserves and scales; habitat and weapons follow the new lineage instead of fin mutations. */
+  private lineageOffspringTraits(start: Traits, plan: FishPlan, random = Math.random, preview = false): Traits {
+    let first = true;
+    const ordinary = () => { if (first) { first = false; return .5; } return random(); };
+    const { gains } = fishBirthGains(plan, ordinary, preview);
+    return full({ ...start, vitality: Math.max(0, (start.vitality ?? 0) + gains.hp),
+      staminaGain: Math.max(0, (start.staminaGain ?? 0) + gains.stamina),
+      scaleGain: Math.max(0, (start.scaleGain ?? 0) + gains.scales),
+      biteGain: 0, ramGain: 0, finGain: 0, fishForm: 0, fishPrimary: 0 });
   }
 
   private starterScores(t: Traits): StarterScores {
@@ -1562,14 +1656,15 @@ class GameState {
 
   /** So sieht das Tier aus einem Ei aus, wenn es ausgewachsen ist. */
   roeMorph(e: RoeEgg): Morph {
-    return this.morph({ traits: full({ ...e.traits }), seed: e.seed, sex: e.sex });
+    return this.morph({ traits: full({ ...e.traits }), seed: e.seed, sex: e.sex,
+      ...(this.isLineageEvolution ? { evolution: readLineageEvolution(e.evolution) } : {}) });
   }
 
   /** Gemeinsame Erbgutwerte, ausgewachsen, ohne persönliche Zufallsboni. */
-  roeShown(e?: { traits: Partial<Traits> }) {
+  roeShown(e?: { traits: Partial<Traits>; evolution?: unknown }) {
     const t = full(e ? e.traits : this.r.traits);
-    const st = this.stats(this.r.cls, t, ADULT);
-    const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const st = this.stats(this.r.cls, t, ADULT, e ? readLineageEvolution(e.evolution) : this.evolution);
+    const s0 = (this.s0 ??= this.stats('fish', ZERO, ADULT, newLineageEvolution()));
     const points=this.r.cls==='fish'?(n:number)=>Math.floor(n+1e-9):Math.round;
     return {
       hp: st.maxHp,
@@ -1593,6 +1688,9 @@ class GameState {
     if(run.cls==='fish') {
       const start=full({...run.traits});
       const plan:FishPlan={eaten:{...eaten},effort:{biteDamage:style.biteDamage,ramDamage:style.ramDamage,minHealth:style.minHealth}};
+      if (this.isLineageEvolution) return { traits: this.lineageOffspringTraits(start, plan, () => .5, true), fishPlan: { start, plan },
+        lineagePlan: { parent: readLineageEvolution(this.evolution), effort: { ...plan.effort } },
+        sex: newSex(), seed: Math.floor(Math.random() * 100000), fit: { st: 0, bs: 0, vf: 0, sw: 0 } };
       return {traits:this.fishOffspring(start,plan,()=>.5,true).traits,fishPlan:{start,plan},sex:newSex(),seed:Math.floor(Math.random()*100000),fit:{st:0,bs:0,vf:0,sw:0}};
     }
     const start = full(run.traits);
@@ -1673,10 +1771,11 @@ class GameState {
     const run = this.r;
     if(gen!==this.poolGen&&gen!==this.poolGen+1)return;
     run.waiting=false;run.waitCause=undefined;
-    if(run.cls==='fish')this.repairFishEgg(egg);
+    if(run.cls==='fish') this.isLineageEvolution ? this.repairLineageEgg(egg) : this.repairFishEgg(egg);
     const jump = gen > run.life.gen;
     if (jump) {
-      run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch });
+      run.history.push({ cls: run.cls, traits: { ...run.traits }, epoch: run.epoch,
+        ...(run.evolution ? { evolution: readLineageEvolution(run.evolution) } : {}) });
       if (run.history.length > 24) run.history.splice(1, 1);
     }
     if(run.fishTrace && egg.trace && !JSON.stringify(egg.trace).startsWith(JSON.stringify(run.fishTrace).slice(0,-1))) {
@@ -1684,6 +1783,19 @@ class GameState {
       if(prior)(this.data.fishBranches??=[]).push({...prior,id:`past-${run.id}-${prior.trace.map(m=>m.form).join('-')}`,extinct:true});
     }
     run.traits = full({ ...egg.traits });
+    if (this.isLineageEvolution) {
+      const old = run.evolutionTrace;
+      const next = appendEvolutionTrace(egg.evolutionTrace, readLineageEvolution(egg.evolution));
+      const key = (trace: LineageEvolution[]) => trace.map(s => `${s.habitatProgress}/${evolutionForm(s)}`).join('|');
+      const continued = !old?.length || key(next).startsWith(key(old))
+        || old.length === 24 && next.length === 24 && key(next).startsWith(key(old.slice(1)));
+      if (!continued) {
+        const prior = this.data.fishBranches?.find(b => b.id === `local-${run.id}`);
+        if (prior) (this.data.fishBranches ??= []).push({ ...prior, id: `past-${run.id}-${eggId()}`, extinct: true });
+      }
+      run.evolution = readLineageEvolution(egg.evolution);
+      run.evolutionTrace = next;
+    }
     run.fishTrace=egg.trace?.length?egg.trace:appendFishMark(run.fishTrace,resolveStarterForm(this.starterScores(run.traits),run.traits.fishForm),run.traits.fishPrimary??0);
     run.sex = SPAWN.alwaysMale ? 1 : egg.sex;
     run.seed = egg.seed;
@@ -1706,14 +1818,14 @@ class GameState {
     const prev = run?.history[run.history.length - 1];
     if (!run || !prev || prev.epoch !== run.epoch) return null;
     const amph = run.cls === 'amphibian';
-    const base = amph ? this.stats('amphibian', ZERO, ADULT) : this.stats('fish', ZERO, ADULT);
-    const val = (tr: Partial<Traits>) => {
+    const base = amph ? this.stats('amphibian', ZERO, ADULT) : this.stats('fish', ZERO, ADULT, newLineageEvolution());
+    const val = (tr: Partial<Traits>, evolution?: LineageEvolution) => {
       const t = full({ ...tr });
-      const st = this.stats(run.cls, t, ADULT);
+      const st = this.stats(run.cls, t, ADULT, this.isLineageEvolution ? readLineageEvolution(evolution) : undefined);
       const ten = (v: number) => Math.round(10 * (1 + 2 * v));
       return { bite: Math.round((10 * st.bite) / base.bite), skull: Math.round((10 * st.ram) / base.ram), fins: Math.round(finPoints(t)), scales: Math.round(this.r.cls==='fish'?10+Math.max(0,t.scaleGain??0):scalePoints(t)), legs: ten(t.limb ?? 0), grip: ten(t.grip ?? 0) };
     };
-    const a = val(run.traits), b = val(prev.traits);
+    const a = val(run.traits, run.evolution), b = val(prev.traits, prev.evolution);
     return { bite: a.bite - b.bite, skull: a.skull - b.skull, fins: a.fins - b.fins, scales: a.scales - b.scales, legs: a.legs - b.legs, grip: a.grip - b.grip };
   }
 
@@ -1727,7 +1839,7 @@ class GameState {
     const p = run.prog;
     p.place = placeOf(EPOCHS[run.epoch], c.place).id;
     p.edge = undefined;
-    p.at = { x: c.x, y: c.y };
+    p.at = c.x > 0 && c.y > 0 ? { x: c.x, y: c.y } : undefined;
     p.hp = undefined;
     p.eaten = { meat: 0, plant: 0 };
     p.train = newStyle();
@@ -2110,6 +2222,7 @@ class GameState {
 
   /** So viele Sekunden reicht der Sauerstoff deines Tiers an Land (Karbon; ein Jungtier mit Kiemen trocknet schneller aus). */
   get oxygenSeconds() {
+    if (this.isLineageEvolution) return this.evolution.habitat === 'shore' ? Infinity : this.evolution.habitat === 'water' ? 30 : 90;
     // ein Fisch atmet mit Kiemen: An Land reicht die Luft nur kurz
     if (this.data.run?.cls === 'fish') return FISH_LAND.seconds;
     return oxygenSeconds(this.data.run?.brood?.phase === 'young');
@@ -2134,7 +2247,7 @@ class GameState {
     const st = this.stats(this.r.cls, undefined, this.lifeK);
     const weapons = this.r.cls === 'fish' ? this.stats('fish', this.r.traits, ADULT) : st;
     // im Karbon misst sich das Gebiss am ersten Pederpes, sonst am ersten Fisch
-    const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT));
+    const s0 = this.r.brood ? (this.a0 ??= this.stats('amphibian', ZERO, ADULT)) : (this.s0 ??= this.stats('fish', ZERO, ADULT, newLineageEvolution()));
     const t = this.r.traits;
     const sw = this.swarm;
     const n = sw ? Math.min(sw.members.length, this.swarmCap()) : 0;
@@ -2169,8 +2282,9 @@ class GameState {
 
   // ---------------------------------------------------------------- Persönlicher Stammbaum nach Weltzeit
 
-  private lineageForm(r: Pick<Run, 'cls' | 'traits' | 'hue' | 'seed' | 'sex'>): LineageForm {
-    return { cls: r.cls, traits: packTraits(r.traits), hue: r.hue, seed: r.seed, sex: r.sex };
+  private lineageForm(r: Pick<Run, 'cls' | 'traits' | 'hue' | 'seed' | 'sex'> & { evolution?: LineageEvolution }): LineageForm {
+    return { cls: r.cls, traits: packTraits(r.traits), hue: r.hue, seed: r.seed, sex: r.sex,
+      ...(r.evolution ? { evolution: readLineageEvolution(r.evolution) } : {}) };
   }
 
   private recordLineageBirth(r: Run, at: { place: string; x: number; y: number }, legacy = false) {
@@ -2179,7 +2293,8 @@ class GameState {
       r.fishTrace??=appendFishMark(undefined,resolveStarterForm(this.starterScores(r.traits),r.traits.fishForm),r.traits.fishPrimary??0);
       const branches=this.data.fishBranches??=[];
       const id=`local-${r.id}`;
-      const branch={id,name:'Your lineage',trace:r.fishTrace.map(m=>({...m}))};
+      const branch={id,name:'Your lineage',trace:r.fishTrace.map(m=>({...m})),
+        ...(r.evolutionTrace ? { evolutionTrace: r.evolutionTrace.map(readLineageEvolution) } : {})};
       const index=branches.findIndex(b=>b.id===id);
       if(index<0)branches.push(branch);else branches[index]=branch;
       bus.emit('fishLineage');

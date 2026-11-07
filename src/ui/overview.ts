@@ -10,6 +10,7 @@ import { BROOD } from '../data/karbon';
 import { clamp } from '../util/math';
 import { text, title } from './ui';
 import { collectionStar } from './collectionPanel';
+import { lineageForm, lineageFormName, lineageSummary } from '../sim/lineageEvolution';
 
 export interface OverviewData {
   morph: Morph;
@@ -78,8 +79,11 @@ export class Overview {
     c.add(scene.add.zone(x0, y0, w, h).setOrigin(0).setInteractive());
 
     const life = game.life, brood = game.brood;
-    c.add(text(scene, W / 2, 44, `${CLASSES[game.cls].name} · ${game.epoch.name} · Generation ${brood?.gen ?? life.gen}`, 15, UI.boneDim).setOrigin(0.5));
-    const name = title(scene, W / 2, 79, game.currentName, 32).setOrigin(0.5).setName('overview-name');
+    const core = game.isLineageEvolution;
+    const evolution = game.evolution;
+    const bodyName = core ? evolution.habitat === 'water' ? 'Aquatic lineage' : evolution.habitat === 'shore' ? 'Shoreline lineage' : 'Between water and shore' : CLASSES[game.cls].name;
+    c.add(text(scene, W / 2, 44, `${bodyName} · ${game.epoch.name} · Generation ${brood?.gen ?? life.gen}`, 15, UI.boneDim).setOrigin(0.5));
+    const name = title(scene, W / 2, 79, core ? lineageFormName(lineageForm(evolution)) : game.currentName, 32).setOrigin(0.5).setName('overview-name');
     name.setScale(Math.min(1, (w - 120) / name.width));
     c.add(name);
     // Der Lebensweg gehört direkt zum Namen, ohne zweite Zustandsbeschreibung.
@@ -120,7 +124,14 @@ export class Overview {
     g.lineBetween(left + 12, by - 6, left + leftW - 12, by - 6);
     g.lineBetween(left + 12, by + 60, left + leftW - 12, by + 60);
     // Im Karbon formen sich Beine und Griff statt Schädel und Flossen.
-    const small = brood
+    const small = core
+      ? [
+          { label: 'JAWS', key: 'bite', value: v.bite },
+          { label: 'SKULL', key: 'skull', value: v.skull },
+          { label: 'BODY', key: 'fins', value: evolution.habitat === 'water' ? 'Water' : evolution.habitat === 'shore' ? 'Shore' : `${Math.abs(evolution.habitatProgress)}/3` },
+          { label: 'SCALES', key: 'scales', value: v.scales },
+        ] as const
+      : brood
       ? [
           { label: 'JAWS', key: 'bite', value: v.bite },
           { label: 'LEGS', key: 'legs', value: v.legs },
@@ -139,7 +150,7 @@ export class Overview {
       c.add(caps(cx, by + 14, b.label, 11, UI.boneDim));
       const val = title(scene, cx, by + 40, String(b.value), 26).setOrigin(0.5);
       c.add(val);
-      const dv = delta ? delta[b.key] ?? 0 : 0;
+      const dv = core && b.key === 'fins' ? 0 : delta ? delta[b.key] ?? 0 : 0;
       if (dv !== 0) {
         const up = dv > 0;
         const tag = text(scene, cx + val.width / 2 + 8, by + 42, up ? `▲ ${dv}` : `▼ ${-dv}`, 13, up ? '#9cd07e' : '#e08872', { fontStyle: '700' }).setOrigin(0, 0.5);
@@ -154,19 +165,21 @@ export class Overview {
     });
 
     // Das Tier spricht für seinen Körperbau und seine Färbung.
-    const py = 450, scale = 3 * clamp(1 / Math.max(0.1, d.morph.size), 0.6, 2.8);
+    const py = core ? 438 : 450, scale = 3 * clamp(1 / Math.max(0.1, d.morph.size), 0.6, 2.8);
     c.add(scene.add.image(mid, py + 77, 'shadow').setDisplaySize(350, 22).setAlpha(0.35));
     this.portrait = new CreatureView(scene, mid, py, { ...d.morph, belly: 1 }, scale).setName('overview-portrait');
     this.portrait.setFacing(1);
     // Auch lange Fische und Vierfüßer passen in dieselbe freie Bühne zwischen Werten und Beute.
     this.update(0);
     const bounds = this.portrait.getBounds();
-    const fit = Math.min(1, (leftW - 64) / Math.max(1, bounds.width), 176 / Math.max(1, bounds.height));
+    const fit = Math.min(1, (leftW - 64) / Math.max(1, bounds.width), (core ? 144 : 176) / Math.max(1, bounds.height));
     this.portrait.setBaseScale(scale * fit);
     const fitted = this.portrait.getBounds();
     this.portrait.x += mid - fitted.centerX;
     this.portrait.y += py + 4 - fitted.centerY;
     c.add(this.portrait);
+    if (core) c.add(text(scene, mid, 541, lineageSummary(evolution), 14, UI.boneDim,
+      { align: 'center', wordWrap: { width: leftW - 50 } }).setOrigin(.5).setName('overview-evolution-progress'));
 
     rule(g, left + 12, left + leftW - 12, 566, 0.2);
     this.prey(scene, g, left + 24, 594, leftW - 48);

@@ -8,6 +8,9 @@ import { FishRig, fishTextures } from '../art/fish/rig';
 import { liftKey, LIFT_STEPS } from '../art/fish/finish';
 import { StarterFishRig } from '../art/fish/starterRig';
 import { starterReady } from '../art/fish/starterAssets';
+import { LineageRig } from '../art/lineage/rig';
+import { lineageReady } from '../art/lineage/assets';
+import { validLineageForm } from '../art/lineage/forms';
 
 /** crawl: ein Fisch stützt sich am Grund ab und läuft auf seinen Flossen */
 export type AnimMode = 'swim' | 'walk' | 'air' | 'idle' | 'crawl';
@@ -66,7 +69,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
   private legs: Img[] = [];
   private fin?: Img;
   /** der Fisch (WebGL): ein verformbares Netz statt starrer Teile – siehe art/fish/rig.ts */
-  private rig?: FishRig | StarterFishRig;
+  private rig?: FishRig | StarterFishRig | LineageRig;
   private t = Math.random() * 10;
   private phase = 0;
   private biteT = -1;
@@ -115,10 +118,20 @@ export class CreatureView extends Phaser.GameObjects.Container {
     this.key = key;
     this.tm = this.scene.textures;
     retain(key);
+    if (this.rig instanceof LineageRig) this.rig.dispose();
     this.removeAll(true);
     this.legs = [];
     this.fin = undefined;
     this.rig = undefined;
+    if (validLineageForm(m.lineageForm) && lineageReady(this.scene, m.lineageForm)) {
+      if (old) release(this.tm, old);
+      this.L = layoutOf(m);
+      this.rig = new LineageRig(this.scene, m);
+      this.lid = this.rig.lid;
+      this.add(this.rig.parts);
+      this.drawLid(); this.applyScale(); this.applyTint();
+      return this;
+    }
     if (m.cls === 'fish' && m.fishForm !== undefined && starterReady(this.scene, m.fishForm) && !LEGACY_FISH) {
       if (old) release(this.tm, old);
       this.L = layoutOf(m);
@@ -184,6 +197,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
 
   destroy(fromScene?: boolean) {
     const key = this.key, tm = this.tm;
+    if (this.rig instanceof LineageRig) this.rig.dispose();
     this.key = '';
     super.destroy(fromScene);
     if (key && tm) release(tm, key);
@@ -379,7 +393,7 @@ export class CreatureView extends Phaser.GameObjects.Container {
     if (mode === 'crawl') this.phase += dt * (6 + speed01 * 6) * slow;
     if (this.holdOpen > 0) open = Math.max(open, this.holdOpen);
     rig.pose({
-      t, dt: dt * slow, speed01, mode: mode === 'swim' || mode === 'crawl' || mode === 'idle' ? mode : 'swim',
+      t, dt: dt * slow, speed01, mode: rig instanceof LineageRig ? mode : mode === 'swim' || mode === 'crawl' || mode === 'idle' ? mode : 'swim',
       open, lunge, clench, grind, coil, dip, pitch: this.headTilt + shake + biteTilt, still: this.still, crawlPhase: this.phase,
     });
   }

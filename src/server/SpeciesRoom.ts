@@ -3,17 +3,30 @@ import { EPOCHS } from '../data/epochs';
 import { SpeciesState } from '../net/schema';
 import {
   cleanName, SPECIES_MAX_EGGS,
-  type SpeciesAdvanced, type SpeciesHello, type SpeciesJoin, type SpeciesLay, type SpeciesOver, type SpeciesPick, type SpeciesPicked,
+  type SpeciesAdvanced, type SpeciesHello, type SpeciesJoin, type SpeciesLay, type SpeciesLineage, type SpeciesOver, type SpeciesPick, type SpeciesPicked,
 } from '../net/protocol';
+import { continuesEvolution, evolutionArchiveKey, MAX_SPECIES_EGG_BYTES, networkEvolution, networkEvolutionTrace, networkFishTrace, networkSpeciesBranch } from '../net/lineageProtocol';
 
 const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 /** ein Ei, wie es ein Client schickt: JSON mit Kennung – nicht zu groß */
 function eggOf(v: unknown): { id: string; json: string } | null {
-  if (typeof v !== 'string' || v.length > 4000) return null;
+  if (typeof v !== 'string' || v.length > MAX_SPECIES_EGG_BYTES) return null;
   try {
-    const e = JSON.parse(v) as { id?: unknown; traits?: unknown };
-    if (typeof e?.id !== 'string' || !/^[a-z0-9]{4,40}$/.test(e.id) || typeof e.traits !== 'object') return null;
-    return { id: e.id, json: v };
+    const e = JSON.parse(v);
+    if (typeof e?.id !== 'string' || !/^[a-z0-9]{4,40}$/.test(e.id) || !e.traits || typeof e.traits !== 'object' || Array.isArray(e.traits)) return null;
+    if (e.evolution !== undefined) {
+      const state = networkEvolution(e.evolution);
+      if (!state) return null;
+      e.evolution = state;
+    }
+    if (e.evolutionTrace !== undefined) {
+      const trace = networkEvolutionTrace(e.evolutionTrace);
+      if (!trace || e.evolution && JSON.stringify(e.evolution) !== JSON.stringify(trace.at(-1))) return null;
+      e.evolutionTrace = trace;
+      e.evolution ??= trace.at(-1);
+    }
+    if (e.breedingSite !== undefined && e.breedingSite !== 'water' && e.breedingSite !== 'shore') return null;
+    return { id: e.id, json: JSON.stringify(e) };
   } catch {
     return null;
   }
@@ -32,7 +45,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
 
   messages = {
     hello: (client: Client, m: SpeciesHello) => this.onHello(client, m),
-    lineage:(client:Client,m:{trace?:unknown})=>this.branch(client,m.trace),
+    lineage:(client:Client,m:SpeciesLineage)=>this.branch(client,m?.trace,m?.evolutionTrace),
     lay: (_client: Client, m: SpeciesLay) => {
       if (this.state.over || !this.state.gen || this.deadMembers.has(_client.sessionId) || !Array.isArray(m?.eggs)) return;
       const gen = Math.round(num(m.gen, 0));
@@ -85,7 +98,7 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
     s.over='';if(m.waiting)this.deadMembers.add(_client.sessionId);else this.deadMembers.delete(_client.sessionId);s.gen=s.gen||gen;this.memberGen.set(_client.sessionId,gen);
     const identity=typeof m.identity==='string'&&/^[a-z0-9]{4,40}$/i.test(m.identity)?m.identity:_client.sessionId;
     s.presence.set(_client.sessionId,JSON.stringify({alive:!m.waiting,place:typeof m.place==='string'?m.place.slice(0,60):'',identity}));
-    this.branch(_client,m.trace);
+    this.branch(_client,m.trace,m.evolutionTrace);
     for (const raw of pool.slice(0, SPECIES_MAX_EGGS)) this.place(gen, raw);
     for (const raw of next.slice(0, SPECIES_MAX_EGGS)) this.place(gen + 1, raw);
     if(m.waiting)this.maybeOver('No eggs left',_client.sessionId);
@@ -110,18 +123,21 @@ export class SpeciesRoom extends Room<{ state: SpeciesState }> {
 
   }
 
-  private branch(client:Client,raw:unknown) {
-    if(typeof raw!=='string'||raw.length>1500)return;
-    try {
-      const trace=JSON.parse(raw);
-      if(!Array.isArray(trace)||!trace.length||trace.length>8||trace.some(m=>!Number.isInteger(m.form)||m.form<0||m.form>=48||![0,1,3].includes(m.primary)))return;
-      const before=this.state.branches.get(client.sessionId);
-      if(before){const prior=JSON.parse(before);if(!JSON.stringify(trace).startsWith(JSON.stringify(prior.trace).slice(0,-1))){
-        const id=`past-${client.sessionId}-${prior.trace.map((m:{form:number})=>m.form).join('-')}`;
-        this.state.branches.set(id,JSON.stringify({...prior,id,extinct:true}));
-      }}
-      this.state.branches.set(client.sessionId,JSON.stringify({id:`peer-${client.sessionId}`,name:this.state.members.get(client.sessionId)??'Fellow creature',trace,...(this.deadMembers.has(client.sessionId)?{extinct:true}:{})}));
-    }catch{}
+  private branch(client:Client,raw:unknown,evolutionRaw?:unknown) {
+    const evolutionTrace=evolutionRaw===undefined?undefined:networkEvolutionTrace(evolutionRaw);
+    if(evolutionRaw!==undefined&&!evolutionTrace)return;
+    const trace=networkFishTrace(raw)??(evolutionTrace?[{form:0,primary:0}]:undefined);
+    if(!trace)return;
+    const prior=networkSpeciesBranch(this.state.branches.get(client.sessionId));
+    const continuation=prior?.evolutionTrace&&evolutionTrace?continuesEvolution(prior.evolutionTrace,evolutionTrace)
+      :!prior?.evolutionTrace&&!evolutionTrace&&!!prior&&prior.trace.length<=trace.length&&prior.trace.every((mark,i)=>mark.form===trace[i].form&&mark.primary===trace[i].primary);
+    if(prior&&!continuation){
+      const key=prior.evolutionTrace?`evo-${evolutionArchiveKey(prior.evolutionTrace)}`:prior.trace.map(m=>m.form).join('-');
+      const id=`past-${client.sessionId}-${key}`;
+      this.state.branches.set(id,JSON.stringify({...prior,id,extinct:true}));
+    }
+    this.state.branches.set(client.sessionId,JSON.stringify({id:`peer-${client.sessionId}`,name:this.state.members.get(client.sessionId)??'Fellow creature',trace,
+      ...(evolutionTrace?{evolutionTrace}:{}),...(this.deadMembers.has(client.sessionId)?{extinct:true}:{})}));
   }
 
   private pruneSelections() {

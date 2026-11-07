@@ -8,6 +8,7 @@ import { eye, ivory, skin, tooth } from './paint';
 import { gradeAnimal as grade, INK, inkOn, lineOf, shadowOf, withInk } from './ink';
 import { validStarterForm } from '../sim/starterFish';
 import { starterLayout } from './fish/starterLayout';
+import { lineageLayout, validLineageForm, type LineageFormId } from './lineage/forms';
 
 // ---------------------------------------------------------------------------
 // Die Spielfigur. Sie wird aus stufenlosen Merkmalen gezeichnet:
@@ -24,6 +25,8 @@ import { starterLayout } from './fish/starterLayout';
 
 export interface Morph {
   cls: ClassId;
+  /** Painted body and weapon milestone of the new shoreline lineage, including in coop. */
+  lineageForm?: LineageFormId;
   /** Stabile Kennung der 25 gezeichneten Startfischformen (auch im Koop). */
   fishForm?: number;
   finColor?: number;
@@ -99,6 +102,7 @@ const q = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(3)
 export function quantize(m: Morph): Morph {
   return {
     cls: m.cls,
+    lineageForm: validLineageForm(m.lineageForm) ? m.lineageForm : undefined,
     fishForm: validStarterForm(m.fishForm) ? m.fishForm : undefined,
     finColor:q(m.finColor??0,.05),
     scaleShade:q(m.scaleShade??0,.05),
@@ -149,7 +153,7 @@ export function quantize(m: Morph): Morph {
 
 export function morphKey(m: Morph) {
   const k = quantize(m);
-  return [k.cls, k.fishForm, k.finColor, k.scaleShade, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
+  return [k.cls, k.lineageForm, k.fishForm, k.finColor, k.scaleShade, k.size, k.jaw, k.skull, k.stealth, k.diet, k.scars, k.belly, k.fierce, k.hue, k.seed % 97, k.sex, k.spike, k.green, k.sand, k.len, k.girth, k.swift, k.fang, k.toothTier, k.light, k.limb, k.fin, k.tail, k.crest, k.tint, k.snout, k.coat, k.cb, k.cf, k.cp, k.armor, k.st, k.bs, k.vf, k.sw, k.fUp, k.fDown, k.fSide, k.fTail, k.eye, k.grip, k.gills].join('_');
 }
 
 export interface Pal {
@@ -360,6 +364,7 @@ export interface Layout {
 }
 
 export function layoutOf(m: Morph): Layout {
+  if (validLineageForm(m.lineageForm)) return lineageLayout(m);
   if (m.cls === 'fish' && validStarterForm(m.fishForm)) return starterLayout(m);
   const g = geo(m);
   const s = g.s;

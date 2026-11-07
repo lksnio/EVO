@@ -13,8 +13,16 @@ const PAGES = [
   'Grow. Return to the river to spawn —\nand live on through your descendants.',
 ];
 
+const SHORELINE_PAGES = [
+  'In the early Permian, a small ancestor lives\nbetween water and shore.',
+  'The water nursery lies to the left.\nThe shore nursery lies to the right.',
+  'Three chosen generations at a nursery\nestablish an aquatic or shoreline body.',
+  'Biting and ramming shape your descendants.\nReturn to the shell to follow your lineage.',
+];
+
 export class IntroScene extends Phaser.Scene {
   private page = 0;
+  private pages = PAGES;
   private label!: Phaser.GameObjects.Text;
   private fish!: CreatureView;
 
@@ -26,6 +34,7 @@ export class IntroScene extends Phaser.Scene {
     fadeIn(this, 900);
     audio.music('ozean');
     this.page = 0;
+    this.pages = game.isLineageEvolution ? SHORELINE_PAGES : PAGES;
     const [far, mid] = levelBackgrounds(this, 'ozean', 'dark');
     this.add.image(0, 0, far).setOrigin(0);
     this.add.image(0, 0, mid).setOrigin(0).setAlpha(0.8);
@@ -50,13 +59,13 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private show() {
-    this.label.setText(PAGES[this.page]).setAlpha(0);
+    this.label.setText(this.pages[this.page]).setAlpha(0);
     this.tweens.add({ targets: this.label, alpha: 1, duration: 900 });
   }
 
   private next() {
     this.page++;
-    if (this.page >= PAGES.length) this.finish();
+    if (this.page >= this.pages.length) this.finish();
     else {
       audio.sfx('click');
       this.show();

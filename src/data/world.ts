@@ -101,6 +101,10 @@ export interface PlaceDef {
   blurb?: string;
   /** Schwierigkeit auf der Weltkarte: 1 leicht … 3 schwer */
   tier?: number;
+  /** The first nursery has a water route on the left and a shallow shore route on the right. */
+  nurseryFork?: boolean;
+  /** Permanent breeding habitat offered here; both are offered by nurseryFork. */
+  breedingSite?: 'water' | 'shore';
 }
 
 /** Gelände nach Art des Ortes, wenn nichts anderes angegeben ist. */
@@ -242,22 +246,24 @@ function buildPerm(): PlaceDef[] {
   const [river, shelf, valley] = buildPlaces('devon');
   const swamp = { lush: 0x2a3a18, murky: 0x34301a };
   Object.assign(river, {
-    links: ['garten', 'ufer'], closed: { left: true }, map: [0.12, 0.67], x: 0.12, y: 0.67, blurb: 'A quiet river mouth – the nursery.', tier: 1,
+    links: ['garten', 'ufer'], closed: undefined, map: [0.40, 0.73], x: 0.40, y: 0.73,
+    blurb: 'Two sheltered nurseries: open water to the left, the shallow shore to the right.', tier: 1,
+    nurseryFork: true, shape: 'shore', theme: 'sumpf', sky: 7, deep: 8, wide: 1.15, spawningCave: false, waterway: undefined, seabed: undefined,
     fauna: [['paramblypterus', 8], ['acanthodes', 5], ['apateon', 3], ['gnathorhiza', 1.5], ['archegosaurus', 0.8]],
   });
   Object.assign(shelf, {
-    name: 'The Coral Lagoon', links: ['riff', 'ufer', 'wand'], closed: undefined, map: [0.38, 0.4], x: 0.38, y: 0.4, blurb: 'A warm, shallow bay behind the reef.', tier: 2,
+    name: 'The Coral Lagoon', links: ['riff', 'ufer', 'wand'], closed: undefined, map: [0.28, 0.4], x: 0.28, y: 0.4, blurb: 'A warm, shallow bay behind the reef. Sheltered eggs continue a life in water.', tier: 2, breedingSite: 'water',
     fauna: [['aeduella', 9], ['platysomus', 4], ['diplocaulus', 1.5], ['xenacanthus', 7], ['ectosteorhachis', 5]],
   });
   shelf.def.name = shelf.name;
   Object.assign(valley, {
-    name: 'The Deep', map: [0.3, 0.13], x: 0.3, y: 0.13, below: 'garten', boss: 'orthacanthus', blurb: 'Dark water below the lagoon – reached only through the chasm.', tier: 3,
+    name: 'The Deep', map: [0.3, 0.13], x: 0.3, y: 0.13, below: 'garten', boss: 'orthacanthus', blurb: 'Dark water below the lagoon – reached only through the chasm.', tier: 3, breedingSite: 'water',
     fauna: [['aeduella', 14], ['platysomus', 6], ['ectosteorhachis', 0.12], ['sclerocephalus', 0.25], ['xenacanthus', 0.15]],
   });
   valley.def.name = valley.name;
   const shore: PlaceDef = {
     id: 'ufer', name: 'The Shore Swamp', kind: 'lush', shape: 'ufer', theme: 'sumpf', x: 0.62, y: 0.62, map: [0.62, 0.62],
-    blurb: 'Water and mud banks along the river – the first animals on land.', tier: 2,
+    blurb: 'Water and mud banks along the river. Shallow-water eggs carry the shore lineage onward.', tier: 2, breedingSite: 'shore',
     links: ['riff', 'garten', 'hochland'], def: zoneFor('lush', 'The Shore Swamp', swamp, [1, 1, 1, 0.9], 0.9),
     deep: 7, wide: 2.6, sun: 4, sky: 9,
     fauna: [['paramblypterus', 6], ['gnathorhiza', 1.5], ['eryops', 1.5], ['ophiacodon', 1.2],
@@ -333,7 +339,7 @@ export function edgeNeighbor(ep: EpochDef | string, from: PlaceDef, side: 'left'
   const nb = from.links.map((id) => placeOf(ep, id));
   if (!nb.length) return undefined;
   // Der Startfluss entspringt links (dort geht es nicht hinaus); rechts führt er ins Meer und zum ersten bewachsenen Ort
-  if (from.kind === 'start') return side === 'left' ? undefined : nb[0];
+  if (from.kind === 'start' && !from.nurseryFork) return side === 'left' ? undefined : nb[0];
   const dir = side === 'left' ? -1 : 1;
   let cand = nb.filter((q) => (q.x - from.x) * dir > 0);
   if (!cand.length) cand = [nb.slice().sort((a, b) => (b.x - from.x) * dir - (a.x - from.x) * dir)[0]];

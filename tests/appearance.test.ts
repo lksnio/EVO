@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { morphKey, quantize } from '../src/art/creatureArt';
 import { ADULT } from '../src/sim/life';
 import { game } from '../src/state/GameState';
+import { EPOCHS } from '../src/data/epochs';
 
 vi.mock('phaser', () => ({ default: {} }));
 
-beforeEach(() => { game.resetAll(); game.newRun(0); });
+// Preserve coverage for the procedural Devon fish independently of the Perm lineage core.
+const devonPlayable = EPOCHS[0].playable;
+beforeEach(() => { EPOCHS[0].playable = true; game.resetAll(); game.newRun(0); });
+afterEach(() => { EPOCHS[0].playable = devonPlayable; });
 
 describe('Sichtbare Entwicklung', () => {
   it.each([[0, 0], [9, 0], [10, 1], [20, 2], [40, 4], [50, 5], [90, 9], [190, 19]])(

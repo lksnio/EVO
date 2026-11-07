@@ -5,12 +5,18 @@ und [Vite](https://vite.dev).
 
 **Entwicklungsstand:** Spielbar ist der Prototyp im **frühen Perm** – fünf Orte mit Weltkarte, je etwa fünf Tierarten
 und zwei Bossen (siehe [Das frühe Perm](#das-frühe-perm-fünf-orte-und-die-weltkarte)) –, dazu Weltbaukasten und
-Koop-Grundlagen. Devon und Karbon ruhen vorerst im Gestein. Die beschlossenen nächsten Schritte stehen unter
-[Entwicklungsrichtung](#entwicklungsrichtung). Die übrigen Spielbeschreibungen dokumentieren
-den vorhandenen Prototyp; geplante Änderungen sind noch keine eingebauten Funktionen.
+Koop-Grundlagen. Der neue spielbare Kern beginnt als **Ufertier mit kurzen Beinen**: Am Startort führen der
+**Wasserlaich links** und der **Uferlaich rechts** über drei gewählte Nachkommen zum Fisch beziehungsweise
+zum Landgänger. Ausgeteilter Biss- und Rammschaden prägt anschließend die Spezialisierung auf Gebiss oder
+Kopfpanzer. Elf gemalte, animierte Formen bilden diese Entwicklung bis zu vier Endformen ab.
+[Regeln, Grafikzuordnung und Speicherübernahme](docs/LINEAGE_CORE.md).
 
-Du schlüpfst als winziger, schwacher Urfisch im **Laichfluss** – einer von wenigen deiner Art. Du
-**wächst heran**, und sobald du ausgewachsen bist, kehrst du in den Fluss zurück und **laichst**. Wer
+Devon und Karbon ruhen vorerst im Gestein. Die beschlossenen nächsten Schritte stehen unter
+[Entwicklungsrichtung](#entwicklungsrichtung). Die übrigen Spielbeschreibungen dokumentieren
+teilweise ältere Prototypen; für die aktuelle Perm-Vererbung gilt das oben verlinkte Dokument.
+
+Du schlüpfst als kleines, noch wenig spezialisiertes Ufertier zwischen zwei Laichplätzen. Du
+**wächst heran**, und sobald du ausgewachsen bist, entscheidest du dich für einen Laichplatz. Wer
 gelaicht hat, darf sterben, ohne zu verlieren: Aus dem Gelege schlüpft die **nächste Generation**, und du
 spielst als ihr Jungtier weiter – angepasst an das, wie du gelebt hast. Es gibt keine Punkte und keine
 Abschnitte mehr: Die **Weltzeit läuft für alle gleich weiter**. Es geht **nur ums Überleben – und ums
@@ -20,13 +26,14 @@ Weitergeben**.
 Auf dem eigenen Server sehen sich Spieler bereits am selben Ort (siehe [Mehrspieler](#mehrspieler-prototyp)).
 Die Hauptlinie soll durch **Devon**, **Karbon**, **Perm**, **Trias**, **Jura**, **Kreidezeit** und **Paläogen** führen.
 Im aktuellen Prototyp wählt man die Zeitalter noch getrennt im Titelbild; jedes hat bisher seine eigene Welt und Linie.
-Spielbar ist das **frühe Perm** mit dem Urfisch (siehe [Das frühe Perm](#das-frühe-perm-fünf-orte-und-die-weltkarte));
+Spielbar ist das **frühe Perm** mit der neuen Uferlinie (siehe [Das frühe Perm](#das-frühe-perm-fünf-orte-und-die-weltkarte));
 alle anderen ruhen „im Gestein“ (siehe [Zeitalter wählen](#zeitalter-wählen)) – auch das **Devon** und das **Karbon** mit
 *Pederpes*, Gelege und Generationen (siehe [Das Karbon](#das-karbon-gelege-metamorphose-generationen)). Ihr Code bleibt
 erhalten und geprüft; sie kommen später wieder.
 
 **Stirbst du, wählst du ein Ei aus dem Laich deiner Linie** – ein Geschwister oder eines der nächsten Generation. **Liegt
-kein Laich mehr da und wartet kein Geschwister, stirbt deine Linie aus** – und bleibt als
+kein nutzbarer Laich mehr da, schaust du im Koop dem anderen Spieler zu und kannst dessen neues Ei wählen.**
+Alte Generationen werden nicht wiederbelebt. Ein aufgegebener Zweig bleibt als
 Ast im **Stammbaum des Lebens**, der mit jedem Spiel weiterwächst.
 
 **Das Logo** spielt mit dem Namen: **EVO** und **LıVING** stehen auf einer Höhe, darunter weit gesperrt **WORLD** zwischen

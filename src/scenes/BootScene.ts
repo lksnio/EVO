@@ -12,6 +12,7 @@ import { preloadEditorUnits } from '../editor/catalog';
 import { preloadWorldFish } from '../art/fish/worldFish';
 import { preloadPainted } from '../art/fish/painted';
 import { preloadStarterFish } from '../art/fish/starterAssets';
+import { preloadLineage } from '../art/lineage/assets';
 import { CURSOR } from '../ui/cursor';
 
 
@@ -25,6 +26,7 @@ export class BootScene extends Phaser.Scene {
     // die gemalten Fischtexturen
     preloadPainted(this);
     preloadStarterFish(this);
+    preloadLineage(this);
     preloadRiver(this);
     preloadLagoon(this);
     preloadWaterSurface(this);

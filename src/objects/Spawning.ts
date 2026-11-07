@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DEPTH, TILE } from '../config';
+import { DEPTH, FONT, TILE } from '../config';
 import { audio } from '../audio/Audio';
 import { SPAWN } from '../data/life';
 import { bus, game, type Clutch, type RoeEgg, type Sex, type Traits } from '../state/GameState';
@@ -10,8 +10,10 @@ import { Roe } from './Food';
 import type { Kin } from './Kin';
 import { Prompt } from '../ui/InteractionPrompt';
 import type { LevelScene } from '../scenes/LevelScene';
+import type { BreedingSite } from '../level/LevelGen';
 
 type Genes = { traits: Traits; seed: number; sex: Sex };
+type Heap = { x: number; y: number; id?: BreedingSite['id']; label?: string };
 
 /** Ein Gelege im Laichfluss, das hier zu sehen ist. */
 interface Brood {
@@ -75,24 +77,48 @@ export class SpawnCtl {
   /** so viel Nahrung braucht ein Nachkomme (gilt das ganze Leben – das Tier verändert sich darin nicht) */
   readonly base = game.broodBase;
 
-  /** Im Laichfluss gibt es nur einen Laichhaufen: Dorthin kommen alle (auch im Koop) zum Laichen und Befruchten. */
-  private heap?: { x: number; y: number };
+  /** Each habitat keeps its own permanent pile; choosing one never relocates another pile. */
+  private heaps: Heap[] = [];
+  private get heap() { return this.siteAt(this.target ?? this.host.player ?? this.host.L.start); }
+
+  private siteAt(point: { x: number; y: number }, id?: BreedingSite['id']): Heap | undefined {
+    if (id) { const named = this.heaps.find(site => site.id === id); if (named) return named; }
+    return this.heaps.reduce<Heap | undefined>((best, site) => !best || Math.hypot(site.x - point.x, site.y - point.y) < Math.hypot(best.x - point.x, best.y - point.y) ? site : best, undefined);
+  }
+
+  /** The selected heap's habitat is copied into the clutch and inherited egg. */
+  get breedingSite(): BreedingSite['id'] | undefined { return this.heap?.id; }
+  get breedingSiteName() { return this.heap?.label; }
 
   constructor(private host: LevelScene) {
     this.touchMode = host.sys.game.device.input.touch || new URLSearchParams(location.search).has('touch');
     this.prompt = new Prompt(host, this.touchMode, 'bite');
     this.femaleAt = host.time.now + rnd(SPAWN.femaleDelay) * 1000;
-    const spot = host.place.kind === 'start' ? host.L.roe.find((q) => q.own) : undefined;
-    this.heap = spot && { x: spot.x, y: spot.y };
-    // die eigenen Gelege an diesem Ort – ein noch unbefruchtetes bekommt (wieder) Besuch von einem Männchen. Gelege aus älteren
-    // Spielständen (damals lagen hier mehrere Laichhaufen) liegen jetzt auf dem einen.
+    const spots = host.L.roe.filter(q => q.own);
+    this.heaps = host.L.breedingSites?.map(site => ({ ...site })) ?? spots.map(spot => ({ x: spot.x, y: spot.y }));
+    for (const site of host.L.breedingSites ?? []) {
+      host.add.text(site.x, site.y - 68, site.label, { fontFamily: FONT, fontSize: '18px', color: site.id === 'water' ? '#9ac9ca' : '#e0c18d', stroke: '#071417', strokeThickness: 4, resolution: 2 })
+        .setOrigin(.5, 1).setDepth(DEPTH.terrain + 2);
+      host.add.image(site.x, site.y - 9, 'glow').setTint(site.id === 'water' ? 0x7eb7bf : 0xd0b576)
+        .setDisplaySize(155, 66).setAlpha(.12).setDepth(DEPTH.terrain + .4);
+    }
+    if (host.place.nurseryFork) {
+      const y = host.L.surfaceY + 22, x = host.L.width * .5;
+      host.add.text(x - 125, y, '← Open water', { fontFamily: FONT, fontSize: '19px', color: '#a8d3d0', stroke: '#071417', strokeThickness: 4, resolution: 2 })
+        .setOrigin(1, 0).setDepth(DEPTH.terrain + 2);
+      host.add.text(x + 125, y, 'Shore →', { fontFamily: FONT, fontSize: '19px', color: '#e0c18d', stroke: '#071417', strokeThickness: 4, resolution: 2 })
+        .setOrigin(0, 0).setDepth(DEPTH.terrain + 2);
+    }
+    // Restore each clutch to its own habitat. Nearby clutches may share a visible pile, but never another nursery.
     game.decayClutches();
     for (const c of game.life.clutches) {
       if (c.place !== host.place.id) continue;
-      if (this.heap && (c.x !== this.heap.x || c.y !== this.heap.y)) {
-        c.x = this.heap.x;
-        c.y = this.heap.y;
+      const site = this.siteAt(c, c.breedingSite);
+      if (site && (c.x !== site.x || c.y !== site.y)) {
+        c.x = site.x;
+        c.y = site.y;
       }
+      if (site?.id) c.breedingSite = site.id;
       this.addBrood(c.x, c.y, c.at, { clutch: c });
     }
     // der Laich deiner Art, der hier schon liegt (im Startgebiet): befruchtbar – wo schon dein eigenes Gelege liegt, nicht
@@ -105,6 +131,12 @@ export class SpawnCtl {
         continue;
       }
       this.broods.push({ roe, x: roe.x, y: roe.y, at: worldNow(), mother: game.kinTraits(this.kinIndex(2)), lasting: true });
+    }
+    // Every permanent habitat remains usable even if an imported map omitted its decorative egg pile.
+    for (const site of this.heaps) {
+      if (this.broods.some(b => Math.hypot(b.x - site.x, b.y - site.y) < 60)) continue;
+      const b = this.addBrood(site.x, site.y, worldNow(), { mother: game.kinTraits(this.kinIndex(2)) });
+      b.lasting = true;
     }
     // Der Laichgrund bleibt auch ohne Nahrung, Partnerbesuch oder verfügbare Eier zugänglich.
     if (host.place.kind === 'start' && !this.broods.length) {
@@ -120,6 +152,7 @@ export class SpawnCtl {
   get grounds() {
     const h = this.host;
     const c = h.L.cave, p = h.player;
+    if (h.L.breedingSites?.length) return this.heaps.some(site => Math.hypot(site.x - p.x, site.y - 20 - p.y) < SPAWN.reach + 150);
     if (c) return p.x > c.x + 30 && p.x < c.x + c.w - 10 && p.y > c.y + 20 && p.y < c.y + c.h + 10;
     return h.place.kind === 'start' && !!h.L.riverEnd && p.x < h.L.riverEnd;
   }
@@ -194,7 +227,7 @@ export class SpawnCtl {
     const male = run.sex === 1;
     // Männchen: der nächste befruchtbare Laich in Reichweite
     this.target = undefined;
-    if (male) {
+    {
       let best = SPAWN.reach;
       for (const b of this.broods) {
         const d = Math.hypot(b.x - p.x, b.y - 20 - p.y);
@@ -240,7 +273,7 @@ export class SpawnCtl {
       nahrung: `Need ${Math.max(1, Math.ceil(this.base - life.fed))} more food for the next egg.`,
       voll: `Already fertilised ${SPAWN.maxYoung} eggs during this life.`,
       pause: 'Swim for a while before fertilising again.',
-      ort: 'You can fertilise eggs in the spawning river.',
+      ort: this.heaps.length > 1 ? 'Return to either nursery: open water on the left, shore on the right.' : 'Return to a sheltered nursery to fertilise eggs.',
       grund: 'Swim closer to the eggs.', gelege: 'Swim closer to the eggs.',
     };
     return { count: block ? 0 : Math.min(youngOf(life.fed, this.base), SPAWN.maxYoung - game.young), reason: block ? reason[block] : '' };
@@ -286,7 +319,7 @@ export class SpawnCtl {
       msg = b === null ? (male || !eats ? 'Spawning time' : 'Spawning time · swim a little farther')
         : b === 'gelege' ? 'Spawning time'
         : b === 'grund' ? 'Spawning time · near the bottom'
-        : b === 'ort' ? 'Spawning time · in the spawning river'
+        : b === 'ort' ? this.heaps.length > 1 ? 'Spawning time · choose the water or shore nursery' : 'Spawning time · return to a nursery'
         : b === 'nahrung' ? `Spawning time · need ${Math.max(1, Math.ceil(this.base - life.fed))} food`
         : '';
     }
@@ -341,7 +374,7 @@ export class SpawnCtl {
     const y = this.heap?.y ?? Math.round(this.groundY(p.x) + 6);
     const young = game.takeYoung();
     game.markSpawn();
-    const c = game.addClutch({ place: h.place.id, x, y, at: worldNow(), fert: false, role: 'mother', young });
+    const c = game.addClutch({ place: h.place.id, x, y, at: worldNow(), fert: false, role: 'mother', young, breedingSite: this.siteAt({ x, y })?.id });
     const b = this.addBrood(c.x, c.y, c.at, { clutch: c });
     this.layFx(b, p.x, p.y);
     bus.emit('notice', 'Spawning', 'Clutch laid');
@@ -349,8 +382,12 @@ export class SpawnCtl {
   }
 
   /** Follow the river slope first, then turn through the right-hand cave mouth below its roof. */
-  private mateRoute(fromX: number): { x: number; y: number }[] | undefined {
+  private mateRoute(fromX: number, target?: { x: number; y: number }): { x: number; y: number }[] | undefined {
     const c = this.host.L.cave;
+    if (!c && this.host.L.breedingSites?.length && target) {
+      const x = clamp(target.x - 130, 70, this.host.L.width - 70);
+      return [{ x, y: Math.max(this.host.surfaceY + 35, Math.min(target.y - 60, this.groundY(x) - 60)) }];
+    }
     if (!c) return undefined;
     const entrance = c.x + c.w + 50, y = c.y + c.h - 48;
     const via: { x: number; y: number }[] = [];
@@ -368,7 +405,7 @@ export class SpawnCtl {
     h.time.delayedCall(delay * 1000, () => {
       if (h.ended || !this.broods.includes(b) || !b.clutch || b.clutch.fert) return;
       const v = h.cameras.main.worldView;
-      const x = Math.min(h.L.width - 80, v.right + 140);
+      const x = h.L.breedingSites?.length ? clamp(b.x - 420, 80, h.L.width - 80) : Math.min(h.L.width - 80, v.right + 140);
       const y = h.L.cave ? Math.min(b.y - 40, this.groundY(x) - 80) : b.y - 140;
       const k = h.spawnKinAt(this.kinIndex(1), x, Math.max(h.surfaceY + 80, y));
       k.homeDir = 1;
@@ -376,7 +413,7 @@ export class SpawnCtl {
       k.task = {
         x: b.x + 4,
         y: b.y - 34,
-        via: this.mateRoute(k.x),
+        via: this.mateRoute(k.x, b),
         stay: 1.6,
         t: 0,
         done: () => {
@@ -408,7 +445,7 @@ export class SpawnCtl {
     const x = this.heap?.x ?? clamp(p.x + dir * (170 + Math.random() * 110), 200, re - 140);
     const gy = this.heap ? this.heap.y - 6 : this.groundY(x);
     const v = h.cameras.main.worldView;
-    const fromX = Math.min(h.L.width - 80, v.right + 140);
+    const fromX = h.L.breedingSites?.length ? clamp(x - 420, 80, h.L.width - 80) : Math.min(h.L.width - 80, v.right + 140);
     const fromY = h.L.cave ? Math.min(gy - 40, this.groundY(fromX) - 80) : gy - 160;
     const k = h.spawnKinAt(this.kinIndex(2), fromX, Math.max(h.surfaceY + 80, fromY));
     k.homeDir = 1;
@@ -416,7 +453,7 @@ export class SpawnCtl {
     k.task = {
       x,
       y: gy - 40,
-      via: this.mateRoute(k.x),
+      via: this.mateRoute(k.x, { x, y: gy }),
       stay: 1.5,
       t: 0,
       done: () => {
@@ -444,7 +481,7 @@ export class SpawnCtl {
     const young = game.takeYoung();
     game.markSpawn();
     const partner = b.mother ?? game.kinTraits(this.kinIndex(2));
-    b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner, young });
+    b.clutch = game.addClutch({ place: h.place.id, x: b.x, y: b.y, at: b.at, fert: true, role: 'father', partner, young, breedingSite: this.siteAt(b)?.id });
     b.mother = partner;
     b.lasting = true;
     // die Eier kommen auf den Stapel der nächsten Generation – so, wie dein Tier jetzt ist

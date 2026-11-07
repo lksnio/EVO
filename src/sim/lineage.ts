@@ -1,8 +1,10 @@
 import type { ClassId } from '../data/classes';
 import type { Sex, Traits } from '../state/GameState';
+import { isLineageEvolution, readLineageEvolution, type LineageEvolution } from './lineageEvolution';
 
 /** Personal history, never part of the shared brood or the zone protocol. Years are years before present. */
 export interface LineageForm {
+  evolution?: LineageEvolution;
   cls: ClassId;
   traits: Partial<Traits>;
   hue: number;
@@ -46,7 +48,7 @@ export const newLineage = (): LineageArchive => ({ v: 1, runs: [] });
 export const markKey = (r: LineageRun, s: LineageSegment) => `${r.id}/${s.id}`;
 
 function copyForm(f: LineageForm): LineageForm {
-  return { ...f, traits: { ...f.traits } };
+  return { ...f, traits: { ...f.traits }, ...(f.evolution ? { evolution: readLineageEvolution(f.evolution) } : {}) };
 }
 
 /** Call only for the offspring this player actually chooses, including a chosen sibling. */
@@ -99,7 +101,7 @@ export function readLineage(value: unknown): LineageArchive {
         || typeof s.site.place !== 'string' || !Number.isFinite(s.site.x) || !Number.isFinite(s.site.y)
         || !Number.isFinite(s.seconds) || s.seconds < 0 || !Array.isArray(s.births) || !s.births.length) return false;
       previous = s.to;
-      const form = (f: LineageForm) => !!f && ['fish', 'amphibian', 'reptile', 'mammal'].includes(f.cls)
+      const form = (f: LineageForm) => !!f && (!f.evolution || isLineageEvolution(f.evolution)) && ['fish', 'amphibian', 'reptile', 'mammal'].includes(f.cls)
         && !!f.traits && typeof f.traits === 'object' && Object.values(f.traits).every(Number.isFinite)
         && Number.isFinite(f.hue) && Number.isFinite(f.seed) && (f.sex === 1 || f.sex === 2);
       return form(s.first) && form(s.last) && s.births.every(b => !!b && Number.isInteger(b.gen) && b.gen > 0 && Number.isFinite(b.years) && b.years <= s.from && b.years >= s.to);

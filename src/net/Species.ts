@@ -3,6 +3,7 @@ import { EPOCHS } from '../data/epochs';
 import type { SpeciesAdvanced, SpeciesOver, SpeciesPicked } from './protocol';
 import { netWanted, playerName, serverUrl } from './NetSync';
 import type { FishBranch } from '../sim/fishTree';
+import { networkSpeciesBranch } from './lineageProtocol';
 
 // Der gemeinsame Laich im Koop: Nur Eier der aktuellen und nächsten Generation bleiben nutzbar (server/SpeciesRoom.ts). Die Verbindung
 // bleibt über alle Szenen hinweg bestehen (Level, Laich-Wahl, Karte) – sie spiegelt den gemeinsamen Laich in den Spielstand
@@ -62,7 +63,7 @@ class SpeciesLink {
   get peerBranches(): FishBranch[] {
     const r=this.room;if(!r)return [];
     return [...r.state.members.keys()].filter(id=>id!==r.sessionId).flatMap(id=>{
-      try{const b=JSON.parse(r.state.branches.get(id)??'null');return b&&Array.isArray(b.trace)&&b.trace.length&&b.trace.length<=8?[b as FishBranch]:[];}catch{return [];}
+      const branch=networkSpeciesBranch(r.state.branches.get(id));return branch?[branch]:[];
     });
   }
 
@@ -92,7 +93,8 @@ class SpeciesLink {
     if (!netWanted() || EPOCHS[epoch]?.brood) return;
     if(this.epoch===epoch&&this.room){
       const run=game.run;
-      if(run){this.room.send('hello',{identity:game.playerId,place,waiting:!!run.waiting,gen:game.poolGen,pool:game.pool.map(e=>JSON.stringify(e)),next:game.roe.map(e=>JSON.stringify(e)),trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}])});this.lastLaich='';this.mirror();}
+      if(run){this.room.send('hello',{identity:game.playerId,place,waiting:!!run.waiting,gen:game.poolGen,pool:game.pool.map(e=>JSON.stringify(e)),next:game.roe.map(e=>JSON.stringify(e)),trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]),
+        ...(run.evolutionTrace?.length?{evolutionTrace:JSON.stringify(run.evolutionTrace)}:{})});this.lastLaich='';this.mirror();}
       return;
     }
     if(this.epoch===epoch&&this.joining)return;
@@ -128,7 +130,8 @@ class SpeciesLink {
       // der eigene Laich: Gibt es die Art noch nicht, beginnt sie damit – sonst kommt er dazu
       const run = game.run;
       if (run && run.epoch === epoch && !run.brood) {
-        room.send('hello', {identity:game.playerId,place:this.place||game.prog.place,waiting:!!run.waiting,trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]), gen: game.poolGen, pool: game.pool.map((e) => JSON.stringify(e)), next: game.roe.map((e) => JSON.stringify(e)) });
+        room.send('hello', {identity:game.playerId,place:this.place||game.prog.place,waiting:!!run.waiting,trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]),
+          ...(run.evolutionTrace?.length?{evolutionTrace:JSON.stringify(run.evolutionTrace)}:{}),gen: game.poolGen, pool: game.pool.map((e) => JSON.stringify(e)), next: game.roe.map((e) => JSON.stringify(e)) });
       }
       // Auch einen bereits vollständigen Anfangsstand übernehmen, wenn hello nichts mehr ändert.
       this.mirror();
@@ -146,10 +149,9 @@ class SpeciesLink {
     const marks = JSON.stringify([[...r.state.selections], [...r.state.members]]);
     const branchStamp=JSON.stringify([...(r.state.branches??[])]);
     for(const [id,raw] of r.state.branches??[])if(id!==r.sessionId){
-      try{const branch=JSON.parse(raw);if(!Array.isArray(branch.trace)||branch.trace.length>8)continue;
-        const saved=game.data.fishBranches??=[];const i=saved.findIndex(b=>b.id===branch.id);
-        if(i<0)saved.push(branch);else saved[i]=branch;
-      }catch{}
+      const branch=networkSpeciesBranch(raw);if(!branch)continue;
+      const saved=game.data.fishBranches??=[];const i=saved.findIndex(b=>b.id===branch.id);
+      if(i<0)saved.push(branch);else saved[i]=branch;
     }
     if(branchStamp!==this.lastBranches){this.lastBranches=branchStamp;game.save();}
     if (laich !== this.lastLaich) {
@@ -164,7 +166,9 @@ class SpeciesLink {
   }
 
   private publishBranch() {
-    if(this.room&&game.run?.fishTrace)this.room.send('lineage',{trace:JSON.stringify(game.run.fishTrace)});
+    const run=game.run;
+    if(this.room&&run&&(run.fishTrace||run.evolutionTrace))this.room.send('lineage',{trace:JSON.stringify(run.fishTrace??[{form:0,primary:0}]),
+      ...(run.evolutionTrace?.length?{evolutionTrace:JSON.stringify(run.evolutionTrace)}:{})});
   }
 
   /** Gelaicht: an die Art (Eier der Generation gen). */
@@ -207,6 +211,7 @@ class SpeciesLink {
     this.epoch = -1;
     this.lastLaich = '';
     this.lastMarks = '';
+    this.lastBranches = '';
     this.marked = '';
     if (r) void r.leave().catch(() => undefined);
   }

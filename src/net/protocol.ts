@@ -238,9 +238,17 @@ export interface SpeciesHello {
   place?:string;
   waiting?:boolean;
   trace?: string;
+  /** Current lineage's bounded visual evolution milestones, independent of the other players' paths. */
+  evolutionTrace?: string;
   gen: number;
   pool: string[];
   next: string[];
+}
+
+/** A changed ancestry is sent after adopting an egg or reaching a new form. */
+export interface SpeciesLineage {
+  trace?: string;
+  evolutionTrace?: string;
 }
 
 /** Client → Server: gelaicht – Eier der Generation gen (die Generation des Elterntiers + 1). */

@@ -2,30 +2,18 @@ import Phaser from 'phaser';
 import { DEPTH, FONT } from '../config';
 import { CreatureView } from '../objects/CreatureView';
 import { game, ZERO_TRAITS } from '../state/GameState';
-import { CLASSES } from '../data/classes';
 import type { Morph } from '../art/creatureArt';
 import { clamp } from '../util/math';
 import { ANIM, INTERP_MS } from './protocol';
 import { Interp } from './Interp';
 import type { NetFish } from './schema';
+import { networkMorph } from './morphProtocol';
 
 /**
- * Ein Aussehen aus dem Netz – nur Zahlen in vernünftigen Grenzen (es kommt von einem anderen Spieler). Fehlt es oder ist es
- * kaputt, schwimmt dort ein schlichter Urfisch.
+ * Peer appearance accepts bounded numbers and known lineage form IDs. Missing or damaged data uses a basic local form.
  */
 function parseLook(s: string): Morph {
-  try {
-    const raw = JSON.parse(s) as Record<string, unknown>;
-    if (raw && typeof raw === 'object' && typeof raw.cls === 'string' && raw.cls in CLASSES) {
-      const m: Record<string, unknown> = { cls: raw.cls };
-      for (const [k, v] of Object.entries(raw)) if (typeof v === 'number' && Number.isFinite(v)) m[k] = clamp(v, -1e6, 1e6);
-      m.size = clamp(Number(m.size) || 1, 0.15, 2.5);
-      return m as unknown as Morph;
-    }
-  } catch {
-    /* unten: Ersatz */
-  }
-  return game.morph({ traits: ZERO_TRAITS, fierce: 0 });
+  return networkMorph(s) ?? game.morph({ traits: ZERO_TRAITS, fierce: 0 });
 }
 
 /** Was ein Fisch eines anderen Spielers am Ort meldet. */

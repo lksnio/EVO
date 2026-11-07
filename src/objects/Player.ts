@@ -77,7 +77,13 @@ export class Player {
   private ramHoldAt = -1;
   ramCharge = 0;
   get charging(){return this.ramHoldAt>=0?2:this.biteChargeAt>=0?1:0;}
-  get weaponTiers() { return STARTER_FORMS[game.morph().fishForm??0]; }
+  get weaponTiers(): readonly number[] {
+    if (game.isLineageEvolution) {
+      const e = game.evolution;
+      return [e.primary === 'bite' ? e.tier : 0, 0, e.primary === 'skull' ? e.tier : 0];
+    }
+    return STARTER_FORMS[game.morph().fishForm??0];
+  }
   private fireBite(time:number,charge=0) {
     this.biteChargeAt=-1;this.view.holdOpen=0;
     this.biteReady=time+380;this.bitAt=time;this.usedAt=time;
@@ -464,7 +470,7 @@ export class Player {
       if (!knocked) b.setVelocityX(approach(b.velocity.x, vxWant, (onGround ? 2600 : 1600) * dt));
       if (dir) this.facing = dir;
       // ein Fisch an Land robbt: Er schnellt sich in kleinen Sprüngen voran, der Schlamm spritzt
-      if (amph && game.cls === 'fish' && onGround && dir !== 0 && !knocked && !this.slipping && time > this.flopAt) {
+      if (amph && game.cls === 'fish' && (!game.isLineageEvolution || game.evolution.habitat === 'water') && onGround && dir !== 0 && !knocked && !this.slipping && time > this.flopAt) {
         this.flopAt = time + FISH_LAND.flopEvery * 1000;
         b.setVelocityY(-FISH_LAND.flop);
         this.lastGround = -1e9;
@@ -512,7 +518,7 @@ export class Player {
       this.dashAge = 0;
       this.dashV0 = Math.max((wet ? this.stats.speed : this.stats.landSpeed) * 0.6, Math.hypot(b.velocity.x, wet ? b.velocity.y : 0));
       this.dashV = this.dashV0;
-      const skull = fishStamina ? tiers[2]/3 : clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
+      const skull = fishStamina ? tiers[2] / (game.isLineageEvolution ? 2 : 3) : clamp(game.traits.skull + (game.traits.ramGain ?? 0) / 40, 0, 1);
       this.dashChargeMs = fishStamina ? 120 : CHARGE_MS - 100 * skull;
       this.dashPeak = (wet ? this.stats.speed : this.stats.landSpeed) * (2.4 + 0.4 * skull) * (1 + .5*this.ramCharge) * this.fade * (wet ? 1 + FLOW.ram * this.flow : 1);
       this.surge = 0;
@@ -599,6 +605,7 @@ export class Player {
 
   /** Sauerstoff (Karbon): an Land sinkt er, im Wasser füllt er sich; leer nimmt das Tier Schaden durch Austrocknung. */
   private breatheStep(time: number, dt: number) {
+    if (game.isLineageEvolution && game.evolution.habitat === 'shore') { this.oxygen = 1; return; }
     const r = breathe(this.oxygen, dt, !this.inWater, this.oxygenSeconds);
     this.oxygen = r.o;
     if (r.dry <= 0 || this.shielded) return;

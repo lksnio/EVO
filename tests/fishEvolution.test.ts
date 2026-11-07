@@ -1,11 +1,15 @@
-import {beforeEach,describe,it,expect,vi} from 'vitest';
+import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
 import {fishBirthGains,weightedFishDamage,finSpeed,appendFishMark} from '../src/sim/fishEvolution';
 import {fishTree,fishSuccessors,fishTreeBranches} from '../src/sim/fishTree';
 import {STARTER_FORMS,starterFormIndex} from '../src/sim/starterFish';
 import {game,newStyle} from '../src/state/GameState';
 import {ADULT} from '../src/sim/life';
+import {EPOCHS} from '../src/data/epochs';
 vi.mock('phaser',()=>({default:{}}));
-beforeEach(()=>{game.resetAll();game.newRun();});
+// These are the retained Devon rules; the playable Perm lineage has its own evolution flow.
+const devonPlayable=EPOCHS[0].playable;
+beforeEach(()=>{EPOCHS[0].playable=true;game.resetAll();game.newRun(0);});
+afterEach(()=>{EPOCHS[0].playable=devonPlayable;});
 const plan=(meat:number,low=1)=>({eaten:{meat,plant:100-meat},effort:{minHealth:low}});
 const rolls=(...values:number[])=>{let i=0;return ()=>values[i++]??.5;};
 describe('Ernährung und feste Untergrenzen',()=>{

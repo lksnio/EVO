@@ -1,11 +1,12 @@
 import { fishMarkKey, type FishMark } from './fishEvolution';
+import type { LineageEvolution } from './lineageEvolution';
 import { STARTER_FORMS, starterFormIndex, validStarterForm } from './starterFish';
-export interface FishBranch { id:string; name:string; trace:FishMark[]; extinct?:boolean; archived?:boolean }
+export interface FishBranch { id:string; name:string; trace:FishMark[]; evolutionTrace?:LineageEvolution[]; extinct?:boolean; archived?:boolean }
 /** Only present players get live strands. Cached earlier connections remain quiet history, not extra players. */
 export function fishTreeBranches(saved:readonly FishBranch[], own:FishBranch, peers:readonly FishBranch[]) {
   const live=[own,...peers.filter(b=>b.id!==own.id)];
   const ids=new Set(live.map(b=>b.id));
-  const history=saved.filter(b=>!ids.has(b.id)&&(b.extinct||b.trace.length>1)).map(b=>({...b,archived:!b.extinct}));
+  const history=saved.filter(b=>!ids.has(b.id)&&(b.extinct||b.trace.length>1||(b.evolutionTrace?.length??0)>1)).map(b=>({...b,archived:!b.extinct}));
   return [...live,...history];
 }
 export interface FishTreeNode {

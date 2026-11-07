@@ -34,6 +34,15 @@ export interface RoeSpot {
   species: string;
   tone: number;
   own: boolean;
+  breedingSite?: 'water' | 'shore';
+}
+
+/** A permanent, reusable breeding habitat. The selected egg inherits the site's route. */
+export interface BreedingSite {
+  id: 'water' | 'shore';
+  x: number;
+  y: number;
+  label: string;
 }
 
 /** Eine Mikrobenmatte auf dem Boden von x0 bis x1; tone: 0 olivgrün, 1 purpurbraun, 2 rosa, 3 ocker. */
@@ -95,6 +104,7 @@ export interface LevelData {
   lit: { x0: number; x1: number }[];
   /** Fischlaich am Boden */
   roe: RoeSpot[];
+  breedingSites?: BreedingSite[];
   /** Ende des Flussabschnitts am Start (Pixel) – davor ist es still: keine Tiere, keine Durchzügler */
   riverEnd?: number;
   /**
@@ -852,6 +862,7 @@ export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceD
   const r = mulberry32(hashStr(`${ep.id}_${place.id}_${salt}`));
   const encounter = encounterSalt === undefined ? undefined : mulberry32(hashStr(`${ep.id}_${place.id}_fauna_${encounterSalt}`));
   const L = place.sky ? genSwamp(ep, r, place, edge, encounter) : genWater(ep, r, place, edge, encounter);
+  addBreedingSites(L, place);
   openWaterEdges(L);
   if (edge?.side === 'chasm' && L.chasm) L.start = { x: (L.chasm.x0 + L.chasm.x1) / 2, y: L.chasm.exitY - 280 };
   if (!edge && L.cave) {
@@ -859,6 +870,43 @@ export function generateLevel(ep: EpochDef, salt: string | number, place: PlaceD
     L.start = { x: c.x + c.w * .6, y: c.y + c.h - 65 };
   }
   return L;
+}
+
+/** Keep breeding habitats deterministic and independent of encounter rolls and entrance direction. */
+function addBreedingSites(L: LevelData, place: PlaceDef) {
+  if (!place.nurseryFork && !place.breedingSite) return;
+  const floorAt = (x: number) => groundAt(L.terrain.hp, x);
+  const cols = L.ground.length;
+  const chooseColumn = (kind: 'water' | 'shore') => {
+    const target = L.width * (place.ascent ? .30 : .20);
+    let best = Math.max(4, Math.min(cols - 5, Math.round(target / T))), score = Infinity;
+    for (let c = 5; c < cols - 5; c++) {
+      const x = (c + .5) * T, depth = floorAt(x) - L.surfaceY;
+      if (depth < (kind === 'shore' ? 84 : 140)) continue;
+      if (L.solids.some(s => x > s.x - 110 && x < s.x + s.w + 110 && floorAt(x) > s.y - 80 && floorAt(x) < s.y + s.h + 120)) continue;
+      if (L.fore.some(r => Math.abs(r.x - x) < r.rx + 80)) continue;
+      if (L.roe.some(r => !r.own && Math.abs(r.x - x) < 260)) continue;
+      const here = Math.abs(x - target) * .24 + (kind === 'shore' ? Math.abs(depth - 110) * 2 : 0);
+      if (here < score) { best = c; score = here; }
+    }
+    return (best + .5) * T;
+  };
+  const sites: BreedingSite[] = place.nurseryFork
+    ? [{ id: 'water', x: L.width * .28, y: 0, label: 'Open-water nursery' }, { id: 'shore', x: L.width * .72, y: 0, label: 'Shore nursery' }]
+    : [{ id: place.breedingSite!, x: chooseColumn(place.breedingSite!), y: 0, label: place.breedingSite === 'water' ? 'Open-water nursery' : 'Shore nursery' }];
+  L.breedingSites = sites;
+  for (const site of sites) {
+    site.y = floorAt(site.x) + 3;
+    L.roe.push({ x: site.x, y: site.y, species: 'own', own: true, tone: 1, breedingSite: site.id });
+    // Leave a clear approach to the permanent eggs and a little food nearby.
+    L.plants = L.plants.filter(p => Math.abs(p.x - site.x) > 65);
+    L.decor = L.decor.filter(d => Math.abs(d.x - site.x) > 72);
+    for (const dx of [-170, -100, 100, 170]) {
+      const x = site.x + dx;
+      if (x > 70 && x < L.width - 70 && floorAt(x) > L.surfaceY + 35) L.plants.push({ x, y: floorAt(x) + 3, v: 0 });
+    }
+  }
+  L.spawns = L.spawns.filter(s => sites.every(site => Math.hypot(s.x - site.x, s.y - site.y) >= 400));
 }
 
 // ---------------------------------------------------------------------------
@@ -906,7 +954,7 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encou
   L.surfaceY = S * T;
   L.amphibious = true;
   L.zones = [{ x0: 0, x1: cols * T, def: place.def }];
-  const startCol = place.kind === 'start' ? 22 : Math.round(cols * 0.16);
+  const startCol = place.nurseryFork ? Math.round(cols * .5) : place.kind === 'start' ? 22 : Math.round(cols * 0.16);
   L.startCol = startCol;
   const shape = place.shape ?? 'shore';
   const mid = cols / 2;
@@ -914,7 +962,13 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encou
   // der Wassergrund: im Brutsumpf und im Moor flach, im See tief
   let floor = (c: number) => F + Math.sin(c * 0.17) * 0.6 + Math.sin(c * 0.05 + 1) * 0.8;
   const isle = (c: number, w: number, above: number, slope: number) => hills.push({ c, w, top: S - above, slope });
-  if (shape === 'nest') {
+  if (place.nurseryFork) {
+    // A continuous, gentle shore: swimming water to the left, shallow nursery to the right, then a low dry bank.
+    floor = (c: number) => {
+      const f = c / cols;
+      return f <= .72 ? S + 8 - (8 - 2.7) * f / .72 : S + 2.7 - 4.7 * (f - .72) / .28;
+    };
+  } else if (shape === 'nest') {
     // links ein hohes Ufer (dort geht es nicht weiter), davor flaches Wasser mit dem Nest; nach rechts wird der Tümpel tiefer
     // (von dort kommen die Räuber), dann zwei flache Inseln
     floor = (c: number) => (c < 32 ? S + 3 : S + 3 + (place.deep - 3) * Math.min(1, (c - 32) / 18)) + Math.sin(c * 0.3) * 0.25;
@@ -1044,7 +1098,7 @@ function genSwamp(ep: EpochDef, r: Rng, place: PlaceDef, edge?: EdgeEntry, encou
   };
   L.start = arrive(startCol, 0.5);
   if (edge) L.start = arrive(edge.side === 'left' ? cols - 4 : 3, edge.frac);
-  const arrCols = [startCol, 3, cols - 4];
+  const arrCols = [startCol, 3, cols - 4, ...(place.nurseryFork ? [Math.round(cols * .28), Math.round(cols * .72)] : [])];
   // Felsen (wenige, im Wasser) – nicht am Nest, nicht auf dem Berg
   const shrine = shrineCol(L, place, G, startCol);
   placeRocks(L, place, r, G, [[(startCol - 11) * T, (startCol + 13) * T], ...arrCols.map((c): [number, number] => [(c - 9) * T, (c + 9) * T]),

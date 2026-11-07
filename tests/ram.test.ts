@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Controls } from '../src/objects/Controls';
 import { Player, type PlayerHost } from '../src/objects/Player';
 import { game } from '../src/state/GameState';
 import { ADULT } from '../src/sim/life';
+import { EPOCHS } from '../src/data/epochs';
 
 // Nur Darstellung und Audio ersetzen: Bewegung, Ausdauer und Eingaben laufen durch Player.update.
 vi.mock('phaser', () => ({ default: {} }));
@@ -26,7 +27,7 @@ vi.mock('../src/objects/CreatureView', () => ({
 
 function swimmer(skull = 0, land = false, options: { reservePoints?: number; refill?: boolean } = {}) {
   game.resetAll();
-  game.newRun();
+  game.newRun(0);
   game.traits.ramGain = skull*115;
   game.traits.staminaGain=(options.reservePoints??30)-30;
   const velocity = { x: 0, y: 0 };
@@ -64,14 +65,17 @@ function swimmer(skull = 0, land = false, options: { reservePoints?: number; ref
   return { p, c, step, ram, host };
 }
 
-beforeEach(() => vi.clearAllMocks());
+// This suite retains the legacy three-stage weapon mechanics in Devon.
+const devonPlayable = EPOCHS[0].playable;
+beforeEach(() => { vi.clearAllMocks(); EPOCHS[0].playable = true; });
+afterEach(() => { EPOCHS[0].playable = devonPlayable; });
 
 describe('Schädelstoß', () => {
   it.each([
     [-10,0],[0,0],[15,0],[39,0],[40,1000],[89,1000],[90,2000],[140,2000],
   ])('vererbter Schädelzuwachs %s ergibt %s ms Betäubung', (ramGain, duration) => {
     game.resetAll();
-    game.newRun();
+    game.newRun(0);
     for (const cls of ['fish'] as const) {
       const st = game.stats(cls, { ...game.traits, ramGain }, ADULT);
       expect(st.ramStun).toBeCloseTo(duration);
@@ -79,7 +83,7 @@ describe('Schädelstoß', () => {
   });
 
   it('Betäubung hängt von der vererbten Stufe ab, nicht vom Alter oder alten kosmetischen Merkmalen',()=>{
-    game.resetAll();game.newRun();
+    game.resetAll();game.newRun(0);
     expect(game.stats('fish',{...game.traits,skull:1},ADULT).ramStun).toBe(0);
     expect(game.stats('fish',{...game.traits,ramGain:50},{grow:.4,old:0}).ramStun).toBe(1000);
   });

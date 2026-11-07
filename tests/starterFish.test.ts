@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { STARTER_FORMS, PAINTED_FORMS, advanceStarterFish, resolveStarterForm, starterFormIndex, starterId, validStarterForm, type StarterScores } from '../src/sim/starterFish';
@@ -7,9 +7,13 @@ import { ADULT } from '../src/sim/life';
 import { morphKey, quantize } from '../src/art/creatureArt';
 import { STARTER_REGISTRATION } from '../src/art/fish/starterAssets';
 import { starterLayout } from '../src/art/fish/starterLayout';
+import { EPOCHS } from '../src/data/epochs';
 
 vi.mock('phaser', () => ({ default: {} }));
-beforeEach(() => { game.resetAll(); game.newRun(); });
+// Keep coverage for the legacy 48-form Devon line independently of the new Perm core.
+const devonPlayable = EPOCHS[0].playable;
+beforeEach(() => { EPOCHS[0].playable = true; game.resetAll(); game.newRun(0); });
+afterEach(() => { EPOCHS[0].playable = devonPlayable; });
 
 describe('Die 48 erreichbaren Startfischformen', () => {
   it('behält nach der Gebiss-1-Zeichnung dieselbe Trefferfläche und Bissreichweite', () => {

@@ -59,6 +59,10 @@ function str(v: unknown, max = 120) {
   if (typeof v !== 'string' || !v.trim() || v.length > max) throw Error('A map label is invalid.');
   return v;
 }
+function breedingHabitat(v: unknown): 'water' | 'shore' {
+  if (v !== 'water' && v !== 'shore') throw Error('Unknown breeding habitat.');
+  return v;
+}
 function array<T>(v: unknown, parse: (v: unknown) => T, max = 5000): T[] {
   if (!Array.isArray(v) || v.length > max) throw Error('A map list is missing or too large.');
   return v.map(parse);
@@ -101,7 +105,7 @@ export function parseWorldMap(input: unknown): WorldMap {
   }, 100);
   if (!terrainZones.length) throw Error('Ground material is missing.');
   const L: LevelData = {
-    width, height, mode: l.amphibious === true ? 'water' : epoch.habitat, theme: epoch.theme, variant: l.variant === 'cave' ? 'cave' : l.variant === 'dark' ? 'dark' : 'normal',
+    width, height, mode: l.amphibious === true ? 'water' : epoch.habitat, theme: place.theme ?? epoch.theme, variant: l.variant === 'cave' ? 'cave' : l.variant === 'dark' ? 'dark' : 'normal',
     surfaceY: num(l.surfaceY, 0, height), terrain: { hp, zones: terrainZones },
     groundRects: [], ground: [], rocks: array(l.rocks, rock, 1000), fore: array(l.fore, rock, 1000),
     solids: array(l.solids, rect, 20000), editorSolids: array(l.editorSolids ?? [], rect, 1000),
@@ -112,7 +116,8 @@ export function parseWorldMap(input: unknown): WorldMap {
     lit: array(l.lit, v => { const a = record(v); return { x0: num(a.x0), x1: num(a.x1) }; }),
     plants: array(l.plants, v => { const a = record(v); return { ...point(a), v: num(a.v, 0, 4) }; }),
     spawns: array(l.spawns, v => { const a = record(v), id = str(a.id); if (!SPECIES[id]) throw Error('Unknown animal species: ' + id); return { ...point(a), id, ...(a.herd !== undefined ? { herd: num(a.herd) } : {}), ...(a.guard !== undefined ? { guard: num(a.guard) } : {}) }; }),
-    roe: array(l.roe, v => { const a = record(v); return { ...point(a), species: str(a.species), tone: num(a.tone, 0, 20), own: a.own === true }; }),
+    roe: array(l.roe, v => { const a = record(v); return { ...point(a), species: str(a.species), tone: num(a.tone, 0, 20), own: a.own === true,
+      ...(a.breedingSite === undefined ? {} : { breedingSite: breedingHabitat(a.breedingSite) }) }; }),
     currents: array(l.currents, v => { const a = record(v); return { ...rect(a), dir: a.dir === -1 ? -1 : 1 }; }),
   };
   for (const k of ['shrine', 'nest'] as const) if (l[k] !== undefined) L[k] = point(l[k]);
@@ -125,6 +130,15 @@ export function parseWorldMap(input: unknown): WorldMap {
     if (L.chasm.x1 <= L.chasm.x0 || L.chasm.floorY <= L.chasm.rimY || L.chasm.exitY >= L.chasm.floorY || L.chasm.exitY <= L.chasm.rimY) throw Error('The deep-water entrance has invalid bounds.');
   }
   if (l.riverEnd !== undefined) L.riverEnd = num(l.riverEnd, 0, width);
+  if (l.breedingSites !== undefined) {
+    const habitats = new Set<string>();
+    L.breedingSites = array(l.breedingSites, v => {
+      const site = record(v), id = breedingHabitat(site.id);
+      if (habitats.has(id)) throw Error('Duplicate breeding habitat.');
+      habitats.add(id);
+      return { id, x: num(site.x, 0, width), y: num(site.y, 0, height + 4000), label: str(site.label, 80) };
+    }, 2);
+  }
   if (l.amphibious === true) L.amphibious = true;
   if (l.land !== undefined) L.land = array(l.land, v => { const a = record(v); return { x0: num(a.x0), x1: num(a.x1) }; });
   const ids = new Set<string>();

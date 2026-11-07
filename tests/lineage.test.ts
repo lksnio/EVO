@@ -3,6 +3,7 @@ import { game, ZERO_TRAITS, type RoeEgg } from '../src/state/GameState';
 import { WORLD } from '../src/data/life';
 import { EPOCHS, epochIndex, firstPlayable } from '../src/data/epochs';
 import { setServerClock, worldYears } from '../src/sim/life';
+import { newLineageEvolution } from '../src/sim/lineageEvolution';
 import { endLineage, focusTime, markKey, newLineage, observeLineage, readLineage, recordBirth, TIME_WORLD,
   timeAt, timeFraction, zoomTime, type LineageForm, type LineageSite } from '../src/sim/lineage';
 
@@ -10,7 +11,8 @@ import { endLineage, focusTime, markKey, newLineage, observeLineage, readLineage
 const P = firstPlayable();
 const form: LineageForm = { cls: 'fish', traits: {}, hue: 1, seed: 2, sex: 1 };
 const site: LineageSite = { key: 'devon:riff', place: 'riff', name: 'Laichfluss', x: 100, y: 500 };
-const egg = (place = 'riff', seed = 2): RoeEgg => ({ place, x: 100, y: 500, seed, sex: 1, traits: { bs: .8, cb: .3 } });
+const egg = (place = 'riff', seed = 2): RoeEgg => ({ place, x: 100, y: 500, seed, sex: 1,
+  traits: { bs: .8, cb: .3 }, evolution: newLineageEvolution() });
 let now: number;
 const storage = new Map<string, string>();
 beforeEach(() => {

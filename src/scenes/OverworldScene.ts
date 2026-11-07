@@ -91,7 +91,7 @@ export class OverworldScene extends Phaser.Scene {
     this.glow = this.add.graphics().setDepth(4);
     const prog = game.prog;
     const run = game.run;
-    const legs = !run || run.cls !== 'fish' || (run.traits.limb ?? 0) >= LEGS;
+    const legs = this.ep.id === 'perm' ? game.evolution.habitat === 'shore' : !run || run.cls !== 'fish' || (run.traits.limb ?? 0) >= LEGS;
     const neighbors = new Set(mapNeighbors(this.ep, this.from).map((p) => p.id));
     for (const place of placesOf(this.ep)) {
       const [x, y] = mapPos(place.map ?? [place.x, place.y]);
@@ -100,7 +100,7 @@ export class OverworldScene extends Phaser.Scene {
       if (place.below && place.id !== this.from.id) reason = 'Reached only through the chasm in ' + placeOf(this.ep, place.below).name.replace(/^The /, 'the ') + '.';
       if (state === 'open' && place.needsLegs && !legs && !DEBUG) {
         state = 'locked';
-        reason = 'Only animals with legs can live up here – your line still swims.';
+        reason = this.ep.id === 'perm' ? 'Raise a shore lineage at the shallow nursery before travelling to the dry uplands.' : 'Only animals with legs can live up here – your line still swims.';
       }
       if (DEBUG && place.below && place.id !== this.from.id) state = 'open';
       const ring = this.add.graphics().setDepth(5);

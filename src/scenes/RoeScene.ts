@@ -11,6 +11,7 @@ import { tex } from '../util/canvas';
 import type { LevelScene, SuccessionData } from './LevelScene';
 import { speciesEnd } from './ExtinctScene';
 import { orderRoe } from '../sim/roe';
+import { lineageForm, lineageFormName, lineageSummary, readLineageEvolution } from '../sim/lineageEvolution';
 
 /**
  * Der Laich (Devon): Nach dem Tod oder beim Besuch am dauerhaften Laich wählt man sein nächstes Leben.
@@ -164,7 +165,14 @@ export class RoeScene extends Phaser.Scene {
     text(this, W / 2, H - 20, this.d.living ? '← → ↑ ↓ choose · E / Enter: inspect and confirm · B: fertilise · Esc: back' : '← → ↑ ↓ choose · E / Enter or tap: choose an egg and confirm', 14, UI.boneDim).setOrigin(0.5);
 
     const kb = this.input.keyboard!;
-    const move = (dx: number, dy: number) => () => this.move(dx, dy);
+    // Phaser can replay earlier DOM events from the same frame's queue when another key arrives.
+    // A fast direction + Enter must confirm once, rather than toggle back and reopen the dialog.
+    const handled = new WeakSet<KeyboardEvent>();
+    const onceKey = (action: () => void) => (event: KeyboardEvent) => {
+      if (handled.has(event)) return;
+      handled.add(event); action();
+    };
+    const move = (dx: number, dy: number) => onceKey(() => this.move(dx, dy));
     kb.on('keydown-LEFT', move(-1, 0));
     kb.on('keydown-A', move(-1, 0));
     kb.on('keydown-RIGHT', move(1, 0));
@@ -173,12 +181,12 @@ export class RoeScene extends Phaser.Scene {
     kb.on('keydown-W', move(0, -1));
     kb.on('keydown-DOWN', move(0, 1));
     kb.on('keydown-S', move(0, 1));
-    const act = () => (this.confirm ? this.confirmBtns[this.confirmIdx]?.click() : this.pick());
+    const act = onceKey(() => (this.confirm ? this.confirmBtns[this.confirmIdx]?.click() : this.pick()));
     kb.on('keydown-ENTER', act);
     kb.on('keydown-SPACE', act);
     kb.on('keydown-E', act);
-    kb.on('keydown-ESC', () => this.confirm ? this.closeConfirm() : this.closeVisit());
-    kb.on('keydown-B', () => this.d.living && !this.confirm && this.fertilize());
+    kb.on('keydown-ESC', onceKey(() => this.confirm ? this.closeConfirm() : this.closeVisit()));
+    kb.on('keydown-B', onceKey(() => this.d.living && !this.confirm && this.fertilize()));
 
     // im Koop: Der gemeinsame Laich ändert sich (ein Artgenosse nimmt ein Ei, laicht, beginnt die nächste Generation)
     const onChange = () => {
@@ -232,7 +240,10 @@ export class RoeScene extends Phaser.Scene {
       this.portrait = undefined;
       this.card.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(1, 0x4a5a5e, 0.7));
       this.card.add(text(this, 0, -40, 'A new life\nbegins with an egg.', 26, UI.bone, { align: 'center' }).setOrigin(0.5));
-      this.card.add(text(this, 0, 44, 'Gather food and fertilise\nyour eggs once you are fully grown.', 17, UI.boneDim, { align: 'center' }).setOrigin(0.5));
+      this.card.add(text(this, 0, 44, game.isLineageEvolution
+        ? 'Water nursery to the left.\nShore nursery to the right.\nChoose descendants to continue the adaptation.'
+        : 'Gather food and fertilise\nyour eggs once you are fully grown.', 17, UI.boneDim,
+        { align: 'center', wordWrap: { width: 350 } }).setOrigin(0.5));
     }
     this.drawSelections();
     this.drawNursery();
@@ -286,13 +297,18 @@ export class RoeScene extends Phaser.Scene {
     });
     if(this.d.watching){c.add(new Button(this,404,645,'Keep watching',{w:310,h:42,onClick:()=>this.closeVisit()}));return;}
     if (!this.d.living) return;
-    const offer = (this.scene.get('Level') as LevelScene).spawning!.offer;
-    const label = offer.count ? `Fertilise ${offer.count} ${offer.count === 1 ? 'egg' : 'eggs'}` : 'Fertilise eggs';
+    const spawning = (this.scene.get('Level') as LevelScene).spawning!;
+    const offer = spawning.offer;
+    const action = offer.count ? `Fertilise ${offer.count} ${offer.count === 1 ? 'egg' : 'eggs'}` : 'Fertilise eggs';
+    const label = game.isLineageEvolution ? `${spawning.breedingSite === 'water' ? 'Water' : 'Shore'} · ${action}` : action;
     const b = new Button(this, 266, 645, label, { w: 344, h: 42, size: 17, color: UI.ochreN, onClick: () => !this.confirm && this.fertilize() });
     b.setDisabled(!offer.count || this.going);
     c.add(b);
-    c.add(new Button(this, 642, 645, 'Keep swimming', { w: 280, h: 42, size: 16, onClick: () => !this.confirm && this.closeVisit() }));
-    c.add(text(this, 404, 675, offer.count ? 'Fertilising converts food into eggs.' : offer.reason, 14, UI.boneDim).setOrigin(0.5));
+    c.add(new Button(this, 642, 645, game.isLineageEvolution ? 'Return to life' : 'Keep swimming', { w: 280, h: 42, size: 16, onClick: () => !this.confirm && this.closeVisit() }));
+    c.add(text(this, 404, 675, offer.count ? game.isLineageEvolution
+      ? 'This nursery shapes the descendants you choose. Extra clutches do not add generations.'
+      : 'Fertilising converts food into eggs.' : offer.reason, 14, UI.boneDim,
+      { align: 'center', wordWrap: { width: 730 } }).setOrigin(0.5));
   }
 
   private fertilize() {
@@ -385,6 +401,7 @@ export class RoeScene extends Phaser.Scene {
     c.add(this.add.rectangle(0, 0, 400, 560, 0x0c0e0e, 0.88).setStrokeStyle(2, next ? 0xc8913c : 0x4a5a5e, 0.9));
     c.add(text(this, 0, -258, `${next ? 'NEXT GENERATION' : pg > this.gen ? 'GENERATION ' + pg : 'SIBLINGS'} · EGG ${s.pos + 1} OF ${list.length}`, 14, next ? UI.ochre : UI.boneDim).setOrigin(0.5).setLetterSpacing(2));
     c.add(text(this, 0, -234, `Generation ${gen}`, 20, UI.bone).setOrigin(0.5));
+    if (game.isLineageEvolution) { this.showLineageCard(s, gen, next); return; }
     // das Tier, das aus dem Ei schlüpft – ausgewachsen
     c.add(this.add.image(0, -112, 'glow').setDisplaySize(300, 150).setTint(next ? 0xf0c880 : 0x9ac0c8).setAlpha(.16).setBlendMode(Phaser.BlendModes.ADD));
     const v = new CreatureView(this, 0, -130, game.roeMorph(s.egg), 1.25);
@@ -407,8 +424,51 @@ export class RoeScene extends Phaser.Scene {
     if(note)c.add(text(this,0,224,note,15,UI.boneDim,{wordWrap:{width:350},align:'center'}).setOrigin(.5,0));
   }
 
+  /** The egg already owns its inherited path; browsing it never advances the parent's lineage. */
+  private showLineageCard(s: Slot, gen: number, next: boolean) {
+    const c = this.card, evolution = readLineageEvolution(s.egg.evolution);
+    const color = s.egg.breedingSite === 'water' ? '#8ac6c3' : s.egg.breedingSite === 'shore' ? '#e4c18d' : UI.boneDim;
+    c.add(text(this, 0, -207, lineageFormName(lineageForm(evolution)), 17, UI.bone,
+      { align: 'center', wordWrap: { width: 350 } }).setOrigin(.5));
+    c.add(this.add.image(0, -136, 'glow').setDisplaySize(320, 122)
+      .setTint(s.egg.breedingSite === 'water' ? 0x8ac6c3 : 0xe4c18d).setAlpha(.12).setBlendMode(Phaser.BlendModes.ADD));
+    const view = new CreatureView(this, 0, -138, game.roeMorph(s.egg), 1.25).setName('roe-lineage-portrait');
+    view.animate(0, 'idle', 0);
+    const bounds = view.getBounds();
+    view.setBaseScale(1.25 * Math.min(325 / Math.max(1, bounds.width), 88 / Math.max(1, bounds.height)));
+    view.animate(0, 'idle', 0);
+    const fitted = view.getBounds(); view.x -= fitted.centerX; view.y += -138 - fitted.centerY;
+    c.add(view); this.portrait = view;
+    const nursery = s.egg.breedingSite === 'water' ? 'WATER NURSERY' : s.egg.breedingSite === 'shore' ? 'SHORE NURSERY' : 'INHERITED LINEAGE';
+    c.add(text(this, 0, -90, nursery, 11, color).setOrigin(.5).setLetterSpacing(2).setName('roe-nursery'));
+    c.add(text(this, 0, -61, lineageSummary(evolution), 14, UI.boneDim,
+      { align: 'center', wordWrap: { width: 346 } }).setOrigin(.5).setName('roe-evolution-progress'));
+    const bars = this.add.graphics(); c.add(bars);
+    const progress = evolution.habitat ? 3 : Math.abs(evolution.habitatProgress);
+    for (let i = 0; i < 3; i++) bars.fillStyle(i < progress ? s.egg.breedingSite === 'water' ? 0x8ac6c3 : 0xe4c18d : 0x39433c, i < progress ? .85 : .45)
+      .fillRoundedRect(-161 + i * 110, -31, 102, 3, 1);
+    c.add(text(this, -170, -7, 'Inherited values · fully grown', 12, '#82918a'));
+    c.add(text(this, 170, -7, 'change', 12, '#82918a').setOrigin(1, 0));
+    const rows = STATS.filter(([key]) => key !== 'fins');
+    rows.forEach(([key, name], i) => {
+      const y = 18 + i * 28, value = s.v[key], delta = value - this.mine[key];
+      c.add(text(this, -170, y, key === 'ram' ? 'Head armour' : name, 17, UI.boneDim));
+      c.add(text(this, 70, y, String(value), 19, UI.bone).setOrigin(1, 0));
+      if (delta) c.add(text(this, 170, y, delta > 0 ? `+${delta}` : `−${-delta}`, 16,
+        delta > 0 ? '#9dc4ae' : '#c1947f').setOrigin(1, 0));
+    });
+    const hint = !evolution.habitat ? 'Three inherited nursery steps establish a body. Choosing an egg carries its own path forward.'
+      : !evolution.tier ? 'The body is established. Inherited biting and ramming experience shape its next form.'
+      : evolution.tier === 1 ? `Continued ${evolution.primary === 'bite' ? 'biting' : 'ramming'} refines this specialisation.`
+      : 'Fully specialised. Both basic actions remain available.';
+    c.add(text(this, 0, 174, hint, 13, UI.boneDim,
+      { align: 'center', wordWrap: { width: 350 } }).setOrigin(.5));
+    if (next) c.add(text(this, 0, 224, `Begin life in generation ${gen}. Eggs from the previous generation are lost.`, 14, UI.boneDim,
+      { align: 'center', wordWrap: { width: 350 } }).setOrigin(.5, 0));
+  }
+
   update(_t: number, delta: number) {
-    this.portrait?.animate(delta / 1000, 'swim', 0.45);
+    this.portrait?.animate(delta / 1000, game.isLineageEvolution ? 'idle' : 'swim', game.isLineageEvolution ? 0 : .45);
   }
 
   /** Vor jedem Wechsel bestätigen, auch innerhalb derselben Generation. */
@@ -489,7 +549,8 @@ export class RoeScene extends Phaser.Scene {
   /** Eine kurze Meldung über der Karte. */
   private say(msg: string, color: string) {
     this.flashMsg?.destroy();
-    const t = text(this, 1010, 84 + 30, msg, 15, color).setOrigin(0.5);
+    const t = text(this, 1010, 674, msg, 14, color,
+      { align: 'center', wordWrap: { width: 356 } }).setOrigin(0.5);
     this.flashMsg = t;
     this.tweens.add({ targets: t, alpha: 0, delay: 2600, duration: 800, onComplete: () => t.destroy() });
   }

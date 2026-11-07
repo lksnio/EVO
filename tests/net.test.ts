@@ -5,6 +5,7 @@ import { parseZone } from '../src/server/ZoneRoom';
 import { ZONE_ROOM, zoneId, type EatMsg, type HitMsg, type HurtMsg, type JoinOptions, type PingMsg, type PlantMsg, type SnapMsg, type WelcomeMsg } from '../src/net/protocol';
 import { ZoneState } from '../src/net/schema';
 import { firstPlayable } from '../src/data/epochs';
+import { networkMorph } from '../src/net/morphProtocol';
 
 // Meilenstein 1: Zwei Clients betreten denselben Ort und sehen die Bewegungen des jeweils anderen.
 
@@ -153,6 +154,23 @@ describe('Spielserver (Colyseus)', () => {
     // nur so weit, wie das Streckenkonto reicht – nicht bis ans Ziel
     expect(snaps[0].x).toBeLessThan(600 + 1000);
     await until(() => Math.abs(c.state.players.get(c.sessionId)!.x - snaps[0].x) < 1);
+  });
+
+  it('überträgt die neue Körperform und Mundbewegung eines Mitspielers samt späterem Formwechsel', async () => {
+    const look = JSON.stringify({ cls: 'fish', size: .7, lineageForm: 'transition', jaw: 0, skull: 0 });
+    const a = await new Client(URL).create<ZoneState>(ZONE_ROOM, opts('Uferlinie', { look }), ZoneState);
+    const b = await new Client(URL).joinById<ZoneState>(a.roomId, opts('Wasserlinie'), ZoneState);
+    rooms.push(a, b);
+    await until(() => b.state.players.size === 2);
+    expect(networkMorph(b.state.players.get(a.sessionId)!.look)).toMatchObject({ lineageForm: 'transition', size: .7 });
+    const upgraded = JSON.stringify({ cls: 'fish', size: .9, lineageForm: 'shore-skull-2', jaw: 0, skull: 1 });
+    a.send('look', { look: upgraded, gen: 6 });
+    a.send('pos', { x: 900, y: 500, facing: 1, anim: 3, size: .9, mouth: 75, charge: 2 });
+    await until(() => b.state.players.get(a.sessionId)!.gen === 6 && b.state.players.get(a.sessionId)!.mouth === 75);
+    const peer = b.state.players.get(a.sessionId)!;
+    expect(networkMorph(peer.look)).toMatchObject({ lineageForm: 'shore-skull-2', size: .9 });
+    expect(peer.charge).toBe(2);
+    await a.leave(); await b.leave();
   });
 
   it('andere Orte sind andere Räume, und wer geht, verschwindet', async () => {
